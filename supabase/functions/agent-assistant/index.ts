@@ -13,7 +13,7 @@
  */
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { RequestSchema } from "./schemas.ts";
-import { CLARIFICATION_TOOL, findTool, openAiTools } from "./tools.ts";
+import { CLARIFICATION_TOOL, findTool, isGeneralTool, openAiTools } from "./tools.ts";
 import { CALC_TOOL, runCalcTool } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
 import { callModel, type ChatMessage, ModelError } from "./openai.ts";
@@ -193,7 +193,8 @@ async function runTurn(
         continue;
       }
 
-      const tool = isAgent ? findTool(name) : undefined;
+      const found = findTool(name);
+      const tool = found && (isAgent || isGeneralTool(name)) ? found : undefined;
       if (!tool) return blocked(toolsCalled, model, `unknown tool: ${name.slice(0, 60)}`);
 
       const args = tool.schema.safeParse(rawArgs ?? {});

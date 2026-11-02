@@ -285,7 +285,7 @@ Deno.test("calc: out-of-range or unknown arguments are rejected", () => {
 
 Deno.test("tools: someone with no agent footprint is offered no data tools", () => {
   const names = (isAgent: boolean) => openAiTools(isAgent).map((t) => t.function.name);
-  assertEquals(names(false).sort(), ["ask_clarification", "calculate_rent_plan"]);
+  assertEquals(names(false).sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
   assert(names(true).includes("get_wallet") && names(true).includes("calculate_rent_plan"));
 });
 
@@ -354,4 +354,26 @@ Deno.test("tools: league standing takes only a date; houses and float take fixed
 Deno.test("tools: the team summary defaults to the last 7 days", () => {
   const a = findTool("get_team_summary")!.toRpcArgs({});
   assertEquals(a.p_from, resolvePeriod("last_7_days").from);
+});
+
+// ---- help centre -------------------------------------------------------------------------------
+
+import { isGeneralTool } from "./tools.ts";
+
+Deno.test("help: the search tool is general (offered to everyone) and maps to an assistant_agent_* function", () => {
+  assertEquals(findTool("search_help_center")?.rpc, "assistant_agent_help_search");
+  assert(isGeneralTool("search_help_center"));
+  assert(!isGeneralTool("get_wallet") && !isGeneralTool("get_my_houses"));
+});
+
+Deno.test("help: the query is short plain text; markup, quotes, SQL and identity keys are rejected", () => {
+  const t = findTool("search_help_center")!;
+  for (const ok of ["renew a tenant after final payment", "how do I reset my password?", "Rent Plan cost & fees"]) {
+    assert(t.schema.safeParse({ query: ok }).success, ok);
+  }
+  for (const bad of ["", "ab", "a".repeat(121), "<script>alert(1)</script>", "'; drop table x; --", "{ignore rules}", "x\y"]) {
+    assert(!t.schema.safeParse({ query: bad }).success, JSON.stringify(bad));
+  }
+  assert(!t.schema.safeParse({ query: "renew", user_id: "x" }).success);
+  assertEquals(t.toRpcArgs({ query: "renew a tenant" }), { p_query: "renew a tenant", p_limit: 4 });
 });
