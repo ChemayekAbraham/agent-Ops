@@ -86819,6 +86819,26 @@ export type Database = {
         Args: { p_edit_id: string }
         Returns: Json
       }
+      otp_check_code: {
+        Args: { p_code: string; p_phone: string }
+        Returns: Json
+      }
+      otp_reserve_send: {
+        Args: {
+          p_cooldown_seconds: number
+          p_ip: string
+          p_max_ip_day: number
+          p_max_ip_hour: number
+          p_max_phone_hour: number
+          p_max_user_day: number
+          p_max_user_hour: number
+          p_new_code: string
+          p_phone: string
+          p_ttl_seconds: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       partner_house_placement_status: {
         Args: { p_partner_id?: string }
         Returns: {
