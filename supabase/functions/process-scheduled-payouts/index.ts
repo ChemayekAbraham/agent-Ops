@@ -1,3 +1,4 @@
+import { isLunchDaily, isEatWeekend, nextLunchWeekdaySlot } from "./lunchWeekdays.ts";
 import "../_shared/smsFooterInterceptor.ts";
 import { SCHEDULED_PAYOUT_CATEGORIES } from "./categories.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -58,7 +59,7 @@ async function sendSMS(phone: string, message: string): Promise<boolean> {
 function computeNextRun(from: Date, payout: any): Date {
   // Lunch allowance: Monday to Friday only, never catch up missed days.
   if (isLunchDaily(payout)) {
-    const base = from.getTime() > Date.now() ? from : new Date();
+    const base = new Date(Math.max(from.getTime(), Date.now() - 6 * 3600_000));
     return nextLunchWeekdaySlot(base);
   }
   const next = new Date(from);
@@ -135,7 +136,7 @@ Deno.serve(async (req) => {
         // Lunch allowance never pays on Saturday or Sunday (EAT): move to next weekday, no missed record.
         if (isLunchDaily(payout) && isEatWeekend(new Date(payout.next_run_at))) {
           await adminClient.from("scheduled_payouts")
-            .update({ next_run_at: nextLunchWeekdaySlot(new Date(payout.next_run_at)).toISOString() })
+            .update({ next_run_at: nextLunchWeekdaySlot(new Date(Math.max(new Date(payout.next_run_at).getTime(), Date.now() - 6 * 3600_000))).toISOString() })
             .eq("id", payout.id);
           continue;
         }
