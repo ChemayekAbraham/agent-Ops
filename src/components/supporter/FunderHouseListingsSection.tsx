@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -47,7 +48,7 @@ interface FeedEntry {
  * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
  * There are no tabs: one feed, one list.
  */
-export function FunderHouseListingsSection() {
+export function FunderHouseListingsSection({ searchOnMap = false }: { searchOnMap?: boolean } = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
@@ -251,6 +252,50 @@ export function FunderHouseListingsSection() {
 
   return (
     <section className="space-y-3">
+      {/* On the full screen map the search floats at the top, like a maps app. */}
+      {searchOnMap && typeof document !== 'undefined' && createPortal(
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[90] px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <div className="pointer-events-auto mx-auto flex h-12 w-full max-w-lg items-center gap-2 rounded-full bg-card pl-4 pr-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.25)] ring-1 ring-black/5">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search house type or location…"
+              aria-label="Search houses and rent plans by type or location"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {searchInput ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchInput('')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              aria-label={filtersActive ? `Filters, ${activeFilterCount} applied` : 'Filters'}
+              onClick={() => setFiltersOpen(true)}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-muted ${filtersActive ? 'text-primary' : 'text-muted-foreground'}`}
+            >
+              <Filter className="h-5 w-5" aria-hidden />
+              {filtersActive ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground" aria-hidden>
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+      {!searchOnMap && (
+      <>
       {/* Search + compact filters row */}
       <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:p-3 sm:shadow-sm">
         <div className="relative min-w-0 flex-1">
@@ -308,6 +353,8 @@ export function FunderHouseListingsSection() {
           ) : null}
         </Button>
       </div>
+      </>
+      )}
 
       <FunderNewFilterDrawer
         open={filtersOpen}

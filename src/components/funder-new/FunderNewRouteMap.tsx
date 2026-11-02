@@ -221,6 +221,7 @@ export function FunderNewRouteMap({
   loadedNote,
   onExpandedChange,
   expandRequest,
+  reserveTopForSearch = false,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -241,6 +242,8 @@ export function FunderNewRouteMap({
   onExpandedChange?: (expanded: boolean) => void;
   /** Bumped by the page to open the full screen map (e.g. from the hero card). */
   expandRequest?: number;
+  /** Full screen only: leave room under a search bar floated at the top by the page. */
+  reserveTopForSearch?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -483,7 +486,7 @@ export function FunderNewRouteMap({
         ) : null}
         <div className={cn(
           "pointer-events-auto flex flex-col gap-2",
-          fullscreen ? "absolute top-3 right-3 z-30 pt-safe" : "absolute bottom-7 right-2 sm:right-3"
+          fullscreen ? (reserveTopForSearch ? "absolute top-[4.75rem] right-3 z-30 pt-safe" : "absolute top-3 right-3 z-30 pt-safe") : "absolute bottom-7 right-2 sm:right-3"
         )}>
           {canUseLocation ? (
             <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
@@ -499,7 +502,7 @@ export function FunderNewRouteMap({
         </div>
       </div>
     ),
-    [areaSearchValue, canUseLocation, device, fullscreen, locating, moved, onAreaSearchChange, onReset, onSearchThisArea, onUseMyLocation],
+    [areaSearchValue, canUseLocation, device, fullscreen, locating, moved, onAreaSearchChange, onReset, onSearchThisArea, onUseMyLocation, reserveTopForSearch],
   );
 
   return (
@@ -509,7 +512,7 @@ export function FunderNewRouteMap({
       {controls}
       <p className={cn(
         "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
-        fullscreen ? "top-3 left-3 pt-safe hidden sm:block" : "bottom-6"
+        fullscreen ? (reserveTopForSearch ? "top-[4.75rem] left-3 pt-safe hidden sm:block" : "top-3 left-3 pt-safe hidden sm:block") : "bottom-6"
       )}>{loadedNote}</p>
     </div>
   );

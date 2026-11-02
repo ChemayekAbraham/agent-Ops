@@ -478,11 +478,14 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 export function FunderCapitalOpportunities({
   initialView = 'menu',
   embedded = false,
+  searchOnMap = false,
 }: {
   initialView?: ViewState;
   /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
   initialFeedOrder?: FeedOrder;
   embedded?: boolean;
+  /** Float the search bar at the top of the full screen map instead of inside the sheet. */
+  searchOnMap?: boolean;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
@@ -796,7 +799,7 @@ export function FunderCapitalOpportunities({
         {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <FunderHouseListingsSection />
+            ? <FunderHouseListingsSection searchOnMap={searchOnMap} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 

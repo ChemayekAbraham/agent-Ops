@@ -674,6 +674,7 @@ export default function SupporterDashboard({
               onAreaSearchChange={handleMapSearchChange}
               onExpandedChange={handleMapExpandedChange}
               expandRequest={mapExpandRequest}
+              reserveTopForSearch
             />
           )}
 
@@ -713,6 +714,7 @@ export default function SupporterDashboard({
                     <>
                       <FunderApprovalBanner className="mb-3" />
                       <FunderCapitalOpportunities
+                        searchOnMap
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}
