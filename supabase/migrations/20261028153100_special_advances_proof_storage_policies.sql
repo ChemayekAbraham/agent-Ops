@@ -7,6 +7,8 @@
 -- member, so applying this file with `supabase db query` as postgres is refused by the preflight below, changing
 -- nothing. Same route as 20261026200100_asset_register_stage1_storage_policies.
 -- Read: an enabled CFO (with staff MFA where required). Upload: the same, under advances/<advance id>/<uuid>.<ext>.
+-- CFO decision D14 (2026-11-02): both also need a session verified with the authenticator app (JWT aal = aal2),
+-- independent of the global staff_mfa_config mode, as approval, payout and repayment do (D5).
 -- No UPDATE or DELETE policy: a proof is never replaced or removed from the client.
 -- TRANSACTION: run as ONE transaction. Rollback: supabase/rollbacks/20261028153100_special_advances_proof_storage_policies.rollback.sql
 
@@ -29,9 +31,11 @@ $pre$;
 
 CREATE POLICY special_advance_proofs_read ON storage.objects FOR SELECT TO authenticated
   USING (bucket_id = 'special-advance-proofs'
-         AND (select public.special_advance_cfo_ok()) AND (select public.staff_mfa_ok()));
+         AND (select public.special_advance_cfo_ok()) AND (select public.staff_mfa_ok())
+         AND (select auth.jwt() ->> 'aal') = 'aal2');
 
 CREATE POLICY special_advance_proofs_insert ON storage.objects FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'special-advance-proofs'
               AND name ~ '^advances/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'
-              AND (select public.special_advance_cfo_ok()) AND (select public.staff_mfa_ok()));
+              AND (select public.special_advance_cfo_ok()) AND (select public.staff_mfa_ok())
+              AND (select auth.jwt() ->> 'aal') = 'aal2');
