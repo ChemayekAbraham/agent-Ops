@@ -344,7 +344,7 @@ export default function FunderLandingPreview() {
           onOpenHouse={openHouseFromMap}
         />
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-20 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 mx-auto max-w-3xl px-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <motion.div className="pointer-events-auto flex items-center gap-2.5" {...enter(0)}>
             <Link
               to={welileId ? `/profile/${welileId}` : '/profile'}
