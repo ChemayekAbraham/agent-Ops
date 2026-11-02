@@ -33,7 +33,7 @@ async function resolveMapsKey(): Promise<string> {
   throw new Error('Google Maps is not connected.');
 }
 
-function loadGoogleMaps(): Promise<typeof google.maps> {
+export function loadGoogleMaps(): Promise<typeof google.maps> {
   if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
 
@@ -96,7 +96,7 @@ export interface FunderNewMapCell {
   house: FunderNewEmptyHouse | null;
 }
 
-function viewportOf(map: google.maps.Map): FunderNewViewport | null {
+export function viewportOf(map: google.maps.Map): FunderNewViewport | null {
   const bounds = map.getBounds();
   const centre = map.getCenter();
   if (!bounds || !centre) return null;
@@ -127,7 +127,7 @@ const pinIconCache = new Map<string, google.maps.Icon>();
  * Builds an SVG price-pill icon for Google Maps markers.
  * Displays only the formatted price tag with rent-tier styling.
  */
-function getPricePinIcon(
+export function getPricePinIcon(
   amount: number,
   active: boolean,
   saved: boolean,
