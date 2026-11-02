@@ -11496,7 +11496,19 @@
         "npm:vitest@^3.2.6",
         "npm:xlsx@0.18.5",
         "npm:zod@^4.4.3"
-      ]
+      ],
+      "overrides": {
+        "ws": "^8.18.3",
+        "form-data": "^4.0.4",
+        "lodash": "^4.18.1",
+        "serialize-javascript": "^6.0.2",
+        "picomatch": "^4.0.3",
+        "fast-uri": "^3.0.6",
+        "rollup": "^4.62.2",
+        "esbuild": "^0.25.0",
+        "launch-editor": "^2.14.1",
+        "@babel/plugin-transform-modules-systemjs": "^7.28.0"
+      }
     }
   }
 }
