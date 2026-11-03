@@ -50,19 +50,28 @@ const CAPITAL: TableSpec = {
   columns: [{ field: 'issue', label: 'Issue' }, { field: 'n', label: 'Count', fmt: 'int', right: true }, { field: 'ugx', label: 'UGX', fmt: 'ugxfull', right: true }, { field: 'owner', label: 'Owner' }, { field: 'next_step', label: 'Next step', fmt: 'decision' }],
 };
 
+/** Is the business in balance? Shared by the COO desk and the command centre. */
+const BALANCE_TILES: Tile[] = [
+  { label: 'Requests submitted, 30 days', ...kp('requests_30d', 'int'), sub: { label: 'Previous 30 days', ...kp('requests_prev30d', 'int') } },
+  { label: 'Requests funded, 30 days', ...kp('funded_30d', 'int'), sub: { label: 'Previous 30 days', ...kp('funded_prev30d', 'int') } },
+  { label: 'Funded with a funder tag', ...kp('funder_tagged_30d', 'pct'), sub: { label: 'Linked to a portfolio', ...kp('portfolio_linked_30d', 'pct') } },
+  { label: 'Landlord paid with proof', ...kp('paid_with_proof_30d', 'pct') },
+  { label: 'Repaid against amount due', ...kp('repaid_vs_due', 'pct'), sub: { label: 'Arrears', ...kp('arrears_ugx', 'ugx') } },
+  { label: 'Daily float budget', ...kp('budget_today_ugx', 'budget'), sub: { label: 'Week used', ...kp('budget_week_used_ugx', 'ugx') } },
+  { label: 'ROI credits to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
+];
+
 export const DESKS: Desk[] = [
+  {
+    id: 'command', name: 'Command centre', question: 'What is blocked today, and is the business in balance?', roles: DESK_ROLES['coo'],
+    lead: () => 'Every desk at a glance: what is blocked today, where requests are waiting, and whether the money balances.',
+    tiles: BALANCE_TILES,
+    tables: [PAYMENT_GAPS],
+  },
   {
     id: 'coo', name: 'COO', question: 'Approve within budget, and keep the business in balance.', roles: DESK_ROLES['coo'],
     lead: (g) => `${g(st('5', 'n', 'int'))} requests worth ${g(st('5', 'ugx', 'ugx'))} wait for your approval. Today's float budget: ${g(kp('budget_today_ugx', 'budget'))}.`,
-    tiles: [
-      { label: 'Requests submitted, 30 days', ...kp('requests_30d', 'int'), sub: { label: 'Previous 30 days', ...kp('requests_prev30d', 'int') } },
-      { label: 'Requests funded, 30 days', ...kp('funded_30d', 'int'), sub: { label: 'Previous 30 days', ...kp('funded_prev30d', 'int') } },
-      { label: 'Funded with a funder tag', ...kp('funder_tagged_30d', 'pct'), sub: { label: 'Linked to a portfolio', ...kp('portfolio_linked_30d', 'pct') } },
-      { label: 'Landlord paid with proof', ...kp('paid_with_proof_30d', 'pct') },
-      { label: 'Repaid against amount due', ...kp('repaid_vs_due', 'pct'), sub: { label: 'Arrears', ...kp('arrears_ugx', 'ugx') } },
-      { label: 'Daily float budget', ...kp('budget_today_ugx', 'budget'), sub: { label: 'Week used', ...kp('budget_week_used_ugx', 'ugx') } },
-      { label: 'ROI credits to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
-    ],
+    tiles: BALANCE_TILES,
     tables: [
       {
         id: 'coo-queue', feed: 'coo_queue', title: 'Your approval queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx',
@@ -158,7 +167,7 @@ export const DESKS: Desk[] = [
 
 /** The desk a person lands on first, by their strongest role. */
 const LANDING: [string, string][] = [
-  ['coo', 'coo'], ['ceo', 'coo'], ['super_admin', 'coo'], ['cto', 'coo'], ['cfo', 'cfo'], ['financial_ops', 'cfo'],
+  ['coo', 'command'], ['ceo', 'command'], ['super_admin', 'command'], ['cto', 'command'], ['cfo', 'cfo'], ['financial_ops', 'cfo'],
   ['partner_ops', 'partner-ops'], ['landlord_ops', 'landlord-ops'], ['tenant_ops', 'tenant-ops'], ['agent_ops', 'agent-ops'],
   ['crm', 'customer-care'], ['operations', 'service-centre'], ['manager', 'service-centre'],
 ];
@@ -177,6 +186,8 @@ export function feedsOf(desk: Desk): string[] {
   desk.tiles.forEach((t) => { s.add(t.feed); if (t.sub) s.add(t.sub.feed); });
   desk.tables.forEach((t) => s.add(t.feed));
   if (desk.id !== 'customer-care') s.add('pipeline');
-  if (['coo', 'partner-ops', 'cfo'].includes(desk.id)) s.add('coo_kpis');
+  if (['coo', 'partner-ops', 'cfo', 'command'].includes(desk.id)) s.add('coo_kpis');
+  // The command centre also carries a Customer Care card.
+  if (desk.id === 'command') s.add('cc_owners');
   return Array.from(s);
 }

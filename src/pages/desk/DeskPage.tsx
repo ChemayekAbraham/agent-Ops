@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
 import { useDeskFeeds } from './useDeskFeed';
 import { DeskTable } from './DeskTable';
+import { CommandCentre } from './CommandCentre';
 
 function DeskView({ desk }: { desk: Desk }) {
   const feeds = useDeskFeeds(feedsOf(desk));
@@ -28,6 +29,8 @@ function DeskView({ desk }: { desk: Desk }) {
           {failed.length > 0 && <span className="text-red-700 dark:text-red-400">Some figures could not load ({failed.map(([k]) => k).join(', ')}).</span>}
         </div>
       </div>
+
+      {desk.id === 'command' && <CommandCentre feeds={feeds} />}
 
       {tiles.length > 0 && (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -68,7 +71,10 @@ export default function DeskPage() {
   return (
     <main className="mx-auto w-full max-w-[1400px] px-3 sm:px-6 py-5 space-y-5">
       <header className="space-y-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{desk.name} desk</h1>
+        <div className="space-y-0.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Welile ops desks</h1>
+          <p className="text-sm text-muted-foreground">{desk.name}</p>
+        </div>
         {allowed.length > 1 && (
           <nav aria-label="Desks" className="-mx-1 flex gap-1 overflow-x-auto border-b border-border pb-px">
             {allowed.map((d) => (
