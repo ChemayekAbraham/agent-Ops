@@ -22,7 +22,10 @@
 - 8 simultaneous sends: 1 x 200, 7 x 429, exactly 1 code issued.
 - With `register_otp_attempt` removed: the right code returned 500 and the password was NOT changed.
 
-## Deploy order (production, read-only checks first)
+## Production prerequisites: VERIFIED 2026-11-03 (read-only queries on the live database)
+`register_otp_attempt(uuid)`, `otp_reserve_send(...11 args)` and `otp_check_code(text, text)` all exist in `public`, executable by `service_role` only (`anon` and `authenticated` are false). The `otp_reserve_send` argument list is exactly what this function passes. `otp_verifications` has every column the functions write (`attempts, expires_at, last_sent_at, otp_code, phone, send_count, send_status, send_status_at, send_status_reason, send_window_start, updated_at, verified, verified_at`) and `otp_send_events` has `user_id, phone, ip, outcome, created_at`. This does not prove the functions behave identically to the migration file; the local test ran the migration file's version.
+
+## Deploy order (production)
 1. `register_otp_attempt(uuid)` exists in production (applied by hand 2026-11-02, doc 251).
 2. `otp_reserve_send(...)` and `otp_check_code(...)` exist in production (Lovable migration `20261102093911_975da3ee-...`). `sms-otp` on `origin/lovable` already needs them. Repo migrations do not faithfully reflect production, so confirm in the live database that both exist and are executable by `service_role`.
 3. Only then deploy `password-reset-sms`. If step 2 is missing, every reset `send` returns 500.
