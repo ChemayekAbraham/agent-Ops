@@ -73,11 +73,13 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const update = useUpdateAsset();
   const bulk = useCommitAssetImport();
   const saving = create.isPending || update.isPending || bulk.isPending;
-  const qty = editing ? 1 : parseAssetQuantity(quantity);
-  const many = !editing && (qty ?? 0) > 1;
+  const currentCount = editing && asset ? Math.max(1, asset.same_item_count ?? 1) : 0;
+  const qty = parseAssetQuantity(quantity);
+  const extra = editing && qty !== null ? qty - currentCount : 0;
+  const many = editing ? extra > 0 : (qty ?? 0) > 1;
 
   useEffect(() => {
-    if (open) { setForm(initialState(asset)); setReason(''); setQuantity('1'); setErrors([]); }
+    if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.same_item_count ?? 1) : 1)); setErrors([]); }
   }, [open, asset]);
 
   const errorFor = useMemo(() => {
@@ -90,7 +92,43 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
 
   const submit = async () => {
     if (qty === null) { setErrors([{ field: 'quantity', message: `Enter a whole number from 1 to ${MAX_ASSET_QUANTITY}.` }]); return; }
-    const payload = toPayload(many ? { ...form, serial_number: '' } : form, asset);
+    if (editing && extra < 0) {
+      setErrors([{ field: 'quantity', message: `Assets cannot be deleted. To reduce below ${currentCount}, mark the extra items Disposed or Lost.` }]);
+      return;
+    }
+    if (editing && extra > 0) {
+      const changes = toPayload(form, asset);
+      const check = validateAssetInput(changes, { partial: true });
+      if (check.errors.length) { setErrors(check.errors); return; }
+      const copy = validateAssetInput(toPayload({ ...form, serial_number: '' }, null), { partial: false });
+      if (copy.errors.length) { setErrors(copy.errors); return; }
+      setErrors([]);
+      try {
+        if (asset && Object.keys(changes).length > 0) {
+          await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: check.value, reason: reason.trim() || null });
+        }
+        const rows = Array.from({ length: extra }, (_, i) => ({ ...copy.value, row_ref: String(i + 1) }));
+        const seed = new TextEncoder().encode(`${crypto.randomUUID()}|${JSON.stringify(rows)}`);
+        const res = await bulk.mutateAsync({
+          fileName: `Form entry: ${copy.value.name ?? 'asset'} +${extra}`,
+          fileSha256: await sha256Hex(seed.buffer as ArrayBuffer),
+          rows,
+        });
+        if (res.status !== 'committed') {
+          setErrors(res.errors.map(({ field, message }) => ({ field, message })));
+          toast.error(res.errors[0]?.message ?? 'No extra items were added.');
+          return;
+        }
+        toast.success(`${res.inserted_count} more added — ${qty} in total`);
+        onOpenChange(false);
+      } catch (err) {
+        const { message, fieldErrors } = describeAssetRpcError(err);
+        setErrors(fieldErrors);
+        toast.error(message);
+      }
+      return;
+    }
+    const payload = toPayload(!editing && many ? { ...form, serial_number: '' } : form, asset);
     if (editing && Object.keys(payload).length === 0) {
       toast.info('Nothing was changed.');
       return;
@@ -163,10 +201,10 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
           <Field id="asset-category" label="Category" required error={errorFor.get('category')}>
             <ListSelect id="asset-category" value={form.category} options={ASSET_CATEGORIES} placeholder="Choose a category" onChange={(v) => set('category', v)} />
           </Field>
-          {!editing && (
+          {(
             <Field id="asset-quantity" label="Number of items" required error={errorFor.get('quantity')}
-              hint={many ? `${qty} separate assets will be registered, each with its own asset ID, tag and QR label.` : 'Register several identical items at once.'}>
-              <Input id="asset-quantity" type="number" inputMode="numeric" min={1} max={MAX_ASSET_QUANTITY} step={1}
+              hint={editing ? (extra > 0 ? `${extra} more will be added as separate assets with these details, each with its own ID, tag and QR label.` : `${currentCount} on the register now. Raise it to add more.`) : many ? `${qty} separate assets will be registered, each with its own asset ID, tag and QR label.` : 'Register several identical items at once.'}>
+              <Input id="asset-quantity" type="number" inputMode="numeric" min={editing ? currentCount : 1} max={MAX_ASSET_QUANTITY} step={1}
                 value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             </Field>
           )}
