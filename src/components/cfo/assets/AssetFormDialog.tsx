@@ -75,8 +75,9 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const saving = create.isPending || update.isPending || bulk.isPending;
   const currentCount = editing && asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 0;
   const qty = parseAssetQuantity(quantity);
-  const extra = editing && qty !== null ? qty - currentCount : 0;
-  const many = editing ? extra > 0 : (qty ?? 0) > 1;
+  // The number is stored on this one asset row; it never creates extra rows.
+  const extra = 0;
+  const many = false;
 
   useEffect(() => {
     if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 1)); setErrors([]); }
@@ -92,10 +93,6 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
 
   const submit = async () => {
     if (qty === null) { setErrors([{ field: 'quantity', message: `Enter a whole number from 1 to ${MAX_ASSET_QUANTITY}.` }]); return; }
-    if (editing && extra < 0) {
-      setErrors([{ field: 'quantity', message: `Assets cannot be deleted. To reduce below ${currentCount}, mark the extra items Disposed or Lost.` }]);
-      return;
-    }
     if (editing && extra > 0) {
       const changes = toPayload(form, asset);
       const check = validateAssetInput(changes, { partial: true });
@@ -128,7 +125,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
       }
       return;
     }
-    const payload = toPayload(!editing && many ? { ...form, serial_number: '' } : form, asset);
+    const basePayload = toPayload(form, asset);
+    const payload = editing && qty !== currentCount ? { ...basePayload, quantity: qty } : basePayload;
     if (editing && Object.keys(payload).length === 0) {
       toast.info('Nothing was changed.');
       return;
@@ -162,7 +160,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
     }
     try {
       const saved = editing && asset
-        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: preview.value, reason: reason.trim() || null })
+        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: qty !== currentCount ? { ...preview.value, quantity: qty ?? currentCount } : preview.value, reason: reason.trim() || null })
         : await create.mutateAsync({ ...preview.value, quantity: qty ?? 1 });
       toast.success(editing ? `${assetCodes(saved).primary} updated` : `${assetCodes(saved).primary} registered`);
       onSaved?.(saved);
@@ -203,8 +201,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
           </Field>
           {(
             <Field id="asset-quantity" label="Number of items" required error={errorFor.get('quantity')}
-              hint={editing ? (extra > 0 ? `${extra} more will be added as separate assets with these details, each with its own ID, tag and QR label.` : `${currentCount} on the register now. Raise it to add more.`) : many ? `${qty} separate assets will be registered, each with its own asset ID, tag and QR label.` : 'Register several identical items at once.'}>
-              <Input id="asset-quantity" type="number" inputMode="numeric" min={editing ? currentCount : 1} max={MAX_ASSET_QUANTITY} step={1}
+              hint={editing ? `${currentCount} recorded now. Change it to update the number on this asset.` : 'How many of this item there are. Saved on this one asset.'}>
+              <Input id="asset-quantity" type="number" inputMode="numeric" min={1} max={MAX_ASSET_QUANTITY} step={1}
                 value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             </Field>
           )}
