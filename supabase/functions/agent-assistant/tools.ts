@@ -94,6 +94,21 @@ export const AGENT_TOOLS: ToolDef[] = [
     toRpcArgs: () => ({}),
   },
   {
+    name: "get_target_progress",
+    description:
+      "How the agent is doing against the weekly collection target (the posting rule, Thursday to Wednesday): " +
+      "for this week, collected so far vs due so far (percent_so_far), the required_percent, the full-week due estimate, " +
+      "amount_needed_to_pass and needed_per_day_including_today (already calculated: copy them, never work them out), and on_track; " +
+      "for current plans and for expired plans separately; the last judged week with passed true/false; and the tenants furthest behind " +
+      "(names and amounts only). Use for any 'what is my percentage', 'am I on target', 'how much more must I collect to reach 50%', " +
+      "'will I pass this week' question. percent_so_far is collected divided by due so far, not the weekly result. " +
+      "If a group has null percent_so_far or required_percent, that group has nothing billed this week.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_agent_target_progress",
+    toRpcArgs: () => ({}),
+  },
+  {
     name: "get_wallet_transactions",
     description:
       "The agent's own wallet movements (money in / money out) with category, amount and date. " +
