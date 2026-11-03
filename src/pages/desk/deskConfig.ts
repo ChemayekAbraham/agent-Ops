@@ -39,6 +39,8 @@ const RENT: Col = { field: 'rent_ugx', label: 'Rent (UGX)', fmt: 'ugxfull', righ
 const DEC: Col = { field: 'decision', label: 'Decision', fmt: 'decision' };
 const st = (ord: string, field: string, f: Fmt): Ref => ({ feed: 'pipeline', field, where: ['ord', ord], fmt: f });
 const kp = (metric: string, f: Fmt): Ref => ({ feed: 'coo_kpis', field: 'value', where: ['metric', metric], fmt: f });
+/** Ontology summary is a single-row feed, so tiles and the lead read its first row. */
+const os = (field: string, f?: Fmt): Ref => ({ feed: 'onto_summary', field, fmt: f });
 
 const PAYMENT_GAPS: TableSpec = {
   id: 'payment-gaps', feed: 'payment_gaps', title: 'Money out: landlord payment gaps', rowKey: 'ord',
