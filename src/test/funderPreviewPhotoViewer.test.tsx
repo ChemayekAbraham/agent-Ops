@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // The sheet's share button needs a live client; the photo view under test never
@@ -78,13 +78,14 @@ describe('funder preview photo view', () => {
     expect(viewer()?.textContent).toContain('2 / 3');
   });
 
-  it('closes the full view and leaves the home sheet open', () => {
+  it('closes the full view and leaves the home sheet open', async () => {
     openSheet();
     fireEvent.click(screen.getByLabelText('View photo 1 of 3 full screen'));
     expect(viewer()).not.toBeNull();
 
     fireEvent.click(screen.getByLabelText('Close photo viewer'));
-    expect(viewer()).toBeNull();
+    // The view fades out, so wait for the fade to finish before checking it is gone.
+    await waitFor(() => expect(viewer()).toBeNull());
     expect(screen.getByLabelText('Back to houses')).toBeDefined();
   });
 });
