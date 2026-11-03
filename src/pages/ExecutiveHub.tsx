@@ -25,6 +25,7 @@ const CRMDashboard = lazyNamed(() => import('@/components/executive/CRMDashboard
 const LocationManager = lazyNamed(() => import('@/components/ops/LocationManager'), 'LocationManager');
 
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 /**
  * Every tab must declare the `staff_permissions.permitted_dashboard` key that
@@ -157,6 +158,7 @@ export default function ExecutiveHub() {
       )}
       <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
         <div className={`${fullWidth ? 'max-w-none' : 'max-w-7xl'} mx-auto p-4 pb-24`}>
+          <V360StaffPricingBanner />
           {receivablesGated ? (
             <ReceivablesSummaryGate startOpen={hasExtraParams}>{dashboardBody}</ReceivablesSummaryGate>
           ) : (

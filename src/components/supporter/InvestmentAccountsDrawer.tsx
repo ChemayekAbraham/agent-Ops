@@ -63,6 +63,21 @@ function runningDurationLabel(fundedAt: string | null | undefined): string | nul
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
+/** Self-support portfolios (WSP/WSH codes) run on a 12-month contract that
+ *  keeps earning even when the underlying Rent Plan completes. Shows which
+ *  contract month the partner is in; "Contract ended" once matured. */
+function contractMonthLabel(p: PortfolioRecord): string | null {
+  const code = p.portfolio_code || '';
+  if (!code.startsWith('WSP') && !code.startsWith('WSH')) return null;
+  if (p.status === 'matured') return 'Contract ended';
+  if (!p.created_at) return null;
+  const start = new Date(p.created_at);
+  if (isNaN(start.getTime())) return null;
+  const cap = Math.max(1, Number(p.duration_months) || 12);
+  const n = Math.min(cap, Math.max(0, differenceInCalendarMonths(new Date(), start)) + 1);
+  return `Month ${n} of ${cap}`;
+}
+
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
   const days = daysUntilNextRoi(nextRoiDate);
   if (days === null) return null;
@@ -477,6 +492,12 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                   value={running}
                   icon={Clock}
                 />
+              ) : null;
+            })()}
+            {(() => {
+              const contractMonth = contractMonthLabel(portfolio);
+              return contractMonth !== null ? (
+                <DetailRow label="Contract" value={contractMonth} icon={Clock} />
               ) : null;
             })()}
             {portfolio.maturity_date && (

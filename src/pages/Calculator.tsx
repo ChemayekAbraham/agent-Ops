@@ -104,7 +104,7 @@ export default function CalculatorPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
-              ROI Calculator
+              Returns Calculator
             </h1>
           </div>
           <CurrencySwitcher />
@@ -120,7 +120,7 @@ export default function CalculatorPage() {
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
             <Sparkles className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs font-bold text-success">15% Monthly Returns</span>
+            <span className="text-xs font-bold text-success">Partner Returns target 15%, not guaranteed</span>
           </div>
         </motion.div>
 

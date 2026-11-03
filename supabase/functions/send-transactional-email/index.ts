@@ -8,6 +8,7 @@ const corsHeaders = {
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { bytesToBase64, renderPartnershipTopupReceipt } from '../_shared/partnerTopupReceiptPdf.ts'
 import { renderPayslipPdf, type PayslipPdfData } from '../_shared/payslipPdf.ts'
+import { renderZoeReportPdf, type ZoeSharedReportPdfData } from '../_shared/zoeReportPdf.ts'
 import {
   isPlaceholderRecipient,
   PLACEHOLDER_SUPPRESSION_REASON,
@@ -237,9 +238,26 @@ Deno.serve(async (req) => {
       ? template.subject(templateData)
       : template.subject
 
+  const isZoeReportTemplate =
+    templateName === 'zoe-report-shared' || templateName === 'report-shared-from-zoe'
+
+  // For Zoe report emails, never store the attachment or report rows/data in email_send_log.metadata
+  const loggedTemplateData = (() => {
+    if (!isZoeReportTemplate) return templateData
+    const {
+      attachment_base64: _a,
+      pdf_base64: _p,
+      rows: _r,
+      headers: _h,
+      data: _d,
+      ...safeMeta
+    } = templateData
+    return safeMeta
+  })()
+
   const routingMetadata = {
     subject: resolvedSubject,
-    template_data: templateData,
+    template_data: loggedTemplateData,
     from: isPartnerFunder ? PARTNER_FROM : `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
     ...(isPartnerFunder ? { reply_to: PARTNER_REPLY_TO } : {}),
     ...(isPartnerFunder ? { bcc: PARTNER_REPLY_TO } : {}),
@@ -477,6 +495,36 @@ Deno.serve(async (req) => {
       }
     } catch (pdfErr) {
       console.error('Payslip PDF generation failed — sending without attachment', pdfErr)
+    }
+  }
+
+  // "Report shared from Zoe" carries the branded Welile A4 PDF built from the
+  // exact rows Zoe returned when re-running the report as the sender (unless sign_in_only is true).
+  if (
+    isZoeReportTemplate &&
+    !attachment &&
+    (templateData as any).sign_in_only !== true
+  ) {
+    try {
+      const filename =
+        typeof (templateData as any).attachment_filename === 'string' &&
+        (templateData as any).attachment_filename.trim()
+          ? String((templateData as any).attachment_filename).trim()
+          : 'Welile-Zoe-Report.pdf'
+      const prebuiltBase64 =
+        typeof (templateData as any).attachment_base64 === 'string' &&
+        (templateData as any).attachment_base64.trim()
+          ? String((templateData as any).attachment_base64).trim()
+          : null
+      const contentBase64 =
+        prebuiltBase64 ?? bytesToBase64(await renderZoeReportPdf(templateData as ZoeSharedReportPdfData))
+      attachment = {
+        filename,
+        content_base64: contentBase64,
+        content_type: 'application/pdf',
+      }
+    } catch (pdfErr) {
+      console.error('Zoe report PDF generation failed', pdfErr)
     }
   }
 

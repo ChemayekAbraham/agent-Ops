@@ -4,7 +4,7 @@
 // of the keypair. The matching private key lives only in the
 // `send-push-notification` edge function (VAPID_PRIVATE_KEY secret).
 export const VAPID_PUBLIC_KEY =
-  "BGBr-FpnY4VrB-Whq9rXDTjeiH7vGXCquZk1kmkET87x12qkW073Tx-J8qJHcLW-8j4534x05f80WdLHPmnsKz0";
+  "BKeWfSgeYM9EVU_0CU3EgOEpTlNkqIuO4y9PKvap7p74sh_gEQTdjwNVmo2NAslHKXHIuGkP4JBunz5yun6aCrc";
 
 /**
  * Notifications are branded to the canonical app domain. A subscription that

@@ -1,4 +1,3 @@
-import { safeUUID } from '@/lib/safeUUID';
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,6 +20,7 @@ import { CommissionCelebration } from './CommissionCelebration';
 import { captureOfflineDraft } from '@/lib/offlineCollectionDrafts';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { logCollectionError } from '@/lib/logCollectionError';
+import { callWithRetry, clientRefFor, clearClientRef, queueCollection, type AllocateArgs } from '@/lib/collectionSubmitRetry';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 import { useAgentCollectContext, useInvalidateArrears } from '@/hooks/useAgentArrears';
@@ -117,19 +117,11 @@ export function AgentTenantCollectDialog({
   const queryClient = useQueryClient();
   const { isOnline } = useOffline();
   const [amount, setAmount] = useState<number>(0);
-  // One idempotency key per (plan, amount) ATTEMPT rather than per click. A
-  // fresh uuid on every Confirm is what let a double tap through: tap two
-  // carried a different ref, so the server's replay check could not see it.
-  // Keying on the amount too means changing the amount starts a new attempt,
-  // so a genuine follow-up collection is never swallowed as a replay.
-  const clientRefRef = useRef<{ key: string; value: string } | null>(null);
-  const clientRefFor = (planId: string, amt: number) => {
-    const key = `${planId}:${amt}`;
-    if (clientRefRef.current?.key !== key) {
-      clientRefRef.current = { key, value: safeUUID() };
-    }
-    return clientRefRef.current.value;
-  };
+  // One client_ref per intended collection (tenant + plan + amount), held in
+  // collectionSubmitRetry so it survives retries, reopen and replay; cleared
+  // only after a confirmed success.
+  const inFlightRef = useRef(false);
+  const [retrying, setRetrying] = useState(false);
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -157,7 +149,6 @@ export function AgentTenantCollectDialog({
 
   useEffect(() => {
     if (open) {
-      clientRefRef.current = null;
       setAmount(0);
       setNotes('');
       setResult(null);
@@ -236,145 +227,163 @@ export function AgentTenantCollectDialog({
 
 
   const handleAllocate = async () => {
-    // Defensive logging — previously this handler appeared to "fail
-    // silently" because the click never reached it (nested Dialog
-    // portal blocked pointer events on some iOS PWA versions). The
-    // confirmation Dialog is now a sibling of the parent so each gets
-    // its own overlay layer. Logs stay so any regression is visible.
-    console.log('[AgentTenantCollectDialog] Confirm clicked', {
-      hasUser: !!user, isValid, hasTenant: !!tenant, amount,
-    });
     if (!user || !isValid || !tenant) {
       console.warn('[AgentTenantCollectDialog] Confirm aborted — guard failed', {
         hasUser: !!user, isValid, hasTenant: !!tenant, amount, maxAllowable, floatBalance,
       });
       return;
     }
+    // A double tap must never fire a second submit while one is in flight.
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
+    setRetrying(false);
     setRpcError(null);
     const submittedAt = new Date().toISOString();
-    // Progressive feedback so Chrome users on slow networks don't feel
-    // the app has frozen. Two toasts at 4s and 10s, cancelled on resolve.
     const slowToast = setTimeout(() => {
-      toast.loading('Still processing… holding your float steady.', {
-        id: 'allocate-progress',
-      });
+      toast.loading('Still processing… holding your float steady.', { id: 'allocate-progress' });
     }, 4000);
     const verySlowToast = setTimeout(() => {
-      toast.loading('Network is slow — waiting a few more seconds. Do NOT tap again.', {
-        id: 'allocate-progress',
-      });
+      toast.loading('Network is slow — waiting a few more seconds. Do NOT tap again.', { id: 'allocate-progress' });
     }, 10000);
-    try {
-      // This is a financial mutation: issue it exactly once and wait for the
-      // authoritative response. A client timeout or automatic retry can
-      // duplicate an allocation when the server commits but the response is
-      // lost on a weak mobile connection.
-      //
-      // A stalled mobile connection can leave this fetch pending forever —
-      // that is what looked like "Confirm fails silently" (spinner never
-      // resolves, no toast). We cap the wait, then RECONCILE against the
-      // server instead of retrying, so a committed allocation is reported as
-      // success and never allocated twice.
-      //
-      // client_ref: one id per (plan, amount) attempt — see clientRefFor. Every
-      // tap of the same attempt, and any resend of this call (service-worker
-      // replay, a double-fired handler), carries the same ref, so the server
-      // returns the original receipt instead of a second collection and a
-      // second commission payout.
-      const clientRef = clientRefFor(rentRequestId, amount);
-      const callAllocate = () => supabase.rpc('agent_allocate_tenant_payment', {
-          p_agent_id: user.id,
-          p_tenant_id: tenant.id,
-          p_rent_request_id: rentRequestId,
-          p_amount: amount,
-          p_notes: notes.trim() || null,
-          // Tracking only — partials are never blocked.
-          p_partial_confirmed: true,
-          p_partial_reason: isPartial ? partialReason.trim() || null : null,
-          p_client_ref: clientRef,
 
+    // Same ref for every retry, reopen and replay of THIS collection. The server
+    // dedupes on it, so a resend returns the original receipt.
+    const clientRef = clientRefFor(tenant.id, rentRequestId, amount);
+    // Exact args, frozen once — retries and the offline queue never alter them.
+    const args: AllocateArgs = {
+      p_agent_id: user.id,
+      p_tenant_id: tenant.id,
+      p_rent_request_id: rentRequestId,
+      p_amount: amount,
+      p_notes: notes.trim() || null,
+      p_partial_confirmed: true,
+      p_partial_reason: isPartial ? partialReason.trim() || null : null,
+      p_client_ref: clientRef,
+    };
+
+    const finishSuccess = (res: any, alreadyRecorded: boolean) => {
+      clearClientRef(tenant.id, rentRequestId, amount);
+      setConfirming(false);
+      refetchBalances();
+      invalidateCreditAccessLimit(user.id);
+      queryClient.invalidateQueries({ queryKey: ['agent-capacity-map'] });
+      queryClient.invalidateQueries({ queryKey: ['agent-rent-capacity-fleet'] });
+      invalidateArrears({ rentRequestId, agentId: user.id });
+      if (alreadyRecorded) {
+        toast.success('Payment already recorded', {
+          description: `${formatUGX(amount)} for ${tenant.full_name} went through. Do not send it again.`,
         });
-      // Lock wait / statement timeout / deadlock roll the whole transaction
-      // back (nothing committed), and the server dedupes on client_ref, so
-      // one delayed retry with the SAME ref cannot double-allocate.
-      const CONTENTION_CODES = new Set(['55P03', '57014', '40P01']);
-      const rpcPromise = (async () => {
-        const first = await callAllocate();
-        const code = (first.error as { code?: string } | null)?.code;
-        if (!code || !CONTENTION_CODES.has(code)) return first;
-        await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
-        return callAllocate();
-      })();
+        onSuccess?.();
+        onOpenChange(false);
+        return;
+      }
+      setResult(res);
+      const earnedCommission = Number(res?.commission?.credited_commission) || Math.round(amount * 0.10);
+      if (earnedCommission > 0) {
+        setCelebrationData({ commission: earnedCommission, amount });
+        setCelebrationOpen(true);
+      }
+      toast.success('Payment allocated!', {
+        description: `${formatUGX(amount)} moved from wallet float for ${tenant.full_name}`,
+      });
+      try {
+        supabase.functions
+          .invoke('send-agent-payment-receipt-email', {
+            body: {
+              agent_id: user.id, tenant_id: tenant.id, rent_request_id: rentRequestId, amount,
+              commission: earnedCommission,
+              allocation_id: res?.collection_id || res?.tracking_id || null,
+            },
+          })
+          .catch((e) => console.warn('[AgentTenantCollectDialog] receipt email failed', e));
+      } catch (e) {
+        console.warn('[AgentTenantCollectDialog] receipt email dispatch failed', e);
+      }
+      if (tenant.phone) {
+        void sendAllocationSms({ paidAmount: amount, remaining: Math.max(0, outstandingBalance - amount) });
+      }
+    };
+
+    // Did a collection with THIS client_ref already commit?
+    const reconcile = async (): Promise<boolean> => {
+      try {
+        const { data: rows } = await supabase
+          .from('agent_collections')
+          .select('id').is('reversed_at', null)
+          .eq('agent_id', user.id)
+          .eq('client_ref', clientRef)
+          .limit(1);
+        return !!rows && rows.length > 0;
+      } catch {
+        return false;
+      }
+    };
+
+    const saveForLater = () => {
+      queueCollection(args, tenant.full_name);
+      setConfirming(false);
+      toast.success('Saved on this phone — will send when you are back online', {
+        description: `${formatUGX(amount)} for ${tenant.full_name}. Do not collect it again.`,
+      });
+      onOpenChange(false);
+    };
+
+    try {
+      if (!isOnline || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+        saveForLater();
+        return;
+      }
+
       const STALL_MS = 45000;
+      const rpcPromise = callWithRetry(
+        () => supabase.rpc('agent_allocate_tenant_payment', args) as unknown as Promise<{ data: unknown; error: unknown }>,
+        { onRetry: () => setRetrying(true) },
+      );
       const raced = await Promise.race([
         rpcPromise,
         new Promise<'stalled'>((resolve) => setTimeout(() => resolve('stalled'), STALL_MS)),
       ]);
 
       if (raced === 'stalled') {
-        // Ask the server what actually happened. If the row exists, the money
-        // moved — treat as success and refresh rather than letting the agent
-        // tap Confirm again.
-        const { data: rows } = await supabase
-          .from('agent_collections')
-          .select('id, amount, created_at').is('reversed_at', null)
-          .eq('agent_id', user.id)
-          .eq('tenant_id', tenant.id)
-          .eq('amount', amount)
-          .gte('created_at', submittedAt)
-          .limit(1);
-
-        if (rows && rows.length > 0) {
-          setConfirming(false);
-          refetchBalances();
-          invalidateCreditAccessLimit(user.id);
-          queryClient.invalidateQueries({ queryKey: ['agent-capacity-map'] });
-          queryClient.invalidateQueries({ queryKey: ['agent-rent-capacity-fleet'] });
-          // Day attribution changed too, so the arrears split must be re-read.
-          invalidateArrears({ rentRequestId, agentId: user.id });
-          toast.success('Payment already recorded', {
-            description: `${formatUGX(amount)} for ${tenant.full_name} went through. Do not send it again.`,
-          });
-          onSuccess?.();
-          onOpenChange(false);
-          return;
-        }
-
-        // Critical: the agent may be holding cash the system has no record of.
+        if (await reconcile()) { finishSuccess(null, true); return; }
         logCollectionError({
           phase: 'allocate_stalled',
           severity: 'critical',
           message: `Request stalled after ${STALL_MS}ms and no matching collection was found on reconcile`,
           errorCode: 'NETWORK_STALLED',
-          tenantId: tenant.id,
-          rentRequestId,
-          amount,
-          clientRef,
-          context: { stall_ms: STALL_MS, submitted_at: submittedAt },
+          tenantId: tenant.id, rentRequestId, amount, clientRef,
+          context: { stall_ms: STALL_MS, submitted_at: submittedAt, queued: true },
         });
-
-        throw new Error(
-          'The network stalled before we got a confirmation. This payment was NOT recorded. Refresh the tenant balance and try again.',
-        );
+        saveForLater();
+        return;
       }
 
-      const { data, error } = raced;
+      const { result: { data, error }, attempts, lastKind } = raced;
 
       if (error) {
         const message = await extractFromErrorObject(error, 'Allocation failed');
-        console.error('[AgentTenantCollectDialog] allocation RPC failed:', message, error);
+        const code = (error as { code?: string })?.code ?? null;
+        if (lastKind === 'network') {
+          if (await reconcile()) { finishSuccess(null, true); return; }
+          logCollectionError({
+            phase: 'allocate', message, errorCode: code, tenantId: tenant.id, rentRequestId, amount, clientRef,
+            context: { attempts, kind: lastKind, queued: true },
+          });
+          saveForLater();
+          return;
+        }
         logCollectionError({
-          phase: 'allocate',
-          message,
-          errorCode: (error as { code?: string })?.code ?? null,
-          tenantId: tenant.id,
-          rentRequestId,
-          amount,
-          clientRef,
+          phase: 'allocate', message, errorCode: code, tenantId: tenant.id, rentRequestId, amount, clientRef,
+          context: { attempts, kind: lastKind },
         });
+        if (lastKind === 'transient_db') {
+          if (await reconcile()) { finishSuccess(null, true); return; }
+          throw new Error('The system is busy right now. Please try again in a moment — you will not be charged twice.');
+        }
         throw new Error(humanizeAllocationError(message));
       }
+      // Transient failures recovered by retry are not logged, so the monitor shows only real failures.
 
       const res = data as any;
       if (!res?.success || res?.error) {
@@ -386,7 +395,6 @@ export function AgentTenantCollectDialog({
               requested: res?.entered_amount ?? res?.requested ?? amount,
               expected_amount: res?.expected_amount ?? expected,
               shortfall_amount: res?.shortfall_amount ?? shortfall,
-
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
@@ -398,16 +406,12 @@ export function AgentTenantCollectDialog({
         }
         logCollectionError({
           phase: 'allocate_rejected',
-          // A rejection the engine understood is a warning; the agent can act on
-          // it. An unlabelled one is an error, because nobody planned for it.
           severity: res?.error_code ? 'warning' : 'error',
           message: String(rawMsg),
           errorCode: res?.error_code ?? null,
-          tenantId: tenant.id,
-          rentRequestId,
-          amount,
-          clientRef,
+          tenantId: tenant.id, rentRequestId, amount, clientRef,
           context: {
+            attempts,
             strict_float: res?.strict_float ?? res?.metadata?.strict_float ?? null,
             cached_float: res?.cached_float ?? res?.metadata?.cached_float ?? null,
             expected_amount: res?.expected_amount ?? expected ?? null,
@@ -416,83 +420,17 @@ export function AgentTenantCollectDialog({
         throw new Error(message);
       }
 
-      setResult(res);
-      setConfirming(false);
-      refetchBalances();
-      // Refresh the agent's "advance you can access" card so the new
-      // allocation (and its commission/bonus) is reflected immediately.
-      invalidateCreditAccessLimit(user.id);
-      // Today vs Expected report (self-card + executive fleet panel) is
-      // driven by `repayments` rows the RPC just inserted — invalidate
-      // BOTH cached queries so the new allocation shows up immediately.
-      queryClient.invalidateQueries({ queryKey: ['agent-capacity-map'] });
-      queryClient.invalidateQueries({ queryKey: ['agent-rent-capacity-fleet'] });
-      // The RPC also attributed this payment to specific days - re-read the
-      // arrears context so a second collection never shows a stale split.
-      invalidateArrears({ rentRequestId, agentId: user.id });
-
-      // 🎉 Trigger commission celebration — pure UI, no DB calls
-      // Source priority: API response → fallback to client-side 10% estimate
-      const earnedCommission = Number(res?.commission?.credited_commission)
-        || Math.round(amount * 0.10);
-      if (earnedCommission > 0) {
-        setCelebrationData({ commission: earnedCommission, amount });
-        setCelebrationOpen(true);
-      }
-
-      toast.success('Payment allocated!', {
-        description: `${formatUGX(amount)} moved from wallet float for ${tenant.full_name}`,
-      });
-
-      // Fire-and-forget: email the agent a friendly receipt + today's report
-      // + their current wallet capacity. Never blocks the allocation flow.
-      try {
-        supabase.functions
-          .invoke('send-agent-payment-receipt-email', {
-            body: {
-              agent_id: user.id,
-              tenant_id: tenant.id,
-              rent_request_id: rentRequestId,
-              amount,
-              commission: earnedCommission,
-              allocation_id: res?.collection_id || res?.tracking_id || null,
-            },
-          })
-          .catch((e) => console.warn('[AgentTenantCollectDialog] receipt email failed', e));
-      } catch (e) {
-        console.warn('[AgentTenantCollectDialog] receipt email dispatch failed', e);
-      }
-
-      // Fire-and-forget: send the tenant a branded SMS card linking
-      // to their live "Rent Money You Can Get" page. Never blocks the
-      // allocation flow — failures are logged client-side and surfaced
-      // as a non-blocking toast hint.
-      if (tenant.phone) {
-        // Fire-and-forget initial best-effort send; status is tracked so the
-        // success view can offer a manual resend if it fails.
-        void sendAllocationSms({
-          paidAmount: amount,
-          remaining: Math.max(0, outstandingBalance - amount),
-        });
-      }
+      finishSuccess(res, false);
     } catch (err: any) {
-      const raw = err instanceof Error ? err.message : 'Allocation failed. Please try again.';
-      const rawLower = raw.toLowerCase();
-      const msg =
-        rawLower.includes('failed to fetch') ||
-        rawLower.includes('networkerror') ||
-        rawLower.includes('load failed')
-          ? 'Connection dropped before confirmation was received. Refresh the tenant balance before trying again so the payment is not allocated twice.'
-          : raw;
-      // Keep the user IN the confirming view and show the reason inline so
-      // they can act on it (reduce amount, top up float, etc.) instead of
-      // experiencing it as a "button does nothing" failure.
+      const msg = err instanceof Error ? err.message : 'Allocation failed. Please try again.';
       setRpcError(msg);
       toast.error('Allocation failed', { description: msg });
     } finally {
       clearTimeout(slowToast);
       clearTimeout(verySlowToast);
       toast.dismiss('allocate-progress');
+      inFlightRef.current = false;
+      setRetrying(false);
       setLoading(false);
     }
   };
@@ -898,10 +836,11 @@ export function AgentTenantCollectDialog({
                 className="flex-1 h-12 font-bold"
                 onClick={handleAllocate}
                 disabled={loading || tidLocked}
+                aria-busy={loading}
                 style={{ touchAction: 'manipulation' }}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                Confirm
+                {loading ? (retrying ? 'Retrying…' : 'Recording…') : 'Confirm'}
               </Button>
             </div>
           </div>

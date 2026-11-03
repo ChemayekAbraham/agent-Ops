@@ -1,4 +1,5 @@
-import { lazy, type LazyExoticComponent } from 'react';
+import { type LazyExoticComponent } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 
 /**
  * Landlord Ops child routes — one lazy chunk per destination.
@@ -46,6 +47,7 @@ export const LANDLORD_OPS_ROUTES: LandlordOpsRoute[] = [
   { path: 'registers/lc1', Component: lazy(() => import('./registers/Lc1')) },
 
   { path: 'calling', Component: lazy(() => import('./calling/CallingHub')) },
+  { path: 'calling-center', Component: lazy(() => import('./calling/CallingCenter')) },
   { path: 'coverage', Component: lazy(() => import('./coverage/Coverage')) },
   { path: 'agent-capacity', Component: lazy(() => import('./agent-capacity/AgentCapacity')) },
   { path: 'service-centres', Component: lazy(() => import('./service-centres/ServiceCentres')) },

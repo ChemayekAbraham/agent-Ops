@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Eye, FilePlus2, History, Megaphone, Pencil, RefreshCw, Save, Send, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { communicationAudiences, communicationDestinations, communicationTime, c
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
 
 function freshContent(): CommunicationContent {
-  return { id: crypto.randomUUID(), revision_id: crypto.randomUUID(), title: '', body: '', communication_type: 'announcement', audiences: [], link_path: '', starts_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), confirm_everyone: false };
+  return { id: safeUUID(), revision_id: safeUUID(), title: '', body: '', communication_type: 'announcement', audiences: [], link_path: '', starts_at: new Date().toISOString(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), confirm_everyone: false };
 }
 const statuses = ['all', 'draft', 'scheduled', 'live', 'ended', 'withdrawn'];
 export default function CommunicationManager() {

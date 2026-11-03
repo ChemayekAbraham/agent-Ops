@@ -30,8 +30,31 @@ import {
 
 const rpcCalls: Array<Record<string, unknown>> = [];
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: { id: 'loadtest-user' },
+    session: {
+      access_token: 'loadtest',
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    },
+    loading: false,
+    roles: [],
+  }),
+}));
+
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
+    auth: {
+      getSession: async () => ({
+        data: {
+          session: {
+            access_token: 'loadtest',
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+          },
+        },
+        error: null,
+      }),
+    },
     // Mirrors the real client shape: the promise exposes abortSignal(), which
     // the hook chains for stale-result protection.
     rpc: vi.fn((_fn: string, args: Record<string, unknown>) => {

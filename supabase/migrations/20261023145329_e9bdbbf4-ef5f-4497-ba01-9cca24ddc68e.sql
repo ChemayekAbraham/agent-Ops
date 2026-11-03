@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.public_support_plan(uuid) TO supabase_read_only_user;

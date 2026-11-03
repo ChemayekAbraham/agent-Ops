@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
@@ -8,6 +9,7 @@ import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
 import { planShareDescription } from '@/lib/planShareLink';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 export interface PlanDetail {
   rent_request_id: string;
@@ -444,7 +446,8 @@ export function SelfPortfolioPlanDetailSheet({
           {(() => {
             const monthly = plan.funding_amount * 0.15;
             const daily = monthly / 30;
-            const months = Math.max(1, Math.round((plan.duration_days ?? 30) / 30));
+            // The partner earns across the whole contract, not for the plan's length.
+            const months = CONTRACT_TERM_MONTHS;
             const total = monthly * months;
             return (
               <div className="mt-5 rounded-2xl border border-primary/40 bg-primary/5 p-4">
@@ -471,7 +474,7 @@ export function SelfPortfolioPlanDetailSheet({
                   ))}
                   <li className="flex items-center justify-between gap-3 py-2.5">
                     <span className="text-xs text-muted-foreground">
-                      Over {months} {months === 1 ? 'month' : 'months'}
+                      Over {months} months
                     </span>
                     <span className="text-base font-black text-primary">
                       {formatDynamic(Math.round(total))}
@@ -481,6 +484,10 @@ export function SelfPortfolioPlanDetailSheet({
               </div>
             );
           })()}
+
+          <div className="mt-4">
+            <V360PlanCaptions rentRequestId={plan.rent_request_id} />
+          </div>
 
           {/* Privacy notice band */}
           <div className="mt-4 -mx-5 bg-muted/50 px-5 py-3 flex items-start gap-2">

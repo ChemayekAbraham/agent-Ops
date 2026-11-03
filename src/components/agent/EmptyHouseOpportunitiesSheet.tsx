@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays, ShoppingCart, ArrowRight, ArrowLeft } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { EmptyHouseDetailSheet, housePlace, type HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 
 const PAGE_SIZE = 20;
@@ -152,6 +154,7 @@ export function EmptyHouseOpportunitiesSheet({
   const [detailHouse, setDetailHouse] = useState<HouseOpportunity | null>(null);
   // Partner mode only: "Promise a date" holds the houses for 7 days.
   const [promisedDate, setPromisedDate] = useState('');
+  const [fulfilmentDueOn, setFulfilmentDueOn] = useState('');
   const [fundingNow, setFundingNow] = useState(false);
 
 
@@ -174,7 +177,7 @@ export function EmptyHouseOpportunitiesSheet({
   const reset = () => {
     setSearch(''); setDebounced(''); setPage(0); setSelected({}); setStep('browse');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
-    setWhatsappNumber(''); setPhoneNumber(''); setEmail('');
+    setWhatsappNumber(''); setPhoneNumber(''); setEmail(''); setFulfilmentDueOn('');
     setContributionType('compounding'); setDeductionDay('1');
     setErrorMsg(null); setCreatedNote(null); setCreatedNotes([]); setSplitPerHouse(true);
     setDistrict('all'); setVerifiedOnly(false); setMapPinOnly(false);
@@ -182,10 +185,12 @@ export function EmptyHouseOpportunitiesSheet({
 
   };
 
+  const signedIn = useAuthenticatedAudience();
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort],
-    enabled: open,
+    enabled: open && signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: PAGE_SIZE,
@@ -206,7 +211,7 @@ export function EmptyHouseOpportunitiesSheet({
       const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
       return {
         total: Number(payload.total || 0),
-        houses: payload.houses ?? [],
+        houses: sortFunderHousesByCompleteness(payload.houses ?? []),
         districts: payload.districts ?? [],
       };
     },
@@ -315,6 +320,7 @@ export function EmptyHouseOpportunitiesSheet({
     if (!isValidPhone(whatsappNumber)) out.push('WhatsApp number (10 digits)');
     if (phoneNumber.trim() && !isValidPhone(phoneNumber)) out.push('Phone number (10 digits)');
     if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) out.push('Valid email');
+    if (!fulfilmentDueOn) out.push('Fulfil by date');
     return out;
   };
 
@@ -349,6 +355,7 @@ export function EmptyHouseOpportunitiesSheet({
           email: (isPartner ? (selfEmail || '') : email).trim() || null,
           amount,
           contribution_type: contributionType === 'monthly' ? 'monthly' : 'once_off',
+          ...(isPartner ? {} : { fulfilment_due_on: fulfilmentDueOn }),
         };
         if (isPartner && promisedDate) payload.promised_funding_date = promisedDate;
         if (contributionType === 'monthly') {
@@ -441,7 +448,6 @@ export function EmptyHouseOpportunitiesSheet({
 
       const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
         p_house_ids: houseIds,
-        p_term_months: 1,
         p_idempotency_key: `fund-${note.id}`,
       });
       if (fundErr) throw fundErr;
@@ -722,6 +728,16 @@ export function EmptyHouseOpportunitiesSheet({
                   <div>
                     <Label className="text-xs">Email</Label>
                     <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="partner@email.com" type="email" className="mt-0.5 h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-xs" htmlFor="house-opportunity-fulfil-by">Fulfil by *</Label>
+                    <Input
+                      id="house-opportunity-fulfil-by"
+                      type="date"
+                      value={fulfilmentDueOn}
+                      onChange={(e) => setFulfilmentDueOn(e.target.value)}
+                      className="mt-0.5 h-9 text-xs"
+                    />
                   </div>
                 </>
               )}

@@ -58,4 +58,30 @@ describe('payout desk grouping', () => {
     expect(g[0].agent_id).toBe('a9');
     expect(groupPayoutRows([{ ...row('y', 'a1', '2026-10-01T00:00:00Z'), agent_id: null }])[0].agent_id).toBe('unassigned');
   });
+
+  it('with the agent collection % sort, agents are listed highest % first, those with no figure last, ties in the layout above', () => {
+    const pct: Record<string, number | null> = { a1: 40, a2: 90, a3: null };
+    const g = groupPayoutRows(rows, order({ r1: 1, r2: 2, r3: 3, r4: 4, r5: 5 }), (r) => pct[r.agent_id as string] ?? null);
+    expect(g.map((x) => x.agent_id)).toEqual(['a2', 'a1', 'a3']);
+    // inside a group the server order is unchanged
+    expect(g[0].rows.map((r) => r.id)).toEqual(['r3', 'r4']);
+    // equal % falls back to the best-ranked tenant
+    const tie = groupPayoutRows(rows, order({ r1: 3, r2: 4, r3: 1, r4: 2, r5: 5 }), () => 50);
+    expect(tie.map((x) => x.agent_id)).toEqual(['a2', 'a1', 'a3']);
+  });
+
+  it('applies the agent collection % even before the server order has loaded', () => {
+    const pct: Record<string, number | null> = { a1: 10, a2: 20, a3: 30 };
+    expect(groupPayoutRows(rows, undefined, (r) => pct[r.agent_id as string] ?? null).map((x) => x.agent_id)).toEqual(['a3', 'a2', 'a1']);
+  });
+
+  it('a group takes the highest % among its rows (an older request whose assigned agent differs)', () => {
+    const mixed: PayoutGroupRow[] = [
+      { id: 'x1', created_at: '2026-10-01T00:00:00Z', agent_id: 'reg1', assigned_agent_id: 'asg', agent_name: 'Assigned' },
+      { id: 'x2', created_at: '2026-10-02T00:00:00Z', agent_id: 'reg2', assigned_agent_id: 'asg', agent_name: 'Assigned' },
+      { id: 'y1', created_at: '2026-10-03T00:00:00Z', agent_id: 'other', assigned_agent_id: null, agent_name: 'Other' },
+    ];
+    const pct: Record<string, number> = { reg1: 20, reg2: 80, other: 50 };
+    expect(groupPayoutRows(mixed, undefined, (r) => pct[r.agent_id as string]).map((x) => x.agent_id)).toEqual(['asg', 'other']);
+  });
 });

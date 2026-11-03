@@ -11,13 +11,42 @@ import { createPortal } from 'react-dom';
  *
  * Drag up/down to switch between snap points.
  * When scrolled to top inside the sheet and dragging down → collapses.
+ *
+ * Smoothness: the sheet is always laid out at its full height and moved with a
+ * CSS transform. Dragging writes the transform straight to the element on each
+ * animation frame (no React re-render, no layout), so the GPU does the work and
+ * the listing inside is never re-laid-out while a finger is moving it.
  */
 
 const COLLAPSED_PX = 72;
 const HALF_VH = 45;
 const FULL_VH = 92;
+const SNAP_TRANSITION = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
 
 type SnapPoint = 'collapsed' | 'half' | 'full';
+
+const fullHeightPx = () => Math.round((window.innerHeight * FULL_VH) / 100);
+
+const snapToHeight = (s: SnapPoint): number => {
+  const vh = window.innerHeight;
+  switch (s) {
+    case 'collapsed': return COLLAPSED_PX;
+    case 'half': return Math.round((vh * HALF_VH) / 100);
+    case 'full': return fullHeightPx();
+  }
+};
+
+/** translateY that leaves `height` px of the (full height) sheet visible. */
+const transformFor = (height: number) => `translate3d(0, ${Math.max(0, fullHeightPx() - height)}px, 0)`;
+
+const resolveSnap = (height: number): SnapPoint => {
+  const vh = window.innerHeight;
+  const halfH = (vh * HALF_VH) / 100;
+  const fullH = (vh * FULL_VH) / 100;
+  if (height < (COLLAPSED_PX + halfH) / 2) return 'collapsed';
+  if (height < (halfH + fullH) / 2) return 'half';
+  return 'full';
+};
 
 export function MapBottomSheet({
   children,
@@ -37,6 +66,8 @@ export function MapBottomSheet({
   const contentRef = useRef<HTMLDivElement>(null);
   const [internalSnap, setInternalSnap] = useState<SnapPoint>(defaultSnap);
   const snap = externalSnap ?? internalSnap;
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
 
   const setSnap = useCallback((newSnap: SnapPoint | ((prev: SnapPoint) => SnapPoint)) => {
     setInternalSnap((prev) => {
@@ -46,33 +77,60 @@ export function MapBottomSheet({
     });
   }, [onSnapChange]);
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
-
+  // Drag state lives in refs: nothing here may trigger a React render mid-drag.
+  const draggingRef = useRef(false);
+  const justDraggedRef = useRef(false);
+  const dragOffsetRef = useRef(0);
   const dragStartY = useRef(0);
-  const dragStartHeight = useRef(0);
+  const frameRef = useRef<number | null>(null);
   const isScrolledToTop = useRef(true);
 
-  const snapToHeight = useCallback((s: SnapPoint): number => {
-    const vh = window.innerHeight;
-    switch (s) {
-      case 'collapsed': return COLLAPSED_PX;
-      case 'half': return Math.round(vh * HALF_VH / 100);
-      case 'full': return Math.round(vh * FULL_VH / 100);
-    }
+  const paintDrag = useCallback(() => {
+    frameRef.current = null;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const height = Math.max(
+      COLLAPSED_PX,
+      Math.min(fullHeightPx(), snapToHeight(snapRef.current) - dragOffsetRef.current),
+    );
+    sheet.style.transition = 'none';
+    sheet.style.transform = transformFor(height);
   }, []);
 
-  const currentHeight = isDragging
-    ? Math.max(COLLAPSED_PX, Math.min(window.innerHeight * FULL_VH / 100, snapToHeight(snap) - dragOffset))
-    : snapToHeight(snap);
+  const scheduleDragPaint = useCallback(() => {
+    if (frameRef.current === null) frameRef.current = window.requestAnimationFrame(paintDrag);
+  }, [paintDrag]);
 
-  const resolveSnap = useCallback((height: number): SnapPoint => {
-    const vh = window.innerHeight;
-    const halfH = vh * HALF_VH / 100;
-    const fullH = vh * FULL_VH / 100;
-    if (height < (COLLAPSED_PX + halfH) / 2) return 'collapsed';
-    if (height < (halfH + fullH) / 2) return 'half';
-    return 'full';
+  const beginDrag = useCallback((offset: number) => {
+    draggingRef.current = true;
+    justDraggedRef.current = true;
+    dragOffsetRef.current = offset;
+    scheduleDragPaint();
+  }, [scheduleDragPaint]);
+
+  const endDrag = useCallback(() => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    if (frameRef.current !== null) {
+      window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    const finalHeight = Math.max(COLLAPSED_PX, snapToHeight(snapRef.current) - dragOffsetRef.current);
+    const next = resolveSnap(finalHeight);
+    dragOffsetRef.current = 0;
+    const sheet = sheetRef.current;
+    if (sheet) {
+      // Hand the element back to React's styles: animate to the snap point.
+      sheet.style.transition = SNAP_TRANSITION;
+      sheet.style.transform = transformFor(snapToHeight(next));
+    }
+    setSnap(next);
+    // A drag ends with a click on the handle in some browsers; swallow that one.
+    window.setTimeout(() => { justDraggedRef.current = false; }, 0);
+  }, [setSnap]);
+
+  useEffect(() => () => {
+    if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
   }, []);
 
   // Touch handlers
@@ -80,66 +138,46 @@ export function MapBottomSheet({
     const content = contentRef.current;
     isScrolledToTop.current = !content || content.scrollTop <= 0;
     dragStartY.current = e.touches[0].clientY;
-    dragStartHeight.current = snapToHeight(snap);
-  }, [snap, snapToHeight]);
+  }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const deltaY = e.touches[0].clientY - dragStartY.current;
-    if (snap === 'full') {
+    if (snapRef.current === 'full') {
       // Swiping up (deltaY <= 0) scrolls down into listings - let native scroll take over
       if (deltaY <= 0) return;
       // Swiping down (deltaY > 0) should only drag the sheet down if user has scrolled to top
       const content = contentRef.current;
       if (content && content.scrollTop > 0) return;
     }
-    if (Math.abs(deltaY) > 8) {
-      setIsDragging(true);
-      setDragOffset(deltaY);
-    }
-  }, [snap]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (!isDragging) return;
-    setIsDragging(false);
-    const finalHeight = Math.max(COLLAPSED_PX, snapToHeight(snap) - dragOffset);
-    setSnap(resolveSnap(finalHeight));
-    setDragOffset(0);
-  }, [isDragging, snap, dragOffset, snapToHeight, resolveSnap, setSnap]);
+    if (Math.abs(deltaY) > 8) beginDrag(deltaY);
+  }, [beginDrag]);
 
   // Mouse handlers (desktop)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const rect = sheetRef.current?.getBoundingClientRect();
     if (!rect) return;
     const relY = e.clientY - rect.top;
-    if (relY > 40) return;
+    // Only the sheet's own handle area starts a drag. A press above the sheet
+    // (e.g. on the floating search bar, which is a React child of the sheet) must
+    // keep its default action, or the search box can never take focus.
+    if (relY < 0 || relY > 40) return;
     e.preventDefault();
     dragStartY.current = e.clientY;
-    dragStartHeight.current = snapToHeight(snap);
-    const currentSnap = snap;
 
     const handleMouseMove = (ev: MouseEvent) => {
       const deltaY = ev.clientY - dragStartY.current;
-      if (Math.abs(deltaY) > 8) {
-        setIsDragging(true);
-        setDragOffset(deltaY);
-      }
+      if (Math.abs(deltaY) > 8) beginDrag(deltaY);
     };
 
     const handleMouseUp = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-      // Use a timeout to read the latest dragOffset via ref
-      setIsDragging(false);
-      setDragOffset((prev) => {
-        const finalH = Math.max(COLLAPSED_PX, snapToHeight(currentSnap) - prev);
-        setSnap(resolveSnap(finalH));
-        return 0;
-      });
+      endDrag();
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-  }, [snap, snapToHeight, resolveSnap, setSnap]);
+  }, [beginDrag, endDrag]);
 
   // Track scroll position
   useEffect(() => {
@@ -152,13 +190,13 @@ export function MapBottomSheet({
 
   // Tap handle to cycle snap points
   const handleHandleTap = useCallback(() => {
-    if (isDragging) return;
+    if (draggingRef.current || justDraggedRef.current) return;
     setSnap((s) => {
       if (s === 'collapsed') return 'half';
       if (s === 'half') return 'full';
       return 'half';
     });
-  }, [isDragging, setSnap]);
+  }, [setSnap]);
 
   const sheetContent = (
     <div
@@ -167,13 +205,15 @@ export function MapBottomSheet({
       aria-label="House listings panel"
       className="fixed inset-x-0 bottom-0 z-[80] flex flex-col rounded-t-2xl bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.12)] border-t border-border/60"
       style={{
-        height: currentHeight,
-        transition: isDragging ? 'none' : 'height 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+        height: fullHeightPx(),
+        transform: transformFor(snapToHeight(snap)),
+        transition: SNAP_TRANSITION,
+        willChange: 'transform',
         touchAction: 'none',
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onTouchEnd={endDrag}
       onMouseDown={handleMouseDown}
     >
       {/* Drag handle */}

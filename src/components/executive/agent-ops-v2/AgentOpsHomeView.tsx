@@ -9,6 +9,7 @@ import { Bell, UserPlus, FileText, Banknote, Activity, TrendingUp, TrendingDown,
 import { BriefDrillDownModal, type DrillMetric } from './BriefDrillDownModal';
 import { AgentDefinitionFunnel } from './AgentDefinitionFunnel';
 import { ComprehensiveReportButton } from './ComprehensiveReportButton';
+import { WelileSchoolsCard } from './WelileSchoolsOps';
 
 
 import {
@@ -414,6 +415,8 @@ export function AgentOpsHomeView({ range, onRangeChange, onOpenSection }: AgentO
 
       {/* Compact Active Users stat — share of the whole platform active in range */}
       <ActiveUsersStat range={range} />
+
+      <WelileSchoolsCard />
 
 
       {/* Drill-down modal */}

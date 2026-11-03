@@ -69,15 +69,6 @@ function toNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-async function ensureWalletExists(adminClient: AdminClient, userId: string) {
-  // Only ensures a wallet row exists — balance is managed exclusively by sync_wallet_from_ledger trigger
-  const { error } = await adminClient
-    .from('wallets')
-    .upsert({ user_id: userId, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
-  if (error) throw error;
-}
-
 async function applyRepaymentForRepayingRequest(
   adminClient: AdminClient,
   tenantId: string,
@@ -331,30 +322,6 @@ Deno.serve(async (req) => {
       tenantFullName = tProfile?.full_name || '';
     }
 
-    // Get user's wallet
-    let { data: userWallet } = await adminClient
-      .from('wallets')
-      .select('*')
-      .eq('user_id', targetUserId)
-      .maybeSingle();
-
-    if (!userWallet) {
-      const { data: newWallet, error: createError } = await adminClient
-        .from('wallets')
-        .insert({ user_id: targetUserId, balance: 0 })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('[agent-deposit] Create wallet error:', createError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create wallet' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      userWallet = newWallet;
-    }
-
     // Check if user has active rent request that needs repayment
     // FIX: Check multiple valid statuses, not just 'disbursed'
     const { data: activeRentRequest } = await adminClient
@@ -530,8 +497,6 @@ Deno.serve(async (req) => {
 
         // Credit landlord wallet (using resolved user ID)
         if (landlordUserId && landlordPayment > 0) {
-          await ensureWalletExists(adminClient, landlordUserId);
-
           const { error: landlordLedgerError } = await adminClient.rpc('create_ledger_transaction', {
             entries: [
               {
@@ -639,8 +604,6 @@ Deno.serve(async (req) => {
 
     // Add remaining amount to user's wallet
     if (depositAmount > 0) {
-      await ensureWalletExists(adminClient, targetUserId!);
-
       const { error: tenantLedgerError } = await adminClient.rpc('create_ledger_transaction', {
         entries: [
           {

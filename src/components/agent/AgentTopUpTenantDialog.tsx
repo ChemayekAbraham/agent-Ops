@@ -44,8 +44,8 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
 
   const searchTenant = async () => {
     const q = searchQuery.trim();
-    if (q.length < 2) {
-      toast({ title: 'Enter at least 2 characters to search', variant: 'destructive' });
+    if (q.length < 3) {
+      toast({ title: 'Enter at least 3 characters to search', variant: 'destructive' });
       return;
     }
     setSearching(true);

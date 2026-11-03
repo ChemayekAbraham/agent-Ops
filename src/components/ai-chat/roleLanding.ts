@@ -3,6 +3,7 @@
 // prospective user lands in the Welile AI onboarding chat already scoped to the
 // right role, with tailored suggestions and the correct signup CTA.
 
+import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 export const AI_ROLES = ["tenant", "agent", "landlord", "supporter"] as const;
 export type AiRole = (typeof AI_ROLES)[number];
 
@@ -29,7 +30,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "🏠",
     cta: "Get rent help — free account",
     headline: "Need help with rent? 🏠",
-    subtitle: "Ask about your Rent Plan, then create a free account to get funded.",
+    subtitle: "Grow Rent Access up to UGX 30,000,000 with daily payments, or support tenants for 15% monthly Returns.",
     suggestions: [
       { icon: "💸", text: "How does a Rent Plan work?" },
       { icon: "🧮", text: "Estimate my rent access" },
@@ -42,7 +43,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "⚡",
     cta: "Become an agent — free account",
     headline: "Earn as a Welile agent ⚡",
-    subtitle: "Register tenants, list houses, collect rent — earn commission in UGX.",
+    subtitle: "Help tenants grow Rent Access up to UGX 30,000,000. Tenant Support projects 15% monthly Returns.",
     suggestions: [
       { icon: "💰", text: "How much can agents make?" },
       { icon: "📋", text: "What does an agent do daily?" },
@@ -55,7 +56,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "🏢",
     cta: "List your house — free account",
     headline: "Guaranteed rent for landlords 🏢",
-    subtitle: "List your houses and receive on-time rent instead of chasing tenants.",
+    subtitle: "Support tenants for 15% monthly Returns, and help them grow Rent Access up to UGX 30,000,000.",
     suggestions: [
       { icon: "✅", text: "How do I get guaranteed rent?" },
       { icon: "🏠", text: "How do I list my house?" },
@@ -68,7 +69,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "💰",
     cta: "Become a Supporter — free account",
     headline: "Support tenants, earn Returns 💰",
-    subtitle: "Your funds help tenants access rent and earn periodic Returns in UGX.",
+    subtitle: "Tenant Support projects 15% monthly Returns. Daily payments grow Rent Access up to UGX 30,000,000.",
     suggestions: [
       { icon: "📈", text: "Estimate my Supporter Returns" },
       { icon: "❓", text: "What is the Supporter programme?" },
@@ -81,9 +82,13 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
 /** Builds the role-scoped signup CTA link, preserving attribution params. */
 export function buildRoleSignupHref(
   role: AiRole,
-  opts?: { source?: string | null; ref?: string | null },
+  opts?: { source?: string | null; ref?: string | null; authenticated?: boolean },
 ): string {
-  const params = new URLSearchParams({ signup: "1", role });
+  const target = { tenant: '/register-tenant', agent: '/become-agent', landlord: '/register-landlord', supporter: '/dashboard/funder-new' }[role];
+  if (opts?.authenticated) return target;
+  const params = new URLSearchParams(toAuthGatedPath(target).split('?')[1]);
+  params.set('signup', '1');
+  params.set('role', role);
   const source = (opts?.source ?? "chatgpt").trim();
   if (source) params.set("signup_source", source);
   const ref = (opts?.ref ?? "").trim();

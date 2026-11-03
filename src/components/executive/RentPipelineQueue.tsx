@@ -21,6 +21,7 @@ import { RentPipelineTracker } from './RentPipelineTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { Badge } from '@/components/ui/badge';
 import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabel';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
 import { formatLocation, locationHaystack } from '@/lib/locationText';
 import { toast as sonnerToast } from 'sonner';
@@ -57,6 +59,9 @@ import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
 import { useRentRequestAgentChain } from '@/hooks/useRentRequestAgentChain';
 import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
 import { RentAgentChain } from '@/components/rent-desk/RentAgentChain';
+import { AgentWeekPct } from '@/components/rent-desk/AgentWeekPct';
+import { useAgentWeekPct } from '@/hooks/useAgentWeekPct';
+import { orderByAgentWeek } from '@/lib/agentWeekPct';
 import { agentChainLines } from '@/lib/rentAgentChain';
 import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
@@ -825,7 +830,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url, pricing_version')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -965,7 +970,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const requestIds = useMemo(() => (requests ?? []).map((r: any) => r.id as string), [requests]);
   const deskOrder = useRentDeskOrder(requestIds, sortMode, deskFilters);
   const rows = useMemo(() => withRentDeskScores(requests ?? [], deskOrder.data), [requests, deskOrder.data]);
-  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading);
+  // The registering agent's collection % for this Thursday-Wednesday week (one read-only call for the whole desk). It is shown next to the agent's
+  // name and, in the default sort, puts the highest percentage on top. If it fails the cards show no percentage and keep the server order.
+  const agentWeek = useAgentWeekPct(requestIds);
+  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading) || (sortMode === 'agent_week' && requestIds.length > 0 && agentWeek.isLoading);
 
   // Read-only: one batched read tells every card whether it has an awareness call at its stage. It never blocks or confirms anything;
   // if it fails the badges are simply not shown.
@@ -1116,11 +1124,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   // Server order for the chosen sort. Until it arrives, or if it fails, fall back to the queue's own created_at order
   // (the query returns newest first).
-  const filtered = deskOrder.data
+  const serverOrdered = deskOrder.data
     ? orderByRentDesk(matching, deskOrder.data)
     : sortMode === 'oldest'
       ? [...matching].reverse()
       : matching;
+  // Default sort: highest agent collection % first; agents on the same % keep the server (best payers) order.
+  const filtered = sortMode === 'agent_week' ? orderByAgentWeek(serverOrdered, agentWeek.byAgent, (r) => (r as { agent_id?: string | null }).agent_id) : serverOrdered;
 
   // Desk time and the agent chain for the cards on screen: one call each for the whole desk (never one per card). A desk with more than 200 cards
   // asks for the first 200 in the order shown; the rest read "Not available" and a note says so.
@@ -1181,7 +1191,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             payout_method: payoutMethod || 'mobile_money',
           },
         });
-        if (floatErr) throw new Error(floatErr.message || 'Failed to fund agent float');
+        if (floatErr) throw new Error(await extractFromErrorObject(floatErr, 'Failed to fund agent float'));
         if (floatRes?.error) throw new Error(floatRes.error);
       } else if (isCooStage) {
         // COO step: inside the landlord float budget only. Held or refused -> keep the sheet open, toast says why.
@@ -2126,7 +2136,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
                       )}
                       <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
-                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} className="basis-full space-y-0.5" />
+                        <RentAgentChain lines={chainFor(req)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} className="basis-full space-y-0.5" />
                         {req.landlord_id && (
                           <span
                             role="button"
@@ -2161,6 +2171,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     </Button>
                   </div>
                 </div>
+                {req.pricing_version === 'v360' && (
+                  <div className="mt-2">
+                    <V360PlanCaptions rentRequestId={req.id} expectV360 />
+                  </div>
+                )}
 
                 {stage === 'tenant_ops_approved' && landlordRejectedGate(req).blocked && (
                   <div role="alert" className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive">
@@ -2465,7 +2480,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <RentTimingRow requestId={selectedRequest.id} timing={deskTiming.byId.get(selectedRequest.id)} loading={deskTiming.isLoading} error={deskTiming.error} onRetry={deskTiming.refetch} ownDesk />
                 </div>
                 <div className="space-y-1 col-span-2">
-                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} />
+                  <RentAgentChain lines={chainFor(selectedRequest)} onOpenAgent={(id) => setDrilldownAgentId(id)} afterName={(l) => (l.role === 'Agent' || l.role === 'Sub-agent') ? <AgentWeekPct week={agentWeek.byAgent.get(l.person.id)} loading={agentWeek.isLoading} /> : null} />
                   <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       type="button"
@@ -2513,6 +2528,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 </div>
                 <InlineEditableField field="access_fee" label="Access Fee" value={selectedRequest.access_fee} prefix="UGX " />
                 <InlineEditableField field="daily_repayment" label="Daily Repayment" value={selectedRequest.daily_repayment} prefix="UGX " className="font-bold text-base text-primary" />
+                {selectedRequest.pricing_version === 'v360' && (
+                  <div className="col-span-2">
+                    <V360PlanCaptions rentRequestId={selectedRequest.id} expectV360 />
+                  </div>
+                )}
                 <InlineEditableField field="total_repayment" label="Total Repayment" value={selectedRequest.total_repayment} prefix="UGX " />
                 <div className="space-y-0.5">
                   <p className="text-xs text-muted-foreground">Submitted Date</p>

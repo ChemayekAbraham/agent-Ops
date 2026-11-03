@@ -28,7 +28,7 @@ import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { postSignInPath, safeInternalPath, takeReturnPath } from '@/lib/returnPath';
+import { clearPostAuthRedirect, postSignInPath, safeInternalPath, takeReturnPath } from '@/lib/returnPath';
 import { supabase } from '@/integrations/supabase/client';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
@@ -149,7 +149,7 @@ export default function Auth() {
   const stageText = loginStageLabel[loginStage] ?? 'Signing in…';
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
+  const { user, session, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
   const [resetMethod, setResetMethod] = useState<"sms" | "email">("sms");
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
 
@@ -201,6 +201,7 @@ export default function Auth() {
       // An explicit ?redirect= (in-app paths only) wins.
       const redirectParam = safeInternalPath(searchParams.get('redirect'));
       if (redirectParam) {
+        clearPostAuthRedirect(); // an OAuth stash of the same link is no longer needed
         navigate(postSignInPath(user.id, redirectParam), { replace: true });
         return;
       }
@@ -471,6 +472,11 @@ export default function Auth() {
       >
 
         <div className="screen-top-header">
+          {/* Only signed-in users get the assistant launcher here; a visitor
+              with no session never sees it and never opens the chat. */}
+          {session && (
+            <Button variant="outline" className="order-last ml-auto rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button>
+          )}
           <button
             type="button"
             className="btn-circle-nav"

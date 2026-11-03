@@ -175,6 +175,11 @@ export function BikeLeaseApprovalQueue({
     queryFn: async () => {
       return (await fetchBikeLeaseQueue(null)) as BikeLeaseRow[];
     },
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    placeholderData: (prev) => prev,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   // Deduplicate orders so that duplicate entity keys (e.g. sale_id vs lease_id or duplicate submissions)
@@ -200,6 +205,10 @@ export function BikeLeaseApprovalQueue({
   const { data: activeAdvancesMap = {} } = useQuery({
     queryKey: ['bike-queue-active-advances', applicantIds],
     enabled: applicantIds.length > 0,
+    staleTime: 5 * 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_advances')

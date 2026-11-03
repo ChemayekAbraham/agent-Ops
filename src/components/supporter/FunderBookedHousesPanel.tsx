@@ -69,7 +69,6 @@ export function FunderBookedHousesPanel() {
     try {
       const { error } = await supabase.rpc('funder_fund_booked_houses', {
         p_house_ids: [b.house_id],
-        p_term_months: 1,
         p_idempotency_key: `fund-${b.intent_id}`,
       });
       if (error) throw error;

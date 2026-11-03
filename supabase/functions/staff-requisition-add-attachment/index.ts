@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { readStaffRequisitionReceipts, rememberRequisitionReceiptPath } from "../_shared/requisitionReceiptRead.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,7 +98,43 @@ Deno.serve(async (req) => {
       metadata: { path },
     });
 
-    return json({ ok: true, path, name: file.name });
+    // Usage-report files are matched by submit_requisition_usage_report.
+    // A requisition receipt is read here. Submit is not blocked.
+    let receipt: Record<string, unknown> | null = null;
+    if (String(form.get("purpose") ?? "") !== "usage_report") {
+      try {
+        const remembered = await rememberRequisitionReceiptPath(admin, row.id, path);
+        if (remembered === "saved") {
+          const read = await readStaffRequisitionReceipts(admin, row.id, {
+            apiKey: Deno.env.get("LOVABLE_API_KEY") ?? "",
+            actorId: userId,
+          });
+          receipt = {
+            skipped: read.skipped === true,
+            receipt_match_status: read.verdict.status,
+            receipt_ocr_amount: read.verdict.ocrAmount,
+            amount_unaccounted: read.verdict.amountUnaccounted,
+            payout_frozen: read.verdict.payoutFrozen,
+            message: read.verdict.message,
+          };
+        } else if (remembered === "failed") {
+          receipt = {
+            payout_frozen: false,
+            message: "The file was saved, but the receipt check could not be recorded. Re-read it before payout.",
+          };
+        }
+      } catch (readErr) {
+        console.error("receipt read failed (non-fatal)", readErr);
+        receipt = {
+          receipt_match_status: "needs_manual_review",
+          payout_frozen: true,
+          amount_unaccounted: null,
+          message: "The receipt was saved but could not be read. No amount was guessed. Payout stays frozen until it is read or the CFO clears it.",
+        };
+      }
+    }
+
+    return json({ ok: true, path, name: file.name, ...(receipt ?? {}) });
   } catch (e) {
     console.error("staff-requisition-add-attachment error", e);
     return json({ error: String((e as Error).message ?? e) }, 500);

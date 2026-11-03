@@ -17,6 +17,7 @@
 // actually present; a missing dependency raises "monitor degraded" instead.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -138,9 +139,6 @@ function bytesToBase64(bytes: Uint8Array): string {
 }
 
 async function sendEmail(to: string, subject: string, html: string) {
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const gmailKey = Deno.env.get("GOOGLE_MAIL_API_KEY");
-  if (!lovableKey || !gmailKey) return { ok: false, status: 0, raw: "Gmail connector creds missing" };
   const encodedSubject = /[^\x00-\x7F]/.test(subject)
     ? `=?UTF-8?B?${bytesToBase64(new TextEncoder().encode(subject))}?=`
     : subject;
@@ -153,21 +151,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     "",
     html,
   ].join("\r\n");
-  const encoded = bytesToBase64(new TextEncoder().encode(raw))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const res = await fetch(
-    "https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/messages/send",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmailKey,
-      },
-      body: JSON.stringify({ raw: encoded }),
-    },
-  );
-  return { ok: res.ok, status: res.status, raw: await res.text() };
+  return await sendMimeViaMailgun(to, raw);
 }
 
 type AlertKind = "first_indexation" | "errors" | "monitor_degraded";

@@ -77,6 +77,36 @@ const PROTECTED = [
     baselineFile: '20260925220000_agent_advances_client_read_only.sql',
     why: 'mints an agent advance against any p_user_id with a 33% access fee, no audit row and no ledger entry',
   },
+  {
+    name: '_claim_return_cycle',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'reserves a Partner Return cycle for any portfolio and actor; only the request trigger and the Returns posting function may call it',
+  },
+  {
+    name: 'claim_return_cycle_for_operation',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'hands out the ledger key a Partner Return may be posted under; approval (service role) only',
+  },
+  {
+    name: '_post_portfolio_roi_ledger_core',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'posts compound/split Returns and moves principal; its posting flag must only be set by the public wrappers',
+  },
+  {
+    name: 'post_return_payout',
+    baseline: '20261024140000',
+    baselineFile: '20261024140000_return_cycle_guard.sql',
+    why: 'posts a Partner Return payout and marks the request approved; approval (service role) only',
+  },
+  {
+    name: 'post_rent_facilitation_reward',
+    baseline: '20261024170000',
+    baselineFile: '20261024170000_rent_reward_atomic_post.sql',
+    why: 'posts a rent-facilitation reward (wallet credit or portfolio reinvestment) with no caller check of its own; service role only',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];

@@ -386,7 +386,7 @@ export default function TryCalculator() {
         <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2.5 rounded-full text-sm font-semibold mb-3">
             <TrendingUp className="h-4 w-4" />
-            15% Monthly Returns
+            Partner Returns target 15%, not guaranteed
           </div>
           <h1 className="text-xl font-bold mb-1">
             Investment Calculator

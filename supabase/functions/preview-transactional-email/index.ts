@@ -5,6 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
+import { ensureWelileEmailHeader } from '../_shared/emailHeader.ts'
 
 // Renders all registered templates with their previewData.
 // Gated by LOVABLE_API_KEY — only the Go API calls this.
@@ -61,9 +62,9 @@ Deno.serve(async (req) => {
     }
 
     try {
-      const html = await renderAsync(
+      const html = ensureWelileEmailHeader(await renderAsync(
         React.createElement(entry.component, entry.previewData)
-      )
+      ))
       const resolvedSubject =
         typeof entry.subject === 'function'
           ? entry.subject(entry.previewData)

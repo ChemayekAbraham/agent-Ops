@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_DEBOUNCE_MS, profileIdsForTypeahead } from '@/lib/profileTypeahead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -162,6 +164,7 @@ export function GeneralPayoutActivities() {
 
   const [page, setPage] = useState(1);
   const [nameFilter, setNameFilter] = useState('');
+  const debouncedNameFilter = useDebouncedValue(nameFilter, PROFILE_TYPEAHEAD_DEBOUNCE_MS);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('credit');
   const [destinationFilter, setDestinationFilter] = useState<DestinationFilter>('all');
@@ -178,18 +181,14 @@ export function GeneralPayoutActivities() {
 
   // Export ALL records matching the current period + filters (ignores pagination).
   const handleDownload = async () => {
+    const rawName = nameFilter.trim();
+    if (rawName.length > 0 && rawName.length < 3) {
+      toast.error('Type at least 3 characters of the recipient name.');
+      return;
+    }
     setDownloading(true);
     try {
-      let profileIds: string[] | null = null;
-      if (nameFilter.trim()) {
-        const { data: profiles, error: profileErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('full_name', `%${nameFilter.trim()}%`)
-          .limit(1000);
-        if (profileErr) throw profileErr;
-        profileIds = (profiles ?? []).map((p: any) => p.id);
-      }
+      const profileIds = await profileIdsForTypeahead(nameFilter);
 
       const buildQuery = () => {
         let q = supabase
@@ -405,7 +404,7 @@ export function GeneralPayoutActivities() {
       periodKind,
       window.from.toISOString(),
       window.to.toISOString(),
-      nameFilter.trim(),
+      debouncedNameFilter.trim(),
       categoryFilter.trim(),
       typeFilter,
       destinationFilter,
@@ -416,18 +415,9 @@ export function GeneralPayoutActivities() {
     queryFn: async () => {
       const fromOffset = (page - 1) * PAGE_SIZE;
 
-      let profileIds: string[] | null = null;
-      if (nameFilter.trim()) {
-        const { data: profiles, error: profileErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .ilike('full_name', `%${nameFilter.trim()}%`)
-          .limit(1000);
-        if (profileErr) throw profileErr;
-        profileIds = (profiles ?? []).map((p: any) => p.id);
-        if (profileIds.length === 0) {
-          return { rows: [], total: 0, totalAmount: 0 };
-        }
+      const profileIds = await profileIdsForTypeahead(debouncedNameFilter);
+      if (profileIds && profileIds.length === 0) {
+        return { rows: [], total: 0, totalAmount: 0 };
       }
 
       let query = supabase

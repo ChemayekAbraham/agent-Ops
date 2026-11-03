@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -19,6 +20,7 @@ import { Bookmark, Car, Check, Home, Loader2, MapPin, Navigation, Plus, Share2, 
 import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
 export const HOUSE_MIN_FUNDING = 50000;
@@ -87,9 +89,12 @@ export function HighlightText({
  * self-support operational funding tagged per house.
  */
 export function useVerifiedEmptyHouses() {
+  const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['psh-verified-empty-houses'],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { items, total } = await fetchAllPages<SupportableHouse>({
         pageSize: 100,
         concurrency: 8,
@@ -120,7 +125,7 @@ export function useVerifiedEmptyHouses() {
       });
 
       return {
-        houses: items.filter((h) => h.verified === true && Number(h.monthly_rent) > 0),
+        houses: sortFunderHousesByCompleteness(items.filter((h) => h.verified === true && Number(h.monthly_rent) > 0)),
         total,
       };
     },
@@ -455,7 +460,6 @@ export function HouseSupportBar({
       }
       const { data, error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: selectedIds,
-        p_term_months: 1,
         p_commitment_id: useExisting ? activeHouseCommitment!.id : null,
       });
       if (error) throw error;

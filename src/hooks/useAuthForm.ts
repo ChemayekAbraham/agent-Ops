@@ -18,6 +18,7 @@ import {
   type PersonNameParts,
 } from '@/lib/authValidation';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { isReturnablePath, safeInternalPath, stashPostAuthRedirect } from '@/lib/returnPath';
 import { getStoredAttributionToken } from '@/lib/campaignAttribution';
 import { captureReferralAttribution, getStoredReferrerId } from '@/lib/referralAttribution';
 import { getDeviceFingerprint, isValidFingerprintShape } from '@/lib/deviceFingerprint';
@@ -36,6 +37,7 @@ function sanitizeSignupSource(raw: string | null | undefined): string | null {
 export function useAuthForm() {
   const [searchParams, setSearchParams] = useSearchParams();
   const referralId = searchParams.get('ref');
+  const redirectQuery = searchParams.get('redirect');
   const becomeRole = searchParams.get('become');
   const rawRole = searchParams.get('role');
   const preSelectedRole = rawRole && VALID_SIGNUP_ROLES.includes(rawRole as any) ? rawRole : null;
@@ -167,6 +169,15 @@ export function useAuthForm() {
       } catch { /* non-fatal */ }
     })();
 
+    // An explicit in-app ?redirect= (e.g. a scanned asset QR code: /cfo/assets/<uuid>) belongs to the Auth page,
+    // which sends the person there once auth has finished loading. Navigating to the role dashboard here first
+    // (roles can arrive while auth is still loading) unmounted /auth and lost the deep link.
+    const redirectParam = safeInternalPath(redirectQuery);
+    if (redirectParam && isReturnablePath(redirectParam)) {
+      if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+      return;
+    }
+
     // If roles already loaded, navigate immediately
     if (roles.length > 0) {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
@@ -189,7 +200,7 @@ export function useAuthForm() {
     return () => {
       if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
     };
-  }, [user, roles, rolesResolved, navigate]);
+  }, [user, roles, rolesResolved, navigate, redirectQuery]);
 
   // Auto-focus
   useEffect(() => {
@@ -1181,6 +1192,8 @@ export function useAuthForm() {
       });
     }, 15000);
     try {
+      // OAuth returns to the site root without ?redirect=; keep a validated deep link (e.g. an asset QR page) for Index.
+      stashPostAuthRedirect(redirectQuery);
       const { error } = await signInWithGoogle();
       if (error) {
         const isProviderError = error.message?.toLowerCase().includes('not supported') || error.message?.toLowerCase().includes('provider');
@@ -1261,6 +1274,8 @@ export function useAuthForm() {
       });
     }, 15000);
     try {
+      // OAuth returns to the site root without ?redirect=; keep a validated deep link (e.g. an asset QR page) for Index.
+      stashPostAuthRedirect(redirectQuery);
       const { error } = await signInWithApple();
       if (error) {
         toast({ title: 'Apple Sign In Failed', description: error.message, variant: 'destructive' });

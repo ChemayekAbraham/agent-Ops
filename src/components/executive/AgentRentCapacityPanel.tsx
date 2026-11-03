@@ -22,6 +22,7 @@ import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThre
 import { AgentEligibilityHistoryStrip } from './AgentEligibilityHistoryStrip';
 import { FleetPerformanceStats } from './FleetPerformanceStats';
 import { useQualifyingAgentIds } from '@/hooks/useQualifyingAgentIds';
+import { fetchAgentDailyEligibility } from '@/lib/agentDailyEligibilityBatch';
 import { LastUpdatedChip } from './LastUpdatedChip';
 
 type AgentRow = {
@@ -286,10 +287,7 @@ export function AgentRentCapacityPanel({
       }>();
       let eligibilityRpcSucceeded = true;
       {
-        const { data: eligRows, error: eligErr } = await supabase.rpc(
-          'get_agent_daily_eligibility',
-          { p_agent_ids: agentIds },
-        );
+        const { rows: eligRows, error: eligErr } = await fetchAgentDailyEligibility(agentIds);
         eligibilityRpcSucceeded = !eligErr;
         if (eligErr) console.error('[AgentRentCapacityPanel] eligibility RPC failed', eligErr);
         (eligRows || []).forEach((r: any) => {

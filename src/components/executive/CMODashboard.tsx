@@ -50,6 +50,13 @@ function presetBounds(preset: DatePreset, customStart: Date, customEnd: Date): {
   }
 }
 
+/** Parses a 'YYYY-MM-DD' (or 'YYYY-MM-01') string as a LOCAL date; null when empty or invalid. */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export function CMODashboard({ activeTab }: { activeTab?: string } = {}) {
   if (activeTab === 'inbox') return <NeexaInbox />;
   if (activeTab === 'merchandise') {
@@ -86,14 +93,25 @@ function CMOMarketingDashboard() {
   const [customEndDate, setCustomEndDate] = useState(format(now, 'yyyy-MM-dd'));
   const [signupSource, setSignupSource] = useState<SignupSourceFilter>('all');
 
-  const monthlyStart = startOfMonth(new Date(startMonth + '-01'));
-  const monthlyEnd = endOfMonth(new Date(endMonth + '-01'));
-  const customStart = new Date(customStartDate);
-  const customEnd = new Date(customEndDate);
+  const monthlyStart = startOfMonth(parseLocalDate(`${startMonth}-01`) ?? subMonths(now, 5));
+  const monthlyEnd = endOfMonth(parseLocalDate(`${endMonth}-01`) ?? now);
+  const customStart = parseLocalDate(customStartDate) ?? subDays(now, 29);
+  const customEnd = parseLocalDate(customEndDate) ?? now;
   const { start, end } = datePreset === '6months'
     ? { start: monthlyStart, end: monthlyEnd }
     : presetBounds(datePreset, customStart, customEnd);
   const months = eachMonthOfInterval({ start: monthlyStart, end: monthlyEnd });
+  // The actual days being shown. Used in every range-dependent query key so that custom dates
+  // refresh every section, and "Today"/"Yesterday" don't serve yesterday's data after midnight.
+  const rangeKey = `${format(start, 'yyyy-MM-dd')}_${format(end, 'yyyy-MM-dd')}`;
+  const currentMonth = format(now, 'yyyy-MM');
+
+  // Changing one end past the other moves the other end too, instead of being silently ignored.
+  // Empty values (a cleared input) are ignored: they used to crash the page.
+  const changeStartMonth = (v: string) => { if (!v) return; setStartMonth(v); if (v > endMonth) setEndMonth(v); };
+  const changeEndMonth = (v: string) => { if (!v) return; setEndMonth(v); if (v < startMonth) setStartMonth(v); };
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStartDate(v); if (v > customEndDate) setCustomEndDate(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEndDate(v); if (v < customStartDate) setCustomStartDate(v); };
 
   // Apply signup source filter to a referrals query
   const applySource = (q: any) => {
@@ -122,59 +140,51 @@ function CMOMarketingDashboard() {
     staleTime: 600000,
   });
 
-  // Every referrals query below joins the referred profile (!inner) and
-  // requires deleted_at IS NULL, so a soft-deleted bot/fraud account (the
-  // referral-bonus rings — see docs/HANDOVER/21, 23, 39, 42) never counts as
-  // a real referral. Without this, "Total/Completed Referrals" and
-  // "Conversion Rate" were counting ~34,300 purged bot accounts as growth.
-  const { data: referralStats } = useQuery({
-    queryKey: ['exec-referral-stats', startMonth, endMonth, datePreset, customStartDate, customEndDate],
+  // Referral figures come from SECURITY DEFINER functions: row-level security lets a CMO read only
+  // their OWN rows in `referrals`, so direct reads showed ~41 referrals instead of the real ~53,000.
+  // The functions count a referral only while the referred account is not deleted, so soft-deleted
+  // bot/fraud accounts (docs/HANDOVER/21, 23, 39, 42) never count as growth.
+  const callRpc = async <T,>(fn: string, args: Record<string, unknown>): Promise<T> => {
+    // The functions are newer than the generated database types, so call them through a narrow cast.
+    const rpc = supabase as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }> };
+    const { data, error } = await rpc.rpc(fn, args);
+    if (error) throw error;
+    return data as T;
+  };
+
+  const { data: referralStats, isLoading: loadingReferralStats } = useQuery({
+    queryKey: ['exec-referral-stats', rangeKey, startMonth, endMonth],
     queryFn: async () => {
-      const rangeFilter = (q: any) =>
-        q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
-      const activeReferred = () =>
-        supabase.from('referrals')
-          .select('*, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)', { count: 'exact', head: true })
-          .is('referred.deleted_at', null);
-
-      const { count: totalReferrals } = await rangeFilter(activeReferred());
-
-      const { count: pendingReferrals } = await rangeFilter(activeReferred().eq('credited', false));
-
-      const { count: completedReferrals } = await rangeFilter(activeReferred().eq('credited', true));
+      const res = await callRpc<{
+        total: number; pending: number; completed: number;
+        by_month: Array<{ label: string; total: number; pending: number; completed: number }>;
+      }>('get_cmo_referral_totals', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_months: months.map((m) => ({
+          label: format(startOfMonth(m), 'MMM yyyy'),
+          s: startOfMonth(m).toISOString(),
+          e: endOfMonth(m).toISOString(),
+        })),
+      });
 
       const byMonth: Record<string, { total: number; pending: number; completed: number }> = {};
-      for (const m of months) {
-        const s = startOfMonth(m);
-        const e = endOfMonth(m);
-        const monthQ = (q: any) =>
-          q.gte('created_at', s.toISOString()).lte('created_at', e.toISOString());
-
-        const [{ count: total }, { count: pending }, { count: completed }] = await Promise.all([
-          monthQ(activeReferred()),
-          monthQ(activeReferred().eq('credited', false)),
-          monthQ(activeReferred().eq('credited', true)),
-        ]);
-
-        byMonth[format(s, 'MMM yyyy')] = {
-          total: total || 0,
-          pending: pending || 0,
-          completed: completed || 0,
-        };
+      for (const m of res?.by_month ?? []) {
+        byMonth[m.label] = { total: m.total || 0, pending: m.pending || 0, completed: m.completed || 0 };
       }
 
       return {
-        totalReferrals: totalReferrals || 0,
-        pendingReferrals: pendingReferrals || 0,
-        completedReferrals: completedReferrals || 0,
+        totalReferrals: res?.total || 0,
+        pendingReferrals: res?.pending || 0,
+        completedReferrals: res?.completed || 0,
         byMonth,
       };
     },
     staleTime: 600000,
   });
 
-  const { data: totalUsers } = useQuery({
-    queryKey: ['exec-total-users-cmo', datePreset, startMonth, endMonth, customStartDate, customEndDate, signupSource],
+  const { data: totalUsers, isLoading: loadingTotalUsers } = useQuery({
+    queryKey: ['exec-total-users-cmo', rangeKey, signupSource],
     queryFn: async () => {
       let q = supabase.from('profiles').select('*', { count: 'exact', head: true })
         .is('deleted_at', null)
@@ -187,9 +197,46 @@ function CMOMarketingDashboard() {
     staleTime: 600000,
   });
 
+  // Conversion Rate = referral signups / ALL users who joined in the range. When the Signup source
+  // filter is Referred/Organic, `totalUsers` is a subset, so a separate unfiltered count is needed.
+  const { data: allUsersInRange } = useQuery({
+    queryKey: ['exec-all-users-in-range-cmo', rangeKey],
+    enabled: signupSource !== 'all',
+    queryFn: async () => {
+      const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
+      return count || 0;
+    },
+    staleTime: 600000,
+  });
+  const conversionBase = signupSource === 'all' ? totalUsers : allUsersInRange;
+
+  // The latest month in the range is usually the current, unfinished month. Comparing it with the
+  // whole previous month always reads as a drop, so compare it with the same number of days.
+  const lastMonthStart = startOfMonth(months[months.length - 1]);
+  const lastMonthIsCurrent = format(lastMonthStart, 'yyyy-MM') === currentMonth;
+  const { data: prevSamePeriodSignups } = useQuery({
+    queryKey: ['exec-signup-prev-same-period', currentMonth, signupSource, format(now, 'yyyy-MM-dd')],
+    enabled: lastMonthIsCurrent && months.length >= 2,
+    queryFn: async () => {
+      const prevStart = startOfMonth(subMonths(lastMonthStart, 1));
+      const elapsed = Date.now() - lastMonthStart.getTime();
+      const prevEnd = new Date(Math.min(prevStart.getTime() + elapsed, endOfMonth(prevStart).getTime()));
+      let q = supabase.from('profiles').select('*', { count: 'exact', head: true })
+        .is('deleted_at', null)
+        .gte('created_at', prevStart.toISOString()).lte('created_at', prevEnd.toISOString());
+      if (signupSource === 'referred') q = q.not('referrer_id', 'is', null);
+      if (signupSource === 'organic') q = q.is('referrer_id', null);
+      const { count } = await q;
+      return count || 0;
+    },
+    staleTime: 600000,
+  });
+
   // Login / authentication metrics (sourced from the OTP login audit, the active login channel)
-  const { data: loginStats } = useQuery({
-    queryKey: ['exec-login-stats', startMonth, endMonth, datePreset, customStartDate, customEndDate],
+  const { data: loginStats, isLoading: loadingLoginStats } = useQuery({
+    queryKey: ['exec-login-stats', startMonth, endMonth, rangeKey],
     queryFn: async () => {
       const rangeFilter = (q: any) =>
         q.gte('created_at', start.toISOString()).lte('created_at', end.toISOString());
@@ -237,8 +284,23 @@ function CMOMarketingDashboard() {
 
   const totalSignups = (signupTrend || []).reduce((s, m) => s + m.signups, 0);
   const lastMonth = signupTrend?.[signupTrend.length - 1]?.signups || 0;
-  const prevMonth = signupTrend?.[signupTrend.length - 2]?.signups || 1;
-  const growthRate = prevMonth > 0 ? Math.round(((lastMonth - prevMonth) / prevMonth) * 100) : 0;
+  // Baseline: the same days of the previous month while the latest month is unfinished, else the full previous month.
+  const prevBaseline = lastMonthIsCurrent
+    ? prevSamePeriodSignups
+    : signupTrend && signupTrend.length >= 2 ? signupTrend[signupTrend.length - 2].signups : undefined;
+  // No trend when there is nothing to compare with (one month selected, or a zero baseline).
+  const signupTrendCard = prevBaseline && prevBaseline > 0
+    ? {
+        value: Math.round(((lastMonth - prevBaseline) / prevBaseline) * 100),
+        label: lastMonthIsCurrent ? 'vs same days last month' : 'vs prev month',
+      }
+    : undefined;
+
+  const conversionPct = conversionBase && conversionBase > 0
+    ? ((referralStats?.totalReferrals || 0) / conversionBase) * 100
+    : 0;
+  // 0.08% used to read as "0%"; keep one decimal below 10%.
+  const conversionLabel = `${conversionPct >= 10 ? Math.round(conversionPct) : Number(conversionPct.toFixed(1))}%`;
 
   const referralData = signupTrend?.map(m => ({
     ...m,
@@ -280,92 +342,25 @@ function CMOMarketingDashboard() {
     },
   ];
 
-  const { data: recentReferrals, isLoading: loadingReferrals } = useQuery({
-    queryKey: ['exec-recent-referrals', startMonth, endMonth, referralStatus, datePreset],
-    queryFn: async () => {
-      let q = supabase
-        .from('referrals')
-        .select('id, referred_id, referrer_id, credited, created_at, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
-        .is('referred.deleted_at', null)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (referralStatus === 'pending') q = q.eq('credited', false);
-      if (referralStatus === 'completed') q = q.eq('credited', true);
-
-      const { data: refRows } = await q;
-      if (!refRows || refRows.length === 0) return [];
-
-      const userIds = [...new Set([...refRows.map(r => r.referred_id), ...refRows.map(r => r.referrer_id)])];
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', userIds);
-
-      const profileMap = new Map((profilesData || []).map(p => [p.id, p]));
-
-      return refRows.map(r => ({
-        id: r.id,
-        created_at: r.created_at,
-        credited: r.credited,
-        referred_name: profileMap.get(r.referred_id)?.full_name || profileMap.get(r.referred_id)?.phone || 'Unknown',
-        referrer_name: profileMap.get(r.referrer_id)?.full_name || profileMap.get(r.referrer_id)?.phone || 'Unknown',
-      }));
-    },
+  // Top referrers and the 200 most recent referrals share one server-side call (the old client-side
+  // aggregation was also cut short by the 1,000-row API limit, so rankings were wrong on busy ranges).
+  const { data: referralLists, isLoading: loadingReferralLists } = useQuery({
+    queryKey: ['exec-referral-lists', rangeKey, referralStatus],
+    queryFn: () =>
+      callRpc<{
+        top_referrers: Array<{ rank: number; referrer_id: string; name: string; referrals: number; pending: number; completed: number }>;
+        recent: Array<{ id: string; created_at: string; credited: boolean; referred_name: string; referrer_name: string }>;
+      }>('get_cmo_referral_lists', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_status: referralStatus,
+      }),
     staleTime: 600000,
   });
-
-  const { data: topReferrers, isLoading: loadingTopReferrers } = useQuery({
-    queryKey: ['exec-top-referrers', startMonth, endMonth, referralStatus, datePreset],
-    queryFn: async () => {
-      let q = supabase
-        .from('referrals')
-        .select('referrer_id, credited, referred:profiles!referrals_referred_id_fkey!inner(deleted_at)')
-        .is('referred.deleted_at', null)
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
-
-      if (referralStatus === 'pending') q = q.eq('credited', false);
-      if (referralStatus === 'completed') q = q.eq('credited', true);
-
-      const { data: refRows } = await q;
-      if (!refRows || refRows.length === 0) return [];
-
-      const counts: Record<string, { total: number; pending: number; completed: number }> = {};
-      refRows.forEach((r) => {
-        const c = counts[r.referrer_id] || { total: 0, pending: 0, completed: 0 };
-        c.total += 1;
-        if (r.credited) c.completed += 1;
-        else c.pending += 1;
-        counts[r.referrer_id] = c;
-      });
-
-      const sortKey = referralStatus === 'pending' ? 'pending' : referralStatus === 'completed' ? 'completed' : 'total';
-      const sorted = Object.entries(counts)
-        .sort((a, b) => b[1][sortKey as keyof typeof b[1]] - a[1][sortKey as keyof typeof a[1]])
-        .slice(0, 20);
-
-      const referrerIds = sorted.map(([id]) => id);
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .in('id', referrerIds);
-
-      const profileMap = new Map((profilesData || []).map((p) => [p.id, p]));
-
-      return sorted.map(([id, c], idx) => ({
-        rank: idx + 1,
-        referrer_id: id,
-        name: profileMap.get(id)?.full_name || profileMap.get(id)?.phone || 'Unknown',
-        referrals: c.total,
-        pending: c.pending,
-        completed: c.completed,
-      }));
-    },
-    staleTime: 600000,
-  });
+  const recentReferrals = referralLists?.recent;
+  const topReferrers = referralLists?.top_referrers;
+  const loadingReferrals = loadingReferralLists;
+  const loadingTopReferrers = loadingReferralLists;
 
   const statusOptions: { label: string; value: ReferralStatus }[] = [
     { label: 'All', value: 'all' },
@@ -429,7 +424,8 @@ function CMOMarketingDashboard() {
               <Button
                 key={opt.value}
                 size="sm"
-                variant={datePreset === opt.value ? 'secondary' : 'outline'}
+                variant={datePreset === opt.value ? 'default' : 'outline'}
+                aria-pressed={datePreset === opt.value}
                 onClick={() => setDatePreset(opt.value)}
                 className="text-xs"
               >
@@ -447,8 +443,8 @@ function CMOMarketingDashboard() {
                 id="custom-start"
                 type="date"
                 value={customStartDate}
-                max={customEndDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
+                max={format(now, 'yyyy-MM-dd')}
+                onChange={(e) => changeCustomStart(e.target.value)}
                 className="w-44"
               />
             </div>
@@ -458,8 +454,8 @@ function CMOMarketingDashboard() {
                 id="custom-end"
                 type="date"
                 value={customEndDate}
-                min={customStartDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
+                max={format(now, 'yyyy-MM-dd')}
+                onChange={(e) => changeCustomEnd(e.target.value)}
                 className="w-44"
               />
             </div>
@@ -474,7 +470,8 @@ function CMOMarketingDashboard() {
                 id="start-month"
                 type="month"
                 value={startMonth}
-                onChange={(e) => { if (e.target.value <= endMonth) setStartMonth(e.target.value); }}
+                max={currentMonth}
+                onChange={(e) => changeStartMonth(e.target.value)}
                 className="w-40"
               />
             </div>
@@ -484,7 +481,8 @@ function CMOMarketingDashboard() {
                 id="end-month"
                 type="month"
                 value={endMonth}
-                onChange={(e) => { if (e.target.value >= startMonth) setEndMonth(e.target.value); }}
+                max={currentMonth}
+                onChange={(e) => changeEndMonth(e.target.value)}
                 className="w-40"
               />
             </div>
@@ -500,6 +498,7 @@ function CMOMarketingDashboard() {
                   key={opt.value}
                   size="sm"
                   variant={referralStatus === opt.value ? 'default' : 'outline'}
+                  aria-pressed={referralStatus === opt.value}
                   onClick={() => setReferralStatus(opt.value)}
                   className="text-xs"
                 >
@@ -516,6 +515,7 @@ function CMOMarketingDashboard() {
                   key={opt.value}
                   size="sm"
                   variant={signupSource === opt.value ? 'default' : 'outline'}
+                  aria-pressed={signupSource === opt.value}
                   onClick={() => setSignupSource(opt.value)}
                   className="text-xs"
                 >
@@ -529,31 +529,43 @@ function CMOMarketingDashboard() {
         <p className="text-xs text-muted-foreground">
           Showing {format(start, 'dd MMM yyyy')} → {format(end, 'dd MMM yyyy')}
         </p>
+        {datePreset !== '6months' && (
+          <p className="text-[11px] text-muted-foreground">
+            The cards use this range. The monthly charts and “Monthly Signups” still cover{' '}
+            {format(monthlyStart, 'MMM yyyy')} – {format(monthlyEnd, 'MMM yyyy')}; choose “6 Months” to change those months.
+          </p>
+        )}
+        {signupSource !== 'all' && (
+          <p className="text-[11px] text-muted-foreground">
+            Signup source applies to the user and signup counts. Referral figures always count referred signups.
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KPICard title={datePreset === '6months' ? 'Total Users' : 'New Users (range)'} value={(totalUsers || 0).toLocaleString()} icon={Users} loading={isLoading} />
-        <KPICard title="Monthly Signups" value={lastMonth} icon={UserPlus} loading={isLoading} color="bg-green-500/10 text-green-600" trend={{ value: growthRate, label: 'vs prev month' }} />
+        <KPICard title="New Users (range)" value={(totalUsers || 0).toLocaleString()} icon={Users} loading={loadingTotalUsers} />
+        <KPICard title="Monthly Signups" value={lastMonth} icon={UserPlus} loading={isLoading} color="bg-green-500/10 text-green-600" trend={signupTrendCard} />
         <KPICard
           title={referralStatus === 'all' ? 'Referral Signups' : referralStatus === 'pending' ? 'Pending Referrals' : 'Completed Referrals'}
           value={referralTotalForStatus}
           icon={Megaphone}
           color="bg-purple-500/10 text-purple-600"
+          loading={loadingReferralStats}
         />
-        <KPICard title="Conversion Rate" value={totalUsers ? `${Math.round((referralStats?.totalReferrals || 0) / totalUsers * 100)}%` : '0%'} icon={Target} color="bg-orange-500/10 text-orange-600" />
+        <KPICard title="Conversion Rate" value={conversionLabel} icon={Target} color="bg-orange-500/10 text-orange-600" loading={loadingReferralStats || conversionBase === undefined} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 sm:gap-3">
-        <KPICard title="Total Referrals" value={referralStats?.totalReferrals || 0} icon={Megaphone} color="bg-purple-500/10 text-purple-600" />
-        <KPICard title="Pending Referrals" value={referralStats?.pendingReferrals || 0} icon={TrendingUp} color="bg-amber-500/10 text-amber-600" />
-        <KPICard title="Completed Referrals" value={referralStats?.completedReferrals || 0} icon={BarChart3} color="bg-green-500/10 text-green-600" />
+        <KPICard title="Total Referrals" value={referralStats?.totalReferrals || 0} icon={Megaphone} color="bg-purple-500/10 text-purple-600" loading={loadingReferralStats} />
+        <KPICard title="Pending Referrals" value={referralStats?.pendingReferrals || 0} icon={TrendingUp} color="bg-amber-500/10 text-amber-600" loading={loadingReferralStats} />
+        <KPICard title="Completed Referrals" value={referralStats?.completedReferrals || 0} icon={BarChart3} color="bg-green-500/10 text-green-600" loading={loadingReferralStats} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KPICard title="Successful Logins" value={(loginStats?.success || 0).toLocaleString()} icon={LogIn} color="bg-green-500/10 text-green-600" />
-        <KPICard title="Login Success Rate" value={`${loginSuccessRate}%`} icon={ShieldCheck} color="bg-emerald-500/10 text-emerald-600" />
-        <KPICard title="Failed Logins" value={(loginStats?.failed || 0).toLocaleString()} icon={ShieldAlert} color="bg-red-500/10 text-red-600" />
-        <KPICard title="No-Account Attempts" value={(loginStats?.noAccount || 0).toLocaleString()} icon={UserX} color="bg-amber-500/10 text-amber-600" />
+        <KPICard title="Successful Logins" value={(loginStats?.success || 0).toLocaleString()} icon={LogIn} color="bg-green-500/10 text-green-600" loading={loadingLoginStats} />
+        <KPICard title="Login Success Rate" value={`${loginSuccessRate}%`} icon={ShieldCheck} color="bg-emerald-500/10 text-emerald-600" loading={loadingLoginStats} />
+        <KPICard title="Failed Logins" value={(loginStats?.failed || 0).toLocaleString()} icon={ShieldAlert} color="bg-red-500/10 text-red-600" loading={loadingLoginStats} />
+        <KPICard title="No-Account Attempts" value={(loginStats?.noAccount || 0).toLocaleString()} icon={UserX} color="bg-amber-500/10 text-amber-600" loading={loadingLoginStats} />
       </div>
 
       <WebTrafficAnalyticsSection />

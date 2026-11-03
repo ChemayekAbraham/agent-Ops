@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp, Phone, MessageCircle, Mail, Calendar, BadgeCheck } from 'lucide-react';
+import { FileText, ArrowRight, Clock, CheckCircle, XCircle, TrendingUp, Search, Loader2, Check, X, AlertTriangle, ChevronDown, ChevronUp, Phone, MessageCircle, Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,8 +21,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePromissoryOpsReport, PROMISSORY_RANGES, type PromissoryRange } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { AgentCallMenu } from '../PromissoryNotesQueue';
 import { bumpPromissoryPendingCount, reconcilePromissoryPendingCount } from './promissoryPendingCount';
+import { countPromissoryQueue, isPromissoryOverdue, PROMISSORY_COUNT_HELP } from '@/lib/promissoryQueueCounts';
+import { PromissoryNoteReviewActions } from './PromissoryNoteReviewActions';
 
 const QUICK_LIST_SIZE = 6;
 
@@ -83,24 +86,17 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   const [rejecting, setRejecting] = useState(false);
   const [detailNote, setDetailNote] = useState<any>(null);
 
-  const isOverdue = (n: any) => {
-    if (!n.fulfilment_due_on) return false;
-    const due = new Date(n.fulfilment_due_on);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (due >= today) return false;
-    const outstanding = Number(n.outstanding ?? (Number(n.amount) - Number(n.total_collected)));
-    return outstanding > 0;
-  };
+  const isOverdue = (n: any) => isPromissoryOverdue(n);
 
   const filteredNotes = useMemo(() => notes.filter((n) => matchesSearch(n, search)), [notes, search]);
 
+  const queueCounts = useMemo(() => countPromissoryQueue(filteredNotes), [filteredNotes]);
   const counts = {
-    pending: filteredNotes.filter((n) => n.status === 'pending').length,
-    activated: filteredNotes.filter((n) => n.status === 'activated').length,
-    rejected: filteredNotes.filter((n) => n.status === 'cancelled' || n.status === 'defaulted').length,
-    overdue: filteredNotes.filter(isOverdue).length,
-    fulfilled: filteredNotes.filter((n) => n.status === 'fulfilled').length,
+    pending: queueCounts.pending,
+    activated: queueCounts.approved,
+    rejected: queueCounts.rejected + queueCounts.defaulted,
+    overdue: queueCounts.overdue,
+    fulfilled: queueCounts.fulfilled,
   };
 
   const statusNotes = useMemo(() => {
@@ -324,26 +320,34 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
             <div className="flex flex-wrap gap-2">
               {PILL_CONFIG.map(({ key, label, icon: Icon }) => {
                 const active = selected === key;
+                const help = key === 'pending' ? PROMISSORY_COUNT_HELP.pending
+                  : key === 'activated' ? PROMISSORY_COUNT_HELP.approved
+                  : key === 'overdue' ? PROMISSORY_COUNT_HELP.overdue
+                  : 'Rejected and defaulted notes in the selected date range.';
                 return (
-                  <button
-                    key={key}
-                    onClick={() => setSelected(key)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
-                      active
-                        ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
-                        : 'bg-background text-muted-foreground hover:bg-accent border'
-                    )}
-                    aria-pressed={active}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{label}</span>
-                    {!isLoading && (
-                      <span className={cn('ml-0.5 tabular-nums', active ? 'text-primary-foreground/80' : 'text-muted-foreground/80')}>
-                        {counts[key].toLocaleString()}
-                      </span>
-                    )}
-                  </button>
+                  <Tooltip key={key}>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => setSelected(key)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all',
+                          active
+                            ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
+                            : 'bg-background text-muted-foreground hover:bg-accent border'
+                        )}
+                        aria-pressed={active}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        <span>{label}</span>
+                        {!isLoading && (
+                          <span className={cn('ml-0.5 tabular-nums', active ? 'text-primary-foreground/80' : 'text-muted-foreground/80')}>
+                            {counts[key].toLocaleString()}
+                          </span>
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs text-xs">{help}</TooltipContent>
+                  </Tooltip>
                 );
               })}
             </div>
@@ -397,27 +401,24 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
 
 
         <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border bg-background/60 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <Clock className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Awaiting review</span>
-            </div>
-            <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.pending.toLocaleString()}</p>
-          </div>
-          <div className="rounded-2xl border bg-background/60 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <CheckCircle className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Approved</span>
-            </div>
-            <p className="text-sm font-bold mt-1">{isLoading ? '…' : counts.activated.toLocaleString()}</p>
-          </div>
-          <div className="rounded-2xl border bg-background/60 p-3">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <TrendingUp className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Promised</span>
-            </div>
-            <p className="text-sm font-bold mt-1 truncate">{isLoading ? '…' : formatUGX(kpis.promised_total)}</p>
-          </div>
+          {([
+            { label: 'Awaiting review', value: isLoading ? '…' : counts.pending.toLocaleString(), icon: Clock, help: PROMISSORY_COUNT_HELP.pending },
+            { label: 'Approved', value: isLoading ? '…' : counts.activated.toLocaleString(), icon: CheckCircle, help: PROMISSORY_COUNT_HELP.approved },
+            { label: 'Promised', value: isLoading ? '…' : formatUGX(kpis.promised_total), icon: TrendingUp, help: 'Total amount promised on notes in the selected date range.' },
+          ]).map((card) => (
+            <Tooltip key={card.label}>
+              <TooltipTrigger asChild>
+                <div className="rounded-2xl border bg-background/60 p-3">
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <card.icon className="h-3.5 w-3.5" />
+                    <span className="text-[10px] font-medium uppercase tracking-wide">{card.label}</span>
+                  </div>
+                  <p className="text-sm font-bold mt-1 truncate">{card.value}</p>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">{card.help}</TooltipContent>
+            </Tooltip>
+          ))}
         </div>
 
         {!isLoading && statusNotes.length > 0 && (
@@ -626,27 +627,12 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  {detailNote.status === 'pending' && (
-                    <Button
-                      className="flex-1"
-                      onClick={() => { setApproveReason(''); setApproveTarget(detailNote); }}
-                    >
-                      <BadgeCheck className="h-4 w-4 mr-2" />
-                      Approve & Pay UGX 1,500
-                    </Button>
-                  )}
-                  {detailNote.status === 'activated' && (
-                    <Button
-                      variant="outline"
-                      className="flex-1 border-destructive/40 text-destructive hover:bg-destructive/10"
-                      onClick={() => { setRejectReason(''); setRejectTarget(detailNote); }}
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject & Reverse Bonus
-                    </Button>
-                  )}
-                </div>
+                <PromissoryNoteReviewActions
+                  showApprove={detailNote.status === 'pending'}
+                  onApprove={() => { setApproveReason(''); setApproveTarget(detailNote); }}
+                  showReject={detailNote.status === 'activated'}
+                  onReject={() => { setRejectReason(''); setRejectTarget(detailNote); }}
+                />
               </div>
             );
           })()}

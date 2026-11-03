@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Bug, X, Trash2, AlertTriangle } from 'lucide-react';
 import {
   CREDIT_DEBUG_EVENT,
@@ -19,11 +20,28 @@ const TYPE_STYLES: Record<string, { label: string; cls: string }> = {
   'done': { label: 'done', cls: 'bg-muted text-muted-foreground' },
 };
 
+// The credit cards live on these dashboards only, so the panel stays off every other page.
+const CREDIT_DEBUG_ROUTES = /^\/dashboard\/(tenant|agent|agent-bk|agent-new|landlord)(\/|$)/;
+
 export function CreditLoadingDebugPanel() {
+  const { pathname } = useLocation();
   const [enabled] = useState(() => isCreditDebugEnabled());
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<CreditLoadingEntry[]>(() => getCreditDebugLog());
   const isPrimary = useRef(false);
+  const onCreditPage = CREDIT_DEBUG_ROUTES.test(pathname);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  // Sit on the dashboard page itself, never on top of an open dialog or sheet
+  // (it covered the rent-request chat's Send button).
+  useEffect(() => {
+    if (!enabled || !onCreditPage) return;
+    const sync = () => setDialogOpen(!!document.querySelector('[role="dialog"][data-state="open"]'));
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-state'] });
+    return () => observer.disconnect();
+  }, [enabled, onCreditPage]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -40,7 +58,7 @@ export function CreditLoadingDebugPanel() {
     return () => window.removeEventListener(CREDIT_DEBUG_EVENT, handler);
   }, [enabled]);
 
-  if (!enabled || !isPrimary.current) return null;
+  if (!enabled || !isPrimary.current || !onCreditPage || dialogOpen) return null;
 
   const coldLoads = entries.filter((e) => e.type === 'cold-load').length;
 

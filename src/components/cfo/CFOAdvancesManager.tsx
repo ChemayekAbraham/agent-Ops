@@ -21,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import IssueAdvanceSheet from '@/components/manager/IssueAdvanceSheet';
 import { CFOInitiateAdvanceDialog } from '@/components/cfo/CFOInitiateAdvanceDialog';
+import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
 import { RecordAdvancePaymentDialog } from '@/components/cfo/RecordAdvancePaymentDialog';
 import { AdvancePaymentSearchDialog } from '@/components/cfo/AdvancePaymentSearchDialog';
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
@@ -48,6 +49,7 @@ export function CFOAdvancesManager() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'overdue'>('all');
   const [issueOpen, setIssueOpen] = useState(false);
+  const [specialOpen, setSpecialOpen] = useState(false);
   const [renewOpen, setRenewOpen] = useState(false);
   const [renewAgentId, setRenewAgentId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -315,6 +317,15 @@ export function CFOAdvancesManager() {
             className="gap-1"
           >
             <Receipt className="h-4 w-4" /> Record Payment
+          </Button>
+          <Button
+            id="open-special-advance"
+            onClick={() => setSpecialOpen(true)}
+            size="sm"
+            variant="outline"
+            className="gap-1"
+          >
+            <Calculator className="h-4 w-4" /> Special Advance
           </Button>
           <Button onClick={() => setIssueOpen(true)} size="sm" className="gap-1">
             <Plus className="h-4 w-4" /> Issue Advance
@@ -666,6 +677,7 @@ export function CFOAdvancesManager() {
       </AlertDialog>
 
       <CFOInitiateAdvanceDialog open={issueOpen} onOpenChange={setIssueOpen} onSuccess={refetch} />
+      <SpecialAdvanceModal open={specialOpen} onOpenChange={setSpecialOpen} />
       <IssueAdvanceSheet
         open={renewOpen}
         onOpenChange={(open) => { setRenewOpen(open); if (!open) setRenewAgentId(null); }}

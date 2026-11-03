@@ -4,7 +4,7 @@ import {
   isChromeIOS,
   isFirefoxIOS,
 } from '@/hooks/useIOSCompatibility';
-import { detectStandalone } from '@/lib/pwaStandalone';
+import { detectStandalone, isRunningStandaloneNow } from '@/lib/pwaStandalone';
 
 export type InstallEventType =
   | 'install_card_shown'
@@ -53,6 +53,8 @@ function detectPlatform(): string {
   const ua = navigator.userAgent || '';
   if (/iPad|iPhone|iPod/.test(ua)) return 'ios';
   if (/Android/i.test(ua)) return 'android';
+  // iPadOS 13+ reports a desktop Mac user agent; a Mac with a touch screen is an iPad.
+  if (/Mac/i.test(ua) && (navigator.maxTouchPoints ?? 0) > 1) return 'ios';
   if (/Mac/i.test(ua)) return 'macos';
   if (/Win/i.test(ua)) return 'windows';
   return 'other';
@@ -105,5 +107,33 @@ export async function trackInstallEvent(
     await supabase.from('install_attempt_events').insert([payload]);
   } catch {
     // Silent — telemetry must never break the flow.
+  }
+}
+
+const IOS_INSTALL_REPORTED_KEY = 'welile_ios_install_reported';
+
+/**
+ * iOS never fires `appinstalled` or a prompt outcome, so an "Add to Home Screen" install is
+ * invisible to the funnel. The one reliable signal is the app opening from the home screen:
+ * its first launch is recorded here as `app_installed`, once per installed copy. A home-screen
+ * app keeps its own storage, so the flag below is per install and a reinstall reports again.
+ * `install_id` lets the funnel count signed-out installs separately without a user id.
+ */
+export async function reportIosHomeScreenInstall(): Promise<void> {
+  try {
+    if (detectPlatform() !== 'ios' || !isRunningStandaloneNow()) return;
+    if (localStorage.getItem(IOS_INSTALL_REPORTED_KEY)) return;
+    const installId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    // Set first so a failed or slow request can never produce a second report from this install.
+    localStorage.setItem(IOS_INSTALL_REPORTED_KEY, installId);
+    await trackInstallEvent('app_installed', {
+      surface: 'ios_standalone_first_launch',
+      install_id: installId,
+    });
+  } catch {
+    /* storage blocked or telemetry failed: never affect the app */
   }
 }

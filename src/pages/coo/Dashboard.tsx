@@ -17,6 +17,7 @@ import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWor
 
 import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
 import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
+import { COOWelileHomesApprovalDesk } from '@/components/coo/COOWelileHomesApprovalDesk';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { COOAgentHub } from '@/components/coo/COOAgentHub';
@@ -26,7 +27,7 @@ import { PendingPortfolioTopUps } from '@/components/cfo/PendingPortfolioTopUps'
 import { PartnerFinancialActivity } from '@/components/executive/PartnerFinancialActivity';
 import DailyCollectionMonitoringDashboard from '@/components/shared/DailyCollectionMonitoringDashboard';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { COOScaleVisionView } from '@/components/coo/COOScaleVisionView';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
 import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
@@ -39,7 +40,7 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone, ShoppingBag
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone, ShoppingBag, LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
@@ -161,6 +162,17 @@ export default function COODashboardPage() {
             <p className="text-sm text-muted-foreground -mt-2">Review rent requests approved by Landlord Ops. Your sign-off forwards to CFO for payout.</p>
             <RentPipelineQueue stage="partner_ops_approved" />
             <RejectedRequestsQueue stageFilter="partner_ops_approved" title="Rejected at COO" />
+          </div>
+        );
+      case 'welile-homes-approvals':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Welile Homes Float Approvals', Home)}
+            <p className="text-sm text-muted-foreground -mt-2">
+              Review agent landlord float requests cleared by Tenant Ops. Your approval forwards directly to CFO for disbursement (bypassing Partner Ops).
+            </p>
+            <COOWelileHomesApprovalDesk />
           </div>
         );
       case 'tenants':
@@ -402,7 +414,21 @@ export default function COODashboardPage() {
   };
 
   return (
-    <ExecutiveDashboardLayout role="coo" activeTab={activeTab} onTabChange={setActiveTab}>
+    <ExecutiveDashboardLayout
+      role="coo"
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      headerActions={
+        <Link
+          to="/desk"
+          aria-label="Open the Welile ops desks"
+          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <LayoutGrid className="h-4 w-4 shrink-0" />
+          <span>Ops desks</span>
+        </Link>
+      }
+    >
       {renderContent()}
     </ExecutiveDashboardLayout>
   );

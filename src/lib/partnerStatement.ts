@@ -68,6 +68,8 @@ export async function fetchPartnerStatement(portfolioId?: string): Promise<State
 const STATUS: Record<string, { label: string; tag: string }> = {
   active: { label: 'Active', tag: 'tag-active' },
   cancelled: { label: 'Closed', tag: 'tag-closed' },
+  // The contract term has ended (the portfolio goes inactive automatically).
+  matured: { label: 'Matured', tag: 'tag-closed' },
   awaiting_partner_details: { label: 'Awaiting Details', tag: 'tag-awaiting' },
   locked: { label: 'Locked', tag: 'tag-awaiting' },
   pending_ops_approval: { label: 'Processing', tag: 'tag-awaiting' },

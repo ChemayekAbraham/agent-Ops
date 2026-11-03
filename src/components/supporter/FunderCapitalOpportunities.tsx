@@ -26,7 +26,7 @@ import { FundRentDialog } from './FundRentDialog';
 import { InvestmentWithdrawButton } from './InvestmentWithdrawButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { FunderHouseListingsSection, type FunderListMapFilters } from '@/components/supporter/FunderHouseListingsSection';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
@@ -262,7 +262,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
 }) {
   const showHeader = Boolean(title) || Boolean(onBack);
   return (
-    <div className={`border border-border/80 bg-card overflow-hidden shadow-sm ${compactMobile ? 'rounded-xl sm:rounded-2xl' : 'rounded-2xl'}`}>
+    <div className={`border border-border/80 bg-card overflow-hidden ${compactMobile ? 'shadow-none sm:shadow-sm rounded-xl sm:rounded-2xl' : 'shadow-sm rounded-2xl'}`}>
       {showHeader && (
       <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
@@ -478,21 +478,32 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 export function FunderCapitalOpportunities({
   initialView = 'menu',
   embedded = false,
+  searchOnMap = false,
+  onListFiltersChange,
+  onListResultsFocus,
 }: {
   initialView?: ViewState;
   /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
   initialFeedOrder?: FeedOrder;
   embedded?: boolean;
+  /** Float the search bar at the top of the full screen map instead of inside the sheet. */
+  searchOnMap?: boolean;
+  /** Mirrors the houses list's search, district and amount to a map on the same screen. */
+  onListFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** Where the list's search results are, so a map on the same screen can move there. */
+  onListResultsFocus?: (points: { lat: number; lng: number }[]) => void;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
-  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities();
+  // The houses list ('direct') shows none of the portfolio / market summary data, so
+  // it neither waits for it nor pays for it; the menu and Angel Pool views do need it.
+  const [view, setView] = useState<ViewState>(initialView);
+  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities({ enabled: view !== 'direct' });
   const { user } = useAuth();
   const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
 
-  const [view, setView] = useState<ViewState>(initialView);
   const [housePickerOpen, setHousePickerOpen] = useState(false);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);
@@ -796,7 +807,7 @@ export function FunderCapitalOpportunities({
         {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <FunderHouseListingsSection />
+            ? <FunderHouseListingsSection searchOnMap={searchOnMap} onFiltersChange={onListFiltersChange} onResultsFocus={onListResultsFocus} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 

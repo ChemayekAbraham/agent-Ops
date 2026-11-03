@@ -13,7 +13,7 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { AngelSharesTab } from './AngelSharesTab';
 import { downloadPortfolioPdf, sharePortfolioViaWhatsApp } from '@/lib/portfolioPdf';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { format, formatDistanceToNow, differenceInDays, isPast, addDays } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays, differenceInCalendarMonths, isPast, addDays } from 'date-fns';
 import { FundAccountDialog } from './FundAccountDialog';
 import { toast } from 'sonner';
 import { PayoutMethodDialog } from './PayoutMethodDialog';
@@ -312,6 +312,19 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                                 <span className={`inline-flex items-center gap-1 text-[9px] font-medium ${sc.cls} px-1.5 py-0.5 rounded-full`}>
                                   <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />{sc.label}
                                 </span>
+                                {(() => {
+                                  // Self-support portfolios (WSP/WSH) run a 12-month contract.
+                                  const code = entry.code || '';
+                                  if (!code.startsWith('WSP') && !code.startsWith('WSH')) return null;
+                                  const label = entry.status === 'matured'
+                                    ? 'Contract ended'
+                                    : `Month ${Math.min(Math.max(1, Number(entry.duration_months) || 12), Math.max(0, differenceInCalendarMonths(new Date(), investedDate)) + 1)} of ${Math.max(1, Number(entry.duration_months) || 12)}`;
+                                  return (
+                                    <span className="inline-flex items-center text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                                      {label}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             )}
                             {!entry.account_name && renamingId !== entry.id && (

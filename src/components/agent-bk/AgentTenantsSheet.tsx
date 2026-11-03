@@ -1448,6 +1448,15 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
                 <span className="text-lg font-bold">My Tenants</span>
               </div>
               <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 rounded-xl px-2.5 text-xs font-bold"
+                  aria-label="Post a rent request"
+                  onClick={() => { setRenewPrefill(null); setRenewDialogOpen(true); }}
+                >
+                  Post
+                </Button>
                 <Badge variant="outline" className="text-sm font-mono px-2.5 py-0.5">
                   {stats.total}
                 </Badge>
@@ -2875,6 +2884,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       </SheetContent>
 
       <AgentRentRequestDialog
+        presentation="chat"
         open={renewDialogOpen}
         onOpenChange={(open) => {
           setRenewDialogOpen(open);

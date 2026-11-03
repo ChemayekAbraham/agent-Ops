@@ -1,6 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 
 export interface SupportedTenant {
   rent_request_id: string;
@@ -31,13 +37,17 @@ export interface SupportedTenant {
 
 export function useSupportedTenants() {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
 
   const query = useQuery({
     queryKey: ['funder-supported-tenants', user?.id],
-    enabled: !!user?.id,
+    enabled: signedIn,
     staleTime: 60_000,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('funder_supported_tenants' as any);
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return ((data as any[]) || []) as SupportedTenant[];
     },

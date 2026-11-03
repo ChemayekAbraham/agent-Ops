@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { Loader2, Search, User, Wallet, PiggyBank, CheckCircle, ArrowRight, Copy, UserPlus, Info } from 'lucide-react';
@@ -108,19 +109,17 @@ export function AgentAngelPoolInvestDialog({ open, onOpenChange, onSuccess }: Ag
   };
 
   const handleSearch = async () => {
-    if (searchQuery.length < 2) return;
+    if (searchQuery.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) return;
     setSearching(true);
     setHasSearched(true);
     setShowRegister(false);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
-        .limit(10);
-
-      if (error) throw error;
-      setSearchResults(data || []);
+      const { rows, error } = await searchProfilesTypeahead(searchQuery, {
+        limit: 10,
+        columns: 'id, full_name, phone',
+      });
+      if (error) throw new Error(error);
+      setSearchResults(rows as { id: string; full_name: string | null; phone: string | null }[]);
     } catch (err) {
       toast.error('Search failed');
     } finally {

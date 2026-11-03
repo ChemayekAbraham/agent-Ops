@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { clearPostAuthRedirect, peekPostAuthRedirect } from '@/lib/returnPath';
 import ScreenLoader from '@/components/common/ScreenLoader';
 
 export default function Index() {
@@ -9,6 +11,14 @@ export default function Index() {
   
   const ref = searchParams.get('ref');
   const role = searchParams.get('role');
+
+  // Google/Apple sign-in returns here without ?redirect=; the deep link (e.g. a scanned asset QR page) was kept in
+  // session storage before leaving. Peek during render (validated as a safe, returnable in-app path) and consume it
+  // in an effect, so a double render can't lose it. The destination route still applies its own role checks.
+  const postAuthPath = !loading && user ? peekPostAuthRedirect() : null;
+  useEffect(() => {
+    if (postAuthPath) clearPostAuthRedirect();
+  }, [postAuthPath]);
 
   // While auth is loading: show spinner before making any redirect decision
   if (loading) {
@@ -19,9 +29,18 @@ export default function Index() {
 
   // Auth finished loading — use LIVE auth state
   if (user) {
+    if (postAuthPath) return <Navigate to={postAuthPath} replace />;
     // Already logged in — send them to their persona dashboard.
     // authRole may not be set yet on cold load; helper falls back to /tenant.
     return <Navigate to={roleToSlug(authRole)} replace />;
+  }
+
+  // Not logged in after a failed Google/Apple sign-in: the provider returns to the
+  // site root with ?error= / #error=. Hand it to /auth, which records and shows it,
+  // instead of dropping it on /welcome.
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  if (searchParams.get('error') || /[#&]error=/.test(hash)) {
+    return <Navigate to={{ pathname: '/auth', search: `?${searchParams.toString()}`, hash }} replace />;
   }
 
   // Not logged in — send referral/role links to auth

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,61 +37,67 @@ export function TenantToSubAgentPanel() {
   const [selectedParent, setSelectedParent] = useState<Profile | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const debouncedTenantQuery = useDebouncedValue(tenantQuery, 300);
+  const debouncedParentSearch = useDebouncedValue(parentSearch, 300);
+
   // ─── Tenant search (by name / phone / email) ─────────────────────────────
   const { data: tenants, isFetching: tenantsLoading } = useQuery({
-    queryKey: ['ttsa-tenant-search', tenantQuery],
+    queryKey: ['ttsa-tenant-search', debouncedTenantQuery],
     queryFn: async (): Promise<Profile[]> => {
-      const q = tenantQuery.trim();
-      if (q.length < 2) return [];
-
+      const q = debouncedTenantQuery.trim();
+      if (q.length < 3) return [];
+      const { rows, error } = await searchProfilesTypeahead(q, {
+        limit: 20,
+        columns: 'id, full_name, phone, email',
+      });
+      if (error) throw new Error(error);
+      if (rows.length === 0) return [];
       const { data: tenantRoleRows } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'tenant')
-        .limit(2000);
-      const tenantIds = (tenantRoleRows || []).map(r => r.user_id);
-      if (tenantIds.length === 0) return [];
-
-      const like = `%${q}%`;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, email')
-        .in('id', tenantIds)
-        .or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
-        .limit(20);
-      if (error) throw error;
-      return data || [];
+        .in('user_id', rows.map((r) => r.id));
+      const tenantIds = new Set((tenantRoleRows || []).map(r => r.user_id));
+      return rows.filter((r) => tenantIds.has(r.id)) as Profile[];
     },
-    enabled: tenantQuery.trim().length >= 2,
+    enabled: debouncedTenantQuery.trim().length >= 3,
     staleTime: 10_000,
   });
 
   // ─── Active agent search (parent dropdown) ───────────────────────────────
   const { data: agents, isFetching: agentsLoading } = useQuery({
-    queryKey: ['ttsa-agent-search', parentSearch],
+    queryKey: ['ttsa-agent-search', debouncedParentSearch.trim().length >= 3 ? debouncedParentSearch.trim() : ''],
     queryFn: async (): Promise<Profile[]> => {
+      const q = debouncedParentSearch.trim();
+      if (q.length >= 3) {
+        const { rows, error } = await searchProfilesTypeahead(q, {
+          limit: 20,
+          columns: 'id, full_name, phone, email',
+        });
+        if (error) throw new Error(error);
+        if (rows.length === 0) return [];
+        const { data: agentRoleRows } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'agent')
+          .in('user_id', rows.map((r) => r.id));
+        const agentIds = new Set((agentRoleRows || []).map(r => r.user_id));
+        return rows.filter((r) => agentIds.has(r.id)) as Profile[];
+      }
+
       const { data: agentRoleRows } = await supabase
         .from('user_roles')
         .select('user_id')
         .eq('role', 'agent')
-        .limit(2000);
+        .limit(50);
       const agentIds = (agentRoleRows || []).map(r => r.user_id);
       if (agentIds.length === 0) return [];
-
-      let qb = supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, phone, email')
         .in('id', agentIds)
         .order('full_name', { ascending: true })
         .limit(50);
-
-      const q = parentSearch.trim();
-      if (q.length >= 2) {
-        const like = `%${q}%`;
-        qb = qb.or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`);
-      }
-
-      const { data, error } = await qb;
       if (error) throw error;
       return data || [];
     },
@@ -209,12 +217,12 @@ export function TenantToSubAgentPanel() {
             id="tenant-search"
             value={tenantQuery}
             onChange={(e) => setTenantQuery(e.target.value)}
-            placeholder="Search by name, phone, or email (min 2 chars)"
+            placeholder="Search by name, phone, or email (min 3 chars)"
             className="pl-9"
           />
         </div>
 
-        {tenantQuery.trim().length >= 2 && (
+        {tenantQuery.trim().length >= 3 && (
           <div className="border border-border rounded-lg max-h-56 overflow-y-auto bg-card">
             {tenantsLoading && (
               <div className="p-3 text-sm text-muted-foreground flex items-center gap-2">

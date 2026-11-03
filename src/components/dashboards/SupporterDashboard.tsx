@@ -1,13 +1,14 @@
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
+import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -20,10 +21,6 @@ import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopove
 import { SupporterDashboardSkeleton } from '@/components/skeletons/DashboardSkeletons';
 import { useWallet } from '@/hooks/useWallet';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
-import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
-import FunderWalletHubSection from '@/components/supporter/FunderWalletHubSection';
-import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
-import { InvestmentCalculator } from '@/components/supporter/InvestmentCalculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Agreement
@@ -32,53 +29,75 @@ import { useTrackSection } from '@/hooks/useTrackSection';
 import { useFunderNudges } from '@/hooks/useFunderNudges';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { 
-  SupporterAgreementModal, 
   LockedOverlay,
   AgreementAcceptedBadge
 } from '@/components/supporter/agreement';
-import { SupporterAgreementViewModal } from '@/components/supporter/agreement/SupporterAgreementCard';
 
 import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
 // Virtual Houses components
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
-import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
 import { RentCategory } from '@/components/supporter/RentCategoryFeed';
-import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
-import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
-import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
 import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
-import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
-import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
-import { FunderNewReviewDialog } from '@/components/funder-new/FunderNewSelectionPanel';
 import { toSelectionItem } from '@/components/funder-new/utils';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
-import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
 
-import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
 import { FunderApprovalBanner } from '@/components/supporter/FunderApprovalGate';
 
-import { FunderActivationModal } from '@/components/supporter/FunderActivationModal';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { NotificationBell } from '@/components/supporter/NotificationBell';
 import { useInactivityLock } from '@/hooks/useInactivityLock';
-import { SupporterInactivityLock } from '@/components/supporter/SupporterInactivityLock';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 import {
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { lazyWithRetry, lazyNamed } from '@/lib/lazyWithRetry';
 import { Suspense } from 'react';
+import { useMountedOnce } from '@/hooks/useMountedOnce';
+import { preloadWhenIdle } from '@/lib/idlePreload';
+
+// Dialogs, sheets and the houses map are only needed after a tap, so none of
+// their code (or the data they fetch) is part of opening the dashboard. Each one
+// loads the first time it is opened; the likeliest ones are fetched at idle.
+const loadHousesMap = () => import('@/components/funder-new/FunderNewMapSection');
+const loadMapSheet = () => import('@/components/supporter/MapBottomSheet');
+const loadCapitalOpportunities = () => import('@/components/supporter/FunderCapitalOpportunities');
+const loadInvestmentsDrawer = () => import('@/components/supporter/InvestmentAccountsDrawer');
+const loadInactivityLock = () => import('@/components/supporter/SupporterInactivityLock');
+const PaymentPartnersDialog = lazyWithRetry(() => import('@/components/payments/PaymentPartnersDialog'));
+const FunderWalletHubSection = lazyWithRetry(() => import('@/components/supporter/FunderWalletHubSection'));
+const EmptyHouseDetailSheet = lazyWithRetry(() => import('@/components/agent/EmptyHouseDetailSheet'));
+const InvestmentCalculator = lazyNamed(() => import('@/components/supporter/InvestmentCalculator'), 'InvestmentCalculator');
+const SupporterAgreementModal = lazyNamed(() => import('@/components/supporter/agreement/SupporterAgreementModal'), 'SupporterAgreementModal');
+const SupporterAgreementViewModal = lazyNamed(() => import('@/components/supporter/agreement/SupporterAgreementCard'), 'SupporterAgreementViewModal');
+const VirtualHouseDetailsSheet = lazyNamed(() => import('@/components/supporter/VirtualHouseDetailsSheet'), 'VirtualHouseDetailsSheet');
+const InvestmentPackageSheet = lazyNamed(() => import('@/components/supporter/InvestmentPackageSheet'), 'InvestmentPackageSheet');
+const FunderSavedItemsDialog = lazyNamed(() => import('@/components/funder-new/FunderSavedItemsDialog'), 'FunderSavedItemsDialog');
+const FunderNewReviewDialog = lazyNamed(() => import('@/components/funder-new/FunderNewSelectionPanel'), 'FunderNewReviewDialog');
+const FunderActivationModal = lazyNamed(() => import('@/components/supporter/FunderActivationModal'), 'FunderActivationModal');
+const FunderNewMapSection = lazyNamed(loadHousesMap, 'FunderNewMapSection');
+const MapBottomSheet = lazyNamed(loadMapSheet, 'MapBottomSheet');
+const FunderCapitalOpportunities = lazyNamed(loadCapitalOpportunities, 'FunderCapitalOpportunities');
+const InvestmentAccountsDrawer = lazyNamed(loadInvestmentsDrawer, 'InvestmentAccountsDrawer');
+const SupporterInactivityLock = lazyNamed(loadInactivityLock, 'SupporterInactivityLock');
+
+/** Starts downloading the houses map code as a finger reaches the hero card. */
+const preloadHousesMapCode = () => {
+  void loadHousesMap().catch(() => {});
+  void loadMapSheet().catch(() => {});
+  void loadCapitalOpportunities().catch(() => {});
+};
 
 
 interface SupporterDashboardProps {
@@ -123,8 +142,45 @@ export default function SupporterDashboard({
   const [localHasAccepted, setLocalHasAccepted] = useState<boolean | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showSavedItems, setShowSavedItems] = useState(false);
+  const { count: savedCount } = useFunderSavedItems();
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapExpandRequest, setMapExpandRequest] = useState(0);
+  // The houses map and its "Houses to fund" sheet are no longer repeated on the
+  // page: the hero card opens them full screen, and they unmount again on close.
+  const [mapRequested, setMapRequested] = useState(false);
+  const mapWasExpandedRef = useRef(false);
+  const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
+  const handleListResultsFocus = useCallback((points: { lat: number; lng: number }[]) => {
+    setMapFocus((prev) => ({ points, token: (prev?.token ?? 0) + 1 }));
+  }, []);
+  const openHousesMap = useCallback(() => {
+    setMapRequested(true);
+    setMapExpandRequest((n) => n + 1);
+  }, []);
+  const handleMapExpandedChange = useCallback((expanded: boolean) => {
+    setMapExpanded(expanded);
+    if (expanded) {
+      mapWasExpandedRef.current = true;
+    } else if (mapWasExpandedRef.current) {
+      // Ignore the map's initial "not expanded" report on mount; only a real close unmounts it.
+      mapWasExpandedRef.current = false;
+      setMapRequested(false);
+      setMapFocus(null);
+      // The list resets with its sheet, so the map starts unfiltered next time too.
+      setMapFilters((prev) => (prev.search || prev.location || prev.amount !== 'all' ? { ...prev, search: '', location: '', amount: 'all' } : prev));
+    }
+  }, []);
+  // The floating search and the filter drawer drive the houses list; mirror them
+  // onto the map so the pins match what the list shows.
+  const handleListFiltersChange = useCallback((next: { search: string; location: string; amount: FunderNewFilters['amount'] }) => {
+    setMapFilters((prev) =>
+      prev.search === next.search && prev.location === next.location && prev.amount === next.amount
+        ? prev
+        : { ...prev, search: next.search, location: next.location, amount: next.amount },
+    );
+  }, []);
 
   useEffect(() => {
     if (mapExpanded) {
@@ -238,7 +294,6 @@ export default function SupporterDashboard({
   // the "wallet is empty" nag trigger. Keeps user-facing surfaces locked
   // to the same source of truth as the wallet card / withdraw flow.
   const { available: strictAvailable } = useAvailableBalance(user.id);
-  const { emptyHouseSummary, loading: capitalLoading } = useCapitalOpportunities();
   const { formatAmount, formatAmountCompact } = useCurrency();
 
   useEffect(() => {
@@ -273,7 +328,7 @@ export default function SupporterDashboard({
   const [virtualHouses, setVirtualHouses] = useState<VirtualHouse[]>(() => {
     try {
       const raw = localStorage.getItem(`supporter_houses_${user.id}`);
-      if (raw) return JSON.parse(raw).houses || [];
+      if (raw) return sortFunderHousesByCompleteness<VirtualHouse>(JSON.parse(raw).houses || []);
     } catch {}
     return [];
   });
@@ -324,12 +379,11 @@ export default function SupporterDashboard({
   // Scroll to opportunities
   useEffect(() => {
     if (location.hash === '#opportunities') {
-      setTimeout(() => {
-        const el = document.getElementById('opportunities');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      // Opportunities now live in the full screen map sheet, so open it.
+      const timer = setTimeout(openHousesMap, 100);
+      return () => clearTimeout(timer);
     }
-  }, [location.hash]);
+  }, [location.hash, openHousesMap]);
 
   // Listen for open-deposit event from OpportunitySummaryCard
   useEffect(() => {
@@ -537,7 +591,8 @@ export default function SupporterDashboard({
     { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
     { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
     { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
-    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); } },
+    { icon: Bookmark, label: 'Saved Items', onClick: () => setShowSavedItems(true), badge: savedCount || undefined },
+    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); openHousesMap(); } },
     { icon: Calculator, label: 'Returns Calculator', onClick: () => setShowCalculator(true) },
     { icon: TrendingUp, label: 'Returns Analytics', onClick: () => navigate('/supporter-earnings') },
     { icon: History, label: 'History', onClick: () => navigate('/transactions') },
@@ -547,16 +602,45 @@ export default function SupporterDashboard({
     { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
   ];
 
+  // Mount each on-demand dialog the first time it is needed (see the lazy imports).
+  const mountPayment = useMountedOnce(showPaymentPartners);
+  const mountAgreement = useMountedOnce(showAgreementModal);
+  const mountAgreementView = useMountedOnce(showViewAgreementModal);
+  const mountHouseDetails = useMountedOnce(showHouseDetails);
+  const mountMapDetail = useMountedOnce(!!mapDetailHouse);
+  const mountMapFund = useMountedOnce(!!mapFundItem);
+  const mountPackage = useMountedOnce(showPackageSheet);
+  const mountHub = useMountedOnce(showFunderHub);
+  const mountSaved = useMountedOnce(showSavedItems);
+  const mountInvestments = useMountedOnce(showInvestments);
+  const mountActivation = useMountedOnce(showActivationModal);
+
+  // The houses map and the portfolio drawer are the likeliest next taps: fetch
+  // their code once the page has settled. The inactivity lock is preloaded so it
+  // appears at once when it fires.
+  useEffect(() => {
+    // The map is the page's main action, and its code also starts the Google Maps
+    // key request, so it goes first; the rest can wait a little longer.
+    const cancelMap = preloadWhenIdle([loadHousesMap, loadMapSheet, loadCapitalOpportunities], 800);
+    const cancelRest = preloadWhenIdle(
+      [loadInvestmentsDrawer, ...(hasActivePortfolios ? [loadInactivityLock] : [])],
+      2500,
+    );
+    return () => { cancelMap(); cancelRest(); };
+  }, [hasActivePortfolios]);
+
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Inactivity lock overlay */}
       {isLocked && (
-        <SupporterInactivityLock
-          userEmail={user.email || ''}
-          fullName={profile?.full_name}
-          avatarUrl={profile?.avatar_url}
-          onUnlock={unlock}
-        />
+        <Suspense fallback={<div className="fixed inset-0 z-[300] bg-background" aria-hidden="true" />}>
+          <SupporterInactivityLock
+            userEmail={user.email || ''}
+            fullName={profile?.full_name}
+            avatarUrl={profile?.avatar_url}
+            onUnlock={unlock}
+          />
+        </Suspense>
       )}
       {!mapExpanded && (
         <DashboardHeader
@@ -574,10 +658,12 @@ export default function SupporterDashboard({
         <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
           {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
           {(() => {
-            const s = emptyHouseSummary;
-            const openHouses = s?.house_count ?? 0;
-            const rentNeeded = s?.total_rent_needed ?? 0;
-            const avgRent = s?.avg_monthly_rent ?? 0;
+            // The same market summary as the hero below (one shared request), not a
+            // second copy fetched through the heavier portfolio hook.
+            const s = marketSummary.data;
+            const openHouses = s?.houseCount ?? 0;
+            const rentNeeded = s?.totalRentNeeded ?? 0;
+            const avgRent = s?.avgMonthlyRent ?? 0;
             return (
           <div className="rounded-2xl border border-border/40 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.06)] dark:bg-card sm:p-6">
             <div className="flex items-start gap-5 sm:gap-6">
@@ -631,26 +717,36 @@ export default function SupporterDashboard({
             isLoading={marketSummary.isLoading}
             hasError={marketSummary.isError}
             onHowItWorks={() => {}}
+            onOpen={openHousesMap}
+            onIntent={preloadHousesMapCode}
           />
 
           {/* ═══ MAP SECTION (Google Maps as in /dashboard/funder-new) ═══ */}
-          <FunderNewMapSection
-            filters={mapFilters}
-            location={mapLocation}
-            origin={mapOrigin}
-            selectedIds={[]}
-            savedIds={[]}
-            activeId={null}
-            heading="Search for houses to fund"
-            headingClassName="text-base font-bold text-green-600 dark:text-green-400"
-            onOpenHouse={(house) => setMapDetailHouse(house)}
-            onApplyArea={applyMapArea}
-            onAreaSearchChange={handleMapSearchChange}
-            onExpandedChange={setMapExpanded}
-          />
+          {mapRequested && (
+            <Suspense fallback={null}>
+            <FunderNewMapSection
+              filters={mapFilters}
+              location={mapLocation}
+              origin={mapOrigin}
+              selectedIds={[]}
+              savedIds={[]}
+              activeId={null}
+              heading="Search for houses to fund"
+              headingClassName="text-base font-bold text-green-600 dark:text-green-400"
+              onOpenHouse={(house) => setMapDetailHouse(house)}
+              onApplyArea={applyMapArea}
+              onAreaSearchChange={handleMapSearchChange}
+              onExpandedChange={handleMapExpandedChange}
+              expandRequest={mapExpandRequest}
+              reserveTopForSearch
+              focus={mapFocus}
+            />
+            </Suspense>
+          )}
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          {mapExpanded ? (
+          {mapExpanded && (
+            <Suspense fallback={null}>
             <MapBottomSheet
               defaultSnap="half"
               header={({ snap, setSnap }) => (
@@ -684,63 +780,59 @@ export default function SupporterDashboard({
                   ) : (
                     <>
                       <FunderApprovalBanner className="mb-3" />
+                      <Suspense fallback={<WidgetCardSkeleton />}>
                       <FunderCapitalOpportunities
+                        searchOnMap
+                        onListFiltersChange={handleListFiltersChange}
+                        onListResultsFocus={handleListResultsFocus}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}
                         embedded
                       />
+                      </Suspense>
                     </>
                   )}
                 </WidgetErrorBoundary>
               </div>
             </MapBottomSheet>
-          ) : (
-            <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-              {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-              <WidgetErrorBoundary label="Capital opportunities">
-                {loading && virtualHouses.length === 0 ? (
-                  <div className="space-y-3">
-                    <WidgetCardSkeleton />
-                    <WidgetCardSkeleton />
-                  </div>
-                ) : (
-                  <>
-                    <FunderApprovalBanner className="mb-3" />
-                    <FunderCapitalOpportunities
-                      key={`${capitalView}-${capitalFeedOrder}`}
-                      initialView={capitalView}
-                      initialFeedOrder={capitalFeedOrder}
-                      embedded
-                    />
-                  </>
-                )}
-              </WidgetErrorBoundary>
-            </div>
+            </Suspense>
           )}
 
         </main>
       </div>
+      {mountPayment && (
+      <Suspense fallback={null}>
       <PaymentPartnersDialog 
         open={showPaymentPartners} 
         onOpenChange={setShowPaymentPartners}
         dashboardType="supporter"
         title="Add Funds"
       />
-      
+      </Suspense>
+      )}
+
+      {mountAgreement && (
+      <Suspense fallback={null}>
       <SupporterAgreementModal
         open={showAgreementModal}
         onOpenChange={setShowAgreementModal}
         onAccept={handleAcceptAgreement}
         loading={agreementLoading}
       />
-      
+      </Suspense>
+      )}
+
+      {mountAgreementView && (
+      <Suspense fallback={null}>
       <SupporterAgreementViewModal
         open={showViewAgreementModal}
         onOpenChange={setShowViewAgreementModal}
         defaultTab={viewAgreementTab}
       />
-      
+      </Suspense>
+      )}
+
       <Dialog open={showCalculator} onOpenChange={setShowCalculator}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 [&>button]:fixed [&>button]:right-4 [&>button]:top-4 [&>button]:z-[200] [&>button]:bg-background/90 [&>button]:shadow-md">
           <div className="flex items-center justify-center px-4 pt-6 pb-2">
@@ -758,18 +850,26 @@ export default function SupporterDashboard({
             </DialogTitle>
           </DialogHeader>
           <div className="p-4 pt-2">
-            <InvestmentCalculator />
+            <Suspense fallback={null}>
+              <InvestmentCalculator />
+            </Suspense>
           </div>
         </DialogContent>
       </Dialog>
       
 
+      {mountHouseDetails && (
+      <Suspense fallback={null}>
       <VirtualHouseDetailsSheet
         house={selectedHouse}
         open={showHouseDetails}
         onOpenChange={setShowHouseDetails}
       />
+      </Suspense>
+      )}
 
+      {mountMapDetail && (
+      <Suspense fallback={null}>
       <EmptyHouseDetailSheet
         house={mapDetailHouse as any}
         open={!!mapDetailHouse}
@@ -796,6 +896,11 @@ export default function SupporterDashboard({
           setMapFundItem(h as FunderNewEmptyHouse);
         }}
       />
+      </Suspense>
+      )}
+
+      {mountMapFund && (
+      <Suspense fallback={null}>
       <FunderNewReviewDialog
         open={!!mapFundItem}
         onOpenChange={(o) => { if (!o) setMapFundItem(null); }}
@@ -826,7 +931,6 @@ export default function SupporterDashboard({
             if (!note) throw new Error('Booking was not created');
             const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
               p_house_ids: houseIds,
-              p_term_months: 1,
               p_idempotency_key: `fund-${note.id}`,
             });
             if (fundErr) throw fundErr;
@@ -841,28 +945,54 @@ export default function SupporterDashboard({
           }
         }}
       />
-      
+      </Suspense>
+      )}
+
+      {mountPackage && (
+      <Suspense fallback={null}>
       <InvestmentPackageSheet
         open={showPackageSheet}
         onOpenChange={setShowPackageSheet}
         category={selectedPackageCategory}
         onAcceptAndDeposit={() => setShowPaymentPartners(true)}
       />
+      </Suspense>
+      )}
 
+      {mountHub && (
+      <Suspense fallback={null}>
       <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />
+      </Suspense>
+      )}
+
+      {mountSaved && (
+      <Suspense fallback={null}>
+      <FunderSavedItemsDialog open={showSavedItems} onOpenChange={setShowSavedItems} />
+      </Suspense>
+      )}
+
+      {mountInvestments && (
+      <Suspense fallback={null}>
       <InvestmentAccountsDrawer
         open={showInvestments}
         onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}
         defaultTab={investmentsTab}
         initialPortfolioId={focusPortfolioId}
       />
+      </Suspense>
+      )}
 
+      {mountActivation && (
+      <Suspense fallback={null}>
       <FunderActivationModal
         open={showActivationModal}
         onOpenChange={setShowActivationModal}
         onDepositClick={handleActivationDeposit}
         onSnooze={handleActivationSnooze}
       />
+      </Suspense>
+      )}
+
 
     </div>
   );

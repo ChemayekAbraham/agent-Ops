@@ -25,6 +25,12 @@ userBehaviourTracker.init();
 // Stamp the running revision (window.__WELILE_BUILD__, <html data-build>).
 import { exposeBuildInfo } from './lib/buildInfo';
 exposeBuildInfo();
+import {
+  BOOT_RECOVERY_KEY,
+  bootRecoveryAllowed,
+  isProductionStartupHost,
+  isRecoverableBootFailure,
+} from './lib/startupBoot';
 import { createRoot } from 'react-dom/client';
 
 const root = document.getElementById('root')!;
@@ -164,9 +170,13 @@ const loadApp = async () => {
     // a required method is missing, so app modules never touch an unpatched API.
     await ensureRuntimePolyfills();
 
-    const importTimeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Import timeout')), 30000)
-    );
+    // Production only. Preview builds and the Lovable editor routinely take
+    // longer than 30s to compile; a hard reject there is a false "Import timeout".
+    const importTimeout = isProductionStartupHost(host)
+      ? new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Import timeout')), 30000)
+        )
+      : null;
     const importApp = Promise.all([
       import('./critical.css'),
       import('./App.tsx'),
@@ -174,10 +184,21 @@ const loadApp = async () => {
     // Preload full CSS in background (non-blocking)
     import('./index.css');
 
-    const [, { default: App }] = (await Promise.race([importApp, importTimeout])) as [
+    const raced = importTimeout ? Promise.race([importApp, importTimeout]) : importApp;
+    const [, { default: App }] = (await raced) as [
       unknown,
       { default: () => JSX.Element },
     ];
+
+    // Drop the cache-bust query before React reads the URL, so a recovery
+    // reload doesn't leave `__wb` in the address bar or the first route.
+    try {
+      const clean = new URL(window.location.href);
+      if (clean.searchParams.has('__wb')) {
+        clean.searchParams.delete('__wb');
+        window.history.replaceState(null, '', clean.pathname + clean.search + clean.hash);
+      }
+    } catch {}
 
     createRoot(root).render(<App />);
 
@@ -185,8 +206,8 @@ const loadApp = async () => {
     // successfully mounted, so it never shows the banner on healthy sessions.
     try { (window as any).__WELILE_APP_READY__ = true; } catch {}
 
-    // App booted successfully — clear the exponential-backoff retry counter so
-    // the next cold start begins from a clean slate.
+    // App booted successfully — the next real failure may recover again.
+    try { sessionStorage.removeItem(BOOT_RECOVERY_KEY); } catch {}
     try { sessionStorage.removeItem('welile-startup-retry'); } catch {}
 
     // Drain any out-of-date-banner interactions the inline banner queued in
@@ -217,12 +238,59 @@ const loadApp = async () => {
     schedulePreviewBlankPageGuard();
   } catch (err) {
     console.error('[Main] App load failed:', err);
+    // A rotated App-*.js (post-deploy) or WebKit's "Importing a module script
+    // failed" in an installed PWA is fixed by one cache-busting reload.
+    // Reloading on a timer while the download is still in flight was aborting
+    // that download and turning a slow start into this error.
+    if (await recoverBootFailureOnce(err)) return;
     void import('./lib/startupCrashReporter')
       .then((m) => m?.reportStartupCrash?.({ reason: 'app-load-failed', error: err }))
       .catch(() => {});
     showErrorUI();
   }
 };
+
+/**
+ * One reload per minute. Clears a controlling service worker and Cache
+ * Storage first — iOS standalone PWAs keep serving the previous index.html
+ * (and its dead hashed App chunk) until both are gone. Returns true when a
+ * navigation has been started; the caller must not also paint the error UI.
+ */
+async function recoverBootFailureOnce(err: unknown): Promise<boolean> {
+  if (import.meta.env.DEV) return false;
+  if (!isRecoverableBootFailure(err)) return false;
+  try {
+    const last = Number(sessionStorage.getItem(BOOT_RECOVERY_KEY) || 0);
+    if (!bootRecoveryAllowed(last, Date.now())) return false;
+    sessionStorage.setItem(BOOT_RECOVERY_KEY, String(Date.now()));
+  } catch {
+    return false;
+  }
+  // A hung getRegistrations() must not sit on the error screen forever.
+  await Promise.race([
+    (async () => {
+      try {
+        const regs = (await navigator.serviceWorker?.getRegistrations()) ?? [];
+        await Promise.all(regs.map((r) => r.unregister()));
+      } catch { /* still reload */ }
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      } catch { /* still reload */ }
+    })(),
+    new Promise<void>((resolve) => setTimeout(resolve, 2000)),
+  ]);
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('__wb', String(Date.now()));
+    window.location.replace(url.toString());
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function showErrorUI() {
   root.textContent = '';
@@ -264,13 +332,17 @@ import('./lib/errorReporting')
   .then((m) => m.installGlobalErrorReporting())
   .catch(() => {});
 
-// Blank-screen watchdog: if the app still hasn't mounted after 10s, the branded
-// spinner is likely stuck behind a slow/offline connection or a stalled bundle
-// fetch. Instead of a lone "retry" button, show a clear
-// "offline / connection too slow" hint with a retry option so the user isn't
-// left staring at an endless spinner. Only fires while the spinner is still up
-// (the `animation:` marker in the initial loader HTML) and the app is not ready.
+// Slow-start hint. Fires only while the branded spinner is still up. It does
+// NOT reload and it does NOT write public_error_logs: an automatic reload at
+// 10s was aborting the App chunk download (3s, then 6s, 12s, 24s) and the
+// in-flight import then died as `Import timeout` / `Failed to fetch`. A real
+// load failure is reported from loadApp's catch, on the public hosts only.
+// Preview and local dev stay on the spinner — those hosts were ~95% of
+// startup-timeout-slow and are not production failures.
 setTimeout(() => {
+  if (import.meta.env.DEV) return;
+  if (!isProductionStartupHost(host)) return;
+
   const appReady = (() => {
     try { return (window as any).__WELILE_APP_READY__ === true; } catch { return false; }
   })();
@@ -279,19 +351,6 @@ setTimeout(() => {
   const online = (() => {
     try { return navigator.onLine !== false; } catch { return true; }
   })();
-
-  // Exponential backoff across reloads. Each timed-out start bumps the attempt
-  // counter (persisted for the tab via sessionStorage); the auto-retry delay
-  // grows 3s → 6s → 12s → 24s (capped), so a flaky/slow network gets
-  // progressively more breathing room instead of hammering reloads. The counter
-  // resets to 0 once the app boots successfully (see loadApp).
-  const BASE_DELAY_MS = 3000;
-  const MAX_DELAY_MS = 24000;
-  const MAX_AUTO_RETRIES = 4;
-  let attempt = 0;
-  try { attempt = parseInt(sessionStorage.getItem('welile-startup-retry') || '0', 10) || 0; } catch {}
-  const backoffMs = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), MAX_DELAY_MS);
-  const canAutoRetry = online && attempt < MAX_AUTO_RETRIES;
 
   const hint = document.createElement('div');
   hint.style.cssText =
@@ -303,47 +362,22 @@ setTimeout(() => {
 
   const msg = document.createElement('p');
   msg.textContent = online
-    ? 'Your connection may be slow. Check your network and try again.'
+    ? 'Your connection may be slow. You can keep waiting, or tap below to try again.'
     : 'Please check your internet connection, then try again.';
   msg.style.cssText = 'font:14px/1.5 system-ui,-apple-system,sans-serif;color:#6b7280;margin:0';
 
-  const doRetry = () => {
-    try { sessionStorage.setItem('welile-startup-retry', String(attempt + 1)); } catch {}
-    window.location.reload();
-  };
-
   const retryBtn = document.createElement('button');
-  retryBtn.onclick = doRetry;
+  retryBtn.textContent = 'Tap to Retry';
+  retryBtn.onclick = () => window.location.reload();
   retryBtn.style.cssText =
     'padding:12px 24px;background:#7c3aed;color:white;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;min-height:44px;margin-top:4px';
 
   hint.append(title, msg, retryBtn);
   root.firstElementChild?.appendChild(hint);
 
-  // Auto-retry with exponential backoff (online only). Show a live countdown on
-  // the button; the user can still tap to retry immediately at any point.
-  if (canAutoRetry) {
-    let remaining = Math.round(backoffMs / 1000);
-    const label = () => {
-      retryBtn.textContent = remaining > 0 ? `Retrying in ${remaining}s — Tap to retry now` : 'Retrying…';
-    };
-    label();
-    const ticker = window.setInterval(() => {
-      remaining -= 1;
-      if (remaining <= 0) {
-        window.clearInterval(ticker);
-        doRetry();
-      } else {
-        label();
-      }
-    }, 1000);
-    // Tapping retry should cancel the pending auto-retry to avoid a double reload.
-    retryBtn.addEventListener('click', () => window.clearInterval(ticker));
-  } else {
-    retryBtn.textContent = 'Tap to Retry';
-  }
-
-  // Log the timeout so recurring slow-start issues are diagnosable.
+  // Production only (the host check above). Preview was ~95% of these rows.
+  // This does not reload — the in-flight import is left alone, and a real
+  // load failure is reported separately as app-load-failed.
   void import('./lib/startupCrashReporter')
     .then((m) => m?.reportStartupCrash?.({ reason: online ? 'startup-timeout-slow' : 'startup-timeout-offline' }))
     .catch(() => {});

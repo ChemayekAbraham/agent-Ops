@@ -49,6 +49,11 @@ describe('normalizeE164OrNull', () => {
     expect(normalizeE164OrNull('+254712345678')).toBe('+254712345678');
   });
 
+  it('accepts an international number typed without the +', () => {
+    expect(normalizeE164OrNull('250793903844')).toBe('+250793903844');
+    expect(normalizeE164OrNull('254712345678')).toBe('+254712345678');
+  });
+
   it('returns null for incomplete numbers', () => {
     expect(normalizeE164OrNull('+25779')).toBeNull();
     expect(normalizeE164OrNull('+25672')).toBeNull();

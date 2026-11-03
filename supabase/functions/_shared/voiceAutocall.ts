@@ -95,6 +95,12 @@ export function wrap(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
 }
 
+/**
+ * Only for cutting a call off at once (unknown call, loop guard, finished
+ * transfer). Africa's Talking drops a reply containing <Hangup/> and ends the
+ * call immediately, so it must never follow words we want heard; a script's
+ * goodbye ends by simply running out of actions instead.
+ */
 export const HANGUP_XML = wrap('<Hangup/>');
 export const EMPTY_XML = wrap('');
 export const REJECT_XML = wrap('<Reject/>');
@@ -108,7 +114,7 @@ export function renderFrom(startKey: string, ctx: RenderContext, tries = 0, isFi
   for (let i = 0; i < MAX_CHAIN; i++) {
     const step = ctx.script.steps[key];
     if (!step) {
-      return { xml: wrap(`${body}<Hangup/>`), step: key, outcome, ends: true, transfers: false };
+      return { xml: wrap(body), step: key, outcome, ends: true, transfers: false };
     }
     if (step.outcome && step.type !== 'record') outcome = step.outcome;
 
@@ -119,7 +125,8 @@ export function renderFrom(startKey: string, ctx: RenderContext, tries = 0, isFi
         continue;
 
       case 'hangup':
-        body += `${speak(step, ctx)}<Hangup/>`;
+        // No <Hangup/>: the call ends by itself once the last words are spoken.
+        body += speak(step, ctx);
         return { xml: wrap(body), step: key, outcome, ends: true, transfers: false };
 
       case 'menu': {
@@ -153,8 +160,8 @@ export function renderFrom(startKey: string, ctx: RenderContext, tries = 0, isFi
       }
     }
   }
-  // A say-loop with no exit: end the call rather than spin.
-  return { xml: wrap(`${body}<Hangup/>`), step: key, outcome, ends: true, transfers: false };
+  // A say-loop with no exit: stop chaining; the call ends after what was said.
+  return { xml: wrap(body), step: key, outcome, ends: true, transfers: false };
 }
 
 export interface DigitsResult {

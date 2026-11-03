@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePolling } from '@/hooks/usePolling';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -62,6 +62,7 @@ function fmtDate(iso: string | null) {
 
 export function RequisitionUsageReportGate() {
   const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
   const [pending, setPending] = useState<PendingReq[]>([]);
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -133,7 +134,7 @@ export function RequisitionUsageReportGate() {
   };
 
   const load = useCallback(async () => {
-    if (!user?.id) { setPending([]); return; }
+    if (!(await hasUsableUserSession())) { setPending([]); return; }
     // The server decides visibility (36h after CFO approval, no report yet),
     // the deferral count and whether the notice is mandatory.
     const { data, error } = await (supabase.rpc as any)('get_my_usage_report_notices');
@@ -157,16 +158,14 @@ export function RequisitionUsageReportGate() {
       approved_amount: r.approved_amount, reason: r.reason, cfo_decided_at: r.cfo_decided_at,
       category: r.category, grace_ends_at: r.grace_ends_at,
     })));
-  }, [user?.id]);
+  }, []);
 
   // Initial load + refresh every 60s (+ on focus) so a newly-paid requisition
-  // is picked up. The old Realtime listener was on staff_requisitions, which
-  // is not in the publication, so it never fired (doc 147).
-  useEffect(() => {
-    if (!user?.id) return;
-    void load();
-  }, [user?.id, load]);
-  usePolling(() => load(), 60_000, { enabled: !!user?.id });
+  // is picked up. The poll stops when the session is gone, so a signed-out
+  // tab never calls this authenticated-only RPC. The old Realtime listener
+  // was on staff_requisitions, which is not in the publication (doc 147).
+  useAuthenticatedPoll(load, 60_000, { onFocus: true });
+  useEffect(() => { if (!ready) setPending([]); }, [ready]);
 
   // Open immediately on first discovery, then re-open every 5 minutes while
   // a report is still outstanding.
@@ -272,7 +271,10 @@ export function RequisitionUsageReportGate() {
   // Record each time a notice is actually shown (server de-duplicates per hour).
   useEffect(() => {
     if (!open || !current) return;
-    void (supabase.rpc as any)('log_usage_report_notice_event', { p_requisition_id: current.id, p_event: 'shown' });
+    void (async () => {
+      if (!(await hasUsableUserSession())) return;
+      await (supabase.rpc as any)('log_usage_report_notice_event', { p_requisition_id: current.id, p_event: 'shown' });
+    })();
   }, [open, current?.id, deferCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const proceedToForm = async () => {

@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Home, MapPin, Loader2, ShieldCheck, Search, X, UserCheck, Share2, MessageCircle, Copy, Check, PartyPopper, ChevronDown, ArrowLeft, ArrowRight, Camera, Trophy, Sparkles, User, ImagePlus, CheckCircle2, AlertTriangle, GripVertical, RotateCcw } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import { calculateDailyRentalRate } from '@/hooks/useHouseListings';
@@ -349,6 +350,10 @@ export function ListEmptyHouseDialog({ open, onOpenChange, onSuccess, initialLan
     setBlockChecking(true);
     (async () => {
       try {
+        if (!(await hasUsableUserSession())) {
+          if (!cancelled) setListingBlock(null);
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await (supabase as any).rpc('get_my_listing_block');
         if (cancelled) return;
@@ -1380,9 +1385,13 @@ export function ListEmptyHouseDialog({ open, onOpenChange, onSuccess, initialLan
           'You cannot list houses right now. No commission is earned while blocked.',
         );
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data } = await (supabase as any).rpc('get_my_listing_block');
-          setListingBlock((data as ListingBlock) ?? { blocked: true, reason: raw.replace('AGENT_LISTING_BLOCKED:', '').trim() });
+          if (await hasUsableUserSession()) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data } = await (supabase as any).rpc('get_my_listing_block');
+            setListingBlock((data as ListingBlock) ?? { blocked: true, reason: raw.replace('AGENT_LISTING_BLOCKED:', '').trim() });
+          } else {
+            setListingBlock({ blocked: true, reason: raw.replace('AGENT_LISTING_BLOCKED:', '').trim() });
+          }
         } catch {
           setListingBlock({ blocked: true, reason: raw.replace('AGENT_LISTING_BLOCKED:', '').trim() });
         }

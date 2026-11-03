@@ -5,7 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Utensils, RefreshCw, Download } from 'lucide-react';
+import { Loader2, Utensils, RefreshCw, Download, MoreVertical, Undo2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
@@ -19,12 +23,16 @@ interface Row {
   created_by: string | null;
   reference_id: string | null;
   evidence: string | null;
+  metadata?: any;
 }
 
-/** Read-only tracker of Lunch Allowance payments made through CFO Send Money. */
+/** Tracker of Lunch Allowance payments made through CFO Send Money. */
 export function LunchAllowanceTracker() {
   const [to, setTo] = useState('');
   const [search, setSearch] = useState('');
+  const [reversing, setReversing] = useState<Row | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['cfo-lunch-allowance'],
@@ -32,7 +40,7 @@ export function LunchAllowanceTracker() {
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from('platform_wallet_corrections')
-        .select('id,target_user_id,amount,operation,created_at,created_by,reference_id,evidence')
+        .select('id,target_user_id,amount,operation,created_at,created_by,reference_id,evidence,metadata')
         .ilike('metadata->>category_label', '%lunch allowance%')
         .order('created_at', { ascending: false })
         .limit(1000);
@@ -78,6 +86,43 @@ export function LunchAllowanceTracker() {
       return true;
     });
   }, [data, to, search]);
+
+  const reversedIds = useMemo(() => {
+    const set = new Set<string>();
+    (data?.list ?? []).forEach((r) => {
+      const m = String(r.metadata?.sub_category ?? '').match(/^lunch_allowance_reversal:(.+)$/);
+      if (r.operation === 'debit' && m) set.add(m[1]);
+    });
+    return set;
+  }, [data]);
+
+  const submitReversal = async () => {
+    if (!reversing || reason.trim().length < 10) return;
+    setBusy(true);
+    try {
+      const { data: res, error } = await supabase.functions.invoke('cfo-direct-credit', {
+        body: {
+          target_user_id: reversing.target_user_id,
+          amount: Number(reversing.amount),
+          reason: `Lunch allowance reversal — ${reason.trim()}`,
+          operation: 'debit',
+          wallet_category: 'wallet_transfer',
+          platform_category: 'wallet_transfer',
+          financial_impact: 'neutral',
+          category_label: 'Lunch allowance reversal',
+          recipient_type: 'user',
+          sub_category: `lunch_allowance_reversal:${reversing.id}`,
+        },
+      });
+      if (error) throw new Error((error as any)?.message || 'Reversal failed');
+      if ((res as any)?.error) throw new Error((res as any).error);
+      toast.success('Lunch allowance returned to the company');
+      setReversing(null); setReason('');
+      refetch();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Reversal failed');
+    } finally { setBusy(false); }
+  };
 
   const signed = (r: Row) => (r.operation === 'debit' ? -1 : 1) * Number(r.amount);
   const total = filtered.reduce((s, r) => s + signed(r), 0);
@@ -181,13 +226,50 @@ export function LunchAllowanceTracker() {
                   <div className="text-right shrink-0">
                     <p className="text-sm font-semibold">{formatUGX(signed(r))}</p>
                     {r.operation === 'debit' && <Badge variant="destructive" className="text-[10px]">Reversed</Badge>}
+                    {r.operation !== 'debit' && reversedIds.has(r.id) && <Badge variant="secondary" className="text-[10px]">Returned</Badge>}
                   </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Actions"><MoreVertical className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        disabled={r.operation === 'debit' || reversedIds.has(r.id)}
+                        onClick={() => { setReversing(r); setReason(''); }}
+                        className="text-destructive"
+                      >
+                        <Undo2 className="h-4 w-4 mr-2" /> Reverse to company
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </CardContent>
           </Card>
         </>
       )}
+
+      <AlertDialog open={!!reversing} onOpenChange={(o) => { if (!o && !busy) setReversing(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverse lunch allowance?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {reversing && <>{formatUGX(Number(reversing.amount))} will be taken back from {data?.names[reversing.target_user_id] ?? 'this staff member'}'s wallet and returned to the company.</>}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea placeholder="Reason (at least 10 characters)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || reason.trim().length < 10}
+              onClick={(e) => { e.preventDefault(); submitReversal(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reverse'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

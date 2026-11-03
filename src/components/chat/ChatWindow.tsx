@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useConversation, Message } from '@/hooks/useChat';
 import { useAuth } from '@/hooks/useAuth';
 import { usePresenceContext } from '@/hooks/usePresence';

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MessageCircle, Phone } from 'lucide-react';
 import { telHref } from '@/lib/awarenessCallLabels';
 import { whatsAppNumber, type ChainLine } from '@/lib/rentAgentChain';
@@ -9,10 +10,12 @@ interface Props {
   lines: ChainLine[];
   /** opens the agent profile; when absent the name is plain text */
   onOpenAgent?: (agentId: string) => void;
+  /** extra content shown right after a line's name (the desks put the registering agent's weekly collection % here) */
+  afterName?: (line: ChainLine) => ReactNode;
   className?: string;
 }
 
-export function RentAgentChain({ lines, onOpenAgent, className }: Props) {
+export function RentAgentChain({ lines, onOpenAgent, afterName, className }: Props) {
   if (lines.length === 0) return <p className="text-xs text-muted-foreground" data-testid="agent-chain-empty">No agent</p>;
   return (
     <ul className={className ?? 'space-y-1'} data-testid="agent-chain">
@@ -29,6 +32,7 @@ export function RentAgentChain({ lines, onOpenAgent, className }: Props) {
             ) : (
               <span className="break-words font-semibold text-foreground">{l.person.name}</span>
             )}
+            {afterName?.(l)}
             {l.person.phone && (
               tel ? (
                 <a href={tel} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 tabular-nums text-foreground hover:underline" aria-label={`Call ${l.person.name}`}>

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Loader2, Wallet, Users, CheckCircle2, PiggyBank, Building2, Search, User, X, Shield, AlertTriangle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -67,9 +68,8 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
     setSearchTerm(q);
     if (q.trim().length < 3) { setSearchResults([]); return; }
     setSearching(true);
-    const { data } = await supabase.from('profiles').select('id, full_name, phone')
-      .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`).limit(10);
-    setSearchResults(data || []);
+    const { rows } = await searchProfilesTypeahead(q, { limit: 10, columns: 'id, full_name, phone' });
+    setSearchResults(rows as UserResult[]);
     setSearching(false);
   };
 

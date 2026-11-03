@@ -199,10 +199,12 @@ class UserBehaviourTracker {
     if (overrideRole && overrideRole !== 'visitor') return overrideRole;
     if (typeof window !== 'undefined') {
       const p = window.location.pathname.toLowerCase();
-      if (p.includes('/dashboard/agent') || p === '/agent' || p.startsWith('/agent/')) return 'agent';
-      if (p.includes('/dashboard/funder') || p.includes('/supporter') || p.includes('/funder')) return 'supporter';
-      if (p.includes('/dashboard/tenant') || p === '/tenant' || p.startsWith('/tenant/')) return 'tenant';
-      if (p.includes('/dashboard/landlord') || p === '/landlord' || p.startsWith('/landlord/')) return 'landlord';
+      // Telemetry only: classifies the CURRENT URL (including legacy bare /{role} URLs still in old bookmarks)
+      // into a role label. It never routes or links to a bare persona root, which is what the guard forbids.
+      if (p.includes('/dashboard/agent') || p === '/agent' || p.startsWith('/agent/')) return 'agent'; // persona-route-guard:ignore
+      if (p.includes('/dashboard/funder') || p.includes('/supporter') || p.includes('/funder')) return 'supporter'; // persona-route-guard:ignore
+      if (p.includes('/dashboard/tenant') || p === '/tenant' || p.startsWith('/tenant/')) return 'tenant'; // persona-route-guard:ignore
+      if (p.includes('/dashboard/landlord') || p === '/landlord' || p.startsWith('/landlord/')) return 'landlord'; // persona-route-guard:ignore
     }
     if (this.currentRole && this.currentRole !== 'visitor') return this.currentRole;
     return 'visitor';

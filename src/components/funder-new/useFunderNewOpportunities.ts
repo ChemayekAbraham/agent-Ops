@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import type {
   FunderNewEmptyHouse,
   FunderNewFilters,
@@ -9,6 +10,7 @@ import type {
   FunderNewReadyPlan,
 } from './types';
 import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
+import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -29,10 +31,56 @@ export function stableOriginKey(origin: FunderNewOrigin | null): string | null {
   return `${origin.source}:${origin.lat.toFixed(3)}:${origin.lng.toFixed(3)}:${origin.radiusKm ?? 'none'}`;
 }
 
+function useSignedInEnabled(enabled = true): boolean {
+  return useAuthenticatedAudience() && enabled;
+}
+
+const MARKET_SUMMARY_CACHE_KEY = 'welile.funder-new.market-summary.v1';
+
+/**
+ * Last market summary this browser saw. The hero shows it at once while the
+ * live figure loads, so a returning partner never waits on a blank card. The
+ * numbers are market-wide aggregates (no personal data). Storage can be blocked
+ * or corrupt, so every read and write is guarded and falls back to no cache.
+ */
+function readCachedMarketSummary(): FunderNewMarketSummary | undefined {
+  try {
+    const raw = window.localStorage.getItem(MARKET_SUMMARY_CACHE_KEY);
+    if (!raw) return undefined;
+    const parsed = asRecord(JSON.parse(raw));
+    const houseCount = toNumber(parsed.houseCount);
+    const totalRentNeeded = toNumber(parsed.totalRentNeeded);
+    if (!(houseCount > 0) || !(totalRentNeeded > 0)) return undefined;
+    const districts = (Array.isArray(parsed.districts) ? parsed.districts : [])
+      .map((entry) => asRecord(entry))
+      .map((entry) => ({
+        value: String(entry.value ?? ''),
+        label: String(entry.label ?? ''),
+        count: toNumber(entry.count),
+      }))
+      .filter((entry) => entry.value.length > 0 && entry.count > 0);
+    return { houseCount, totalRentNeeded, avgMonthlyRent: toNumber(parsed.avgMonthlyRent), districts };
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedMarketSummary(summary: FunderNewMarketSummary) {
+  try {
+    window.localStorage.setItem(MARKET_SUMMARY_CACHE_KEY, JSON.stringify(summary));
+  } catch {
+    /* quota or private mode: the next visit just loads live */
+  }
+}
+
 export function useFunderNewMarketSummary() {
+  const signedIn = useSignedInEnabled();
   return useQuery<FunderNewMarketSummary>({
     queryKey: ['funder-new', 'empty-house-market-summary'],
+    enabled: signedIn,
+    placeholderData: () => readCachedMarketSummary(),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('empty_house_opportunity_summary');
       if (error) throw error;
       const raw = asRecord(data);
@@ -46,7 +94,9 @@ export function useFunderNewMarketSummary() {
           return { value, label: placeCase(value) || value, count: toNumber(entry.house_count) };
         })
         .filter((entry) => entry.value.length > 0 && entry.count > 0);
-      return { houseCount, totalRentNeeded, avgMonthlyRent, districts };
+      const summary = { houseCount, totalRentNeeded, avgMonthlyRent, districts };
+      writeCachedMarketSummary(summary);
+      return summary;
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -75,6 +125,7 @@ export function useFunderNewEmptyHouses(
   const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
   const nearby = effectiveSort === 'nearest' && origin ? origin : null;
 
+  const signedIn = useSignedInEnabled(enabled);
   return useInfiniteQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
@@ -89,9 +140,10 @@ export function useFunderNewEmptyHouses(
       },
       stableOriginKey(nearby),
     ],
-    enabled,
+    enabled: signedIn,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      await requireUserSession();
       const offset = typeof pageParam === 'number' ? pageParam : 0;
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
@@ -111,7 +163,7 @@ export function useFunderNewEmptyHouses(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
 
     getNextPageParam: (lastPage, allPages) => {
@@ -139,6 +191,7 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
     min: filters.rentMin ?? bucket.min,
     max: filters.rentMax ?? bucket.max,
   };
+  const signedIn = useSignedInEnabled(enabled);
 
   return useInfiniteQuery<FunderNewListResult<FunderNewReadyPlan>>({
     queryKey: [
@@ -153,9 +206,10 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
       },
     ],
 
-    enabled,
+    enabled: signedIn,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      await requireUserSession();
       const offset = typeof pageParam === 'number' ? pageParam : 0;
       const { data, error } = await supabase.rpc('partner_self_list_fundable_plans', {
         p_city: normalizeTextFilter(filters.location),
@@ -169,7 +223,7 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
       const plans = Array.isArray(payload.plans) ? (payload.plans as FunderNewReadyPlan[]) : [];
       const filtered = plans.filter((plan) => matchesReadyPlanSearch(plan, filters));
       return {
-        items: filtered,
+        items: sortFunderHousesByCompleteness(filtered),
         total: toNumber(payload.total) || plans.length,
         limitation: filters.search.trim()
           ? 'Tenant-ready search is applied to the results already loaded, because this read service supports city and amount only.'
@@ -204,6 +258,7 @@ export function useFunderNewMapHouses(
   enabled: boolean,
 ) {
   const range = amountRange(filters.amount);
+  const signedIn = useSignedInEnabled(enabled);
 
   return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
@@ -217,8 +272,9 @@ export function useFunderNewMapHouses(
       centre ? `${centre.lat.toFixed(2)}:${centre.lng.toFixed(2)}` : null,
       radiusKm,
     ],
-    enabled,
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
         p_limit: FUNDER_NEW_MAP_LIMIT,
@@ -236,7 +292,7 @@ export function useFunderNewMapHouses(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
@@ -258,6 +314,7 @@ export function useFunderNewRecommendations(
   enabled: boolean,
 ) {
   const wanted = Math.max(1, Math.min(count, 50));
+  const signedIn = useSignedInEnabled(enabled && perHouseAmount > 0);
   return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
@@ -267,8 +324,9 @@ export function useFunderNewRecommendations(
       { location: filters.location.trim(), search: filters.search.trim() },
       stableOriginKey(origin),
     ],
-    enabled: enabled && perHouseAmount > 0,
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
         p_limit: wanted,
@@ -286,7 +344,7 @@ export function useFunderNewRecommendations(
       if (error) throw error;
       const payload = asRecord(data);
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
-      return { items: houses, total: toNumber(payload.total) || houses.length };
+      return { items: sortFunderHousesByCompleteness(houses), total: toNumber(payload.total) || houses.length };
     },
     staleTime: 60_000,
     gcTime: 10 * 60 * 1000,
