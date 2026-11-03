@@ -60,8 +60,8 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="fixed right-4 z-[61]"
-            style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))' }}
+            className="fixed right-4"
+            style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))', zIndex: 61 }}
           >
             <button
               type="button"
@@ -69,7 +69,7 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
               className="relative block w-full rounded-2xl border border-border bg-card px-3.5 py-2 text-left text-sm font-medium text-card-foreground shadow-lg"
             >
               Hi 👋 {firstName}, need help?
-              <span aria-hidden className="absolute -bottom-[5px] right-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border bg-card" />
+              <span aria-hidden className="absolute right-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border bg-card" style={{ bottom: -5 }} />
             </button>
           </motion.div>
         )}
