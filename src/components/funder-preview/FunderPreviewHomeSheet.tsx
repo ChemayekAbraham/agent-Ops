@@ -70,7 +70,7 @@ const TIMELINE = [
 /** Which brand colour each step's dot carries, so the connector knows what it joins. */
 const TONE_ACCENT = { filled: 'primary', soft: 'primary', success: 'success' } as const;
 
-/** Flat connector colour for a step's accent; colour changes happen behind a dot, never mid-line. */
+/** Flat connector colour for a step's accent: the change happens behind a dot, never mid-line. */
 const ACCENT_LINE = { primary: 'bg-primary', success: 'bg-success' } as const;
 
 /**
