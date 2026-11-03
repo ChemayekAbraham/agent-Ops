@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { prettyName } from '@/lib/formatting';
@@ -101,12 +102,14 @@ export function FunderPreviewHomeSheet({
   distanceLabel?: string | null;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const entryKey = entry ? toSelectionItem(entry.category, entry.item).id : null;
 
   useEffect(() => {
     setPhotoIndex(0);
+    setViewerIndex(null);
     stripRef.current?.scrollTo({ left: 0 });
   }, [entryKey]);
 
@@ -175,7 +178,7 @@ export function FunderPreviewHomeSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-40">
           {/* Photos */}
-          <div className="relative h-[262px] w-full flex-none bg-muted">
+          <div className="sticky top-0 z-0 h-[262px] w-full flex-none bg-muted">
             {photos.length ? (
               <div
                 ref={stripRef}
@@ -186,13 +189,20 @@ export function FunderPreviewHomeSheet({
                 }}
               >
                 {photos.map((src, index) => (
-                  <img
+                  <button
                     key={src}
-                    src={src}
-                    alt={index === 0 ? `Photo of ${view.title} in ${view.place}` : ''}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                    className="h-full w-full flex-none snap-center object-cover"
-                  />
+                    type="button"
+                    onClick={() => setViewerIndex(index)}
+                    aria-label={`View photo ${index + 1} of ${photos.length} full screen`}
+                    className="h-full w-full flex-none cursor-zoom-in snap-center bg-transparent p-0"
+                  >
+                    <img
+                      src={src}
+                      alt={index === 0 ? `Photo of ${view.title} in ${view.place}` : ''}
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
               </div>
             ) : (
@@ -233,7 +243,7 @@ export function FunderPreviewHomeSheet({
           </div>
 
           {/* Details sheet */}
-          <div className="relative -mt-7 space-y-4 rounded-t-[28px] bg-background px-5 pt-6">
+          <div className="relative z-10 -mt-7 space-y-4 rounded-t-[28px] bg-background px-5 pt-6 shadow-[0_-16px_28px_-18px_hsl(222_47%_11%/0.35)]">
             <span aria-hidden className="absolute left-1/2 top-2.5 h-[5px] w-11 -translate-x-1/2 rounded-full bg-border" />
 
             <div className="flex flex-wrap gap-2">
@@ -357,6 +367,14 @@ export function FunderPreviewHomeSheet({
             {picked ? 'This home is in your plan.' : 'You can review or remove it before anything is paid.'}
           </p>
         </div>
+        {/* Full-screen photo view: opened by tapping any photo above. */}
+        <ImageLightbox
+          images={photos.map((url, i) => ({ id: `${entryKey}-${i}`, image_url: url }))}
+          initialIndex={viewerIndex ?? 0}
+          open={viewerIndex !== null}
+          onClose={() => setViewerIndex(null)}
+          productName={view.title}
+        />
       </DialogContent>
     </Dialog>
   );

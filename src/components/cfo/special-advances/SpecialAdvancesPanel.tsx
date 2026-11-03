@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ShieldCheck, ShieldAlert, Scale, Clock, Sparkles } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -10,10 +10,7 @@ import {
   describeSpecialAdvanceError,
   type SpecialAdvanceStatus,
 } from '@/lib/specialAdvances';
-import {
-  useSpecialAdvanceList,
-  useSpecialAdvanceReconciliation,
-} from '@/hooks/useSpecialAdvances';
+import { useSpecialAdvanceList } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
 import { SpecialAdvanceDetailSheet } from './SpecialAdvanceDetailSheet';
 import { SpecialAdvanceProvisionsTab } from './SpecialAdvanceProvisionsTab';
@@ -22,7 +19,7 @@ import { SpecialAdvanceReconciliationCard } from './SpecialAdvanceReconciliation
 const ALL = '__all__';
 
 /**
- * CFO Special Advances: issuance switch state, A24/A25 reconciliation,
+ * CFO Special Advances: A24/A25 reconciliation,
  * the register of agreements, impairment provisions, and detailed reporting. Corrections, provision reviews and
  * write-offs are posted by the CFO in one authorised step (decision 2026-11-03): there is no approval queue.
  */
@@ -33,46 +30,16 @@ export function SpecialAdvancesPanel() {
   const [recording, setRecording] = useState(false);
 
   const list = useSpecialAdvanceList(status);
-  const recon = useSpecialAdvanceReconciliation();
 
   const issuanceEnabled = list.data?.issuance_enabled ?? false;
   const items = list.data?.items ?? [];
 
   return (
     <div className="space-y-4">
-      {/* Top Banner: Issuance state, Reconciliation summary, New Advance button */}
+      {/* Top Banner: New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
-        <span
-          id="special-advance-issuance-state"
-          className={`inline-flex items-center gap-1.5 font-medium ${
-            issuanceEnabled ? 'text-emerald-600' : 'text-amber-700 dark:text-amber-400'
-          }`}
-        >
-          {issuanceEnabled ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
-          {list.data
-            ? issuanceEnabled
-              ? 'Issuance is switched on'
-              : 'Issuance is switched off — recording, approval and payout are disabled'
-            : 'Checking the server...'}
-        </span>
 
-        {recon.data && (
-          <span
-            id="special-advance-reconciliation"
-            className={recon.data.balanced ? 'text-muted-foreground' : 'font-semibold text-destructive'}
-          >
-            A24 ledger {formatUGX(recon.data.a24_ledger_balance)} · records {formatUGX(recon.data.subledger_outstanding)}
-            {recon.data.a25_ledger_balance !== undefined && (
-              <> · A25 allowance {formatUGX(recon.data.a25_ledger_balance)}</>
-            )}
-            {recon.data.net_receivable !== undefined && (
-              <> · net {formatUGX(recon.data.net_receivable)}</>
-            )}
-            {recon.data.balanced ? ' · reconciled' : ` · difference ${formatUGX(recon.data.difference)}`}
-          </span>
-        )}
-
-        <Button id="special-advance-new" size="sm" onClick={() => setRecording(true)}>
+        <Button id="special-advance-new" size="sm" className="ml-auto" onClick={() => setRecording(true)}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
         </Button>
       </div>
