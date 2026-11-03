@@ -12,8 +12,8 @@
  */
 export const MIN_INVESTMENT_UGX = 1000;
 
-export const MIN_INVESTMENT_ERROR = "Minimum investment is UGX 1,000";
-export const MIN_INVESTMENT_ERROR_PORTFOLIO = "Investment amount must be at least UGX 1,000";
+export const MIN_INVESTMENT_ERROR = "Minimum contribution is UGX 1,000";
+export const MIN_INVESTMENT_ERROR_PORTFOLIO = "Contribution amount must be at least UGX 1,000";
 
 /**
  * Returns true when `amount` is an acceptable investment (>= UGX 1,000).

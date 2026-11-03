@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
           await supabase.from('notifications').insert({
             user_id: userId,
             title: '🏁 Portfolio Matured',
-            message: `Your account "${displayName}" has reached maturity. Your investment of ${Number(p.investment_amount).toLocaleString()} is ready for renewal or withdrawal.`,
+            message: `Your account "${displayName}" has reached maturity. Your contribution of ${Number(p.investment_amount).toLocaleString()} is ready for renewal or withdrawal.`,
             type: 'info',
             metadata: { portfolio_id: p.id },
           });

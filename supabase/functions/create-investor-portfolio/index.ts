@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       .in("role", ["agent", "manager", "coo", "super_admin", "operations"]);
 
     if (!roleData || roleData.length === 0) {
-      return new Response(JSON.stringify({ error: "Only authorized roles can create investor portfolios" }), {
+      return new Response(JSON.stringify({ error: "Only authorized roles can create partner portfolios" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -392,7 +392,7 @@ Deno.serve(async (req) => {
         source_table: "investor_portfolios",
         source_id: portfolio.id,
         transaction_group_id: txGroupId,
-        description: `Portfolio ${codeData} created by ${agentName}. UGX ${investmentAmount.toLocaleString()} investment pending approval.`,
+        description: `Portfolio ${codeData} created by ${agentName}. UGX ${investmentAmount.toLocaleString()} contribution pending approval.`,
         reference_id: codeData,
         linked_party: agentName,
         metadata: {

@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     if (level === 0) {
       if (isFunder) {
         const response = `CON Welcome to Welile, ${profile.full_name || 'Partner'}!
-1. Investment Balance
+1. Portfolio Balance
 2. Last Return Payment
 3. Wallet Balance
 4. Request Help`
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     // FUNDER FLOW
     // ========================
     if (isFunder) {
-      // Option 1: Investment Balance
+      // Option 1: Portfolio Balance
       if (choice === '1') {
         const { data: portfolios } = await serviceClient
           .from('investor_portfolios')
@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
           .in('status', ['active', 'matured'])
 
         if (!portfolios || portfolios.length === 0) {
-          return new Response('END No active investments found. Contact your agent for more info.', {
+          return new Response('END No active portfolios found. Contact your agent for more info.', {
             headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
           })
         }
@@ -129,8 +129,8 @@ Deno.serve(async (req) => {
         const totalROI = portfolios.reduce((s, p) => s + (p.total_roi_earned || 0), 0)
         const activeCount = portfolios.filter(p => p.status === 'active').length
 
-        return new Response(`END Investment Summary:
-Total Invested: UGX ${totalInvested.toLocaleString()}
+        return new Response(`END Portfolio Summary:
+Total Contributed: UGX ${totalInvested.toLocaleString()}
 Returns Earned: UGX ${totalROI.toLocaleString()}
 Active Accounts: ${activeCount}
 Your money is safe & working!`, {

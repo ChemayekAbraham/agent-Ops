@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
           category: "partner_funding",
           source_table: "investor_portfolios",
           source_id: summary_id || null,
-          description: `Agent proxy investment: UGX ${amount.toLocaleString()} to Rent Management Pool on behalf of ${partnerName}`,
+          description: `Agent proxy funding: UGX ${amount.toLocaleString()} to Rent Management Pool on behalf of ${partnerName}`,
           currency: 'UGX',
           reference_id: referenceId,
           linked_party: "Rent Management Pool",
@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
           category: "partner_funding",
           source_table: "investor_portfolios",
           source_id: portfolio.id,
-          description: `Agent ${agentName} invested UGX ${amount.toLocaleString()} on behalf of ${partnerName}`,
+          description: `Agent ${agentName} funded UGX ${amount.toLocaleString()} on behalf of ${partnerName}`,
           currency: 'UGX',
           reference_id: referenceId,
           linked_party: agentName,
@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
           category: "partner_funding",
           source_table: "investor_portfolios",
           source_id: portfolio.id,
-          description: `Agent ${agentName} invested UGX ${amount.toLocaleString()} on behalf of ${partnerName}`,
+          description: `Agent ${agentName} funded UGX ${amount.toLocaleString()} on behalf of ${partnerName}`,
           currency: 'UGX',
           reference_id: referenceId,
           linked_party: agentName,
@@ -257,7 +257,7 @@ Deno.serve(async (req) => {
           category: "partner_funding",
           source_table: "investor_portfolios",
           source_id: portfolio.id,
-          description: `Investment of UGX ${amount.toLocaleString()} moved to portfolio ${portfolioCode}`,
+          description: `Contribution of UGX ${amount.toLocaleString()} moved to portfolio ${portfolioCode}`,
           currency: 'UGX',
           reference_id: referenceId,
           linked_party: "Rent Management Pool",
@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
       agent_id: agent.id,
       amount: commission,
       earning_type: "proxy_investment_commission",
-      description: `2% commission (UGX ${commission.toLocaleString()}) for facilitating ${partnerName}'s UGX ${amount.toLocaleString()} investment`,
+      description: `2% commission (UGX ${commission.toLocaleString()}) for facilitating ${partnerName}'s UGX ${amount.toLocaleString()} contribution`,
       source_user_id: partner_id,
     });
 
@@ -303,7 +303,7 @@ Deno.serve(async (req) => {
       category: "proxy_investment_commission",
       source_table: "agent_earnings",
       transaction_group_id: commTxGroupId,
-      description: `2% proxy investment commission from pool for ${partnerName}'s UGX ${amount.toLocaleString()} investment`,
+      description: `2% proxy funding commission from pool for ${partnerName}'s UGX ${amount.toLocaleString()} contribution`,
       reference_id: commRefId,
       linked_party: "Rent Management Pool",
     });
@@ -313,7 +313,7 @@ Deno.serve(async (req) => {
       // Notify partner
       adminClient.from("notifications").insert({
         user_id: partner_id,
-        title: "🎉 Your Investment is Active!",
+        title: "🎉 Your Portfolio is Active!",
         message: `Your agent ${agentName} facilitated UGX ${amount.toLocaleString()} on your behalf into the Rent Management Pool.\n\n✅ Your portfolio is now active!\n\n💰 You'll earn 15% (UGX ${monthlyReward.toLocaleString()}) monthly for 12 months.\n📅 First Payout: ${firstPayoutDate}\n\nPortfolio: ${portfolioCode}\nRef: ${referenceId}`,
         type: "success",
         metadata: {
@@ -332,7 +332,7 @@ Deno.serve(async (req) => {
       adminClient.from("notifications").insert({
         user_id: agent.id,
         title: "✅ Partner Portfolio Activated",
-        message: `You invested UGX ${amount.toLocaleString()} from your wallet on behalf of ${partnerName}. The portfolio is now active!\n\nYour 2% commission (UGX ${commission.toLocaleString()}) is pending approval.\n\nPortfolio: ${portfolioCode}\nRef: ${referenceId}`,
+        message: `You funded UGX ${amount.toLocaleString()} from your wallet on behalf of ${partnerName}. The portfolio is now active!\n\nYour 2% commission (UGX ${commission.toLocaleString()}) is pending approval.\n\nPortfolio: ${portfolioCode}\nRef: ${referenceId}`,
         type: "info",
         metadata: {
           amount,

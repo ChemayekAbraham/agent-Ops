@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
                     agent_id: portfolioData.agent_id,
                     amount: commissionAmount,
                     earning_type: "investment_commission",
-                    description: `2% investment commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
+                    description: `2% partner funding commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
                     source_user_id: portfolioInvestorId,
                     rent_request_id: null,
                   });
@@ -702,7 +702,7 @@ Deno.serve(async (req) => {
                         amount: commissionAmount,
                         category: 'agent_commission_earned',
                         ledger_scope: 'platform',
-                        description: `Platform pays 2% commission on investment activation ${portfolioData.portfolio_code || ''}`,
+                        description: `Platform pays 2% commission on portfolio activation ${portfolioData.portfolio_code || ''}`,
                         currency: 'UGX',
                         source_table: 'agent_earnings',
                         source_id: op.source_id,
@@ -714,7 +714,7 @@ Deno.serve(async (req) => {
                         direction: 'cash_in',
                         category: 'agent_commission_earned',
                         ledger_scope: 'wallet',
-                        description: `2% commission on investment activation ${portfolioData.portfolio_code || ''}`,
+                        description: `2% commission on portfolio activation ${portfolioData.portfolio_code || ''}`,
                         currency: 'UGX',
                         source_table: 'agent_earnings',
                         source_id: op.source_id,
@@ -744,7 +744,7 @@ Deno.serve(async (req) => {
                 direction: 'cash_out',
                 category: 'partner_funding',
                 ledger_scope: 'wallet',
-                description: `Capital invested into portfolio ${portfolioData?.portfolio_code || ''}. Ref: ${op.reference_id}`,
+                description: `Capital moved into portfolio ${portfolioData?.portfolio_code || ''}. Ref: ${op.reference_id}`,
                 source_table: 'investor_portfolios',
                 source_id: op.source_id,
                 linked_party: 'Rent Management Pool',
@@ -757,7 +757,7 @@ Deno.serve(async (req) => {
                 amount: op.amount,
                 category: 'partner_funding',
                 ledger_scope: 'platform',
-                description: `Platform receives investment capital`,
+                description: `Platform receives partner capital`,
                 source_table: 'investor_portfolios',
                 source_id: op.source_id,
                 currency: 'UGX',
@@ -965,8 +965,8 @@ Deno.serve(async (req) => {
           // Notify the FUNDER (investor)
           await adminClient.from("notifications").insert({
             user_id: portfolioInvestorId,
-            title: "Investment Activated ✅",
-            message: `Your UGX ${op.amount.toLocaleString()} investment has been approved and is now active. Monthly rewards will begin within 30 days.`,
+            title: "Portfolio Activated ✅",
+            message: `Your UGX ${op.amount.toLocaleString()} contribution has been approved and your portfolio is now active. Monthly rewards will begin within 30 days.`,
             type: "success",
             metadata: { operation_id: op.id, amount: op.amount, direction: op.direction },
           });
@@ -975,8 +975,8 @@ Deno.serve(async (req) => {
           if (op.user_id !== portfolioInvestorId) {
             await adminClient.from("notifications").insert({
               user_id: op.user_id,
-              title: "Partner Investment Approved ✅",
-              message: `UGX ${op.amount.toLocaleString()} investment you facilitated has been approved and activated.`,
+              title: "Partner Portfolio Approved ✅",
+              message: `The UGX ${op.amount.toLocaleString()} partner contribution you facilitated has been approved and activated.`,
               type: "success",
               metadata: { operation_id: op.id, amount: op.amount },
             });
@@ -1051,7 +1051,7 @@ Deno.serve(async (req) => {
                   direction: 'cash_in',
                   category: 'system_balance_correction',
                   ledger_scope: 'wallet',
-                  description: `Investment rejected — funds restored. Reason: ${rejection_reason}`,
+                  description: `Partner contribution rejected — funds restored. Reason: ${rejection_reason}`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1062,7 +1062,7 @@ Deno.serve(async (req) => {
                   amount: portfolio.investment_amount,
                   category: 'system_balance_correction',
                   ledger_scope: 'platform',
-                  description: `Platform returns rejected investment capital`,
+                  description: `Platform returns rejected partner capital`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1080,8 +1080,8 @@ Deno.serve(async (req) => {
               // Notify agent of refund
               await adminClient.from("notifications").insert({
                 user_id: portfolio.agent_id,
-                title: "💰 Investment Refunded",
-                message: `Your proxy investment of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
+                title: "💰 Partner Funding Refunded",
+                message: `Your proxy funding of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
                 type: "warning",
                 metadata: { operation_id: op.id, amount: portfolio.investment_amount, reason: rejection_reason },
               });

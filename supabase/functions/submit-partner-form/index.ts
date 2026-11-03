@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
     if (!residence || residence.length < 2) return err("Residence/location is required");
 
     const investmentAmount = typeof body.investment_amount === 'number' ? body.investment_amount : 0;
-    if (investmentAmount < 100000) return err("Minimum investment is UGX 100,000");
+    if (investmentAmount < 100000) return err("Minimum contribution is UGX 100,000");
 
     const payoutMethod = typeof body.payout_method === 'string' ? body.payout_method : '';
     if (!['mobile_money', 'airtel_money', 'bank_transfer'].includes(payoutMethod)) return err("Invalid payout method");

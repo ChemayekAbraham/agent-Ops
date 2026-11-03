@@ -157,7 +157,7 @@ export function AngelPoolSharePurchase({
                                         <tr>
                                           <td valign="top" style={{ paddingBottom: '12px' }}>
                                             <div style={pillGreen}>
-                                              <Text style={pillGreenLabel}>Investment Amount</Text>
+                                              <Text style={pillGreenLabel}>Amount Paid</Text>
                                               <Text style={pillGreenValue}>{currency} {fmtNum(investment_amount)}</Text>
                                             </div>
                                           </td>
@@ -224,7 +224,7 @@ export function AngelPoolSharePurchase({
                                   <Text style={miniVal}>{fmtNum(holding_total_shares)}</Text>
                                 </td>
                                 <td width="50%" valign="top" style={{ paddingBottom: '15px' }}>
-                                  <Text style={miniKey}>Total Invested</Text>
+                                  <Text style={miniKey}>Total Paid</Text>
                                   <Text style={miniVal}>{currency} {fmtNum(holding_total_invested)}</Text>
                                 </td>
                               </tr>
