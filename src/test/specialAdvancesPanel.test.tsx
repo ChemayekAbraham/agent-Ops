@@ -77,7 +77,7 @@ describe('Special Advances panel', () => {
     renderPanel();
     await open('SA-000001');
     expect(btn('special-advance-approve').disabled).toBe(true);
-    expect(screen.getAllByText(/approval and payout are disabled/).length).toBe(2); // panel header + detail sheet
+    expect(screen.getAllByText(/approval and payout are disabled/).length).toBe(1); // detail sheet only
     expect(btn('special-advance-reject').disabled).toBe(true);
     fireEvent.change(screen.getByLabelText(/Decision note/), { target: { value: 'Borrower withdrew the request' } });
     fireEvent.click(btn('special-advance-reject'));
