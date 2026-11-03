@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import {
   AlertCircle,
   ArrowRight,
+  Bell,
+  BellOff,
   BookOpen,
   Bookmark,
   Check,
@@ -10,10 +12,16 @@ import {
   Database,
   Edit3,
   ExternalLink,
+  FileText,
+  FolderKanban,
+  HelpCircle,
   History,
   Loader2,
   MessageSquarePlus,
+  Mic,
+  MicOff,
   MoreHorizontal,
+  Paperclip,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -23,6 +31,8 @@ import {
   ThumbsDown,
   ThumbsUp,
   Trash2,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,18 +51,27 @@ import {
   type ZoeMorningBriefPayload,
 } from '@/lib/zoe';
 import {
+  MAX_ZOE_FILES_PER_CHAT,
+  parseZoeFileAttachment,
+  type ZoeParsedAttachment,
+} from '@/lib/zoe/zoeFileParser';
+import {
   formatPlainZoeErrorMessage,
+  getRoleGalleryQuestions,
   getStarterSuggestionsForRoles,
   resolveSourceScreenLink,
+  type ZoePageContext,
   type ZoeSuggestion,
 } from './zoeConfig';
 import { ZoeActionDraftCard } from './ZoeActionDraftCard';
+import { ZoeDocumentDraftPanel } from './ZoeDocumentDraftPanel';
 import { ZoeEmailDraftCard } from './ZoeEmailDraftCard';
 import { ZoeMarkdown } from './ZoeMarkdown';
 import { extractZoeChartFromMessage, ZoeMiniChart } from './ZoeMiniChart';
 import { ZoeMorningBriefCard } from './ZoeMorningBriefCard';
 import { ZoeReportCard } from './ZoeReportCard';
 import { ZoeSchedulesAndRemindersCard } from './ZoeSchedulesAndRemindersCard';
+import { useZoeVoice, ZOE_VOICE_DISCLOSURE_NOTE } from './useZoeVoice';
 import type {
   ZoeConversationListItem,
   ZoeFeedbackRating,
@@ -65,6 +84,9 @@ import type {
   ZoeMessage,
   ZoeNoteItem,
   ZoePersonalisedStarter,
+  ZoeProjectItem,
+  ZoePushPrefs,
+  ZoeTaughtUpdateItem,
 } from './useZoeAssistant';
 
 const MAX_MESSAGE_LENGTH = 2000;
@@ -148,6 +170,11 @@ export interface ZoeChatSurfaceProps {
   glossaryEntries?: ZoeGlossaryEntry[];
   knowledgeEntries?: ZoeKnowledgeEntry[];
   personalisedStarters?: ZoePersonalisedStarter[];
+  projects?: ZoeProjectItem[];
+  activeProjectId?: string | null;
+  taughtUpdates?: ZoeTaughtUpdateItem[];
+  pushPrefs?: ZoePushPrefs;
+  pageContext?: ZoePageContext | null;
   memoryEnabled?: boolean;
   temporaryChat?: boolean;
   memorySuggestion?: ZoeMemorySuggestion | null;
@@ -162,9 +189,26 @@ export interface ZoeChatSurfaceProps {
   onToggleResearchMode?: (nextValue: boolean) => void;
   onToggleMemoryEnabled?: (nextValue: boolean) => void | Promise<void>;
   onToggleTemporaryChat?: (nextValue: boolean) => void;
+  onSelectProject?: (projectId: string | null) => void;
+  onSaveProject?: (input: {
+    project_id?: string;
+    name: string;
+    instructions?: string;
+    pinned_files?: ZoeProjectItem['pinned_files'];
+  }) => Promise<{ ok: boolean; error?: string }>;
+  onDeleteProject?: (projectId: string) => Promise<{ ok: boolean }>;
+  onUpdatePushPrefs?: (input: {
+    push_enabled?: boolean;
+    morning_brief_push?: boolean;
+    taught_updates_push?: boolean;
+    soft_prompt_shown?: boolean;
+  }) => Promise<{ ok: boolean }>;
   onAcceptMemorySuggestion?: () => Promise<{ ok: boolean; error?: string }>;
   onDismissMemorySuggestion?: () => void | Promise<void>;
-  onSendMessage: (prompt: string) => void | Promise<void>;
+  onSendMessage: (
+    prompt: string,
+    opts?: { attachments?: ZoeParsedAttachment[]; pageContext?: ZoePageContext | null },
+  ) => void | Promise<void>;
   onStopGenerating?: () => void;
   onRegenerate?: () => void | Promise<void>;
   onSelectConversation?: (conversationId: string) => void | Promise<void>;
@@ -301,6 +345,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   glossaryEntries = [],
   knowledgeEntries = [],
   personalisedStarters = [],
+  projects = [],
+  activeProjectId = null,
+  taughtUpdates = [],
+  pushPrefs,
+  pageContext = null,
   memoryEnabled: memoryEnabledProp,
   temporaryChat: temporaryChatProp,
   memorySuggestion = null,
@@ -315,6 +364,10 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   onToggleResearchMode,
   onToggleMemoryEnabled,
   onToggleTemporaryChat,
+  onSelectProject,
+  onSaveProject,
+  onDeleteProject,
+  onUpdatePushPrefs,
   onAcceptMemorySuggestion,
   onDismissMemorySuggestion,
   onSendMessage,
@@ -347,6 +400,61 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   className,
 }) => {
   const [draft, setDraft] = useState('');
+  const [attachments, setAttachments] = useState<ZoeParsedAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [showDraftPanel, setShowDraftPanel] = useState(false);
+  const [showProjectsDrawer, setShowProjectsDrawer] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectInstructions, setNewProjectInstructions] = useState('');
+  const [showRoleGallery, setShowRoleGallery] = useState(false);
+  const [showFirstTimeTour, setShowFirstTimeTour] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('welile.zoe.tour_seen.v1') !== '1';
+    } catch {
+      return false;
+    }
+  });
+  const [showSoftPushAsk, setShowSoftPushAsk] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const voice = useZoeVoice({
+    onTranscriptReady: (transcript) => {
+      setDraft((prev) => (prev.trim() ? `${prev.trim()} ${transcript}` : transcript));
+    },
+  });
+
+  const roleGalleryQuestions = useMemo(() => getRoleGalleryQuestions(roles), [roles]);
+
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length === 0) return;
+    setAttachmentError(null);
+
+    if (attachments.length + files.length > MAX_ZOE_FILES_PER_CHAT) {
+      setAttachmentError(`You can attach at most ${MAX_ZOE_FILES_PER_CHAT} files per chat.`);
+      return;
+    }
+
+    for (const file of files) {
+      const parsed = await parseZoeFileAttachment(file);
+      if (!parsed.ok) {
+        setAttachmentError(parsed.error);
+        return;
+      }
+      setAttachments((prev) => [...prev, parsed.attachment].slice(0, MAX_ZOE_FILES_PER_CHAT));
+    }
+  };
+
+  const dismissTour = () => {
+    try {
+      localStorage.setItem('welile.zoe.tour_seen.v1', '1');
+    } catch {
+      // ignore
+    }
+    setShowFirstTimeTour(false);
+  };
+
   const [internalResearchMode, setInternalResearchMode] = useState(false);
   const [internalMemoryEnabled, setInternalMemoryEnabled] = useState(true);
   const [internalTemporaryChat, setInternalTemporaryChat] = useState(false);
@@ -446,12 +554,17 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draft.trim().slice(0, MAX_MESSAGE_LENGTH);
-    if (!trimmed || isLoading) return;
+    if ((!trimmed && attachments.length === 0) || isLoading) return;
+    const promptToSend =
+      trimmed || `Please review and summarise the attached file(s): ${attachments.map((a) => a.name).join(', ')}`;
+    const currentAttachments = attachments;
     setDraft('');
+    setAttachments([]);
+    setAttachmentError(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px';
     }
-    await onSendMessage(trimmed);
+    await onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
   };
 
   const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -462,12 +575,17 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
       }
       e.preventDefault();
       const trimmed = draft.trim().slice(0, MAX_MESSAGE_LENGTH);
-      if (!trimmed || isLoading) return;
+      if ((!trimmed && attachments.length === 0) || isLoading) return;
+      const promptToSend =
+        trimmed || `Please review and summarise the attached file(s): ${attachments.map((a) => a.name).join(', ')}`;
+      const currentAttachments = attachments;
       setDraft('');
+      setAttachments([]);
+      setAttachmentError(null);
       if (textareaRef.current) {
         textareaRef.current.style.height = '44px';
       }
-      void onSendMessage(trimmed);
+      void onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
     }
   };
 
@@ -911,6 +1029,101 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     {activeTemporaryChat ? 'On' : 'Off'}
                   </span>
                 </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowProjectsDrawer((prev) => !prev);
+                    setShowNotesDrawer(false);
+                    setShowGlossaryDrawer(false);
+                    setShowConversationList(false);
+                    setShowTopMoreMenu(false);
+                  }}
+                  data-testid="zoe-projects-toggle"
+                  aria-expanded={showProjectsDrawer}
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <FolderKanban className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span>Projects ({projects.length})</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setShowDraftPanel(true);
+                    setShowTopMoreMenu(false);
+                  }}
+                  data-testid="zoe-menu-drafting"
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span>Drafting Mode</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={voice.readAloudEnabled}
+                  data-testid="zoe-read-aloud-toggle"
+                  onClick={() => {
+                    voice.setReadAloudEnabled(!voice.readAloudEnabled);
+                  }}
+                  className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    {voice.readAloudEnabled ? (
+                      <Volume2 className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                    ) : (
+                      <VolumeX className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    )}
+                    <span>Read-aloud</span>
+                  </span>
+                  <span
+                    className={cn(
+                      'rounded px-1.5 py-0.5 text-[11px] font-semibold',
+                      voice.readAloudEnabled
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {voice.readAloudEnabled ? 'On' : 'Off'}
+                  </span>
+                </button>
+
+                {onUpdatePushPrefs && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="zoe-push-settings-toggle"
+                    onClick={() => {
+                      setShowSoftPushAsk(true);
+                      setShowTopMoreMenu(false);
+                    }}
+                    className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      {pushPrefs?.muted ? (
+                        <BellOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      ) : (
+                        <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      )}
+                      <span>Push notifications</span>
+                    </span>
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                      {pushPrefs?.muted
+                        ? 'Muted'
+                        : pushPrefs?.morning_brief_push || pushPrefs?.taught_updates_push
+                        ? 'On'
+                        : 'Off'}
+                    </span>
+                  </button>
+                )}
 
                 {headerSlot ? (
                   <div
@@ -1458,6 +1671,217 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           </div>
         )}
 
+        {/* Private Projects Drawer (strictly private to owner — no shared projects until file-level access review) */}
+        {showProjectsDrawer && (
+          <div
+            data-testid="zoe-projects-drawer"
+            className="border-b border-border bg-muted/25 px-4 py-3"
+          >
+            <div className="mx-auto max-w-[720px] space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-foreground">
+                    Your Private Projects ({projects.length})
+                  </span>
+                  <p className="text-xs text-muted-foreground">
+                    Folder for related chats with standing instructions. Strictly private to your account.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowProjectsDrawer(false)}
+                  aria-label="Close projects"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              {onSaveProject && (
+                <form
+                  onSubmit={(e) => void handleCreateProjectSubmit(e)}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-background p-2.5"
+                >
+                  <input
+                    type="text"
+                    value={projectNameDraft}
+                    onChange={(e) => setProjectNameDraft(e.target.value)}
+                    maxLength={80}
+                    placeholder="Project name (e.g. Monthly Board Pack)..."
+                    aria-label="Project name"
+                    data-testid="zoe-project-name-input"
+                    className="min-h-[44px] rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground"
+                  />
+                  <input
+                    type="text"
+                    value={projectInstructionsDraft}
+                    onChange={(e) => setProjectInstructionsDraft(e.target.value)}
+                    maxLength={600}
+                    placeholder="Standing instructions (e.g. Always show figures in millions and compare to last month)..."
+                    aria-label="Project standing instructions"
+                    data-testid="zoe-project-instructions-input"
+                    className="min-h-[44px] rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={!projectNameDraft.trim() || isSavingProject}
+                      data-testid="zoe-project-save-button"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Create project</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {projectError && (
+                <p role="alert" className="text-xs text-foreground">
+                  {projectError}
+                </p>
+              )}
+
+              {projects.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onSelectProject?.(null)}
+                    className={cn(
+                      'inline-flex min-h-[44px] items-center rounded-lg border px-3 py-1.5 text-xs font-medium',
+                      !activeProjectId
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    No project
+                  </button>
+                  {projects.map((proj) => (
+                    <div
+                      key={proj.id}
+                      className={cn(
+                        'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium',
+                        activeProjectId === proj.id
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-background text-foreground',
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelectProject?.(proj.id)}
+                        className="text-left"
+                      >
+                        {proj.name}
+                      </button>
+                      {onDeleteProject && (
+                        <button
+                          type="button"
+                          onClick={() => void onDeleteProject(proj.id)}
+                          aria-label={`Delete project ${proj.name}`}
+                          className="ml-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Trash2 className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Web Push Soft In-App Consent & Topic Toggles (capped at 2/day, off by default) */}
+        {showSoftPushAsk && onUpdatePushPrefs && (
+          <div
+            data-testid="zoe-push-consent-drawer"
+            className="border-b border-border bg-muted/25 px-4 py-3"
+          >
+            <div className="mx-auto max-w-[720px] space-y-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-foreground">
+                    Zoe Web Push Notifications (off by default · capped at 2 per day)
+                  </p>
+                  <p className="text-muted-foreground">
+                    Choose which topics you want before Zoe requests browser notification permission.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSoftPushAsk(false)}
+                  aria-label="Close push settings"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="zoe-push-morning-brief-toggle"
+                  onClick={() =>
+                    void handleConfirmPushConsent(
+                      !pushPrefs?.morning_brief_push,
+                      Boolean(pushPrefs?.taught_updates_push),
+                    )
+                  }
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center gap-2 rounded-lg border px-3 py-1.5 font-medium',
+                    pushPrefs?.morning_brief_push
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background text-foreground',
+                  )}
+                >
+                  <span>07:30 Morning &ldquo;What changed&rdquo; brief</span>
+                  <span className="font-semibold">
+                    {pushPrefs?.morning_brief_push ? 'On' : 'Off'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="zoe-push-taught-updates-toggle"
+                  onClick={() =>
+                    void handleConfirmPushConsent(
+                      Boolean(pushPrefs?.morning_brief_push),
+                      !pushPrefs?.taught_updates_push,
+                    )
+                  }
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center gap-2 rounded-lg border px-3 py-1.5 font-medium',
+                    pushPrefs?.taught_updates_push
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-background text-foreground',
+                  )}
+                >
+                  <span>Answers to your taught questions</span>
+                  <span className="font-semibold">
+                    {pushPrefs?.taught_updates_push ? 'On' : 'Off'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="zoe-push-mute-switch"
+                  onClick={() =>
+                    void onUpdatePushPrefs({
+                      muted: !pushPrefs?.muted,
+                    })
+                  }
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium',
+                    pushPrefs?.muted
+                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                      : 'border-border bg-background text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  <BellOff className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{pushPrefs?.muted ? 'Unmute push' : 'Mute all push'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Deliverable (1): One centred column, max width 720px on desktop, full width with 16px (px-4) sides on a phone */}
         <div
           className="flex-1 overflow-y-auto"
@@ -1466,6 +1890,72 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           aria-label="Zoe conversation messages"
         >
           <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5 px-4 py-5">
+            {/* Screen Context Banner (route + filters + period only, never screen data) */}
+            {pageContext && (pageContext.title || pageContext.route) && (
+              <div
+                data-testid="zoe-page-context-banner"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Compass className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                  <span>
+                    Screen context:{' '}
+                    <strong className="font-medium text-foreground">
+                      {pageContext.title || pageContext.route}
+                    </strong>
+                    {pageContext.period ? ` · ${pageContext.period}` : ''}
+                  </span>
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Figures fetched via role-checked tools
+                </span>
+              </div>
+            )}
+
+            {/* "Zoe learned this from <Department>" notification when a question gets taught */}
+            {taughtUpdates.length > 0 && (
+              <div
+                data-testid="zoe-taught-updates-banner"
+                className="space-y-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 text-xs text-foreground"
+              >
+                {taughtUpdates.slice(0, 2).map((u) => (
+                  <div key={u.queue_id} className="flex flex-col gap-0.5">
+                    <span className="font-semibold text-primary">
+                      Zoe learned this from {u.department} ({u.approved_by_name})
+                    </span>
+                    <span className="text-muted-foreground">
+                      Q: &ldquo;{u.question_text}&rdquo; — {u.answer_Preview}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Short First-Time Tour */}
+            {showFirstTimeTour && messages.length === 0 && (
+              <div
+                data-testid="zoe-first-time-tour"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-3.5 py-3 text-xs text-foreground"
+              >
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground">
+                    Welcome to Zoe — your read-only Welile staff assistant
+                  </p>
+                  <p className="text-muted-foreground">
+                    Ask for certified figures, upload a receipt or spreadsheet for comparison, use Drafting Mode for memos, or tap the microphone to dictate. Zoe never changes business records.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-testid="zoe-dismiss-tour"
+                  onClick={handleDismissTour}
+                  className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                >
+                  Got it
+                </button>
+              </div>
+            )}
+
             {/* Optional 07:30 Kampala Morning Brief (off by default, turned on per person) */}
             {morningBrief && (
               <ZoeMorningBriefCard
@@ -1485,7 +1975,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
               </div>
             ) : null}
 
-            {/* Deliverable (5): Empty state with at most THREE starter prompts */}
+            {/* Deliverable (5): Empty state with at most THREE starter prompts + "What can Zoe do for my role?" 10-question gallery */}
             {!isHistoryLoading && messages.length === 0 && !isLoading && !errorMessage ? (
               <div
                 data-testid="zoe-empty-state"
@@ -1517,6 +2007,43 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     </button>
                   ))}
                 </div>
+
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="zoe-role-gallery-toggle"
+                    onClick={() => setShowRoleGallery((prev) => !prev)}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <HelpCircle className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                    <span>What can Zoe do for my role? (10 examples)</span>
+                  </button>
+                </div>
+
+                {showRoleGallery && (
+                  <div
+                    data-testid="zoe-role-gallery"
+                    className="mt-3 grid w-full max-w-xl grid-cols-1 gap-1.5 rounded-xl border border-border bg-muted/20 p-3 text-left sm:grid-cols-2"
+                  >
+                    {roleGalleryQuestions.map((q, idx) => (
+                      <button
+                        key={q}
+                        type="button"
+                        data-testid={`zoe-role-gallery-item-${idx}`}
+                        onClick={() => {
+                          setShowRoleGallery(false);
+                          void handleSuggestionClick(q);
+                        }}
+                        className="flex min-h-[44px] items-center rounded-lg border border-border/70 bg-background px-3 py-2 text-left text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
+                      >
+                        <span className="mr-2 font-semibold text-muted-foreground">
+                          {idx + 1}.
+                        </span>
+                        <span>{q}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -2070,14 +2597,163 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
           </div>
         </div>
 
-        {/* Deliverable (6) & Prompt 3 (4): Rounded auto-growing composer (up to 6 lines), Research toggle (off by default), circular Send / Stop button, disclaimer line, safe area */}
+        {/* Deliverable (6) & Prompt 3 (4): Rounded auto-growing composer (up to 6 lines), Attach, Voice, Drafting, Research toggle (off by default), circular Send / Stop button, disclaimer line, safe area */}
         <div className="sticky bottom-0 z-10 bg-background/95 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <div className="mx-auto w-full max-w-[720px] px-4">
+          <div className="mx-auto w-full max-w-[720px] space-y-2 px-4">
+            {/* One-time Voice Disclosure prompt before requesting microphone */}
+            {voice.showDisclosurePrompt && (
+              <div
+                data-testid="zoe-voice-disclosure"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground"
+              >
+                <p className="min-w-0 flex-1 leading-relaxed">{ZOE_VOICE_DISCLOSURE_NOTE}</p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="zoe-voice-disclosure-accept"
+                    onClick={voice.confirmDisclosureAndStart}
+                    className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                  >
+                    Allow voice input
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="zoe-voice-disclosure-cancel"
+                    onClick={voice.dismissDisclosurePrompt}
+                    className="inline-flex min-h-[44px] items-center rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Attached files + PII warning banner */}
+            {attachments.length > 0 && (
+              <div
+                data-testid="zoe-attachments-bar"
+                className="space-y-1.5 rounded-xl border border-border bg-muted/30 p-2 text-xs"
+              >
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {attachments.map((att) => (
+                    <div
+                      key={att.id}
+                      data-testid={`zoe-attachment-chip-${att.id}`}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground"
+                    >
+                      <Paperclip className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="max-w-[160px] truncate">{att.file_name}</span>
+                      <span className="text-[11px] text-muted-foreground">
+                        ({Math.max(1, Math.round(att.size_bytes / 1024))} KB)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(att.id)}
+                        aria-label={`Remove ${att.file_name}`}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {attachments.some((a) => Boolean(a.pii_warning)) && (
+                  <p
+                    role="alert"
+                    data-testid="zoe-attachment-pii-warning"
+                    className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-800 dark:text-amber-300"
+                  >
+                    {attachments.find((a) => Boolean(a.pii_warning))?.pii_warning}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {attachmentError && (
+              <p
+                role="alert"
+                data-testid="zoe-attachment-error"
+                className="rounded-lg border border-border bg-muted/60 px-3 py-1.5 text-xs text-foreground"
+              >
+                {attachmentError}
+              </p>
+            )}
+
+            {voice.voiceError && (
+              <p
+                role="alert"
+                data-testid="zoe-voice-error"
+                className="rounded-lg border border-border bg-muted/60 px-3 py-1.5 text-xs text-foreground"
+              >
+                {voice.voiceError}
+              </p>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.webp,image/*,application/pdf,text/csv"
+              onChange={(e) => void handleFileSelection(e)}
+              className="hidden"
+              data-testid="zoe-file-input"
+            />
+
             <form
               onSubmit={(e) => void handleSubmit(e)}
               data-research-mode={activeResearchMode ? 'true' : 'false'}
-              className="flex items-end gap-2 rounded-3xl border border-border bg-muted/30 p-1.5 pl-3 shadow-xs transition-colors focus-within:border-primary/50 focus-within:bg-background"
+              className="flex items-end gap-1.5 rounded-3xl border border-border bg-muted/30 p-1.5 pl-2 shadow-xs transition-colors focus-within:border-primary/50 focus-within:bg-background"
             >
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isParsingAttachment || attachments.length >= MAX_ZOE_FILES_PER_CHAT}
+                data-testid="zoe-attach-button"
+                aria-label="Attach file or photo (up to 10 MB, max 5)"
+                title="Attach PDF, Word, Excel/CSV, or photo (up to 10 MB, max 5)"
+                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                {isParsingAttachment ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+                ) : (
+                  <Paperclip className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={voice.handleMicButtonClick}
+                disabled={isLoading}
+                data-testid="zoe-voice-button"
+                aria-pressed={voice.isListening}
+                aria-label={voice.isListening ? 'Stop voice dictation' : 'Dictate with microphone'}
+                title={voice.isListening ? 'Stop voice dictation' : 'Dictate question into input box'}
+                className={cn(
+                  'inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                  voice.isListening
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {voice.isListening ? (
+                  <MicOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Mic className="h-4 w-4 shrink-0" aria-hidden="true" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDraftPanel(true)}
+                disabled={isLoading}
+                data-testid="zoe-drafting-button"
+                aria-label="Open Drafting Mode"
+                title="Open side-by-side Drafting Mode (memos, SOPs, plans, emails)"
+                className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                <FileText className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </button>
+
               <button
                 type="button"
                 onClick={handleToggleResearch}
@@ -2091,14 +2767,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 }
                 data-testid="zoe-research-toggle"
                 className={cn(
-                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
+                  'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50',
                   activeResearchMode
                     ? 'border-primary/40 bg-primary/15 text-primary'
                     : 'border-transparent bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
                 <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>Research</span>
+                <span className="hidden sm:inline">Research</span>
               </button>
 
               <label htmlFor="zoe-question-input" className="sr-only">
@@ -2137,7 +2813,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
               ) : (
                 <button
                   type="submit"
-                  disabled={isLoading || !draft.trim()}
+                  disabled={isLoading || (!draft.trim() && attachments.length === 0)}
                   data-testid="zoe-send-button"
                   aria-label="Send message"
                   title="Send message"
@@ -2148,15 +2824,51 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
               )}
             </form>
 
-            <p
-              data-testid="zoe-disclaimer-line"
-              className="mt-1.5 text-center text-xs text-muted-foreground"
-            >
-              Zoe can make mistakes. Check important figures.
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <p data-testid="zoe-disclaimer-line">
+                Zoe can make mistakes. Check important figures.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="zoe-lang-luganda"
+                  onClick={() =>
+                    setDraft((prev) =>
+                      prev.toLowerCase().includes('luganda')
+                        ? prev
+                        : `${prev ? `${prev.trim()} — ` : ''}Answer in Luganda`,
+                    )
+                  }
+                  className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  Luganda
+                </button>
+                <button
+                  type="button"
+                  data-testid="zoe-lang-swahili"
+                  onClick={() =>
+                    setDraft((prev) =>
+                      prev.toLowerCase().includes('swahili')
+                        ? prev
+                        : `${prev ? `${prev.trim()} — ` : ''}Answer in Swahili`,
+                    )
+                  }
+                  className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  Swahili
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Side-by-side / full-screen Drafting Mode panel */}
+      <ZoeDocumentDraftPanel
+        open={showDraftPanel}
+        onClose={() => setShowDraftPanel(false)}
+        onAskZoeToRefine={(promptText) => void onSendMessage(promptText)}
+      />
     </div>
   );
 };

@@ -93,6 +93,15 @@ const ZoePage: React.FC = () => {
             onDeleteNote={assistant.deleteNote}
             onSaveGlossaryEntry={assistant.saveGlossaryEntry}
             onSaveKnowledgeEntry={assistant.saveKnowledgeEntry}
+            projects={assistant.projects}
+            activeProjectId={assistant.activeProjectId}
+            onSelectProject={assistant.setActiveProjectId}
+            onSaveProject={assistant.saveProject}
+            onDeleteProject={assistant.deleteProject}
+            pageContext={assistant.pageContext}
+            taughtUpdates={assistant.taughtUpdates}
+            pushPrefs={assistant.pushPrefs}
+            onUpdatePushPrefs={assistant.updatePushPrefs}
           />
         </div>
       )}
