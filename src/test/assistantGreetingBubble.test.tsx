@@ -14,13 +14,13 @@ import { AuthContext } from '@/hooks/useAuth';
 
 const BUBBLE = '[role="status"]';
 
-function renderAssistant(fullName: string) {
-  return render(
+function tree(hideLauncher: boolean) {
+  return (
     <MemoryRouter initialEntries={['/dashboard/funder-preview']}>
-      <AuthContext.Provider value={{ user: { user_metadata: { full_name: fullName }, email: 'someone@welile.com' } } as never}>
-        <AgentAssistant />
+      <AuthContext.Provider value={{ user: { user_metadata: { full_name: 'Angwen Sarah' }, email: 'someone@welile.com' } } as never}>
+        <AgentAssistant hideLauncher={hideLauncher} />
       </AuthContext.Provider>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
 }
 
@@ -32,7 +32,7 @@ describe('assistant hello bubble', () => {
   });
 
   it('greets the person by first name when the page loads', () => {
-    renderAssistant('Angwen Sarah');
+    render(tree(false));
     const bubble = document.body.querySelector(BUBBLE);
     expect(bubble?.textContent).toContain('Hi 👋 Angwen');
     expect(bubble?.textContent).toContain('need help?');
@@ -40,7 +40,7 @@ describe('assistant hello bubble', () => {
 
   it('is still up just before 20 seconds and gone once the fade has run', () => {
     vi.useFakeTimers();
-    renderAssistant('Angwen Sarah');
+    render(tree(false));
     act(() => { vi.advanceTimersByTime(19_000); });
     expect(document.body.querySelector(BUBBLE)).not.toBeNull();
     act(() => { vi.advanceTimersByTime(2_000); });
@@ -48,10 +48,17 @@ describe('assistant hello bubble', () => {
   });
 
   it('opens the chat and never comes back once tapped', () => {
-    renderAssistant('Angwen Sarah');
+    render(tree(false));
     const bubble = document.body.querySelector(BUBBLE);
     expect(bubble).not.toBeNull();
     fireEvent.click(bubble!.querySelector('button')!);
     expect(document.body.querySelector(BUBBLE)).toBeNull();
+  });
+
+  it('waits while the launcher is hidden and greets once it is back', () => {
+    const view = render(tree(true));
+    expect(document.body.querySelector(BUBBLE)).toBeNull();
+    view.rerender(tree(false));
+    expect(document.body.querySelector(BUBBLE)).not.toBeNull();
   });
 });
