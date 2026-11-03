@@ -22,9 +22,9 @@ export type Tone = 'go' | 'wait' | 'stop' | 'plain';
 
 export function decisionTone(s: unknown): Tone {
   const t = String(s ?? '');
-  if (/^(Approve to|Approve$|Good|Fund today|Verify to|Forward to COO)/.test(t)) return 'go';
-  if (/^(Transfer|Pass tenant|Verify now|Blocked|Overdue)/.test(t)) return 'stop';
-  if (/^(Return|Hold|Call|Assign|Approve when|Coach|Retry|Pay landlord|Recall|Upload|Attach|Send back|Find the agent|Owner to accept|Verify|Attach proxy|Collect|Match|Pay or)/.test(t)) return 'wait';
+  if (/^(Approve to|Approve$|Good|Fund today|Verify to|Forward to COO|Moving|Explained)/.test(t)) return 'go';
+  if (/^(Transfer|Pass tenant|Verify now|Blocked|Overdue|Stalled|No reason recorded)/.test(t)) return 'stop';
+  if (/^(Return|Hold|Call|Assign|Approve when|Coach|Retry|Pay landlord|Recall|Upload|Attach|Send back|Find the agent|Owner to accept|Verify|Attach proxy|Collect|Match|Pay or|Reason sometimes missing|Decide group)/.test(t)) return 'wait';
   return 'plain';
 }
 
