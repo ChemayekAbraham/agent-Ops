@@ -249,8 +249,8 @@ export function FunderPreviewHomeSheet({
                           />
                         )}
                         {belowAccent ? (
-
                           <span
+
                             className={cn(
                               'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2',
                               ACCENT_LINE[belowAccent],
