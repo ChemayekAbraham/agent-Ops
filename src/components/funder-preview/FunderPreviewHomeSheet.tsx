@@ -239,8 +239,9 @@ export function FunderPreviewHomeSheet({
                   const first = index === 0;
                   const last = index === TIMELINE.length - 1;
                   const accent = TONE_ACCENT[tone];
-                  const above = first ? null : TONE_ACCENT[TIMELINE[index - 1].tone];
-                  const below = last ? null : accent;
+                  const aboveAccent = first ? null : TONE_ACCENT[TIMELINE[index - 1].tone];
+                  const belowAccent = last ? null : TONE_ACCENT[TIMELINE[index + 1].tone];
+
                   return (
                     <li key={when} className="flex items-center gap-3">
                       <span aria-hidden className="relative flex w-9 flex-none self-stretch items-center justify-center">
