@@ -37501,6 +37501,47 @@ export type Database = {
           },
         ]
       }
+      ontology_authorities: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          function_code: string
+          id: number
+          position_id: string
+          reason: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code: string
+          id?: never
+          position_id: string
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code?: string
+          id?: never
+          position_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_authorities_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ontology_capture: {
         Row: {
           enabled: boolean
@@ -37543,6 +37584,8 @@ export type Database = {
         Row: {
           decided_at: string | null
           decided_by: string | null
+          decided_position_id: string | null
+          decided_staff_ref: string | null
           decision_reason: string | null
           evidence: Json
           id: number
@@ -37556,6 +37599,8 @@ export type Database = {
         Insert: {
           decided_at?: string | null
           decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
           decision_reason?: string | null
           evidence?: Json
           id?: never
@@ -37569,6 +37614,8 @@ export type Database = {
         Update: {
           decided_at?: string | null
           decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
           decision_reason?: string | null
           evidence?: Json
           id?: never
@@ -92176,6 +92223,10 @@ export type Database = {
       staff_assistant_write_or_read_roles_list: {
         Args: never
         Returns: string[]
+      }
+      staff_authority_position: {
+        Args: { p_function: string; p_user: string }
+        Returns: string
       }
       staff_calling_detailed_report: {
         Args: { p_from: string; p_to: string }
