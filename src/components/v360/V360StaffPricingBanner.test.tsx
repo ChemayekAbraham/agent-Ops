@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { V360StaffPricingBanner } from './V360StaffPricingBanner';
 
@@ -41,6 +41,11 @@ function renderBanner() {
   );
 }
 
+async function openBanner() {
+  await screen.findByTestId('v360-staff-pricing-toggle');
+  fireEvent.click(screen.getByTestId('v360-staff-pricing-toggle'));
+}
+
 describe('V360StaffPricingBanner', () => {
   it('hides the banner from tenants, agents, landlords and partners', () => {
     for (const role of ['tenant', 'agent', 'landlord', 'supporter']) {
@@ -59,6 +64,35 @@ describe('V360StaffPricingBanner', () => {
     expect(screen.queryByTestId('v360-staff-pricing-banner')).not.toBeInTheDocument();
   });
 
+  it('starts closed, showing only the title and the state', async () => {
+    settingsRow.data = { new_plans_enabled: false, updated_at: null, updated_by: null };
+    settingsRow.error = null;
+    authState.enabledRoles = ['cfo'];
+    authState.rolesResolved = true;
+    renderBanner();
+    expect(await screen.findByTestId('v360-staff-pricing-banner')).toBeInTheDocument();
+    expect(await screen.findByTestId('v360-switch-state')).toHaveTextContent('OFF');
+    expect(screen.getByTestId('v360-staff-pricing-toggle')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/OFF = new Rent Plans use current pricing/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
+  it('shows the explanation and hides the switch again when the closed banner is opened and closed', async () => {
+    settingsRow.data = { new_plans_enabled: false, updated_at: null, updated_by: null };
+    settingsRow.error = null;
+    authState.enabledRoles = ['cfo'];
+    authState.rolesResolved = true;
+    renderBanner();
+    await openBanner();
+    expect(screen.getByTestId('v360-staff-pricing-toggle')).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/OFF = new Rent Plans use current pricing/)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: '360-day pricing for new Rent Plans' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('v360-staff-pricing-toggle'));
+    expect(screen.getByTestId('v360-staff-pricing-toggle')).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText(/OFF = new Rent Plans use current pricing/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
   it('shows the OFF status to the CEO and directors without the switch', async () => {
     settingsRow.data = { new_plans_enabled: false, updated_at: null, updated_by: null };
     settingsRow.error = null;
@@ -67,7 +101,8 @@ describe('V360StaffPricingBanner', () => {
       authState.rolesResolved = true;
       const { unmount } = renderBanner();
       expect(await screen.findByTestId('v360-staff-pricing-banner')).toBeInTheDocument();
-      expect(await screen.findByText('OFF')).toBeInTheDocument();
+      expect(await screen.findByTestId('v360-switch-state')).toHaveTextContent('OFF');
+      await openBanner();
       expect(screen.getByText(/OFF = new Rent Plans use current pricing/)).toBeInTheDocument();
       expect(screen.getByText(/CFO, COO and super admin control this switch/)).toBeInTheDocument();
       expect(screen.queryByRole('switch')).not.toBeInTheDocument();
@@ -83,7 +118,8 @@ describe('V360StaffPricingBanner', () => {
       authState.rolesResolved = true;
       const { unmount } = renderBanner();
       expect(await screen.findByTestId('v360-staff-pricing-banner')).toHaveAttribute('data-can-change', 'yes');
-      expect(await screen.findByText('OFF')).toBeInTheDocument();
+      expect(await screen.findByTestId('v360-switch-state')).toHaveTextContent('OFF');
+      await openBanner();
       expect(screen.getByRole('switch', { name: '360-day pricing for new Rent Plans' })).toBeInTheDocument();
       unmount();
     }
