@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { useAssistantSpeech } from '@/components/agent/rentRequestAssistant/useAssistantSpeech';
 
@@ -18,7 +18,7 @@ describe('Rent Request Assistant voice playback', () => {
     vi.stubGlobal('SpeechSynthesisUtterance', Utterance);
     vi.stubGlobal('speechSynthesis', { speak, cancel, getVoices: () => [] });
   });
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it('starts on a user tap and automatically reads the next reply once', () => {
     const { result, rerender } = renderHook(({ text }) => useAssistantSpeech(text, true, 'agent-1'), { initialProps: { text: 'What is the rent?' } });
