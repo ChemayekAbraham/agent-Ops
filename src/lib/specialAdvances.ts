@@ -121,6 +121,20 @@ export interface SpecialAdvance {
   replayed?: boolean;
 }
 
+/**
+ * CFO decision 2026-11-03: the access fee and the registration fee are reported as ONE "Registration fee".
+ * Presentation only: the server, the stored agreement, the schedule, the repayment allocations and the ledger keep
+ * both parts (both already post to `special_advance_fee_revenue` -> R1), so nothing is reclassified or reposted.
+ */
+export function combinedRegistrationFee(fees: { access_fee?: number | null; registration_fee?: number | null }): number {
+  return Number(fees.access_fee ?? 0) + Number(fees.registration_fee ?? 0);
+}
+
+/** The combined Registration fee still unpaid on an advance (access fee + registration fee outstanding). */
+export function outstandingRegistrationFee(p: Pick<SpecialAdvancePosition, 'outstanding_access_fee' | 'outstanding_registration_fee'>): number {
+  return combinedRegistrationFee({ access_fee: p.outstanding_access_fee, registration_fee: p.outstanding_registration_fee });
+}
+
 export interface SpecialAdvancePosition {
   total_repayable: number;
   total_paid: number;

@@ -83,7 +83,7 @@ afterEach(cleanup);
 describe('SpecialAdvanceModal — agreed terms', () => {
   it('offers the approved rates and terms with nothing pre-selected', () => {
     renderModal();
-    const rates = within(screen.getByRole('group', { name: 'Agreed access fee rate' })).getAllByRole('button');
+    const rates = within(screen.getByRole('group', { name: 'Agreed fee rate' })).getAllByRole('button');
     expect(rates.map((b) => b.textContent)).toEqual(['1% per day', '15% per month', '28% per month', 'Custom rate']);
     const terms = within(screen.getByRole('group', { name: 'Agreed term' })).getAllByRole('button');
     expect(terms.map((b) => b.textContent)).toEqual(['7 days', '14 days', '30 days', 'Custom days']);
@@ -112,7 +112,8 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     const terms = document.getElementById('special-advance-agreed-terms')?.textContent ?? '';
     expect(terms).toContain('Rate 28% per month');
     expect(terms).toContain('Term 7 days');
-    for (const v of [32_667, 20_000, 552_667, 78_953, 78_949]) expect(previewText()).toContain(formatUGX(v));
+    // one Registration fee = access fee 32,667 + registration fee 20,000 (CFO decision 2026-11-03)
+    for (const v of [52_667, 552_667, 78_953, 78_949]) expect(previewText()).toContain(formatUGX(v));
     expect(previewText()).not.toContain(formatUGX(140_000));
     expect(within(document.getElementById('special-advance-preview') as HTMLElement).getAllByRole('row')).toHaveLength(8);
   });
@@ -128,7 +129,7 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     expect(screen.getByText(/Choose whether the agreed rate is per day or per month/)).toBeTruthy();
     click('special-advance-basis-monthly');
     await serverShown();
-    for (const v of [42_000, 362_000]) expect(previewText()).toContain(formatUGX(v));
+    for (const v of [62_000, 362_000]) expect(previewText()).toContain(formatUGX(v)); // 42,000 access + 20,000 registration
     click('special-advance-basis-daily');
     expect(document.getElementById('special-advance-preview')).toBeNull();
     expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
@@ -158,11 +159,12 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     expect(screen.getByText(/minimum principal is UGX 10,000/)).toBeTruthy();
   });
 
-  it('uses access-fee wording and never interest/loan terminology', async () => {
+  it('shows one Registration fee (access + registration combined) and never interest/loan terminology', async () => {
     renderModal();
     await fillValid();
     const text = document.body.textContent ?? '';
-    expect(text).toMatch(/Access fee/);
+    expect(text).toMatch(/Registration fee/);
+    expect(text).not.toMatch(/Access fee/i);
     expect(text).not.toMatch(/\binterest\b|\bloan\b|\blender\b|\bROI\b/i);
   });
 });
