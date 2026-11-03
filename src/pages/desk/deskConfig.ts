@@ -165,6 +165,37 @@ export const DESKS: Desk[] = [
       { id: 'cc-queue', feed: 'cc_queue', title: 'Open concerns, overdue first', rowKey: 'concern', summarySum: 'days_open', columns: [{ field: 'caller', label: 'Caller' }, { field: 'subject', label: 'About' }, { field: 'title', label: 'Concern' }, { field: 'priority', label: 'Priority' }, { field: 'owner', label: 'Owner' }, { field: 'status', label: 'Status' }, { field: 'days_open', label: 'Days open', fmt: 'days', right: true }, { field: 'due', label: 'Due' }, DEC] },
     ],
   },
+  {
+    id: 'ontology', name: 'Ontology', question: 'What happened on the mapped day, how much of it says why, and what runs outside the ontology?', roles: DESK_ROLES['coo'],
+    lead: (g) => `Map of ${g(os('map_day'))} (ontology ${g(os('version'))}, built ${g(os('built_at'))} EAT). Last nightly run: ${g(os('last_night_run'))}. ${g(os('explained_share', 'pct'))} of recorded changes say why; the target is 95%.`,
+    tiles: [
+      { label: 'Audit rows with a reason', ...os('audit_share', 'pct'), sub: { label: 'Audit rows', ...os('audit_rows', 'int') } },
+      { label: 'System events with a description', ...os('events_share', 'pct'), sub: { label: 'Events', ...os('event_rows', 'int') } },
+      { label: 'Tables written', ...os('tables_written', 'int'), sub: { label: 'In the ontology', ...os('tables_registered', 'int') } },
+      { label: 'Scheduled jobs acting', ...os('jobs_active', 'int'), sub: { label: 'With a named owner', ...os('jobs_registered', 'int') } },
+      { label: 'Ontology changes to decide', ...os('open_proposals', 'int'), sub: { label: 'New last night', ...os('new_proposals', 'int') } },
+    ],
+    tables: [
+      {
+        id: 'onto-heartbeat', feed: 'onto_actions', title: 'Desk heartbeat on the mapped day', rowKey: 'ord',
+        note: 'A desk with requests waiting and no action on a working day is stalled. Waiting is the queue at the time of the map.',
+        columns: [{ field: 'action', label: 'Ontology action' }, { field: 'desk', label: 'Desk' }, { field: 'n', label: 'Actions that day', fmt: 'int', right: true }, { field: 'waiting', label: 'Waiting', fmt: 'int', right: true }, DEC],
+      },
+      {
+        id: 'onto-clocks', feed: 'onto_clocks', title: 'Open money clocks', rowKey: 'ord',
+        columns: [{ field: 'clock', label: 'Clock' }, { field: 'n', label: 'Count', fmt: 'int', right: true }, { field: 'ugx', label: 'UGX', fmt: 'ugxfull', right: true }, { field: 'owner', label: 'Owner' }],
+      },
+      {
+        id: 'onto-audit', feed: 'onto_top_audit', title: 'Most frequent actions: do they say why?', rowKey: 'action_name',
+        columns: [{ field: 'action_name', label: 'Recorded action' }, { field: 'n', label: 'Times', fmt: 'int', right: true }, { field: 'reason_share', label: 'With reason', fmt: 'pct', right: true }, { field: 'ontology_action', label: 'Ontology action' }, DEC],
+      },
+      {
+        id: 'onto-drift', feed: 'onto_drift', title: 'Drift: reality outside the ontology', rowKey: 'grp_key',
+        note: 'Each group is decided at once, with one reason, by a staff account holding the COO position. Decisions are stamped with name, staff number and position.',
+        columns: [{ field: 'what', label: 'Proposal' }, { field: 'suggested', label: 'Suggested type' }, { field: 'n', label: 'Items', fmt: 'int', right: true }, { field: 'examples', label: 'Examples' }, DEC],
+      },
+    ],
+  },
 ];
 
 /** The desk a person lands on first, by their strongest role. */
@@ -187,7 +218,7 @@ export function feedsOf(desk: Desk): string[] {
   const s = new Set<string>();
   desk.tiles.forEach((t) => { s.add(t.feed); if (t.sub) s.add(t.sub.feed); });
   desk.tables.forEach((t) => s.add(t.feed));
-  if (desk.id !== 'customer-care') s.add('pipeline');
+  if (desk.id !== 'customer-care' && desk.id !== 'ontology') s.add('pipeline');
   if (['coo', 'partner-ops', 'cfo', 'command'].includes(desk.id)) s.add('coo_kpis');
   // The command centre also carries a Customer Care card.
   if (desk.id === 'command') s.add('cc_owners');
