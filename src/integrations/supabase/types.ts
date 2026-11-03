@@ -16115,6 +16115,36 @@ export type Database = {
         }
         Relationships: []
       }
+      desk_stage_snapshots: {
+        Row: {
+          done_24h: number | null
+          done_7d: number | null
+          snap_at: string
+          stage: string
+          stage_ord: string
+          waiting: number | null
+          waiting_ugx: number | null
+        }
+        Insert: {
+          done_24h?: number | null
+          done_7d?: number | null
+          snap_at: string
+          stage: string
+          stage_ord: string
+          waiting?: number | null
+          waiting_ugx?: number | null
+        }
+        Update: {
+          done_24h?: number | null
+          done_7d?: number | null
+          snap_at?: string
+          stage?: string
+          stage_ord?: string
+          waiting?: number | null
+          waiting_ugx?: number | null
+        }
+        Relationships: []
+      }
       device_alert_action_tokens: {
         Row: {
           action: string
@@ -54095,9 +54125,11 @@ export type Database = {
       }
       staff_assistant_knowledge_base: {
         Row: {
+          approved_by: string | null
           body: string
           category: string
           created_at: string
+          created_by: string | null
           department: string
           expires_at: string
           id: string
@@ -54121,9 +54153,11 @@ export type Database = {
           usage_count: number
         }
         Insert: {
+          approved_by?: string | null
           body: string
           category: string
           created_at?: string
+          created_by?: string | null
           department?: string
           expires_at?: string
           id?: string
@@ -54147,9 +54181,11 @@ export type Database = {
           usage_count?: number
         }
         Update: {
+          approved_by?: string | null
           body?: string
           category?: string
           created_at?: string
+          created_by?: string | null
           department?: string
           expires_at?: string
           id?: string
@@ -54395,10 +54431,14 @@ export type Database = {
           morning_brief_time: string
           updated_at: string
           user_id: string
+          voice_disclosure_acknowledged_at: string | null
           web_push_enabled: boolean
+          web_push_morning_brief_topic: boolean
           web_push_muted: boolean
           web_push_sent_kampala_date: string | null
           web_push_sent_today_count: number
+          web_push_soft_prompt_dismissed: boolean
+          web_push_taught_updates_topic: boolean
         }
         Insert: {
           created_at?: string
@@ -54411,10 +54451,14 @@ export type Database = {
           morning_brief_time?: string
           updated_at?: string
           user_id?: string
+          voice_disclosure_acknowledged_at?: string | null
           web_push_enabled?: boolean
+          web_push_morning_brief_topic?: boolean
           web_push_muted?: boolean
           web_push_sent_kampala_date?: string | null
           web_push_sent_today_count?: number
+          web_push_soft_prompt_dismissed?: boolean
+          web_push_taught_updates_topic?: boolean
         }
         Update: {
           created_at?: string
@@ -54427,10 +54471,14 @@ export type Database = {
           morning_brief_time?: string
           updated_at?: string
           user_id?: string
+          voice_disclosure_acknowledged_at?: string | null
           web_push_enabled?: boolean
+          web_push_morning_brief_topic?: boolean
           web_push_muted?: boolean
           web_push_sent_kampala_date?: string | null
           web_push_sent_today_count?: number
+          web_push_soft_prompt_dismissed?: boolean
+          web_push_taught_updates_topic?: boolean
         }
         Relationships: []
       }
@@ -72717,6 +72765,19 @@ export type Database = {
         }[]
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
+      _desk_stage_counts: {
+        Args: never
+        Returns: {
+          done_24h: number
+          done_7d: number
+          stage: string
+          stage_ord: string
+          waiting: number
+          waiting_ugx: number
+        }[]
+      }
+      _desk_take_stage_snapshot: { Args: never; Returns: number }
+      _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
       _dormant_bike_leases: {
         Args: { p_agent?: string }
@@ -78588,8 +78649,24 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_budget_burn: { Args: never; Returns: Json }
       desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_morning_brief: { Args: never; Returns: Json }
       desk_stage_flow: { Args: never; Returns: Json }
+      desk_stage_trend: {
+        Args: never
+        Returns: {
+          arrow: string
+          change: number
+          compared_at: string
+          days_to_clear: number
+          stage: string
+          stage_ord: string
+          waiting_24h_ago: number
+          waiting_now: number
+          waiting_ugx_now: number
+        }[]
+      }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {
@@ -85526,6 +85603,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_refund_requisition: { Args: { p_category: string }; Returns: boolean }
       is_requisition_office_holder: { Args: { _uid: string }; Returns: boolean }
       is_same_person: { Args: { _a: string; _b: string }; Returns: boolean }
       is_sensitive_field_editor: { Args: { _uid: string }; Returns: boolean }
@@ -87289,6 +87367,7 @@ export type Database = {
         Returns: string
       }
       ontology_can_read: { Args: never; Returns: boolean }
+      ontology_feed: { Args: { p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
@@ -89329,6 +89408,7 @@ export type Database = {
           tenant_first_name: string
         }[]
       }
+      pipeline_i_can_view: { Args: { p_request_id: string }; Returns: boolean }
       pipeline_overrides: {
         Args: { p_date?: string }
         Returns: {
@@ -92265,7 +92345,7 @@ export type Database = {
         Returns: boolean
       }
       staff_assistant_can_send_web_push: {
-        Args: { p_user_id: string }
+        Args: { p_topic?: string; p_user_id: string }
         Returns: Json
       }
       staff_assistant_can_user_read_report: {
@@ -92543,6 +92623,16 @@ export type Database = {
       }
       staff_assistant_update_note: {
         Args: { p_note_id: string; p_note_text: string }
+        Returns: Json
+      }
+      staff_assistant_update_push_and_voice_prefs: {
+        Args: {
+          p_acknowledge_voice_disclosure?: boolean
+          p_morning_brief_topic?: boolean
+          p_taught_updates_topic?: boolean
+          p_web_push_enabled?: boolean
+          p_web_push_muted?: boolean
+        }
         Returns: Json
       }
       staff_assistant_upsert_knowledge_entry: {
