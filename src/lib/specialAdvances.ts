@@ -8,7 +8,8 @@
  */
 import type { RateBasis, SpecialAdvanceFrequency } from '@/lib/specialAdvancePreview';
 
-export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled';
+export type SpecialAdvanceStatus = 'pending_approval' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reversed'
+  | 'written_off';
 
 export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   pending_approval: 'Pending approval',
@@ -17,6 +18,10 @@ export const STATUS_LABEL: Record<SpecialAdvanceStatus, string> = {
   cancelled: 'Cancelled',
   disbursed: 'Paid out',
   settled: 'Settled',
+  // Phase B (migration 20261102210000): an external payout recorded in error, reversed by an approved correction
+  reversed: 'Payout reversed',
+  // Phase C (migration 20261102220000): the whole balance written off once a CFO approves the request
+  written_off: 'Written off',
 };
 
 export type BorrowerRequest =
@@ -73,7 +78,8 @@ export interface SpecialAdvanceQuote {
 }
 
 export interface SpecialAdvanceEvent {
-  event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled';
+  event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -118,6 +124,11 @@ export interface SpecialAdvance {
 export interface SpecialAdvancePosition {
   total_repayable: number;
   total_paid: number;
+  /** Paid out (disbursed or settled). Until then the advance is not a receivable and every outstanding figure is 0.
+   *  Optional: sent once migration 20261102200000 is applied. */
+  paid_out?: boolean;
+  /** The agreed schedule still unpaid, whether or not the advance has been paid out (shown before payout). */
+  scheduled_outstanding?: number;
   outstanding: number;
   outstanding_access_fee: number;
   outstanding_registration_fee: number;
@@ -132,7 +143,179 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   position: SpecialAdvancePosition;
   repayments: Array<{ id: string; amount: number; received_date: string; method: string; reference: string; note: string | null; recorded_at: string;
     /** Archived proof of the repayment (D2). */
-    proof_path?: string }>;
+    proof_path?: string;
+    /** Set when a posted correction reversed this repayment: it no longer counts (Phase B). */
+    reversed_by_correction?: string | null }>;
+  /** Corrections posted on this advance, oldest first (Phase B). */
+  corrections?: SpecialAdvanceCorrection[];
+  /** Phase C: impairment allowance held now (A25 subledger), what a review would require now, and the history. */
+  allowance_held?: number;
+  provision?: ProvisionLine;
+  provision_history?: Array<ProvisionLine & { review: string; recorded_at: string }>;
+  write_offs?: SpecialAdvanceWriteOff[];
+  recoveries?: SpecialAdvanceRecovery[];
+}
+
+/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
+ * One step (CFO decision 2026-11-03): Welile has one CFO, who posts a provision review or a write-off in a single
+ * authorised action; there is no pending state, approval or queue. The server computes every figure; the browser
+ * sends only the figure the CFO saw (expected_*), so a posting is refused if the balances moved in between. */
+
+/** D7 minimums, for explaining the server's figures only (the server applies them). */
+export const IMPAIRMENT_MINIMUMS: Array<{ label: string; rate: number }> = [
+  { label: 'Current', rate: 0 }, { label: '1-30 days past due', rate: 10 }, { label: '31-60 days past due', rate: 25 },
+  { label: '61-90 days past due', rate: 50 }, { label: 'Over 90 days past due', rate: 100 },
+];
+
+export interface ProvisionLine {
+  advance_id: string;
+  reference?: string;
+  gross_outstanding: number;
+  days_past_due: number;
+  minimum_rate: number;
+  individual_rate: number | null;
+  applied_rate: number;
+  required_allowance: number;
+  held_before: number;
+  /** Positive: raise (DR X4 / CR A25); negative: release (DR A25 / CR X4). */
+  delta: number;
+  ledger_group_id?: string | null;
+}
+
+export interface ProvisionPreview {
+  as_of_date: string;
+  lines: ProvisionLine[];
+  total_delta: number;
+  allowance_held: number;
+}
+
+export interface ProvisionReview {
+  id: string;
+  reference: string;
+  as_of_date: string;
+  note: string | null;
+  total_delta: number;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
+  lines: ProvisionLine[];
+  replayed?: boolean;
+}
+
+export interface SpecialAdvanceWriteOff {
+  id: string;
+  reference: string;
+  advance_id: string;
+  advance_reference: string;
+  gross_amount: number;
+  allowance_released: number;
+  /** gross_amount - allowance_released; negative when the allowance exceeded the balance (the excess is released). */
+  net_loss: number;
+  reason: string;
+  proof_path: string;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
+  replayed?: boolean;
+}
+
+export interface SpecialAdvanceRecovery {
+  id: string;
+  advance_id: string;
+  amount: number;
+  received_date: string;
+  method: 'mobile_money' | 'bank_transfer';
+  reference: string;
+  proof_path: string;
+  note: string | null;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_at: string;
+  replayed?: boolean;
+}
+
+/**
+ * The body for `special_advance_post_provision_review` (and the preview): individual rates only, never amounts.
+ * `expectedTotalDelta` is the preview total the CFO saw; the server refuses (PROVISION_REVIEW_STALE) if it moved.
+ */
+export function buildProvisionReviewRequest(input: {
+  individualRates?: Record<string, number>;
+  note?: string | null;
+  idempotencyKey: string;
+  expectedTotalDelta?: number;
+}): Record<string, unknown> {
+  return {
+    individual_rates: { ...(input.individualRates ?? {}) },
+    ...(input.note?.trim() ? { note: input.note.trim() } : {}),
+    idempotency_key: input.idempotencyKey,
+    ...(input.expectedTotalDelta === undefined ? {} : { expected_total_delta: input.expectedTotalDelta }),
+  };
+}
+
+/**
+ * The body for `special_advance_write_off`: the server writes off the whole gross outstanding. `expectedGrossAmount`
+ * is the balance the CFO saw; the server refuses (WRITE_OFF_STALE) if it moved.
+ */
+export function buildWriteOffRequest(input: {
+  reason: string;
+  proofPath: string;
+  idempotencyKey: string;
+  expectedGrossAmount?: number;
+}): Record<string, unknown> {
+  return {
+    reason: input.reason.trim(),
+    proof_path: input.proofPath,
+    idempotency_key: input.idempotencyKey,
+    ...(input.expectedGrossAmount === undefined ? {} : { expected_gross_amount: input.expectedGrossAmount }),
+  };
+}
+
+/* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
+ * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file) in a single
+ * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
+export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
+
+export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
+  repayment_reversal: 'Reverse a repayment',
+  payout_reversal: 'Reverse an external payout',
+};
+export const CORRECTION_REASON_MIN = 20;
+export const CORRECTION_REASON_MAX = 1000;
+
+export interface SpecialAdvanceCorrection {
+  id: string;
+  reference: string;
+  advance_id: string;
+  advance_reference: string;
+  kind: CorrectionKind;
+  repayment_id: string | null;
+  repayment: { id: string; amount: number; received_date: string; method: string; reference: string } | null;
+  amount: number;
+  reason: string;
+  proof_path: string;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
+  replayed?: boolean;
+}
+
+/** The body for `special_advance_record_correction`. */
+export function buildCorrectionRequest(input: {
+  kind: CorrectionKind;
+  repaymentId?: string | null;
+  reason: string;
+  proofPath: string;
+  idempotencyKey: string;
+}): Record<string, unknown> {
+  return {
+    kind: input.kind,
+    ...(input.kind === 'repayment_reversal' ? { repayment_id: input.repaymentId } : {}),
+    reason: input.reason.trim(),
+    proof_path: input.proofPath,
+    idempotency_key: input.idempotencyKey,
+  };
 }
 
 export interface SpecialAdvanceList {
@@ -147,6 +330,12 @@ export interface SpecialAdvanceReconciliation {
   difference: number;
   balanced: boolean;
   mismatched_advances: Array<{ reference: string; status: string; subledger_outstanding: number; ledger_balance: number }>;
+  /** Phase C: the allowance (A25, credit balance) against its subledger, and the net receivable (A24 - A25). */
+  a25_ledger_balance?: number;
+  allowance_subledger?: number;
+  allowance_difference?: number;
+  net_receivable?: number;
+  mismatched_allowances?: Array<{ reference: string; status: string; allowance_subledger: number; allowance_ledger: number }>;
 }
 
 /** The body for `special_advance_quote` / `special_advance_create`: terms only, no figures. */
@@ -183,6 +372,7 @@ export const PURPOSE_MAX = 1000;
 
 const ELIGIBILITY_TEXT: Record<string, string> = {
   OPEN_SPECIAL_ADVANCE: 'This borrower already has an open Special Advance.',
+  WRITTEN_OFF_SPECIAL_ADVANCE: 'This borrower has a Special Advance that was written off.',
   OVERDUE_AGENT_ADVANCE: 'This borrower has an overdue agent advance with a balance.',
   DEFAULTED_BUSINESS_ADVANCE: 'This borrower has a defaulted business advance with a balance.',
   ACCOUNT_DELETED: 'This account has been deleted.',
@@ -211,9 +401,10 @@ export function describeSpecialAdvanceError(err: unknown): string {
   const detail = parseDetail(e.details ?? e.detail);
   const list = Array.isArray(detail) ? (detail as string[]) : [];
   if (msg.includes('SELF_ADVANCE')) return ELIGIBILITY_TEXT.SELF_ADVANCE;
-  // Phase 4 (CFO decision D5): approval, payout and repayment recording need an authenticator-verified session (aal2).
+  // CFO decision 2026-11-03: Special Advances no longer need an authenticator (migration 20261103150000). Until that
+  // migration is applied the server may still answer MFA_REQUIRED; say so plainly instead of asking for a code.
   if (msg.includes('MFA_REQUIRED')) {
-    return 'Verify with your authenticator app first: approving, paying out or recording a repayment needs it.';
+    return 'The server still asks for an authenticator for this step: the change removing it has not been applied yet.';
   }
   if (/NOT_AUTHORIZED|AUTH_REQUIRED|permission denied/i.test(msg)) {
     return 'Only an enabled CFO account (with its second factor, where required) can do this.';
@@ -239,7 +430,33 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('PROOF_PATH_INVALID')) return 'The proof file does not belong to this advance. Upload it again.';
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
-  if (msg.includes('REASON_REQUIRED')) return 'A reason of at least 5 characters is required.';
+  // Corrections (Phase B, D11)
+  if (msg.includes('REPAYMENT_NOT_FOUND')) return 'That repayment is not on this advance.';
+  if (msg.includes('REPAYMENT_ALREADY_REVERSED')) return 'This repayment has already been reversed.';
+  if (msg.includes('REPAYMENTS_MUST_BE_REVERSED_FIRST')) return 'Reverse every repayment on this advance before reversing its payout.';
+  if (msg.includes('PAYOUT_REVERSAL_NOT_SUPPORTED')) return 'A payout to a Welile wallet cannot be reversed here; only an external payout recorded in error.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_CORRECTABLE')) return 'This advance cannot be corrected in its current state.';
+  if (msg.includes('BORROWER_HAS_OPEN_ADVANCE')) return 'Reopening this advance would give the borrower two open Special Advances.';
+  // Impairment, write-off and recovery (Phase C)
+  if (msg.includes('INDIVIDUAL_RATE_BELOW_MINIMUM')) {
+    const min = (detail as { minimum_rate?: number } | null)?.minimum_rate;
+    return `An individual rate cannot be below the minimum for its days past due${min !== undefined ? ` (${min}%)` : ''}.`;
+  }
+  if (msg.includes('NOTHING_TO_PROVISION')) return 'Every allowance already matches what is required; there is nothing to post.';
+  if (msg.includes('PROVISION_REVIEW_STALE')) return 'Balances changed since the preview. Nothing was posted; preview again and post the new figures.';
+  if (msg.includes('WRITE_OFF_STALE')) return 'The balance changed since you opened this write-off. Nothing was posted; reload the advance and try again.';
+  if (msg.includes('WRITE_OFF_NOT_FOUND')) return 'Write-off not found.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_WRITABLE_OFF')) return 'Only a paid-out advance with a balance outstanding can be written off.';
+  if (msg.includes('SPECIAL_ADVANCE_NOT_WRITTEN_OFF')) return 'A recovery can only be recorded on a written-off advance.';
+  if (msg.includes('RECOVERY_EXCEEDS_WRITTEN_OFF')) {
+    const left = (detail as { recoverable?: number } | null)?.recoverable;
+    return `That is more than is left to recover${left !== undefined ? ` (UGX ${left.toLocaleString()})` : ''}.`;
+  }
+  if (msg.includes('REASON_REQUIRED')) {
+    return typeof detail === 'string' && detail.includes(String(CORRECTION_REASON_MIN))
+      ? `Explain the error in at least ${CORRECTION_REASON_MIN} characters.`
+      : 'A reason of at least 5 characters is required.';
+  }
   if (msg.includes('SPECIAL_ADVANCE_NOT_PENDING')) return 'Only an advance pending approval can be approved or rejected.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_CANCELLABLE')) return 'Only an advance that has not been paid out can be cancelled.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_APPROVED')) return 'Only an approved advance can be paid out.';
@@ -254,6 +471,16 @@ export function newIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * True when the error says the server function does not exist (yet): a Special Advances phase that is not applied in
+ * this database. Screens show "Not available yet" instead of an error. Same rule as CFOWelileHomesDisbursementDesk.
+ */
+export function isMissingServerFunction(err: unknown): boolean {
+  const e = (err ?? {}) as { code?: unknown; message?: unknown };
+  const code = String(e.code ?? '');
+  return code === 'PGRST202' || code === '42883' || /could not find the function/i.test(String(e.message ?? ''));
 }
 
 /* ── Proof files (CFO decision D1/D2) ─────────────────────────────────────────────────────────────── */
@@ -275,3 +502,8 @@ export function specialAdvanceProofPath(advanceId: string, file: { type: string;
   if (file.size <= 0 || file.size > SPECIAL_ADVANCE_PROOF_MAX_BYTES) throw new Error('The proof file must be between 1 byte and 10 MB.');
   return `advances/${advanceId}/${fileId}.${ext}`;
 }
+
+/** The shape of every stored proof path (the bucket policy and the server accept nothing else). */
+export const SPECIAL_ADVANCE_PROOF_PATH_RE = /^advances\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$/;
+/** Seconds a proof link stays valid: long enough to open it, short enough not to be shared. */
+export const SPECIAL_ADVANCE_PROOF_LINK_SECONDS = 60;

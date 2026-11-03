@@ -25,6 +25,7 @@ import { getTelecomSendingCharge } from '@/lib/cashoutCharges';
 import { useLatestClaimComments, type CashoutClaimComment } from '@/hooks/useCashoutClaimComments';
 import { ClaimCommentTimeline } from '@/components/cfo/ClaimCommentTimeline';
 import { MessageSquare } from 'lucide-react';
+import { PageHeader, StatTile } from './FinopsKit';
 
 interface ClaimRow {
   id: string;
@@ -525,41 +526,21 @@ export function MerchantClaimsLog() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <HandCoins className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Merchant Claims Log</h2>
-            <p className="text-sm text-muted-foreground">
-              Every withdrawal claimed by a merchant (cash-out) agent — in progress and completed.
-            </p>
-          </div>
-        </div>
-        <button onClick={() => refetch()} className="p-2 rounded-lg hover:bg-muted transition-colors" title="Refresh">
-          <RefreshCw className={cn('h-4 w-4 text-muted-foreground', isFetching && 'animate-spin')} />
-        </button>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        icon={HandCoins}
+        title="Merchant Claims Log"
+        description="Every withdrawal claimed by a merchant (cash-out) agent, in progress and completed."
+        actions={
+          <Button variant="outline" className="min-h-[44px] sm:min-h-[40px] gap-2" onClick={() => refetch()} aria-label="Refresh">
+            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} aria-hidden="true" /> Refresh
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3">
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-warning">
-            <Clock className="h-4 w-4" />
-            <span className="text-xs font-medium text-muted-foreground">In progress</span>
-          </div>
-          <p className="text-2xl font-bold mt-1">{inProgressCount}</p>
-          <p className="text-xs font-medium text-warning mt-0.5">{formatUGX(inProgressTotal)}</p>
-        </Card>
-        <Card className="p-3">
-          <div className="flex items-center gap-2 text-success">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-xs font-medium text-muted-foreground">Completed</span>
-          </div>
-          <p className="text-2xl font-bold mt-1">{completedCount}</p>
-          <p className="text-xs font-medium text-success mt-0.5">{formatUGX(completedTotal)}</p>
-        </Card>
+        <StatTile icon={Clock} tone="amber" label="In progress" value={inProgressCount.toLocaleString()} note={formatUGX(inProgressTotal)} />
+        <StatTile icon={CheckCircle2} tone="emerald" label="Completed" value={completedCount.toLocaleString()} note={formatUGX(completedTotal)} />
       </div>
 
       <div className="relative">
@@ -568,7 +549,7 @@ export function MerchantClaimsLog() {
           placeholder="Search by merchant, customer, phone, amount or ID…"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="pl-9 h-10"
+          className="pl-9 h-11 rounded-xl"
         />
       </div>
 

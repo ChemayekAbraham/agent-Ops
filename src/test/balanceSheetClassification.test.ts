@@ -46,4 +46,12 @@ describe('balance-sheet classification: A24 Special Advances Receivable', () => 
     expect(other).toMatchObject({ value: 940_000, unsourced: false });
     expect(r.flagged.value).toBe(7);
   });
+
+  it('A25 impairment allowance (Phase C, credit balance) nets against A24 under Other Assets', () => {
+    const lines = [line('A24', 'Special Advances Receivable', 940_000), line('A25', 'Special Advances — Impairment Allowance', -94_000)];
+    expect(groupOf(lines, 'Special Advances — Impairment Allowance')).toBe('Other Assets');
+    const r = classifyAssets(lines);
+    expect(r.groups.find((g) => g.label === 'Other Assets')).toMatchObject({ value: 846_000 });
+    expect(r.flagged.value).toBe(0);
+  });
 });

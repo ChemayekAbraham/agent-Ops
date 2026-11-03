@@ -47,6 +47,7 @@ const PinSecuritySection = lazy(() => import('@/components/settings/PinSecurityS
 const BiometricSecuritySection = lazy(() => import('@/components/settings/BiometricSecuritySection'));
 const DeviceSessionsSection = lazy(() => import('@/components/settings/DeviceSessionsSection'));
 const TwoFactorSection = lazy(() => import('@/components/settings/TwoFactorSection'));
+const AuthenticatorAppCard = lazy(() => import('@/components/settings/AuthenticatorAppCard'));
 const TrustPrivacySection = lazy(() => import('@/components/settings/TrustPrivacySection'));
 const ResidenceAddressForm = lazy(() => import('@/components/profile/ResidenceAddressForm'));
 const EmailEditor = lazy(() => import('@/components/profile/EmailEditor'));
@@ -85,6 +86,7 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
     () => import('@/components/settings/PinSecuritySection'),
     () => import('@/components/settings/BiometricSecuritySection'),
     () => import('@/components/settings/TwoFactorSection'),
+    () => import('@/components/settings/AuthenticatorAppCard'),
     () => import('@/components/settings/DeviceSessionsSection'),
     () => import('@/components/settings/TrustPrivacySection'),
   ],
@@ -1020,6 +1022,7 @@ export default function Settings() {
                   </CardContent>
                 </Card>
                 <LazySection name="TwoFactor"><TwoFactorSection /></LazySection>
+                <LazySection name="AuthenticatorApp"><AuthenticatorAppCard /></LazySection>
                 <LazySection name="DeviceSessions"><DeviceSessionsSection /></LazySection>
                 <LazySection name="TrustPrivacy"><TrustPrivacySection /></LazySection>
               </div>

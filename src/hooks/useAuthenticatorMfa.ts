@@ -29,6 +29,13 @@ interface MfaStatus {
   prompt: boolean;
 }
 
+/**
+ * Fired on window after a code is accepted. Every component calls this hook separately (the app-wide gate, the
+ * set-up and challenge screens, the banner, the Settings card), so each copy listens and re-reads the status;
+ * without it the gate kept showing its full-screen prompt after a correct code.
+ */
+export const AUTHENTICATOR_CHANGED_EVENT = 'welile:authenticator-changed';
+
 interface EnrolData {
   factorId: string;
   qrSvg: string; // data URI (svg) to show as an image
@@ -72,6 +79,13 @@ export function useAuthenticatorMfa(userId: string | undefined) {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onChanged = () => void refresh();
+    window.addEventListener(AUTHENTICATOR_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(AUTHENTICATOR_CHANGED_EVENT, onChanged);
+  }, [refresh]);
+
   /** Create a pending authenticator and return the QR code to display. */
   const startEnrol = useCallback(async () => {
     setBusy(true);
@@ -110,6 +124,7 @@ export function useAuthenticatorMfa(userId: string | undefined) {
       setEnrol(null);
       await supabase.auth.refreshSession(); // new token carries aal2
       await refresh();
+      announceAuthenticatorChanged();
       return { ok: true };
     },
     [enrol, refresh],
@@ -135,10 +150,15 @@ export function useAuthenticatorMfa(userId: string | undefined) {
       }
       await supabase.auth.refreshSession();
       await refresh();
+      announceAuthenticatorChanged();
       return { ok: true };
     },
     [refresh],
   );
 
   return { stage, status, enrol, busy, error, startEnrol, verifyEnrol, verifyChallenge, refresh };
+}
+
+function announceAuthenticatorChanged() {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(AUTHENTICATOR_CHANGED_EVENT));
 }

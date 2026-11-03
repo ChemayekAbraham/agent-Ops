@@ -19,6 +19,8 @@ import {
 import { format as fmtDay, subDays } from 'date-fns';
 import { notifyVerificationResolved } from '@/lib/landlordVerificationNotify';
 import { CallButton } from './CallButton';
+import { MobileFilterSheet } from './mobile/landlordOpsMobile';
+import { formatOpsUgx } from './mobile/landlordOpsPhone';
 import { useLandlordTenantsMap } from '@/hooks/useLandlordTenantsMap';
 
 /** Tap-to-call buttons for a landlord's tenants (empty when none recorded). */
@@ -147,7 +149,7 @@ const TAB_LABEL: Record<QueueTab, string> = {
 };
 
 const fmtUgx = (n?: number | null) =>
-  n == null ? '—' : `UGX ${Number(n).toLocaleString()}`;
+  n == null ? 'Not recorded' : formatOpsUgx(n);
 
 /**
  * Agent-initiated landlord verification requests.
@@ -711,9 +713,9 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
         </div>
         {/* Tabs — pending, resubmitted and the read-only decision history */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as QueueTab)} className="mt-3">
-          <TabsList className="grid h-auto grid-cols-2 gap-1 bg-background/70 p-1 sm:flex sm:flex-wrap sm:justify-start">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto bg-background/70 p-1 md:flex-wrap">
             {(['pending', 'resubmitted', 'verified', 'rejected', 'cancelled', 'all'] as QueueTab[]).map((t) => (
-              <TabsTrigger key={t} value={t} className="min-h-11 gap-1.5 px-2.5 text-xs sm:min-h-8 sm:text-[11px]">
+              <TabsTrigger key={t} value={t} className="min-h-11 shrink-0 gap-1.5 px-3 text-sm md:min-h-8 md:px-2.5 md:text-[11px]">
                 {TAB_LABEL[t]}
                 <Badge variant="secondary" className="h-4 px-1 text-[9px]">{tabCounts[t]}</Badge>
               </TabsTrigger>
@@ -726,33 +728,37 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
           <LandlordVerificationGeoBrowser rows={geoRows} path={geoPath} onChange={setGeoPath} tenantsByLandlord={tenantsByLandlord} />
         </div>
 
-        {/* Date range + export */}
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 sm:flex">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
-            <span className="text-[11px] text-muted-foreground">to</span>
-            <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-xs sm:h-8 sm:w-[135px]" />
-          </div>
-          {([['7d', 6], ['30d', 29], ['90d', 89]] as [string, number][]).map(([label, days]) => (
-            <Button
-              key={label}
-              size="sm"
-              variant="outline"
-              className="h-11 text-xs sm:h-8 sm:text-[10px]"
-              onClick={() => {
-                setFromDate(fmtDay(subDays(new Date(), days), 'yyyy-MM-dd'));
-                setToDate(fmtDay(new Date(), 'yyyy-MM-dd'));
-              }}
-            >
-              Last {label}
-            </Button>
-          ))}
-          <Button size="sm" variant="outline" className="h-11 gap-1.5 text-xs sm:h-8 sm:text-[10px]" onClick={() => setShowChart((v) => !v)}>
-            <BarChart3 className="h-3 w-3" />
-            {showChart ? 'Hide chart' : 'Show chart'}
-          </Button>
-          <Button size="sm" className="h-11 gap-1.5 text-xs sm:ml-auto sm:h-8 sm:text-[10px]" disabled={exporting} onClick={handleExportPdf}>
+        {/* Date range lives in a sheet on a phone. Export stays in reach. */}
+        <div className="mt-3 flex flex-col gap-2">
+          <MobileFilterSheet title="Dates and chart" active={showChart}>
+            <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+              <div className="grid grid-cols-[auto_1fr_auto_1fr] items-center gap-1.5 md:flex">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <Input type="date" value={fromDate} max={toDate} onChange={(e) => setFromDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-sm md:h-8 md:w-[135px] md:text-xs" aria-label="From date" />
+                <span className="text-sm text-muted-foreground md:text-[11px]">to</span>
+                <Input type="date" value={toDate} min={fromDate} onChange={(e) => setToDate(e.target.value)} className="h-11 min-w-0 bg-background/80 px-2 text-sm md:h-8 md:w-[135px] md:text-xs" aria-label="To date" />
+              </div>
+              {([['7d', 6], ['30d', 29], ['90d', 89]] as [string, number][]).map(([label, days]) => (
+                <Button
+                  key={label}
+                  size="sm"
+                  variant="outline"
+                  className="h-11 text-sm md:h-8 md:text-[10px]"
+                  onClick={() => {
+                    setFromDate(fmtDay(subDays(new Date(), days), 'yyyy-MM-dd'));
+                    setToDate(fmtDay(new Date(), 'yyyy-MM-dd'));
+                  }}
+                >
+                  Last {label}
+                </Button>
+              ))}
+              <Button size="sm" variant="outline" className="h-11 gap-1.5 text-sm md:h-8 md:text-[10px]" onClick={() => setShowChart((v) => !v)}>
+                <BarChart3 className="h-3 w-3" />
+                {showChart ? 'Hide chart' : 'Show chart'}
+              </Button>
+            </div>
+          </MobileFilterSheet>
+          <Button size="sm" className="h-11 gap-1.5 text-sm md:ml-auto md:h-8 md:w-auto md:text-[10px]" disabled={exporting} onClick={handleExportPdf}>
             {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileDown className="h-3 w-3" />}
             Export PDF
           </Button>
@@ -785,14 +791,14 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
             <Button
               size="sm"
               variant={onlyResubmitted ? 'default' : 'outline'}
-              className="h-7 text-[11px] gap-1.5"
+              className="h-11 gap-1.5 text-sm md:h-7 md:text-[11px]"
               onClick={() => setOnlyResubmitted((v) => !v)}
             >
               <RotateCcw className="h-3 w-3" />
               {onlyResubmitted ? 'Showing resubmitted only' : `Resubmitted after rejection (${resubmittedCount})`}
             </Button>
             <span className="text-[10px] text-muted-foreground">
-              These were rejected before and returned to review by the agent — the original rejection is shown on each card.
+              These were rejected before and returned to review by the agent. The original rejection is shown on each card.
             </span>
           </div>
         )}
@@ -1006,11 +1012,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                           className="min-h-[64px] text-sm"
                         />
                         <div className="flex flex-col gap-2 min-[420px]:flex-row">
-                          <Button size="sm" variant="destructive" className="flex-1" disabled={busyId === req.id} onClick={() => handleReject(req)}>
+                          <Button size="sm" variant="destructive" className="h-11 flex-1" disabled={busyId === req.id} onClick={() => handleReject(req)}>
                             {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
                             Confirm reject
                           </Button>
-                          <Button size="sm" variant="ghost" className="flex-1" disabled={busyId === req.id} onClick={() => { setRejectingId(null); setRejectComment(''); }}>
+                          <Button size="sm" variant="ghost" className="h-11 flex-1" disabled={busyId === req.id} onClick={() => { setRejectingId(null); setRejectComment(''); }}>
                             Cancel
                           </Button>
                         </div>
@@ -1019,7 +1025,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                       <div className="space-y-2 pt-1">
                         <div className="space-y-1">
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                            Verification comment <span className="normal-case font-normal">(optional — appears in reports)</span>
+                            Verification comment <span className="normal-case font-normal">(optional, appears in reports)</span>
                           </p>
                           <Textarea
                             value={verifyComment}
@@ -1029,11 +1035,11 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                           />
                         </div>
                         <div className="flex flex-col gap-2 min-[420px]:flex-row">
-                        <Button size="sm" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" disabled={busyId === req.id} onClick={() => handleVerify(req)}>
+                        <Button size="sm" className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700" disabled={busyId === req.id} onClick={() => handleVerify(req)}>
                           {busyId === req.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
                           Verify landlord
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1 border-rose-500/40 text-rose-700 hover:bg-rose-50" disabled={busyId === req.id} onClick={() => { setRejectingId(req.id); setRejectComment(''); }}>
+                        <Button size="sm" variant="outline" className="h-11 flex-1 border-rose-500/40 text-rose-700 hover:bg-rose-50" disabled={busyId === req.id} onClick={() => { setRejectingId(req.id); setRejectComment(''); }}>
                           <XCircle className="h-3.5 w-3.5 mr-1" />
                           Reject
                         </Button>
@@ -1163,7 +1169,7 @@ export function AgentVerificationRequestsPanel({ onResolved }: Props) {
                 type="button"
                 onClick={() => setCallBarDismissedFor(callFocus.id)}
                 aria-label="Hide call bar"
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>

@@ -87,10 +87,25 @@ export const AGENT_TOOLS: ToolDef[] = [
     description:
       "The agent's own wallet right now: wallet_balance, withdrawable_balance (can be withdrawn), " +
       "float_balance (company float available to collect with), advance_balance, locked_balance, and " +
-      "landlord_float_available (landlord-payout float they can still spend). Use for any 'how much do I have' question.",
+      "landlord_float_available (a stored landlord-payout float figure). Do not quote it, or any wallet figure, when asked how much landlord float they may use or spend; use the fixed reply in the system prompt. Use this tool for any other 'how much do I have' question.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_agent_wallet",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_target_progress",
+    description:
+      "How the agent is doing against the weekly collection target (the posting rule, Thursday to Wednesday): " +
+      "for this week, collected so far vs due so far (percent_so_far), the required_percent, the full-week due estimate, " +
+      "amount_needed_to_pass and needed_per_day_including_today (already calculated: copy them, never work them out), and on_track; " +
+      "for current plans and for expired plans separately; the last judged week with passed true/false; and the tenants furthest behind " +
+      "(names and amounts only). Use for any 'what is my percentage', 'am I on target', 'how much more must I collect to reach 50%', " +
+      "'will I pass this week' question. percent_so_far is collected divided by due so far, not the weekly result. " +
+      "If a group has null percent_so_far or required_percent, that group has nothing billed this week.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_agent_target_progress",
     toRpcArgs: () => ({}),
   },
   {
@@ -392,7 +407,7 @@ export const AGENT_TOOLS: ToolDef[] = [
       "Landlord float status for this agent: each allocation with landlord, tenant, allocated / paid out / remaining and its state " +
       "(open, paid, returned, cancelled) and the payout state (paid, awaiting_your_receipt, failed, being_processed). " +
       "Use for 'was the landlord paid', 'which landlord payouts are waiting on me'. recorded_balance is a stored figure that can " +
-      "still count recalled allocations: for 'how much float can I spend' use get_wallet (landlord_float_available). No receipts.",
+      "still count recalled allocations. For how much landlord float they may use or spend, do not quote recorded_balance or a wallet figure; use the fixed reply in the system prompt. No receipts.",
     parameters: {
       type: "object",
       properties: {

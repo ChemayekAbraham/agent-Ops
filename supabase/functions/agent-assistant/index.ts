@@ -18,7 +18,7 @@ import { CALC_TOOL, runCalcTool } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
 import { callModel, type ChatMessage, ModelError } from "./openai.ts";
 import { buildSystemPrompt, SCOPE_CHECK_PROMPT } from "./prompt.ts";
-import { checkAnswer } from "./guards.ts";
+import { checkAnswer, cleanTerms, RETRY_NOTE, trimToSentence } from "./guards.ts";
 import { ESCALATION_OFFER_OUTCOMES, MSG } from "./messages.ts";
 import { kampalaToday } from "./dates.ts";
 import { getClientUserAgent, resolveTrustedClientIp } from "../_shared/resolveClientIp.ts";
@@ -42,7 +42,7 @@ const corsHeaders = {
 };
 
 const MAX_BODY_BYTES = 8 * 1024;
-const MAX_MODEL_ROUNDS = 4;
+const MAX_MODEL_ROUNDS = 5; // includes the one retry after an output-guard failure
 const MAX_CALLS_PER_ROUND = 3;
 const MAX_TOOL_CALLS = 6;
 // Sized for the largest tool result (25 tenants, or a 3-way name match with 5 Rent Plans each),
@@ -54,7 +54,7 @@ const MAX_ANSWER_CHARS = 1800;
  * few earning facts, too short to be a made-up report. Figures are still checked against the fixed
  * knowledge text, so nothing outside it can be quoted.
  */
-const MAX_UNGROUNDED_CHARS = 700;
+const MAX_UNGROUNDED_CHARS = 1100;
 const REFUSE_PREFIX = /^REFUSE\b[:\s-]*/;
 
 interface TurnResult {
@@ -131,6 +131,7 @@ async function runTurn(
   const toolOutputs: string[] = [AGENT_KNOWLEDGE];
   let model: string | undefined;
   let totalCalls = 0;
+  let retried = false;
 
   for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
     const reply = await callModel({ messages, tools: openAiTools(isAgent) });
@@ -150,11 +151,24 @@ async function runTurn(
       }
 
       text = text.slice(0, MAX_ANSWER_CHARS);
-      if (!toolsCalled.length && text.length > MAX_UNGROUNDED_CHARS) {
-        return blocked(toolsCalled, model, "long answer with no tool results");
-      }
+      // A long answer with no tool results is shortened at a sentence end, not thrown away: it is
+      // still checked below, so nothing outside the tools and the fixed knowledge can get through.
+      if (!toolsCalled.length && text.length > MAX_UNGROUNDED_CHARS) text = trimToSentence(text, MAX_UNGROUNDED_CHARS);
       // Figures given in earlier turns already passed this guard, so they may be restated.
-      const verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message);
+      let verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message);
+      if (!verdict.ok && !retried) {
+        // One retry: tell the model what was wrong and let it fix its own draft.
+        retried = true;
+        console.error(`[agent-assistant] retry after output guard: ${verdict.reason}`);
+        messages.push({ role: "assistant", content: text });
+        messages.push({ role: "user", content: `[note from the system, not from the user] ${RETRY_NOTE[verdict.reason]} Reply again to the user's last message, in the same friendly voice.` });
+        continue;
+      }
+      // Wording is safe to repair; a figure, id or phone number that could not be verified is not.
+      if (!verdict.ok && verdict.reason === "terminology") {
+        text = cleanTerms(text);
+        verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message);
+      }
       if (!verdict.ok) return blocked(toolsCalled, model, `output guard: ${verdict.reason}`);
       return { reply: text, outcome: "answered", toolsCalled, model };
     }

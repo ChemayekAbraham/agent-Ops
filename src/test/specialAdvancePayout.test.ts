@@ -38,6 +38,8 @@ const PAYOUT_RB = read('supabase/rollbacks/20261028153000_special_advances_payou
 const HELPERS = read('scripts/fixtures/asset-register-helpers.sql');
 const POLICIES = MIG('20261028153100_special_advances_proof_storage_policies.sql');
 const POLICIES_RB = read('supabase/rollbacks/20261028153100_special_advances_proof_storage_policies.rollback.sql');
+const POSITION = MIG('20261102200000_special_advances_receivable_after_payout.sql');
+const POSITION_RB = read('supabase/rollbacks/20261102200000_special_advances_receivable_after_payout.rollback.sql');
 // production's allowlist (wrapper + base list), verbatim; the migration pins this exact definition
 const PROD_ALLOWLIST = read('scripts/fixtures/ledger-allowlist-prod-2026-10-27.sql');
 const PROD_ALLOWLIST_MD5 = '736744d355fe913acfcc0593204613a6';
@@ -510,6 +512,25 @@ describe('Proof files for external payouts and repayments (CFO decision D1/D2, 2
     const again = await db.exec(`BEGIN;\n${POLICIES}\nCOMMIT;`).catch((x: Err) => x);
     await db.exec('ROLLBACK').catch(() => {});
     expect((again as Err).message).toMatch(/already exist/);
+    // CFO decision 2026-11-03: an enabled CFO reads and uploads proofs without an authenticator (D14 withdrawn); others never
+    await db.exec(`GRANT USAGE ON SCHEMA storage TO authenticated; GRANT SELECT, INSERT ON storage.objects TO authenticated;`);
+    try {
+      const file = () => `advances/${uuid()}/${uuid()}.pdf`;
+      const upload = (user: string, aal: string) => call(user, `insert into storage.objects (bucket_id, name) values ('special-advance-proofs', $1) returning 1 r`, [file()], aal);
+      const visible = async (user: string, aal: string) => (await call<number>(user, `select count(*)::int r from storage.objects where bucket_id = 'special-advance-proofs'`, [], aal)).out;
+      expect((await upload(cfo, 'aal1')).err).toBeUndefined();
+      expect((await upload(coo, 'aal1')).err?.message).toMatch(/row-level security/);
+      expect((await upload(coo, 'aal2')).err?.message).toMatch(/row-level security/);
+      expect((await upload(superAdmin, 'aal2')).err?.message).toMatch(/row-level security/);
+      expect(await visible(cfo, 'aal1')).toBeGreaterThan(0);
+      expect(await visible(coo, 'aal2')).toBe(0);
+      expect(await visible(superAdmin, 'aal2')).toBe(0);
+      expect(await q(`select count(*)::int n from pg_policies where schemaname = 'storage' and tablename = 'objects'
+                        and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'special-advance-proofs' and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'aal'`))
+        .toEqual([{ n: 0 }]);
+    } finally {
+      await db.exec(`REVOKE SELECT, INSERT ON storage.objects FROM authenticated; REVOKE USAGE ON SCHEMA storage FROM authenticated;`);
+    }
     // a role that does not own storage.objects is refused before anything is created
     await db.exec(`BEGIN;\nDROP POLICY special_advance_proofs_read ON storage.objects; DROP POLICY special_advance_proofs_insert ON storage.objects;
       CREATE ROLE proofs_not_owner NOLOGIN; GRANT USAGE ON SCHEMA storage TO proofs_not_owner; GRANT SELECT ON storage.buckets TO proofs_not_owner;
@@ -787,5 +808,84 @@ describe('Staff MFA for money-moving actions (CFO decision D5, 2026-10-27)', () 
     expect(await q(`select mode from public.staff_mfa_config where id`)).toEqual([{ mode: 'shadow' }]);
     expect(await q(`select has_function_privilege('authenticated', 'public._special_advance_require_mfa()', 'EXECUTE') a,
                            has_function_privilege('anon', 'public._special_advance_guard_mfa()', 'EXECUTE') b`)).toEqual([{ a: false, b: false }]);
+  });
+});
+
+describe('Receivable only after payout (Phase A, 2026-11-02)', () => {
+  const PHASE4_MD5 = '2a4a08a6f1ce3c56aed9c2344ffaa1eb'; // production, read-only check 2026-11-02
+  const PHASE_A_MD5 = 'b2515026024dcd7ff7b2744f58d35b27';
+  type Position = Adv['position'] & { paid_out: boolean; scheduled_outstanding: number; total_repayable: number;
+    outstanding_access_fee: number; outstanding_registration_fee: number; outstanding_principal: number };
+  const md5 = async () => (await q<{ m: string }>(`select md5(replace(prosrc, chr(13), '')) m from pg_proc where oid = 'public._special_advance_position(uuid)'::regprocedure`))[0].m;
+  const position = async (id: string) => (await call<Adv>(cfo, `select public.special_advance_statement($1) r`, [id])).out!.position as Position;
+  const recon = async () => (await call(cfo, `select public.special_advance_reconciliation() r`)).out;
+  const run = async (sql: string) => {
+    const e = await db.exec(`BEGIN;\n${sql}\nCOMMIT;`).then(() => undefined, (x: Err) => x);
+    await db.exec('ROLLBACK').catch(() => {});
+    return e;
+  };
+  let approvedId = '', paidOutId = '', rejectedId = '';
+  let before: { approved: Position; paidOut: Position; recon: unknown };
+
+  beforeAll(async () => {
+    const borrower = uuid();
+    await db.query(`insert into auth.users values ($1)`, [borrower]);
+    await db.query(`insert into public.profiles (id, full_name) values ($1, 'Person')`, [borrower]);
+    await db.query(`insert into public.user_roles (user_id, role) values ($1, 'tenant')`, [borrower]);
+    approvedId = (await approved({ kind: 'welile_user', user_id: borrower })).id;
+    paidOutId = (await q<{ id: string }>(`select id from public.special_advances where borrower_user_id = $1 and status = 'disbursed'`, [agentUser]))[0].id;
+    rejectedId = (await q<{ id: string }>(`select id from public.special_advances where status = 'rejected' limit 1`))[0].id;
+    before = { approved: await position(approvedId), paidOut: await position(paidOutId), recon: await recon() };
+  });
+
+  it('starts from the Phase 4 definition, which reports an unpaid advance as owing its full total', async () => {
+    expect(await md5()).toBe(PHASE4_MD5);
+    expect(before.approved.outstanding).toBe(940_000);
+  });
+
+  it('applies over the Phase 4 definition only; a second run is refused and changes nothing', async () => {
+    expect(await run(POSITION)).toBeUndefined();
+    expect(await md5()).toBe(PHASE_A_MD5);
+    expect((await run(POSITION))?.message).toMatch(/differs from the Phase 4 definition/);
+    expect(await md5()).toBe(PHASE_A_MD5);
+  });
+
+  it('an approved advance owes nothing until it is paid out; its schedule stays visible', async () => {
+    const p = await position(approvedId);
+    expect(p).toMatchObject({ paid_out: false, outstanding: 0, outstanding_access_fee: 0, outstanding_registration_fee: 0,
+      outstanding_principal: 0, overdue_amount: 0, overdue_instalments: 0, total_paid: 0, total_repayable: 940_000, scheduled_outstanding: 940_000 });
+    expect(p.instalments).toEqual(before.approved.instalments);
+    expect(await position(rejectedId)).toMatchObject({ paid_out: false, outstanding: 0 });
+  });
+
+  it('a paid-out advance reports exactly what it did before', async () => {
+    const { paid_out, scheduled_outstanding, ...rest } = await position(paidOutId);
+    expect(paid_out).toBe(true);
+    expect(scheduled_outstanding).toBe(rest.outstanding);
+    expect(rest).toEqual(before.paidOut);
+    expect(rest.outstanding).toBeGreaterThan(0);
+  });
+
+  it('the A24 reconciliation is unchanged and still balances; a repayment still settles against the same outstanding', async () => {
+    expect(await recon()).toEqual(before.recon);
+    const r = await repay({ id: paidOutId }, { amount: 1_000, reference: 'PHASE-A-REP-0001' });
+    expect(r.err).toBeUndefined();
+    expect((r.out!.position as Position).outstanding).toBe(before.paidOut.outstanding - 1_000);
+    expect(await recon()).toMatchObject({ balanced: true, difference: 0 });
+  });
+
+  it('keeps the function internal: owner rights, fixed search_path, no client execute', async () => {
+    expect(await q(`select prosecdef d, proconfig c, has_function_privilege('authenticated', oid, 'EXECUTE') a, has_function_privilege('anon', oid, 'EXECUTE') n
+                      from pg_proc where oid = 'public._special_advance_position(uuid)'::regprocedure`))
+      .toEqual([{ d: true, c: ['search_path=public'], a: false, n: false }]);
+  });
+
+  it('the rollback restores the Phase 4 definition exactly, and refuses when the live function is not Phase A', async () => {
+    expect(await run(POSITION_RB)).toBeUndefined();
+    expect(await md5()).toBe(PHASE4_MD5);
+    expect((await position(approvedId)).outstanding).toBe(940_000);
+    expect((await run(POSITION_RB))?.message).toMatch(/not the Phase A definition/);
+    expect(await run(POSITION)).toBeUndefined(); // leave the database on Phase A
+    expect(await md5()).toBe(PHASE_A_MD5);
   });
 });

@@ -18,6 +18,7 @@ import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { toast } from 'sonner';
 import { format, formatDistanceToNow } from 'date-fns';
 
+import { PageHeader } from './FinopsKit';
 interface UserHit {
   id: string;
   full_name: string | null;
@@ -178,16 +179,11 @@ export function FloatToWithdrawablePanel() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <ArrowRightLeft className="h-6 w-6 text-primary" />
-          Float → Withdrawable
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Reclassify a user's Operational Float (company money) into their own
-          Withdrawable balance. Their total balance does not change.
-        </p>
-      </div>
+      <PageHeader
+        icon={ArrowRightLeft}
+        title="Float → Withdrawable"
+        description={<>Reclassify a user's Operational Float (company money) into their own Withdrawable balance. Their total balance does not change.</>}
+      />
 
       {/* Search */}
       <Card>

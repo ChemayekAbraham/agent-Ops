@@ -7,6 +7,8 @@
 -- member, so applying this file with `supabase db query` as postgres is refused by the preflight below, changing
 -- nothing. Same route as 20261026200100_asset_register_stage1_storage_policies.
 -- Read: an enabled CFO (with staff MFA where required). Upload: the same, under advances/<advance id>/<uuid>.<ext>.
+-- CFO decision 2026-11-03: no authenticator-verified session (aal2) is required (D14 of 2026-11-02 withdrawn before
+-- this file was applied); access is the enabled CFO role plus the Welile-wide staff MFA policy (staff_mfa_ok()).
 -- No UPDATE or DELETE policy: a proof is never replaced or removed from the client.
 -- TRANSACTION: run as ONE transaction. Rollback: supabase/rollbacks/20261028153100_special_advances_proof_storage_policies.rollback.sql
 

@@ -14,6 +14,7 @@ import { excludePartnerReservedPlans } from '@/lib/partnerReservedPlans';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 export function BatchPayoutProcessor() {
   const { user } = useAuth();
@@ -71,7 +72,9 @@ export function BatchPayoutProcessor() {
         const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
           body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
         });
-        if (error) throw error;
+        if (error) {
+          throw new Error(`${id.slice(0, 8)}: ${await extractFromErrorObject(error, 'Funding failed')}`);
+        }
       }
 
       await supabase.from('audit_logs').insert({

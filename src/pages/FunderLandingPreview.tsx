@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Crosshair, Home, Loader2, Search } from 'lucide-react';
-import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useMountedOnce } from '@/hooks/useMountedOnce';
 import type { AppRole } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import DashboardHeader from '@/components/DashboardHeader';
@@ -24,10 +26,11 @@ import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
-import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolioPlanDetailSheet';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
-import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
+import { FunderPreviewHomeSheet, type FunderPreviewEntry } from '@/components/funder-preview/FunderPreviewHomeSheet';
+import { FunderPreviewTray, type FunderPreviewSuggestion } from '@/components/funder-preview/FunderPreviewTray';
+import { FunderPreviewPlanFlow } from '@/components/funder-preview/FunderPreviewPlanFlow';
+import { submitPreviewSupport, useSupportCapacity } from '@/components/funder-preview/useFunderPreviewSupport';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import {
   useFunderNewEmptyHouses,
@@ -49,13 +52,14 @@ import { FunderPreviewMap } from '@/components/funder-preview/FunderPreviewMap';
 
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
+/** A second home is suggested only when it is this close to the last pick. */
+const NEARBY_SUGGESTION_KM = 3;
+
+const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
 
 type CategoryFilter = 'all' | FunderNewCategory;
 
-interface FeedEntry {
-  category: FunderNewCategory;
-  item: FunderNewEmptyHouse | FunderNewReadyPlan;
-}
+type FeedEntry = FunderPreviewEntry;
 
 
 /**
@@ -347,9 +351,9 @@ export default function FunderLandingPreview() {
   // ── Selection, detail, review ───────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
-  const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
-  const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
+  const [detail, setDetail] = useState<FeedEntry | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const detailHouse = detail?.category === 'empty' ? (detail.item as FunderNewEmptyHouse) : null;
 
   const toggleSelect = useCallback((nextCategory: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     const next = toSelectionItem(nextCategory, item);
@@ -372,16 +376,82 @@ export default function FunderLandingPreview() {
   };
 
   const openDetail = useCallback((entryCategory: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    if (entryCategory === 'empty') setDetailHouse(item as FunderNewEmptyHouse);
-    else setDetailPlan(item as FunderNewReadyPlan);
+    setDetail({ category: entryCategory, item });
   }, []);
 
-  const openHouseFromMap = useCallback((house: FunderNewEmptyHouse) => setDetailHouse(house), []);
+  const openHouseFromMap = useCallback((house: FunderNewEmptyHouse) => setDetail({ category: 'empty', item: house }), []);
 
   const selectedEmptyIds = useMemo(
     () => selectedItems.filter((item) => item.category === 'empty').map((item) => item.id),
     [selectedItems],
   );
+
+  const isSelected = (entry: FeedEntry) =>
+    selectedItems.some((item) => item.category === entry.category && item.id === itemId(entry.category, entry.item));
+
+  const restoreSelected = (item: FunderNewSelectionItem) => {
+    setSelectedItems((current) => {
+      if (current.some((entry) => entry.category === item.category && entry.id === item.id)) return current;
+      const sameCategory = current.filter((entry) => entry.category === item.category);
+      return [...sameCategory, item];
+    });
+    setSelectedCategory(item.category);
+  };
+
+  const keepOnly = (ids: string[]) => {
+    setSelectedItems((current) => current.filter((item) => ids.includes(item.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedItems([]);
+    setSelectedCategory(null);
+  };
+
+  // A nearby, unpicked home of the same kind as the last pick. Offered, never pre-added.
+  const suggestion = useMemo<FunderPreviewSuggestion | null>(() => {
+    const last = selectedItems[selectedItems.length - 1];
+    if (!last || last.lat == null || last.lng == null) return null;
+    const anchor = { lat: last.lat, lng: last.lng };
+    let best: { entry: FeedEntry; km: number; label: string } | null = null;
+    for (const entry of entries) {
+      if (entry.category !== last.category) continue;
+      const id = itemId(entry.category, entry.item);
+      if (selectedItems.some((item) => item.id === id)) continue;
+      const coords = itemCoordinates(entry.item, entry.category);
+      const distance = coords ? straightLineDistance(anchor, coords) : null;
+      if (!distance || distance.km > NEARBY_SUGGESTION_KM) continue;
+      if (!best || distance.km < best.km) best = { entry, km: distance.km, label: distance.label };
+    }
+    if (!best) return null;
+    const found = best.entry;
+    const view = toSelectionItem(found.category, found.item);
+    return {
+      title: view.title,
+      distanceLabel: best.label,
+      amount: view.amount,
+      onAdd: () => toggleSelect(found.category, found.item),
+    };
+  }, [selectedItems, entries, toggleSelect]);
+
+  // ── Support: balance, submit, top-up ────────────────────────────────────
+  const queryClient = useQueryClient();
+  const capacity = useSupportCapacity(user?.id, reviewOpen);
+  const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const mountDeposit = useMountedOnce(topUpAmount !== null);
+
+  const submitSupport = async () => {
+    const result = await submitPreviewSupport(selectedItems, {
+      fullName: profile?.full_name || '',
+      phone: profile?.phone || '',
+      email: profile?.email || user?.email || '',
+    });
+    clearSelection();
+    window.dispatchEvent(new Event('supporter-contribution-changed'));
+    void queryClient.invalidateQueries({ queryKey: ['funder-preview-support-capacity'] });
+    void emptyQuery.refetch();
+    void readyQuery.refetch();
+    return result;
+  };
 
   // ── Pending total ───────────────────────────────────────────────────────
   const total = summary.data ? summary.data.totalRentNeeded : null;
@@ -670,58 +740,73 @@ export default function FunderLandingPreview() {
         </div>
       </motion.section>
 
-      <EmptyHouseDetailSheet
-        house={detailHouse}
-        open={!!detailHouse}
+      <FunderPreviewHomeSheet
+        entry={detail}
+        open={!!detail}
         onOpenChange={(open) => {
-          if (!open) setDetailHouse(null);
+          if (!open) setDetail(null);
         }}
-        isPicked={detailHouse ? selectedEmptyIds.includes(detailHouse.house_id) : false}
-        onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
-        isPartner
-        onRelatedHouseClick={(house) => setDetailHouse(house as FunderNewEmptyHouse)}
-        remaining={availableBalance ?? undefined}
+        picked={detail ? isSelected(detail) : false}
+        onTogglePick={() => {
+          if (!detail) return;
+          const wasPicked = isSelected(detail);
+          toggleSelect(detail.category, detail.item);
+          // Picking returns to the list so the tray can show the next step.
+          if (!wasPicked) setDetail(null);
+        }}
+        saved={detail ? saved[detail.category].includes(itemId(detail.category, detail.item)) : false}
+        onToggleSave={() => detail && toggleSave(detail.category, itemId(detail.category, detail.item))}
+        distanceLabel={(() => {
+          if (!detail) return null;
+          const coords = itemCoordinates(detail.item, detail.category);
+          return coords ? straightLineDistance(deviceOrigin, coords)?.label ?? null : null;
+        })()}
       />
-      <SelfPortfolioPlanDetailSheet
-        plan={detailPlan}
-        open={!!detailPlan}
-        onOpenChange={(open) => {
-          if (!open) setDetailPlan(null);
-        }}
-        isFunded={false}
-        onFund={(plan) => {
-          const cost = Number(plan.funding_amount || 0);
-          const available = availableBalance ?? 0;
-          if (available >= cost) {
-            if (!selectedItems.some((item) => item.category === 'ready' && item.id === plan.rent_request_id)) {
-              toggleSelect('ready', plan as FunderNewReadyPlan);
-            }
-            setDetailPlan(null);
-            setReviewOpen(true);
-          } else {
-            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - available)} to fund this tenant.`);
-            setDetailPlan(null);
-          }
-        }}
-      />
-      <FunderNewReviewDialog
+      {!reviewOpen && !detail ? (
+        <FunderPreviewTray
+          items={selectedItems}
+          suggestion={suggestion}
+          onUndoLast={() => {
+            const last = selectedItems[selectedItems.length - 1];
+            if (last) removeSelected(last);
+          }}
+          onClear={clearSelection}
+          onReview={() => setReviewOpen(true)}
+        />
+      ) : null}
+      <FunderPreviewPlanFlow
         open={reviewOpen}
         onOpenChange={setReviewOpen}
         items={selectedItems}
-        available={availableBalance}
-        walletLoading={wallet.isLoading}
-        walletError={wallet.error}
+        capacity={capacity.data ?? null}
+        capacityLoading={capacity.isLoading || capacity.isFetching}
+        capacityError={!!capacity.error}
+        onRetryCapacity={() => void capacity.refetch()}
         onRemove={removeSelected}
-      />
-      <FunderNewSelectionBar
-        items={selectedItems}
-        category={selectedCategory}
-        onClear={() => {
-          setSelectedItems([]);
-          setSelectedCategory(null);
+        onRestore={restoreSelected}
+        onKeepOnly={keepOnly}
+        onSubmit={submitSupport}
+        onTopUp={(shortfall) => {
+          setReviewOpen(false);
+          setTopUpAmount(Math.ceil(shortfall));
         }}
-        onReview={() => setReviewOpen(true)}
+        onViewPortfolio={() => navigate('/dashboard/funder/portfolio')}
       />
+      {mountDeposit ? (
+        <Suspense fallback={null}>
+          <DepositFlow
+            open={topUpAmount !== null}
+            onOpenChange={(open) => {
+              if (open) return;
+              // The plan is still in page state: reopen it with a fresh balance.
+              setTopUpAmount(null);
+              void capacity.refetch();
+              if (selectedItems.length) setReviewOpen(true);
+            }}
+            defaultAmount={topUpAmount ?? undefined}
+          />
+        </Suspense>
+      ) : null}
 
       {/* Bottom role pill — the same Tenant / Agent / Partner / Owner switcher as the rest of the app. */}
       <BottomRoleSwitcher currentRole="supporter" onRoleChange={handleRoleSwitch} />

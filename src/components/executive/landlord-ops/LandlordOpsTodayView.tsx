@@ -50,7 +50,7 @@ import {
   useLandlordOpsNoLandlordCount,
   type LandlordOpsDecision,
 } from '@/hooks/useLandlordOpsToday';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatOpsUgx } from '@/components/executive/landlord-ops/mobile/landlordOpsPhone';
 
 interface TodayViewProps {
   onNavigate: (path: string) => void;
@@ -145,12 +145,12 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
    * is that we could not ask.
    */
   const num = (n: number, failed?: unknown) =>
-    countsLoading ? '—' : failed ? '!' : n.toLocaleString();
+    countsLoading ? '…' : failed ? '!' : n.toLocaleString();
 
   /** Hover text explaining a "!", so the reason is visible without a console. */
   const numTitle = (failed?: unknown) =>
     failed
-      ? `Could not load this queue — ${
+      ? `Could not load this queue. ${
           (failed as { message?: string })?.message ?? 'unknown error'
         }. The number shown is not a count.`
       : undefined;
@@ -235,7 +235,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
           <div className="flex flex-col items-stretch gap-2 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between sm:justify-end sm:gap-3">
             {floatWithAgents !== null && (
               <span className="text-sm font-semibold text-foreground tabular-nums">
-                {formatUGX(floatWithAgents)} with agents
+                {formatOpsUgx(floatWithAgents)} with agents
               </span>
             )}
             <Button
@@ -276,10 +276,10 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
           </div>
           <div className="flex items-center gap-2">
             <span
-              className="text-xl font-black tabular-nums text-primary"
-              title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
+              className="text-right text-base font-black tabular-nums text-primary sm:text-xl"
+              title={principalRecovered != null ? formatOpsUgx(principalRecovered) : undefined}
             >
-              {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
+              {principalRecovered == null ? '…' : formatOpsUgx(principalRecovered)}
             </span>
             <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all" />
           </div>
@@ -329,7 +329,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 </Badge>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                New today: {newToday ? newToday.houses.toLocaleString() : '—'}
+                New today: {newToday ? newToday.houses.toLocaleString() : '…'}
               </p>
             </div>
 
@@ -356,7 +356,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 </Badge>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                New today: {newToday ? newToday.landlords.toLocaleString() : '—'}
+                New today: {newToday ? newToday.landlords.toLocaleString() : '…'}
               </p>
             </div>
 
@@ -381,7 +381,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 </Badge>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                New today: {newToday ? newToday.lc1.toLocaleString() : '—'}
+                New today: {newToday ? newToday.lc1.toLocaleString() : '…'}
               </p>
             </div>
 
@@ -406,7 +406,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                 </Badge>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                New today: {newToday ? newToday.rentRequests.toLocaleString() : '—'}
+                New today: {newToday ? newToday.rentRequests.toLocaleString() : '…'}
               </p>
             </div>
           </div>
@@ -429,19 +429,19 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Credited to agents</span>
                 <span className="font-semibold text-emerald-600 tabular-nums">
-                  {wallet ? `+ ${formatUGX(wallet.credited)}` : '—'}
+                  {wallet ? `+ ${formatOpsUgx(wallet.credited)}` : '…'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Awaiting credit</span>
                 <span className="font-semibold text-amber-600 tabular-nums">
-                  {wallet ? formatUGX(wallet.pendingCredit) : '—'}
+                  {wallet ? formatOpsUgx(wallet.pendingCredit) : '…'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Charged (rejections)</span>
                 <span className="font-semibold text-rose-600 tabular-nums">
-                  {wallet ? `- ${formatUGX(wallet.charged)}` : '—'}
+                  {wallet ? `- ${formatOpsUgx(wallet.charged)}` : '…'}
                 </span>
               </div>
             </div>
@@ -457,10 +457,10 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               }`}
             >
               {wallet
-                ? `${wallet.credited + wallet.pendingCredit - wallet.charged < 0 ? '- ' : '+ '}${formatUGX(
+                ? `${wallet.credited + wallet.pendingCredit - wallet.charged < 0 ? '- ' : '+ '}${formatOpsUgx(
                     Math.abs(wallet.credited + wallet.pendingCredit - wallet.charged),
                   )}`
-                : '—'}
+                : '…'}
             </span>
           </div>
         </div>
@@ -618,7 +618,8 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
             <select
               value={timeFilter}
               onChange={(e) => setTimeFilter(e.target.value as typeof timeFilter)}
-              className="text-[11px] bg-muted/40 border border-border rounded-md px-2 py-0.5 text-muted-foreground"
+              aria-label="Decision window"
+              className="h-11 min-h-11 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground md:h-8 md:min-h-0 md:px-2 md:text-[11px]"
             >
               <option>Last 7 days</option>
               <option>Today</option>
@@ -798,7 +799,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                     <div>
                       <p className="font-semibold text-foreground group-hover:text-emerald-600 transition-colors">
                         {row.listingTitle || 'Untitled listing'}
-                        {row.district ? ` — ${row.district}` : ''}
+                        {row.district ? `, ${row.district}` : ''}
                       </p>
                       <p className="text-[10px] text-muted-foreground font-mono">
                         #{row.listingId.slice(0, 8).toUpperCase()}
@@ -823,18 +824,18 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
                   {/* Verified credits the bonus; rejected debits the standard charge. */}
                   <td className="py-2.5 px-4 whitespace-nowrap">
                     {row.kind === 'rejected' ? (
-                      <span className="text-rose-600 font-semibold">- {formatUGX(row.amount)}</span>
+                      <span className="text-rose-600 font-semibold">- {formatOpsUgx(row.amount)}</span>
                     ) : row.creditLanded ? (
-                      <span className="text-emerald-600 font-semibold">+ {formatUGX(row.amount)}</span>
+                      <span className="text-emerald-600 font-semibold">+ {formatOpsUgx(row.amount)}</span>
                     ) : (
                       <span className="text-amber-600 font-semibold">
-                        {formatUGX(row.amount)} pending
+                        {formatOpsUgx(row.amount)} pending
                       </span>
                     )}
                   </td>
 
                   <td className="py-2.5 px-4 whitespace-nowrap text-foreground font-medium">
-                    {row.operatorName || '—'}
+                    {row.operatorName || 'Not recorded'}
                   </td>
 
                   <td className="py-2.5 px-4 whitespace-nowrap text-muted-foreground text-[11px]">

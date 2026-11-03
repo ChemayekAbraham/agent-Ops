@@ -40,6 +40,38 @@ function nationalDigits(s: string): string {
   return digitsOnly(s).replace(/^256/, "").replace(/^0/, "");
 }
 
+/** What to tell the model when its draft fails the guard, so its one retry can fix the problem. */
+export const RETRY_NOTE: Record<Exclude<GuardResult, { ok: true }>["reason"], string> = {
+  terminology:
+    'Your draft used a banned word. Never write "loan", "lender", "ROI" or "interest". Say "Rent Plan", "Supporter" and "Returns", and "no extra charges" instead of "no interest". If the user used the banned word, do not repeat it: answer using the approved words.',
+  figure:
+    "Your draft contained a money figure that is not in the tool results. Use only figures copied exactly from the tool results, and do no arithmetic. If a figure is not available, say you do not have it.",
+  uuid: "Your draft contained an id that is not in the tool results. Do not include ids.",
+  phone: "Your draft contained a phone number that is not in the tool results. Do not include phone numbers.",
+};
+
+/** Repairs banned wording (used only when the retry still fails); never touches figures or ids. */
+export function cleanTerms(text: string): string {
+  return text
+    .replace(/\bno interest\b/gi, "no extra charges")
+    .replace(/\binterest\b/gi, "charges")
+    .replace(/\bloans\b/gi, "Rent Plans")
+    .replace(/\bloan\b/gi, "Rent Plan")
+    .replace(/\blenders\b/gi, "Supporters")
+    .replace(/\blender\b/gi, "Supporter")
+    .replace(/\broi\b/gi, "Returns");
+}
+
+/** Cuts at the last sentence end within max characters; if there is none, at the last space. */
+export function trimToSentence(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max);
+  const end = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "), head.lastIndexOf(".\n"));
+  if (end > max * 0.5) return head.slice(0, end + 1).trim();
+  const space = head.lastIndexOf(" ");
+  return (space > 0 ? head.slice(0, space) : head).trim();
+}
+
 export function checkAnswer(answer: string, toolOutputs: string[], userMessage: string): GuardResult {
   if (BANNED_TERMS.test(answer)) return { ok: false, reason: "terminology" };
 

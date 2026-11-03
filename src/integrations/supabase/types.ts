@@ -37212,6 +37212,291 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_action_aliases: {
+        Row: {
+          action: string | null
+          raw_name: string
+          source: string
+        }
+        Insert: {
+          action?: string | null
+          raw_name: string
+          source: string
+        }
+        Update: {
+          action?: string | null
+          raw_name?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_aliases_action_fkey"
+            columns: ["action"]
+            isOneToOne: false
+            referencedRelation: "ontology_action_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_action_types: {
+        Row: {
+          evidence_column: string | null
+          from_states: string[] | null
+          name: string
+          object_type: string
+          owner_desk: string | null
+          since_version: string
+          status: string
+          to_state: string | null
+        }
+        Insert: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name: string
+          object_type: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Update: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name?: string
+          object_type?: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_types_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_capture: {
+        Row: {
+          enabled: boolean
+          key_column: string
+          link_columns: Json
+          object_type: string | null
+          personal_columns: string[]
+          table_name: string
+          tier: string
+        }
+        Insert: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name: string
+          tier: string
+        }
+        Update: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_capture_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_changes: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          evidence: Json
+          id: number
+          kind: string
+          payload: Json
+          proposed_at: string
+          source: string
+          status: string
+          target: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind: string
+          payload?: Json
+          proposed_at?: string
+          source: string
+          status?: string
+          target: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind?: string
+          payload?: Json
+          proposed_at?: string
+          source?: string
+          status?: string
+          target?: string
+        }
+        Relationships: []
+      }
+      ontology_daily_map: {
+        Row: {
+          generated_at: string
+          map_date: string
+          ontology_version: string | null
+          payload: Json
+        }
+        Insert: {
+          generated_at?: string
+          map_date: string
+          ontology_version?: string | null
+          payload: Json
+        }
+        Update: {
+          generated_at?: string
+          map_date?: string
+          ontology_version?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
+      ontology_meta: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      ontology_object_types: {
+        Row: {
+          description: string | null
+          family: string
+          name: string
+          since_version: string
+          sot: string | null
+          status: string
+        }
+        Insert: {
+          description?: string | null
+          family: string
+          name: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Update: {
+          description?: string | null
+          family?: string
+          name?: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_reason_codes: {
+        Row: {
+          code: string
+          desks: string[] | null
+          meaning: string
+          requires_text: boolean
+          status: string
+        }
+        Insert: {
+          code: string
+          desks?: string[] | null
+          meaning: string
+          requires_text?: boolean
+          status?: string
+        }
+        Update: {
+          code?: string
+          desks?: string[] | null
+          meaning?: string
+          requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_system_actors: {
+        Row: {
+          kind: string
+          owner: string | null
+          purpose: string | null
+          ref: string
+          status: string
+        }
+        Insert: {
+          kind: string
+          owner?: string | null
+          purpose?: string | null
+          ref: string
+          status?: string
+        }
+        Update: {
+          kind?: string
+          owner?: string | null
+          purpose?: string | null
+          ref?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_table_activity: {
+        Row: {
+          del: number | null
+          ins: number | null
+          snap_at: string
+          table_name: string
+          upd: number | null
+        }
+        Insert: {
+          del?: number | null
+          ins?: number | null
+          snap_at: string
+          table_name: string
+          upd?: number | null
+        }
+        Update: {
+          del?: number | null
+          ins?: number | null
+          snap_at?: string
+          table_name?: string
+          upd?: number | null
+        }
+        Relationships: []
+      }
       operational_float_audit_log: {
         Row: {
           action: string
@@ -51909,6 +52194,66 @@ export type Database = {
         }
         Relationships: []
       }
+      special_advance_corrections: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string
+          proof_path: string
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          repayment_id: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string
+          proof_path: string
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          repayment_id?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string
+          proof_path?: string
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          repayment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_corrections_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_corrections_repayment_id_fkey"
+            columns: ["repayment_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       special_advance_events: {
         Row: {
           actor_id: string
@@ -52036,6 +52381,152 @@ export type Database = {
           },
         ]
       }
+      special_advance_provision_lines: {
+        Row: {
+          advance_id: string
+          applied_rate: number
+          days_past_due: number
+          delta: number
+          gross_outstanding: number
+          held_before: number
+          id: string
+          individual_rate: number | null
+          ledger_group_id: string | null
+          minimum_rate: number
+          required_allowance: number
+          review_id: string
+        }
+        Insert: {
+          advance_id: string
+          applied_rate: number
+          days_past_due: number
+          delta: number
+          gross_outstanding: number
+          held_before: number
+          id?: string
+          individual_rate?: number | null
+          ledger_group_id?: string | null
+          minimum_rate: number
+          required_allowance: number
+          review_id: string
+        }
+        Update: {
+          advance_id?: string
+          applied_rate?: number
+          days_past_due?: number
+          delta?: number
+          gross_outstanding?: number
+          held_before?: number
+          id?: string
+          individual_rate?: number | null
+          ledger_group_id?: string | null
+          minimum_rate?: number
+          required_allowance?: number
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_provision_lines_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_provision_lines_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_provision_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_provision_reviews: {
+        Row: {
+          as_of_date: string
+          id: string
+          idempotency_key: string
+          note: string | null
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          total_delta: number
+        }
+        Insert: {
+          as_of_date: string
+          id?: string
+          idempotency_key: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          total_delta: number
+        }
+        Update: {
+          as_of_date?: string
+          id?: string
+          idempotency_key?: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          total_delta?: number
+        }
+        Relationships: []
+      }
+      special_advance_recoveries: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note: string | null
+          proof_path: string
+          received_date: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note?: string | null
+          proof_path: string
+          received_date: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          method?: string
+          note?: string | null
+          proof_path?: string
+          received_date?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_recoveries_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       special_advance_repayment_allocations: {
         Row: {
           access_fee: number
@@ -52092,6 +52583,7 @@ export type Database = {
           recorded_at: string
           recorded_by: string
           reference: string
+          reversed_by_correction: string | null
         }
         Insert: {
           advance_id: string
@@ -52106,6 +52598,7 @@ export type Database = {
           recorded_at?: string
           recorded_by: string
           reference: string
+          reversed_by_correction?: string | null
         }
         Update: {
           advance_id?: string
@@ -52120,6 +52613,7 @@ export type Database = {
           recorded_at?: string
           recorded_by?: string
           reference?: string
+          reversed_by_correction?: string | null
         }
         Relationships: [
           {
@@ -52127,6 +52621,13 @@ export type Database = {
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_repayments_reversed_by_correction_fkey"
+            columns: ["reversed_by_correction"]
+            isOneToOne: false
+            referencedRelation: "special_advance_corrections"
             referencedColumns: ["id"]
           },
         ]
@@ -52154,6 +52655,59 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      special_advance_write_offs: {
+        Row: {
+          advance_id: string
+          allowance_released: number
+          gross_amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          net_loss: number
+          proof_path: string
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+        }
+        Insert: {
+          advance_id: string
+          allowance_released: number
+          gross_amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          net_loss: number
+          proof_path: string
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+        }
+        Update: {
+          advance_id?: string
+          allowance_released?: number
+          gross_amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          net_loss?: number
+          proof_path?: string
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_write_offs_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       special_advances: {
         Row: {
@@ -71836,9 +72390,17 @@ export type Database = {
         Args: { p_amount: number; p_due: Json }
         Returns: Json
       }
+      _special_advance_allowance_held: {
+        Args: { p_id: string }
+        Returns: number
+      }
       _special_advance_check_proof: {
         Args: { p_advance: string; p_path: string }
         Returns: string
+      }
+      _special_advance_correction_json: {
+        Args: { p_id: string }
+        Returns: Json
       }
       _special_advance_eligibility: {
         Args: {
@@ -71903,6 +72465,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      _special_advance_minimum_rate: {
+        Args: { p_days_past_due: number }
+        Returns: number
+      }
       _special_advance_norm_phone: { Args: { p: string }; Returns: string }
       _special_advance_parse_borrower: { Args: { p: Json }; Returns: Json }
       _special_advance_parse_terms: {
@@ -71910,6 +72476,18 @@ export type Database = {
         Returns: Json
       }
       _special_advance_position: { Args: { p_id: string }; Returns: Json }
+      _special_advance_provision_line: {
+        Args: { p_id: string; p_individual: number }
+        Returns: Json
+      }
+      _special_advance_provision_proposal: {
+        Args: { p_individual: Json }
+        Returns: Json
+      }
+      _special_advance_provision_review_json: {
+        Args: { p_id: string }
+        Returns: Json
+      }
       _special_advance_reason: {
         Args: { p: string; p_required: boolean }
         Returns: string
@@ -71927,6 +72505,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _special_advance_sofp_memo: { Args: { p_as_at: string }; Returns: Json }
       _special_advance_term_errors: {
         Args: {
           p_frequency: string
@@ -71938,6 +72517,7 @@ export type Database = {
         }
         Returns: string[]
       }
+      _special_advance_write_off_json: { Args: { p_id: string }; Returns: Json }
       _spiro_lease_fee_total: {
         Args: { p_base: number; p_term: number }
         Returns: number
@@ -73986,6 +74566,7 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_target_progress: { Args: never; Returns: Json }
       assistant_agent_team_summary: {
         Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
@@ -75578,6 +76159,28 @@ export type Database = {
         }[]
       }
       ceo_valuation_baseline: { Args: never; Returns: Json }
+      cfo_advance_status: {
+        Args: never
+        Returns: {
+          advance_id: string
+          approved_at: string
+          balance: number
+          disbursed_at: string
+          first_recovery_on: string
+          full_name: string
+          principal: number
+          purpose: string
+          recovered: number
+          recoveries: Json
+          recovery_mode: string
+          recovery_months: number
+          recovery_value: number
+          requested_at: string
+          staff_ref: string
+          state: string
+          status: string
+        }[]
+      }
       cfo_agent_lending_summary: { Args: never; Returns: Json }
       cfo_allow_rent_disbursement_exception: {
         Args: { p_reason: string; p_rent_request_ids: string[] }
@@ -75830,6 +76433,34 @@ export type Database = {
       cfo_notify_agent_rent_not_disbursed: {
         Args: { p_message?: string; p_rent_request_ids: string[] }
         Returns: number
+      }
+      cfo_payroll_history: {
+        Args: never
+        Returns: {
+          approved_at: string
+          approved_by_name: string
+          locked_at: string
+          paid_amount: number
+          paid_at: string
+          paid_count: number
+          period_code: string
+          period_month: string
+          prepared_at: string
+          prepared_by_name: string
+          run_id: string
+          run_type: string
+          staff_count: number
+          status: string
+          total_advance_recovered: number
+          total_employer_cost: number
+          total_gross: number
+          total_lst: number
+          total_net: number
+          total_nssf_employee: number
+          total_nssf_employer: number
+          total_paye: number
+          total_reinvest: number
+        }[]
       }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
@@ -77214,6 +77845,15 @@ export type Database = {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
         Returns: Json
       }
+      decide_ontology_changes: {
+        Args: {
+          p_decision: string
+          p_ids: number[]
+          p_override?: Json
+          p_reason?: string
+        }
+        Returns: Json
+      }
       decrement_rent_requested: {
         Args: { p_amount: number; p_summary_id: string }
         Returns: undefined
@@ -77276,6 +77916,8 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_stage_flow: { Args: never; Returns: Json }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {
@@ -81693,6 +82335,20 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      get_partner_ops_returns_arrears: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          arrears_deduction: number
+          expected_returns: number
+          investor_id: string
+          net_payout: number
+          plan_outstanding: number
+          plan_overdue: number
+          pledge_mode: string
+          pledge_value: number
+          portfolio_id: string
+        }[]
+      }
       get_partner_ops_returns_forecast: {
         Args: {
           p_bucket?: string
@@ -85960,6 +86616,8 @@ export type Database = {
         Args: { p_email: string; p_new_id: string }
         Returns: string
       }
+      ontology_can_read: { Args: never; Returns: boolean }
+      ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
@@ -90748,8 +91406,24 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: Json
       }
+      special_advance_post_provision_review: {
+        Args: { p_request: Json }
+        Returns: Json
+      }
+      special_advance_provision_preview: {
+        Args: { p_request?: Json }
+        Returns: Json
+      }
       special_advance_quote: { Args: { p_request: Json }; Returns: Json }
       special_advance_reconciliation: { Args: never; Returns: Json }
+      special_advance_record_correction: {
+        Args: { p_id: string; p_request: Json }
+        Returns: Json
+      }
+      special_advance_record_recovery: {
+        Args: { p_id: string; p_recovery: Json }
+        Returns: Json
+      }
       special_advance_record_repayment: {
         Args: { p_id: string; p_repayment: Json }
         Returns: Json
@@ -90759,6 +91433,10 @@ export type Database = {
         Returns: Json
       }
       special_advance_statement: { Args: { p_id: string }; Returns: Json }
+      special_advance_write_off: {
+        Args: { p_id: string; p_request: Json }
+        Returns: Json
+      }
       split_portfolio_principal: {
         Args: {
           p_portfolio_id: string
