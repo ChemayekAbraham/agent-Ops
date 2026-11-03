@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     const { data: agentRole } = await adminClient
       .from("user_roles").select("id")
       .eq("user_id", agent.id).eq("role", "agent").maybeSingle();
-    if (!agentRole) return errorResponse("Only agents can invest on behalf of partners", 403);
+    if (!agentRole) return errorResponse("Only agents can place support on behalf of partners", 403);
 
     // --- Parse & validate inputs ---
     const { partner_id, amount, summary_id, investment_reference, receipt_file_url } = await req.json() as {
