@@ -995,7 +995,7 @@ export default function Auth() {
                     {resetStep === 'phone' ? (<><Key className="h-4 w-4 text-primary" /> Reset Your Password</>) : resetStep === 'otp' ? (<><Smartphone className="h-4 w-4 text-primary" /> Enter SMS Code</>) : (<><Lock className="h-4 w-4 text-primary" /> Create New Password</>)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
+                    {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `If an account exists for ${resetPhone || 'that number'}, a 6-digit code is on its way.` : 'Choose a strong password you\'ll remember'}
                   </p>
                 </div>
 
@@ -1085,7 +1085,7 @@ export default function Auth() {
                   className="w-full text-sm text-muted-foreground hover:text-primary text-center flex items-center justify-center gap-1 py-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  {resetStep !== 'phone' ? 'Go Back' : 'Back to Sign In'}
+                  {resetStep === 'otp' ? 'Wrong number? Go back' : resetStep !== 'phone' ? 'Go Back' : 'Back to Sign In'}
                 </button>
               </div>
             )}

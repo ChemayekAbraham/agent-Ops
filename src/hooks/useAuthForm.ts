@@ -352,7 +352,7 @@ export function useAuthForm() {
         if (!response.ok) {
           toast({ title: 'Error', description: data.error || 'Failed to send reset code', variant: 'destructive' });
         } else {
-          toast({ title: 'Code Sent', description: 'Check your phone for the reset code' });
+          toast({ title: 'Check your phone', description: 'If that number has an account, a reset code is on its way.' });
           setResetStep('otp');
         }
       } catch {
