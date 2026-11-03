@@ -245,22 +245,23 @@ export function FunderPreviewHomeSheet({
                   return (
                     <li key={when} className="flex items-center gap-3">
                       <span aria-hidden className="relative flex w-9 flex-none self-stretch items-center justify-center">
-                        {above ? (
+                        {aboveAccent ? (
                           <span
                             className={cn(
                               'absolute left-1/2 top-0 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
-                              joinLine(above, accent),
+                              joinLine(aboveAccent, accent),
                             )}
                           />
                         ) : null}
-                        {below ? (
+                        {belowAccent ? (
                           <span
                             className={cn(
                               'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
-                              joinLine(accent, below),
+                              joinLine(accent, belowAccent),
                             )}
                           />
                         ) : null}
+
                         <span
                           className={cn(
                             'relative z-10 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-card ring-4 ring-card',
