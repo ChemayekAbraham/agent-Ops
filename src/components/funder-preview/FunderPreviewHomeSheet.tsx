@@ -247,7 +247,8 @@ export function FunderPreviewHomeSheet({
                               ACCENT_LINE[accent],
                             )}
                           />
-                        ) : null}
+                        )}
+
                         {belowAccent ? (
                           <span
                             className={cn(
