@@ -11364,7 +11364,8 @@
     "https://esm.sh/jspdf@2.5.1": "c07581dbd904c5f4347d0ae882a204e4b398d78fbd75b04e67ffa1c9269be362",
     "https://esm.sh/pdf-lib@1.17.1": "cf7c5527829cb9bbb3aa20d339c530067441c10eb98880360aea9e77c3c87ff8",
     "https://esm.sh/tslib@2.8.1/denonext/tslib.mjs": "c38da5dd6da6281964435002ce204cd586634fe3bdfb24a0ee116f48cf3292e9",
-    "https://esm.sh/zod@3.23.8": "15e60c792ac21d4818f181671c7c74bf33bf7526d487dc524911e42785d8b5c2"
+    "https://esm.sh/zod@3.23.8": "15e60c792ac21d4818f181671c7c74bf33bf7526d487dc524911e42785d8b5c2",
+    "https://esm.sh/zod@3.23.8/denonext/zod.mjs": "6ee0474ec5a765b112eca12525d7e30c8e77eedbe2f2ac5e19f2af468b759517"
   },
   "workspace": {
     "packageJson": {
