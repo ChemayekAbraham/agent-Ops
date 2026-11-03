@@ -9,20 +9,21 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// In-memory rate limiting
-const resetAttempts = new Map<string, { count: number; firstAt: number }>();
+// Durable, database-backed send limits (otp_reserve_send, shared with sms-otp).
+// An in-memory counter resets on every cold start and is not shared between
+// function instances, so it cannot stop someone requesting codes in a loop.
 const MAX_RESETS_PER_HOUR = 3;
+const RESEND_COOLDOWN_SECONDS = 60;
+const MAX_SENDS_PER_IP_HOUR = 10;
+const MAX_SENDS_PER_IP_DAY = 30;
 
-function checkRateLimit(key: string): boolean {
-  const now = Date.now();
-  const record = resetAttempts.get(key);
-  if (!record || now - record.firstAt > 3600000) {
-    resetAttempts.set(key, { count: 1, firstAt: now });
-    return true;
-  }
-  if (record.count >= MAX_RESETS_PER_HOUR) return false;
-  record.count++;
-  return true;
+function clientIpFrom(req: Request): string | null {
+  const raw = req.headers.get("x-forwarded-for") ||
+    req.headers.get("cf-connecting-ip") ||
+    req.headers.get("x-real-ip") ||
+    "";
+  const first = raw.split(",")[0]?.trim();
+  return first || null;
 }
 
 const ADMIN_ACTION_ROLES = ["manager", "super_admin", "cto"];
@@ -457,12 +458,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "send") {
-      if (!checkRateLimit(phoneKey)) {
-        return new Response(JSON.stringify({ error: "Too many reset requests. Please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
       // Verify user exists
       const { data: profile } = await adminClient
         .from("profiles")
@@ -477,51 +472,48 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Reset codes live in otp_verifications under a reset-specific phone key.
       const resetKey = `reset_${phoneKey}`;
-      const now = Date.now();
+      // Previous send's provider, read only to choose the SMS route (not a limit check).
       const { data: existingReset } = await adminClient
         .from("otp_verifications")
-        .select("otp_code, expires_at, verified, send_status, send_status_reason")
+        .select("send_status, send_status_reason")
         .eq("phone", resetKey)
         .maybeSingle();
 
-      // Password reset SMS can also arrive late/out of order. Reuse a still-valid
-      // reset code so every SMS currently on the user's phone contains a working
-      // code, then rotate provider if the previous accepted route didn't reach
-      // the handset.
-      const existingCodeUsable =
-        !!existingReset?.otp_code &&
-        existingReset?.verified === false &&
-        !!existingReset?.expires_at &&
-        new Date(existingReset.expires_at).getTime() > now;
-      const otp = existingCodeUsable ? existingReset!.otp_code as string : generateOTP();
-      const expiresAt = existingCodeUsable
-        ? existingReset!.expires_at as string
-        : new Date(now + 60 * 60 * 1000).toISOString();
-
-      // Store OTP using otp_verifications table with a reset-specific phone key
-      const { error: upsertError } = await adminClient
-        .from("otp_verifications")
-        .upsert({
-          phone: resetKey,
-          otp_code: otp,
-          expires_at: expiresAt,
-          attempts: 0,
-          verified: false,
-          send_status: "pending",
-          send_status_reason: null,
-          send_status_at: new Date(now).toISOString(),
-        }, { onConflict: "phone" });
-
-      if (upsertError) {
-        console.error("[password-reset-sms] Upsert error:", upsertError);
+      // Every send limit is checked and counted in ONE locked database step, so
+      // simultaneous requests cannot all slip under a cap. Password reset SMS can
+      // arrive late/out of order, so a still-valid code is reused (every SMS on
+      // the handset keeps working) WITHOUT resetting its wrong-try count; only a
+      // brand-new code starts at zero tries.
+      const { data: reserve, error: reserveError } = await adminClient.rpc("otp_reserve_send", {
+        p_phone: resetKey,
+        p_user_id: null,
+        p_ip: clientIpFrom(req),
+        p_new_code: generateOTP(),
+        p_ttl_seconds: 3600,
+        p_cooldown_seconds: RESEND_COOLDOWN_SECONDS,
+        p_max_phone_hour: MAX_RESETS_PER_HOUR,
+        p_max_user_hour: MAX_RESETS_PER_HOUR,
+        p_max_user_day: MAX_RESETS_PER_HOUR * 3,
+        p_max_ip_hour: MAX_SENDS_PER_IP_HOUR,
+        p_max_ip_day: MAX_SENDS_PER_IP_DAY,
+      });
+      if (reserveError || !reserve) {
+        console.error("[password-reset-sms] reserve error:", reserveError);
         return new Response(JSON.stringify({ error: "Failed to generate reset code" }), {
           status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (!reserve.ok) {
+        return new Response(JSON.stringify({ error: reserve.error, retry_after: reserve.retry_after }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const otp = String(reserve.otp);
 
       const message = `Welile reset code: ${otp}. Expires in 1 hour. Never share this code.`;
-      const preferBackupRoute = existingCodeUsable && existingReset?.send_status === "accepted";
+      const preferBackupRoute = reserve.reused === true && existingReset?.send_status === "accepted";
       if (preferBackupRoute) {
         console.log(`[password-reset-sms] resend for ***${phoneKey.slice(-4)} rotating to backup SMS route first`);
       }
@@ -585,22 +577,37 @@ Deno.serve(async (req) => {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      // A code that has already reset a password is single-use.
+      if (otpRecord.verified) {
+        return new Response(JSON.stringify({ error: "Reset code has expired or was already used. Please request a new one." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       if (new Date(otpRecord.expires_at) < new Date()) {
         return new Response(JSON.stringify({ error: "Reset code has expired. Please request a new one." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (otpRecord.attempts >= 5) {
+
+      // Use up one attempt BEFORE comparing, atomically in the database, so a
+      // burst of parallel guesses cannot all read the same old count
+      // (register_otp_attempt, doc 251). Every guess is counted, right or wrong.
+      const { data: attemptsUsed, error: attemptError } = await adminClient
+        .rpc("register_otp_attempt", { p_otp_id: otpRecord.id });
+      // Fail closed: if we cannot count the guess, we do not check it.
+      if (attemptError || attemptsUsed === null) {
+        console.error("[password-reset-sms] register_otp_attempt failed:", attemptError?.message);
+        return new Response(JSON.stringify({ error: "Could not verify code. Please try again." }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (attemptsUsed > 5) {
         return new Response(JSON.stringify({ error: "Too many failed attempts. Please request a new code." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (otpCode !== otpRecord.otp_code) {
-        await adminClient
-          .from("otp_verifications")
-          .update({ attempts: otpRecord.attempts + 1 })
-          .eq("phone", resetKey);
-        const remaining = Math.max(0, 4 - otpRecord.attempts);
+        const remaining = Math.max(0, 5 - attemptsUsed);
         return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -638,25 +645,42 @@ Deno.serve(async (req) => {
         });
       }
 
+      // A code that has already reset a password is single-use.
+      if (otpRecord.verified) {
+        return new Response(JSON.stringify({ error: "Reset code has expired or was already used. Please request a new one." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       if (new Date(otpRecord.expires_at) < new Date()) {
         return new Response(JSON.stringify({ error: "Reset code has expired. Please request a new one." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      if (otpRecord.attempts >= 5) {
+      // Use up one attempt BEFORE comparing, atomically in the database, so a
+      // burst of parallel guesses cannot all read the same old count. This is
+      // the gate in front of "set a new password on every account for this
+      // phone", so it must hold under load (register_otp_attempt, doc 251).
+      const { data: attemptsUsed, error: attemptError } = await adminClient
+        .rpc("register_otp_attempt", { p_otp_id: otpRecord.id });
+      // Fail closed: if we cannot count the guess, we do not check it.
+      if (attemptError || attemptsUsed === null) {
+        console.error("[password-reset-sms] register_otp_attempt failed:", attemptError?.message);
+        return new Response(JSON.stringify({ error: "Could not verify code. Please try again." }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (attemptsUsed > 5) {
         return new Response(JSON.stringify({ error: "Too many failed attempts. Please request a new code." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
       if (otpCode !== otpRecord.otp_code) {
-        await adminClient
-          .from("otp_verifications")
-          .update({ attempts: otpRecord.attempts + 1 })
-          .eq("phone", resetKey);
         await logOtpUsage(adminClient, "password_reset", "verify_failed", phoneKey, "password-reset-sms");
-        const remaining = 4 - otpRecord.attempts;
+        const remaining = Math.max(0, 5 - attemptsUsed);
         return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
