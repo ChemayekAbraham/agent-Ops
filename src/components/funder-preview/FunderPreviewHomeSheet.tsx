@@ -21,7 +21,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { prettyName } from '@/lib/formatting';
+import { supabase } from '@/integrations/supabase/client';
 import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
+import { createPlanShareLink, planShareDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
 import { isHouseVerified, toSelectionItem } from '@/components/funder-new/utils';
 
@@ -117,14 +119,38 @@ export function FunderPreviewHomeSheet({
     .filter(Boolean)
     .join(' · ');
 
+  /**
+   * Share the open home or Rent Plan. Both categories get a real, trackable
+   * branded link: empty homes through the house support link, ready plans
+   * through the existing plan short link. The native share sheet is used when
+   * the device has one; otherwise the message is copied for WhatsApp or SMS.
+   */
   const share = async () => {
-    if (entry.category !== 'empty' || sharing) return;
+    if (sharing) return;
     setSharing(true);
     try {
-      const link = await createHouseShareLink(view.id);
-      const text = houseShareMessage({ title: view.title, place: view.place, monthly_rent: view.amount }, link.share_url);
+      if (entry.category === 'empty') {
+        const link = await createHouseShareLink(view.id);
+        const text = houseShareMessage({ title: view.title, place: view.place, monthly_rent: view.amount }, link.share_url);
+        if (typeof navigator !== 'undefined' && navigator.share) {
+          await navigator.share({ title: link.og_title ?? view.title, text });
+        } else {
+          await navigator.clipboard.writeText(text);
+          toast.success('Link copied. Paste it in WhatsApp or SMS.');
+        }
+        return;
+      }
+
+      const plan = entry.item as FunderNewReadyPlan;
+      const { data: session } = await supabase.auth.getUser();
+      const userId = session.user?.id;
+      if (!userId) throw new Error('Sign in to share this Rent Plan');
+      const link = await createPlanShareLink(userId, plan.rent_request_id);
+      const title = planShareTitle(plan);
+      const description = planShareDescription(plan);
+      const text = `${title}\n\n${description}\n${link.share_url}`;
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: link.og_title ?? view.title, text });
+        await navigator.share({ title, text, url: link.share_url });
       } else {
         await navigator.clipboard.writeText(text);
         toast.success('Link copied. Paste it in WhatsApp or SMS.');
@@ -179,11 +205,15 @@ export function FunderPreviewHomeSheet({
                 <ArrowLeft className="h-5 w-5" aria-hidden />
               </button>
               <div className="flex gap-2.5">
-                {entry.category === 'empty' ? (
-                  <button type="button" aria-label="Share this Rent Plan" className={roundButton} onClick={share} disabled={sharing}>
-                    {sharing ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  aria-label={entry.category === 'empty' ? 'Share this house' : 'Share this Rent Plan'}
+                  className={roundButton}
+                  onClick={share}
+                  disabled={sharing}
+                >
+                  {sharing ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
+                </button>
                 <button
                   type="button"
                   aria-label={`Save ${view.title}`}
