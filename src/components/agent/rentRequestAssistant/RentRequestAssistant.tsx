@@ -14,6 +14,7 @@ import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, 
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAssistantSpeech } from './useAssistantSpeech';
+import { Lc1SearchStep, type Lc1Hit } from './Lc1SearchStep';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -123,8 +124,16 @@ type StepId =
   | 'type' | 'rent' | 'plan'
   | 'tenantPhone' | 'tenantName' | 'nationalId' | 'language' | 'smartphone'
   | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'gps'
-  | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
+  | 'lc1' | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
   | 'review';
+
+/** Every question in order; `steps` drops the ones an answer makes unnecessary. */
+const ALL_STEPS: StepId[] = [
+  'type', 'rent', 'plan',
+  'tenantPhone', 'tenantName', 'nationalId', 'language', 'smartphone',
+  'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'gps',
+  'lc1', 'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
+];
 
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
@@ -180,6 +189,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [lc1Phone, setLc1Phone] = useState('');
   const [lc1Match, setLc1Match] = useState<Lc1Match>(null);
+  /** 'existing' = picked from the LC1 search; 'new' = the agent is registering them. */
+  const [lc1Mode, setLc1Mode] = useState<'existing' | 'new' | null>(null);
   const [lc1Looking, setLc1Looking] = useState(false);
   const [lc1NameParts, setLc1NameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const [lc1Village, setLc1Village] = useState('');
@@ -225,14 +236,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   }, [open, user]);
 
   const steps: StepId[] = useMemo(() => {
-    const all: StepId[] = [
-      'type', 'rent', 'plan',
-      'tenantPhone', 'tenantName', 'nationalId', 'language', 'smartphone',
-      'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'gps',
-      'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
-    ];
-    return all.filter((s) => !(s === 'lc1Name' && lc1Match));
-  }, [lc1Match]);
+    return ALL_STEPS.filter((s) => {
+      // Picked from the search: phone and name are already known.
+      if (lc1Mode === 'existing' && (s === 'lc1Phone' || s === 'lc1Name')) return false;
+      // New LC1 whose phone turned out to be on file: the name is known.
+      return !(s === 'lc1Name' && lc1Match);
+    });
+  }, [lc1Match, lc1Mode]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -242,7 +252,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     setLanguage(''); setNoSmartphone(null); setLandlord(null); setLandlordStatus('idle'); setAgreementOnFile(null);
     setVerifyReq('idle'); setHouses(null); setHouse(null); setHouseChoiceMade(false); setLocation(null); setAddress('');
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
-    setGps(null); setLc1Phone(''); setLc1Match(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
+    setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setLcLetterDecided(false); setPayoutDay(''); setConsent(false);
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
@@ -479,6 +489,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         return faceCheckBlocker(faceCheck);
       case 'gps':
         return gps ? null : 'Tap capture while you’re standing at the house 🛰️';
+      case 'lc1':
+        return lc1Mode ? null : 'Search for the chairperson above, or tap “Register a new LC1” 👆';
       case 'lc1Phone': {
         const p = phoneProblem(text, 'the LC1');
         if (p) return p;
@@ -558,11 +570,49 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     return false;
   }
 
+  /** Jump to a step that `steps` may only include from the next render. */
+  function goTo(step: StepId) {
+    setCurrent(step);
+    if (ALL_STEPS.indexOf(step) > ALL_STEPS.indexOf(furthest)) setFurthest(step);
+  }
+
+  /** An LC1 picked from the search: same person checks as a typed number. */
+  const pickLc1 = (hit: Lc1Hit) => {
+    const c = clean(formatPhone(hit.phone || ''));
+    const own = agentSelf?.phone ? clean(formatPhone(agentSelf.phone)) : '';
+    if (c && c === clean(tenantPhone)) { reject('lc1', `${hit.name} has the tenant’s own number 🤔 The LC1 has to be a different person.`); return; }
+    if (c && landlord && c === clean(formatPhone(landlord.phone || ''))) { reject('lc1', `${hit.name} has ${landlord.name}’s number, the landlord 🤔 The LC1 has to be a different person.`); return; }
+    if (c && own && c === own) { reject('lc1', 'That chairperson has your own number 🙂 The LC1 has to be someone else, so they can vouch for the tenant.'); return; }
+    hapticTap();
+    setError(null);
+    setLc1Mode('existing');
+    setLc1Match({ id: hit.id, name: hit.name, verified: hit.verified, village: hit.village ?? '' });
+    setLc1Phone(formatPhone(hit.phone || ''));
+    if (hit.village) setLc1Village(hit.village);
+    goTo('lc1Village');
+  };
+
+  /** Register a new LC1; a typed name or phone from the search is carried over. */
+  const startNewLc1 = (query: string) => {
+    hapticTap();
+    setError(null);
+    setLc1Mode('new');
+    setLc1Match(null);
+    if (query && /^\+?[0-9\s]+$/.test(query)) {
+      setLc1Phone(formatPhone(query));
+    } else {
+      setLc1Phone('');
+      const words = query.split(/\s+/).filter(Boolean);
+      if (words.length) setLc1NameParts({ firstName: words[0], otherNames: words.slice(1, -1).join(' '), lastName: words.length > 1 ? words[words.length - 1] : '' });
+    }
+    goTo('lc1Phone');
+  };
+
   function advance(from: StepId) {
     const i = steps.indexOf(from);
     // When an earlier answer was edited, go back to where the agent had reached —
     // except for answers the next step depends on, which walk forward one step.
-    const dependsOnNext = from === 'type' || from === 'rent' || from === 'landlord';
+    const dependsOnNext = from === 'type' || from === 'rent' || from === 'landlord' || from === 'lc1';
     const target = !dependsOnNext && i < furthestIdx && steps[furthestIdx] !== from
       ? steps[furthestIdx]
       : steps[Math.min(i + 1, steps.length - 1)];
@@ -599,7 +649,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         // A brand-new LC1 must not be the agent or a landlord.
         if (!m && !(await recordIsNew('lc1Phone', formatPhone(text)))) return;
         if (m) {
-          // A known LC1 skips the name question; `steps` only drops it next render.
+          // The "new" LC1 is already on file: treat it as picked, which skips the name question.
+          setLc1Mode('existing');
           setCurrent('lc1Village');
           if (steps.indexOf('lc1Village') > steps.indexOf(furthest)) setFurthest('lc1Village');
           return;
@@ -715,8 +766,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'photos': return 'Photo time! 📸 Stand outside the house and take 4 photos: front, back, left and right.';
       case 'tenantPhoto': return `Now a passport photo of ${first}, please 🙂 I’ll check the face is clear.`;
       case 'gps': return 'While you’re standing at the house, capture its GPS location 🛰️';
-      case 'lc1Phone': return `Almost there! 🙌 Last person: the LC1 chairperson who knows ${first}. What’s their phone number?`;
-      case 'lc1Name': return 'I don’t know this LC1 yet 🤝 What’s their name?';
+      case 'lc1': return `Almost there! 🙌 Last person: the LC1 chairperson who knows ${first}. Search by their name or phone 🔎`;
+      case 'lc1Phone': return 'Let’s add them 🤝 What’s the chairperson’s phone number?';
+      case 'lc1Name': return 'And the chairperson’s name, please? 🙂';
       case 'lc1Village': return 'Which village is the LC1 for? 🏡';
       case 'city': return 'Which town or city is the house in? 🌆';
       case 'lcLetter': return 'Do you have a stamped LC1 letter? 📄 It’s optional: JPG or PNG, up to 10 MB.';
@@ -743,6 +795,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'photos': return '4 house photos taken';
       case 'tenantPhoto': return 'Passport photo taken';
       case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : 'GPS from the house listing') : '';
+      case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
@@ -844,6 +897,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                   )}
                   {s === 'plan' && fees && <PlanSummary planType={planType!} fees={fees} amount={amount} />}
                   {s === 'landlord' && landlord && <LandlordStatusNote status={landlordStatus} agreement={agreementOnFile} verifyReq={verifyReq} onRequest={requestLandlordVerification} name={landlord.name} />}
+                  {s === 'lc1' && lc1Mode === 'existing' && lc1Match && (
+                    <Bot><Bubble><b>{lc1Match.name}</b>, LC1 for {lc1Match.village || 'their village'}{lc1Match.verified ? ' · verified ✅' : ' · not verified yet'}. I’ll send them a verification SMS 📩</Bubble></Bot>
+                  )}
                   {s === 'lc1Phone' && lc1Match && (
                     <Bot><Bubble><b>{lc1Match.name}</b>, LC1 for {lc1Match.village || 'their village'}{lc1Match.verified ? ' · verified' : ' · not verified yet'}. I’ll send them a verification SMS.</Bubble></Bot>
                   )}
@@ -1012,6 +1068,16 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
             <Chip on={noSmartphone === false} onClick={() => { setNoSmartphone(false); advance('smartphone'); }}>Yes, a smartphone</Chip>
             <Chip on={noSmartphone === true} onClick={() => { setNoSmartphone(true); advance('smartphone'); }}>No smartphone</Chip>
           </div>
+        );
+      case 'lc1':
+        return (
+          <Lc1SearchStep
+            selectedId={lc1Mode === 'existing' ? lc1Match?.id ?? null : null}
+            nearDistrict={location?.district || district || null}
+            nearVillage={location?.village || null}
+            onPick={pickLc1}
+            onNew={startNewLc1}
+          />
         );
       case 'landlord':
         return (
