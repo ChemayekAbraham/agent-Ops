@@ -10,12 +10,11 @@
  * button (see AgentDashboard). The form stays the path every other agent uses.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, MapPin, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, Send, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
-import { useTenantDuplicateCheck } from '@/hooks/useTenantDuplicateCheck';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -41,6 +40,16 @@ import {
   type AssistantIncomeType,
   type AssistantSubmitResult,
 } from '@/lib/rentRequestAssistantSubmit';
+import {
+  checkNationalId,
+  checkNewLc1Phone,
+  checkTenantPhone,
+  loadAgentSelf,
+  maskNationalId,
+  maskPhone,
+  type AgentSelf,
+  type RecordVerdict,
+} from '@/lib/rentAssistantRecordChecks';
 
 const HOUSE_CATEGORIES = [
   { value: 'single-room', label: 'Single room' },
@@ -179,7 +188,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const fees = planType ? computeAssistantFees(incomeType, amount, duration, repaymentPeriod) : null;
   const tenantName = joinPersonName(tenantNameParts);
   const lc1Name = lc1Match ? lc1Match.name : joinPersonName(lc1NameParts);
-  const dup = useTenantDuplicateCheck(tenantName, tenantPhone, nationalId);
+
+  // ----- existing-record checks (never reveal whose record it is) -----
+  const [agentSelf, setAgentSelf] = useState<AgentSelf | null>(null);
+  const [recordChecking, setRecordChecking] = useState(false);
+  const [recordBlock, setRecordBlock] = useState<RecordBlock | null>(null);
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    const fallbackPhone = metaOf(user).phone || user.phone || null;
+    loadAgentSelf(user.id, fallbackPhone)
+      .then((me) => { if (!cancelled) setAgentSelf(me); })
+      .catch(() => { if (!cancelled) setAgentSelf({ phone: fallbackPhone, nationalId: null }); });
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   const steps: StepId[] = useMemo(() => {
     const all: StepId[] = [
@@ -201,7 +223,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setLcLetterDecided(false); setPayoutDay(''); setConsent(false);
-    setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null);
+    setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
   }, []);
 
   useEffect(() => {
@@ -217,6 +239,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     };
     setDraft(seed[current] ?? '');
     setError(null);
+    // Keep a notice raised for this very step (the pre-post re-check sends the agent back with one).
+    setRecordBlock((b) => (b && b.step === current ? b : null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
@@ -439,6 +463,30 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     }
   };
 
+  /**
+   * Runs the existing-record check for a step. Returns true when the value is
+   * new; otherwise shows the locked notice (or a retry message) and returns false.
+   */
+  async function recordIsNew(step: RecordBlock['step'], value: string): Promise<boolean> {
+    setRecordBlock(null);
+    setRecordChecking(true);
+    let verdict: RecordVerdict;
+    try {
+      verdict = step === 'tenantPhone' ? await checkTenantPhone(value, agentSelf)
+        : step === 'nationalId' ? await checkNationalId(value, agentSelf)
+          : await checkNewLc1Phone(value, agentSelf);
+    } finally {
+      setRecordChecking(false);
+    }
+    if (verdict.status === 'free') return true;
+    if (verdict.status === 'unknown') {
+      setError('I couldn’t check Welile’s records just now. Check your connection and send it again.');
+      return false;
+    }
+    setRecordBlock(blockFor(step, verdict.hit === 'self', value));
+    return false;
+  }
+
   function advance(from: StepId) {
     const i = steps.indexOf(from);
     // When an earlier answer was edited, go back to where the agent had reached —
@@ -458,14 +506,26 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     hapticTap();
     switch (s) {
       case 'rent': setRentText(draft.replace(/\D/g, '')); break;
-      case 'tenantPhone': setTenantPhone(formatPhone(draft)); break;
-      case 'nationalId': setNationalId(draft.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()); break;
+      case 'tenantPhone': {
+        const value = formatPhone(draft);
+        if (!(await recordIsNew('tenantPhone', value))) return;
+        setTenantPhone(value);
+        break;
+      }
+      case 'nationalId': {
+        const value = draft.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        if (!(await recordIsNew('nationalId', value))) return;
+        setNationalId(value);
+        break;
+      }
       case 'address': setAddress(draft.trim()); break;
       case 'lc1Phone': {
         setLc1Phone(formatPhone(draft));
         const m = await lookupLc1(draft);
         setLc1Match(m);
         if (m?.village && !lc1Village) setLc1Village(m.village);
+        // A brand-new LC1 must not be the agent or a landlord.
+        if (!m && !(await recordIsNew('lc1Phone', formatPhone(draft)))) return;
         if (m) {
           // A known LC1 skips the name question; `steps` only drops it next render.
           setCurrent('lc1Village');
@@ -496,6 +556,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
     setPosting(true);
     setError(null);
+    // Re-check right before posting: the number or ID may have been registered since it was typed.
+    const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
+    for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
+      if (verdict.status === 'taken') {
+        setPosting(false);
+        setCurrent(step);
+        setRecordBlock(blockFor(step, verdict.hit === 'self', value));
+        return;
+      }
+      if (verdict.status === 'unknown') {
+        setPosting(false);
+        setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
+        return;
+      }
+    }
     const res = await submitAssistantRentRequest({
       agentId: user.id,
       incomeType,
@@ -657,9 +732,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                       <MeBubble>{answerOf(s)}</MeBubble>
                     </button>
                   )}
-                  {s === 'tenantPhone' && dup.phoneMatch && (
-                    <Bot><Bubble>This number already belongs to <b>{dup.phoneMatch.full_name || 'a Welile user'}</b>. I’ll use their existing account.</Bubble></Bot>
-                  )}
                   {s === 'plan' && fees && <PlanSummary planType={planType!} fees={fees} amount={amount} />}
                   {s === 'landlord' && landlord && <LandlordStatusNote status={landlordStatus} agreement={agreementOnFile} verifyReq={verifyReq} onRequest={requestLandlordVerification} name={landlord.name} />}
                   {s === 'lc1Phone' && lc1Match && (
@@ -672,6 +744,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                 <div className="flex flex-col gap-3">
                   <Bot><Bubble>{questionOf(current)}</Bubble></Bot>
                   <div className="pl-9">{renderWidget()}</div>
+                  {recordChecking && <Bot><Bubble><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Checking Welile’s records…</Bubble></Bot>}
+                  {recordBlock && recordBlock.step === current && (
+                    <RecordExistsNotice block={recordBlock} onRetry={() => { setDraft(''); setRecordBlock(null); }} />
+                  )}
                   {error && <Bot><Bubble tone="warn">{error}</Bubble></Bot>}
                 </div>
               )}
@@ -718,12 +794,13 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                     else if (current === 'nationalId') setDraft(v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 14));
                     else setDraft(v);
                     setError(null);
+                    setRecordBlock(null);
                   }}
                   placeholder={placeholderOf(current)}
                   className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base outline-none focus:border-primary"
                 />
-                <button type="submit" aria-label="Send" disabled={lc1Looking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
-                  {lc1Looking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
+                  {lc1Looking || recordChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </form>
             ) : (
@@ -1003,6 +1080,56 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
     >
       <Sparkles className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
     </span>
+  );
+}
+
+interface RecordBlock {
+  step: 'tenantPhone' | 'nationalId' | 'lc1Phone';
+  /** The agent typed their own number or ID. */
+  self: boolean;
+  /** The refused value, masked. */
+  masked: string;
+}
+
+function blockFor(step: RecordBlock['step'], self: boolean, value: string): RecordBlock {
+  return { step, self, masked: step === 'nationalId' ? maskNationalId(value) : maskPhone(value) };
+}
+
+/**
+ * Shown when a typed number or ID is already on Welile. It says the record
+ * exists, never whose it is, and the chat stays on the same question.
+ */
+function RecordExistsNotice({ block, onRetry }: { block: RecordBlock; onRetry: () => void }) {
+  const [why, setWhy] = useState(false);
+  const what = block.step === 'nationalId' ? 'National ID' : 'number';
+  const headline = block.self
+    ? (block.step === 'nationalId' ? 'That’s your own National ID.' : 'That’s your own number.')
+    : `${block.masked} is already on Welile.`;
+  const body = block.self
+    ? (block.step === 'lc1Phone'
+      ? 'The LC1 has to be someone else, so they can vouch for the tenant.'
+      : 'A tenant needs their own, so their Rent Plan messages reach them and not you.')
+    : block.step === 'nationalId'
+      ? 'One National ID belongs to one person, so I can’t add it again. Check the card with the tenant and type it again.'
+      : block.step === 'lc1Phone'
+        ? 'It already belongs to someone else, so it can’t be a new LC1’s number. Ask the chairperson for their own phone.'
+        : 'A new tenant needs a number that isn’t registered yet. Ask the tenant to read it out again, or use another number they own.';
+  return (
+    <Bot>
+      <Bubble tone="warn">
+        <span className="mb-1 flex items-center gap-1.5 font-semibold"><Lock className="h-4 w-4 shrink-0" /> {headline}</span>
+        {body}
+        {!block.self && why && (
+          <span className="mt-2 block text-sm text-muted-foreground">
+            Numbers and IDs belong to people. If I showed who owns one, anyone could look people up, so I only tell you it’s taken. I won’t move to the next question until the {what} is new.
+          </span>
+        )}
+      </Bubble>
+      <div className="flex flex-wrap gap-2">
+        <Chip onClick={onRetry}>Type a different {what}</Chip>
+        {!block.self && !why && <Chip onClick={() => setWhy(true)}>Why can’t I see whose?</Chip>}
+      </div>
+    </Bot>
   );
 }
 
