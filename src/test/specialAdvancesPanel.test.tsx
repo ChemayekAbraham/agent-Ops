@@ -180,7 +180,7 @@ describe('Special Advances messages and requests', () => {
       .toBe('Check the purpose, National ID (NIN).');
     expect(describeSpecialAdvanceError({ code: '42501', message: 'SELF_ADVANCE' })).toMatch(/cannot give a Special Advance to themselves/);
     // Phase 4 (CFO decision D5): MFA_REQUIRED gets its own message (not the generic CFO-only one)
-    expect(describeSpecialAdvanceError({ code: '42501', message: 'MFA_REQUIRED' })).toMatch(/authenticator app/);
+    expect(describeSpecialAdvanceError({ code: '42501', message: 'MFA_REQUIRED' })).toMatch(/not been applied yet/);
     expect(describeSpecialAdvanceError({ code: '42501', message: 'NOT_AUTHORIZED' })).toMatch(/Only an enabled CFO account/);
     expect(describeSpecialAdvanceError({ code: '55000', message: 'SPECIAL_ADVANCES_DISABLED' })).toMatch(/switched off/);
     expect(describeSpecialAdvanceError({ code: '42501', message: 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' })).not.toMatch(/Only an enabled CFO/);

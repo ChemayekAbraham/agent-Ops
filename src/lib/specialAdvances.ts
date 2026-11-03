@@ -272,7 +272,7 @@ export function buildWriteOffRequest(input: {
 }
 
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
- * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file, aal2) in a single
+ * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file) in a single
  * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
 export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
 
@@ -401,9 +401,10 @@ export function describeSpecialAdvanceError(err: unknown): string {
   const detail = parseDetail(e.details ?? e.detail);
   const list = Array.isArray(detail) ? (detail as string[]) : [];
   if (msg.includes('SELF_ADVANCE')) return ELIGIBILITY_TEXT.SELF_ADVANCE;
-  // Phase 4 (CFO decision D5): approval, payout and repayment recording need an authenticator-verified session (aal2).
+  // CFO decision 2026-11-03: Special Advances no longer need an authenticator (migration 20261103150000). Until that
+  // migration is applied the server may still answer MFA_REQUIRED; say so plainly instead of asking for a code.
   if (msg.includes('MFA_REQUIRED')) {
-    return 'Verify with your authenticator app first: approving, paying out or recording a repayment needs it.';
+    return 'The server still asks for an authenticator for this step: the change removing it has not been applied yet.';
   }
   if (/NOT_AUTHORIZED|AUTH_REQUIRED|permission denied/i.test(msg)) {
     return 'Only an enabled CFO account (with its second factor, where required) can do this.';

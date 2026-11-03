@@ -13,9 +13,9 @@ Migration `supabase/migrations/20261102220000_special_advances_impairment_writeo
 |---|---|
 | D7 | Minimum allowance by days past due (oldest unpaid instalment past its due date): current 0%, 1-30 days 10%, 31-60 days 25%, 61-90 days 50%, over 90 days 100%. The CFO may set a **higher** individual rate per advance (never lower); it carries forward until changed (0 returns to the minimum). |
 | D8 | A24 stays the gross receivable. New contra-asset **A25 Special Advances — Impairment Allowance** (credit balance); expense to the existing **X4 Credit Losses and Write-offs**, identifiable by category. A25 reports under Other Assets with A24, so the group shows the net receivable. |
-| Provisions | **One step (CFO decision 2026-11-03).** The CFO previews (the server computes each paid-out advance's required allowance on its gross outstanding — principal + unpaid fees — and the difference to post), then posts in a single authorised action (CFO + aal2). The server recomputes under lock when posting; if the preview total the CFO saw no longer matches, nothing posts (`PROVISION_REVIEW_STALE`). |
-| D9 | Write-off: reason (20-1000 characters) + archived evidence file; **posted by the CFO in one step** (decision 2026-11-03), CFO + aal2; if the balance the CFO saw moved, nothing posts (`WRITE_OFF_STALE`). The whole gross outstanding leaves A24; the allowance held is used (DR A25) and any remainder goes to X4; an allowance above the balance is released (CR X4). Past revenue (R1) is left as reported. The advance ends `written_off` (terminal); its history stays. |
-| D10 | Recovery after write-off: DR A1 / CR X4, recorded by a CFO with reference + proof (aal2); never more than was written off; the advance stays written off. |
+| Provisions | **One step (CFO decision 2026-11-03).** The CFO previews (the server computes each paid-out advance's required allowance on its gross outstanding — principal + unpaid fees — and the difference to post), then posts in a single authorised action (enabled CFO). The server recomputes under lock when posting; if the preview total the CFO saw no longer matches, nothing posts (`PROVISION_REVIEW_STALE`). |
+| D9 | Write-off: reason (20-1000 characters) + archived evidence file; **posted by the CFO in one step** (decision 2026-11-03), enabled CFO; if the balance the CFO saw moved, nothing posts (`WRITE_OFF_STALE`). The whole gross outstanding leaves A24; the allowance held is used (DR A25) and any remainder goes to X4; an allowance above the balance is released (CR X4). Past revenue (R1) is left as reported. The advance ends `written_off` (terminal); its history stays. |
+| D10 | Recovery after write-off: DR A1 / CR X4, recorded by a CFO with reference + proof; never more than was written off; the advance stays written off. |
 
 **Safety default (not a recorded decision; flagged for the CFO):** a borrower with a written-off Special Advance is
 refused a new one (`WRITTEN_OFF_SPECIAL_ADVANCE`), like the existing overdue / defaulted checks.
@@ -48,7 +48,7 @@ they are posted; recoveries on the day received.
   recorder must be an enabled CFO): `special_advance_provision_reviews` (`SAP-000001`), `special_advance_provision_lines`
   (ledger group set when the line posts; none for a zero line), `special_advance_write_offs` (`SAW-000001`, one per
   advance), `special_advance_recoveries`.
-- Functions (authenticated only; CFO + aal2 inside): `special_advance_provision_preview` (read-only),
+- Functions (authenticated only; CFO check inside): `special_advance_provision_preview` (read-only),
   `special_advance_post_provision_review(p_request)` (one step; optional `expected_total_delta`),
   `special_advance_write_off(p_id, p_request)` (one step; optional `expected_gross_amount`; `SELF_ADVANCE` refused),
   `special_advance_record_recovery`. Each posting is idempotent by key (a retry replays; nothing posts twice).
@@ -75,5 +75,5 @@ There is no approval queue and no approve / reject / withdraw step.
 
 ## Before applying
 
-Phase B applied first; the CFO approves the accounting-policy change; the CFO enrolled with an authenticator. Issuance
+Phase B applied first; the CFO approves the accounting-policy change. Issuance
 stays off.

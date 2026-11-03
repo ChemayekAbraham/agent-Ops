@@ -17,10 +17,12 @@ WITH fp(item, sig, md5) AS (VALUES
   ('fn: correction, one step (Phase B)', 'public.special_advance_record_correction(uuid,jsonb)', 'bef74b0e245a0c754f00705ddddc768c'),
   ('fn: provision review, one step (Phase C)', 'public.special_advance_post_provision_review(jsonb)', '2670420df4127a5372a889d2f6b545b2'),
   ('fn: write-off, one step (Phase C)', 'public.special_advance_write_off(uuid,jsonb)', 'ca55635e1179d95d265d90788182f469'),
+  ('fn: authenticator check removed (2026-11-03)', 'public._special_advance_require_mfa()', 'befb1ed9f392247206adc532fec7ba2e'),
   ('fn: balance sheet memo (Phase D)', 'public.get_statement_of_financial_position(timestamp with time zone)', '6c6f4d3e43233ae0ca342ff26c35dc21'),
   ('fn: ledger posting (unchanged)', 'public.create_ledger_transaction(jsonb,text,boolean)', '8e570ba579b151ac17788c0ee668a93b')
 ), mig(v) AS (VALUES ('20261028150000'), ('20261028151000'), ('20261028152000'), ('20261028153000'), ('20261028153100'),
-                     ('20261102200000'), ('20261102210000'), ('20261102220000'), ('20261102230000')),
+                     ('20261102200000'), ('20261102210000'), ('20261102220000'), ('20261102230000'),
+                     ('20261103150000')),
 a24 AS (
   SELECT COALESCE(sum(CASE WHEN gl.direction = m.debit_when THEN gl.amount ELSE -gl.amount END), 0) AS ledger
     FROM public.general_ledger gl
@@ -55,10 +57,11 @@ a24 AS (
          (SELECT count(*) FROM unnest(public.ledger_category_allowlist()) c WHERE c LIKE 'special\_advance\_%') = 12,
          to_jsonb((SELECT count(*) FROM unnest(public.ledger_category_allowlist()) c WHERE c LIKE 'special\_advance\_%'))
   UNION ALL
-  SELECT 'storage: two proof policies, both requiring aal2',
+  SELECT 'storage: two proof policies, CFO only, no authenticator requirement (decision 2026-11-03)',
          (SELECT count(*) FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
              AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special-advance-proofs'
-             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'aal2') = 2
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special_advance_cfo_ok'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) !~ 'aal') = 2
          AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
              AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special-advance-proofs' AND cmd IN ('UPDATE', 'DELETE', 'ALL')),
          (SELECT coalesce(jsonb_agg(policyname || ' ' || cmd), '[]'::jsonb) FROM pg_policies WHERE schemaname = 'storage'
@@ -68,14 +71,14 @@ a24 AS (
          EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'special-advance-proofs' AND NOT public AND file_size_limit = 10485760),
          (SELECT to_jsonb(b) - 'owner' - 'owner_id' FROM storage.buckets b WHERE id = 'special-advance-proofs')
   UNION ALL
-  SELECT 'people: an enabled CFO with a verified authenticator (one CFO does every step, decision 2026-11-03)',
-         (SELECT count(DISTINCT ur.user_id) FROM public.user_roles ur
-            JOIN auth.mfa_factors f ON f.user_id = ur.user_id AND f.status = 'verified' AND f.factor_type = 'totp'
-           WHERE ur.role = 'cfo' AND coalesce(ur.enabled, true)) >= 1,
-         jsonb_build_object('enabled_cfos', (SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)),
-                            'cfos_with_verified_totp', (SELECT count(DISTINCT ur.user_id) FROM public.user_roles ur
-                               JOIN auth.mfa_factors f ON f.user_id = ur.user_id AND f.status = 'verified' AND f.factor_type = 'totp'
-                              WHERE ur.role = 'cfo' AND coalesce(ur.enabled, true)))
+  SELECT 'people: enabled CFO accounts (each can act alone; Welile has one CFO, decision 2026-11-03)',
+         (SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)) = 1,
+         to_jsonb((SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)))
+  UNION ALL
+  SELECT 'authenticator: not required by Special Advances (decision 2026-11-03)',
+         to_regprocedure('public._special_advance_guard_mfa()') IS NULL
+         AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'special_advances_require_mfa'),
+         NULL::jsonb
   UNION ALL
   SELECT 'reconciliation: A24 ledger equals paid-out outstanding', (SELECT ledger FROM a24) = (SELECT outstanding FROM sub),
          jsonb_build_object('a24_ledger', (SELECT ledger FROM a24), 'subledger', (SELECT outstanding FROM sub))

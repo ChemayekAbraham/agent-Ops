@@ -16,11 +16,9 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
-  hasAuthenticatorSession,
   useWriteOffSpecialAdvance,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 
 interface SpecialAdvanceWriteOffDialogProps {
   open: boolean;
@@ -41,7 +39,6 @@ export function SpecialAdvanceWriteOffDialog({
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const idempotencyKey = useRef(newIdempotencyKey());
 
@@ -98,10 +95,6 @@ export function SpecialAdvanceWriteOffDialog({
     let path = uploadedPath;
     try {
       if (!path && file) {
-        if (!(await hasAuthenticatorSession())) {
-          setStepUpOpen(true);
-          return;
-        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -109,12 +102,7 @@ export function SpecialAdvanceWriteOffDialog({
 
       await executeRequest(path);
     } catch (err) {
-      const msg = (err as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(err));
-      }
+      setError(describeSpecialAdvanceError(err));
     } finally {
       setSubmitting(false);
     }
@@ -212,12 +200,6 @@ export function SpecialAdvanceWriteOffDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleSubmit()}
-      />
     </>
   );
 }

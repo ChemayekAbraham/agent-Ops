@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpecialAdvancesPanel } from '@/components/cfo/special-advances/SpecialAdvancesPanel';
 import { SpecialAdvanceDetailSheet } from '@/components/cfo/special-advances/SpecialAdvanceDetailSheet';
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from '@/components/cfo/special-advances/SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from '@/components/cfo/special-advances/SpecialAdvanceStepUpDialog';
 import { SpecialAdvanceProvisionsTab } from '@/components/cfo/special-advances/SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceCorrectionDialog } from '@/components/cfo/special-advances/SpecialAdvanceCorrectionDialog';
 import { SpecialAdvanceWriteOffDialog } from '@/components/cfo/special-advances/SpecialAdvanceWriteOffDialog';
@@ -230,8 +229,7 @@ describe('Special Advances UI - Proof Inputs and Links', () => {
 
 describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)', () => {
   const pdf = () => new File(['%PDF-1.4'], 'statement.pdf', { type: 'application/pdf' });
-  const verified = () => {
-    mocks.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal2' } });
+  const uploadsWork = () => {
     mocks.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: null }), createSignedUrl: vi.fn() });
   };
 
@@ -244,7 +242,7 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 
   it('a correction is posted in one action: one call to special_advance_record_correction with reason, proof and key', async () => {
-    verified();
+    uploadsWork();
     mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_record_correction'
       ? { data: { id: 'c1', reference: 'SAC-000001', replayed: false }, error: null } : { data: null, error: null }));
     const onSuccess = vi.fn();
@@ -264,7 +262,7 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 
   it('a write-off is posted in one action and sends the balance the CFO saw', async () => {
-    verified();
+    uploadsWork();
     mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_write_off'
       ? { data: { id: 'w1', reference: 'SAW-000001', replayed: false }, error: null } : { data: null, error: null }));
     const onSuccess = vi.fn();
@@ -305,45 +303,10 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 });
 
-describe('Special Advances UI - Step-Up MFA Dialog', () => {
-  it('opens step-up dialog and retries with onSuccess after entering 6-digit code', async () => {
-    mocks.auth.mfa.challengeAndVerify.mockResolvedValueOnce({ error: null });
-    const onSuccess = vi.fn();
-
-    render(
-      <SpecialAdvanceStepUpDialog open={true} onOpenChange={() => {}} onSuccess={onSuccess} />
-    );
-
-    expect(screen.getByText('Authenticator verification')).toBeTruthy();
-
-    const input = document.getElementById('special-advance-step-up-code') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '123456' } });
-
-    fireEvent.click(screen.getByText('Confirm & Proceed'));
-
-    await waitFor(() => {
-      expect(mocks.auth.mfa.challengeAndVerify).toHaveBeenCalledWith({ factorId: 'factor-1', code: '123456' });
-      expect(onSuccess).toHaveBeenCalled();
-    });
-  });
-
-  it('keeps step-up dialog open and shows error if wrong code is entered', async () => {
-    mocks.auth.mfa.challengeAndVerify.mockResolvedValueOnce({ error: { message: 'Invalid code. Check phone clock.' } });
-    const onSuccess = vi.fn();
-
-    render(
-      <SpecialAdvanceStepUpDialog open={true} onOpenChange={() => {}} onSuccess={onSuccess} />
-    );
-
-    const input = document.getElementById('special-advance-step-up-code') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '000000' } });
-
-    fireEvent.click(screen.getByText('Confirm & Proceed'));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toContain('Invalid code');
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
+describe('Special Advances UI - no authenticator (CFO decision 2026-11-03)', () => {
+  it('words a leftover MFA_REQUIRED from a server without the change, never asking for a code', () => {
+    expect(describeSpecialAdvanceError({ message: 'MFA_REQUIRED' })).toMatch(/not been applied yet/);
+    expect(describeSpecialAdvanceError({ message: 'MFA_REQUIRED' })).not.toMatch(/authenticator app first/);
   });
 });
 
