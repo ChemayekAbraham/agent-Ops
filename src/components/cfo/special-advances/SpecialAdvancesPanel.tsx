@@ -42,7 +42,6 @@ export function SpecialAdvancesPanel() {
     <div className="space-y-4">
       {/* Top Banner: Reconciliation summary, New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
-
         {recon.data && (
           <span
             id="special-advance-reconciliation"
@@ -59,7 +58,7 @@ export function SpecialAdvancesPanel() {
           </span>
         )}
 
-        <Button id="special-advance-new" size="sm" onClick={() => setRecording(true)}>
+        <Button id="special-advance-new" size="sm" className="ml-auto" onClick={() => setRecording(true)}>
           <Plus className="mr-1 h-4 w-4" /> New Special Advance
         </Button>
       </div>
