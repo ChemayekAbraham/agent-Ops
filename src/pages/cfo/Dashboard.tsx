@@ -67,6 +67,7 @@ import { ListingBonusApprovalQueue } from '@/components/executive/ListingBonusAp
 import { FinancialAgentsPanel } from '@/components/cfo/FinancialAgentsPanel';
 import { PayrollPanel } from '@/components/cfo/PayrollPanel';
 import CfoPayrollPanel from '@/hr/pay/CfoPayrollPanel';
+import CfoPayrollHistoryPanel from '@/components/cfo/CfoPayrollHistoryPanel';
 import { ApprovalsInbox } from '@/hr/pay/Approvals';
 import { AdvancesPanel } from '@/hr/pay/Advances';
 import { CashoutAgentManager } from '@/components/cfo/CashoutAgentManager';
@@ -389,6 +390,8 @@ export default function CFODashboardPage() {
         return <CfoPayrollPanel />;
       case 'cfo-pay-advances':
         return <AdvancesPanel />;
+      case 'cfo-payroll-history':
+        return <CfoPayrollHistoryPanel />;
       case 'cfo-pay-approvals':
         return <ApprovalsInbox />;
       case 'delivery-pipeline':
