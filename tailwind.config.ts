@@ -15,8 +15,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
-        display: ['Plus Jakarta Sans', 'Inter', '-apple-system', 'sans-serif'],
+        sans: ['DM Sans', 'Plus Jakarta Sans', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'system-ui', 'sans-serif'],
+        display: ['DM Sans', 'Plus Jakarta Sans', 'Inter', '-apple-system', 'sans-serif'],
         mono: ['JetBrains Mono', 'SF Mono', 'ui-monospace', 'monospace'],
       },
       letterSpacing: {

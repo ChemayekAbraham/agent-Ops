@@ -185,7 +185,7 @@ export function FunderPreviewPlanFlow({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
-        className="flex h-[100dvh] max-h-none w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 font-['Outfit'] sm:h-[92vh] sm:max-w-md sm:rounded-3xl sm:border [&>button.absolute]:hidden"
+        className="flex h-[100dvh] max-h-none w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 sm:h-[92vh] sm:max-w-md sm:rounded-3xl sm:border [&>button.absolute]:hidden"
         onEscapeKeyDown={(event) => sheet === 'sending' && event.preventDefault()}
         onPointerDownOutside={(event) => sheet === 'sending' && event.preventDefault()}
       >

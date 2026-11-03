@@ -2,7 +2,7 @@ import { pick, type Tile } from './deskConfig';
 import { fmt } from './format';
 import type { FeedState } from './useDeskFeed';
 import { CountUp } from './CountUp';
-import { FIGURE, TILE } from './deskTheme';
+import { FIGURE, LABEL, TILE } from './deskTheme';
 
 /** A tile value counts up only when it is really a number; "Not set" and "—" stay still. */
 function Figure({ feeds, tile, size }: { feeds: Record<string, FeedState>; tile: Tile; size: string }) {
@@ -34,11 +34,11 @@ export function TileGrid({
   return (
     <div className={`grid gap-3 ${grid}`}>
       {tiles.map((t) => (
-        <div key={t.label} className={`${TILE} p-4 space-y-1.5 min-w-0`}>
-          <div className={`${board ? 'text-sm' : 'text-xs'} text-muted-foreground leading-snug`}>{t.label}</div>
+        <div key={t.label} className={`${TILE} p-4 space-y-2 min-w-0`}>
+          <div className={LABEL}>{t.label}</div>
           <Figure feeds={feeds} tile={t} size={board ? 'text-[44px] leading-none' : 'text-[36px] leading-none'} />
           {t.sub && (
-            <div className={`${board ? 'text-xs' : 'text-[11px]'} text-muted-foreground truncate`}>
+            <div className={`${LABEL} truncate`}>
               {t.sub.label}:{' '}
               <span className="tabular-nums text-[hsl(var(--desk-lavender))]">
                 {fmt(t.sub.fmt, pick(feeds[t.sub.feed]?.rows ?? [], t.sub))}
