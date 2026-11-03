@@ -175,7 +175,7 @@ export function FunderPreviewHomeSheet({
               </div>
             )}
             <div className="absolute inset-x-4 top-[max(1rem,env(safe-area-inset-top))] flex justify-between">
-              <button type="button" aria-label="Back to houses" className={roundButton} onClick={() => onOpenChange(false)}>
+              <button type="button" aria-label="Back to houses" className={cn(roundButton, 'text-primary')} onClick={() => onOpenChange(false)}>
                 <ArrowLeft className="h-5 w-5" aria-hidden />
               </button>
               <div className="flex gap-2.5">
