@@ -1,7 +1,8 @@
-import { useEffect, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Navigate, NavLink, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Play, RefreshCw, Rows3, Square } from 'lucide-react';
+import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
 import { useDeskFeeds, type FeedState } from './useDeskFeed';
@@ -10,7 +11,7 @@ import { CommandCentre } from './CommandCentre';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
-import { BOARD_TOKENS, CALM, FOCUS, statusText } from './deskTheme';
+import { CALM, FOCUS, statusText } from './deskTheme';
 
 const ROTATE_MS = 45_000;
 
@@ -31,10 +32,10 @@ function ToolButton({
       onClick={onClick}
       aria-pressed={active}
       aria-label={label}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium ${CALM} ${FOCUS} ${
+      className={`desk-pill inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium ${CALM} ${FOCUS} ${
         active
-          ? 'border-primary/50 bg-primary/10 text-primary'
-          : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+          ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+          : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
       }`}
     >
       {children}
@@ -47,15 +48,20 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
   const queryClient = useQueryClient();
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      {board && <KampalaClock className="text-sm font-medium text-foreground" />}
-      <span>Updated {clockTime(updated)}. Refreshes every minute.</span>
+      <span className="desk-pill inline-flex items-center gap-1.5 border border-[hsl(var(--desk-ok)/0.4)] bg-[hsl(var(--desk-ok)/0.12)] px-2.5 py-1">
+        <span className="desk-live-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--desk-ok))]" aria-hidden />
+        <span className="font-semibold tracking-wide text-[hsl(var(--desk-ok))]">LIVE</span>
+      </span>
+
+      <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground`} />
+      <span>Updated {clockTime(updated)}</span>
 
       <button
         type="button"
         onClick={() => queryClient.invalidateQueries({ queryKey: ['desk-feed'] })}
-        className={`inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 ${CALM} ${FOCUS} hover:bg-muted hover:text-foreground`}
+        className={`desk-pill inline-flex items-center gap-1.5 border border-white/12 bg-white/5 px-3 py-1.5 ${CALM} ${FOCUS} hover:bg-white/10 hover:text-foreground`}
       >
-        <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Refresh now
+        <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Refresh
       </button>
 
       <ToolButton
@@ -83,9 +89,7 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
         </ToolButton>
       )}
 
-      {failed.length > 0 && (
-        <span className={statusText(board).bad}>Some figures could not load ({failed.join(', ')}).</span>
-      )}
+      {failed.length > 0 && <span className={statusText.bad}>Some figures could not load ({failed.join(', ')}).</span>}
     </div>
   );
 }
@@ -102,9 +106,9 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
       ),
   );
 
-  // Board mode's command centre owns the whole screen so nothing has to scroll.
-  if (desk.id === 'command' && board) {
-    return <CommandCentre feeds={feeds} board tiles={tiles} g={g} />;
+  // The command centre owns its own strip, river and panels.
+  if (desk.id === 'command') {
+    return <CommandCentre feeds={feeds} board={board} tiles={tiles} />;
   }
 
   return (
@@ -120,12 +124,10 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         )}
       </div>
 
-      {desk.id === 'command' && <CommandCentre feeds={feeds} board={false} tiles={tiles} g={g} />}
-
       {anyLoading && tiles.length > 0 ? (
         <SkeletonTiles count={tiles.length} board={board} />
       ) : (
-        <TileGrid tiles={tiles} g={g} board={board} />
+        <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
       {desk.tables.map((spec) => (
@@ -167,11 +169,13 @@ function DeskShell() {
 
   if (allowed.length === 0) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-16 text-center space-y-2">
-        <h1 className="text-xl font-semibold text-foreground">No desk for your account yet</h1>
-        <p className="text-sm text-muted-foreground">
-          Desks open for operations staff. Ask the COO office to confirm your role, then reload this page.
-        </p>
+      <main className="desk-root min-h-screen px-4 py-16 text-center">
+        <div className="mx-auto max-w-xl space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">No desk for your account yet</h1>
+          <p className="text-sm text-muted-foreground">
+            Desks open for operations staff. Ask the COO office to confirm your role, then reload this page.
+          </p>
+        </div>
       </main>
     );
   }
@@ -184,18 +188,21 @@ function DeskShell() {
 
   const header = (
     <header className={board ? 'shrink-0 space-y-2' : 'space-y-3'}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-        <div className="space-y-0.5 min-w-0">
-          <h1 className={`${board ? 'text-xl' : 'text-2xl'} font-semibold tracking-tight text-foreground`}>
-            Welile ops desks
-          </h1>
-          <p className={`${board ? 'text-base' : 'text-sm'} text-muted-foreground`}>{desk.name}</p>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <WelileLogo size="sm" showText={false} linkToHome={false} variant="light" />
+          <div className="min-w-0">
+            <h1 className={`${board ? 'text-2xl' : 'text-xl sm:text-2xl'} font-semibold tracking-tight text-foreground`}>
+              Ops Command Centre
+            </h1>
+            <p className={`${board ? 'text-base' : 'text-sm'} text-[hsl(var(--desk-lavender))]`}>{desk.name}</p>
+          </div>
         </div>
         <Toolbar updated={updated} failed={failed} board={board} />
       </div>
 
       {allowed.length > 1 && (
-        <nav aria-label="Desks" className="-mx-1 flex gap-1 overflow-x-auto border-b border-border pb-px">
+        <nav aria-label="Desks" className="-mx-1 flex gap-1 overflow-x-auto border-b border-white/10 pb-px">
           {allowed.map((d) => (
             <NavLink
               key={d.id}
@@ -203,7 +210,7 @@ function DeskShell() {
               className={({ isActive }) =>
                 `whitespace-nowrap rounded-t px-3 py-2 ${board ? 'text-base' : 'text-sm'} border-b-2 -mb-px ${CALM} ${FOCUS} ${
                   isActive
-                    ? 'border-primary text-foreground font-medium'
+                    ? 'border-[hsl(var(--primary))] text-foreground font-medium'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`
               }
@@ -218,10 +225,7 @@ function DeskShell() {
 
   if (board) {
     return (
-      <div
-        style={BOARD_TOKENS as CSSProperties}
-        className="flex h-[100dvh] flex-col gap-3 overflow-hidden bg-background p-5 text-foreground"
-      >
+      <div className="desk-root flex h-[100dvh] flex-col gap-4 overflow-hidden p-5">
         {header}
         <div className="min-h-0 flex-1">
           <DeskView key={desk.id} desk={desk} feeds={feeds} board />
@@ -231,10 +235,12 @@ function DeskShell() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1400px] px-3 sm:px-6 py-5 space-y-5">
-      {header}
-      <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />
-    </main>
+    <div className="desk-root min-h-screen">
+      <main className="mx-auto w-full max-w-[1500px] px-3 sm:px-6 py-5 space-y-5">
+        {header}
+        <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />
+      </main>
+    </div>
   );
 }
 
