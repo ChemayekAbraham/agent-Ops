@@ -77276,6 +77276,8 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_stage_flow: { Args: never; Returns: Json }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {
