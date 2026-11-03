@@ -139,6 +139,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
               <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Category</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Serial</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Custodian</th>
+              <th className="hidden px-3 py-2.5 text-right font-medium xl:table-cell">Number</th>
               <th className="px-3 py-2.5 text-left font-medium">Status</th>
               <th className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">Cost</th>
               <th className="w-14 px-3 py-2.5 text-center font-medium">Actions</th>
