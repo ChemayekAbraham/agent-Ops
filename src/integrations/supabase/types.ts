@@ -18164,6 +18164,48 @@ export type Database = {
         }
         Relationships: []
       }
+      explanation_demands: {
+        Row: {
+          amount: number | null
+          cleared_at: string | null
+          cleared_by: string | null
+          created_at: string
+          id: string
+          message: string
+          reference: string
+          responded_at: string | null
+          response: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          reference: string
+          responded_at?: string | null
+          response?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          cleared_at?: string | null
+          cleared_by?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          reference?: string
+          responded_at?: string | null
+          response?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fee_revenue_ledger: {
         Row: {
           created_at: string
@@ -92183,6 +92225,10 @@ export type Database = {
       submit_agent_vetting: {
         Args: { p_accuracy_m: number; p_lat: number; p_lng: number }
         Returns: Json
+      }
+      submit_explanation: {
+        Args: { p_id: string; p_response: string }
+        Returns: undefined
       }
       submit_identity_photos:
         | {
