@@ -19,6 +19,7 @@ import {
   FLOATING_NAV_LABEL,
   FLOATING_NAV_SHELL,
   FLOATING_NAV_SHELL_STYLE,
+  FLOATING_NAV_Z,
   FloatingNavRow,
   SlidingIndicator,
   useSlidingIndicator,
