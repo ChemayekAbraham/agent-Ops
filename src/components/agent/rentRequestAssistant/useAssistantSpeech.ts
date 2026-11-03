@@ -11,7 +11,7 @@ const FEMALE_NAMES = [
   'felicity', 'catherine', 'linda', 'vega', 'ivy', 'ella', 'serra', 'amira', 'hannah', 'lucy',
   'ruby', 'nora', 'zoe', 'megan', 'clara', 'emma', 'sara', 'salma', 'laila', 'hoda', 'michelle',
   'heather', 'katie', 'carla', 'joanna', 'kendra', 'amy', 'britt', 'leah', 'tara', 'gilda',
-  'zosia', 'kanisha', 'swara', 'audrey', 'amelie', 'milica', 'pavlina', 'zosia',
+  'zosia', 'kanisha', 'swara', 'audrey', 'amelie', 'milica', 'pavlina',
 ];
 
 /** Known male voices, used only to push them out of the way. */
