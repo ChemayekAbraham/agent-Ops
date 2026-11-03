@@ -49,6 +49,7 @@ import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
 import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
 import { landlordFloatErrorText, landlordFloatExcess } from '@/lib/landlordFloatBudget';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { LandlordFloatExcessBanner } from '@/components/shared/LandlordFloatBudgetPosition';
 import { useRentRequestTiming } from '@/hooks/useRentRequestTiming';
 import { RentTimingRow } from '@/components/rent-desk/RentTimingRow';
@@ -485,7 +486,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
             body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
           });
-          if (error) errors.push(`${id.slice(0, 8)}: ${error.message}`);
+          if (error) {
+            errors.push(`${id.slice(0, 8)}: ${await extractFromErrorObject(error, 'Funding failed')}`);
+          }
         }
       };
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, stillEligible.length) }, worker));
@@ -509,7 +512,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       const { error, data } = await supabase.functions.invoke('fund-agent-landlord-float', {
         body: { rent_request_id: id, notes: 'Single CFO disbursement' },
       });
-      if (error) throw error;
+      if (error) throw new Error(await extractFromErrorObject(error, 'Disbursement failed'));
       if (data?.error) throw new Error(data.error);
       return data;
     },

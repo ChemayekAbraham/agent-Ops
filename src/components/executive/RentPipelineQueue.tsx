@@ -21,6 +21,7 @@ import { RentPipelineTracker } from './RentPipelineTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { Badge } from '@/components/ui/badge';
 import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabel';
 import { Button } from '@/components/ui/button';
@@ -1190,7 +1191,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             payout_method: payoutMethod || 'mobile_money',
           },
         });
-        if (floatErr) throw new Error(floatErr.message || 'Failed to fund agent float');
+        if (floatErr) throw new Error(await extractFromErrorObject(floatErr, 'Failed to fund agent float'));
         if (floatRes?.error) throw new Error(floatRes.error);
       } else if (isCooStage) {
         // COO step: inside the landlord float budget only. Held or refused -> keep the sheet open, toast says why.
