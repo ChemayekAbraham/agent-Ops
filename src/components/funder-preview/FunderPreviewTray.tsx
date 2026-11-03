@@ -38,7 +38,7 @@ export function FunderPreviewTray({
   return (
     <motion.section
       aria-label="Your plan"
-      className="fixed inset-x-0 bottom-0 z-[110] mx-auto max-w-3xl rounded-t-[28px] bg-card px-5 pb-[max(1.6rem,env(safe-area-inset-bottom))] pt-2.5 font-['Outfit'] shadow-[0_-10px_30px_-8px_hsl(var(--primary)/0.3)]"
+      className="fixed inset-x-0 bottom-0 z-[110] mx-auto max-w-3xl rounded-t-[28px] bg-card px-5 pb-[max(1.6rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-10px_30px_-8px_hsl(var(--primary)/0.3)]"
       {...(reduceMotion
         ? {}
         : {

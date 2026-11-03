@@ -188,6 +188,9 @@ const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+const RentRequestAssistant = lazy(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -2055,12 +2058,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       />
       </LazyModal>
       <LazyModal when={rentRequestOpen}>
-      <AgentRentRequestDialog 
-        presentation="chat"
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
+      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

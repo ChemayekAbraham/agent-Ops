@@ -8,6 +8,9 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { manualChunkForModule } from "./src/lib/bootChunks";
 
+/** The MCP bundler only emits a correct bundle where paths are POSIX. See the plugin list below. */
+const mcpBundlerIsSafe = process.platform !== "win32" || process.env.WELILE_MCP_BUNDLE === "1";
+
 // Which revision is this bundle? Exposed as window.__WELILE_BUILD__, the
 // <html data-build> attribute and /build-info.json so the preview and
 // welileapp.com can be compared directly instead of assumed to match.
@@ -189,8 +192,17 @@ export default defineConfig(({ mode }) => {
     } satisfies Plugin,
 
     mode === "development" && componentTagger(),
-    mcpPlugin(),
-    mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" }),
+    // @lovable.dev/mcp-js 0.26.1 does not recognise its own entry when the path
+    // has backslashes, so on Windows it marks it external and emits
+    //   import mcp from "npm:C:\\...\\src\\lib\\mcp\\index.ts";
+    // replacing both bundles with a 3-line stub that imports a package which
+    // does not exist. Every local build and dev start here rewrote
+    // supabase/functions/mcp/index.ts and mcp-public/index.ts that way; deploying
+    // one would take the MCP endpoints down. Skip the bundler where it cannot
+    // produce a correct bundle — Lovable's own Linux build still regenerates
+    // both files, so the committed output stays authoritative. Set
+    // WELILE_MCP_BUNDLE=1 to force it back on once upstream is fixed.
+    ...(mcpBundlerIsSafe ? [mcpPlugin(), mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" })] : []),
   ].filter(Boolean),
   resolve: {
     alias: {

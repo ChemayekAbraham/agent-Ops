@@ -786,7 +786,7 @@ export default function FindAHouse() {
         </a>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-          <div className="max-w-2xl mx-auto px-4 pt-3 flex justify-center">
+          <div className="max-w-lg mx-auto px-4 pt-3 flex justify-center">
             <img
               src={houseSearchingIllustration.url}
               alt="Illustration of a person searching for a house to rent"
@@ -794,7 +794,7 @@ export default function FindAHouse() {
               loading="lazy"
             />
           </div>
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <Button
                 variant="ghost"
@@ -819,7 +819,7 @@ export default function FindAHouse() {
 
         {/* Filters */}
         <div className="sticky top-[53px] z-30 bg-background/95 backdrop-blur-md border-b border-border">
-          <div className="max-w-2xl mx-auto px-4 py-2">
+          <div className="max-w-lg mx-auto px-4 py-2">
             <button
               type="button"
               onClick={() => setFilterBarOpen(o => !o)}
@@ -1066,7 +1066,7 @@ export default function FindAHouse() {
         <main
           id="house-list"
           tabIndex={-1}
-          className={`${showMap ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-4 py-4 space-y-3 pb-20`}
+          className="max-w-lg mx-auto px-4 py-4 space-y-3 pb-20"
         >
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
@@ -1106,9 +1106,9 @@ export default function FindAHouse() {
               </div>
 
               {showMap ? (
-                <div className="flex flex-col md:flex-row gap-3">
-                  {/* Map — full width on mobile, sticky side pane on desktop */}
-                  <div className="md:order-2 md:w-[44%] md:sticky md:top-4 h-[55vh] md:h-[calc(100vh-7rem)] rounded-2xl overflow-hidden border border-border shrink-0">
+                <div className="flex flex-col gap-3">
+                  {/* Map — full width of the single centred column, same as the tenant dashboard */}
+                  <div className="h-[55vh] rounded-2xl overflow-hidden border border-border shrink-0">
                     <Suspense fallback={<Skeleton className="h-full w-full" />}>
                       <HouseMapView
                         listings={filtered}
@@ -1124,8 +1124,8 @@ export default function FindAHouse() {
                       />
                     </Suspense>
                   </div>
-                  {/* List — hidden on mobile while the map is open (toggle), shown beside map on desktop */}
-                  <div className="hidden md:block md:order-1 md:flex-1 min-w-0">
+                  {/* List — hidden while the map is open (toggle), at every width */}
+                  <div className="hidden min-w-0">
                     <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
                   </div>
                 </div>

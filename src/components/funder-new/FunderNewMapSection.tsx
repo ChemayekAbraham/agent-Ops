@@ -123,6 +123,16 @@ export function FunderNewMapSection({
     setNoticeDismissed(true);
   }, []);
   const noticeState = locationNoticeState(location, noticeDismissed);
+  // The button stays on the map even when location is blocked. A blocked browser cannot be asked again, so
+  // tapping it brings back the note that says where to turn location on.
+  const handleUseMyLocation = useCallback(() => {
+    if (location.permission === 'denied') {
+      setNoticeDismissed(false);
+      return;
+    }
+    if (device) location.refresh();
+    else location.request();
+  }, [device, location]);
 
   const heading = device ? 'Homes near you' : origin?.source === 'area' ? 'Homes in this area' : 'Explore homes by area';
 
@@ -191,13 +201,13 @@ export function FunderNewMapSection({
           device={device}
           awaitingDeviceFix={awaitingDeviceFix}
           locating={location.status === 'locating'}
-          canUseLocation={location.permission !== 'unsupported' && location.permission !== 'denied'}
+          canUseLocation={location.permission !== 'unsupported'}
           areaSearchValue={filters.search}
           onAreaSearchChange={onAreaSearchChange}
           onOpenHouse={onOpenHouse}
           onViewportChange={setViewport}
           onSearchThisArea={onApplyArea}
-          onUseMyLocation={device ? location.refresh : location.request}
+          onUseMyLocation={handleUseMyLocation}
           onReset={handleReset}
           loadedNote={loadedNote}
           onExpandedChange={onExpandedChange}

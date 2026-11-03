@@ -170,7 +170,7 @@ export function FunderPreviewHomeSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] max-h-none w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 font-['Outfit'] sm:h-[92vh] sm:max-w-md sm:rounded-3xl sm:border [&>button.absolute]:hidden">
+      <DialogContent className="flex h-[100dvh] max-h-none w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-background p-0 sm:h-[92vh] sm:max-w-md sm:rounded-3xl sm:border [&>button.absolute]:hidden">
         <DialogTitle className="sr-only">{view.title}</DialogTitle>
         <DialogDescription className="sr-only">
           {formatDynamic(view.amount)} to support in {view.place}.

@@ -1,23 +1,28 @@
+import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
 import { fmt } from './format';
 import type { FeedState, Row } from './useDeskFeed';
-import { CALM, FOCUS, statusEdge, statusFill, statusText, type Status } from './deskTheme';
+import { CALM, CAPSULE, FIGURE, FOCUS, LABEL, PANEL, statusDot, statusEdge, statusGlass, statusText, type Status } from './deskTheme';
+import { DESKS } from './deskConfig';
+import { CountUp } from './CountUp';
 import { Skeleton } from './Skeleton';
 
-/** Which desk each stage belongs to, and the order work flows in. */
-const STAGE_DESK: Record<string, string> = {
-  '0a': 'coo',
-  '0b': 'service-centre',
-  '1': 'agent-ops',
-  '2': 'tenant-ops',
-  '3': 'landlord-ops',
-  '4': 'partner-ops',
-  '5': 'coo',
-  '6': 'cfo',
-  '7': 'cfo',
-};
-const ORDER = ['0a', '0b', '1', '2', '3', '4', '5', '6', '7'];
+/** The first stage is intake — requests arriving — not a queue anyone works. */
+export const INTAKE_ORD = '0';
+
+/** Stages name a desk by its route slug; these are the ones that have a page. */
+const DESK_PAGE = new Map(DESKS.filter((d) => d.id !== 'command').map((d) => [d.id, d.name]));
+
+/** The desk that acts on a stage, by the name people use for it — never a slug. */
+export function actingDesk(row: Row): string {
+  return DESK_PAGE.get(String(row.desk)) ?? String(row.stage ?? 'the next desk');
+}
+
+/** The desk page a stage opens, or null when no desk owns it (intake). */
+function stageRoute(row: Row): string | null {
+  const desk = String(row.desk ?? '');
+  return DESK_PAGE.has(desk) ? desk : null;
+}
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -36,12 +41,13 @@ function stageStatus(row: Row): Status {
   return 'ok';
 }
 
-/** Sort into pipeline order, keeping any stage the function adds later at the end. */
-function ordered(rows: Row[]): Row[] {
+/** Pipeline order: ord ascending, so Submitted leads and Landlord paid closes. */
+export function ordered(rows: Row[]): Row[] {
   return [...rows].sort((a, b) => {
-    const ia = ORDER.indexOf(String(a.ord));
-    const ib = ORDER.indexOf(String(b.ord));
-    return (ia === -1 ? ORDER.length : ia) - (ib === -1 ? ORDER.length : ib);
+    const na = num(a.ord);
+    const nb = num(b.ord);
+    if (na !== null && nb !== null) return na - nb;
+    return String(a.ord ?? '').localeCompare(String(b.ord ?? ''));
   });
 }
 
@@ -56,95 +62,129 @@ function bottleneckOf(rows: Row[]): Row | null {
   });
 }
 
-/** "N new requests a day come in; the slowest desk clears M a day." */
+/**
+ * "N new requests a day come in; the slowest stage, Tenant Ops, clears M a day."
+ *
+ * N is intake — how fast work arrives — so it always comes from the Submitted
+ * stage, never from whichever stage happens to be the bottleneck.
+ */
 function flowSentence(rows: Row[]): string | null {
   if (rows.length === 0) return null;
-  const entry = rows.find((r) => String(r.ord) === '0b') ?? ordered(rows)[0];
+  const entry = rows.find((r) => String(r.ord) === INTAKE_ORD) ?? ordered(rows)[0];
   const neck = bottleneckOf(rows);
   if (!neck) return `${rate(entry?.per_day_7d)} new requests a day come in. Nothing is waiting at any desk.`;
-  const where = String(neck.desk ?? neck.stage ?? 'the slowest desk');
-  return `${rate(entry?.per_day_7d)} new requests a day come in; the slowest desk, ${where}, clears ${rate(neck.per_day_7d)} a day.`;
+  return `${rate(entry?.per_day_7d)} new requests a day come in; the slowest stage, ${String(
+    neck.stage ?? 'the slowest stage',
+  )}, clears ${rate(neck.per_day_7d)} a day.`;
 }
 
-function Metric({ label, value, tone, size }: { label: string; value: string; tone?: string; size: string }) {
+/** Particle speed follows the stage's throughput. Nothing moving means no particles at all. */
+function particleSeconds(perDay: unknown): number | null {
+  const n = num(perDay);
+  if (n === null || n <= 0) return null;
+  return Math.min(9, Math.max(1.2, 45 / n));
+}
+
+function Connector({ seconds }: { seconds: number | null }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 min-w-0">
-      <span className={`${size} text-muted-foreground truncate`}>{label}</span>
-      <span className={`${size} font-medium tabular-nums ${tone ?? 'text-foreground'}`}>{value}</span>
+    <>
+      <div
+        className="relative hidden md:block h-[2px] w-8 shrink-0 self-center overflow-hidden rounded-full bg-[hsl(var(--primary)/0.25)]"
+        aria-hidden
+      >
+        {seconds !== null &&
+          [0, 1].map((i) => (
+            <span
+              key={i}
+              className="desk-particle absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[hsl(var(--primary))]"
+              style={{
+                animationDuration: `${seconds}s`,
+                animationDelay: `${(seconds / 2) * i}s`,
+                boxShadow: '0 0 10px 3px hsl(var(--primary) / 0.85)',
+              }}
+            />
+          ))}
+      </div>
+      <div className="md:hidden mx-auto h-4 w-[2px] shrink-0 rounded-full bg-[hsl(var(--primary)/0.25)]" aria-hidden />
+    </>
+  );
+}
+
+/** A labelled row inside a capsule: name on the left, figure right-aligned. Labels are never shortened. */
+function Metric({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 min-w-0">
+      <span className={`${LABEL} truncate`}>{label}</span>
+      <span className={`shrink-0 text-[13px] font-medium tabular-nums ${tone ?? 'text-[hsl(var(--desk-lavender))]'}`}>
+        {value}
+      </span>
     </div>
   );
 }
 
-function Stage({
-  row,
-  max,
-  isNeck,
-  board,
-}: {
-  row: Row;
-  max: number;
-  isNeck: boolean;
-  board: boolean;
-}) {
+function Capsule({ row, isNeck, board }: { row: Row; isNeck: boolean; board: boolean }) {
+  const intake = String(row.ord) === INTAKE_ORD;
   const state = stageStatus(row);
-  const text = statusText(board);
-  const fill = statusFill(board);
-  const edge = statusEdge(board);
   const waiting = num(row.waiting) ?? 0;
-  const pct = max > 0 ? Math.max(waiting > 0 ? 6 : 2, Math.round((waiting / max) * 100)) : 2;
-  const desk = STAGE_DESK[String(row.ord)];
-
-  const name = board ? 'text-sm' : 'text-xs';
-  const value = board ? 'text-[40px] leading-none' : 'text-2xl leading-none';
-  const meta = board ? 'text-xs' : 'text-[11px]';
-  const track = board ? 'h-24' : 'h-14';
+  const route = stageRoute(row);
+  const figure = board ? 'text-[52px] leading-none' : 'text-[40px] leading-none';
 
   const body = (
     <>
-      <div className="flex items-start justify-between gap-1.5 min-w-0">
-        <span className={`${name} font-semibold text-foreground leading-snug`}>{String(row.stage ?? '—')}</span>
-        <span className={`h-2 w-2 shrink-0 rounded-full mt-1 ${fill[state]}`} aria-hidden />
+      <div className="flex items-start justify-between gap-2 min-w-0">
+        <span className={`${board ? 'text-sm' : 'text-xs'} min-w-0 truncate font-semibold text-foreground`}>
+          {String(row.stage ?? '—')}
+        </span>
+        {/* Intake has no queue to be late, so it carries no status dot. */}
+        {!intake && <span className={`h-2 w-2 shrink-0 rounded-full mt-1 ${statusDot[state]}`} aria-hidden />}
       </div>
 
       {isNeck && (
-        <span className={`inline-flex w-fit items-center rounded border px-1.5 py-0.5 ${meta} font-semibold ${edge.bad} ${text.bad}`}>
+        <span className={`desk-pill inline-flex w-fit items-center border px-2 py-0.5 text-[11px] font-semibold ${statusGlass.bad}`}>
           Bottleneck
         </span>
       )}
 
-      {/* Volume: the bar follows the number waiting. Upright on a wide screen, flat on a phone. */}
-      <div className={`hidden md:flex ${track} items-end`} aria-hidden>
-        <div className="w-full rounded-sm bg-muted" style={{ height: '100%' }}>
-          <div className={`w-full rounded-sm ${fill[state]}`} style={{ height: `${pct}%`, marginTop: `${100 - pct}%` }} />
-        </div>
-      </div>
-      <div className="md:hidden h-2 w-full rounded-sm bg-muted" aria-hidden>
-        <div className={`h-full rounded-sm ${fill[state]}`} style={{ width: `${pct}%` }} />
-      </div>
-
-      <div className="flex items-baseline gap-1.5">
-        <span className={`${value} font-semibold tabular-nums text-foreground`}>{fmt('int', waiting)}</span>
-        <span className={`${meta} text-muted-foreground`}>waiting</span>
-      </div>
-
-      <div className="space-y-0.5">
-        <Metric label="UGX" value={fmt('ugx', row.waiting_ugx ?? 0)} size={meta} />
-        <Metric label="Cleared today" value={fmt('int', row.done_24h ?? 0)} size={meta} />
-        <Metric label="Per day" value={rate(row.per_day_7d)} size={meta} />
-        <Metric
-          label="Days to clear"
-          value={num(row.days_to_clear) === null ? (waiting > 0 ? 'Not clearing' : '—') : rate(row.days_to_clear)}
-          tone={text[state]}
-          size={meta}
-        />
-      </div>
+      {intake ? (
+        <>
+          <div className="flex items-baseline gap-2">
+            <CountUp value={num(row.done_24h) ?? 0} format={(n) => fmt('int', n)} className={`${FIGURE} ${figure}`} />
+            <span className={LABEL}>today</span>
+          </div>
+          <div className="space-y-1">
+            <Metric label="Arriving" value={`${rate(row.per_day_7d)} a day`} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex items-baseline gap-2">
+            <CountUp value={waiting} format={(n) => fmt('int', n)} className={`${FIGURE} ${figure}`} />
+            <span className={LABEL}>waiting</span>
+          </div>
+          <div className="space-y-1">
+            <Metric label="UGX" value={fmt('ugx', row.waiting_ugx ?? 0)} />
+            <Metric label="Cleared today" value={fmt('int', row.done_24h ?? 0)} />
+            <Metric
+              label="Days to clear"
+              value={num(row.days_to_clear) === null ? (waiting > 0 ? 'Not clearing' : '—') : rate(row.days_to_clear)}
+              tone={statusText[state]}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 
-  const shell = `flex flex-col gap-2 rounded-lg border bg-card ${board ? 'p-4' : 'p-3'} min-w-0 ${edge[state]}`;
+  const shell = `${CAPSULE} flex min-w-0 flex-1 flex-col gap-2.5 ${board ? 'p-5' : 'p-4'} ${
+    isNeck ? `desk-bottleneck ${statusEdge.bad}` : ''
+  }`;
 
-  return desk ? (
-    <Link to={`/desk/${desk}`} className={`${shell} ${CALM} ${FOCUS} hover:bg-muted/40`} aria-label={`${String(row.stage)} — open the ${desk} desk`}>
+  return route ? (
+    <Link
+      to={`/desk/${route}`}
+      className={`${shell} ${CALM} ${FOCUS} hover:bg-white/10`}
+      aria-label={`${String(row.stage)} — open the ${actingDesk(row)} desk`}
+    >
       {body}
     </Link>
   ) : (
@@ -152,19 +192,30 @@ function Stage({
   );
 }
 
+/** Red, amber, green in one line, so nobody has to guess what a dot means. */
+function Legend() {
+  return (
+    <p className={LABEL}>
+      <span className={statusText.bad}>Red</span>: over 2 days to clear.{' '}
+      <span className={statusText.warn}>Amber</span>: over 1 day. <span className={statusText.ok}>Green</span>: on time.
+    </p>
+  );
+}
+
 export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) {
   const rows = ordered(feed.rows);
   const sentence = flowSentence(feed.rows);
   const neck = bottleneckOf(feed.rows);
-  const max = Math.max(1, ...rows.map((r) => num(r.waiting) ?? 0));
 
   if (feed.loading) {
     return (
-      <section className="space-y-3" aria-busy>
-        <Skeleton className={`${board ? 'h-9' : 'h-6'} w-full max-w-3xl`} />
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-9">
+      <section className="space-y-4" aria-busy>
+        <Skeleton className={`${board ? 'h-10' : 'h-7'} w-full max-w-3xl`} />
+        <div className="desk-river">
           {Array.from({ length: 9 }, (_, i) => (
-            <Skeleton key={i} className={board ? 'h-72' : 'h-52'} />
+            <div key={i} className="desk-river-unit">
+              <Skeleton className={`w-full ${board ? 'h-60' : 'h-48'}`} />
+            </div>
           ))}
         </div>
       </section>
@@ -173,8 +224,8 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
 
   if (feed.error) {
     return (
-      <section className={`rounded-lg border bg-card p-5 space-y-1 ${statusEdge(board).bad}`} role="alert">
-        <h2 className={`font-semibold ${statusText(board).bad}`}>The stage flow could not load</h2>
+      <section className={`${PANEL} p-5 space-y-1 ${statusEdge.bad}`} role="alert">
+        <h2 className={`font-semibold ${statusText.bad}`}>The stage flow could not load</h2>
         <p className="text-sm text-muted-foreground">{feed.error}</p>
         <p className="text-sm text-muted-foreground">
           Use “Refresh now” above. If it keeps failing, tell the COO office — the desks below still work.
@@ -183,29 +234,32 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
     );
   }
 
+  // Where the river folds when the whole pipeline will not fit on one line:
+  // after Partner Ops, so COO approval starts the second row.
+  const foldAfter = rows.findIndex((r) => String(r.ord) === '5');
+
   return (
-    <section className="space-y-3 min-w-0">
-      <div className="space-y-1">
+    <section className="space-y-4 min-w-0">
+      <div className="space-y-1.5">
         <h2 className={`${board ? 'text-3xl' : 'text-lg sm:text-xl'} font-semibold leading-snug text-foreground max-w-5xl`}>
           {sentence ?? 'No stages are reporting yet.'}
         </h2>
-        <p className={`${board ? 'text-sm' : 'text-xs'} text-muted-foreground`}>
-          Rates are 7-day averages. Red is over 2 days to clear, amber over 1 — thresholds are assumptions until the desk
-          leads agree them.
+        <Legend />
+        <p className={LABEL}>
+          Rates are 7-day averages. The thresholds are assumptions until the desk leads agree them.
         </p>
       </div>
 
-      {/* The pipeline, left to right. On a phone it stacks. */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-stretch md:gap-0 md:overflow-x-auto md:pb-1">
+      {/* The river, left to right. It folds into two rows on a laptop and stacks on a phone. */}
+      <div className="desk-river">
         {rows.map((row, i) => (
-          <div key={String(row.ord ?? i)} className="flex min-w-0 md:flex-1 md:items-center">
-            <div className="min-w-0 flex-1 md:min-w-[138px]">
-              <Stage row={row} max={max} isNeck={!!neck && String(neck.ord) === String(row.ord)} board={board} />
+          <Fragment key={String(row.ord ?? i)}>
+            <div className="desk-river-unit">
+              <Capsule row={row} isNeck={!!neck && String(neck.ord) === String(row.ord)} board={board} />
+              {i < rows.length - 1 && <Connector seconds={particleSeconds(row.per_day_7d)} />}
             </div>
-            {i < rows.length - 1 && (
-              <ChevronRight className="hidden md:block h-4 w-4 shrink-0 text-muted-foreground/50 mx-0.5" aria-hidden />
-            )}
-          </div>
+            {i === foldAfter && i < rows.length - 1 && <span className="desk-river-break" aria-hidden />}
+          </Fragment>
         ))}
       </div>
     </section>

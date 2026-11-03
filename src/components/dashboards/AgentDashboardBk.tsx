@@ -22,6 +22,14 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 // hidden for now (2026-10-16): the signature rent-request card is the single
 // entry point on this dashboard. Flip to true to bring them back.
 const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+/**
+ * The dashboard's "Post rent request" flow. 'assistant' is the guided chat
+ * (RentRequestAssistant), the flow for all agents since 2026-11-03. 'classic' is
+ * the old AgentRentRequestDialog chat, parked here until Pius says to delete it;
+ * switch back by setting this to 'classic'. (Renew, the tenant intake queue and
+ * the listing "swap tenant" flow still use AgentRentRequestDialog directly.)
+ */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -210,10 +218,12 @@ const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepos
 // (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
 const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
 const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
+const loadRentRequestAssistant = () => import('@/components/agent/rentRequestAssistant/RentRequestAssistant');
+const RentRequestAssistant = lazy(loadRentRequestAssistant);
 
-/** Fetch the rent-request dialog ahead of time; safe to call repeatedly. */
+/** Fetch the active rent-request flow ahead of time; safe to call repeatedly. */
 function preloadAgentRentRequestDialog() {
-  void loadAgentRentRequestDialog().catch(() => {});
+  void (DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? loadRentRequestAssistant() : loadAgentRentRequestDialog()).catch(() => {});
 }
 
 /** Skip speculative downloads on Data Saver or very slow connections. */
@@ -2103,12 +2113,17 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       />
       </LazyModal>
       <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
-      <AgentRentRequestDialog 
-        presentation="chat"
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        // Stays open on success: it shows "Posted" with "Post another" / "Back to dashboard".
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
+      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

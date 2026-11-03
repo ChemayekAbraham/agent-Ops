@@ -4,19 +4,17 @@ import type { TableSpec } from './deskConfig';
 import type { FeedState, Row } from './useDeskFeed';
 import { decisionTone, fmt, type Tone } from './format';
 import { useDeskPrefs } from './deskPrefs';
-import { CALM, FOCUS, statusEdge, statusText, type Status } from './deskTheme';
+import { CALM, FOCUS, PANEL, statusGlass, statusText, type Status } from './deskTheme';
 import { SkeletonRows } from './Skeleton';
 
 type Sort = { field: string; dir: 1 | -1 } | null;
 
 const TONE_STATUS: Record<Tone, Status> = { go: 'ok', wait: 'warn', stop: 'bad', plain: 'idle' };
 
-function DecisionPill({ value, board }: { value: unknown; board: boolean }) {
+function DecisionPill({ value }: { value: unknown }) {
   const state = TONE_STATUS[decisionTone(value)];
   return (
-    <span
-      className={`inline-block whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium ${statusEdge(board)[state]} ${statusText(board)[state]}`}
-    >
+    <span className={`desk-pill inline-block whitespace-nowrap border px-2.5 py-0.5 text-xs font-medium ${statusGlass[state]}`}>
       {fmt('text', value)}
     </span>
   );
@@ -71,7 +69,7 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
   }, [feed.rows, spec.columns]);
 
   return (
-    <section id={spec.id} className="rounded-lg border border-border bg-card p-4 sm:p-5 space-y-3 min-w-0">
+    <section id={spec.id} className={`${PANEL} p-4 sm:p-5 space-y-3 min-w-0`}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1 min-w-0">
           <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>{spec.title}</h2>
@@ -80,12 +78,12 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
         {feed.rows.length > 8 && (
           <label className="relative block w-full sm:w-64">
             <span className="sr-only">Search {spec.title}</span>
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search names, IDs, decisions"
-              className={`h-9 w-full rounded-md border border-input bg-background pl-8 pr-2 text-sm ${FOCUS}`}
+              className={`desk-pill h-9 w-full border border-white/12 bg-white/5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
             />
           </label>
         )}
@@ -102,12 +100,12 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
                 type="button"
                 onClick={() => setOnly(active ? null : s.decision)}
                 aria-pressed={active}
-                className={`rounded-md border px-2.5 py-1 text-xs text-left ${CALM} ${FOCUS} ${statusEdge(board)[state]} ${statusText(board)[state]} ${active ? 'bg-muted' : 'bg-background hover:bg-muted/60'}`}
+                className={`desk-pill border px-3 py-1 text-xs text-left ${CALM} ${FOCUS} ${statusGlass[state]} ${active ? 'ring-1 ring-inset ring-white/25' : ''}`}
               >
                 <span className="font-medium">{s.decision}</span>
                 <span className="ml-2 tabular-nums">{fmt('int', s.n)}</span>
                 {spec.summarySum && spec.summarySum !== 'days_open' && (
-                  <span className="ml-2 tabular-nums text-muted-foreground">{fmt('ugx', s.sum)}</span>
+                  <span className="ml-2 tabular-nums opacity-70">{fmt('ugx', s.sum)}</span>
                 )}
               </button>
             );
@@ -115,9 +113,9 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
         </div>
       )}
 
-      <div className={`${board ? 'max-h-[26rem]' : 'max-h-[32rem]'} overflow-auto rounded-md border border-border`}>
+      <div className={`${board ? 'max-h-[22rem]' : 'max-h-[32rem]'} overflow-auto rounded-xl border border-white/10`}>
         <table className="w-full border-collapse text-sm tabular-nums">
-          <thead>
+          <thead className="desk-thead">
             <tr>
               {spec.columns.map((c) => {
                 const active = sort?.field === c.field;
@@ -126,7 +124,7 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
                     key={c.field}
                     scope="col"
                     aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}
-                    className={`sticky top-0 z-10 bg-card border-b border-border px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${c.right ? 'text-right' : 'text-left'}`}
+                    className={`sticky top-0 z-10 border-b border-white/12 px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${c.right ? 'text-right' : 'text-left'}`}
                   >
                     <button
                       type="button"
@@ -150,7 +148,7 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
             {!feed.loading && feed.error && (
               <tr>
                 <td colSpan={spec.columns.length} className="px-3 py-8 text-center">
-                  <p className={`font-medium ${statusText(board).bad}`}>Could not load this table</p>
+                  <p className={`font-medium ${statusText.bad}`}>Could not load this table</p>
                   <p className="mt-1 text-sm text-muted-foreground">{feed.error}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Use “Refresh now” at the top. If it keeps failing, tell the COO office.
@@ -180,18 +178,20 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
             )}
 
             {!feed.loading && !feed.error && rows.map((r, i) => (
-              <tr key={String(r[spec.rowKey] ?? i)} className={`border-b border-border last:border-0 hover:bg-muted/40 ${CALM}`}>
+              <tr key={String(r[spec.rowKey] ?? i)} className={`desk-row border-b border-white/5 last:border-0 ${CALM}`}>
                 {spec.columns.map((c) => (
                   <td
                     key={c.field}
-                    className={`${cell} align-top ${c.right ? 'text-right' : 'text-left'} ${c.field === 'req' ? 'font-mono text-xs text-muted-foreground' : ''}`}
+                    className={`${cell} align-top ${c.right ? 'text-right' : 'text-left'} ${
+                      c.field === 'req' ? 'font-mono text-xs text-muted-foreground' : 'text-foreground'
+                    }`}
                   >
                     {c.fmt === 'decision' ? (
-                      <DecisionPill value={r[c.field]} board={board} />
+                      <DecisionPill value={r[c.field]} />
                     ) : c.fmt === 'bar' ? (
                       <span className="inline-flex items-center justify-end gap-2">
                         <span
-                          className="block h-1.5 rounded bg-primary/60"
+                          className="block h-1.5 rounded-full bg-[hsl(var(--primary))]"
                           style={{ width: `${Math.max(2, (64 * (Number(r[c.field]) || 0)) / barMax[c.field])}px` }}
                           aria-hidden
                         />
