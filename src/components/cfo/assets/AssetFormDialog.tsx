@@ -209,8 +209,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
             </Field>
           )}
           <Field id="asset-serial" label="Serial number" error={errorFor.get('serial_number')}
-            hint={many ? 'Serial numbers are unique, so add them to each item after registering.' : undefined}>
-            <Input id="asset-serial" value={many ? '' : form.serial_number} disabled={many} maxLength={120} onChange={(e) => set('serial_number', e.target.value)} />
+            hint={(!editing && many) ? 'Serial numbers are unique, so add them to each item after registering.' : undefined}>
+            <Input id="asset-serial" value={(!editing && many) ? '' : form.serial_number} disabled={(!editing && many)} maxLength={120} onChange={(e) => set('serial_number', e.target.value)} />
           </Field>
 
           <Field id="asset-brand" label="Brand" error={errorFor.get('brand')}>
