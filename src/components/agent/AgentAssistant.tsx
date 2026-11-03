@@ -5,6 +5,15 @@ import claraAvatar from '@/assets/clara-avatar.png';
 import { Button } from '@/components/ui/button';
 import { AssistantChatSurface } from '@/components/ai-chat/AssistantChatSurface';
 import { AuthContext } from '@/hooks/useAuth';
+import { FLOATING_NAV_Z } from '@/components/ui/floating-nav';
+
+/**
+ * The launcher and its hello bubble draw in front of the bottom role nav
+ * (FLOATING_NAV_Z) and behind the chat sheet's backdrop (z-[110]), so the nav
+ * can never cover the assistant while an open chat still covers the assistant.
+ */
+const LAUNCHER_Z = FLOATING_NAV_Z + 5;
+const BUBBLE_Z = LAUNCHER_Z + 1;
 
 /** How long the hello bubble stays up before it starts fading away. */
 const GREETING_MS = 20_000;
