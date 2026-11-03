@@ -72,6 +72,14 @@ describe('CFO Asset Register panel', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('asset_register_list', expect.objectContaining({ p_search: null, p_limit: 25, p_offset: 0 }));
   });
 
+  it('shows the number the server counted for that item, and no Location column', async () => {
+    setup();
+    const row = (await screen.findByText('WEL-AST-000002')).closest('tr')!;
+    expect(within(row).getByText('7')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Number' })).toBeTruthy();
+    expect(screen.queryByRole('columnheader', { name: 'Location' })).toBeNull();
+  });
+
   it('sends the search text to the server after a pause', async () => {
     setup();
     await screen.findByText('WEL-AST-000001');
