@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, ShieldCheck, ShieldAlert, Scale, Clock, Sparkles } from 'lucide-react';
+import { Plus, Scale, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -22,7 +22,7 @@ import { SpecialAdvanceReconciliationCard } from './SpecialAdvanceReconciliation
 const ALL = '__all__';
 
 /**
- * CFO Special Advances: issuance switch state, A24/A25 reconciliation,
+ * CFO Special Advances: A24/A25 reconciliation,
  * the register of agreements, impairment provisions, and detailed reporting. Corrections, provision reviews and
  * write-offs are posted by the CFO in one authorised step (decision 2026-11-03): there is no approval queue.
  */
@@ -40,21 +40,8 @@ export function SpecialAdvancesPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Top Banner: Issuance state, Reconciliation summary, New Advance button */}
+      {/* Top Banner: Reconciliation summary, New Advance button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-xs">
-        <span
-          id="special-advance-issuance-state"
-          className={`inline-flex items-center gap-1.5 font-medium ${
-            issuanceEnabled ? 'text-emerald-600' : 'text-amber-700 dark:text-amber-400'
-          }`}
-        >
-          {issuanceEnabled ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />}
-          {list.data
-            ? issuanceEnabled
-              ? 'Issuance is switched on'
-              : 'Issuance is switched off — recording, approval and payout are disabled'
-            : 'Checking the server...'}
-        </span>
 
         {recon.data && (
           <span

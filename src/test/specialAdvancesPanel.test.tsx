@@ -58,11 +58,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances panel', () => {
-  it('lists agreements, shows the issuance switch and the A24 reconciliation', async () => {
+  it('lists agreements and shows the A24 reconciliation', async () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
     expect(screen.getByText('Acme Supplies Ltd')).toBeTruthy();
-    expect(document.getElementById('special-advance-issuance-state')?.textContent).toMatch(/switched off/);
     await waitFor(() => expect(document.getElementById('special-advance-reconciliation')?.textContent).toMatch(/reconciled/));
     fireEvent.click(btn('special-advance-new'));
     expect(screen.getByText('record modal open')).toBeTruthy();
