@@ -312,7 +312,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
             </div>
 
             <fieldset>
-              <legend className="text-sm font-medium">Agreed fee rate</legend>
+              <legend className="text-sm font-medium">Agreed access fee rate</legend>
               <div className="mt-1.5 flex flex-wrap gap-2">
                 {SPECIAL_ADVANCE_RATE_PRESETS.map((p) => (
                   <Chip key={p.id} id={`special-advance-rate-${p.id}`} active={ratePreset === p.id} onClick={() => setRatePreset(p.id)}>
@@ -408,7 +408,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
               </p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <Figure label="Principal" value={formatUGX(principal)} />
-                <Figure label="Registration fee" value={formatUGX(shown.accessFee + shown.registrationFee)} />
+                <Figure label="Access fee" value={formatUGX(shown.accessFee + shown.registrationFee)} />
                 <Figure label="Total repayable" value={formatUGX(shown.totalRepayable)} strong />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/70 px-3 py-2 text-xs">
@@ -431,7 +431,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                       <th className="px-2.5 py-2 text-left font-medium">#</th>
                       <th className="px-2.5 py-2 text-left font-medium">Due (if paid out {plannedPayoutDate ? 'as planned' : 'today'})</th>
                       <th className="px-2.5 py-2 text-right font-medium">Instalment</th>
-                      <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Reg. fee</th>
+                      <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Access fee</th>
                       <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Principal</th>
                       <th className="px-2.5 py-2 text-right font-medium">Balance</th>
                     </tr>
@@ -451,8 +451,8 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                 </table>
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                The registration fee includes the agreed rate prorated by days ({rateBasis === 'monthly' ? 'monthly rate × days ÷ 30' : 'daily rate × days'}),
-                never compounded. The term and due dates run from the day the advance is actually paid out; the amounts are fixed
+                The access fee is the agreed rate prorated by days ({rateBasis === 'monthly' ? 'monthly rate × days ÷ 30' : 'daily rate × days'}),
+                never compounded, plus a fixed UGX 10,000 (UGX 20,000 above a principal of UGX 200,000). The term and due dates run from the day the advance is actually paid out; the amounts are fixed
                 once the agreement is recorded.
               </p>
             </section>

@@ -15,7 +15,7 @@ import { rateLabel } from '@/lib/specialAdvancePreview';
 import {
   STATUS_LABEL,
   CORRECTION_KIND_LABEL,
-  combinedRegistrationFee,
+  combinedAccessFee,
   describeSpecialAdvanceError,
   newIdempotencyKey,
   type SpecialAdvanceStatement,
@@ -120,7 +120,7 @@ export function SpecialAdvanceDetailSheet({
               <Item label="Agreed rate" value={rateLabel(a.rate_percent, a.rate_basis)} />
               <Item label="Term" value={`${a.term_days} days, ${a.frequency} repayments`} />
               <Item label="Principal" value={formatUGX(a.principal)} />
-              <Item label="Registration fee" value={formatUGX(combinedRegistrationFee(a))} />
+              <Item label="Access fee" value={formatUGX(combinedAccessFee(a))} />
               <Item label="Total repayable" value={formatUGX(a.total_repayable)} />
               <Item label="Paid" value={formatUGX(a.position.total_paid)} />
 

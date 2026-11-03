@@ -7,7 +7,7 @@ import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from '@/components/
 import { SpecialAdvanceProvisionsTab } from '@/components/cfo/special-advances/SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceCorrectionDialog } from '@/components/cfo/special-advances/SpecialAdvanceCorrectionDialog';
 import { SpecialAdvanceWriteOffDialog } from '@/components/cfo/special-advances/SpecialAdvanceWriteOffDialog';
-import { combinedRegistrationFee, describeSpecialAdvanceError, outstandingRegistrationFee } from '@/lib/specialAdvances';
+import { combinedAccessFee, describeSpecialAdvanceError, outstandingAccessFee } from '@/lib/specialAdvances';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -152,25 +152,25 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances UI - Accounting and Status Figures', () => {
-  it('shows one Registration fee: access fee + registration fee combined (CFO decision 2026-11-03)', async () => {
+  it('shows one Access fee: registration fee added to the access fee, no registration fee (CFO decision 2026-11-03)', async () => {
     // SA-000001 as recorded in production: principal 20,000, access fee 700, registration fee 10,000, total 30,700.
     const sa1 = mockAdvance('1', 'disbursed', { principal: 20000, access_fee: 700, registration_fee: 10000, total_repayable: 30700 });
     mocks.rpc.mockImplementation((fn: string) =>
       Promise.resolve(fn === 'special_advance_statement' ? { data: sa1, error: null } : { data: null, error: null }));
 
     renderWithClient(<SpecialAdvanceDetailSheet advanceId="1" issuanceEnabled={true} onOpenChange={() => {}} />);
-    const label = await screen.findByText('Registration fee', { selector: 'dt' });
+    const label = await screen.findByText('Access fee', { selector: 'dt' });
     expect(label.parentElement?.textContent).toMatch(/10,700/);
-    expect(screen.queryByText('Access fee', { selector: 'dt' })).toBeNull();
+    expect(screen.queryByText('Registration fee', { selector: 'dt' })).toBeNull();
     expect(screen.getByText('Total repayable', { selector: 'dt' }).parentElement?.textContent).toMatch(/30,700/);
   });
 
   it('the combined figures keep the full value and change nothing else', () => {
-    expect(combinedRegistrationFee({ access_fee: 700, registration_fee: 10000 })).toBe(10700);
-    expect(combinedRegistrationFee({ access_fee: null, registration_fee: 10000 })).toBe(10000);
-    expect(outstandingRegistrationFee({ outstanding_access_fee: 700, outstanding_registration_fee: 5614 })).toBe(6314);
+    expect(combinedAccessFee({ access_fee: 700, registration_fee: 10000 })).toBe(10700);
+    expect(combinedAccessFee({ access_fee: null, registration_fee: 10000 })).toBe(10000);
+    expect(outstandingAccessFee({ outstanding_access_fee: 700, outstanding_registration_fee: 5614 })).toBe(6314);
     // principal + combined fee = the agreed total, so nothing is lost or added
-    expect(20000 + combinedRegistrationFee({ access_fee: 700, registration_fee: 10000 })).toBe(30700);
+    expect(20000 + combinedAccessFee({ access_fee: 700, registration_fee: 10000 })).toBe(30700);
   });
 
   it('displays "Repayable after payout" when paid_out is false', async () => {
