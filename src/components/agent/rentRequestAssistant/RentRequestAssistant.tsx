@@ -10,7 +10,10 @@
  * button (see AgentDashboard). The form stays the path every other agent uses.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, MapPin, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAssistantSpeech } from './useAssistantSpeech';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -544,7 +547,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   };
 
   // ----- copy -----
-  const questionOf = (s: StepId): ReactNode => {
+  const questionOf = (s: StepId): string => {
     switch (s) {
       case 'type': return 'How does the tenant earn their income? It decides how they pay back.';
       case 'rent': return planType === 'weekly'
@@ -606,6 +609,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
 
   const isTextStep = ['rent', 'tenantPhone', 'nationalId', 'address', 'lc1Phone', 'lc1Village', 'city'].includes(current);
 
+  const spokenReply = capLoading
+    ? 'Checking whether you can post today.'
+    : postingBlocked && myCap
+      ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
+      : result
+        ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}`
+        : error || questionOf(current);
+  const speech = useAssistantSpeech(spokenReply, open && !showRegisterLandlord, user?.id);
+
+  useEffect(() => {
+    if (speech.failed) toast.error('Voice playback is unavailable. You can still read the assistant’s replies.');
+  }, [speech.failed]);
+
   if (!open) return null;
 
   // ----- render -----
@@ -624,6 +640,26 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
             {result ? 'Request posted' : 'Preview · posting a Rent Plan with you'}
           </p>
         </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-primary" disabled={!speech.supported} aria-label={speech.enabled ? 'Turn voice off' : 'Turn voice on'} aria-pressed={speech.enabled} onClick={speech.toggle}>
+                {speech.enabled ? <Volume2 /> : <VolumeX />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{speech.supported ? (speech.enabled ? 'Turn voice off' : 'Turn voice on') : 'Voice unavailable on this browser'}</TooltipContent>
+          </Tooltip>
+          {speech.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-primary" aria-label={speech.speaking ? 'Stop speaking' : 'Replay reply'} onClick={speech.speaking ? speech.stop : speech.replay}>
+                  {speech.speaking ? <Square /> : <RotateCcw />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{speech.speaking ? 'Stop speaking' : 'Replay reply'}</TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
