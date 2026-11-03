@@ -34,6 +34,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Compass,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -439,14 +440,66 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     for (const file of files) {
       const parsed = await parseZoeFileAttachment(file);
       if (!parsed.ok) {
-        setAttachmentError(parsed.error);
+        setAttachmentError((parsed as { ok: false; error: string }).error);
         return;
       }
       setAttachments((prev) => [...prev, parsed.attachment].slice(0, MAX_ZOE_FILES_PER_CHAT));
     }
   };
 
-  const dismissTour = () => {
+  const [isParsingAttachment, setIsParsingAttachment] = useState(false);
+  const handleFileSelection = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsParsingAttachment(true);
+    try {
+      await handleFileInputChange(e);
+    } finally {
+      setIsParsingAttachment(false);
+    }
+  };
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [projectError, setProjectError] = useState<string | null>(null);
+  const projectNameDraft = newProjectName;
+  const setProjectNameDraft = setNewProjectName;
+  const projectInstructionsDraft = newProjectInstructions;
+  const setProjectInstructionsDraft = setNewProjectInstructions;
+  const handleCreateProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = newProjectName.trim();
+    if (!name || !onSaveProject || isSavingProject) return;
+    setIsSavingProject(true);
+    setProjectError(null);
+    try {
+      const res = await onSaveProject({ name, instructions: newProjectInstructions.trim() || undefined });
+      if (res.ok) {
+        setNewProjectName('');
+        setNewProjectInstructions('');
+      } else {
+        setProjectError(res.error ?? 'The project could not be saved.');
+      }
+    } catch {
+      setProjectError('The project could not be saved.');
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
+
+  const handleConfirmPushConsent = async (morningBrief: boolean, taughtUpdates: boolean) => {
+    if (!onUpdatePushPrefs) return;
+    await onUpdatePushPrefs({
+      push_enabled: morningBrief || taughtUpdates,
+      morning_brief_push: morningBrief,
+      taught_updates_push: taughtUpdates,
+      soft_prompt_shown: true,
+    });
+  };
+
+  const pushMuted = pushPrefs ? pushPrefs.push_enabled === false : false;
+
+  const handleDismissTour = () => {
     try {
       localStorage.setItem('welile.zoe.tour_seen.v1', '1');
     } catch {
@@ -1108,7 +1161,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     className="flex min-h-[44px] w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs font-medium text-foreground transition-colors hover:bg-muted"
                   >
                     <span className="inline-flex items-center gap-2">
-                      {pushPrefs?.muted ? (
+                      {pushMuted ? (
                         <BellOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                       ) : (
                         <Bell className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -1116,7 +1169,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       <span>Push notifications</span>
                     </span>
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                      {pushPrefs?.muted
+                      {pushMuted
                         ? 'Muted'
                         : pushPrefs?.morning_brief_push || pushPrefs?.taught_updates_push
                         ? 'On'
@@ -1863,19 +1916,19 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   type="button"
                   data-testid="zoe-push-mute-switch"
                   onClick={() =>
-                    void onUpdatePushPrefs({
-                      muted: !pushPrefs?.muted,
+                    void onUpdatePushPrefs?.({
+                      push_enabled: pushMuted,
                     })
                   }
                   className={cn(
                     'inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-3 py-1.5 font-medium',
-                    pushPrefs?.muted
+                    pushMuted
                       ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                       : 'border-border bg-background text-muted-foreground hover:text-foreground',
                   )}
                 >
                   <BellOff className="h-3.5 w-3.5" aria-hidden="true" />
-                  <span>{pushPrefs?.muted ? 'Unmute push' : 'Mute all push'}</span>
+                  <span>{pushMuted ? 'Unmute push' : 'Mute all push'}</span>
                 </button>
               </div>
             </div>
@@ -1919,12 +1972,12 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 className="space-y-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3.5 py-2.5 text-xs text-foreground"
               >
                 {taughtUpdates.slice(0, 2).map((u) => (
-                  <div key={u.queue_id} className="flex flex-col gap-0.5">
+                  <div key={u.id} className="flex flex-col gap-0.5">
                     <span className="font-semibold text-primary">
                       Zoe learned this from {u.department} ({u.approved_by_name})
                     </span>
                     <span className="text-muted-foreground">
-                      Q: &ldquo;{u.question_text}&rdquo; — {u.answer_Preview}
+                      Q: &ldquo;{u.question_text}&rdquo; — {u.kb_summary}
                     </span>
                   </div>
                 ))}
@@ -2027,19 +2080,19 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                   >
                     {roleGalleryQuestions.map((q, idx) => (
                       <button
-                        key={q}
+                        key={q.id}
                         type="button"
                         data-testid={`zoe-role-gallery-item-${idx}`}
                         onClick={() => {
                           setShowRoleGallery(false);
-                          void handleSuggestionClick(q);
+                          void handleSuggestionClick(q.prompt);
                         }}
                         className="flex min-h-[44px] items-center rounded-lg border border-border/70 bg-background px-3 py-2 text-left text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40"
                       >
                         <span className="mr-2 font-semibold text-muted-foreground">
                           {idx + 1}.
                         </span>
-                        <span>{q}</span>
+                        <span>{q.label}</span>
                       </button>
                     ))}
                   </div>
@@ -2642,14 +2695,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground"
                     >
                       <Paperclip className="h-3 w-3 shrink-0 text-primary" aria-hidden="true" />
-                      <span className="max-w-[160px] truncate">{att.file_name}</span>
+                      <span className="max-w-[160px] truncate">{att.name}</span>
                       <span className="text-[11px] text-muted-foreground">
                         ({Math.max(1, Math.round(att.size_bytes / 1024))} KB)
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveAttachment(att.id)}
-                        aria-label={`Remove ${att.file_name}`}
+                        aria-label={`Remove ${att.name}`}
                         className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         <X className="h-3 w-3" aria-hidden="true" />
