@@ -44,6 +44,8 @@ function respond(fn: string, args: Record<string, unknown>) {
         },
         error: null,
       };
+    case 'asset_register_update':
+      return { data: asset(1, (args.p_changes as Record<string, unknown>) ?? {}), error: null };
     case 'asset_register_create':
       return { data: asset(3, { name: (args.p_asset as Record<string, unknown>).name }), error: null };
     default: return { data: null, error: { message: `unexpected ${fn}` } };
@@ -113,6 +115,25 @@ describe('CFO Asset Register panel', () => {
     expect(await within(dialog).findByText('Category is required')).toBeTruthy();
     expect(within(dialog).getByText('Site is required')).toBeTruthy();
     expect(within(dialog).getByText(/Purchase cost must be a positive number/)).toBeTruthy();
+    expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_create', expect.anything());
+  });
+
+  it.each([['5', 5], ['1', 1]])('editing the number to %s updates only that asset and never adds rows', async (typed, expected) => {
+    mocks.rpc.mockImplementation((fn: string, args: Record<string, unknown> = {}) =>
+      Promise.resolve(fn === 'asset_register_list'
+        ? { data: { total_count: 1, limit: 25, offset: 0, items: [asset(1, { quantity: 3 })] }, error: null }
+        : fn === 'asset_register_get' ? { data: { asset: asset(1, { quantity: 3 }), events: [] }, error: null } : respond(fn, args)));
+    setup();
+    fireEvent.click((await screen.findByText('WEL-AST-000001')).closest('tr')!);
+    fireEvent.click(await screen.findByRole('button', { name: /Edit/ }));
+    const dialog = await screen.findByRole('dialog', { name: /Edit/ });
+    const box = within(dialog).getByLabelText(/Number of items/) as HTMLInputElement;
+    expect(box.value).toBe('3');
+    fireEvent.change(box, { target: { value: typed } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('asset_register_update', expect.objectContaining({
+      p_id: asset(1).id, p_changes: expect.objectContaining({ quantity: expected }) })));
+    expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_import_commit', expect.anything());
     expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_create', expect.anything());
   });
 
