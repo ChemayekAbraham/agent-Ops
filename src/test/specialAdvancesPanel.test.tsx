@@ -58,11 +58,10 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances panel', () => {
-  it('lists agreements, shows the issuance switch and the A24 reconciliation', async () => {
+  it('lists agreements and shows the A24 reconciliation', async () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
     expect(screen.getByText('Acme Supplies Ltd')).toBeTruthy();
-    expect(document.getElementById('special-advance-issuance-state')?.textContent).toMatch(/switched off/);
     await waitFor(() => expect(document.getElementById('special-advance-reconciliation')?.textContent).toMatch(/reconciled/));
     fireEvent.click(btn('special-advance-new'));
     expect(screen.getByText('record modal open')).toBeTruthy();
@@ -78,7 +77,7 @@ describe('Special Advances panel', () => {
     renderPanel();
     await open('SA-000001');
     expect(btn('special-advance-approve').disabled).toBe(true);
-    expect(screen.getAllByText(/approval and payout are disabled/).length).toBe(2); // panel header + detail sheet
+    expect(screen.getAllByText(/approval and payout are disabled/).length).toBe(1); // detail sheet only
     expect(btn('special-advance-reject').disabled).toBe(true);
     fireEvent.change(screen.getByLabelText(/Decision note/), { target: { value: 'Borrower withdrew the request' } });
     fireEvent.click(btn('special-advance-reject'));
