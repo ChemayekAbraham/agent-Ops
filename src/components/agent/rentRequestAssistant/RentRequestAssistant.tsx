@@ -1,13 +1,14 @@
 /**
- * Rent Request Assistant (preview) — posts a rent request as a guided chat.
+ * Rent Request Assistant — posts a rent request as a guided chat.
  *
  * One question per turn, every answer checked as it is given, the Rent Plan
  * priced before any personal details. Collects exactly the fields the
  * AgentRentRequestDialog collects for the daily / weekly / monthly flows and
  * posts through submitAssistantRentRequest, which mirrors the form's submit.
  *
- * Gated: only the accounts in src/lib/rentAssistantPreview.ts see the entry
- * button (see AgentDashboard). The form stays the path every other agent uses.
+ * The agent dashboard's "Post rent request" for all agents since 2026-11-03
+ * (DASHBOARD_RENT_REQUEST_FLOW in AgentDashboardBk). Renew, the tenant intake
+ * queue and the listing "swap tenant" flow still open AgentRentRequestDialog.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
@@ -838,7 +839,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
           <p className="font-display text-base font-bold leading-tight">Welile Assistant</p>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            {result ? 'Request posted' : 'Preview · posting a Rent Plan with you'}
+            {result ? 'Request posted' : 'Posting a Rent Plan with you'}
           </p>
         </div>
         <TooltipProvider>
