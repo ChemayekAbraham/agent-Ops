@@ -74281,6 +74281,7 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_target_progress: { Args: never; Returns: Json }
       assistant_agent_team_summary: {
         Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
