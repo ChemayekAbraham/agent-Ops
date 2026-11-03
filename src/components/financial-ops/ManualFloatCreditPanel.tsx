@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { PageHeader } from './FinopsKit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -127,18 +128,13 @@ export function ManualFloatCreditPanel() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader
+        icon={Wallet}
+        title="Manual Float Credit (TID-locked)"
+        description="Fill the TID, amount, deposit date/time and depositor's name. We post a balanced double-entry (float credit + platform offset) and lock the TID so a late IFTTT/email arrival cannot double-credit."
+      />
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Wallet className="h-5 w-5" /> Manual Float Credit (TID-locked)
-          </CardTitle>
-          <p className="text-xs text-muted-foreground mt-1">
-            Fill the TID, amount, deposit date/time and depositor's name. We post a balanced
-            double-entry (float credit + platform offset) and lock the TID so a late IFTTT/email
-            arrival cannot double-credit.
-          </p>
-        </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <UserSearchPicker

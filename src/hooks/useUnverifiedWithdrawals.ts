@@ -79,3 +79,34 @@ export function useUnverifiedWithdrawals(
     placeholderData: (prev) => prev,
   });
 }
+
+/**
+ * How many open requests sit under each status, for the summary tiles. Each
+ * count is one cheap call (limit 1) to the same RPC the list uses, so the tiles
+ * and the list can never disagree about what "pending" means.
+ */
+export function useUnverifiedWithdrawalCounts() {
+  return useQuery({
+    queryKey: ['finops-unverified-withdrawals-counts'],
+    queryFn: async () => {
+      const count = async (filter: UnverifiedBadgeFilter) => {
+        const { data, error } = await supabase.rpc('finops_unverified_withdrawals' as never, {
+          p_search: '',
+          p_limit: 1,
+          p_offset: 0,
+          p_filter: filter,
+          p_sort: 'newest',
+        } as never);
+        if (error) throw error;
+        const rows = (data as unknown as UnverifiedWithdrawalRow[]) ?? [];
+        return rows.length > 0 ? Number(rows[0].total_count) : 0;
+      };
+      const [all, pending, needs_review, verified] = await Promise.all([
+        count('all'), count('pending'), count('needs_review'), count('verified'),
+      ]);
+      return { all, pending, needs_review, verified };
+    },
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}

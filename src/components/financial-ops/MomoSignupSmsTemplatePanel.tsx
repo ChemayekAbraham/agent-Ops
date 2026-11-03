@@ -1,5 +1,6 @@
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useState } from 'react';
+import { PageHeader } from './FinopsKit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,17 +197,12 @@ export function MomoSignupSmsTemplatePanel() {
 
   return (
     <div className="space-y-5">
+      <PageHeader
+        icon={MessageSquare}
+        title="MoMo Thank-You SMS Template"
+        description="Sent automatically to anyone who pays Welile via MTN MoMo or Airtel Money, inviting them to open a free wallet. Edit the wording here; changes apply instantly, no redeploy needed."
+      />
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            MoMo Thank-You SMS Template
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Sent automatically to anyone who pays Welile via MTN MoMo or Airtel Money, inviting them
-            to open a free wallet. Edit the wording here — changes apply instantly, no redeploy needed.
-          </p>
-        </CardHeader>
         <CardContent className="space-y-5">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div>

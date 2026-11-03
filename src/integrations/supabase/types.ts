@@ -75578,6 +75578,28 @@ export type Database = {
         }[]
       }
       ceo_valuation_baseline: { Args: never; Returns: Json }
+      cfo_advance_status: {
+        Args: never
+        Returns: {
+          advance_id: string
+          approved_at: string
+          balance: number
+          disbursed_at: string
+          first_recovery_on: string
+          full_name: string
+          principal: number
+          purpose: string
+          recovered: number
+          recoveries: Json
+          recovery_mode: string
+          recovery_months: number
+          recovery_value: number
+          requested_at: string
+          staff_ref: string
+          state: string
+          status: string
+        }[]
+      }
       cfo_agent_lending_summary: { Args: never; Returns: Json }
       cfo_allow_rent_disbursement_exception: {
         Args: { p_reason: string; p_rent_request_ids: string[] }
@@ -75830,6 +75852,34 @@ export type Database = {
       cfo_notify_agent_rent_not_disbursed: {
         Args: { p_message?: string; p_rent_request_ids: string[] }
         Returns: number
+      }
+      cfo_payroll_history: {
+        Args: never
+        Returns: {
+          approved_at: string
+          approved_by_name: string
+          locked_at: string
+          paid_amount: number
+          paid_at: string
+          paid_count: number
+          period_code: string
+          period_month: string
+          prepared_at: string
+          prepared_by_name: string
+          run_id: string
+          run_type: string
+          staff_count: number
+          status: string
+          total_advance_recovered: number
+          total_employer_cost: number
+          total_gross: number
+          total_lst: number
+          total_net: number
+          total_nssf_employee: number
+          total_nssf_employer: number
+          total_paye: number
+          total_reinvest: number
+        }[]
       }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
@@ -77276,6 +77326,8 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_stage_flow: { Args: never; Returns: Json }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {

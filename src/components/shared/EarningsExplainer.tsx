@@ -9,6 +9,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 
+import { PageHeader } from '@/components/financial-ops/FinopsKit';
+import { BarChart3 } from 'lucide-react';
 interface UserResult {
   id: string;
   full_name: string;
@@ -162,14 +164,15 @@ export function EarningsExplainer({ role = 'cfo' }: Props) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold flex items-center gap-2">💡 How did they earn this?</h1>
-        <p className="text-sm text-muted-foreground">
-          {role === 'cfo'
+      <PageHeader
+        icon={BarChart3}
+        title="How Did They Earn?"
+        description={
+          role === 'cfo'
             ? 'Search a user to see a plain-English breakdown of every UGX that landed in their wallet — grouped by source with counts, samples and totals. Answers "how did this person earn X?" without opening the raw ledger.'
-            : 'Investigate why a user\'s wallet holds what it holds. Every cash-in event grouped by source with counts and samples.'}
-        </p>
-      </div>
+            : 'Investigate why a user\'s wallet holds what it holds. Every cash-in event grouped by source with counts and samples.'
+        }
+      />
 
       <Card>
         <CardContent className="pt-6">

@@ -91,42 +91,32 @@ export function MerchantBalanceDisputesPanel() {
       <button
         type="button"
         onClick={toggleOpen}
-        className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-expanded={open}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 border ${
-            openCount > 0
-              ? 'bg-destructive/15 text-destructive border-destructive/30'
-              : 'bg-muted text-muted-foreground border-border'
-          }`}>
-            <Flag className="h-4.5 w-4.5" />
+          <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+            <Flag className="h-5 w-5" aria-hidden="true" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-base font-bold tracking-tight text-foreground">Agents Saying Their Balance Is Wrong</h2>
-              {openCount > 0 ? (
-                <span className="inline-flex items-center gap-1 rounded-md bg-destructive/10 border border-destructive/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-destructive">
-                  {openCount} waiting
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  All clear
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">
-              {openCount > 0
-                ? `${openCount} correction request${openCount === 1 ? '' : 's'} waiting for you to check and correct.`
-                : 'No pending correction requests from merchant agents.'}
-            </p>
+            <h2 className="text-sm font-bold tracking-tight text-foreground">Merchant Balance Disputes</h2>
+            <p className="text-xs text-muted-foreground mt-0.5 truncate">Review and resolve merchant claims</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {open ? (
-            <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
+          {openCount > 0 ? (
+            <span className="rounded-full bg-destructive/10 border border-destructive/25 px-2.5 py-1 text-xs font-bold text-destructive">
+              {openCount} to review
+            </span>
           ) : (
-            <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
+            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              All clear
+            </span>
+          )}
+          {open ? (
+            <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" aria-hidden="true" />
           )}
         </div>
       </button>
