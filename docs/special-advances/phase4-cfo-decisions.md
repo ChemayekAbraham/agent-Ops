@@ -205,3 +205,25 @@ provision review, write-off and recovery with a normal signed-in session.
   on every table, the staff sign-in authenticator screens and Settings card, and the project's TOTP setting.
 - Control note: a CFO account is now protected by its password only; with one CFO doing every step, the remaining
   controls are the role, the reason and proof file, the stale-figure check and the audit trail.
+
+## Amendment 2026-11-03 (later the same day): one Access fee, no Registration fee
+
+CFO decision: the rate-based fee and the fixed UGX 10,000 (principal up to 200,000) / UGX 20,000 (above) are recognised
+as the **Access fee** only. Special Advances have no Registration fee in new advances, repayment allocations, ledger
+descriptions, reports or exports. Amounts are unchanged: what a borrower owes, the instalments, the due dates and the
+principal in each instalment are identical.
+
+- Server: migration `20261103170000_special_advances_single_access_fee.sql` (not applied; rollback in
+  `supabase/rollbacks/`). Calculation version `sa-calc-2` (access fee = rate part + fixed part); repayments allocate
+  each instalment's whole fee part as access fee, then principal; payout and payout reversal post one access fee pair
+  (DR A24 / CR R1 and back); the statement, position and new audit events report one access fee. Constraints: a
+  `sa-calc-2` agreement and every repayment allocation hold registration fee 0.
+- Ledger and accounts: categories, mappings, A1, A24 and R1 unchanged. No reclassification journal: both fees were
+  always posted to `special_advance_fee_revenue` (R1) against `special_advance_receivable` (A24).
+- Historical reporting reclassification (SA-000001, made under `sa-calc-1`): stored as access fee 700 + registration
+  fee 10,000; reported as one access fee of 10,700 (instalments 1-3: 4,386 / 4,386 / 1,928). Its stored agreement,
+  instalments, audit events and its six payout ledger rows stay as recorded; two of those rows are described
+  "registration fee" / "registration fee receivable" (UGX 10,000 each, R1 / A24) and cannot be reworded without
+  editing the append-only ledger. This amendment is the record that they are part of the Access fee.
+- Wording: the agreement a borrower accepts should describe one access fee that includes the fixed amount.
+

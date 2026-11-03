@@ -53,9 +53,17 @@ function pickVoice(voices: SpeechSynthesisVoice[]) {
   return voices.reduce((best, voice) => (scoreVoice(voice) > scoreVoice(best) ? voice : best), voices[0]);
 }
 
+/**
+ * Emoji, plus the joiners and modifiers that glue them together. Many voices
+ * (Android and Google ones especially) read an emoji's name aloud
+ * ("party popper"), so they are shown on screen but never spoken.
+ */
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}|[\u{1F3FB}-\u{1F3FF}]|\u200D|\uFE0E|\uFE0F|\u20E3/gu;
+
 /** Turns assistant markdown into something that reads like a person talking. */
-function toSpokenText(message: string) {
+export function toSpokenText(message: string) {
   return message
+    .replace(EMOJI, ' ')
     .replace(/\bUGX\b/g, 'Ugandan shillings')
     .replace(/%/g, ' percent')
     .replace(/[*_`#>|]/g, ' ')

@@ -16,7 +16,7 @@ import {
   TERM_MAX_DAYS, TERM_MIN_DAYS, previewSpecialAdvance, rateLabel, type RateBasis, type SpecialAdvanceFrequency,
 } from '@/lib/specialAdvancePreview';
 import {
-  PURPOSE_MAX, PURPOSE_MIN, buildCreateRequest, buildRequest, describeSpecialAdvanceError, eligibilityText, fieldText,
+  PURPOSE_MAX, PURPOSE_MIN, buildCreateRequest, combinedAccessFee, buildRequest, describeSpecialAdvanceError, eligibilityText, fieldText,
   newIdempotencyKey, type BorrowerRequest, type TermsRequest,
 } from '@/lib/specialAdvances';
 import { useCreateSpecialAdvance, useSpecialAdvanceQuote } from '@/hooks/useSpecialAdvances';
@@ -34,7 +34,7 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-interface ShownRow { number: number; dueYmd: string; amount: number; accessFee: number; registrationFee: number; principal: number; balanceAfter: number }
+interface ShownRow { number: number; dueYmd: string; amount: number; accessFee: number; principal: number; balanceAfter: number }
 
 /**
  * Special Advances — record an agreement.
@@ -149,16 +149,17 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
   useEffect(() => { setConfirmedTotal((c) => (c !== null && c !== serverTotal ? null : c)); }, [serverTotal]);
   useEffect(() => { setSubmitError(null); }, [quoteRequest, purpose]);
 
-  const shown: { source: 'server' | 'preview'; accessFee: number; registrationFee: number; totalRepayable: number; instalments: number;
+  const shown: { source: 'server' | 'preview'; accessFee: number; totalRepayable: number; instalments: number;
     instalmentAmount: number; finalInstalmentAmount: number; firstDueYmd: string; finalDueYmd: string; rows: ShownRow[] } | null =
     server ? {
-      source: 'server', accessFee: server.access_fee, registrationFee: server.registration_fee, totalRepayable: server.total_repayable,
+      // one access fee; a server before migration 20261103170000 still sends the fixed part as registration_fee
+      source: 'server', accessFee: combinedAccessFee(server), totalRepayable: server.total_repayable,
       instalments: server.instalments, instalmentAmount: server.instalment_amount, finalInstalmentAmount: server.final_instalment_amount,
       firstDueYmd: server.first_due_date, finalDueYmd: server.final_due_date,
-      rows: server.schedule.map((r) => ({ number: r.number, dueYmd: r.due_date, amount: r.amount, accessFee: r.access_fee,
-        registrationFee: r.registration_fee, principal: r.principal, balanceAfter: r.balance_after })),
+      rows: server.schedule.map((r) => ({ number: r.number, dueYmd: r.due_date, amount: r.amount, accessFee: combinedAccessFee(r),
+        principal: r.principal, balanceAfter: r.balance_after })),
     } : preview ? {
-      source: 'preview', accessFee: preview.accessFee, registrationFee: preview.registrationFee, totalRepayable: preview.totalRepayable,
+      source: 'preview', accessFee: preview.accessFee, totalRepayable: preview.totalRepayable,
       instalments: preview.instalments, instalmentAmount: preview.instalmentAmount, finalInstalmentAmount: preview.finalInstalmentAmount,
       firstDueYmd: preview.firstDueYmd, finalDueYmd: preview.finalDueYmd, rows: preview.schedule,
     } : null;
@@ -406,10 +407,9 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                   ? 'Server calculation — these are the figures that will be recorded.'
                   : quote.isError ? 'Preview only — the server calculation is unavailable.' : 'Preview — waiting for the server calculation...'}
               </p>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <Figure label="Principal" value={formatUGX(principal)} />
                 <Figure label="Access fee" value={formatUGX(shown.accessFee)} />
-                <Figure label="Registration fee" value={formatUGX(shown.registrationFee)} />
                 <Figure label="Total repayable" value={formatUGX(shown.totalRepayable)} strong />
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-background/70 px-3 py-2 text-xs">
@@ -433,7 +433,6 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                       <th className="px-2.5 py-2 text-left font-medium">Due (if paid out {plannedPayoutDate ? 'as planned' : 'today'})</th>
                       <th className="px-2.5 py-2 text-right font-medium">Instalment</th>
                       <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Access fee</th>
-                      <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Reg. fee</th>
                       <th className="hidden px-2.5 py-2 text-right font-medium sm:table-cell">Principal</th>
                       <th className="px-2.5 py-2 text-right font-medium">Balance</th>
                     </tr>
@@ -445,7 +444,6 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
                         <td className="whitespace-nowrap px-2.5 py-1.5">{kampalaLabel(s.dueYmd)}</td>
                         <td className="px-2.5 py-1.5 text-right font-medium">{formatUGX(s.amount)}</td>
                         <td className="hidden px-2.5 py-1.5 text-right text-muted-foreground sm:table-cell">{formatUGX(s.accessFee)}</td>
-                        <td className="hidden px-2.5 py-1.5 text-right text-muted-foreground sm:table-cell">{formatUGX(s.registrationFee)}</td>
                         <td className="hidden px-2.5 py-1.5 text-right text-muted-foreground sm:table-cell">{formatUGX(s.principal)}</td>
                         <td className="px-2.5 py-1.5 text-right">{formatUGX(s.balanceAfter)}</td>
                       </tr>
@@ -455,7 +453,7 @@ export function SpecialAdvanceModal({ open, onOpenChange }: { open: boolean; onO
               </div>
               <p className="text-[11px] leading-relaxed text-muted-foreground">
                 The access fee is the agreed rate prorated by days ({rateBasis === 'monthly' ? 'monthly rate × days ÷ 30' : 'daily rate × days'}),
-                never compounded. The term and due dates run from the day the advance is actually paid out; the amounts are fixed
+                never compounded, plus a fixed UGX 10,000 (UGX 20,000 above a principal of UGX 200,000). The term and due dates run from the day the advance is actually paid out; the amounts are fixed
                 once the agreement is recorded.
               </p>
             </section>

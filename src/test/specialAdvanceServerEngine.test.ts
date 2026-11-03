@@ -18,12 +18,22 @@ import {
 
 const MIGRATION = readFileSync(resolve(__dirname, '../../supabase/migrations/20261028150000_special_advances_calc_engine.sql'), 'utf8')
   .replace(/\r/g, '');
+// sa-calc-2 (CFO decision 2026-11-03): the engine as replaced by 20261103170000 (one access fee, no registration fee)
+const SINGLE_FEE = readFileSync(resolve(__dirname, '../../supabase/migrations/20261103170000_special_advances_single_access_fee.sql'), 'utf8')
+  .replace(/\r/g, '');
+const ENGINE_V2 = (() => {
+  const start = SINGLE_FEE.indexOf('CREATE OR REPLACE FUNCTION public._special_advance_schedule(');
+  return SINGLE_FEE.slice(start, SINGLE_FEE.indexOf('$$;', start) + 3);
+})();
+/** A golden (hand-calculated, sa-calc-1) case as sa-calc-2 reports it: the fixed part is inside the access fee. */
+const v2 = (o: { accessFee: number; registrationFee: number }) => o.accessFee + o.registrationFee;
+const v2Rows = (rows: Array<[string, number, number, number, number]>) => rows.map(([d, amt, a, r, p]) => [d, amt, a + r, p]);
 
 type In = { principal: number | null; ratePercent: number | null; rateBasis: string | null; termDays: number | null; frequency: string | null; start: string | null };
-interface Row { number: number; due_date: string; amount: number; access_fee: number; registration_fee: number; principal: number; balance_after: number }
+interface Row { number: number; due_date: string; amount: number; access_fee: number; principal: number; balance_after: number }
 interface Sched {
   principal: number; rate_percent: number; rate_basis: string; term_days: number; frequency: string; start_date: string;
-  access_fee: number; registration_fee: number; total_repayable: number; instalments: number; instalment_amount: number;
+  access_fee: number; total_repayable: number; instalments: number; instalment_amount: number;
   final_instalment_amount: number; first_due_date: string; final_due_date: string; calc_version: string; schedule: Row[];
 }
 
@@ -44,6 +54,7 @@ beforeAll(async () => {
   db = new PGlite();
   await db.exec(`create role anon nologin; create role authenticated nologin; create role service_role nologin;`);
   await db.exec(MIGRATION);
+  await db.exec(ENGINE_V2); // the engine as it stands after 20261103170000 (sa-calc-2)
 }, 60_000);
 afterAll(async () => { await db?.close(); });
 
@@ -72,10 +83,11 @@ describe('Special Advances engine — migration', () => {
 describe('Special Advances engine — hand-calculated cases', () => {
   it.each(golden.valid.map((g) => [g.name, g] as const))('%s', async (_n, g) => {
     const s = await schedule(g.in as In);
-    expect([s.access_fee, s.registration_fee, s.total_repayable]).toEqual([g.out.accessFee, g.out.registrationFee, g.out.total]);
+    expect([s.access_fee, s.total_repayable]).toEqual([v2(g.out), g.out.total]);
+    expect(s).not.toHaveProperty('registration_fee');
     expect([s.instalments, s.instalment_amount, s.final_instalment_amount]).toEqual([g.out.instalments, g.out.instalmentAmount, g.out.final]);
     if ('rows' in g.out && g.out.rows) {
-      expect(s.schedule.map((r) => [r.due_date, r.amount, r.access_fee, r.registration_fee, r.principal])).toEqual(g.out.rows);
+      expect(s.schedule.map((r) => [r.due_date, r.amount, r.access_fee, r.principal])).toEqual(v2Rows(g.out.rows as Array<[string, number, number, number, number]>));
     }
     // invariants on every schedule
     expect(s.schedule).toHaveLength(s.instalments);
@@ -83,16 +95,16 @@ describe('Special Advances engine — hand-calculated cases', () => {
     const sum = (k: keyof Row) => s.schedule.reduce((a, r) => a + (r[k] as number), 0);
     expect(sum('amount')).toBe(s.total_repayable);
     expect(sum('access_fee')).toBe(s.access_fee);
-    expect(sum('registration_fee')).toBe(s.registration_fee);
     expect(sum('principal')).toBe(s.principal);
     expect(s.schedule.at(-1)?.balance_after).toBe(0);
     s.schedule.forEach((r) => {
       expect(Number.isInteger(r.amount) && r.amount > 0).toBe(true);
-      expect(r.access_fee + r.registration_fee + r.principal).toBe(r.amount);
+      expect(r.access_fee + r.principal).toBe(r.amount);
+      expect(r).not.toHaveProperty('registration_fee');
     });
     expect(s.first_due_date).toBe(s.schedule[0].due_date);
     expect(s.final_due_date).toBe(s.schedule.at(-1)?.due_date);
-    expect(s.calc_version).toBe('sa-calc-1');
+    expect(s.calc_version).toBe('sa-calc-2');
   });
 
   it('the final due date is the payout date plus the term, for every frequency', async () => {
@@ -170,8 +182,8 @@ describe('Special Advances — browser preview equals the server engine', () => 
   it('hand-calculated cases: the preview gives the same figures', () => {
     for (const g of golden.valid) {
       const p = previewSpecialAdvance(toPreview(g.in as In))!;
-      expect([p.accessFee, p.registrationFee, p.totalRepayable, p.instalments, p.instalmentAmount, p.finalInstalmentAmount])
-        .toEqual([g.out.accessFee, g.out.registrationFee, g.out.total, g.out.instalments, g.out.instalmentAmount, g.out.final]);
+      expect([p.accessFee, p.totalRepayable, p.instalments, p.instalmentAmount, p.finalInstalmentAmount])
+        .toEqual([v2(g.out), g.out.total, g.out.instalments, g.out.instalmentAmount, g.out.final]);
     }
   });
 
@@ -190,10 +202,10 @@ describe('Special Advances — browser preview equals the server engine', () => 
       const s = await schedule(i);
       const p = previewSpecialAdvance(toPreview(i));
       expect(p, JSON.stringify(i)).not.toBeNull();
-      expect([p!.accessFee, p!.registrationFee, p!.totalRepayable, p!.instalments, p!.instalmentAmount], JSON.stringify(i))
-        .toEqual([s.access_fee, s.registration_fee, s.total_repayable, s.instalments, s.instalment_amount]);
-      expect(p!.schedule.map((r) => [r.number, r.dueYmd, r.amount, r.accessFee, r.registrationFee, r.principal, r.balanceAfter]), JSON.stringify(i))
-        .toEqual(s.schedule.map((r) => [r.number, r.due_date, r.amount, r.access_fee, r.registration_fee, r.principal, r.balance_after]));
+      expect([p!.accessFee, p!.totalRepayable, p!.instalments, p!.instalmentAmount], JSON.stringify(i))
+        .toEqual([s.access_fee, s.total_repayable, s.instalments, s.instalment_amount]);
+      expect(p!.schedule.map((r) => [r.number, r.dueYmd, r.amount, r.accessFee, r.principal, r.balanceAfter]), JSON.stringify(i))
+        .toEqual(s.schedule.map((r) => [r.number, r.due_date, r.amount, r.access_fee, r.principal, r.balance_after]));
     }
   }, 120_000);
 

@@ -10,7 +10,7 @@
  * button (see AgentDashboard). The form stays the path every other agent uses.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAssistantSpeech } from './useAssistantSpeech';
@@ -18,7 +18,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
-import { useTenantDuplicateCheck } from '@/hooks/useTenantDuplicateCheck';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
@@ -44,6 +43,16 @@ import {
   type AssistantIncomeType,
   type AssistantSubmitResult,
 } from '@/lib/rentRequestAssistantSubmit';
+import {
+  checkNationalId,
+  checkNewLc1Phone,
+  checkTenantPhone,
+  loadAgentSelf,
+  maskNationalId,
+  maskPhone,
+  type AgentSelf,
+  type RecordVerdict,
+} from '@/lib/rentAssistantRecordChecks';
 
 const HOUSE_CATEGORIES = [
   { value: 'single-room', label: 'Single room' },
@@ -76,8 +85,22 @@ const metaOf = (u: { user_metadata?: Record<string, unknown> } | null | undefine
 const UG_PHONE = /^0[3-9][0-9]{8}$/;
 const clean = (s: string) => s.replace(/\s/g, '');
 const isUgPhone = (s: string) => UG_PHONE.test(clean(s));
+
+/** What is wrong with a typed phone number, in plain words; null when it is fine. */
+function phoneProblem(text: string, whose: string): string | null {
+  const d = formatPhone(text).replace(/\D/g, '');
+  if (!d) return `I didn’t catch a number 🤔 Type ${whose}’s phone, like 0783 123 456.`;
+  if (UG_PHONE.test(d)) return null;
+  if (/^[37][0-9]{8}$/.test(d)) return `Looks like the 0 at the start is missing. Did you mean ${formatPhone(`0${d}`)}? 🤔`;
+  if (d.length < 10) return `That’s only ${d.length} digits. A Ugandan number has 10, like 0783 123 456 📱`;
+  if (!/^0[37]/.test(d)) return 'Ugandan numbers start with 07 (or 03 for landlines) 🤔 Check the number again.';
+  return 'That number doesn’t look right 🤔 Use one like 0783 123 456.';
+}
 const formatPhone = (raw: string) => {
-  const d = raw.replace(/\D/g, '').slice(0, 10);
+  // A pasted +256 / 256 number becomes the local 0… form as it is typed.
+  let d = raw.replace(/\D/g, '');
+  if (d.startsWith('256')) d = `0${d.slice(3)}`;
+  d = d.slice(0, 10);
   if (d.length <= 4) return d;
   if (d.length <= 7) return `${d.slice(0, 4)} ${d.slice(4)}`;
   return `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}`;
@@ -171,6 +194,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const [furthest, setFurthest] = useState<StepId>('type');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** A corrected answer the agent can accept with one tap ("Did you mean …?"). */
+  const [fixOffer, setFixOffer] = useState<string | null>(null);
+  /** Wrong tries per question; the third one adds a tip. */
+  const [wrongTries, setWrongTries] = useState<Partial<Record<StepId, number>>>({});
   const [posting, setPosting] = useState(false);
   const [result, setResult] = useState<{ id: string; existing: boolean; lcLetterFailed: boolean } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -182,7 +209,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const fees = planType ? computeAssistantFees(incomeType, amount, duration, repaymentPeriod) : null;
   const tenantName = joinPersonName(tenantNameParts);
   const lc1Name = lc1Match ? lc1Match.name : joinPersonName(lc1NameParts);
-  const dup = useTenantDuplicateCheck(tenantName, tenantPhone, nationalId);
+
+  // ----- existing-record checks (never reveal whose record it is) -----
+  const [agentSelf, setAgentSelf] = useState<AgentSelf | null>(null);
+  const [recordChecking, setRecordChecking] = useState(false);
+  const [recordBlock, setRecordBlock] = useState<RecordBlock | null>(null);
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let cancelled = false;
+    const fallbackPhone = metaOf(user).phone || user.phone || null;
+    loadAgentSelf(user.id, fallbackPhone)
+      .then((me) => { if (!cancelled) setAgentSelf(me); })
+      .catch(() => { if (!cancelled) setAgentSelf({ phone: fallbackPhone, nationalId: null }); });
+    return () => { cancelled = true; };
+  }, [open, user]);
 
   const steps: StepId[] = useMemo(() => {
     const all: StepId[] = [
@@ -204,7 +244,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
     setLc1Village(''); setCity(''); setLcLetter(null); setLcLetterDecided(false); setPayoutDay(''); setConsent(false);
-    setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null);
+    setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
+    setFixOffer(null); setWrongTries({});
   }, []);
 
   useEffect(() => {
@@ -220,6 +261,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     };
     setDraft(seed[current] ?? '');
     setError(null);
+    setFixOffer(null);
+    // Keep a notice raised for this very step (the pre-post re-check sends the agent back with one).
+    setRecordBlock((b) => (b && b.step === current ? b : null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current]);
 
@@ -380,67 +424,139 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     }
   };
 
-  // ----- validation (same rules as the form) -----
+  // ----- validation (same rules as the form, said kindly and specifically) -----
   const validate = (s: StepId, text = draft): string | null => {
     switch (s) {
       case 'type':
-        return planType ? null : 'Pick how the tenant earns their income.';
+        return planType ? null : 'Pick one of the options above so I know how they’ll pay back 👆';
       case 'language':
-        return language ? null : 'Pick the language the tenant speaks.';
+        return language ? null : 'Pick a language above 👆 so their SMS messages make sense to them.';
       case 'smartphone':
-        return noSmartphone === null ? 'Tell me whether the tenant has a smartphone.' : null;
+        return noSmartphone === null ? 'Just tap Yes or No above 👆' : null;
       case 'house':
-        return houseChoiceMade ? null : 'Pick a house, or tap "The house isn’t listed".';
+        return houseChoiceMade ? null : 'Pick a house above, or tap “The house isn’t listed” 👆';
       case 'category':
-        return category ? null : 'Pick the house type.';
+        return category ? null : 'Pick the type of place above 👆';
       case 'payoutDay':
-        return payoutDay ? null : 'Pick the day the landlord is paid.';
+        return payoutDay ? null : 'Pick a payout day above 👆';
       case 'rent': {
         const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
-        if (!n) return 'Please type the rent amount.';
-        if (n < 50000) return 'The rent must be at least UGX 50,000.';
-        if (myCap && n > perTenantMax) return `That is over your posting cap of ${formatUGX(perTenantMax)} per tenant.`;
+        if (!n) return 'I didn’t catch an amount 🤔 Type the monthly rent, like 450,000.';
+        if (n < 50000) {
+          return n * 1000 >= 50000 && n < 50000 / 10
+            ? `Hmm, ${formatUGX(n)} looks too small for a month’s rent. Did you mean ${formatUGX(n * 1000)}? 🤔`
+            : `${formatUGX(n)} is below the UGX 50,000 minimum for a Rent Plan. Check the amount with the tenant 🙏`;
+        }
+        if (myCap && n > perTenantMax) return `${formatUGX(n)} is more than your cap of ${formatUGX(perTenantMax)} per tenant 😕 Check the amount, or pick a house within your cap.`;
         return null;
       }
       case 'tenantPhone':
-        return isUgPhone(text) ? null : 'That number looks wrong. Use a number like 0783 123 456.';
+        return phoneProblem(text, 'the tenant');
       case 'tenantName':
-        return tenantNameParts.firstName.trim() && tenantNameParts.lastName.trim() ? null : 'Please type at least the first and last name.';
+        if (!tenantNameParts.firstName.trim() && !tenantNameParts.lastName.trim()) return 'I need their name before we move on 🙂 Type the first and last name.';
+        if (!tenantNameParts.lastName.trim()) return `And ${tenantNameParts.firstName.trim()}’s last name? I need both, as on the ID 🪪`;
+        return tenantNameParts.firstName.trim() ? null : 'And their first name? I need both, as on the ID 🪪';
       case 'nationalId': {
         const id = text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        return id.length >= 10 && id.length <= 14 ? null : 'The National ID is 10 to 14 letters and numbers. Check the card.';
+        if (!id) return 'I didn’t catch the NIN 🤔 It’s on the front of the card, like CM12345678ABCD.';
+        if (id.length < 10) return `That’s only ${id.length} characters. The NIN on the card is usually 14, like CM12345678ABCD 🪪`;
+        if (id.length > 14) return `That’s ${id.length} characters, a bit too long. The NIN is 14 at most 🪪`;
+        return null;
       }
       case 'landlord':
-        if (!landlord) return 'Pick or register the landlord.';
-        if (landlordStatus === 'missing') return 'That landlord is no longer in the system. Pick another or register them.';
-        if (clean(landlord.phone || '') && clean(landlord.phone) === clean(tenantPhone)) return 'The tenant and landlord phones must be different numbers.';
+        if (!landlord) return 'Search for the landlord above, or register them if they’re new 👆';
+        if (landlordStatus === 'missing') return 'Hmm, that landlord is no longer on Welile 😕 Pick another, or register them.';
+        if (clean(landlord.phone || '') && clean(landlord.phone) === clean(tenantPhone)) return `${landlord.name} has the same phone as the tenant 🤔 The tenant and landlord need different numbers.`;
         return null;
       case 'address':
-        return text.trim() ? null : 'Please type the property address.';
-      case 'photos':
-        return housePhotos.every(Boolean) ? null : 'Take all 4 house photos: front, back, left and right.';
+        return text.trim() ? null : 'Type an address, even a nearby landmark works 🙂';
+      case 'photos': {
+        const missing = housePhotos.filter((p) => !p).length;
+        return missing ? `${missing === 4 ? 'I need' : 'Just'} ${missing} more photo${missing === 1 ? '' : 's'} 📸 Front, back, left and right.` : null;
+      }
       case 'tenantPhoto':
-        if (!tenantPhoto) return "Take the tenant's passport photo.";
+        if (!tenantPhoto) return `Take ${tenantNameParts.firstName.trim() || 'the tenant'}’s passport photo first 📸`;
         return faceCheckBlocker(faceCheck);
       case 'gps':
-        return gps ? null : 'Capture the GPS while standing at the house.';
+        return gps ? null : 'Tap capture while you’re standing at the house 🛰️';
       case 'lc1Phone': {
-        if (!isUgPhone(text)) return 'That LC1 number looks wrong. Use a valid Ugandan number.';
-        const c = clean(text);
-        if (c === clean(tenantPhone)) return 'The tenant and LC1 phones must be different numbers.';
-        if (landlord && c === clean(landlord.phone || '')) return `That is ${landlord.name}'s number, the landlord. The LC1 must be a different person.`;
+        const p = phoneProblem(text, 'the LC1');
+        if (p) return p;
+        const c = clean(formatPhone(text));
+        if (c === clean(tenantPhone)) return 'That’s the tenant’s own number 🙂 The LC1 has to be a different person.';
+        if (landlord && c === clean(landlord.phone || '')) return `That’s ${landlord.name}’s number, the landlord 🙂 The LC1 has to be a different person.`;
         return null;
       }
       case 'lc1Name':
-        return lc1NameParts.firstName.trim() && lc1NameParts.lastName.trim() ? null : "Please type the LC1 chairperson's first and last name.";
+        if (!lc1NameParts.firstName.trim() || !lc1NameParts.lastName.trim()) return 'I need the LC1’s first and last name 🙂';
+        return null;
       case 'lc1Village':
-        return text.trim() ? null : 'Please type the LC1 village.';
+        return text.trim() ? null : 'Which village? Type its name, like Kireka B 🏡';
       case 'city':
-        return text.trim() ? null : 'Please type the town or city.';
+        return text.trim() ? null : 'Type the town or city, like Kira 🌆';
       default:
         return null;
     }
   };
+
+  /** A corrected value to offer as a one-tap fix, when the mistake is a common one. */
+  const fixFor = (s: StepId, text: string): string | null => {
+    if (s === 'rent') {
+      const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
+      return n > 0 && n < 5000 && n * 1000 >= 50000 ? groupDigits(String(n * 1000)) : null;
+    }
+    if (s === 'tenantPhone' || s === 'lc1Phone') {
+      const d = text.replace(/\D/g, '');
+      return /^[37][0-9]{8}$/.test(d) ? formatPhone(`0${d}`) : null;
+    }
+    return null;
+  };
+
+  /** One extra hint after the second wrong try at the same question. */
+  const tipFor = (s: StepId): string | null => {
+    switch (s) {
+      case 'rent': return '💡 Tip: type the numbers only, like 450000. I’ll add the commas.';
+      case 'tenantPhone': return '💡 Tip: ask the tenant to flash your phone, then copy the number from your call log.';
+      case 'lc1Phone': return '💡 Tip: ask the LC1 to flash your phone, then copy the number from your call log.';
+      case 'nationalId': return '💡 Tip: the NIN is printed on the front of the card next to “NIN”. Letters O and I are rare; check for zeros and ones.';
+      case 'photos': return '💡 Tip: tap each empty box to open the camera.';
+      case 'gps': return '💡 Tip: turn on location for this site in your browser settings, then step outside for a clearer signal.';
+      default: return null;
+    }
+  };
+
+  /** Rejects a wrong answer: says what is wrong, offers a fix if there is one, adds a tip on the third try. */
+  const reject = (s: StepId, problem: string, text = draft) => {
+    const tries = (wrongTries[s] ?? 0) + 1;
+    setWrongTries((t) => ({ ...t, [s]: tries }));
+    const tip = tries >= 3 ? tipFor(s) : null;
+    setError(tip ? `${problem}\n${tip}` : problem);
+    setFixOffer(fixFor(s, text));
+  };
+
+  /**
+   * Runs the existing-record check for a step. Returns true when the value is
+   * new; otherwise shows the locked notice (or a retry message) and returns false.
+   */
+  async function recordIsNew(step: RecordBlock['step'], value: string): Promise<boolean> {
+    setRecordBlock(null);
+    setRecordChecking(true);
+    let verdict: RecordVerdict;
+    try {
+      verdict = step === 'tenantPhone' ? await checkTenantPhone(value, agentSelf)
+        : step === 'nationalId' ? await checkNationalId(value, agentSelf)
+          : await checkNewLc1Phone(value, agentSelf);
+    } finally {
+      setRecordChecking(false);
+    }
+    if (verdict.status === 'free') return true;
+    if (verdict.status === 'unknown') {
+      setError('I couldn’t check Welile’s records just now. Check your connection and send it again.');
+      return false;
+    }
+    setRecordBlock(blockFor(step, verdict.hit === 'self', value));
+    return false;
+  }
 
   function advance(from: StepId) {
     const i = steps.indexOf(from);
@@ -454,21 +570,34 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     if (steps.indexOf(target) > steps.indexOf(furthest)) setFurthest(target);
   }
 
-  const submitText = async () => {
+  const submitText = async (text = draft) => {
     const s = current;
-    const problem = validate(s);
-    if (problem) { setError(problem); return; }
+    const problem = validate(s, text);
+    if (problem) { reject(s, problem, text); return; }
+    setFixOffer(null);
     hapticTap();
     switch (s) {
-      case 'rent': setRentText(draft.replace(/\D/g, '')); break;
-      case 'tenantPhone': setTenantPhone(formatPhone(draft)); break;
-      case 'nationalId': setNationalId(draft.replace(/[^a-zA-Z0-9]/g, '').toUpperCase()); break;
-      case 'address': setAddress(draft.trim()); break;
+      case 'rent': setRentText(text.replace(/\D/g, '')); break;
+      case 'tenantPhone': {
+        const value = formatPhone(text);
+        if (!(await recordIsNew('tenantPhone', value))) return;
+        setTenantPhone(value);
+        break;
+      }
+      case 'nationalId': {
+        const value = text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        if (!(await recordIsNew('nationalId', value))) return;
+        setNationalId(value);
+        break;
+      }
+      case 'address': setAddress(text.trim()); break;
       case 'lc1Phone': {
-        setLc1Phone(formatPhone(draft));
-        const m = await lookupLc1(draft);
+        setLc1Phone(formatPhone(text));
+        const m = await lookupLc1(text);
         setLc1Match(m);
         if (m?.village && !lc1Village) setLc1Village(m.village);
+        // A brand-new LC1 must not be the agent or a landlord.
+        if (!m && !(await recordIsNew('lc1Phone', formatPhone(text)))) return;
         if (m) {
           // A known LC1 skips the name question; `steps` only drops it next render.
           setCurrent('lc1Village');
@@ -480,15 +609,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         if (steps.indexOf('lc1Name') > steps.indexOf(furthest) || !steps.includes('lc1Name')) setFurthest('lc1Name');
         return;
       }
-      case 'lc1Village': setLc1Village(draft.trim()); break;
-      case 'city': setCity(draft.trim()); break;
+      case 'lc1Village': setLc1Village(text.trim()); break;
+      case 'city': setCity(text.trim()); break;
     }
     advance(s);
   };
 
   const continueStep = () => {
     const problem = validate(current);
-    if (problem) { setError(problem); return; }
+    if (problem) { reject(current, problem); return; }
     hapticTap();
     advance(current);
   };
@@ -499,6 +628,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
     setPosting(true);
     setError(null);
+    // Re-check right before posting: the number or ID may have been registered since it was typed.
+    const [phoneNow, ninNow] = await Promise.all([checkTenantPhone(tenantPhone, agentSelf), checkNationalId(nationalId, agentSelf)]);
+    for (const [step, verdict, value] of [['tenantPhone', phoneNow, tenantPhone], ['nationalId', ninNow, nationalId]] as const) {
+      if (verdict.status === 'taken') {
+        setPosting(false);
+        setCurrent(step);
+        setRecordBlock(blockFor(step, verdict.hit === 'self', value));
+        return;
+      }
+      if (verdict.status === 'unknown') {
+        setPosting(false);
+        setError('I couldn’t check Welile’s records just now. Check your connection and tap Post again.');
+        return;
+      }
+    }
     const res = await submitAssistantRentRequest({
       agentId: user.id,
       incomeType,
@@ -548,34 +692,36 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
 
   // ----- copy -----
   const questionOf = (s: StepId): string => {
+    const first = tenantNameParts.firstName.trim() || 'the tenant';
+    const landlordFirst = landlord?.name?.split(' ')[0] || 'the landlord';
     switch (s) {
-      case 'type': return 'How does the tenant earn their income? It decides how they pay back.';
+      case 'type': return 'Let’s get started! 💼 How does the tenant earn their money? It decides how they’ll pay back.';
       case 'rent': return planType === 'weekly'
-        ? 'What is one month’s rent? Welile pays the landlord this every month.'
-        : 'What is the monthly rent for the house? The minimum is UGX 50,000.';
+        ? 'Nice. How much is one month’s rent? 🏠 Welile pays the landlord this every month.'
+        : 'Great! How much is the rent each month? 🏠 It needs to be at least UGX 50,000.';
       case 'plan': return planType === 'daily'
-        ? `For ${formatUGX(amount)} rent, how long does the tenant need to pay it back?`
-        : planType === 'weekly' ? 'How many weeks should Welile cover?' : 'When will the tenant pay it back?';
-      case 'tenantPhone': return 'Now the tenant. What is their phone number?';
-      case 'tenantName': return 'What is their name, as on the National ID?';
-      case 'nationalId': return 'And the National ID number (NIN) from the card?';
-      case 'language': return `Which language does ${tenantNameParts.firstName || 'the tenant'} understand best? Their SMS messages will use it.`;
-      case 'smartphone': return `Does ${tenantNameParts.firstName || 'the tenant'} have a smartphone?`;
-      case 'landlord': return 'Now the house. Who is the landlord? Search by name or phone.';
-      case 'house': return `Which of ${landlord?.name?.split(' ')[0] || 'the landlord'}’s houses is it? Only houses with photos can be used.`;
-      case 'location': return 'Where is the house? Pick the district, sub-county and village.';
-      case 'address': return 'What is the property address? A plot, road or landmark is fine.';
-      case 'category': return 'What kind of place is it?';
-      case 'photos': return 'Stand outside the house and take 4 photos: front, back, left and right.';
-      case 'tenantPhoto': return `Now take ${tenantNameParts.firstName || 'the tenant'}’s passport photo. I’ll check the face is clear.`;
-      case 'gps': return 'Standing at the house, capture its GPS location.';
-      case 'lc1Phone': return `Last person to confirm: the LC1 chairperson who knows ${tenantNameParts.firstName || 'the tenant'}. What is their phone number?`;
-      case 'lc1Name': return 'I don’t have this LC1 yet. What is their name?';
-      case 'lc1Village': return 'Which village is the LC1 for?';
-      case 'city': return 'Which town or city is the house in?';
-      case 'lcLetter': return 'Do you have a stamped LC1 letter? It’s optional: JPG or PNG, up to 10 MB.';
-      case 'payoutDay': return `Which day of the month should Welile pay ${landlord?.name?.split(' ')[0] || 'the landlord'}? Most agents pick the day the rent falls due.`;
-      case 'review': return 'Everything checks out. Here is the request. Tap any answer above to change it.';
+        ? `For ${formatUGX(amount)} rent, how long does the tenant need to pay it back? ⏳`
+        : planType === 'weekly' ? 'How many weeks should Welile cover? 📅' : 'When will the tenant pay it back? 📅';
+      case 'tenantPhone': return 'Lovely, the plan is set 👌 Now let’s meet the tenant. What’s their phone number? 📱';
+      case 'tenantName': return 'Got it. What’s their full name, exactly as it’s written on their National ID? 🪪';
+      case 'nationalId': return `Thanks! Now the NIN from ${first}’s National ID card. It usually starts with CM or CF. 🔢`;
+      case 'language': return `Which language does ${first} understand best? 🗣️ I’ll send their SMS messages in it.`;
+      case 'smartphone': return `Does ${first} have a smartphone? 📲`;
+      case 'landlord': return `${first === 'the tenant' ? 'The tenant' : first} is all set ✅ Now the house. Who’s the landlord? Search by name or phone.`;
+      case 'house': return `Which of ${landlordFirst}’s houses is it? 🏘️ Only houses with photos can be used.`;
+      case 'location': return 'Where is the house? 📍 Pick the district, sub-county and village.';
+      case 'address': return 'What’s the address? A plot number, road or landmark is fine. 🛣️';
+      case 'category': return 'What kind of place is it? 🏠';
+      case 'photos': return 'Photo time! 📸 Stand outside the house and take 4 photos: front, back, left and right.';
+      case 'tenantPhoto': return `Now a passport photo of ${first}, please 🙂 I’ll check the face is clear.`;
+      case 'gps': return 'While you’re standing at the house, capture its GPS location 🛰️';
+      case 'lc1Phone': return `Almost there! 🙌 Last person: the LC1 chairperson who knows ${first}. What’s their phone number?`;
+      case 'lc1Name': return 'I don’t know this LC1 yet 🤝 What’s their name?';
+      case 'lc1Village': return 'Which village is the LC1 for? 🏡';
+      case 'city': return 'Which town or city is the house in? 🌆';
+      case 'lcLetter': return 'Do you have a stamped LC1 letter? 📄 It’s optional: JPG or PNG, up to 10 MB.';
+      case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
+      case 'review': return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
     }
   };
 
@@ -615,7 +761,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
       : result
         ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}`
-        : error || questionOf(current);
+        : recordBlock && recordBlock.step === current
+          ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
+          : error || questionOf(current);
   const speech = useAssistantSpeech(spokenReply, open && !showRegisterLandlord, user?.id);
 
   useEffect(() => {
@@ -694,9 +842,6 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                       <MeBubble>{answerOf(s)}</MeBubble>
                     </button>
                   )}
-                  {s === 'tenantPhone' && dup.phoneMatch && (
-                    <Bot><Bubble>This number already belongs to <b>{dup.phoneMatch.full_name || 'a Welile user'}</b>. I’ll use their existing account.</Bubble></Bot>
-                  )}
                   {s === 'plan' && fees && <PlanSummary planType={planType!} fees={fees} amount={amount} />}
                   {s === 'landlord' && landlord && <LandlordStatusNote status={landlordStatus} agreement={agreementOnFile} verifyReq={verifyReq} onRequest={requestLandlordVerification} name={landlord.name} />}
                   {s === 'lc1Phone' && lc1Match && (
@@ -709,7 +854,21 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                 <div className="flex flex-col gap-3">
                   <Bot><Bubble>{questionOf(current)}</Bubble></Bot>
                   <div className="pl-9">{renderWidget()}</div>
-                  {error && <Bot><Bubble tone="warn">{error}</Bubble></Bot>}
+                  {recordChecking && <Bot><Bubble><Loader2 className="mr-1 inline h-4 w-4 animate-spin" /> Checking Welile’s records…</Bubble></Bot>}
+                  {recordBlock && recordBlock.step === current && (
+                    <RecordExistsNotice block={recordBlock} onRetry={() => { setDraft(''); setRecordBlock(null); }} />
+                  )}
+                  {error && (
+                    <Bot>
+                      <Bubble tone="warn"><span className="whitespace-pre-line">{error}</span></Bubble>
+                      {fixOffer && (
+                        <div className="flex flex-wrap gap-2">
+                          <Chip onClick={() => { setDraft(fixOffer); void submitText(fixOffer); }}>Yes, use {fixOffer}</Chip>
+                          <Chip onClick={() => { setError(null); setFixOffer(null); }}>No, I’ll retype it</Chip>
+                        </div>
+                      )}
+                    </Bot>
+                  )}
                 </div>
               )}
 
@@ -755,12 +914,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                     else if (current === 'nationalId') setDraft(v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 14));
                     else setDraft(v);
                     setError(null);
+                    setFixOffer(null);
+                    setRecordBlock(null);
                   }}
                   placeholder={placeholderOf(current)}
                   className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base outline-none focus:border-primary"
                 />
-                <button type="submit" aria-label="Send" disabled={lc1Looking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
-                  {lc1Looking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
+                  {lc1Looking || recordChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </form>
             ) : (
@@ -1040,6 +1201,64 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
     >
       <Sparkles className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
     </span>
+  );
+}
+
+interface RecordBlock {
+  step: 'tenantPhone' | 'nationalId' | 'lc1Phone';
+  /** The agent typed their own number or ID. */
+  self: boolean;
+  /** The refused value, masked. */
+  masked: string;
+}
+
+function blockFor(step: RecordBlock['step'], self: boolean, value: string): RecordBlock {
+  return { step, self, masked: step === 'nationalId' ? maskNationalId(value) : maskPhone(value) };
+}
+
+/** `spoken` drops the masked value, which reads badly aloud. */
+function recordHeadline(block: RecordBlock, spoken: boolean): string {
+  if (block.self) return block.step === 'nationalId' ? 'That’s your own National ID.' : 'That’s your own number.';
+  if (spoken) return block.step === 'nationalId' ? 'That National ID is already on Welile.' : 'That number is already on Welile.';
+  return `${block.masked} is already on Welile.`;
+}
+
+function recordBody(block: RecordBlock): string {
+  if (block.self) {
+    return block.step === 'lc1Phone'
+      ? 'The LC1 has to be someone else, so they can vouch for the tenant.'
+      : 'A tenant needs their own, so their Rent Plan messages reach them and not you.';
+  }
+  if (block.step === 'nationalId') return 'One National ID belongs to one person, so I can’t add it again. Check the card with the tenant and type it again.';
+  if (block.step === 'lc1Phone') return 'It already belongs to someone else, so it can’t be a new LC1’s number. Ask the chairperson for their own phone.';
+  return 'A new tenant needs a number that isn’t registered yet. Ask the tenant to read it out again, or use another number they own.';
+}
+
+/**
+ * Shown when a typed number or ID is already on Welile. It says the record
+ * exists, never whose it is, and the chat stays on the same question.
+ */
+function RecordExistsNotice({ block, onRetry }: { block: RecordBlock; onRetry: () => void }) {
+  const [why, setWhy] = useState(false);
+  const what = block.step === 'nationalId' ? 'National ID' : 'number';
+  const headline = recordHeadline(block, false);
+  const body = recordBody(block);
+  return (
+    <Bot>
+      <Bubble tone="warn">
+        <span className="mb-1 flex items-center gap-1.5 font-semibold"><Lock className="h-4 w-4 shrink-0" /> {headline}</span>
+        {body}
+        {!block.self && why && (
+          <span className="mt-2 block text-sm text-muted-foreground">
+            Numbers and IDs belong to people. If I showed who owns one, anyone could look people up, so I only tell you it’s taken. I won’t move to the next question until the {what} is new.
+          </span>
+        )}
+      </Bubble>
+      <div className="flex flex-wrap gap-2">
+        <Chip onClick={onRetry}>Type a different {what}</Chip>
+        {!block.self && !why && <Chip onClick={() => setWhy(true)}>Why can’t I see whose?</Chip>}
+      </div>
+    </Bot>
   );
 }
 
