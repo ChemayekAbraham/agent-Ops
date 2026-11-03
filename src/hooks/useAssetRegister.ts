@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cfoReportRetry } from './cfoReportRetry';
 import {
   ASSET_EVIDENCE_BUCKET, ASSET_EVIDENCE_MAX_BYTES, ASSET_EVIDENCE_MIME,
-  type Asset, type AssetDetail, type AssetInput, type AssetListFilters, type AssetListPage,
+  type Asset, type AssetDetail, type AssetInput, type AssetListFilters, type AssetListPage, type AssetWriteInput,
   type AssetReferenceData, type AssetSummary, type DuplicateMatch, type ImportCommitResult,
 } from '@/lib/assetRegister/types';
 
