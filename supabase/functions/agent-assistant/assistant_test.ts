@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { checkAnswer } from "./guards.ts";
+import { checkAnswer, cleanTerms, RETRY_NOTE, trimToSentence } from "./guards.ts";
 import { kampalaToday, resolvePeriod } from "./dates.ts";
 import { cleanMessage, RequestSchema } from "./schemas.ts";
 import { AGENT_TOOLS, findTool } from "./tools.ts";
@@ -376,4 +376,26 @@ Deno.test("help: the query is short plain text; markup, quotes, SQL and identity
   }
   assert(!t.schema.safeParse({ query: "renew", user_id: "x" }).success);
   assertEquals(t.toRpcArgs({ query: "renew a tenant" }), { p_query: "renew a tenant", p_limit: 4 });
+});
+
+Deno.test("guard repair: banned wording is rewritten to the approved terms", () => {
+  assertEquals(cleanTerms("There is no interest on a loan, and lenders get ROI."), "There is no extra charges on a Rent Plan, and Supporters get Returns.");
+  assert(checkAnswer(cleanTerms("The interest rate on loans is fixed."), [], "x").ok);
+});
+
+Deno.test("guard repair: wording is repaired but figures never are", () => {
+  assertEquals(cleanTerms("You collected UGX 250,000."), "You collected UGX 250,000.");
+  assertEquals(checkAnswer(cleanTerms("You collected UGX 250,000."), [DAY_OUTPUT], "x").ok, false);
+});
+
+Deno.test("guard retry: every failure reason has a note for the model", () => {
+  for (const reason of ["terminology", "figure", "uuid", "phone"] as const) assert(RETRY_NOTE[reason].length > 20);
+});
+
+Deno.test("long ungrounded answers are cut at a sentence end", () => {
+  const long = "First sentence here. ".repeat(80);
+  const cut = trimToSentence(long, 300);
+  assert(cut.length <= 300);
+  assert(cut.endsWith("."));
+  assertEquals(trimToSentence("Short one.", 300), "Short one.");
 });
