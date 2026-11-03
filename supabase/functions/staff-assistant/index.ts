@@ -93,8 +93,11 @@ import {
   clearUserHistory,
   ConversationListItem,
   createNewConversation,
-  DEFAULT_STAFF_ASSISTANT_CONFIG,
+   DEFAULT_STAFF_ASSISTANT_CONFIG,
+  defaultErrorCodeForOutcome,
   deleteUserNote,
+  filterCleanModelHistory,
+  formatCurrentUserMessageForModel,
   getAdminClientForMfa,
   getMemoryPrefs,
   getOrCreateConversation,
@@ -1094,6 +1097,7 @@ export async function handleStaffAssistantRequest(
   const wantsStream = body.stream === true;
   const liveSse = wantsStream ? createLiveSseWriter() : null;
   let streamedTokensAlreadySent = false;
+  let firstTokenAtMs: number | null = null;
   let updatedRollingSummary = memoryEnabled ? (conv.rollingSummary ?? "") : "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
@@ -1201,6 +1205,21 @@ export async function handleStaffAssistantRequest(
 
     let assistantMessageId = crypto.randomUUID();
     const latencyMs = Date.now() - startedAt;
+    const ttfbMs =
+      firstTokenAtMs !== null ? Math.max(0, firstTokenAtMs - startedAt) : latencyMs;
+    const requestedModel = selectedTier.model;
+    const gatewayModel = opts?.model ?? selectedTier.model;
+    const toolsUsedList = opts?.tools ?? [];
+    const analystUsed = toolsUsedList.includes("run_analyst_query");
+    const researchUsed =
+      researchMode ||
+      toolsUsedList.includes("search_web") ||
+      toolsUsedList.includes("read_web_page");
+    const resolvedErrorCode = defaultErrorCodeForOutcome(
+      outcome,
+      opts?.unansweredReason ?? null,
+      opts?.errorCode ?? (degradedErrors.length > 0 ? degradedErrors[0].errorCode : null),
+    ) as ZoeErrorCode | null;
 
     if (!temporaryChat) {
       try {
@@ -1216,10 +1235,17 @@ export async function handleStaffAssistantRequest(
           reportPayload: enrichedReportPayload,
           conversationSummary: updatedMemory,
           rollingSummary: updatedRollingSummary,
-          model: opts?.model,
+          model: gatewayModel,
+          requestedModel,
+          gatewayModel,
+          ttfbMs,
           latencyMs,
+          errorCode: resolvedErrorCode,
+          costUsd: totalQuestionCostUsd,
+          analystUsed,
+          researchUsed,
         });
-        assistantMessageId = turnRes.assistantMessageId;
+        assistantMessageId = turnRes.assistantMessageId ?? assistantMessageId;
         if (turnRes.errorCode) {
           await recordDegraded(
             turnRes.errorCode as ZoeErrorCode,
@@ -1242,8 +1268,8 @@ export async function handleStaffAssistantRequest(
             callerRoles,
             questionText: userText,
             reason: opts.unansweredReason,
-            errorCode: opts.errorCode ?? null,
-            errorDetail: opts.errorDetail ?? null,
+            errorCode: resolvedErrorCode,
+            errorDetail: opts.errorDetail ?? resolvedErrorCode ?? null,
           });
         } catch {
           // best effort
@@ -1256,7 +1282,7 @@ export async function handleStaffAssistantRequest(
         try {
           const topic = classifyQuestionTopic({
             userMessage: userText,
-            toolsCalled: opts?.tools ?? [],
+            toolsCalled: toolsUsedList,
             consultantMode,
             researchMode,
           });
@@ -1266,11 +1292,17 @@ export async function handleStaffAssistantRequest(
             userId: user.id,
             callerRoles,
             topic,
-            toolUsed: opts?.tools && opts.tools.length > 0 ? opts.tools[0] : null,
+            toolUsed: toolsUsedList.length > 0 ? toolsUsedList[0] : null,
             outcome,
             latencyMs,
+            ttfbMs,
             costUsd: totalQuestionCostUsd,
             modelTier: selectedTier.tier,
+            requestedModel,
+            gatewayModel,
+            errorCode: resolvedErrorCode,
+            analystUsed,
+            researchUsed,
           });
         } catch {
           // best effort
@@ -1294,6 +1326,11 @@ export async function handleStaffAssistantRequest(
       memory_enabled: memoryEnabled,
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
+      requested_model: requestedModel,
+      gateway_model: gatewayModel,
+      ttfb_ms: ttfbMs,
+      latency_ms: latencyMs,
+      error_code: resolvedErrorCode,
       consultant_mode: consultantMode,
       research_mode: researchMode,
       ...(researchPlan.length > 0 ? { research_plan: researchPlan } : {}),
@@ -1334,7 +1371,7 @@ export async function handleStaffAssistantRequest(
 
     // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
     // When `temporaryChat === true` or `memoryEnabled === false`, read NO memory.
-    const [history, userNotes] = memoryEnabled
+    const [rawHistory, userNotes] = memoryEnabled
       ? await Promise.all([
           store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
             await recordDegraded(
@@ -1355,10 +1392,16 @@ export async function handleStaffAssistantRequest(
         ])
       : [[] as ChatMessage[], [] as ZoeNoteRecord[]];
 
+    // Part B item (1): Always exclude failed/blocked/refused turns from model context,
+    // even when `loadRecentTurns` is injected in unit tests.
+    const history = filterCleanModelHistory(
+      rawHistory as ReadonlyArray<{ role: string; content: string | null; outcome?: string | null }>,
+    );
+
     // Prompt 4 item (3): Detect repeated safe preference across recent user turns
     detectedMemorySuggestion = detectRepeatedUserPreference({
       currentMessage: userText,
-      recentUserMessages: history
+      recentUserMessages: rawHistory
         .filter((h) => h.role === "user" && typeof h.content === "string")
         .map((h) => h.content as string),
       existingNotes: userNotes,
@@ -1388,6 +1431,7 @@ export async function handleStaffAssistantRequest(
     updatedRollingSummary = splitMemory.rollingSummaryText;
     const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;
 
+    const currentUserMessageFormatted = formatCurrentUserMessageForModel(userText);
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -1402,7 +1446,7 @@ export async function handleStaffAssistantRequest(
         }),
       },
       ...activeTurnWindow,
-      { role: "user", content: userText },
+      { role: "user", content: currentUserMessageFormatted },
     ];
 
     const toolsCalled: string[] = [];
@@ -1467,7 +1511,7 @@ Answer the user's question in plain text without calling any tools:
 - Always use mandatory Welile terminology: Rent Plan, Supporter, Returns.`,
           },
           ...activeTurnWindow,
-          { role: "user", content: userText },
+          { role: "user", content: currentUserMessageFormatted },
         ];
 
         const retryRes = await ai.chatCompletion({
@@ -1544,6 +1588,9 @@ Answer the user's question in plain text without calling any tools:
 
       verifiedParagraphsSoFar = 0;
       const onStreamTokenDelta = (delta: string, accumulated: string) => {
+        if (firstTokenAtMs === null) {
+          firstTokenAtMs = Date.now();
+        }
         if (!liveSse) return;
         streamedTokensAlreadySent = true;
         liveSse.emit("token", { token: delta });
@@ -1588,6 +1635,9 @@ Answer the user's question in plain text without calling any tools:
               signal: req.signal,
             });
 
+      if (firstTokenAtMs === null) {
+        firstTokenAtMs = Date.now();
+      }
       lastModel = model;
       if (usage) {
         totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;

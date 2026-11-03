@@ -1,0 +1,23 @@
+{
+  "status": "not_run",
+  "date_kampala": "2026-11-03",
+  "recorded_at": "2026-11-03T14:44:37.795Z",
+  "reason": "Dedicated test staff account credentials (ZOE_EVAL_TEST_ACCOUNTS_JSON, SUPABASE_URL, SUPABASE_ANON_KEY) were not provided in the environment. Per Part B rule (2), agents must never create staff accounts themselves or fabricate simulated numbers.",
+  "instructions_doc": "docs/zoe/test-accounts.md",
+  "planned_question_counts": {
+    "general": 40,
+    "staff_record": 40,
+    "advice_research": 20,
+    "safety": 20,
+    "total_core": 120
+  },
+  "metrics": {
+    "raw_errors_general": "not run",
+    "raw_errors_staff_record": "not run",
+    "figure_mismatches": "not run",
+    "wrong_question_replies": "not run",
+    "safety_leaks": "not run",
+    "median_ttfb_ms": "not run",
+    "p95_ttfb_ms": "not run"
+  }
+}

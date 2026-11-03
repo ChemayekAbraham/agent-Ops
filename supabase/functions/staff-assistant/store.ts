@@ -698,6 +698,116 @@ export async function getOrCreateConversation(
 }
 
 
+export const EXCLUDED_CONTEXT_OUTCOMES = new Set<string>([
+  "error",
+  "blocked",
+  "out_of_scope",
+  "not_staff",
+  "missing_tool",
+  "unmatched",
+  "rate_limited",
+]);
+
+/**
+ * Part B item (1) — Wrong-question bug fix:
+ * Filters stored conversation messages before building the model context (`loadRecentTurns`).
+ * Excludes any assistant turn whose outcome was `error` or `blocked` (or refused/unmatched),
+ * along with its paired preceding user message, so a subsequent message like `"good morning"`
+ * never answers an earlier failed or refused question. Stored history in `staff_assistant_messages`
+ * remains untouched.
+ */
+export function filterCleanModelHistory(
+  chronologicalRows: ReadonlyArray<{
+    role: string;
+    content: string | null;
+    outcome?: string | null;
+  }>,
+): ChatMessage[] {
+  const clean: ChatMessage[] = [];
+  for (let i = 0; i < chronologicalRows.length; i++) {
+    const cur = chronologicalRows[i];
+    if (!cur || typeof cur.content !== "string") continue;
+
+    if (cur.role === "user") {
+      const next = chronologicalRows[i + 1];
+      if (next && next.role === "assistant") {
+        const nextOutcome = (next.outcome ?? "").trim().toLowerCase();
+        const nextText = (next.content ?? "").trim();
+        const isFailedOrRefused =
+          EXCLUDED_CONTEXT_OUTCOMES.has(nextOutcome) ||
+          nextText === MSG.error ||
+          nextText === MSG.unmatched ||
+          nextText === MSG.outOfScope ||
+          nextText === MSG.roleRestricted;
+
+        if (isFailedOrRefused) {
+          // Skip both the failed/blocked user turn and its error/refusal assistant turn
+          i += 1;
+          continue;
+        }
+        clean.push({ role: "user", content: cur.content });
+        clean.push({ role: "assistant", content: nextText });
+        i += 1;
+      }
+      // Unpaired user message is omitted so the newest user message is always placed last
+      continue;
+    }
+
+    if (cur.role === "assistant") {
+      const curOutcome = (cur.outcome ?? "").trim().toLowerCase();
+      const curText = cur.content.trim();
+      const isFailedOrRefused =
+        EXCLUDED_CONTEXT_OUTCOMES.has(curOutcome) ||
+        curText === MSG.error ||
+        curText === MSG.unmatched ||
+        curText === MSG.outOfScope ||
+        curText === MSG.roleRestricted;
+      if (!isFailedOrRefused && clean.length > 0 && clean[clean.length - 1].role === "user") {
+        clean.push({ role: "assistant", content: curText });
+      }
+    }
+  }
+  return clean;
+}
+
+/**
+ * Marks the newest user message explicitly as the one to answer (`[ANSWER THIS MESSAGE]`)
+ * so the model never answers an earlier turn from conversation history.
+ */
+export function formatCurrentUserMessageForModel(userText: string): string {
+  const trimmed = (userText ?? "").trim();
+  return `[ANSWER THIS MESSAGE]\n${trimmed}`;
+}
+
+/**
+ * Guarantees a non-null machine-readable `error_code` whenever a turn fails or is refused.
+ */
+export function defaultErrorCodeForOutcome(
+  outcome: TurnOutcome | string,
+  unansweredReason?: UnansweredReason | null,
+  explicitCode?: ZoeErrorCode | null,
+): string | null {
+  if (typeof explicitCode === "string" && explicitCode.trim()) {
+    return explicitCode.trim().slice(0, 80);
+  }
+  if (outcome === "answered" || outcome === "clarify") {
+    return null;
+  }
+  if (unansweredReason === "missing_tool") return "ERR_MISSING_TOOL";
+  if (unansweredReason === "role_restricted" || outcome === "not_staff") {
+    return "ERR_ROLE_RESTRICTED";
+  }
+  if (unansweredReason === "out_of_scope" || outcome === "out_of_scope") {
+    return "ERR_OUT_OF_SCOPE";
+  }
+  if (unansweredReason === "unmatched" || outcome === "unmatched") {
+    return "ERR_UNMATCHED_INTENT";
+  }
+  if (outcome === "blocked") return "ERR_GUARD_OUTPUT_BLOCKED";
+  if (outcome === "rate_limited") return "ERR_RATE_LIMITED";
+  return "ERR_TURN_FAILED";
+}
+
 export async function loadRecentTurns(
   userId: string,
   conversationId: string,
@@ -707,7 +817,7 @@ export async function loadRecentTurns(
     const db = admin();
     let { data, error } = await db
       .from("staff_assistant_messages")
-      .select("role, content")
+      .select("role, content, outcome")
       .eq("conversation_id", conversationId)
       .eq("user_id", userId)
       .eq("hidden_by_user", false)
@@ -721,7 +831,7 @@ export async function loadRecentTurns(
       );
       const fallback = await db
         .from("staff_assistant_messages")
-        .select("role, content")
+        .select("role, content, outcome")
         .eq("conversation_id", conversationId)
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -729,9 +839,15 @@ export async function loadRecentTurns(
       data = fallback.data;
     }
 
-    return (data ?? [])
-      .reverse()
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+    const chronological = (data ?? []).reverse().map((m) => ({
+      role: String(m.role ?? ""),
+      content: typeof m.content === "string" ? m.content : "",
+      outcome: typeof (m as Record<string, unknown>).outcome === "string"
+        ? String((m as Record<string, unknown>).outcome)
+        : null,
+    }));
+
+    return filterCleanModelHistory(chronological);
   } catch (err) {
     onDegraded?.(
       ZOE_ERROR_CODES.ERR_DB_HISTORY_READ_FAILED,
@@ -800,13 +916,27 @@ export async function recordTurn(
     conversationSummary?: ConversationMemorySummary | null;
     rollingSummary?: string | null;
     model?: string;
+    requestedModel?: string | null;
+    gatewayModel?: string | null;
+    ttfbMs?: number | null;
     latencyMs?: number;
+    errorCode?: ZoeErrorCode | null;
+    costUsd?: number | null;
+    analystUsed?: boolean;
+    researchUsed?: boolean;
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbOverride?: any,
-): Promise<{ userMessageId: string | null; assistantMessageId: string | null }> {
+): Promise<{
+  userMessageId: string | null;
+  assistantMessageId: string | null;
+  errorCode?: ZoeErrorCode;
+  errorDetail?: string;
+}> {
   try {
     const db = dbOverride ?? admin();
+    const toolsList = args.toolsCalled ?? [];
+    const resolvedErrorCode = defaultErrorCodeForOutcome(args.outcome, null, args.errorCode ?? null);
     const userRow = {
       conversation_id: args.conversationId,
       user_id: args.userId,
@@ -820,28 +950,45 @@ export async function recordTurn(
       model: null,
       latency_ms: null,
     };
-    const assistantRow = {
+    const baseAssistantRow = {
       conversation_id: args.conversationId,
       user_id: args.userId,
       role: "assistant" as const,
       content: args.assistantMessage.slice(0, 8000),
       outcome: args.outcome,
-      tools_called: args.toolsCalled ?? [],
+      tools_called: toolsList,
       source_label: args.sourceLabel ? args.sourceLabel.slice(0, 240) : null,
       period_label: args.periodLabel ? args.periodLabel.slice(0, 120) : null,
       report_payload: args.reportPayload ?? null,
-      model: args.model ? args.model.slice(0, 120) : null,
+      model: (args.gatewayModel ?? args.model) ? String(args.gatewayModel ?? args.model).slice(0, 120) : null,
       latency_ms: args.latencyMs ?? null,
+    };
+    const extendedAssistantRow = {
+      ...baseAssistantRow,
+      requested_model: args.requestedModel ? args.requestedModel.slice(0, 120) : (args.model ? args.model.slice(0, 120) : null),
+      gateway_model: (args.gatewayModel ?? args.model) ? String(args.gatewayModel ?? args.model).slice(0, 120) : null,
+      ttfb_ms: typeof args.ttfbMs === "number" ? Math.max(0, Math.round(args.ttfbMs)) : (args.latencyMs ?? null),
+      error_code: resolvedErrorCode,
+      cost_usd: typeof args.costUsd === "number" ? Number(Math.max(0, args.costUsd).toFixed(6)) : null,
+      analyst_used: Boolean(args.analystUsed || toolsList.includes("run_analyst_query")),
+      research_used: Boolean(
+        args.researchUsed ||
+          toolsList.includes("search_web") ||
+          toolsList.includes("read_web_page"),
+      ),
     };
 
     let { data: inserted, error: insertErr } = await db
       .from("staff_assistant_messages")
-      .insert([userRow, assistantRow])
+      .insert([userRow, extendedAssistantRow])
       .select("id, role");
 
     if (insertErr || !inserted || inserted.length === 0) {
       const uRes = await db.from("staff_assistant_messages").insert(userRow).select("id, role");
-      const aRes = await db.from("staff_assistant_messages").insert(assistantRow).select("id, role");
+      let aRes = await db.from("staff_assistant_messages").insert(extendedAssistantRow).select("id, role");
+      if (aRes.error) {
+        aRes = await db.from("staff_assistant_messages").insert(baseAssistantRow).select("id, role");
+      }
       inserted = [...(uRes.data ?? []), ...(aRes.data ?? [])];
     }
 
@@ -892,7 +1039,7 @@ export async function recordTurn(
 
 export async function recordUnanswered(
   args: {
-    conversationId: string;
+    conversationId: string | null;
     messageId: string | null;
     userId: string;
     callerRoles: readonly string[];
@@ -909,14 +1056,21 @@ export async function recordUnanswered(
   }
   try {
     const db = dbOverride ?? admin();
-    const cleanCode =
-      typeof args.errorCode === "string" && args.errorCode.trim()
-        ? args.errorCode.trim().slice(0, 80)
-        : null;
+    const fallbackOutcome =
+      args.reason === "role_restricted"
+        ? "not_staff"
+        : args.reason === "missing_tool"
+        ? "missing_tool"
+        : args.reason;
+    const cleanCode = defaultErrorCodeForOutcome(
+      fallbackOutcome,
+      args.reason,
+      args.errorCode ?? null,
+    );
     const cleanDetail =
       typeof args.errorDetail === "string" && args.errorDetail.trim()
         ? args.errorDetail.trim().slice(0, 1000)
-        : null;
+        : cleanCode;
 
     const baseRow = {
       conversation_id: args.conversationId || null,
@@ -1570,8 +1724,14 @@ export async function recordLearningLogEntry(
     toolUsed: string | null;
     outcome: TurnOutcome;
     latencyMs: number;
+    ttfbMs?: number | null;
     costUsd: number;
     modelTier: "fast" | "deep";
+    requestedModel?: string | null;
+    gatewayModel?: string | null;
+    errorCode?: ZoeErrorCode | null;
+    analystUsed?: boolean;
+    researchUsed?: boolean;
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbOverride?: any,
@@ -1581,7 +1741,12 @@ export async function recordLearningLogEntry(
   }
   try {
     const db = dbOverride ?? admin();
-    await db.from("staff_assistant_learning_log").insert({
+    const resolvedErrorCode = defaultErrorCodeForOutcome(
+      args.outcome,
+      null,
+      args.errorCode ?? null,
+    );
+    const baseRow = {
       message_id: args.messageId,
       conversation_id: args.conversationId,
       user_id: args.userId,
@@ -1592,7 +1757,27 @@ export async function recordLearningLogEntry(
       latency_ms: Math.max(0, Math.round(args.latencyMs || 0)),
       cost_usd: Number(Math.max(0, args.costUsd || 0).toFixed(6)),
       model_tier: args.modelTier,
-    });
+    };
+    const extendedRow = {
+      ...baseRow,
+      ttfb_ms:
+        typeof args.ttfbMs === "number"
+          ? Math.max(0, Math.round(args.ttfbMs))
+          : Math.max(0, Math.round(args.latencyMs || 0)),
+      requested_model: args.requestedModel ? args.requestedModel.slice(0, 120) : null,
+      gateway_model: args.gatewayModel ? args.gatewayModel.slice(0, 120) : null,
+      error_code: resolvedErrorCode,
+      analyst_used: Boolean(args.analystUsed || args.toolUsed === "run_analyst_query"),
+      research_used: Boolean(
+        args.researchUsed ||
+          args.toolUsed === "search_web" ||
+          args.toolUsed === "read_web_page",
+      ),
+    };
+    const { error } = await db.from("staff_assistant_learning_log").insert(extendedRow);
+    if (error) {
+      await db.from("staff_assistant_learning_log").insert(baseRow);
+    }
   } catch (err) {
     console.warn("[staff-assistant] recordLearningLogEntry failed:", err);
   }

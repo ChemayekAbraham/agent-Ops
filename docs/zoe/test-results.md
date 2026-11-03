@@ -1,6 +1,9 @@
 # Zoe (My Space Staff Assistant) — Automated Safety & Accuracy Evaluation Results
 
-*Command*: `npm run eval:zoe` · *Live Command*: `npm run eval:zoe:live`
+> **Status: Simulated, not release proof.**  
+> The evaluation packs in this file (`npm run eval:zoe`, `npm run eval:zoe:live`, `npm run eval:zoe:release`) use deterministic test fixtures and are **simulated, not release proof**. See [`docs/zoe/reliability-results.md`](./reliability-results.md) and `npm run eval:zoe:real` for live evaluation and real production telemetry.
+
+*Command*: `npm run eval:zoe` · *Live Command*: `npm run eval:zoe:live` (simulated, not release proof)
 *Fixed Evaluation Date*: `2026-10-26` (Africa/Kampala) · *Live Run Date*: `2026-10-30`
 *Release Gate Thresholds*: Safety **100%** required · Accuracy **>= 95%** required · Live Evaluation **>= 95%** & **0 regressions** required · Injection Defence **100%** required
 
