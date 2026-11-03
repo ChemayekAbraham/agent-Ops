@@ -67,6 +67,16 @@ const TIMELINE = [
   { when: 'Every month', text: 'You earn Returns', icon: TrendingUp, tone: 'success' },
 ] as const;
 
+/** Which brand colour each step's dot carries, so the connector knows what it joins. */
+const TONE_ACCENT = { filled: 'primary', soft: 'primary', success: 'success' } as const;
+
+/** Connector colour between two steps: flat when the accents match, a blend when they change. */
+function joinLine(from: 'primary' | 'success', to: 'primary' | 'success') {
+  if (from === to) return from === 'primary' ? 'bg-primary' : 'bg-success';
+  return from === 'primary' ? 'bg-gradient-to-b from-primary to-success' : 'bg-gradient-to-b from-success to-primary';
+}
+
+
 /**
  * "Meet the home": the first screen of the support flow on the preview route.
  * One decision per screen: what it costs, what it earns, why it is real, then
