@@ -1,0 +1,704 @@
+{
+ "bike_leases": [
+  {
+   "agent_id": "1741dcf5-8f07-4091-92bc-aca34f94be33",
+   "amount_outstanding": 192850,
+   "amount_paid": 0,
+   "battery_serial": null,
+   "brand": "Spiro",
+   "cfo_disbursed_at": null,
+   "cfo_disbursed_by": null,
+   "chassis_number": null,
+   "coo_approved_at": null,
+   "coo_approved_by": null,
+   "created_at": "2026-09-16T17:42:12.210365+00:00",
+   "disbursed_amount": null,
+   "gps_tracker_id": null,
+   "id": "2857a3b5-4c7f-4708-b943-2f94116ad379",
+   "lease_activated_at": null,
+   "lease_term_months": 3,
+   "logbook_status": "pending_registration",
+   "logbook_updated_at": null,
+   "logbook_updated_by": null,
+   "model": "Spiro Ekocycle",
+   "monthly_rate_pct": 28,
+   "ops_approved_at": null,
+   "ops_approved_by": null,
+   "plate_number": null,
+   "rejection_reason": ". Rejected.",
+   "sale_id": "bf923bdc-27a6-4a13-b1f0-f54dca6e5355",
+   "status": "rejected",
+   "tracking_reference": "SPB-37822938",
+   "updated_at": "2026-10-06T11:53:11.926375+00:00",
+   "valuation_amount": 192850,
+   "wallet_recovery_rate": 0.15
+  },
+  {
+   "agent_id": "bd59c006-c2cd-472d-9aa9-7ca8939a982d",
+   "amount_outstanding": 10549,
+   "amount_paid": 109451,
+   "battery_serial": null,
+   "brand": "Spiro",
+   "cfo_disbursed_at": null,
+   "cfo_disbursed_by": null,
+   "chassis_number": null,
+   "coo_approved_at": null,
+   "coo_approved_by": null,
+   "created_at": "2026-08-02T11:12:50.842899+00:00",
+   "disbursed_amount": null,
+   "gps_tracker_id": null,
+   "id": "b0fc4de1-64ea-4ee7-b41a-bcb7a676462d",
+   "lease_activated_at": null,
+   "lease_term_months": 12,
+   "logbook_status": "pending_registration",
+   "logbook_updated_at": null,
+   "logbook_updated_by": null,
+   "model": null,
+   "monthly_rate_pct": 28,
+   "ops_approved_at": null,
+   "ops_approved_by": null,
+   "plate_number": null,
+   "rejection_reason": ". Rejected.",
+   "sale_id": "dddc2333-efb2-4855-9ab7-f3d5c3793873",
+   "status": "rejected",
+   "tracking_reference": "SPB-0F15FCB4",
+   "updated_at": "2026-10-06T11:52:38.737731+00:00",
+   "valuation_amount": 120000,
+   "wallet_recovery_rate": null
+  },
+  {
+   "agent_id": "35fba2e3-bb3d-45b2-a0a8-f5db3acdf251",
+   "amount_outstanding": 664896.52,
+   "amount_paid": 103.48,
+   "battery_serial": null,
+   "brand": "Spiro",
+   "cfo_disbursed_at": null,
+   "cfo_disbursed_by": null,
+   "chassis_number": null,
+   "coo_approved_at": null,
+   "coo_approved_by": null,
+   "created_at": "2026-09-14T12:59:16.971993+00:00",
+   "disbursed_amount": null,
+   "gps_tracker_id": null,
+   "id": "a657d017-977f-44eb-8aa9-f9f6ded3e73b",
+   "lease_activated_at": null,
+   "lease_term_months": 3,
+   "logbook_status": "pending_registration",
+   "logbook_updated_at": null,
+   "logbook_updated_by": null,
+   "model": "Mocoo EVS500",
+   "monthly_rate_pct": 28,
+   "ops_approved_at": null,
+   "ops_approved_by": null,
+   "plate_number": null,
+   "rejection_reason": ". Rejected.",
+   "sale_id": "54c4c664-6004-4aab-a56c-b285050633cd",
+   "status": "rejected",
+   "tracking_reference": "SPB-876F7DF7",
+   "updated_at": "2026-10-06T11:53:06.943545+00:00",
+   "valuation_amount": 665000,
+   "wallet_recovery_rate": 0.15
+  },
+  {
+   "agent_id": "264b5bfb-5a07-4fcd-9913-47652bec9c37",
+   "amount_outstanding": 631200,
+   "amount_paid": 1000,
+   "battery_serial": "BAT 12344",
+   "brand": "Spiro",
+   "cfo_disbursed_at": "2026-10-06T13:14:46.249084+00:00",
+   "cfo_disbursed_by": "29a0cfa8-1eaf-453c-874c-0fc72fa4f74b",
+   "chassis_number": "1234567890",
+   "coo_approved_at": "2026-10-06T12:49:03.365011+00:00",
+   "coo_approved_by": "0b109aad-212a-4fd0-ab03-3d7aee9cf397",
+   "created_at": "2026-10-06T11:56:00.824381+00:00",
+   "disbursed_amount": 145000,
+   "gps_tracker_id": "GP127383927363",
+   "id": "17b3597a-d2b7-4f5e-89f3-780a9b938585",
+   "lease_activated_at": "2026-10-06T13:14:46.249084+00:00",
+   "lease_term_months": 23,
+   "logbook_status": "held_by_welile",
+   "logbook_updated_at": "2026-10-06T12:44:42.224395+00:00",
+   "logbook_updated_by": "fa74e773-643b-4b42-bf18-bfa2d338614a",
+   "model": "Spiro Ekocycle",
+   "monthly_rate_pct": 28,
+   "ops_approved_at": "2026-10-06T12:45:09.223191+00:00",
+   "ops_approved_by": "fa74e773-643b-4b42-bf18-bfa2d338614a",
+   "plate_number": "UBJ /123",
+   "rejection_reason": null,
+   "sale_id": "27842d46-9467-4852-853e-c4100fbbc516",
+   "status": "approved",
+   "tracking_reference": "SPB-BB831608",
+   "updated_at": "2026-10-07T11:51:24.767401+00:00",
+   "valuation_amount": 145000,
+   "wallet_recovery_rate": null
+  },
+  {
+   "agent_id": "6aac6c81-b0f8-45eb-a67b-6483e7dcf82f",
+   "amount_outstanding": 1314184,
+   "amount_paid": 95816,
+   "battery_serial": null,
+   "brand": "Spiro",
+   "cfo_disbursed_at": "2026-09-10T04:34:49.964736+00:00",
+   "cfo_disbursed_by": "29a0cfa8-1eaf-453c-874c-0fc72fa4f74b",
+   "chassis_number": null,
+   "coo_approved_at": "2026-09-09T14:14:43.915276+00:00",
+   "coo_approved_by": "fa74e773-643b-4b42-bf18-bfa2d338614a",
+   "created_at": "2026-09-09T13:41:42.070043+00:00",
+   "disbursed_amount": 710000,
+   "gps_tracker_id": null,
+   "id": "671d6e2e-351e-49ed-aeae-7c33c7c0bd68",
+   "lease_activated_at": "2026-09-10T04:34:49.964736+00:00",
+   "lease_term_months": 12,
+   "logbook_status": "pending_registration",
+   "logbook_updated_at": null,
+   "logbook_updated_by": null,
+   "model": "Mocoo EVS500",
+   "monthly_rate_pct": 28,
+   "ops_approved_at": "2026-09-09T13:52:48.014459+00:00",
+   "ops_approved_by": "fa74e773-643b-4b42-bf18-bfa2d338614a",
+   "plate_number": null,
+   "rejection_reason": null,
+   "sale_id": "a3228b88-6f28-459b-9ef4-48bfd11d3e44",
+   "status": "approved",
+   "tracking_reference": "SPB-3F429580",
+   "updated_at": "2026-11-03T17:00:00.660364+00:00",
+   "valuation_amount": 500000,
+   "wallet_recovery_rate": 0.15
+  },
+  {
+   "agent_id": "9188db01-e54a-4f84-8de9-042e6b5b6bd6",
+   "amount_outstanding": 1354476,
+   "amount_paid": 55524,
+   "battery_serial": null,
+   "brand": "Spiro",
+   "cfo_disbursed_at": "2026-09-17T10:51:56.974471+00:00",
+   "cfo_disbursed_by": "29a0cfa8-1eaf-453c-874c-0fc72fa4f74b",
+   "chassis_number": null,
+   "coo_approved_at": "2026-09-17T10:43:13.965035+00:00",
+   "coo_approved_by": "b4d7c324-1f7e-4e1c-91a8-3f0e10e0b25c",
+   "created_at": "2026-09-09T13:54:33.843734+00:00",
+   "disbursed_amount": 710000,
+   "gps_tracker_id": null,
+   "id": "65e30dcc-ecd0-4637-8dd1-623030dbc71b",
+   "lease_activated_at": "2026-09-17T10:51:56.974471+00:00",
+   "lease_term_months": 12,
+   "logbook_status": "pending_registration",
+   "logbook_updated_at": null,
+   "logbook_updated_by": null,
+   "model": "Mocoo EVS500",
+   "monthly_rate_pct": 28,
+   "ops_approved_at": "2026-09-09T14:07:18.908057+00:00",
+   "ops_approved_by": "99890a2e-b842-4d44-8516-e2eafe0711ff",
+   "plate_number": null,
+   "rejection_reason": null,
+   "sale_id": "a544f375-e454-4ed6-a794-81a500916c8a",
+   "status": "approved",
+   "tracking_reference": "SPB-141C9E02",
+   "updated_at": "2026-10-27T11:00:00.583537+00:00",
+   "valuation_amount": 500000,
+   "wallet_recovery_rate": 0.15
+  }
+ ],
+ "ddl": {
+  "agent_bike_lease_schedules": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "lease_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "version",
+    "d": "1",
+    "t": "integer"
+   },
+   {
+    "c": "installment_no",
+    "d": null,
+    "t": "integer"
+   },
+   {
+    "c": "due_date",
+    "d": null,
+    "t": "date"
+   },
+   {
+    "c": "opening_balance",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "principal_due",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "interest_due",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "installment_amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "closing_balance",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "monthly_rate_pct",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "created_by",
+    "d": null,
+    "t": "uuid"
+   }
+  ],
+  "agent_bike_leases": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "sale_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "agent_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "agent_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "agent_phone",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "brand",
+    "d": "'Spiro'::text",
+    "t": "text"
+   },
+   {
+    "c": "model",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "tracking_reference",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "valuation_amount",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "lease_term_months",
+    "d": "12",
+    "t": "integer"
+   },
+   {
+    "c": "monthly_rate_pct",
+    "d": "28",
+    "t": "numeric"
+   },
+   {
+    "c": "wallet_recovery_rate",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "amount_paid",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "amount_outstanding",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "status",
+    "d": "'submitted'::text",
+    "t": "text"
+   },
+   {
+    "c": "rejection_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "battery_serial",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "chassis_number",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "gps_tracker_id",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "plate_number",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "logbook_status",
+    "d": "'pending_registration'::text",
+    "t": "text"
+   },
+   {
+    "c": "logbook_updated_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "logbook_updated_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "ops_approved_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "coo_approved_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "cfo_disbursed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "lease_activated_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "disbursed_amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "ops_approved_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "ops_approved_by_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "coo_approved_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "coo_approved_by_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "cfo_disbursed_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "cfo_disbursed_by_name",
+    "d": null,
+    "t": "text"
+   }
+  ],
+  "audit_logs": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "action_type",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "table_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "record_id",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "metadata",
+    "d": "'{}'::jsonb",
+    "t": "jsonb"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "action",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "old_values",
+    "d": null,
+    "t": "jsonb"
+   },
+   {
+    "c": "new_values",
+    "d": null,
+    "t": "jsonb"
+   },
+   {
+    "c": "ip_address",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "user_agent",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "performed_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "actor_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "target_user_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "new_data",
+    "d": null,
+    "t": "jsonb"
+   },
+   {
+    "c": "details",
+    "d": null,
+    "t": "jsonb"
+   },
+   {
+    "c": "is_proxy",
+    "d": null,
+    "t": "boolean"
+   },
+   {
+    "c": "audit_reason",
+    "d": null,
+    "t": "text"
+   }
+  ],
+  "merchandise_recovery_deductions": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "plan_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "customer_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "item_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "withdrawable_before",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "outstanding_after",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "transaction_ref",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   }
+  ],
+  "system_events": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "event_type",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "related_entity_type",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "related_entity_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "metadata",
+    "d": "'{}'::jsonb",
+    "t": "jsonb"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "description",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "payload",
+    "d": null,
+    "t": "jsonb"
+   },
+   {
+    "c": "actor_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "subject_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "entity_type",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "entity_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "aggregate_type",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "aggregate_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "source",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "triggered_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "event_name",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "ip_address",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "user_agent",
+    "d": null,
+    "t": "text"
+   }
+  ]
+ }
+}
