@@ -14,7 +14,7 @@ const PATH = 'advances/0b6f1c2e-3d4a-4b5c-8d9e-0f1a2b3c4d5e/9e8d7c6b-5a4f-4e3d-8
 
 describe('isMissingServerFunction', () => {
   it('recognises a function that is not in this database yet (PostgREST or Postgres)', () => {
-    expect(isMissingServerFunction({ code: 'PGRST202', message: 'Could not find the function public.special_advance_list_corrections' })).toBe(true);
+    expect(isMissingServerFunction({ code: 'PGRST202', message: 'Could not find the function public.special_advance_record_correction' })).toBe(true);
     expect(isMissingServerFunction({ code: '42883', message: 'function does not exist' })).toBe(true);
     expect(isMissingServerFunction({ message: 'Could not find the function public.x(p_id) in the schema cache' })).toBe(true);
   });

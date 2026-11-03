@@ -8,10 +8,13 @@
 --       (never lower); it carries forward to later reviews until changed (0 = back to the minimum).
 --   D8  A24 stays the gross receivable. New contra-asset A25 'Special Advances — Impairment Allowance' (credit
 --       balance); the expense goes to the existing X4 'Credit Losses and Write-offs', identifiable by category.
---   Provisions: a CFO runs a review (the server computes every paid-out advance's required allowance on its gross
---       outstanding and proposes the difference); a DIFFERENT CFO approves before anything posts. On approval the
---       figures are recomputed and the review is refused as stale if anything moved.
---   D9  write-off: reason (20-1000 characters) + archived evidence file; a different CFO approves. The whole gross
+--   ONE step (CFO decision 2026-11-03, replacing the earlier request-then-approve design): Welile has one CFO, who
+--       posts a provision review or a write-off in a single authorised action (enabled CFO, aal2). There is no pending
+--       state, queue, approval, rejection or withdrawal; every record is append-only and written with its ledger group.
+--   Provisions: the CFO previews (the server computes every paid-out advance's required allowance on its gross
+--       outstanding and the difference to post) and posts; the figures are recomputed under lock when posting and,
+--       if the CFO's preview total no longer matches, nothing posts (PROVISION_REVIEW_STALE).
+--   D9  write-off: reason (20-1000 characters) + archived evidence file; posted by the CFO in one step. The whole gross
 --       outstanding (principal + unpaid fees) is written off; past revenue (R1) is left as reported. The advance ends
 --       'written_off' (terminal); its history stays.
 --   D10 money recovered after a write-off: DR A1 / CR X4, recorded by a CFO with reference + proof; the advance stays
@@ -50,10 +53,10 @@ BEGIN
     RAISE EXCEPTION 'precondition failed: Special Advances impairment objects already exist; nothing was changed';
   END IF;
   FOR r IN SELECT * FROM (VALUES
-      ('public._special_advance_guard_update()', '905973f98fe6440d21fd2edaa4591182'),
-      ('public._special_advance_audit()', 'c0cc409f070905a07ff19504b0f196ac'),
+      ('public._special_advance_guard_update()', '672ef52ded23fec4188352f970710f88'),
+      ('public._special_advance_audit()', 'd232dad990ab924d4c77ba0b277e69e4'),
       ('public._special_advance_check_proof(uuid,text)', 'd12aa37dc682ebe7f64b376e2255e263'),
-      ('public.special_advance_statement(uuid)', 'e46ad4cc6e46cf0ea723c705db429947'),
+      ('public.special_advance_statement(uuid)', 'bac2467b11f7438455d5965a8f7dacef'),
       ('public.special_advance_reconciliation()', '538f7ed60a247b1b7f2eda3d25dd5da7'),
       ('public._special_advance_eligibility(text,uuid,text,text,text,uuid)', 'c5d49dfa28e9c6fa5cf1c270a8547cb0'),
       ('public._special_advance_position(uuid)', 'c17b7e48f943731c5c5f8d29f3c2e9dc')) v(sig, md5)
@@ -152,9 +155,8 @@ ALTER TABLE public.special_advance_events
   DROP CONSTRAINT special_advance_events_event_type_check,
   ADD CONSTRAINT special_advance_events_event_type_check CHECK (event_type IN (
     'created', 'approved', 'rejected', 'cancelled', 'disbursed', 'settled', 'reopened', 'reversed',
-    'correction_requested', 'correction_approved', 'correction_rejected', 'correction_withdrawn',
-    'written_off', 'write_off_requested', 'write_off_approved', 'write_off_rejected', 'write_off_withdrawn',
-    'provision_posted', 'recovery_recorded'));
+    'correction_posted',
+    'written_off', 'write_off_posted', 'provision_posted', 'recovery_recorded'));
 
 -- ── Impairment helpers ─────────────────────────────────────────────────────────────────────────────
 -- D7 minimum rate (percent) for a number of days past due.
@@ -167,7 +169,7 @@ RETURNS numeric LANGUAGE sql IMMUTABLE SET search_path = public AS $$
               ELSE 100::numeric END;
 $$;
 
--- ── Provision reviews (maker-checker) ──────────────────────────────────────────────────────────────
+-- ── Provision reviews (posted in one step) ──────────────────────────────────────────────────────────────
 CREATE SEQUENCE public.special_advance_provision_seq START 1;
 CREATE SEQUENCE public.special_advance_write_off_seq START 1;
 
@@ -178,19 +180,9 @@ CREATE TABLE public.special_advance_provision_reviews (
   note text CHECK (note IS NULL OR length(btrim(note)) BETWEEN 5 AND 1000),
   total_delta bigint NOT NULL,
   idempotency_key text NOT NULL UNIQUE CHECK (length(idempotency_key) BETWEEN 16 AND 100),
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
-  requested_by uuid NOT NULL,
-  requested_at timestamptz NOT NULL DEFAULT now(),
-  decided_by uuid,
-  decided_at timestamptz,
-  decision_note text CHECK (decision_note IS NULL OR length(btrim(decision_note)) BETWEEN 5 AND 1000),
-  CONSTRAINT special_advance_provision_reviews_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
-  CONSTRAINT special_advance_provision_reviews_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  CONSTRAINT special_advance_provision_reviews_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
-  CONSTRAINT special_advance_provision_reviews_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
+  recorded_by uuid NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now()
 );
--- one review awaiting a decision at a time
-CREATE UNIQUE INDEX special_advance_provision_reviews_one_pending ON public.special_advance_provision_reviews ((true)) WHERE status = 'pending';
 
 CREATE TABLE public.special_advance_provision_lines (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -206,12 +198,13 @@ CREATE TABLE public.special_advance_provision_lines (
   delta bigint NOT NULL,
   ledger_group_id uuid,
   CONSTRAINT special_advance_provision_lines_delta CHECK (delta = required_allowance - held_before),
+  CONSTRAINT special_advance_provision_lines_posted CHECK ((delta = 0) = (ledger_group_id IS NULL)),
   CONSTRAINT special_advance_provision_lines_rate CHECK (applied_rate = GREATEST(minimum_rate, COALESCE(individual_rate, 0))),
   UNIQUE (review_id, advance_id)
 );
 CREATE INDEX special_advance_provision_lines_advance_idx ON public.special_advance_provision_lines (advance_id);
 
--- ── Write-offs (maker-checker) and recoveries ──────────────────────────────────────────────────────
+-- ── Write-offs (posted in one step) and recoveries ──────────────────────────────────────────────────────
 CREATE TABLE public.special_advance_write_offs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   reference text NOT NULL UNIQUE CHECK (reference ~ '^SAW-[0-9]{6,}$'),
@@ -223,20 +216,12 @@ CREATE TABLE public.special_advance_write_offs (
   reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 20 AND 1000),
   proof_path text NOT NULL UNIQUE CHECK (proof_path ~ '^advances/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'),
   idempotency_key text NOT NULL UNIQUE CHECK (length(idempotency_key) BETWEEN 16 AND 100),
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
-  requested_by uuid NOT NULL,
-  requested_at timestamptz NOT NULL DEFAULT now(),
-  decided_by uuid,
-  decided_at timestamptz,
-  decision_note text CHECK (decision_note IS NULL OR length(btrim(decision_note)) BETWEEN 5 AND 1000),
-  ledger_group_id uuid,
-  CONSTRAINT special_advance_write_offs_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
-  CONSTRAINT special_advance_write_offs_posted CHECK ((status = 'approved') = (ledger_group_id IS NOT NULL)),
-  CONSTRAINT special_advance_write_offs_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  CONSTRAINT special_advance_write_offs_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
-  CONSTRAINT special_advance_write_offs_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
+  ledger_group_id uuid NOT NULL,
+  recorded_by uuid NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE UNIQUE INDEX special_advance_write_offs_one_open ON public.special_advance_write_offs (advance_id) WHERE status IN ('pending', 'approved');
+-- a written-off advance is terminal: one write-off per advance
+CREATE UNIQUE INDEX special_advance_write_offs_one_per_advance ON public.special_advance_write_offs (advance_id);
 
 CREATE TABLE public.special_advance_recoveries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -255,59 +240,14 @@ CREATE TABLE public.special_advance_recoveries (
 CREATE UNIQUE INDEX special_advance_recoveries_reference_uq ON public.special_advance_recoveries (method, upper(btrim(reference)));
 CREATE INDEX special_advance_recoveries_advance_idx ON public.special_advance_recoveries (advance_id);
 
--- Guards: requests start pending and are decided once; posted figures never change; nothing is deleted.
-CREATE FUNCTION public._special_advance_guard_decided()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
-DECLARE
-  o jsonb;
-  n jsonb;
-  k text;
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION '% rows cannot be %d', TG_TABLE_NAME, lower(TG_OP) USING ERRCODE = '42501';
-  END IF;
-  n := to_jsonb(NEW);
-  IF TG_OP = 'INSERT' THEN
-    IF n ->> 'status' <> 'pending' OR n ->> 'decided_by' IS NOT NULL OR n ->> 'decided_at' IS NOT NULL
-       OR n ->> 'decision_note' IS NOT NULL OR n ->> 'ledger_group_id' IS NOT NULL THEN
-      RAISE EXCEPTION 'SPECIAL_ADVANCE_REQUEST_MUST_START_PENDING' USING ERRCODE = '42501';
-    END IF;
-    RETURN NEW;
-  END IF;
-  o := to_jsonb(OLD);
-  IF o ->> 'status' <> 'pending' OR n ->> 'status' = 'pending' THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_REQUEST_IMMUTABLE' USING ERRCODE = '42501';
-  END IF;
-  -- only the decision fields may change, in the one decision
-  FOREACH k IN ARRAY ARRAY(SELECT jsonb_object_keys(o)) LOOP
-    IF k NOT IN ('status', 'decided_by', 'decided_at', 'decision_note', 'ledger_group_id') AND (o -> k) IS DISTINCT FROM (n -> k) THEN
-      RAISE EXCEPTION 'SPECIAL_ADVANCE_REQUEST_IMMUTABLE' USING ERRCODE = '42501', DETAIL = k;
-    END IF;
-  END LOOP;
-  IF n ->> 'status' IN ('approved', 'rejected') AND NOT public._has_enabled_role((n ->> 'decided_by')::uuid, ARRAY['cfo']) THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_APPROVER_NOT_CFO' USING ERRCODE = '42501';
-  END IF;
-  RETURN NEW;
-END $$;
+-- Guards: every record is written once, with its posting, by an enabled CFO; posted figures never change; nothing is
+-- deleted (_special_advance_guard_posted is Phase B's; provision lines and recoveries are append-only).
 CREATE TRIGGER special_advance_provision_reviews_guard BEFORE INSERT OR UPDATE OR DELETE ON public.special_advance_provision_reviews
-  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_decided();
+  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_posted();
 CREATE TRIGGER special_advance_write_offs_guard BEFORE INSERT OR UPDATE OR DELETE ON public.special_advance_write_offs
-  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_decided();
-
--- Provision lines: written with their review; the ledger group is stamped once, when the review is approved.
-CREATE FUNCTION public._special_advance_guard_provision_line()
-RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
-BEGIN
-  IF TG_OP = 'UPDATE'
-     AND OLD.ledger_group_id IS NULL AND NEW.ledger_group_id IS NOT NULL AND OLD.delta <> 0
-     AND (to_jsonb(NEW) - 'ledger_group_id') = (to_jsonb(OLD) - 'ledger_group_id')
-     AND EXISTS (SELECT 1 FROM public.special_advance_provision_reviews v WHERE v.id = OLD.review_id AND v.status = 'approved') THEN
-    RETURN NEW;
-  END IF;
-  RAISE EXCEPTION '% rows cannot be %d', TG_TABLE_NAME, lower(TG_OP) USING ERRCODE = '42501';
-END $$;
-CREATE TRIGGER special_advance_provision_lines_guard BEFORE UPDATE OR DELETE ON public.special_advance_provision_lines
-  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_provision_line();
+  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_posted();
+CREATE TRIGGER special_advance_provision_lines_append_only BEFORE UPDATE OR DELETE ON public.special_advance_provision_lines
+  FOR EACH ROW EXECUTE FUNCTION public._special_advance_block_mutation();
 CREATE TRIGGER special_advance_recoveries_append_only BEFORE UPDATE OR DELETE ON public.special_advance_recoveries
   FOR EACH ROW EXECUTE FUNCTION public._special_advance_block_mutation();
 
@@ -341,18 +281,15 @@ CREATE POLICY mfa_required_for_staff ON public.special_advance_recoveries AS RES
   USING ((select public.staff_mfa_ok())) WITH CHECK ((select public.staff_mfa_ok()));
 
 -- ── Allowance held and required, per advance ──────────────────────────────────────────────────────
--- Held = approved provision movements - allowance released by an approved write-off (the subledger of A25).
+-- Held = posted provision movements - allowance released by write-offs (the subledger of A25).
 CREATE FUNCTION public._special_advance_allowance_held(p_id uuid)
 RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT (COALESCE((SELECT sum(l.delta) FROM public.special_advance_provision_lines l
-                      JOIN public.special_advance_provision_reviews v ON v.id = l.review_id AND v.status = 'approved'
-                     WHERE l.advance_id = p_id), 0)
-        - COALESCE((SELECT sum(w.allowance_released) FROM public.special_advance_write_offs w
-                     WHERE w.advance_id = p_id AND w.status = 'approved'), 0))::bigint;
+  SELECT (COALESCE((SELECT sum(l.delta) FROM public.special_advance_provision_lines l WHERE l.advance_id = p_id), 0)
+        - COALESCE((SELECT sum(w.allowance_released) FROM public.special_advance_write_offs w WHERE w.advance_id = p_id), 0))::bigint;
 $$;
 
 -- What the allowance should be for one advance: on the gross outstanding of a paid-out (disbursed) advance, the higher
--- of the D7 minimum and the individual rate (p_individual; NULL = carry forward the last approved one). Settled,
+-- of the D7 minimum and the individual rate (p_individual; NULL = carry forward the last posted one). Settled,
 -- reversed and written-off advances need none.
 CREATE FUNCTION public._special_advance_provision_line(p_id uuid, p_individual numeric)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -367,12 +304,12 @@ DECLARE
   v_held bigint := public._special_advance_allowance_held(p_id);
   v_req bigint := 0;
 BEGIN
-  IF v_ind IS NULL THEN  -- carry forward the individual rate of the latest approved review that set one
+  IF v_ind IS NULL THEN  -- carry forward the individual rate of the latest posted review that included this advance
     SELECT l.individual_rate INTO v_ind
       FROM public.special_advance_provision_lines l
-      JOIN public.special_advance_provision_reviews v ON v.id = l.review_id AND v.status = 'approved'
+      JOIN public.special_advance_provision_reviews v ON v.id = l.review_id
      WHERE l.advance_id = p_id
-     ORDER BY v.decided_at DESC LIMIT 1;
+     ORDER BY v.recorded_at DESC, v.reference DESC LIMIT 1;
   END IF;
   IF v_ind = 0 THEN v_ind := NULL; END IF;
   IF v_status = 'disbursed' THEN
@@ -429,7 +366,7 @@ BEGIN
   RETURN v;
 END $$;
 
--- ── Replaced: status edge disbursed -> written_off (only inside an approved write-off) ─────────────
+-- ── Replaced: status edge disbursed -> written_off (only inside a posted write-off) ─────────────
 CREATE OR REPLACE FUNCTION public._special_advance_guard_update()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE
@@ -475,7 +412,7 @@ BEGIN
      AND v_edge <> 'approved>disbursed' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'payout';
   END IF;
-  -- settled_at is set on settlement and cleared only when an approved repayment reversal reopens the advance
+  -- settled_at is set on settlement and cleared only when a posted repayment reversal reopens the advance
   IF NEW.settled_at IS DISTINCT FROM OLD.settled_at
      AND NOT (v_edge = 'disbursed>settled' OR (v_edge = 'settled>disbursed' AND NEW.settled_at IS NULL)) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'settlement';
@@ -488,12 +425,12 @@ BEGIN
   IF v_edge = 'pending_approval>approved' AND NOT public._has_enabled_role(NEW.approved_by, ARRAY['cfo']) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_APPROVER_NOT_CFO' USING ERRCODE = '42501';
   END IF;
-  -- the two correction edges happen only inside an approved correction (special_advance_decide_correction)
+  -- the two correction edges happen only inside a posted correction (special_advance_record_correction)
   IF v_edge IN ('settled>disbursed', 'disbursed>reversed')
      AND COALESCE(current_setting('special_advance.correction', true), '') = '' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_TRANSITION' USING ERRCODE = '42501', DETAIL = v_edge;
   END IF;
-  -- a write-off happens only inside an approved write-off (special_advance_decide_write_off)
+  -- a write-off happens only inside a posted write-off (special_advance_write_off)
   IF v_edge = 'disbursed>written_off' AND COALESCE(current_setting('special_advance.write_off', true), '') = '' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_TRANSITION' USING ERRCODE = '42501', DETAIL = v_edge;
   END IF;
@@ -519,7 +456,7 @@ BEGIN
     VALUES (NEW.id, 'written_off', OLD.status, NEW.status, COALESCE(auth.uid(), NEW.approved_by),
             jsonb_build_object('write_off', NULLIF(current_setting('special_advance.write_off', true), '')));
   ELSIF NEW.status IS DISTINCT FROM OLD.status AND (OLD.status = 'settled' OR NEW.status = 'reversed') THEN
-    -- correction transitions: the actor is the approving CFO; the correction is named in the details
+    -- correction transitions: the actor is the CFO who posted it; the correction is named in the details
     INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, details)
     VALUES (NEW.id, CASE WHEN NEW.status = 'reversed' THEN 'reversed' ELSE 'reopened' END, OLD.status, NEW.status,
             COALESCE(auth.uid(), NEW.approved_by),
@@ -621,7 +558,7 @@ BEGIN
   RETURN v;
 END $$;
 
--- ── Provision review: preview, request (maker), decide (checker) ──────────────────────────────────
+-- ── Provision review: preview, then post (one step) ──────────────────────────────────
 -- p_request: {individual_rates: {<advance id>: <percent>}} (optional). Read-only.
 CREATE FUNCTION public.special_advance_provision_preview(p_request jsonb DEFAULT '{}'::jsonb)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -638,28 +575,40 @@ END $$;
 CREATE FUNCTION public._special_advance_provision_review_json(p_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT to_jsonb(v) || jsonb_build_object(
-    'requested_by_name', NULLIF(btrim(rp.full_name), ''), 'decided_by_name', NULLIF(btrim(dp.full_name), ''),
+    'recorded_by_name', NULLIF(btrim(rp.full_name), ''),
     'lines', COALESCE((SELECT jsonb_agg(to_jsonb(l) || jsonb_build_object('reference', s.reference) ORDER BY s.reference)
                          FROM public.special_advance_provision_lines l JOIN public.special_advances s ON s.id = l.advance_id
                         WHERE l.review_id = v.id), '[]'::jsonb))
     FROM public.special_advance_provision_reviews v
-    LEFT JOIN public.profiles rp ON rp.id = v.requested_by
-    LEFT JOIN public.profiles dp ON dp.id = v.decided_by
+    LEFT JOIN public.profiles rp ON rp.id = v.recorded_by
    WHERE v.id = p_id;
 $$;
 
--- p_request: {individual_rates, note, idempotency_key}. Records a pending review with its lines; posts nothing.
-CREATE FUNCTION public.special_advance_request_provision_review(p_request jsonb)
+-- p_request: {individual_rates, note, idempotency_key, expected_total_delta}. The CFO's one authorised action (decision
+-- 2026-11-03): locks the advances, computes every line now and posts each non-zero line at once (key
+-- 'special_advance:provision:<line id>'), writing the append-only review and its lines in the same transaction.
+-- expected_total_delta (optional, from the preview the CFO saw): if the figures moved since, nothing posts
+-- (PROVISION_REVIEW_STALE) and the CFO previews again. A retry with the same key returns the posted review.
+CREATE FUNCTION public.special_advance_post_provision_review(p_request jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_actor uuid := public._special_advance_require_cfo();
   v_key text := btrim(COALESCE(p_request ->> 'idempotency_key', ''));
   v_note text := public._special_advance_reason(p_request ->> 'note', false);
   v_rates jsonb := COALESCE(p_request -> 'individual_rates', '{}'::jsonb);
+  v_expected text := NULLIF(btrim(COALESCE(p_request ->> 'expected_total_delta', '')), '');
   e public.special_advance_provision_reviews%ROWTYPE;
   v_lines jsonb;
+  v_total bigint;
   l jsonb;
+  s public.special_advances%ROWTYPE;
   v_id uuid := gen_random_uuid();
+  v_ref text;
+  v_line uuid;
+  v_delta bigint;
+  v_today date := public._special_advance_kampala_today();
+  v_src jsonb;
+  v_group uuid;
 BEGIN
   PERFORM public._special_advance_require_mfa();
   IF length(v_key) NOT BETWEEN 16 AND 100 THEN
@@ -668,161 +617,122 @@ BEGIN
   IF jsonb_typeof(v_rates) <> 'object' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["individual_rates"]';
   END IF;
+  IF v_expected IS NOT NULL AND v_expected !~ '^-?[0-9]{1,15}$' THEN
+    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["expected_total_delta"]';
+  END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('special_advance:provision_review', 0));
   SELECT * INTO e FROM public.special_advance_provision_reviews WHERE idempotency_key = v_key;
   IF e.id IS NOT NULL THEN
-    IF e.requested_by = v_actor AND e.note IS NOT DISTINCT FROM v_note THEN
+    IF e.recorded_by = v_actor AND e.note IS NOT DISTINCT FROM v_note THEN
       RETURN public._special_advance_provision_review_json(e.id) || jsonb_build_object('replayed', true);
     END IF;
     RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT' USING ERRCODE = '23505';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.special_advance_provision_reviews WHERE status = 'pending') THEN
-    RAISE EXCEPTION 'PROVISION_REVIEW_ALREADY_PENDING' USING ERRCODE = '23505';
-  END IF;
+
+  -- lock every advance a review can touch (in a fixed order), then compute against the records as they are now
+  PERFORM 1 FROM public.special_advances a
+    WHERE a.status = 'disbursed' OR public._special_advance_allowance_held(a.id) <> 0
+    ORDER BY a.id FOR UPDATE;
   v_lines := public._special_advance_provision_proposal(v_rates);
   IF jsonb_array_length(v_lines) = 0 THEN
     RAISE EXCEPTION 'NOTHING_TO_PROVISION' USING ERRCODE = '22023',
       DETAIL = 'Every allowance already matches what is required';
   END IF;
-  INSERT INTO public.special_advance_provision_reviews (id, reference, as_of_date, note, total_delta, idempotency_key, requested_by)
-  VALUES (v_id, 'SAP-' || lpad(nextval('public.special_advance_provision_seq')::text, 6, '0'), public._special_advance_kampala_today(),
-          v_note, (SELECT sum((x ->> 'delta')::bigint) FROM jsonb_array_elements(v_lines) x), v_key, v_actor);
-  FOR l IN SELECT * FROM jsonb_array_elements(v_lines) LOOP
-    INSERT INTO public.special_advance_provision_lines (review_id, advance_id, gross_outstanding, days_past_due, minimum_rate,
-                                                        individual_rate, applied_rate, required_allowance, held_before, delta)
-    VALUES (v_id, (l ->> 'advance_id')::uuid, (l ->> 'gross_outstanding')::bigint, (l ->> 'days_past_due')::int,
+  v_total := (SELECT sum((x ->> 'delta')::bigint) FROM jsonb_array_elements(v_lines) x);
+  IF v_expected IS NOT NULL AND v_expected::bigint <> v_total THEN
+    RAISE EXCEPTION 'PROVISION_REVIEW_STALE' USING ERRCODE = '40001',
+      DETAIL = jsonb_build_object('expected_total_delta', v_expected::bigint, 'total_delta', v_total)::text;
+  END IF;
+
+  v_ref := 'SAP-' || lpad(nextval('public.special_advance_provision_seq')::text, 6, '0');
+  INSERT INTO public.special_advance_provision_reviews (id, reference, as_of_date, note, total_delta, idempotency_key, recorded_by)
+  VALUES (v_id, v_ref, v_today, v_note, v_total, v_key, v_actor);
+  FOR l IN SELECT * FROM jsonb_array_elements(v_lines) ORDER BY (value ->> 'advance_id') LOOP
+    v_line := gen_random_uuid();
+    v_delta := (l ->> 'delta')::bigint;
+    v_group := NULL;
+    SELECT * INTO s FROM public.special_advances WHERE id = (l ->> 'advance_id')::uuid;
+    IF v_delta <> 0 THEN
+      v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_provision_lines', 'source_id', v_line,
+                                  'reference_id', s.reference, 'currency', 'UGX', 'amount', abs(v_delta),
+                                  'transaction_date', (v_today::timestamp AT TIME ZONE 'Africa/Kampala'));
+      v_group := public.create_ledger_transaction(jsonb_build_array(
+        v_src || jsonb_build_object('category', 'special_advance_impairment_charge',
+                                    'direction', CASE WHEN v_delta > 0 THEN 'cash_out' ELSE 'cash_in' END,
+                                    'description', format('Special Advance %s impairment %s (%s, %s%% of UGX %s, %s days past due)', s.reference,
+                                                          CASE WHEN v_delta > 0 THEN 'raised' ELSE 'released' END, v_ref,
+                                                          (l ->> 'applied_rate')::numeric, (l ->> 'gross_outstanding')::bigint,
+                                                          (l ->> 'days_past_due')::int)),
+        v_src || jsonb_build_object('category', 'special_advance_impairment_allowance',
+                                    'direction', CASE WHEN v_delta > 0 THEN 'cash_in' ELSE 'cash_out' END,
+                                    'description', format('Special Advance %s impairment allowance %s (%s)', s.reference,
+                                                          CASE WHEN v_delta > 0 THEN 'increased' ELSE 'reduced' END, v_ref))),
+        'special_advance:provision:' || v_line::text, false);
+    END IF;
+    INSERT INTO public.special_advance_provision_lines (id, review_id, advance_id, gross_outstanding, days_past_due, minimum_rate,
+                                                        individual_rate, applied_rate, required_allowance, held_before, delta,
+                                                        ledger_group_id)
+    VALUES (v_line, v_id, s.id, (l ->> 'gross_outstanding')::bigint, (l ->> 'days_past_due')::int,
             (l ->> 'minimum_rate')::numeric, (l ->> 'individual_rate')::numeric, (l ->> 'applied_rate')::numeric,
-            (l ->> 'required_allowance')::bigint, (l ->> 'held_before')::bigint, (l ->> 'delta')::bigint);
+            (l ->> 'required_allowance')::bigint, (l ->> 'held_before')::bigint, v_delta, v_group);
+    IF v_delta <> 0 THEN
+      INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
+      VALUES (s.id, 'provision_posted', s.status, s.status, v_actor, v_note,
+              jsonb_build_object('review', v_ref, 'delta', v_delta, 'required_allowance', (l ->> 'required_allowance')::bigint,
+                                 'applied_rate', (l ->> 'applied_rate')::numeric, 'days_past_due', (l ->> 'days_past_due')::int,
+                                 'ledger_group_id', v_group));
+    END IF;
   END LOOP;
   RETURN public._special_advance_provision_review_json(v_id) || jsonb_build_object('replayed', false);
 END $$;
 
--- p_decision: 'approve' | 'reject' (a different enabled CFO; rejection needs a note) | 'withdraw' (the requester).
--- Approval recomputes every line; if any figure moved since the request the review is refused as stale (reject or
--- withdraw it and request a new one). Each non-zero line posts once (key 'special_advance:provision:<line id>').
-CREATE FUNCTION public.special_advance_decide_provision_review(p_review_id uuid, p_decision text, p_note text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_actor uuid := public._special_advance_require_cfo();
-  v_note text := public._special_advance_reason(p_note, p_decision = 'reject');
-  v public.special_advance_provision_reviews%ROWTYPE;
-  v_target text := CASE p_decision WHEN 'approve' THEN 'approved' WHEN 'reject' THEN 'rejected' WHEN 'withdraw' THEN 'withdrawn' END;
-  ln public.special_advance_provision_lines%ROWTYPE;
-  l jsonb;
-  s public.special_advances%ROWTYPE;
-  v_today date := public._special_advance_kampala_today();
-  v_src jsonb;
-  v_amt bigint;
-  v_group uuid;
-BEGIN
-  PERFORM public._special_advance_require_mfa();
-  IF v_target IS NULL THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["decision"]';
-  END IF;
-  SELECT * INTO v FROM public.special_advance_provision_reviews WHERE id = p_review_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'PROVISION_REVIEW_NOT_FOUND' USING ERRCODE = 'P0002';
-  END IF;
-  IF v.status <> 'pending' THEN
-    IF v.status = v_target AND v.decided_by = v_actor THEN
-      RETURN public._special_advance_provision_review_json(v.id) || jsonb_build_object('replayed', true);
-    END IF;
-    RAISE EXCEPTION 'PROVISION_REVIEW_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = v.status;
-  END IF;
-  IF p_decision = 'withdraw' THEN
-    IF v.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF v.requested_by = v_actor THEN
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a provision review you requested';
-  END IF;
-  IF p_decision IN ('reject', 'withdraw') THEN
-    UPDATE public.special_advance_provision_reviews
-       SET status = v_target, decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note WHERE id = v.id;
-    RETURN public._special_advance_provision_review_json(v.id) || jsonb_build_object('replayed', false);
-  END IF;
-
-  -- approve: lock the advances (in a fixed order), then every line must still be exactly right
-  PERFORM 1 FROM public.special_advances a
-    WHERE a.id IN (SELECT advance_id FROM public.special_advance_provision_lines WHERE review_id = v.id)
-    ORDER BY a.id FOR UPDATE;
-  FOR ln IN SELECT * FROM public.special_advance_provision_lines WHERE review_id = v.id ORDER BY advance_id LOOP
-    l := public._special_advance_provision_line(ln.advance_id, COALESCE(ln.individual_rate, 0));
-    IF (l ->> 'gross_outstanding')::bigint <> ln.gross_outstanding OR (l ->> 'required_allowance')::bigint <> ln.required_allowance
-       OR (l ->> 'held_before')::bigint <> ln.held_before THEN
-      RAISE EXCEPTION 'PROVISION_REVIEW_STALE' USING ERRCODE = '40001',
-        DETAIL = jsonb_build_object('advance_id', ln.advance_id, 'now', l)::text;
-    END IF;
-  END LOOP;
-  IF EXISTS (SELECT 1 FROM jsonb_array_elements(public._special_advance_provision_proposal('{}'::jsonb)) x
-              WHERE (x ->> 'delta')::bigint <> 0
-                AND NOT EXISTS (SELECT 1 FROM public.special_advance_provision_lines z WHERE z.review_id = v.id AND z.advance_id = (x ->> 'advance_id')::uuid)) THEN
-    RAISE EXCEPTION 'PROVISION_REVIEW_STALE' USING ERRCODE = '40001', DETAIL = 'Another advance now needs a provision change';
-  END IF;
-
-  UPDATE public.special_advance_provision_reviews
-     SET status = 'approved', decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note WHERE id = v.id;
-  FOR ln IN SELECT * FROM public.special_advance_provision_lines WHERE review_id = v.id AND delta <> 0 ORDER BY advance_id LOOP
-    SELECT * INTO s FROM public.special_advances WHERE id = ln.advance_id;
-    v_amt := abs(ln.delta);
-    v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_provision_lines', 'source_id', ln.id,
-                                'reference_id', s.reference, 'currency', 'UGX', 'amount', v_amt,
-                                'transaction_date', (v_today::timestamp AT TIME ZONE 'Africa/Kampala'));
-    v_group := public.create_ledger_transaction(jsonb_build_array(
-      v_src || jsonb_build_object('category', 'special_advance_impairment_charge',
-                                  'direction', CASE WHEN ln.delta > 0 THEN 'cash_out' ELSE 'cash_in' END,
-                                  'description', format('Special Advance %s impairment %s (%s, %s%% of UGX %s, %s days past due)', s.reference,
-                                                        CASE WHEN ln.delta > 0 THEN 'raised' ELSE 'released' END, v.reference,
-                                                        ln.applied_rate, ln.gross_outstanding, ln.days_past_due)),
-      v_src || jsonb_build_object('category', 'special_advance_impairment_allowance',
-                                  'direction', CASE WHEN ln.delta > 0 THEN 'cash_in' ELSE 'cash_out' END,
-                                  'description', format('Special Advance %s impairment allowance %s (%s)', s.reference,
-                                                        CASE WHEN ln.delta > 0 THEN 'increased' ELSE 'reduced' END, v.reference))),
-      'special_advance:provision:' || ln.id::text, false);
-    UPDATE public.special_advance_provision_lines SET ledger_group_id = v_group WHERE id = ln.id;
-    INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-    VALUES (s.id, 'provision_posted', s.status, s.status, v_actor, v_note,
-            jsonb_build_object('review', v.reference, 'delta', ln.delta, 'required_allowance', ln.required_allowance,
-                               'applied_rate', ln.applied_rate, 'days_past_due', ln.days_past_due, 'ledger_group_id', v_group));
-  END LOOP;
-  RETURN public._special_advance_provision_review_json(v.id) || jsonb_build_object('replayed', false);
-END $$;
-
--- ── Write-off: request (maker), decide (checker) ───────────────────────────────────────────────────
+-- ── Write-off (one step) ───────────────────────────────────────────────────
 CREATE FUNCTION public._special_advance_write_off_json(p_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT to_jsonb(w) || jsonb_build_object('advance_reference', a.reference,
-    'requested_by_name', NULLIF(btrim(rp.full_name), ''), 'decided_by_name', NULLIF(btrim(dp.full_name), ''))
+    'recorded_by_name', NULLIF(btrim(rp.full_name), ''))
     FROM public.special_advance_write_offs w
     JOIN public.special_advances a ON a.id = w.advance_id
-    LEFT JOIN public.profiles rp ON rp.id = w.requested_by
-    LEFT JOIN public.profiles dp ON dp.id = w.decided_by
+    LEFT JOIN public.profiles rp ON rp.id = w.recorded_by
    WHERE w.id = p_id;
 $$;
 
--- p_request: {reason, proof_path, idempotency_key}. Records a pending write-off of the whole gross outstanding.
-CREATE FUNCTION public.special_advance_request_write_off(p_id uuid, p_request jsonb)
+-- p_request: {reason, proof_path, idempotency_key, expected_gross_amount}. The CFO's one authorised action (decision
+-- 2026-11-03): writes off the whole gross outstanding now, using the allowance held, posts once (key
+-- 'special_advance:write_off:<id>') and writes the append-only record, all in one transaction. expected_gross_amount
+-- (optional, the balance the CFO saw): if the balance moved since, nothing posts (WRITE_OFF_STALE).
+CREATE FUNCTION public.special_advance_write_off(p_id uuid, p_request jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_actor uuid := public._special_advance_require_cfo();
   v_key text := btrim(COALESCE(p_request ->> 'idempotency_key', ''));
   v_reason text := NULLIF(btrim(COALESCE(p_request ->> 'reason', '')), '');
   v_proof text := NULLIF(btrim(COALESCE(p_request ->> 'proof_path', '')), '');
+  v_expected text := NULLIF(btrim(COALESCE(p_request ->> 'expected_gross_amount', '')), '');
   a public.special_advances%ROWTYPE;
   e public.special_advance_write_offs%ROWTYPE;
   v_gross bigint;
   v_held bigint;
+  v_net bigint;
   v_id uuid := gen_random_uuid();
+  v_ref text;
+  v_today date := public._special_advance_kampala_today();
+  v_src jsonb;
+  v_legs jsonb;
+  v_desc text;
+  v_group uuid;
 BEGIN
   PERFORM public._special_advance_require_mfa();
   IF length(v_key) NOT BETWEEN 16 AND 100 THEN
     RAISE EXCEPTION 'IDEMPOTENCY_KEY_REQUIRED' USING ERRCODE = '22023';
   END IF;
+  IF v_expected IS NOT NULL AND v_expected !~ '^[0-9]{1,15}$' THEN
+    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["expected_gross_amount"]';
+  END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('special_advance:write_off:' || v_key, 0));
   SELECT * INTO e FROM public.special_advance_write_offs WHERE idempotency_key = v_key;
   IF e.id IS NOT NULL THEN
-    IF e.advance_id = p_id AND e.requested_by = v_actor AND e.proof_path = v_proof AND e.reason = v_reason THEN
+    IF e.advance_id = p_id AND e.recorded_by = v_actor AND e.proof_path = v_proof AND e.reason = v_reason THEN
       RETURN public._special_advance_write_off_json(e.id) || jsonb_build_object('replayed', true);
     END IF;
     RAISE EXCEPTION 'IDEMPOTENCY_CONFLICT' USING ERRCODE = '23505';
@@ -831,127 +741,59 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_FOUND' USING ERRCODE = 'P0002';
   END IF;
+  IF a.borrower_user_id = v_actor THEN
+    RAISE EXCEPTION 'SELF_ADVANCE' USING ERRCODE = '42501';
+  END IF;
   IF v_reason IS NULL OR length(v_reason) NOT BETWEEN 20 AND 1000 THEN
     RAISE EXCEPTION 'REASON_REQUIRED' USING ERRCODE = '22023', DETAIL = 'Explain the write-off in 20 to 1000 characters';
   END IF;
   IF a.status <> 'disbursed' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_WRITABLE_OFF' USING ERRCODE = '22023', DETAIL = a.status;
   END IF;
-  IF EXISTS (SELECT 1 FROM public.special_advance_write_offs w WHERE w.advance_id = a.id AND w.status = 'pending') THEN
-    RAISE EXCEPTION 'WRITE_OFF_ALREADY_PENDING' USING ERRCODE = '23505';
-  END IF;
-  IF EXISTS (SELECT 1 FROM public.special_advance_corrections c WHERE c.advance_id = a.id AND c.status = 'pending') THEN
-    RAISE EXCEPTION 'CORRECTION_ALREADY_PENDING' USING ERRCODE = '23505';
-  END IF;
   v_gross := (public._special_advance_position(a.id) ->> 'outstanding')::bigint;
   v_held := public._special_advance_allowance_held(a.id);
   IF v_gross <= 0 THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_WRITABLE_OFF' USING ERRCODE = '22023', DETAIL = 'nothing outstanding';
   END IF;
-  v_proof := public._special_advance_check_proof(a.id, v_proof);  -- D9: the evidence that the balance cannot be collected
-  INSERT INTO public.special_advance_write_offs (id, reference, advance_id, gross_amount, allowance_released, net_loss, reason,
-                                                 proof_path, idempotency_key, requested_by)
-  VALUES (v_id, 'SAW-' || lpad(nextval('public.special_advance_write_off_seq')::text, 6, '0'), a.id, v_gross, v_held,
-          v_gross - v_held, v_reason, v_proof, v_key, v_actor);
-  INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-  VALUES (a.id, 'write_off_requested', a.status, a.status, v_actor, v_reason,
-          jsonb_build_object('write_off_id', v_id, 'gross_amount', v_gross, 'allowance_held', v_held));
-  RETURN public._special_advance_write_off_json(v_id) || jsonb_build_object('replayed', false);
-END $$;
-
-CREATE FUNCTION public.special_advance_decide_write_off(p_write_off_id uuid, p_decision text, p_note text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_actor uuid := public._special_advance_require_cfo();
-  v_note text := public._special_advance_reason(p_note, p_decision = 'reject');
-  w public.special_advance_write_offs%ROWTYPE;
-  a public.special_advances%ROWTYPE;
-  v_target text := CASE p_decision WHEN 'approve' THEN 'approved' WHEN 'reject' THEN 'rejected' WHEN 'withdraw' THEN 'withdrawn' END;
-  v_today date := public._special_advance_kampala_today();
-  v_src jsonb;
-  v_legs jsonb;
-  v_desc text;
-  v_group uuid;
-BEGIN
-  PERFORM public._special_advance_require_mfa();
-  IF v_target IS NULL THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["decision"]';
-  END IF;
-  SELECT * INTO w FROM public.special_advance_write_offs WHERE id = p_write_off_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'WRITE_OFF_NOT_FOUND' USING ERRCODE = 'P0002';
-  END IF;
-  IF w.status <> 'pending' THEN
-    IF w.status = v_target AND w.decided_by = v_actor THEN
-      RETURN public._special_advance_write_off_json(w.id) || jsonb_build_object('replayed', true);
-    END IF;
-    RAISE EXCEPTION 'WRITE_OFF_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = w.status;
-  END IF;
-  IF p_decision = 'withdraw' THEN
-    IF w.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF w.requested_by = v_actor THEN  -- D9 maker-checker
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a write-off you requested';
-  END IF;
-  IF p_decision IN ('reject', 'withdraw') THEN
-    UPDATE public.special_advance_write_offs
-       SET status = v_target, decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note WHERE id = w.id;
-    INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-    SELECT w.advance_id, 'write_off_' || v_target, s.status, s.status, v_actor, v_note, jsonb_build_object('write_off_id', w.id)
-      FROM public.special_advances s WHERE s.id = w.advance_id;
-    RETURN public._special_advance_write_off_json(w.id) || jsonb_build_object('replayed', false);
-  END IF;
-
-  -- approve: the balance and the allowance must still be what was requested
-  SELECT * INTO a FROM public.special_advances WHERE id = w.advance_id FOR UPDATE;
-  IF a.borrower_user_id = v_actor THEN
-    RAISE EXCEPTION 'SELF_ADVANCE' USING ERRCODE = '42501';
-  END IF;
-  IF a.status <> 'disbursed' THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_WRITABLE_OFF' USING ERRCODE = '22023', DETAIL = a.status;
-  END IF;
-  IF EXISTS (SELECT 1 FROM public.special_advance_corrections c WHERE c.advance_id = a.id AND c.status = 'pending') THEN
-    RAISE EXCEPTION 'CORRECTION_ALREADY_PENDING' USING ERRCODE = '23505';
-  END IF;
-  IF (public._special_advance_position(a.id) ->> 'outstanding')::bigint <> w.gross_amount
-     OR public._special_advance_allowance_held(a.id) <> w.allowance_released THEN
+  IF v_expected IS NOT NULL AND v_expected::bigint <> v_gross THEN
     RAISE EXCEPTION 'WRITE_OFF_STALE' USING ERRCODE = '40001',
-      DETAIL = 'The balance or the allowance changed since the request; withdraw or reject it and request again';
+      DETAIL = jsonb_build_object('expected_gross_amount', v_expected::bigint, 'gross_amount', v_gross)::text;
   END IF;
+  v_proof := public._special_advance_check_proof(a.id, v_proof);  -- D9: the evidence that the balance cannot be collected
+  v_net := v_gross - v_held;
 
-  v_desc := format('Special Advance %s write-off %s', a.reference, w.reference);
-  v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_write_offs', 'source_id', w.id,
+  v_ref := 'SAW-' || lpad(nextval('public.special_advance_write_off_seq')::text, 6, '0');
+  v_desc := format('Special Advance %s write-off %s', a.reference, v_ref);
+  v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_write_offs', 'source_id', v_id,
                               'reference_id', a.reference, 'currency', 'UGX',
                               'transaction_date', (v_today::timestamp AT TIME ZONE 'Africa/Kampala'));
   v_legs := jsonb_build_array(
-    v_src || jsonb_build_object('direction', 'cash_in', 'amount', w.gross_amount, 'category', 'special_advance_write_off',
+    v_src || jsonb_build_object('direction', 'cash_in', 'amount', v_gross, 'category', 'special_advance_write_off',
                                 'description', v_desc || ': gross receivable written off'));
-  IF w.allowance_released > 0 THEN
-    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_out', 'amount', w.allowance_released,
+  IF v_held > 0 THEN
+    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_out', 'amount', v_held,
                                 'category', 'special_advance_impairment_allowance', 'description', v_desc || ': allowance used'));
   END IF;
-  IF w.net_loss > 0 THEN
-    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_out', 'amount', w.net_loss,
+  IF v_net > 0 THEN
+    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_out', 'amount', v_net,
                                 'category', 'special_advance_write_off_loss', 'description', v_desc || ': loss not covered by the allowance'));
-  ELSIF w.net_loss < 0 THEN
-    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_in', 'amount', -w.net_loss,
+  ELSIF v_net < 0 THEN
+    v_legs := v_legs || (v_src || jsonb_build_object('direction', 'cash_in', 'amount', -v_net,
                                 'category', 'special_advance_impairment_charge', 'description', v_desc || ': excess allowance released'));
   END IF;
-  v_group := public.create_ledger_transaction(v_legs, 'special_advance:write_off:' || w.id::text, false);
+  v_group := public.create_ledger_transaction(v_legs, 'special_advance:write_off:' || v_id::text, false);
 
-  UPDATE public.special_advance_write_offs
-     SET status = 'approved', decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note, ledger_group_id = v_group
-   WHERE id = w.id;
+  INSERT INTO public.special_advance_write_offs (id, reference, advance_id, gross_amount, allowance_released, net_loss, reason,
+                                                 proof_path, idempotency_key, ledger_group_id, recorded_by)
+  VALUES (v_id, v_ref, a.id, v_gross, v_held, v_net, v_reason, v_proof, v_key, v_group, v_actor);
   INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-  VALUES (a.id, 'write_off_approved', a.status, a.status, v_actor, v_note,
-          jsonb_build_object('write_off_id', w.id, 'gross_amount', w.gross_amount, 'allowance_released', w.allowance_released,
-                             'net_loss', w.net_loss, 'ledger_group_id', v_group));
-  PERFORM set_config('special_advance.write_off', w.id::text, true);
+  VALUES (a.id, 'write_off_posted', a.status, a.status, v_actor, v_reason,
+          jsonb_build_object('write_off_id', v_id, 'gross_amount', v_gross, 'allowance_released', v_held,
+                             'net_loss', v_net, 'ledger_group_id', v_group));
+  PERFORM set_config('special_advance.write_off', v_id::text, true);
   UPDATE public.special_advances SET status = 'written_off' WHERE id = a.id;
   PERFORM set_config('special_advance.write_off', '', true);
-  RETURN public._special_advance_write_off_json(w.id) || jsonb_build_object('replayed', false);
+  RETURN public._special_advance_write_off_json(v_id) || jsonb_build_object('replayed', false);
 END $$;
 
 -- ── Recovery after write-off (D10) ─────────────────────────────────────────────────────────────────
@@ -996,11 +838,11 @@ BEGIN
   IF a.status <> 'written_off' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_WRITTEN_OFF' USING ERRCODE = '22023', DETAIL = a.status;
   END IF;
-  SELECT * INTO w FROM public.special_advance_write_offs WHERE advance_id = a.id AND status = 'approved';
+  SELECT * INTO w FROM public.special_advance_write_offs WHERE advance_id = a.id;
   BEGIN v_amount := (p_recovery ->> 'amount')::numeric; EXCEPTION WHEN others THEN v_amount := NULL; END;
   BEGIN v_date := (p_recovery ->> 'received_date')::date; EXCEPTION WHEN others THEN v_date := NULL; END;
   IF v_amount IS NULL OR v_amount <= 0 OR v_amount <> trunc(v_amount) THEN v_errs := v_errs || 'amount'::text; END IF;
-  IF v_date IS NULL OR v_date > v_today OR v_date < (w.decided_at AT TIME ZONE 'Africa/Kampala')::date THEN
+  IF v_date IS NULL OR v_date > v_today OR v_date < (w.recorded_at AT TIME ZONE 'Africa/Kampala')::date THEN
     v_errs := v_errs || 'received_date'::text;
   END IF;
   IF v_method IS NULL OR v_method NOT IN ('mobile_money', 'bank_transfer') THEN v_errs := v_errs || 'method'::text; END IF;
@@ -1042,33 +884,6 @@ BEGIN
   RETURN to_jsonb(e) || jsonb_build_object('replayed', false);
 END $$;
 
--- ── Lists ──────────────────────────────────────────────────────────────────────────────────────────
-CREATE FUNCTION public.special_advance_list_provision_reviews(p_status text DEFAULT 'pending', p_limit integer DEFAULT 20)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public._special_advance_require_cfo();
-  IF p_status IS NOT NULL AND p_status NOT IN ('pending', 'approved', 'rejected', 'withdrawn') THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["status"]';
-  END IF;
-  RETURN COALESCE((SELECT jsonb_agg(public._special_advance_provision_review_json(x.id) ORDER BY x.requested_at DESC)
-                     FROM (SELECT v.id, v.requested_at FROM public.special_advance_provision_reviews v
-                            WHERE p_status IS NULL OR v.status = p_status
-                            ORDER BY v.requested_at DESC LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)) x), '[]'::jsonb);
-END $$;
-
-CREATE FUNCTION public.special_advance_list_write_offs(p_status text DEFAULT 'pending', p_limit integer DEFAULT 50)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public._special_advance_require_cfo();
-  IF p_status IS NOT NULL AND p_status NOT IN ('pending', 'approved', 'rejected', 'withdrawn') THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["status"]';
-  END IF;
-  RETURN COALESCE((SELECT jsonb_agg(public._special_advance_write_off_json(x.id) ORDER BY x.requested_at DESC)
-                     FROM (SELECT w.id, w.requested_at FROM public.special_advance_write_offs w
-                            WHERE p_status IS NULL OR w.status = p_status
-                            ORDER BY w.requested_at DESC LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 200)) x), '[]'::jsonb);
-END $$;
-
 -- ── Replaced: the statement shows the allowance, write-off and recoveries ──────────────────────────
 CREATE OR REPLACE FUNCTION public.special_advance_statement(p_id uuid)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -1087,15 +902,15 @@ BEGIN
         'note', r.note, 'recorded_by', r.recorded_by, 'recorded_at', r.recorded_at, 'ledger_group_id', r.ledger_group_id,
         'proof_path', r.proof_path, 'reversed_by_correction', r.reversed_by_correction) ORDER BY r.recorded_at)
       FROM public.special_advance_repayments r WHERE r.advance_id = p_id), '[]'::jsonb),
-    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.requested_at)
+    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.recorded_at)
       FROM public.special_advance_corrections c WHERE c.advance_id = p_id), '[]'::jsonb),
     'allowance_held', public._special_advance_allowance_held(p_id),
     'provision', public._special_advance_provision_line(p_id, NULL),
-    'provision_history', COALESCE((SELECT jsonb_agg(to_jsonb(l) || jsonb_build_object('review', v2.reference, 'review_status', v2.status,
-                                                                                       'decided_at', v2.decided_at) ORDER BY v2.requested_at)
+    'provision_history', COALESCE((SELECT jsonb_agg(to_jsonb(l) || jsonb_build_object('review', v2.reference,
+                                                                                       'recorded_at', v2.recorded_at) ORDER BY v2.recorded_at, v2.reference)
       FROM public.special_advance_provision_lines l JOIN public.special_advance_provision_reviews v2 ON v2.id = l.review_id
      WHERE l.advance_id = p_id), '[]'::jsonb),
-    'write_offs', COALESCE((SELECT jsonb_agg(public._special_advance_write_off_json(w.id) ORDER BY w.requested_at)
+    'write_offs', COALESCE((SELECT jsonb_agg(public._special_advance_write_off_json(w.id) ORDER BY w.recorded_at)
       FROM public.special_advance_write_offs w WHERE w.advance_id = p_id), '[]'::jsonb),
     'recoveries', COALESCE((SELECT jsonb_agg(to_jsonb(x) ORDER BY x.recorded_at)
       FROM public.special_advance_recoveries x WHERE x.advance_id = p_id), '[]'::jsonb));
@@ -1164,29 +979,19 @@ END $$;
 
 -- ── Privileges ─────────────────────────────────────────────────────────────────────────────────────
 REVOKE ALL ON FUNCTION public._special_advance_minimum_rate(integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public._special_advance_guard_decided() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public._special_advance_guard_provision_line() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_allowance_held(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_provision_line(uuid, numeric) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_provision_proposal(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_provision_review_json(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_write_off_json(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.special_advance_provision_preview(jsonb) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_request_provision_review(jsonb) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_decide_provision_review(uuid, text, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_request_write_off(uuid, jsonb) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_decide_write_off(uuid, text, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.special_advance_post_provision_review(jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.special_advance_write_off(uuid, jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.special_advance_record_recovery(uuid, jsonb) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_list_provision_reviews(text, integer) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_list_write_offs(text, integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.special_advance_provision_preview(jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_request_provision_review(jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_decide_provision_review(uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_request_write_off(uuid, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_decide_write_off(uuid, text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.special_advance_post_provision_review(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.special_advance_write_off(uuid, jsonb) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.special_advance_record_recovery(uuid, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_list_provision_reviews(text, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_list_write_offs(text, integer) TO authenticated;
 
 DO $post$
 BEGIN
@@ -1197,6 +1002,8 @@ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.special_advance_reconciliation()', 'EXECUTE')
      OR has_function_privilege('anon', 'public.special_advance_reconciliation()', 'EXECUTE')
      OR has_table_privilege('authenticated', 'public.special_advance_write_offs', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.special_advance_provision_reviews', 'INSERT')
+     OR has_function_privilege('authenticated', 'public._special_advance_provision_proposal(jsonb)', 'EXECUTE')
      OR has_table_privilege('anon', 'public.special_advance_recoveries', 'SELECT') THEN
     RAISE EXCEPTION 'postcondition failed: a Special Advances privilege changed; nothing was changed';
   END IF;

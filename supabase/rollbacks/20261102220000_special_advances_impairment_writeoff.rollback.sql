@@ -16,8 +16,8 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM public.special_advance_provision_reviews) OR EXISTS (SELECT 1 FROM public.special_advance_write_offs)
      OR EXISTS (SELECT 1 FROM public.special_advance_recoveries) OR EXISTS (SELECT 1 FROM public.special_advances WHERE status = 'written_off')
-     OR EXISTS (SELECT 1 FROM public.special_advance_events WHERE event_type IN ('written_off', 'write_off_requested', 'write_off_approved',
-                  'write_off_rejected', 'write_off_withdrawn', 'provision_posted', 'recovery_recorded'))
+     OR EXISTS (SELECT 1 FROM public.special_advance_events WHERE event_type IN ('written_off', 'write_off_posted',
+                  'provision_posted', 'recovery_recorded'))
      OR EXISTS (SELECT 1 FROM public.general_ledger WHERE category IN ('special_advance_impairment_charge', 'special_advance_impairment_allowance', 'special_advance_write_off',
                    'special_advance_write_off_loss', 'special_advance_recovery_received', 'special_advance_recovery_income')) THEN
     RAISE EXCEPTION 'precondition failed: impairment, write-off or recovery has been used; it is part of the books; nothing was changed';
@@ -27,10 +27,10 @@ BEGIN
     RAISE EXCEPTION 'precondition failed: account A25 is not the Special Advances allowance, or other categories map to it; nothing was changed';
   END IF;
   FOR r IN SELECT * FROM (VALUES
-      ('public._special_advance_guard_update()', '7c252ea5e107b6b4c6405ad7fbe76f29'),
-      ('public._special_advance_audit()', '8153c3967e2c2514bb193fa78bef7a6f'),
+      ('public._special_advance_guard_update()', '111eb1a82d4c69b9b1d0809e9c16395d'),
+      ('public._special_advance_audit()', 'c8033574751a7ee91b9318a0a00909da'),
       ('public._special_advance_check_proof(uuid,text)', '42fe52ca203a12d8f54919ee282d9320'),
-      ('public.special_advance_statement(uuid)', 'dfb4cb837b35e28cd0bfcd7b6dcddceb'),
+      ('public.special_advance_statement(uuid)', '99c56f9ef3e2242948a1bebaa01f2fb3'),
       ('public.special_advance_reconciliation()', '71689d0f17af58ae872c436f283eab09'),
       ('public._special_advance_eligibility(text,uuid,text,text,text,uuid)', 'b5f250ec93466ca074b74feab1d98432')) v(sig, md5)
   LOOP
@@ -41,13 +41,9 @@ BEGIN
 END
 $pre$;
 
-DROP FUNCTION public.special_advance_list_write_offs(text, integer);
-DROP FUNCTION public.special_advance_list_provision_reviews(text, integer);
 DROP FUNCTION public.special_advance_record_recovery(uuid, jsonb);
-DROP FUNCTION public.special_advance_decide_write_off(uuid, text, text);
-DROP FUNCTION public.special_advance_request_write_off(uuid, jsonb);
-DROP FUNCTION public.special_advance_decide_provision_review(uuid, text, text);
-DROP FUNCTION public.special_advance_request_provision_review(jsonb);
+DROP FUNCTION public.special_advance_write_off(uuid, jsonb);
+DROP FUNCTION public.special_advance_post_provision_review(jsonb);
 DROP FUNCTION public.special_advance_provision_preview(jsonb);
 
 -- the six functions, exactly as before Phase C
@@ -96,7 +92,7 @@ BEGIN
      AND v_edge <> 'approved>disbursed' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'payout';
   END IF;
-  -- settled_at is set on settlement and cleared only when an approved repayment reversal reopens the advance
+  -- settled_at is set on settlement and cleared only when a posted repayment reversal reopens the advance
   IF NEW.settled_at IS DISTINCT FROM OLD.settled_at
      AND NOT (v_edge = 'disbursed>settled' OR (v_edge = 'settled>disbursed' AND NEW.settled_at IS NULL)) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'settlement';
@@ -109,7 +105,7 @@ BEGIN
   IF v_edge = 'pending_approval>approved' AND NOT public._has_enabled_role(NEW.approved_by, ARRAY['cfo']) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_APPROVER_NOT_CFO' USING ERRCODE = '42501';
   END IF;
-  -- the two correction edges happen only inside an approved correction (special_advance_decide_correction)
+  -- the two correction edges happen only inside a posted correction (special_advance_record_correction)
   IF v_edge IN ('settled>disbursed', 'disbursed>reversed')
      AND COALESCE(current_setting('special_advance.correction', true), '') = '' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_TRANSITION' USING ERRCODE = '42501', DETAIL = v_edge;
@@ -131,7 +127,7 @@ BEGIN
       'registration_fee', NEW.registration_fee, 'total_repayable', NEW.total_repayable, 'instalments', NEW.instalments,
       'calc_version', NEW.calc_version));
   ELSIF NEW.status IS DISTINCT FROM OLD.status AND (OLD.status = 'settled' OR NEW.status = 'reversed') THEN
-    -- correction transitions: the actor is the approving CFO; the correction is named in the details
+    -- correction transitions: the actor is the CFO who posted it; the correction is named in the details
     INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, details)
     VALUES (NEW.id, CASE WHEN NEW.status = 'reversed' THEN 'reversed' ELSE 'reopened' END, OLD.status, NEW.status,
             COALESCE(auth.uid(), NEW.approved_by),
@@ -190,7 +186,7 @@ BEGIN
         'note', r.note, 'recorded_by', r.recorded_by, 'recorded_at', r.recorded_at, 'ledger_group_id', r.ledger_group_id,
         'proof_path', r.proof_path, 'reversed_by_correction', r.reversed_by_correction) ORDER BY r.recorded_at)
       FROM public.special_advance_repayments r WHERE r.advance_id = p_id), '[]'::jsonb),
-    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.requested_at)
+    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.recorded_at)
       FROM public.special_advance_corrections c WHERE c.advance_id = p_id), '[]'::jsonb));
 END $$;
 
@@ -279,8 +275,6 @@ DROP TABLE public.special_advance_recoveries;
 DROP TABLE public.special_advance_write_offs;
 DROP TABLE public.special_advance_provision_lines;
 DROP TABLE public.special_advance_provision_reviews;
-DROP FUNCTION public._special_advance_guard_provision_line();
-DROP FUNCTION public._special_advance_guard_decided();
 DROP FUNCTION public._special_advance_minimum_rate(integer);
 DROP SEQUENCE public.special_advance_write_off_seq;
 DROP SEQUENCE public.special_advance_provision_seq;
@@ -289,7 +283,7 @@ ALTER TABLE public.special_advance_events
   DROP CONSTRAINT special_advance_events_event_type_check,
   ADD CONSTRAINT special_advance_events_event_type_check CHECK (event_type IN (
     'created', 'approved', 'rejected', 'cancelled', 'disbursed', 'settled', 'reopened', 'reversed',
-    'correction_requested', 'correction_approved', 'correction_rejected', 'correction_withdrawn'));
+    'correction_posted'));
 ALTER TABLE public.special_advances
   DROP CONSTRAINT special_advances_status_check,
   ADD CONSTRAINT special_advances_status_check

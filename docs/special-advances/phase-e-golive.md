@@ -13,17 +13,19 @@ the last step below. Nothing in this phase changes production by itself.
   - 8 simultaneous repayments that together exceed the balance: exactly what fits is recorded, the rest are refused;
   - the same repayment request (same key) 8 times: recorded once, 7 replays;
   - one provider reference with 8 different keys: booked once;
-  - 8 simultaneous correction requests: one pending; 8 simultaneous approvals by the second CFO: one posting;
-  - a repayment racing a write-off approval: exactly one of them goes through; the books tie;
-  - 8 simultaneous provision review requests: one pending; parallel approvals post once;
+  - 8 simultaneous corrections of one repayment (different keys): one posting; the same request 8 times: one posting,
+    7 replays;
+  - a repayment racing a write-off: exactly one of them goes through; the books tie;
+  - 8 simultaneous provision postings: exactly one posts; the others find nothing left to post;
   - afterwards every Special Advances ledger group nets to zero raw and on the mapping, A24 / A25 reconcile, and the
     balance-sheet memo equals A24.
   Without `SA_PG_URL` the test is skipped, so normal test runs and CI are unaffected.
 - **Read-only go-live check** (`supabase/tests/special_advances_golive_check.sql`): one SELECT, run inside a read-only
   transaction, returning `ready` and every item with ok / detail. It checks migrations recorded, function fingerprints
   (Phases 4, B, C, D), tables, accounts A24 / A25, the 12 mappings and allowlist entries, the storage policies (two,
-  both aal2, no update / delete), the proof bucket, at least two CFOs with a verified authenticator, A24 against the
-  paid-out outstanding, every Special Advances ledger group netting to zero, empty approval queues, grants, and the
+  both aal2, no update / delete), the proof bucket, the CFO with a verified authenticator (one CFO since 2026-11-03), A24 against the
+  paid-out outstanding, every Special Advances ledger group netting to zero, the one-step workflow (no request,
+  decision or queue function), grants, and the
   issuance switch.
 
 ## Result against production now (read-only, 2026-11-02)

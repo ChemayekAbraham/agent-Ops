@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { useSafeAuth } from '@/components/auth/useSafeAuth';
 import { useAuthenticatorMfa } from '@/hooks/useAuthenticatorMfa';
 import { AuthenticatorSetupDialog } from '@/components/auth/AuthenticatorSetupDialog';
+import { describeSpecialAdvanceError } from '@/lib/specialAdvances';
 
 interface SpecialAdvanceStepUpDialogProps {
   open: boolean;
@@ -31,7 +33,12 @@ export function SpecialAdvanceStepUpDialog({ open, onOpenChange, onSuccess }: Sp
     if (res.ok) {
       setCode('');
       onOpenChange(false);
-      await onSuccess();
+      // The retry runs after this dialog has closed: a refusal must still reach the CFO, never vanish.
+      try {
+        await onSuccess();
+      } catch (err) {
+        toast.error(describeSpecialAdvanceError(err));
+      }
     } else {
       setCode('');
     }

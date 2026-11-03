@@ -20,6 +20,7 @@ import { excludePartnerReservedPlans } from '@/lib/partnerReservedPlans';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { CollapsibleAgentSection } from '@/components/agent/CollapsibleAgentSection';
 
 interface ApprovedRequest {
@@ -161,7 +162,7 @@ export function ApprovedRequestsFundingWidget() {
         },
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await extractFromErrorObject(error, 'Failed to fund agent float'));
       if (data?.error) throw new Error(data.error);
 
       toast({

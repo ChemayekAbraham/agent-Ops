@@ -16,8 +16,9 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { format } from 'date-fns';
 import {
   MessageSquare, Search, Loader2, RefreshCw, X,
-  ChevronLeft, ChevronRight, ChevronDown,
+  ChevronDown,
 } from 'lucide-react';
+import { PageHeader, Pager } from './FinopsKit';
 
 type AttemptRecord = {
   provider?: string;
@@ -124,7 +125,6 @@ export function SmsDeliveryLogPanel() {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const hasFilters = recipient || statusFilter !== 'all' || sourceFilter !== 'all' || fromDate || toDate;
   const clearFilters = () => {
@@ -137,15 +137,12 @@ export function SmsDeliveryLogPanel() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <MessageSquare className="h-6 w-6 text-sky-600" />
-          SMS Delivery Log
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Full delivery-status audit of every claim &amp; payout SMS — the provider used, its raw response, retry count and any failure reason. Expand a row to inspect the per-provider attempt trail.
-        </p>
-      </div>
+      <PageHeader
+        icon={MessageSquare}
+        tone="sky"
+        title="SMS Delivery Log"
+        description="Full delivery-status audit of every claim and payout SMS: the provider used, its raw response, retry count and any failure reason. Expand a row to inspect the per-provider attempt trail."
+      />
 
       <Card>
         <CardHeader className="pb-3">
@@ -303,16 +300,8 @@ export function SmsDeliveryLogPanel() {
                   })}
                 </div>
               </ScrollArea>
-              <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-                <span className="text-[11px] text-muted-foreground">Page {page + 1} of {totalPages}</span>
-                <div className="flex items-center gap-1">
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0 || isFetching} aria-label="Previous page">
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1 || isFetching} aria-label="Next page">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="border-t border-border px-4 py-3">
+                <Pager page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} noun="messages" />
               </div>
             </>
           )}

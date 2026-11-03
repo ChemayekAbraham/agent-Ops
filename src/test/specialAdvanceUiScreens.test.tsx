@@ -6,7 +6,9 @@ import { SpecialAdvanceDetailSheet } from '@/components/cfo/special-advances/Spe
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from '@/components/cfo/special-advances/SpecialAdvanceProofInput';
 import { SpecialAdvanceStepUpDialog } from '@/components/cfo/special-advances/SpecialAdvanceStepUpDialog';
 import { SpecialAdvanceProvisionsTab } from '@/components/cfo/special-advances/SpecialAdvanceProvisionsTab';
-import { correctionActions, describeSpecialAdvanceError } from '@/lib/specialAdvances';
+import { SpecialAdvanceCorrectionDialog } from '@/components/cfo/special-advances/SpecialAdvanceCorrectionDialog';
+import { SpecialAdvanceWriteOffDialog } from '@/components/cfo/special-advances/SpecialAdvanceWriteOffDialog';
+import { describeSpecialAdvanceError } from '@/lib/specialAdvances';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -122,12 +124,6 @@ beforeEach(() => {
           },
           error: null,
         });
-      case 'special_advance_list_corrections':
-        return Promise.resolve({ data: [], error: null });
-      case 'special_advance_list_provision_reviews':
-        return Promise.resolve({ data: [], error: null });
-      case 'special_advance_list_write_offs':
-        return Promise.resolve({ data: [], error: null });
       case 'special_advance_provision_preview':
         return Promise.resolve({
           data: {
@@ -232,21 +228,55 @@ describe('Special Advances UI - Proof Inputs and Links', () => {
   });
 });
 
-describe('Special Advances UI - Corrections & Maker-Checker', () => {
-  it('maker-checker actions: requester sees only withdraw, another CFO sees approve/reject', () => {
-    const correction = {
-      status: 'pending' as const,
-      requested_by: 'cfo-user-1',
-    };
+describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)', () => {
+  const pdf = () => new File(['%PDF-1.4'], 'statement.pdf', { type: 'application/pdf' });
+  const verified = () => {
+    mocks.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal2' } });
+    mocks.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: null }), createSignedUrl: vi.fn() });
+  };
 
-    // Requester viewing
-    expect(correctionActions(correction, 'cfo-user-1')).toEqual(['withdraw']);
+  it('has no approval queue: no "Awaiting" tab and no second-CFO wording', async () => {
+    renderWithClient(<SpecialAdvancesPanel />);
+    await screen.findByText(/^Agreements [(]/);
+    expect(screen.queryByText(/Awaiting/i)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/second CFO|second-CFO|two-CFO|maker-checker/i);
+    expect(mocks.rpc.mock.calls.map(([fn]) => fn)).not.toEqual(expect.arrayContaining([expect.stringMatching(/^special_advance_list_(corrections|provision_reviews|write_offs)$/)]));
+  });
 
-    // Another CFO viewing
-    expect(correctionActions(correction, 'cfo-user-2')).toEqual(['approve', 'reject']);
+  it('a correction is posted in one action: one call to special_advance_record_correction with reason, proof and key', async () => {
+    verified();
+    mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_record_correction'
+      ? { data: { id: 'c1', reference: 'SAC-000001', replayed: false }, error: null } : { data: null, error: null }));
+    const onSuccess = vi.fn();
+    renderWithClient(<SpecialAdvanceCorrectionDialog open onOpenChange={() => {}} kind="repayment_reversal" repaymentId="r1"
+      repaymentAmount={200000} repaymentReference="MM-1" onSuccess={onSuccess}
+      advance={mockAdvance('1', 'disbursed', { id: '0b6f1c2e-3d4a-4b5c-8d9e-0f1a2b3c4d5e' }) as never} />);
+    expect(screen.getByText('Posts immediately')).toBeTruthy();
+    fireEvent.change(document.getElementById('correction-reason') as HTMLTextAreaElement, { target: { value: 'Recorded against the wrong advance in error' } });
+    fireEvent.change(document.getElementById('correction-proof') as HTMLInputElement, { target: { files: [pdf()] } });
+    fireEvent.click(screen.getByText('Post correction'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const calls = mocks.rpc.mock.calls.filter(([fn]) => String(fn).startsWith('special_advance_'));
+    expect(calls).toHaveLength(1);
+    expect(calls[0][0]).toBe('special_advance_record_correction');
+    expect(calls[0][1].p_request).toMatchObject({ kind: 'repayment_reversal', repayment_id: 'r1', reason: 'Recorded against the wrong advance in error' });
+    expect(mocks.toast.success).toHaveBeenCalledWith('Correction SAC-000001 posted');
+  });
 
-    // Decided correction gives no actions
-    expect(correctionActions({ status: 'approved' as const, requested_by: 'cfo-user-1' }, 'cfo-user-2')).toEqual([]);
+  it('a write-off is posted in one action and sends the balance the CFO saw', async () => {
+    verified();
+    mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_write_off'
+      ? { data: { id: 'w1', reference: 'SAW-000001', replayed: false }, error: null } : { data: null, error: null }));
+    const onSuccess = vi.fn();
+    renderWithClient(<SpecialAdvanceWriteOffDialog open onOpenChange={() => {}} onSuccess={onSuccess}
+      advance={mockAdvance('1', 'disbursed', { id: '0b6f1c2e-3d4a-4b5c-8d9e-0f1a2b3c4d5e' }) as never} />);
+    fireEvent.change(document.getElementById('writeoff-reason') as HTMLTextAreaElement, { target: { value: 'Borrower unreachable for 120 days now' } });
+    fireEvent.change(document.getElementById('writeoff-proof') as HTMLInputElement, { target: { files: [pdf()] } });
+    fireEvent.click(screen.getByText('Post write-off'));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    const calls = mocks.rpc.mock.calls.filter(([fn]) => String(fn).startsWith('special_advance_'));
+    expect(calls.map(([fn]) => fn)).toEqual(['special_advance_write_off']);
+    expect(calls[0][1].p_request).toMatchObject({ expected_gross_amount: 940000, reason: 'Borrower unreachable for 120 days now' });
   });
 
   it('shows reversed repayments struck through as "Reversed (SAC-...)" and not counted', async () => {

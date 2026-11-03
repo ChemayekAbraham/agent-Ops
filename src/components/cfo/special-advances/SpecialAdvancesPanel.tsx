@@ -13,13 +13,9 @@ import {
 import {
   useSpecialAdvanceList,
   useSpecialAdvanceReconciliation,
-  useSpecialAdvanceCorrections,
-  useSpecialAdvanceProvisionReviews,
-  useSpecialAdvanceWriteOffs,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceModal } from '@/components/cfo/SpecialAdvanceModal';
 import { SpecialAdvanceDetailSheet } from './SpecialAdvanceDetailSheet';
-import { SpecialAdvanceMakerCheckerQueue } from './SpecialAdvanceMakerCheckerQueue';
 import { SpecialAdvanceProvisionsTab } from './SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceReconciliationCard } from './SpecialAdvanceReconciliationCard';
 
@@ -27,26 +23,17 @@ const ALL = '__all__';
 
 /**
  * CFO Special Advances: issuance switch state, A24/A25 reconciliation,
- * the register of agreements, second-CFO approval queue, impairment provisions, and detailed reporting.
+ * the register of agreements, impairment provisions, and detailed reporting. Corrections, provision reviews and
+ * write-offs are posted by the CFO in one authorised step (decision 2026-11-03): there is no approval queue.
  */
 export function SpecialAdvancesPanel() {
-  const [activeTab, setActiveTab] = useState<'agreements' | 'approvals' | 'provisions' | 'reconciliation'>('agreements');
+  const [activeTab, setActiveTab] = useState<'agreements' | 'provisions' | 'reconciliation'>('agreements');
   const [status, setStatus] = useState<SpecialAdvanceStatus | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
   const list = useSpecialAdvanceList(status);
   const recon = useSpecialAdvanceReconciliation();
-
-  // Pending counts for second-CFO queue badge
-  const pendingCorrections = useSpecialAdvanceCorrections('pending');
-  const pendingProvisions = useSpecialAdvanceProvisionReviews('pending');
-  const pendingWriteOffs = useSpecialAdvanceWriteOffs('pending');
-
-  const pendingCount =
-    (pendingCorrections.data?.length ?? 0) +
-    (pendingProvisions.data?.length ?? 0) +
-    (pendingWriteOffs.data?.length ?? 0);
 
   const issuanceEnabled = list.data?.issuance_enabled ?? false;
   const items = list.data?.items ?? [];
@@ -95,14 +82,6 @@ export function SpecialAdvancesPanel() {
         <TabsList className="h-9 p-1 bg-muted/60 text-xs">
           <TabsTrigger value="agreements" className="text-xs">
             Agreements ({items.length})
-          </TabsTrigger>
-          <TabsTrigger value="approvals" className="text-xs flex items-center gap-1.5">
-            Awaiting second CFO
-            {pendingCount > 0 && (
-              <Badge variant="destructive" className="h-4 px-1 text-[10px] leading-none">
-                {pendingCount}
-              </Badge>
-            )}
           </TabsTrigger>
           <TabsTrigger value="provisions" className="text-xs">
             Provisions & Allowances
@@ -216,17 +195,12 @@ export function SpecialAdvancesPanel() {
           </section>
         </TabsContent>
 
-        {/* Tab 2: Awaiting second CFO */}
-        <TabsContent value="approvals">
-          <SpecialAdvanceMakerCheckerQueue onOpenAdvance={(id) => setOpenId(id)} />
-        </TabsContent>
-
-        {/* Tab 3: Provisions & Allowances */}
+        {/* Tab 2: Provisions & Allowances */}
         <TabsContent value="provisions">
           <SpecialAdvanceProvisionsTab />
         </TabsContent>
 
-        {/* Tab 4: Reconciliation & Balances */}
+        {/* Tab 3: Reconciliation & Balances */}
         <TabsContent value="reconciliation">
           <SpecialAdvanceReconciliationCard onOpenAdvance={(ref) => {
             const found = items.find((i) => i.reference === ref);

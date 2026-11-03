@@ -3,8 +3,9 @@
 --   D11a a correction posts NEW ledger legs: the same special_advance_* categories in the opposite direction, under
 --        source_table 'special_advance_corrections' and linked to the original. No new account, mapping or allowlist
 --        entry; nothing already posted is edited or deleted.
---   D11b maker-checker: one enabled CFO requests, a DIFFERENT enabled CFO approves or rejects (both with a session
---        verified by the authenticator app, aal2). Nothing posts until approval. The requester may withdraw.
+--   D11b ONE step (CFO decision 2026-11-03, replacing the earlier request-then-approve design): Welile has one CFO,
+--        who records and posts a correction in a single authorised action (enabled CFO, session verified by the
+--        authenticator app, aal2). There is no pending state, queue, approval, rejection or withdrawal.
 --   D11c scope: (1) reverse an erroneous repayment (any paid-out advance; a settled one reopens);
 --        (2) reverse an external payout recorded in error, once every repayment on it has been reversed (the advance
 --        ends 'reversed'). A payout to a Welile wallet cannot be reversed here (it would take money from a wallet).
@@ -20,11 +21,11 @@
 --   Each group nets to zero raw and balances on the existing mapping; no resolver override or synthetic leg keys on
 --   these categories (read-only check of sofp_ledger_legs, 2026-11-02).
 --
--- Records: special_advance_corrections (request -> approved | rejected | withdrawn, decided once). An approved
--- repayment reversal stamps special_advance_repayments.reversed_by_correction once (the only change ever allowed to a
+-- Records: special_advance_corrections, append-only: one row per posted correction, written in the same transaction as
+-- its ledger group (never updated or deleted). A posted repayment reversal stamps special_advance_repayments.reversed_by_correction once (the only change ever allowed to a
 -- repayment row); its allocations then stop counting, and its provider reference may be recorded again (e.g. against
 -- the right advance). Status edges added: settled -> disbursed (reopened) and disbursed -> reversed (external only).
--- Events: correction_requested / _approved / _rejected / _withdrawn, reopened, reversed.
+-- Events: correction_posted, reopened, reversed.
 --
 -- Replaces 8 Special Advances functions; the preflight refuses (nothing changed) unless each is exactly the
 -- production definition read on 2026-11-02 (md5 of its body). CREATE OR REPLACE keeps owners and privileges.
@@ -37,7 +38,7 @@ DECLARE
   r record;
 BEGIN
   IF to_regclass('public.special_advance_corrections') IS NOT NULL
-     OR to_regprocedure('public.special_advance_request_correction(uuid,jsonb)') IS NOT NULL THEN
+     OR to_regprocedure('public.special_advance_record_correction(uuid,jsonb)') IS NOT NULL THEN
     RAISE EXCEPTION 'precondition failed: Special Advances corrections already exist; nothing was changed';
   END IF;
   FOR r IN SELECT * FROM (VALUES
@@ -91,7 +92,7 @@ ALTER TABLE public.special_advance_events
   DROP CONSTRAINT special_advance_events_event_type_check,
   ADD CONSTRAINT special_advance_events_event_type_check CHECK (event_type IN (
     'created', 'approved', 'rejected', 'cancelled', 'disbursed', 'settled', 'reopened', 'reversed',
-    'correction_requested', 'correction_approved', 'correction_rejected', 'correction_withdrawn'));
+    'correction_posted'));
 
 -- ── Corrections ────────────────────────────────────────────────────────────────────────────────────
 CREATE SEQUENCE public.special_advance_correction_seq START 1;
@@ -106,56 +107,32 @@ CREATE TABLE public.special_advance_corrections (
   reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 20 AND 1000),
   proof_path text NOT NULL UNIQUE CHECK (proof_path ~ '^advances/[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|jpeg|png|webp|pdf)$'),
   idempotency_key text NOT NULL UNIQUE CHECK (length(idempotency_key) BETWEEN 16 AND 100),
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'withdrawn')),
-  requested_by uuid NOT NULL,
-  requested_at timestamptz NOT NULL DEFAULT now(),
-  decided_by uuid,
-  decided_at timestamptz,
-  decision_note text CHECK (decision_note IS NULL OR length(btrim(decision_note)) BETWEEN 5 AND 1000),
-  ledger_group_id uuid,
-  CONSTRAINT special_advance_corrections_target CHECK ((kind = 'repayment_reversal') = (repayment_id IS NOT NULL)),
-  CONSTRAINT special_advance_corrections_decided CHECK (status = 'pending' OR (decided_by IS NOT NULL AND decided_at IS NOT NULL)),
-  CONSTRAINT special_advance_corrections_posted CHECK ((status = 'approved') = (ledger_group_id IS NOT NULL)),
-  CONSTRAINT special_advance_corrections_rejected_note CHECK (status <> 'rejected' OR decision_note IS NOT NULL),
-  -- D11b: the approver / rejecter is never the requester; only the requester withdraws
-  CONSTRAINT special_advance_corrections_maker_checker CHECK (status NOT IN ('approved', 'rejected') OR decided_by <> requested_by),
-  CONSTRAINT special_advance_corrections_withdrawn_self CHECK (status <> 'withdrawn' OR decided_by = requested_by)
+  ledger_group_id uuid NOT NULL,
+  recorded_by uuid NOT NULL,
+  recorded_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT special_advance_corrections_target CHECK ((kind = 'repayment_reversal') = (repayment_id IS NOT NULL))
 );
--- one pending correction per advance at a time; a repayment is reversed at most once
-CREATE UNIQUE INDEX special_advance_corrections_one_pending ON public.special_advance_corrections (advance_id) WHERE status = 'pending';
+-- a repayment is reversed at most once; an advance's payout is reversed at most once
 CREATE UNIQUE INDEX special_advance_corrections_one_per_repayment ON public.special_advance_corrections (repayment_id)
-  WHERE repayment_id IS NOT NULL AND status IN ('pending', 'approved');
-CREATE INDEX special_advance_corrections_status_idx ON public.special_advance_corrections (status, requested_at DESC);
+  WHERE repayment_id IS NOT NULL;
+CREATE UNIQUE INDEX special_advance_corrections_one_payout_reversal ON public.special_advance_corrections (advance_id)
+  WHERE kind = 'payout_reversal';
+CREATE INDEX special_advance_corrections_advance_idx ON public.special_advance_corrections (advance_id, recorded_at);
 
--- A request starts pending; it is decided once (pending -> approved | rejected | withdrawn) and never changes again.
-CREATE FUNCTION public._special_advance_guard_correction()
+-- A posted record is written once, by an enabled CFO, and never changes or disappears (also used by Phase C records).
+CREATE FUNCTION public._special_advance_guard_posted()
 RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
-  IF TG_OP = 'DELETE' THEN
+  IF TG_OP <> 'INSERT' THEN
     RAISE EXCEPTION '% rows cannot be %d', TG_TABLE_NAME, lower(TG_OP) USING ERRCODE = '42501';
   END IF;
-  IF TG_OP = 'INSERT' THEN
-    IF NEW.status <> 'pending' OR NEW.decided_by IS NOT NULL OR NEW.decided_at IS NOT NULL OR NEW.decision_note IS NOT NULL
-       OR NEW.ledger_group_id IS NOT NULL THEN
-      RAISE EXCEPTION 'SPECIAL_ADVANCE_CORRECTION_MUST_START_PENDING' USING ERRCODE = '42501';
-    END IF;
-    RETURN NEW;
-  END IF;
-  IF OLD.status <> 'pending' OR NEW.status = 'pending'
-     OR (NEW.id, NEW.reference, NEW.advance_id, NEW.kind, NEW.repayment_id, NEW.amount, NEW.reason, NEW.proof_path,
-         NEW.idempotency_key, NEW.requested_by, NEW.requested_at)
-        IS DISTINCT FROM
-        (OLD.id, OLD.reference, OLD.advance_id, OLD.kind, OLD.repayment_id, OLD.amount, OLD.reason, OLD.proof_path,
-         OLD.idempotency_key, OLD.requested_by, OLD.requested_at) THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_CORRECTION_IMMUTABLE' USING ERRCODE = '42501';
-  END IF;
-  IF NEW.status IN ('approved', 'rejected') AND NOT public._has_enabled_role(NEW.decided_by, ARRAY['cfo']) THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_APPROVER_NOT_CFO' USING ERRCODE = '42501';
+  IF NOT public._has_enabled_role((to_jsonb(NEW) ->> 'recorded_by')::uuid, ARRAY['cfo']) THEN
+    RAISE EXCEPTION 'SPECIAL_ADVANCE_RECORDER_NOT_CFO' USING ERRCODE = '42501';
   END IF;
   RETURN NEW;
 END $$;
 CREATE TRIGGER special_advance_corrections_guard BEFORE INSERT OR UPDATE OR DELETE ON public.special_advance_corrections
-  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_correction();
+  FOR EACH ROW EXECUTE FUNCTION public._special_advance_guard_posted();
 
 REVOKE ALL ON public.special_advance_corrections FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.special_advance_corrections TO authenticated;
@@ -184,7 +161,7 @@ BEGIN
           OLD.idempotency_key, OLD.ledger_group_id, OLD.recorded_by, OLD.recorded_at)
      AND EXISTS (SELECT 1 FROM public.special_advance_corrections c
                   WHERE c.id = NEW.reversed_by_correction AND c.kind = 'repayment_reversal'
-                    AND c.repayment_id = OLD.id AND c.status = 'approved') THEN
+                    AND c.repayment_id = OLD.id) THEN
     RETURN NEW;
   END IF;
   RAISE EXCEPTION '% rows cannot be %d', TG_TABLE_NAME, lower(TG_OP) USING ERRCODE = '42501';
@@ -244,7 +221,7 @@ BEGIN
      AND v_edge <> 'approved>disbursed' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'payout';
   END IF;
-  -- settled_at is set on settlement and cleared only when an approved repayment reversal reopens the advance
+  -- settled_at is set on settlement and cleared only when a posted repayment reversal reopens the advance
   IF NEW.settled_at IS DISTINCT FROM OLD.settled_at
      AND NOT (v_edge = 'disbursed>settled' OR (v_edge = 'settled>disbursed' AND NEW.settled_at IS NULL)) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_DECISION_IMMUTABLE' USING ERRCODE = '42501', DETAIL = 'settlement';
@@ -257,7 +234,7 @@ BEGIN
   IF v_edge = 'pending_approval>approved' AND NOT public._has_enabled_role(NEW.approved_by, ARRAY['cfo']) THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_APPROVER_NOT_CFO' USING ERRCODE = '42501';
   END IF;
-  -- the two correction edges happen only inside an approved correction (special_advance_decide_correction)
+  -- the two correction edges happen only inside a posted correction (special_advance_record_correction)
   IF v_edge IN ('settled>disbursed', 'disbursed>reversed')
      AND COALESCE(current_setting('special_advance.correction', true), '') = '' THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_TRANSITION' USING ERRCODE = '42501', DETAIL = v_edge;
@@ -280,7 +257,7 @@ BEGIN
       'registration_fee', NEW.registration_fee, 'total_repayable', NEW.total_repayable, 'instalments', NEW.instalments,
       'calc_version', NEW.calc_version));
   ELSIF NEW.status IS DISTINCT FROM OLD.status AND (OLD.status = 'settled' OR NEW.status = 'reversed') THEN
-    -- correction transitions: the actor is the approving CFO; the correction is named in the details
+    -- correction transitions: the actor is the CFO who posted it; the correction is named in the details
     INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, details)
     VALUES (NEW.id, CASE WHEN NEW.status = 'reversed' THEN 'reversed' ELSE 'reopened' END, OLD.status, NEW.status,
             COALESCE(auth.uid(), NEW.approved_by),
@@ -513,15 +490,13 @@ CREATE FUNCTION public._special_advance_correction_json(p_id uuid)
 RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT to_jsonb(c) || jsonb_build_object(
     'advance_reference', a.reference,
-    'requested_by_name', NULLIF(btrim(rp.full_name), ''),
-    'decided_by_name', NULLIF(btrim(dp.full_name), ''),
+    'recorded_by_name', NULLIF(btrim(rp.full_name), ''),
     'repayment', CASE WHEN r.id IS NULL THEN NULL ELSE jsonb_build_object(
         'id', r.id, 'amount', r.amount, 'received_date', r.received_date, 'method', r.method, 'reference', r.reference) END)
     FROM public.special_advance_corrections c
     JOIN public.special_advances a ON a.id = c.advance_id
     LEFT JOIN public.special_advance_repayments r ON r.id = c.repayment_id
-    LEFT JOIN public.profiles rp ON rp.id = c.requested_by
-    LEFT JOIN public.profiles dp ON dp.id = c.decided_by
+    LEFT JOIN public.profiles rp ON rp.id = c.recorded_by
    WHERE c.id = p_id;
 $$;
 
@@ -543,7 +518,7 @@ BEGIN
         'note', r.note, 'recorded_by', r.recorded_by, 'recorded_at', r.recorded_at, 'ledger_group_id', r.ledger_group_id,
         'proof_path', r.proof_path, 'reversed_by_correction', r.reversed_by_correction) ORDER BY r.recorded_at)
       FROM public.special_advance_repayments r WHERE r.advance_id = p_id), '[]'::jsonb),
-    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.requested_at)
+    'corrections', COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(c.id) ORDER BY c.recorded_at)
       FROM public.special_advance_corrections c WHERE c.advance_id = p_id), '[]'::jsonb));
 END $$;
 
@@ -580,10 +555,13 @@ BEGIN
                             'mismatched_advances', v_rows);
 END $$;
 
--- ── Request a correction (maker) ───────────────────────────────────────────────────────────────────
+-- ── Record and post a correction (one step, CFO decision 2026-11-03) ───────────────────────────────
 -- p_request: {kind: 'repayment_reversal' | 'payout_reversal', repayment_id (repayment reversal), reason, proof_path,
--- idempotency_key}. Records a pending request; nothing is posted. Works whether issuance is on or off (it fixes errors).
-CREATE FUNCTION public.special_advance_request_correction(p_id uuid, p_request jsonb)
+-- idempotency_key}. The CFO's one authorised action: checks everything against the records as they are now, posts the
+-- correcting legs once (fixed key per correction) and writes the append-only record, all in one transaction. A retry
+-- with the same key and the same request returns the posted correction ('replayed'); nothing posts twice. Works whether
+-- issuance is on or off (it fixes errors).
+CREATE FUNCTION public.special_advance_record_correction(p_id uuid, p_request jsonb)
 RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_actor uuid := public._special_advance_require_cfo();
@@ -597,6 +575,12 @@ DECLARE
   e public.special_advance_corrections%ROWTYPE;
   v_amount bigint;
   v_id uuid := gen_random_uuid();
+  v_ref text;
+  v_today date := public._special_advance_kampala_today();
+  v_src jsonb;
+  v_legs jsonb;
+  v_desc text;
+  v_group uuid;
 BEGIN
   PERFORM public._special_advance_require_mfa();
   IF length(v_key) NOT BETWEEN 16 AND 100 THEN
@@ -606,7 +590,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('special_advance:correction:' || v_key, 0));
   SELECT * INTO e FROM public.special_advance_corrections WHERE idempotency_key = v_key;
   IF e.id IS NOT NULL THEN
-    IF e.advance_id = p_id AND e.requested_by = v_actor AND e.kind = v_kind AND e.repayment_id IS NOT DISTINCT FROM v_rep_id
+    IF e.advance_id = p_id AND e.recorded_by = v_actor AND e.kind = v_kind AND e.repayment_id IS NOT DISTINCT FROM v_rep_id
        AND e.proof_path = v_proof AND e.reason = v_reason THEN
       RETURN public._special_advance_correction_json(e.id) || jsonb_build_object('replayed', true);
     END IF;
@@ -617,18 +601,18 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_FOUND' USING ERRCODE = 'P0002';
   END IF;
+  IF a.borrower_user_id = v_actor THEN
+    RAISE EXCEPTION 'SELF_ADVANCE' USING ERRCODE = '42501';
+  END IF;
   IF v_kind IS NULL OR v_kind NOT IN ('repayment_reversal', 'payout_reversal') THEN
     RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["kind"]';
   END IF;
   IF v_reason IS NULL OR length(v_reason) NOT BETWEEN 20 AND 1000 THEN
     RAISE EXCEPTION 'REASON_REQUIRED' USING ERRCODE = '22023', DETAIL = 'Explain the error in 20 to 1000 characters';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.special_advance_corrections c WHERE c.advance_id = a.id AND c.status = 'pending') THEN
-    RAISE EXCEPTION 'CORRECTION_ALREADY_PENDING' USING ERRCODE = '23505';
-  END IF;
 
   IF v_kind = 'repayment_reversal' THEN
-    SELECT * INTO r FROM public.special_advance_repayments WHERE id = v_rep_id AND advance_id = a.id;
+    SELECT * INTO r FROM public.special_advance_repayments WHERE id = v_rep_id AND advance_id = a.id FOR UPDATE;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'REPAYMENT_NOT_FOUND' USING ERRCODE = 'P0002';
     END IF;
@@ -637,6 +621,12 @@ BEGIN
     END IF;
     IF a.status NOT IN ('disbursed', 'settled') THEN
       RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_CORRECTABLE' USING ERRCODE = '22023', DETAIL = a.status;
+    END IF;
+    IF a.status = 'settled' AND a.borrower_user_id IS NOT NULL
+       AND EXISTS (SELECT 1 FROM public.special_advances o WHERE o.borrower_user_id = a.borrower_user_id AND o.id <> a.id
+                    AND o.status IN ('pending_approval', 'approved', 'disbursed')) THEN
+      RAISE EXCEPTION 'BORROWER_HAS_OPEN_ADVANCE' USING ERRCODE = '22023',
+        DETAIL = 'Reopening this advance would give the borrower two open Special Advances';
     END IF;
     v_amount := r.amount;
   ELSE
@@ -654,104 +644,18 @@ BEGIN
   END IF;
   v_proof := public._special_advance_check_proof(a.id, v_proof);  -- D11d
 
-  INSERT INTO public.special_advance_corrections (id, reference, advance_id, kind, repayment_id, amount, reason, proof_path,
-                                                  idempotency_key, requested_by)
-  VALUES (v_id, 'SAC-' || lpad(nextval('public.special_advance_correction_seq')::text, 6, '0'), a.id, v_kind,
-          CASE WHEN v_kind = 'repayment_reversal' THEN r.id END, v_amount, v_reason, v_proof, v_key, v_actor);
-  INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-  VALUES (a.id, 'correction_requested', a.status, a.status, v_actor, v_reason,
-          jsonb_build_object('correction_id', v_id, 'kind', v_kind, 'amount', v_amount, 'repayment_id', r.id));
-  RETURN public._special_advance_correction_json(v_id) || jsonb_build_object('replayed', false);
-END $$;
-
--- ── Decide a correction (checker) ──────────────────────────────────────────────────────────────────
--- p_decision: 'approve' | 'reject' (a different enabled CFO; rejection needs a note) | 'withdraw' (the requester only).
--- Approval re-checks everything, posts the correcting legs once (fixed key per correction) and updates the records.
-CREATE FUNCTION public.special_advance_decide_correction(p_correction_id uuid, p_decision text, p_note text DEFAULT NULL)
-RETURNS jsonb LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_actor uuid := public._special_advance_require_cfo();
-  v_note text := public._special_advance_reason(p_note, p_decision = 'reject');
-  c public.special_advance_corrections%ROWTYPE;
-  a public.special_advances%ROWTYPE;
-  r public.special_advance_repayments%ROWTYPE;
-  v_target text := CASE p_decision WHEN 'approve' THEN 'approved' WHEN 'reject' THEN 'rejected' WHEN 'withdraw' THEN 'withdrawn' END;
-  v_today date := public._special_advance_kampala_today();
-  v_src jsonb;
-  v_legs jsonb;
-  v_desc text;
-  v_group uuid;
-BEGIN
-  PERFORM public._special_advance_require_mfa();
-  IF v_target IS NULL THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["decision"]';
-  END IF;
-  SELECT * INTO c FROM public.special_advance_corrections WHERE id = p_correction_id FOR UPDATE;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'CORRECTION_NOT_FOUND' USING ERRCODE = 'P0002';
-  END IF;
-  IF c.status <> 'pending' THEN
-    IF c.status = v_target AND c.decided_by = v_actor THEN  -- the same decision again: replay
-      RETURN public._special_advance_correction_json(c.id) || jsonb_build_object('replayed', true);
-    END IF;
-    RAISE EXCEPTION 'CORRECTION_ALREADY_DECIDED' USING ERRCODE = '22023', DETAIL = c.status;
-  END IF;
-
-  IF p_decision = 'withdraw' THEN
-    IF c.requested_by <> v_actor THEN
-      RAISE EXCEPTION 'ONLY_REQUESTER_MAY_WITHDRAW' USING ERRCODE = '42501';
-    END IF;
-  ELSIF c.requested_by = v_actor THEN  -- D11b maker-checker
-    RAISE EXCEPTION 'SECOND_CFO_REQUIRED' USING ERRCODE = '42501',
-      DETAIL = 'A different CFO must approve or reject a correction you requested';
-  END IF;
-
-  IF p_decision IN ('reject', 'withdraw') THEN
-    UPDATE public.special_advance_corrections
-       SET status = v_target, decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note
-     WHERE id = c.id;
-    INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-    SELECT c.advance_id, 'correction_' || v_target, s.status, s.status, v_actor, v_note,
-           jsonb_build_object('correction_id', c.id, 'kind', c.kind)
-      FROM public.special_advances s WHERE s.id = c.advance_id;
-    RETURN public._special_advance_correction_json(c.id) || jsonb_build_object('replayed', false);
-  END IF;
-
-  -- approve: re-check against the records as they are now
-  SELECT * INTO a FROM public.special_advances WHERE id = c.advance_id FOR UPDATE;
-  IF a.borrower_user_id = v_actor THEN
-    RAISE EXCEPTION 'SELF_ADVANCE' USING ERRCODE = '42501';
-  END IF;
-  v_desc := format('Special Advance %s correction %s', a.reference, c.reference);
-  v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_corrections', 'source_id', c.id,
+  v_ref := 'SAC-' || lpad(nextval('public.special_advance_correction_seq')::text, 6, '0');
+  v_desc := format('Special Advance %s correction %s', a.reference, v_ref);
+  v_src := jsonb_build_object('ledger_scope', 'platform', 'source_table', 'special_advance_corrections', 'source_id', v_id,
                               'reference_id', a.reference, 'currency', 'UGX',
                               'transaction_date', (v_today::timestamp AT TIME ZONE 'Africa/Kampala'));
-  IF c.kind = 'repayment_reversal' THEN
-    SELECT * INTO r FROM public.special_advance_repayments WHERE id = c.repayment_id FOR UPDATE;
-    IF r.reversed_by_correction IS NOT NULL THEN
-      RAISE EXCEPTION 'REPAYMENT_ALREADY_REVERSED' USING ERRCODE = '22023';
-    END IF;
-    IF a.status NOT IN ('disbursed', 'settled') THEN
-      RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_CORRECTABLE' USING ERRCODE = '22023', DETAIL = a.status;
-    END IF;
-    IF a.status = 'settled' AND a.borrower_user_id IS NOT NULL
-       AND EXISTS (SELECT 1 FROM public.special_advances o WHERE o.borrower_user_id = a.borrower_user_id AND o.id <> a.id
-                    AND o.status IN ('pending_approval', 'approved', 'disbursed')) THEN
-      RAISE EXCEPTION 'BORROWER_HAS_OPEN_ADVANCE' USING ERRCODE = '22023',
-        DETAIL = 'Reopening this advance would give the borrower two open Special Advances';
-    END IF;
+  IF v_kind = 'repayment_reversal' THEN
     v_legs := jsonb_build_array(
       v_src || jsonb_build_object('direction', 'cash_out', 'amount', r.amount, 'category', 'special_advance_repayment_received',
                                   'description', format('%s: repayment ref %s reversed (company cash)', v_desc, r.reference)),
       v_src || jsonb_build_object('direction', 'cash_in', 'amount', r.amount, 'category', 'special_advance_repayment',
                                   'description', format('%s: repayment ref %s reversed (receivable restored)', v_desc, r.reference)));
   ELSE
-    IF a.borrower_kind <> 'external' OR a.status <> 'disbursed' THEN
-      RAISE EXCEPTION 'SPECIAL_ADVANCE_NOT_CORRECTABLE' USING ERRCODE = '22023', DETAIL = a.status;
-    END IF;
-    IF EXISTS (SELECT 1 FROM public.special_advance_repayments x WHERE x.advance_id = a.id AND x.reversed_by_correction IS NULL) THEN
-      RAISE EXCEPTION 'REPAYMENTS_MUST_BE_REVERSED_FIRST' USING ERRCODE = '22023';
-    END IF;
     v_legs := jsonb_build_array(
       v_src || jsonb_build_object('direction', 'cash_out', 'amount', a.principal, 'category', 'special_advance_payout_cash',
                                   'description', format('%s: payout ref %s reversed (company cash)', v_desc, a.payout_reference)),
@@ -773,19 +677,21 @@ BEGIN
     END IF;
   END IF;
 
-  -- one key per correction: it can post only once, whatever happens to the request
-  v_group := public.create_ledger_transaction(v_legs, 'special_advance:correction:' || c.id::text, false);
+  -- one key per correction: it can post only once
+  v_group := public.create_ledger_transaction(v_legs, 'special_advance:correction:' || v_id::text, false);
 
-  UPDATE public.special_advance_corrections
-     SET status = 'approved', decided_by = v_actor, decided_at = clock_timestamp(), decision_note = v_note, ledger_group_id = v_group
-   WHERE id = c.id;
+  INSERT INTO public.special_advance_corrections (id, reference, advance_id, kind, repayment_id, amount, reason, proof_path,
+                                                  idempotency_key, ledger_group_id, recorded_by)
+  VALUES (v_id, v_ref, a.id, v_kind, CASE WHEN v_kind = 'repayment_reversal' THEN r.id END, v_amount, v_reason, v_proof,
+          v_key, v_group, v_actor);
   INSERT INTO public.special_advance_events (advance_id, event_type, from_status, to_status, actor_id, reason, details)
-  VALUES (a.id, 'correction_approved', a.status, a.status, v_actor, v_note,
-          jsonb_build_object('correction_id', c.id, 'kind', c.kind, 'amount', c.amount, 'ledger_group_id', v_group));
+  VALUES (a.id, 'correction_posted', a.status, a.status, v_actor, v_reason,
+          jsonb_build_object('correction_id', v_id, 'kind', v_kind, 'amount', v_amount, 'repayment_id', r.id,
+                             'ledger_group_id', v_group));
 
-  PERFORM set_config('special_advance.correction', c.id::text, true);
-  IF c.kind = 'repayment_reversal' THEN
-    UPDATE public.special_advance_repayments SET reversed_by_correction = c.id WHERE id = r.id;
+  PERFORM set_config('special_advance.correction', v_id::text, true);
+  IF v_kind = 'repayment_reversal' THEN
+    UPDATE public.special_advance_repayments SET reversed_by_correction = v_id WHERE id = r.id;
     IF a.status = 'settled' THEN
       UPDATE public.special_advances SET status = 'disbursed', settled_at = NULL WHERE id = a.id;
     END IF;
@@ -794,33 +700,15 @@ BEGIN
   END IF;
   PERFORM set_config('special_advance.correction', '', true);
 
-  RETURN public._special_advance_correction_json(c.id) || jsonb_build_object('replayed', false);
-END $$;
-
--- The CFO's queue of corrections (pending by default).
-CREATE FUNCTION public.special_advance_list_corrections(p_status text DEFAULT 'pending', p_limit integer DEFAULT 50)
-RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public._special_advance_require_cfo();
-  IF p_status IS NOT NULL AND p_status NOT IN ('pending', 'approved', 'rejected', 'withdrawn') THEN
-    RAISE EXCEPTION 'SPECIAL_ADVANCE_INVALID_REQUEST' USING ERRCODE = '22023', DETAIL = '["status"]';
-  END IF;
-  RETURN COALESCE((SELECT jsonb_agg(public._special_advance_correction_json(x.id) ORDER BY x.requested_at DESC)
-                     FROM (SELECT c.id, c.requested_at FROM public.special_advance_corrections c
-                            WHERE p_status IS NULL OR c.status = p_status
-                            ORDER BY c.requested_at DESC LIMIT LEAST(GREATEST(COALESCE(p_limit, 50), 1), 200)) x), '[]'::jsonb);
+  RETURN public._special_advance_correction_json(v_id) || jsonb_build_object('replayed', false);
 END $$;
 
 -- ── Privileges ─────────────────────────────────────────────────────────────────────────────────────
-REVOKE ALL ON FUNCTION public._special_advance_guard_correction() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._special_advance_guard_posted() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_guard_repayment_change() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._special_advance_correction_json(uuid) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.special_advance_request_correction(uuid, jsonb) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_decide_correction(uuid, text, text) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.special_advance_list_corrections(text, integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.special_advance_request_correction(uuid, jsonb) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_decide_correction(uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.special_advance_list_corrections(text, integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.special_advance_record_correction(uuid, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.special_advance_record_correction(uuid, jsonb) TO authenticated;
 
 -- The replaced functions must keep their privileges (CREATE OR REPLACE keeps them; checked, not assumed).
 DO $post$

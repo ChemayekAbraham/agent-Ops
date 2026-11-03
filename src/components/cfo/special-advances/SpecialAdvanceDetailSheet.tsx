@@ -15,7 +15,6 @@ import { rateLabel } from '@/lib/specialAdvancePreview';
 import {
   STATUS_LABEL,
   CORRECTION_KIND_LABEL,
-  CORRECTION_STATUS_LABEL,
   describeSpecialAdvanceError,
   newIdempotencyKey,
   type SpecialAdvanceStatement,
@@ -27,6 +26,7 @@ import {
   useSpecialAdvanceDecision,
   useSpecialAdvanceStatement,
   uploadSpecialAdvanceProof,
+  hasAuthenticatorSession,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from './SpecialAdvanceProofInput';
 import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
@@ -43,15 +43,9 @@ const EVENT_TEXT: Record<string, string> = {
   settled: 'Settled',
   reopened: 'Reopened by correction',
   reversed: 'Payout reversed by correction',
-  correction_requested: 'Correction requested',
-  correction_approved: 'Correction approved',
-  correction_rejected: 'Correction rejected',
-  correction_withdrawn: 'Correction withdrawn',
+  correction_posted: 'Correction posted',
   written_off: 'Written off',
-  write_off_requested: 'Write-off requested',
-  write_off_approved: 'Write-off approved',
-  write_off_rejected: 'Write-off rejected',
-  write_off_withdrawn: 'Write-off withdrawn',
+  write_off_posted: 'Write-off posted',
   provision_posted: 'Provision posted',
   recovery_recorded: 'Recovery recorded',
 };
@@ -234,7 +228,7 @@ export function SpecialAdvanceDetailSheet({
                   <div className="rounded-lg bg-muted/40 p-2.5 text-muted-foreground">
                     <p className="font-semibold text-foreground">Advance written off</p>
                     <p className="text-[11px]">
-                      This advance has been written off with second-CFO approval. Recoveries may still be recorded.
+                      This advance has been written off. Recoveries may still be recorded.
                     </p>
                   </div>
                   <SpecialAdvanceRecoveryForm advance={a} onSuccess={() => st.refetch()} />
@@ -352,22 +346,14 @@ export function SpecialAdvanceDetailSheet({
                             {CORRECTION_KIND_LABEL[c.kind] ?? c.kind}
                           </Badge>
                         </div>
-                        <Badge
-                          variant={c.status === 'approved' ? 'default' : c.status === 'rejected' ? 'destructive' : 'secondary'}
-                          className="text-[10px]"
-                        >
-                          {CORRECTION_STATUS_LABEL[c.status] ?? c.status}
+                        <Badge variant="default" className="text-[10px]">
+                          Posted
                         </Badge>
                       </div>
                       <p className="text-muted-foreground text-[11px]">
-                        Amount: <strong className="text-foreground">{formatUGX(c.amount)}</strong> · Requested by {c.requested_by_name ?? 'CFO'} on {kampalaLabel(c.requested_at)}
+                        Amount: <strong className="text-foreground">{formatUGX(c.amount)}</strong> · Posted by {c.recorded_by_name ?? 'CFO'} on {kampalaLabel(c.recorded_at)}
                       </p>
                       <p className="italic text-muted-foreground text-[11px]">“{c.reason}”</p>
-                      {c.decided_by && (
-                        <p className="text-[10px] text-muted-foreground">
-                          Decided by {c.decided_by_name ?? 'Second CFO'} · {c.decision_note ? `Note: "${c.decision_note}"` : ''}
-                        </p>
-                      )}
                       {c.proof_path && <SpecialAdvanceProofLink path={c.proof_path} label="View correction proof" />}
                     </div>
                   ))}
@@ -384,12 +370,15 @@ export function SpecialAdvanceDetailSheet({
                     <div key={w.id} className="p-3 space-y-1 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="font-mono font-bold text-primary">{w.reference}</span>
-                        <Badge variant={w.status === 'approved' ? 'destructive' : 'outline'} className="text-[10px]">
-                          {CORRECTION_STATUS_LABEL[w.status] ?? w.status}
+                        <Badge variant="destructive" className="text-[10px]">
+                          Posted
                         </Badge>
                       </div>
                       <p className="text-muted-foreground text-[11px]">
                         Gross: {formatUGX(w.gross_amount)} · Allowance released: {formatUGX(w.allowance_released)} · Net loss: {formatUGX(w.net_loss)}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Posted by {w.recorded_by_name ?? 'CFO'} on {kampalaLabel(w.recorded_at)}
                       </p>
                       <p className="italic text-muted-foreground text-[11px]">“{w.reason}”</p>
                       {w.proof_path && <SpecialAdvanceProofLink path={w.proof_path} label="View evidence" />}
@@ -434,7 +423,7 @@ export function SpecialAdvanceDetailSheet({
                         <th className="px-2.5 py-1 text-right">Applied rate</th>
                         <th className="px-2.5 py-1 text-right">Required</th>
                         <th className="px-2.5 py-1 text-right">Change</th>
-                        <th className="px-2.5 py-1 text-left">Status</th>
+                        <th className="px-2.5 py-1 text-left">Posted</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/60 tabular-nums">
@@ -446,7 +435,7 @@ export function SpecialAdvanceDetailSheet({
                           <td className={`px-2.5 py-1 text-right font-medium ${ph.delta >= 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
                             {ph.delta >= 0 ? `+${formatUGX(ph.delta)}` : formatUGX(ph.delta)}
                           </td>
-                          <td className="px-2.5 py-1">{CORRECTION_STATUS_LABEL[ph.review_status] ?? ph.review_status}</td>
+                          <td className="px-2.5 py-1">{kampalaLabel(ph.recorded_at)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -592,11 +581,7 @@ function DecisionForm({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (pendingAction) {
-            await runDecision(pendingAction);
-          }
-        }}
+        onSuccess={() => (pendingAction ? handleAction(pendingAction) : undefined)}
       />
     </>
   );
@@ -647,6 +632,10 @@ function PayoutForm({
     let path = uploadedPath;
     try {
       if (external && !path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -742,9 +731,7 @@ function PayoutForm({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          await executeDisburse(uploadedPath);
-        }}
+        onSuccess={() => handleRun()}
       />
     </>
   );
@@ -812,6 +799,10 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -903,11 +894,7 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRepayment(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleRun()}
       />
     </>
   );

@@ -16,7 +16,8 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
-  useRequestSpecialAdvanceWriteOff,
+  hasAuthenticatorSession,
+  useWriteOffSpecialAdvance,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
 import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
@@ -34,7 +35,7 @@ export function SpecialAdvanceWriteOffDialog({
   advance,
   onSuccess,
 }: SpecialAdvanceWriteOffDialogProps) {
-  const requestWriteOff = useRequestSpecialAdvanceWriteOff();
+  const writeOff = useWriteOffSpecialAdvance();
   const [reason, setReason] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
@@ -75,14 +76,16 @@ export function SpecialAdvanceWriteOffDialog({
       reason: trimmedReason,
       proofPath: proofPathToUse,
       idempotencyKey: idempotencyKey.current,
+      // the balance shown to the CFO: the server posts nothing if it moved since (WRITE_OFF_STALE)
+      expectedGrossAmount: advance.position.outstanding,
     });
 
-    const res = await requestWriteOff.mutateAsync({
+    const res = await writeOff.mutateAsync({
       advanceId: advance.id,
       request: payload,
     });
 
-    toast.success(`Write-off request ${res.reference} submitted for second CFO review`);
+    toast.success(`Write-off ${res.reference} posted`);
     onOpenChange(false);
     onSuccess?.();
   };
@@ -95,6 +98,10 @@ export function SpecialAdvanceWriteOffDialog({
     let path = uploadedPath;
     try {
       if (!path && file) {
+        if (!(await hasAuthenticatorSession())) {
+          setStepUpOpen(true);
+          return;
+        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -120,10 +127,10 @@ export function SpecialAdvanceWriteOffDialog({
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Request Write-off
+              Write off
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Request write-off for {advance.reference} ({advance.borrower_name ?? 'Borrower'}).
+              Write off {advance.reference} ({advance.borrower_name ?? 'Borrower'}). Confirming posts at once.
             </DialogDescription>
           </DialogHeader>
 
@@ -200,7 +207,7 @@ export function SpecialAdvanceWriteOffDialog({
               onClick={() => void handleSubmit()}
             >
               {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Submit write-off request
+              Post write-off
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -209,11 +216,7 @@ export function SpecialAdvanceWriteOffDialog({
       <SpecialAdvanceStepUpDialog
         open={stepUpOpen}
         onOpenChange={setStepUpOpen}
-        onSuccess={async () => {
-          if (uploadedPath) {
-            await executeRequest(uploadedPath);
-          }
-        }}
+        onSuccess={() => handleSubmit()}
       />
     </>
   );
