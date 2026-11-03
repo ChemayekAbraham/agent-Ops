@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  SpecialAdvance, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceStatement,
-  SpecialAdvanceStatus,
+  ProvisionPreview, ProvisionReview, SpecialAdvance,
+  SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceRecovery,
+  SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceWriteOff,
 } from '@/lib/specialAdvances';
-import { SPECIAL_ADVANCE_PROOF_BUCKET, specialAdvanceProofPath } from '@/lib/specialAdvances';
+import {
+  SPECIAL_ADVANCE_PROOF_BUCKET, SPECIAL_ADVANCE_PROOF_LINK_SECONDS, SPECIAL_ADVANCE_PROOF_PATH_RE, specialAdvanceProofPath,
+} from '@/lib/specialAdvances';
 
 /**
  * Special Advances data access. Every call goes through the CFO-only `special_advance_*` SECURITY DEFINER functions
@@ -119,6 +122,70 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
+/* ── Corrections (Phase B, CFO decisions D11; migration 20261102210000) ───────────────────────────────
+ * One step (CFO decision 2026-11-03): the CFO records and posts in a single authorised action. */
+
+/** Records and posts a correction at once (reason + proof, see buildCorrectionRequest). A retry with the same key replays. */
+export function useRecordSpecialAdvanceCorrection() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
+      call<SpecialAdvanceCorrection>('special_advance_record_correction', { p_id: advanceId, p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10; migration 20261102220000) ─────
+ * One step (CFO decision 2026-11-03): preview, then the CFO posts in a single authorised action. */
+
+/** What a provision review would post now (read-only). `request` may carry individual_rates. */
+export function useSpecialAdvanceProvisionPreview(request: Record<string, unknown> | null, enabled = true) {
+  return useQuery({
+    queryKey: [KEY, 'provision-preview', request],
+    enabled: enabled && !!request,
+    queryFn: () => call<ProvisionPreview>('special_advance_provision_preview', { p_request: request }),
+    staleTime: 30 * 1000,
+    retry: noRetryOnRefusal,
+  });
+}
+
+/**
+ * Computes and posts a provision review at once (see buildProvisionReviewRequest; send the preview's total as
+ * expectedTotalDelta so nothing posts if balances moved since the CFO looked). A retry with the same key replays.
+ */
+export function usePostProvisionReview() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: (request: Record<string, unknown>) => call<ProvisionReview>('special_advance_post_provision_review', { p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+/**
+ * Writes off the whole balance at once (see buildWriteOffRequest; send the outstanding the CFO saw as
+ * expectedGrossAmount). A retry with the same key replays.
+ */
+export function useWriteOffSpecialAdvance() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
+      call<SpecialAdvanceWriteOff>('special_advance_write_off', { p_id: advanceId, p_request: request }),
+    onSuccess: invalidate,
+  });
+}
+
+/** Money recovered after a write-off (D10: DR A1 / CR X4); needs reference + proof, like a repayment. */
+export function useRecordSpecialAdvanceRecovery() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ advanceId, recovery }: {
+      advanceId: string;
+      recovery: { amount: number; received_date: string; method: string; reference: string; note?: string | null; idempotency_key: string; proof_path: string };
+    }) => call<SpecialAdvanceRecovery>('special_advance_record_recovery', { p_id: advanceId, p_recovery: recovery }),
+    onSuccess: invalidate,
+  });
+}
+
 /**
  * Uploads a proof file (receipt or statement) for one advance to the private proofs bucket and returns its path, to be
  * sent as `proof_path` with the payout or repayment. Upload alone moves no money; the server then checks the file
@@ -129,4 +196,16 @@ export async function uploadSpecialAdvanceProof(advanceId: string, file: File): 
   const { error } = await supabase.storage.from(SPECIAL_ADVANCE_PROOF_BUCKET).upload(path, file, { upsert: false, contentType: file.type });
   if (error) throw new Error(error.message);
   return path;
+}
+
+/**
+ * A short-lived signed link to view one archived proof file (payout, repayment, correction, write-off or recovery).
+ * Ask for it when the CFO clicks "View proof", never in advance; the private bucket's policies (enabled CFO) decide
+ * whether it is granted. Only a well-formed proof path is ever sent.
+ */
+export async function getSpecialAdvanceProofUrl(path: string): Promise<string> {
+  if (!SPECIAL_ADVANCE_PROOF_PATH_RE.test(path)) throw new Error('This proof file reference is not valid.');
+  const { data, error } = await supabase.storage.from(SPECIAL_ADVANCE_PROOF_BUCKET).createSignedUrl(path, SPECIAL_ADVANCE_PROOF_LINK_SECONDS);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? 'The proof file could not be opened.');
+  return data.signedUrl;
 }

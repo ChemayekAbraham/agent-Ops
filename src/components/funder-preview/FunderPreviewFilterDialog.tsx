@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Filter, MapPin, Search, Wallet } from 'lucide-react';
+import { Check, Crosshair, Filter, MapPin, Search, Wallet } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,9 @@ const PRESETS: Array<{ label: string; min: number | null; max: number | null }> 
   { label: 'Over 1M', min: 1_000_000, max: null },
 ];
 
+/** Radius choices offered in the funnel, mirroring the dashboard's distance select. */
+const RADIUS_OPTIONS: number[] = [1, 2, 5, 10, 25, 50];
+
 const parseAmount = (raw: string): number | null => {
   const digits = raw.replace(/[^0-9]/g, '');
   const value = Number(digits);
@@ -29,16 +32,30 @@ interface Props {
   availableBalance: number | null;
   floatBalance: number | null;
   resultCount: number;
+  /** True when the page knows where the funder is, so a radius can actually be applied. */
+  hasOrigin: boolean;
+  /** Asks the browser for the funder's location — only fired by an explicit tap. */
+  onRequestLocation?: () => void;
   onChange: (next: Partial<FunderNewFilters>) => void;
 }
 
-/** Funnel button + dialog holding district, amount range and within-balance filters. */
-export function FunderPreviewFilterDialog({ filters, districts, availableBalance, floatBalance, resultCount, onChange }: Props) {
+/** Funnel button + dialog holding district, distance, amount range and within-balance filters. */
+export function FunderPreviewFilterDialog({
+  filters,
+  districts,
+  availableBalance,
+  floatBalance,
+  resultCount,
+  hasOrigin,
+  onRequestLocation,
+  onChange,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   const activeCount =
     (filters.location.trim() ? 1 : 0) +
+    (filters.radiusKm !== 'all' ? 1 : 0) +
     (filters.rentMin !== null || filters.rentMax !== null ? 1 : 0) +
     (filters.withinFloat ? 1 : 0);
 
@@ -61,7 +78,7 @@ export function FunderPreviewFilterDialog({ filters, districts, availableBalance
         onClick={() => setOpen(true)}
         aria-label={`More filters${activeCount ? `, ${activeCount} on` : ''}`}
         className={cn(
-          'relative inline-flex h-8 w-9 flex-none items-center justify-center rounded-md border transition-colors',
+          'relative ml-auto inline-flex h-8 w-9 flex-none items-center justify-center rounded-md border transition-colors',
           activeCount ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted',
         )}
       >
@@ -82,7 +99,7 @@ export function FunderPreviewFilterDialog({ filters, districts, availableBalance
               </span>
               Find your homes
             </DialogTitle>
-            <DialogDescription>Pick a place, a price range and what fits your balance.</DialogDescription>
+            <DialogDescription>Pick a place, how far you'll go, a price range and what fits your balance.</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
@@ -108,6 +125,40 @@ export function FunderPreviewFilterDialog({ filters, districts, availableBalance
                   );
                 })}
               </div>
+            </section>
+
+            <section className="space-y-3">
+              <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                <Crosshair className="h-4 w-4 text-primary" aria-hidden /> Distance
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className={pill(filters.radiusKm === 'all')} onClick={() => onChange({ radiusKm: 'all' })}>
+                  Any distance
+                </button>
+                {RADIUS_OPTIONS.map((km) => {
+                  const on = filters.radiusKm === km;
+                  return (
+                    <button key={km} type="button" className={pill(on)} onClick={() => onChange({ radiusKm: on ? 'all' : km })}>
+                      {on ? <Check className="h-3 w-3" aria-hidden /> : null}
+                      Within {km} km
+                    </button>
+                  );
+                })}
+              </div>
+              {hasOrigin ? null : (
+                <p className="text-xs text-muted-foreground">
+                  Needs your location to work.{' '}
+                  {onRequestLocation ? (
+                    <button
+                      type="button"
+                      onClick={onRequestLocation}
+                      className="font-semibold text-primary underline underline-offset-2"
+                    >
+                      Use my location
+                    </button>
+                  ) : null}
+                </p>
+              )}
             </section>
 
             <section className="space-y-3">
@@ -172,7 +223,9 @@ export function FunderPreviewFilterDialog({ filters, districts, availableBalance
           <div className="flex items-center gap-2 border-t bg-background px-5 py-3">
             <Button
               variant="ghost"
-              onClick={() => onChange({ location: '', rentMin: null, rentMax: null, amount: 'all', withinFloat: false })}
+              onClick={() =>
+                onChange({ location: '', radiusKm: 'all', rentMin: null, rentMax: null, amount: 'all', withinFloat: false })
+              }
             >
               Clear
             </Button>

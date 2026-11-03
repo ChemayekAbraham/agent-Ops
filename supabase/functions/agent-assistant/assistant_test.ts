@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { checkAnswer } from "./guards.ts";
+import { checkAnswer, cleanTerms, RETRY_NOTE, trimToSentence } from "./guards.ts";
 import { kampalaToday, resolvePeriod } from "./dates.ts";
 import { cleanMessage, RequestSchema } from "./schemas.ts";
 import { AGENT_TOOLS, findTool } from "./tools.ts";
@@ -258,6 +258,7 @@ Deno.test("tools: schemas accept good arguments and reject extras", () => {
 
 import { calculateRentPlan, CALC_TOOL } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
+import { buildSystemPrompt } from "./prompt.ts";
 import { MSG } from "./messages.ts";
 import { openAiTools } from "./tools.ts";
 
@@ -292,6 +293,31 @@ Deno.test("tools: someone with no agent footprint is offered no data tools", () 
 Deno.test("guard: earning facts may be quoted, other figures may not", () => {
   assert(checkAnswer("You earn UGX 10,000 for registering a sub-agent.", [AGENT_KNOWLEDGE], "how do i earn").ok);
   assertEquals(checkAnswer("You earn UGX 50,000 per tenant.", [AGENT_KNOWLEDGE], "x"), { ok: false, reason: "figure" });
+});
+
+const LANDLORD_FLOAT_REPLY =
+  "Your landlord float always depends on the number of rent requests you have posted. How many rent requests did you post?";
+
+Deno.test("guard: the approved landlord float reply is accepted", () => {
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [AGENT_KNOWLEDGE], "How much landlord float can I spend?").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [], "how much float may I use").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [JSON.stringify({ landlord_float_available: 450000 })], "how much can I spend").ok);
+  // Short enough to be returned with no tool call (MAX_UNGROUNDED_CHARS).
+  assert(LANDLORD_FLOAT_REPLY.length <= 700);
+});
+
+Deno.test("prompt: spendable landlord float uses the approved reply, not a wallet figure", () => {
+  const prompt = buildSystemPrompt({ todayKampala: "2026-11-02", isAgent: true, page: "agent_dashboard" });
+  assert(prompt.includes(`Reply exactly: "${LANDLORD_FLOAT_REPLY}"`));
+  assert(!prompt.includes("use the wallet's landlord_float_available"));
+  const earn = AGENT_KNOWLEDGE.indexOf("the agent earns 1% of that payout");
+  const spend = AGENT_KNOWLEDGE.indexOf(
+    "How much landlord float an agent can spend always depends on the number of rent requests they have posted.",
+  );
+  assert(earn >= 0 && spend > earn);
+  assert(AGENT_KNOWLEDGE.includes('When asked, say so and ask: "How many rent requests did you post?"'));
+  assert(!findTool("get_wallet")!.description.includes("they can still spend"));
+  assert(!findTool("get_landlord_float_status")!.description.includes("use get_wallet (landlord_float_available)"));
 });
 
 Deno.test("messages: refusals are friendly, never blame, never name the rules, and pass terminology", () => {
@@ -376,4 +402,40 @@ Deno.test("help: the query is short plain text; markup, quotes, SQL and identity
   }
   assert(!t.schema.safeParse({ query: "renew", user_id: "x" }).success);
   assertEquals(t.toRpcArgs({ query: "renew a tenant" }), { p_query: "renew a tenant", p_limit: 4 });
+});
+
+Deno.test("guard repair: banned wording is rewritten to the approved terms", () => {
+  assertEquals(cleanTerms("There is no interest on a loan, and lenders get ROI."), "There is no extra charges on a Rent Plan, and Supporters get Returns.");
+  assert(checkAnswer(cleanTerms("The interest rate on loans is fixed."), [], "x").ok);
+});
+
+Deno.test("guard repair: wording is repaired but figures never are", () => {
+  assertEquals(cleanTerms("You collected UGX 250,000."), "You collected UGX 250,000.");
+  assertEquals(checkAnswer(cleanTerms("You collected UGX 250,000."), [DAY_OUTPUT], "x").ok, false);
+});
+
+Deno.test("guard retry: every failure reason has a note for the model", () => {
+  for (const reason of ["terminology", "figure", "uuid", "phone"] as const) assert(RETRY_NOTE[reason].length > 20);
+});
+
+Deno.test("long ungrounded answers are cut at a sentence end", () => {
+  const long = "First sentence here. ".repeat(80);
+  const cut = trimToSentence(long, 300);
+  assert(cut.length <= 300);
+  assert(cut.endsWith("."));
+  assertEquals(trimToSentence("Short one.", 300), "Short one.");
+});
+
+Deno.test("target progress tool: no arguments, no identity, agent-only", () => {
+  const t = findTool("get_target_progress")!;
+  assertEquals(t.rpc, "assistant_agent_target_progress");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ agent_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assert(!isGeneralTool("get_target_progress"));
+});
+
+Deno.test("target figures from the tool pass the guard, invented ones do not", () => {
+  const out = JSON.stringify({ amount_needed_to_pass: 75869, needed_per_day_including_today: 37935, percent_so_far: 35.1 });
+  assert(checkAnswer("You need UGX 75,869 more, about UGX 37,935 a day.", [out], "am i on target").ok);
+  assertEquals(checkAnswer("You need UGX 80,000 more.", [out], "am i on target").ok, false);
 });

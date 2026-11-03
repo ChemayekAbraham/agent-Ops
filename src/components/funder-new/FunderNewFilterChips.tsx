@@ -35,6 +35,9 @@ interface Props {
   onSortChange: (sort: FunderNewSort) => void;
   /** Show only Sort and Distance (other filters live elsewhere, e.g. a dialog). */
   compact?: boolean;
+  /** Hide the Distance select (it lives in a dialog instead). */
+  hideDistance?: boolean;
+
   /** Rendered right after the Sort control. */
   afterSort?: ReactNode;
 }
@@ -58,6 +61,8 @@ export function FunderNewFilterChips({
   onChange,
   onSortChange,
   compact = false,
+  hideDistance = false,
+
   afterSort = null,
 }: Props) {
   const districtTotal = districts.reduce((sum, item) => sum + item.count, 0);
@@ -128,7 +133,7 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {supportsSort ? field('Distance',
+      {supportsSort && !hideDistance ? field('Distance',
         <Select
           value={filters.radiusKm === 'all' ? 'all' : String(filters.radiusKm)}
           onValueChange={(value) => onChange({ radiusKm: value === 'all' ? 'all' : Number(value) })}

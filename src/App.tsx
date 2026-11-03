@@ -7,6 +7,7 @@ import { IosInstallReporter } from './components/IosInstallReporter';
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
+import { ExplanationDemandOverlay } from "@/components/ExplanationDemandOverlay";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
@@ -77,6 +78,7 @@ const CommunicationGate = optionalLazyWithRetry(() => import("@/components/commu
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
+const StaffAuthenticatorGate = optionalLazyWithRetry(() => import("@/components/auth/StaffAuthenticatorGate"), "StaffAuthenticatorGate");
 // Shared-device sign-in step-up: SMS code for the 3rd+ account on one phone (device-step-up edge fn).
 const DeviceStepUpGate = optionalLazyWithRetry(() => import("@/components/auth/DeviceStepUpGate"), "DeviceStepUpGate");
 // New-device sign-in alert: asks the owner, on their trusted devices, whether they know a new device.
@@ -358,6 +360,8 @@ const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/Por
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
 const COOFunderRentPlanVisibility = lazy(() => import('./pages/coo/FunderRentPlanVisibility'));
+// Decision desks (E16 phase 1): new beside the old ops pages.
+const DeskPage = lazy(() => import('./pages/desk/DeskPage'));
 const WelileAIPage = lazyNamed(() => import('./components/ai-chat/WelileAIChatButton'), 'WelileAIPage');
 const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
@@ -872,7 +876,7 @@ function AppRoutes() {
           <Route path="/admin/dashboard" element={<RoleGuard skipAllowlist allowedRoles={['super_admin', 'manager', 'employee']}><AdminDashboardPage /></RoleGuard>} />
           <Route path="/director/dashboard" element={<RoleGuard allowedRoles={['ceo', 'super_admin', 'manager']} requiredPermission="director"><DirectorDashboardPage /></RoleGuard>} />
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
-          <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
+          <Route path="/admin/financial-ops/:panel?" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
           <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops' as AppRole, 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
               previously fell through to the catch-all NotFound (404). */}
@@ -943,6 +947,9 @@ function AppRoutes() {
           <Route path="/coo/reports/financial-ops" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFinancialOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/system-overview" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOSystemOverviewReport /></RoleGuard>} />
           <Route path="/coo/funder-rent-plans" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFunderRentPlanVisibility /></RoleGuard>} />
+          {/* Decision desks (E16 phase 1). Data comes from desk_feed(), which checks roles in the database too. */}
+          <Route path="/desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
+          <Route path="/desk/:desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
           <Route path="/share" element={<Index />} />
           <Route path="/ai" element={<WelileAIPage />} />
           <Route path="/terms" element={<Terms />} />
@@ -968,6 +975,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
+      <ExplanationDemandOverlay />
       </div>
     </div>
   );
@@ -1143,6 +1151,7 @@ const App = () => {
                           <SonnerToaster />
                           <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
+                          <StaffAuthenticatorGate />
                           <DeviceStepUpGate />
                           <NewDeviceSignInDialog />
                           <GlobalOnboardingGates />

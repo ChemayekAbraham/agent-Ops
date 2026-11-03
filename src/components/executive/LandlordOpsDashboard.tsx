@@ -28,6 +28,8 @@ import { LayoutGrid } from 'lucide-react';
 import { Layers } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChainHealthTab } from './landlord-ops/ChainHealthTab';
+import { MobileFilterSheet } from './landlord-ops/mobile/landlordOpsMobile';
+import { formatOpsUgx } from './landlord-ops/mobile/landlordOpsPhone';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -2569,7 +2571,7 @@ export function LandlordOpsDashboard({
           { label: 'Phone', value: l.phone || '—' },
           { label: 'Houses', value: houseCount },
           { label: 'Tenants', value: tenants.length },
-          { label: 'Monthly rent', value: `UGX ${fmt(l.monthly_rent || 0)}` },
+          { label: 'Monthly rent', value: formatOpsUgx(l.monthly_rent || 0) },
           { label: 'Verified', value: l.verified ? 'Yes' : 'No' },
           { label: 'Address', value: l.property_address || '—' },
           { label: 'Agent', value: l.agent_name || '—' },
@@ -2691,14 +2693,14 @@ export function LandlordOpsDashboard({
       },
       {
         label: 'OCCUPIED RENT',
-        value: `UGX ${fmt(scoped?.occupied_monthly_revenue ?? 0)}`,
-        hint: `UGX ${fmt(scoped?.empty_monthly_revenue ?? 0)} empty`,
+        value: formatOpsUgx(scoped?.occupied_monthly_revenue ?? 0),
+        hint: `${formatOpsUgx(scoped?.empty_monthly_revenue ?? 0)} empty`,
       },
       {
         label: 'LANDLORDS FUNDED',
         value: (landlordFundedStats?.summary.landlords_funded ?? 0).toLocaleString(),
         hint: landlordFundedStats
-          ? `UGX ${fmt(landlordFundedStats.summary.total_funded)} · prev ${landlordFundedStats.previous.landlords_funded.toLocaleString()}`
+          ? `${formatOpsUgx(landlordFundedStats.summary.total_funded)} · prev ${landlordFundedStats.previous.landlords_funded.toLocaleString()}`
           : 'money committed in this period',
       },
     ];
@@ -2759,13 +2761,18 @@ export function LandlordOpsDashboard({
       <>
       <div className="space-y-3">
         <BackButton />
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold flex items-center gap-2"><Building2 className="h-5 w-5 text-sky-600" /> All Landlords</h2>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-lg font-bold"><Building2 className="h-5 w-5 shrink-0 text-sky-600" /> All Landlords</h2>
+            <p className="text-sm text-muted-foreground">
+              {landlordIsPaidTab ? `${(categoryCounts[categoryFilter] ?? 0).toLocaleString()} landlords` : landlordOpsListFetching ? 'Loading…' : `${totalMatched} landlords`}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 sm:flex sm:items-center">
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1.5"
+              className="h-11 gap-1.5 sm:h-9"
               disabled={exportingLandlordReport || landlordIsPaidTab}
               onClick={() => void exportLandlordReportPdf()}
               title={landlordIsPaidTab ? 'The PDF report is not available on this tab' : 'Export a full PDF report for the filters currently applied'}
@@ -2778,7 +2785,7 @@ export function LandlordOpsDashboard({
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1.5"
+              className="h-11 gap-1.5 sm:h-9"
               disabled={exportingFundedReport}
               onClick={() => void exportFundedReportPdf()}
               title="Export the Landlords Funded pack (stats, charts, per district / agent / service centre) for the period selected below"
@@ -2788,12 +2795,9 @@ export function LandlordOpsDashboard({
                 : <Banknote className="h-4 w-4" />}
               Funded Report
             </Button>
-            <Button size="sm" onClick={() => setBulkImportLandlordsOpen(true)} className="h-9">
+            <Button size="sm" onClick={() => setBulkImportLandlordsOpen(true)} className="h-11 sm:h-9">
               <Upload className="h-4 w-4 mr-1.5" /> Bulk Import
             </Button>
-            <span className="text-xs text-muted-foreground">
-              {landlordIsPaidTab ? `${(categoryCounts[categoryFilter] ?? 0).toLocaleString()} landlords` : landlordOpsListFetching ? 'Loading…' : `${totalMatched} landlords`}
-            </span>
           </div>
         </div>
 
@@ -2811,14 +2815,18 @@ export function LandlordOpsDashboard({
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search name, phone, location, tenant, or agent…" value={search} onChange={e => { setSearch(e.target.value); setLandlordPage(1); }} className="pl-9 h-9" />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-muted-foreground" /></button>}
+        <div className="lo-sticky-search relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input placeholder="Search name, phone, location, tenant, or agent" value={search} onChange={e => { setSearch(e.target.value); setLandlordPage(1); }} className="h-11 pl-9 pr-12 text-sm md:h-9" aria-label="Search landlords" />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center md:h-9 md:w-9" aria-label="Clear landlord search">
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
 
         {/* Category filter chips */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
           {LANDLORD_CATEGORIES.map((cat) => (
             <Button
               key={cat.value}
@@ -2826,7 +2834,7 @@ export function LandlordOpsDashboard({
               disabled={cat.value === 'paid_unverified' && scoped?.paid_unverified === undefined}
               title={cat.value === 'funded' ? FUNDED_TAB_NOTE : cat.value === 'paid_unverified' ? (scoped?.paid_unverified === undefined ? 'Awaiting the paid-landlord filter update' : 'Recorded payouts; pending, rejected or resubmitted verification') : undefined}
               onClick={() => { setLandlordCategory(cat.value); setLandlordPage(1); }}
-              className={`h-auto px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+              className={`h-11 shrink-0 rounded-full px-3 text-sm font-semibold transition-all md:h-auto md:px-2.5 md:py-1 md:text-[11px] ${
                 categoryFilter === cat.value
                   ? `${cat.color} border-current shadow-sm`
                   : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -2848,7 +2856,7 @@ export function LandlordOpsDashboard({
                 setLandlordDateTo('');
                 setLandlordPage(1);
               }}
-              className="px-2.5 py-1 rounded-full text-[11px] font-semibold text-muted-foreground border border-border bg-background hover:bg-muted transition-all inline-flex items-center gap-1"
+              className="inline-flex h-11 shrink-0 items-center gap-1 rounded-full border border-border bg-background px-3 text-sm font-semibold text-muted-foreground transition-all hover:bg-muted md:h-auto md:px-2.5 md:py-1 md:text-[11px]"
               title="Reset filters"
             >
               <RotateCcw className="h-3 w-3" />
@@ -2862,42 +2870,47 @@ export function LandlordOpsDashboard({
           <p className="text-[11px] text-muted-foreground" data-testid="funded-tab-note">{FUNDED_TAB_NOTE}</p>
         )}
 
-        {/* Date range filter — applied to the STATE date, not blindly to registration. Not used by the two paid tabs. */}
+        <MobileFilterSheet
+          title="Dates and sort"
+          active={!!landlordDateFrom || !!landlordDateTo || pendingFilter !== 'all' || landlordSort !== 'newest'}
+        >
+        {/* Date range filter. Applied to the state date, not blindly to registration. Not used by the two paid tabs. */}
         {!landlordIsPaidTab && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-muted-foreground font-medium">
-            {categoryFilter === 'funded' ? 'Funded between:'
-              : categoryFilter === 'verified' ? 'Verified between:'
-              : categoryFilter === 'rejected' ? 'Rejected between:'
-              : categoryFilter === 'pending' ? 'Registered between:'
-              : categoryFilter === 'resubmitted' ? 'Resubmitted between:'
-              : 'Status changed between:'}
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+          <span className="text-sm font-medium text-muted-foreground md:text-[11px]">
+            {categoryFilter === 'funded' ? 'Funded between'
+              : categoryFilter === 'verified' ? 'Verified between'
+              : categoryFilter === 'rejected' ? 'Rejected between'
+              : categoryFilter === 'pending' ? 'Registered between'
+              : categoryFilter === 'resubmitted' ? 'Resubmitted between'
+              : 'Status changed between'}
           </span>
           <Input
             type="date"
             value={landlordDateFrom}
             onChange={e => { setLandlordDateFrom(e.target.value); setLandlordPage(1); }}
-            className="h-8 w-auto text-xs"
+            className="h-11 w-full text-sm md:h-8 md:w-auto md:text-xs"
             aria-label="Landlord from date"
           />
-          <span className="text-[11px] text-muted-foreground">to</span>
+          <span className="text-sm text-muted-foreground md:text-[11px]">to</span>
           <Input
             type="date"
             value={landlordDateTo}
             onChange={e => { setLandlordDateTo(e.target.value); setLandlordPage(1); }}
-            className="h-8 w-auto text-xs"
+            className="h-11 w-full text-sm md:h-8 md:w-auto md:text-xs"
             aria-label="Landlord to date"
           />
           {(landlordDateFrom || landlordDateTo) && (
             <button
+              type="button"
               onClick={() => { setLandlordDateFrom(''); setLandlordDateTo(''); setLandlordPage(1); }}
-              className="text-[11px] text-muted-foreground hover:text-foreground underline"
+              className="min-h-11 text-sm text-muted-foreground underline hover:text-foreground md:min-h-0 md:text-[11px]"
             >
-              clear
+              Clear dates
             </button>
           )}
           {landlordCountsFetching && (
-            <span className="text-[11px] text-muted-foreground">Updating counts…</span>
+            <span className="text-sm text-muted-foreground md:text-[11px]">Updating counts…</span>
           )}
         </div>
         )}
@@ -2913,7 +2926,7 @@ export function LandlordOpsDashboard({
 
         {/* Pending landlord quick filters */}
         {categoryFilter === 'pending' && (
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
             {([
               { value: 'all' as PendingFilter, label: 'All Pending' },
               { value: 'has_address' as PendingFilter, label: 'Has Address' },
@@ -2926,8 +2939,9 @@ export function LandlordOpsDashboard({
               return (
                 <button
                   key={f.value}
+                  type="button"
                   onClick={() => setPendingFilter(f.value)}
-                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                  className={`min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-all md:min-h-0 md:px-2.5 md:py-1 md:text-[11px] ${
                     active
                       ? 'bg-amber-100 text-amber-700 border-amber-300 shadow-sm'
                       : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -2942,9 +2956,9 @@ export function LandlordOpsDashboard({
 
         {/* Sort (every category except the two paid tabs, which have their own order) */}
         {!landlordIsPaidTab && (
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground font-medium">Sort:</span>
-          <div className="flex gap-1.5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <span className="text-sm font-medium text-muted-foreground md:text-[11px]">Sort</span>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
             {([
               { value: 'newest' as SortOption, label: 'Newest' },
               { value: 'oldest' as SortOption, label: 'Oldest' },
@@ -2952,8 +2966,9 @@ export function LandlordOpsDashboard({
             ]).map(s => (
               <button
                 key={s.value}
+                type="button"
                 onClick={() => setLandlordSort(s.value)}
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all border ${
+                className={`min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-all md:min-h-0 md:px-2 md:py-0.5 md:text-[11px] ${
                   landlordSort === s.value
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -2965,6 +2980,7 @@ export function LandlordOpsDashboard({
           </div>
         </div>
         )}
+        </MobileFilterSheet>
 
         {/* Paid & Repaying / Completed: read-only lists from landlord_ops_paid_lists */}
         {landlordIsPaidTab ? (
@@ -3017,7 +3033,7 @@ export function LandlordOpsDashboard({
                         <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell text-xs">
                           {new Date(r.funded_at).toLocaleDateString()}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-semibold">UGX {fmt(r.rent_amount || 0)}</td>
+                        <td className="px-3 py-2.5 text-right font-semibold">{formatOpsUgx(r.rent_amount || 0)}</td>
                         <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell text-xs">{r.payout_channel}</td>
                       </tr>
                     ))
@@ -3539,6 +3555,7 @@ export function LandlordOpsDashboard({
           <Input placeholder="Search city…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-11" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-muted-foreground" /></button>}
         </div>
+        <div className="hidden md:block">
         <DrilldownTable
           data={filtered}
           rowKey={(c, i) => `${c.city}-${i}`}
@@ -3550,9 +3567,10 @@ export function LandlordOpsDashboard({
             { key: 'tenantCount', label: 'Tenants', align: 'right' },
           ] as DrilldownColumn<typeof filtered[number]>[]}
         />
+        </div>
         <div className="space-y-2">
           {filtered.map((city, i) => (
-            <div key={i} className="rounded-xl border border-border bg-card p-4 flex items-center justify-between gap-3">
+            <button type="button" key={i} onClick={() => openEntity('city', city)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 text-left">
               <div className="flex items-center gap-3 min-w-0">
                 <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center shrink-0">
                   <MapPin className="h-5 w-5 text-teal-600" />
@@ -3571,7 +3589,7 @@ export function LandlordOpsDashboard({
                   </Badge>
                 )}
               </div>
-            </div>
+            </button>
           ))}
           {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">No cities found</p>}
         </div>
@@ -3611,6 +3629,7 @@ export function LandlordOpsDashboard({
           <Input placeholder="Search tenant, agent, or city…" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-11" />
           {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="h-4 w-4 text-muted-foreground" /></button>}
         </div>
+        <div className="hidden md:block">
         <DrilldownTable
           data={filtered}
           rowKey={(t) => t.id}
@@ -3619,11 +3638,12 @@ export function LandlordOpsDashboard({
           columns={[
             { key: 'tenant_name', label: 'Tenant', render: (t) => <span className="font-semibold">{t.tenant_name}</span> },
             { key: 'request_city', label: 'City', render: (t) => t.request_city || '—' },
-            { key: 'rent_amount', label: 'Rent', align: 'right', render: (t) => `UGX ${t.rent_amount.toLocaleString()}` },
+            { key: 'rent_amount', label: 'Rent', align: 'right', render: (t) => formatOpsUgx(t.rent_amount) },
             { key: 'status', label: 'Status' },
             { key: 'agent_name', label: 'Agent', render: (t) => t.agent_name || '—' },
           ] as DrilldownColumn<typeof filtered[number]>[]}
         />
+        </div>
         <div className="space-y-2">
           {filtered.map(t => (
             <div key={t.id} className="rounded-xl border border-border bg-card p-4 space-y-3">
@@ -3632,7 +3652,7 @@ export function LandlordOpsDashboard({
                 <div className="min-w-0">
                   <p className="font-bold text-sm truncate">{t.tenant_name}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    <Badge variant="outline" className="text-[10px]">UGX {t.rent_amount.toLocaleString()}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{formatOpsUgx(t.rent_amount)}</Badge>
                     {t.request_city && (
                       <Badge className="bg-teal-500/20 text-teal-700 border-0 text-[10px]">
                         <MapPin className="h-2.5 w-2.5 mr-0.5" />{t.request_city}
@@ -3677,7 +3697,7 @@ export function LandlordOpsDashboard({
               {t.agent_id && !t.agent_phone && (
                 <div className="rounded-lg bg-red-500/10 p-2.5">
                   <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 flex items-center gap-1">
-                    <UserX className="h-3 w-3" /> Agent profile missing — no contact info
+                    <UserX className="h-3 w-3" /> Agent profile missing. No contact info
                   </p>
                 </div>
               )}
@@ -3688,6 +3708,9 @@ export function LandlordOpsDashboard({
                   </p>
                 </div>
               )}
+              <Button type="button" variant="outline" className="h-11 w-full md:hidden" onClick={() => openEntity('no-landlord', t)}>
+                Open details
+              </Button>
             </div>
           ))}
           {filtered.length === 0 && (
@@ -3713,9 +3736,10 @@ export function LandlordOpsDashboard({
         {emptyLandlords.length > 0 && (
           <div className="rounded-xl border-2 border-destructive/30 p-3 flex items-start gap-3">
             <DoorOpen className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm font-semibold text-destructive">{emptyLandlords.length} empty — UGX {fmt(lostMonthlyRevenue ?? 0)}/mo lost revenue</p>
+            <p className="text-sm font-semibold text-destructive">{emptyLandlords.length} empty, {formatOpsUgx(lostMonthlyRevenue ?? 0)}/mo lost revenue</p>
           </div>
         )}
+        <div className="hidden md:block">
         <DrilldownTable
           data={emptyLandlords}
           rowKey={(l) => l.id}
@@ -3725,9 +3749,10 @@ export function LandlordOpsDashboard({
             { key: 'name', label: 'Landlord', render: (l) => <span className="font-semibold">{l.name}</span> },
             { key: 'phone', label: 'Phone', render: (l) => l.phone || '—' },
             { key: 'houses', label: 'Houses', align: 'right', sortValue: (l) => landlordHouseCounts.get(l.id) || l.number_of_houses || 0, render: (l) => landlordHouseCounts.get(l.id) || l.number_of_houses || 0 },
-            { key: 'monthly_rent', label: 'Rent', align: 'right', render: (l) => `UGX ${fmt(l.monthly_rent || 0)}` },
+            { key: 'monthly_rent', label: 'Rent', align: 'right', render: (l) => formatOpsUgx(l.monthly_rent || 0) },
           ] as DrilldownColumn<typeof emptyLandlords[number]>[]}
         />
+        </div>
         <div className="space-y-2">
           {emptyLandlords.map(landlord => {
             const houseCount = landlordHouseCounts.get(landlord.id) || landlord.number_of_houses || 0;
@@ -3746,6 +3771,9 @@ export function LandlordOpsDashboard({
                   </p>
                 </div>
                 {landlord.property_address && <p className="text-[10px] text-muted-foreground flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{landlord.property_address}</p>}
+                <Button type="button" variant="outline" className="h-11 w-full md:hidden" onClick={() => openEntity('landlord', landlord)}>
+                  Open details
+                </Button>
               </div>
             );
           })}
@@ -3769,6 +3797,7 @@ export function LandlordOpsDashboard({
       <div className="space-y-3">
         <BackButton />
         <h2 className="text-lg font-bold flex items-center gap-2"><UserCheck className="h-5 w-5 text-green-600" /> Occupied Houses ({occupiedLandlords.length})</h2>
+        <div className="hidden md:block">
         <DrilldownTable
           data={occupiedLandlords}
           rowKey={(l) => l.id}
@@ -3779,9 +3808,10 @@ export function LandlordOpsDashboard({
             { key: 'phone', label: 'Phone', render: (l) => l.phone || '—' },
             { key: 'tenants', label: 'Tenants', align: 'right', sortValue: (l) => l.tenants?.length || 0, render: (l) => l.tenants?.length || 0 },
             { key: 'houses', label: 'Houses', align: 'right', sortValue: (l) => landlordHouseCounts.get(l.id) || l.number_of_houses || 0, render: (l) => landlordHouseCounts.get(l.id) || l.number_of_houses || 0 },
-            { key: 'monthly_rent', label: 'Rent', align: 'right', render: (l) => `UGX ${fmt(l.monthly_rent || 0)}` },
+            { key: 'monthly_rent', label: 'Rent', align: 'right', render: (l) => formatOpsUgx(l.monthly_rent || 0) },
           ] as DrilldownColumn<typeof occupiedLandlords[number]>[]}
         />
+        </div>
         <div className="space-y-2">
           {occupiedLandlords.map(landlord => {
             const houseCount = landlordHouseCounts.get(landlord.id) || landlord.number_of_houses || 0;
@@ -3807,6 +3837,9 @@ export function LandlordOpsDashboard({
                   </div>
                 )}
                 {landlord.property_address && <p className="text-[10px] text-muted-foreground flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" />{landlord.property_address}</p>}
+                <Button type="button" variant="outline" className="h-11 w-full md:hidden" onClick={() => openEntity('landlord', landlord)}>
+                  Open details
+                </Button>
               </div>
             );
           })}
@@ -3858,13 +3891,13 @@ export function LandlordOpsDashboard({
       <>
       <div className="space-y-3">
         <BackButton />
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <h2 className="text-lg font-bold flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-amber-600" /> Verification Queue</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="flex items-center gap-2 text-lg font-bold"><ShieldCheck className="h-5 w-5 shrink-0 text-amber-600" /> Verification Queue</h2>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               variant="outline"
-              className="h-9 gap-1.5"
+              className="h-11 flex-1 gap-1.5 sm:h-9 sm:flex-none"
               disabled={exportingHouseReport}
               onClick={() => void exportHouseReportPdf()}
               title="Export a full PDF report for the filters currently applied"
@@ -3874,12 +3907,12 @@ export function LandlordOpsDashboard({
                 : <FileDown className="h-4 w-4" />}
               Export PDF
             </Button>
-            <Badge variant="outline" className="text-sm font-bold px-3 py-1 bg-amber-100 text-amber-700 border-amber-300">{totalFiltered.toLocaleString()} {houseStatusFilter === 'all' ? 'houses' : houseStatusFilter === 'rejected' ? 'rejected' : houseStatusFilter}</Badge>
+            <Badge variant="outline" className="min-h-11 px-3 text-sm font-bold bg-amber-100 text-amber-700 border-amber-300 sm:min-h-0 sm:py-1">{totalFiltered.toLocaleString()} {houseStatusFilter === 'all' ? 'houses' : houseStatusFilter === 'rejected' ? 'rejected' : houseStatusFilter}</Badge>
           </div>
         </div>
 
         {/* Thumb-friendly status filter chips */}
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
           {([
             { value: 'pending' as HouseStatusFilter, label: 'Pending', count: houseStatusCounts?.pending ?? 0, color: 'amber' },
             { value: 'verified' as HouseStatusFilter, label: 'Verified', count: houseStatusCounts?.verified ?? 0, color: 'emerald' },
@@ -3898,7 +3931,7 @@ export function LandlordOpsDashboard({
               <button
                 key={s.value}
                 onClick={() => setHouseStatusFilter(s.value)}
-                className={`min-h-[44px] px-4 py-2 rounded-full text-sm font-bold transition-all border shadow-sm flex items-center gap-1.5 ${colorMap[s.color]}`}
+                className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-bold shadow-sm transition-all ${colorMap[s.color]}`}
               >
                 {s.label}
                 <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${active ? 'bg-white/25 text-white' : 'bg-muted text-muted-foreground'}`}>
@@ -3910,7 +3943,7 @@ export function LandlordOpsDashboard({
           {(houseStatusFilter !== 'pending' || verifyFilter !== 'all' || verifySearch || verifyDateFrom || verifyDateTo) && (
             <button
               onClick={() => { setHouseStatusFilter('pending'); setVerifyFilter('all'); setVerifySearch(''); setVerifyDateFrom(''); setVerifyDateTo(''); }}
-              className="min-h-[44px] px-3 py-2 rounded-full text-sm font-semibold text-muted-foreground border border-border bg-background hover:bg-muted transition-all flex items-center gap-1.5"
+              className="flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-border bg-background px-3 py-2 text-sm font-semibold text-muted-foreground transition-all hover:bg-muted"
               title="Reset filters"
             >
               <RotateCcw className="h-4 w-4" />
@@ -3920,16 +3953,17 @@ export function LandlordOpsDashboard({
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="lo-sticky-search relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search house, landlord, agent, phone, or location…"
+            placeholder="Search house, landlord, agent, phone, or location"
             value={verifySearch}
             onChange={e => setVerifySearch(e.target.value)}
-            className="pl-9 pr-9 h-11"
+            aria-label="Search the verification queue"
+            className="h-11 pl-9 pr-12 text-sm"
           />
           {verifySearch && (
-            <button onClick={() => setVerifySearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground" aria-label="Clear">
+            <button type="button" onClick={() => setVerifySearch('')} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Clear">
               <X className="h-4 w-4" />
             </button>
           )}
@@ -3946,8 +3980,7 @@ export function LandlordOpsDashboard({
             nothing is lost by removing the old sibling "Hidden" chip. */}
         {(houseStatusFilter === 'verified' || houseStatusFilter === 'all') && (houseStatusCounts?.hidden ?? 0) > 0 && (
           <p className="text-[11px] text-muted-foreground -mt-1 pl-1">
-            {(houseStatusCounts?.hidden ?? 0).toLocaleString()} of these verified houses are currently hidden from the tenant feed —
-            {' '}
+            {(houseStatusCounts?.hidden ?? 0).toLocaleString()} of these verified houses are currently hidden from the tenant feed.{' '}
             <button
               onClick={() => setVerifyFilter(verifyFilter === 'hidden' ? 'all' : 'hidden')}
               className="underline font-semibold hover:text-foreground"
@@ -3957,49 +3990,54 @@ export function LandlordOpsDashboard({
           </p>
         )}
 
-        {/* Date range filter — applied to the STATE date, not registration date */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-muted-foreground font-medium">
-            {houseStatusFilter === 'verified' ? 'Verified between:'
-              : houseStatusFilter === 'rejected' ? 'Rejected between:'
-              : houseStatusFilter === 'pending' ? 'Registered between:'
-              : 'Status changed between:'}
+        <MobileFilterSheet
+          title="Dates, filters and sort"
+          active={verifyFilter !== 'all' || !!verifyDateFrom || !!verifyDateTo || verifySort !== 'newest'}
+        >
+        {/* Date range filter. Applied to the state date, not the registration date. */}
+        <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-center">
+          <span className="text-sm font-medium text-muted-foreground md:text-[11px]">
+            {houseStatusFilter === 'verified' ? 'Verified between'
+              : houseStatusFilter === 'rejected' ? 'Rejected between'
+              : houseStatusFilter === 'pending' ? 'Registered between'
+              : 'Status changed between'}
           </span>
           <Input
             type="date"
             value={verifyDateFrom}
             onChange={e => setVerifyDateFrom(e.target.value)}
-            className="h-8 w-auto text-xs"
+            className="h-11 w-full text-sm md:h-8 md:w-auto md:text-xs"
             aria-label="From date"
           />
-          <span className="text-[11px] text-muted-foreground">to</span>
+          <span className="text-sm text-muted-foreground md:text-[11px]">to</span>
           <Input
             type="date"
             value={verifyDateTo}
             onChange={e => setVerifyDateTo(e.target.value)}
-            className="h-8 w-auto text-xs"
+            className="h-11 w-full text-sm md:h-8 md:w-auto md:text-xs"
             aria-label="To date"
           />
           {(verifyDateFrom || verifyDateTo) && (
-            <button onClick={() => { setVerifyDateFrom(''); setVerifyDateTo(''); }} className="text-[11px] text-muted-foreground hover:text-foreground underline">
-              clear
+            <button type="button" onClick={() => { setVerifyDateFrom(''); setVerifyDateTo(''); }} className="min-h-11 text-sm text-muted-foreground underline hover:text-foreground md:min-h-0 md:text-[11px]">
+              Clear dates
             </button>
           )}
           {isDateRangeFetching && (
-            <span className="text-[11px] text-muted-foreground">Loading date range…</span>
+            <span className="text-sm text-muted-foreground md:text-[11px]">Loading date range…</span>
           )}
         </div>
 
         {/* Quick filter chips */}
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
           {VERIFY_FILTERS.map(f => {
             const count = houseQuickCounts ? (houseQuickCounts as any)[f.value] ?? 0 : 0;
             const active = verifyFilter === f.value;
             return (
               <button
                 key={f.value}
+                type="button"
                 onClick={() => setVerifyFilter(f.value)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all border ${
+                className={`min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-all md:min-h-0 md:px-2.5 md:py-1 md:text-[11px] ${
                   active
                     ? 'bg-amber-100 text-amber-700 border-amber-300 shadow-sm'
                     : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -4013,9 +4051,9 @@ export function LandlordOpsDashboard({
         </div>
 
         {/* Sort */}
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-muted-foreground font-medium">Sort:</span>
-          <div className="flex gap-1.5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center">
+          <span className="text-sm font-medium text-muted-foreground md:text-[11px]">Sort</span>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
             {([
               { value: 'newest' as SortOption, label: 'Newest' },
               { value: 'oldest' as SortOption, label: 'Oldest' },
@@ -4024,8 +4062,9 @@ export function LandlordOpsDashboard({
             ]).map(s => (
               <button
                 key={s.value}
+                type="button"
                 onClick={() => setVerifySort(s.value)}
-                className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all border ${
+                className={`min-h-11 shrink-0 rounded-full border px-3 text-sm font-semibold transition-all md:min-h-0 md:px-2 md:py-0.5 md:text-[11px] ${
                   verifySort === s.value
                     ? 'bg-primary/10 text-primary border-primary/30'
                     : 'bg-background text-muted-foreground border-border hover:bg-muted'
@@ -4036,6 +4075,7 @@ export function LandlordOpsDashboard({
             ))}
           </div>
         </div>
+        </MobileFilterSheet>
 
         <ListingBonusApprovalQueue filter="all" collapsible defaultOpen={false} />
         <VerificationTimelinePanel />
@@ -4050,7 +4090,7 @@ export function LandlordOpsDashboard({
               <div className="flex items-center justify-between gap-2">
                 <button
                   onClick={() => allSelected ? clearVerifySelection() : setVerifySelectedIds(new Set(filteredHouses.map(h => h.id)))}
-                  className="flex items-center gap-2 text-sm font-semibold"
+                  className="flex min-h-11 items-center gap-2 text-sm font-semibold"
                 >
                   <Checkbox checked={allSelected} className="pointer-events-none" />
                   {allSelected ? 'Clear all' : 'Select all'}
@@ -4061,7 +4101,7 @@ export function LandlordOpsDashboard({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-8 px-2.5 text-[11px] font-semibold gap-1.5"
+                      className="h-11 gap-1.5 px-3 text-sm font-semibold md:h-8 md:px-2.5 md:text-[11px]"
                       disabled={isFetchingMoreHouses}
                       onClick={() => { fetchMoreHouses(); }}
                     >
@@ -4074,17 +4114,17 @@ export function LandlordOpsDashboard({
               </div>
 
               {anySelected && (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Button size="sm" variant="outline" className="h-10 gap-1.5 font-semibold" disabled={bulkBusy !== null} onClick={() => handleBulkHide(selectedHouses, true)}>
+                <div className="grid grid-cols-2 gap-2 max-md:fixed max-md:inset-x-0 max-md:bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] max-md:z-[75] max-md:border-t max-md:bg-card max-md:p-3 max-md:shadow-[0_-8px_24px_rgba(0,0,0,0.12)] sm:grid-cols-4">
+                  <Button size="sm" variant="outline" className="h-12 gap-1.5 font-semibold md:h-10" disabled={bulkBusy !== null} onClick={() => handleBulkHide(selectedHouses, true)}>
                     <EyeOff className="h-4 w-4" />{bulkBusy === 'hide' ? '…' : 'Hide'}
                   </Button>
-                  <Button size="sm" variant="outline" className="h-10 gap-1.5 font-semibold" disabled={bulkBusy !== null} onClick={() => handleBulkHide(selectedHouses, false)}>
+                  <Button size="sm" variant="outline" className="h-12 gap-1.5 font-semibold md:h-10" disabled={bulkBusy !== null} onClick={() => handleBulkHide(selectedHouses, false)}>
                     <Eye className="h-4 w-4" />{bulkBusy === 'unhide' ? '…' : 'Unhide'}
                   </Button>
-                  <Button size="sm" className="h-10 gap-1.5 font-semibold" disabled={bulkBusy !== null} onClick={() => handleBulkVerify(selectedHouses)}>
+                  <Button size="sm" className="h-12 gap-1.5 font-semibold md:h-10" disabled={bulkBusy !== null} onClick={() => handleBulkVerify(selectedHouses)}>
                     <ShieldCheck className="h-4 w-4" />{bulkBusy === 'verify' ? '…' : 'Verify'}
                   </Button>
-                  <Button size="sm" variant="outline" className="h-10 gap-1.5 font-semibold border-destructive/40 text-destructive hover:bg-destructive/10" disabled={bulkBusy !== null} onClick={() => handleBulkReject(selectedHouses)}>
+                  <Button size="sm" variant="outline" className="h-12 gap-1.5 border-destructive/40 font-semibold text-destructive hover:bg-destructive/10 md:h-10" disabled={bulkBusy !== null} onClick={() => handleBulkReject(selectedHouses)}>
                     <XCircle className="h-4 w-4" />
                     {bulkBusy === 'reject'
                       ? (bulkProgress ? `${bulkProgress.done}/${bulkProgress.total}` : '…')
@@ -4140,7 +4180,7 @@ export function LandlordOpsDashboard({
                     <div className="flex flex-wrap gap-1.5 pt-0.5">
                       <Badge variant="outline" className="text-[10px] h-5 px-1.5">{house.house_category}</Badge>
                       <Badge variant="outline" className="text-[10px] h-5 px-1.5">{house.number_of_rooms} rooms</Badge>
-                      <Badge className="bg-primary/10 text-primary border-0 text-[10px] h-5 px-1.5 font-bold">UGX {house.monthly_rent.toLocaleString()}/mo</Badge>
+                      <Badge className="bg-primary/10 text-primary border-0 text-[10px] h-5 px-1.5 font-bold">{formatOpsUgx(house.monthly_rent)}/mo</Badge>
                       {house.verified && (
                         <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] h-5 px-1.5 font-bold"><CheckCircle2 className="h-3 w-3 mr-0.5" />Verified</Badge>
                       )}
@@ -4641,7 +4681,7 @@ export function LandlordOpsDashboard({
           <KPICard title="With Photos" value={withImages.length} icon={Image} loading={isLoading} color="bg-blue-500/10 text-blue-600" />
           <KPICard title="GPS Captured" value={withGPS.length} icon={MapPin} loading={isLoading} color="bg-purple-500/10 text-purple-600" />
           <KPICard title="📱 Landlords" value={kpi(smartphoneLandlordsCount)} icon={Smartphone} loading={totalsLoading} color="bg-teal-500/10 text-teal-600" subtitle={`of ${kpi(totalLandlordsCount)}`} />
-          <KPICard title="Bonuses Pending" value={`${fmt(pendingHousesCount * 2000)}`} icon={Banknote} loading={isLoading} color="bg-orange-500/10 text-orange-600" subtitle="UGX to agents" />
+          <KPICard title="Bonuses Pending" value={formatOpsUgx(pendingHousesCount * 2000)} icon={Banknote} loading={isLoading} color="bg-orange-500/10 text-orange-600" subtitle="UGX to agents" />
         </div>
         <VacancyAnalytics listings={rows as any} />
       </div>
@@ -4950,7 +4990,7 @@ export function LandlordOpsDashboard({
                 <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Houses</span>
               </div>
               <p className="text-2xl font-semibold tracking-tight leading-tight mt-1">{fmt(pendingHousesCount)}</p>
-              <p className="text-[10px] text-muted-foreground leading-snug">pending · UGX {fmt(pendingHousesCount * 2000)} bonuses</p>
+              <p className="text-[10px] text-muted-foreground leading-snug">pending · {formatOpsUgx(pendingHousesCount * 2000)} bonuses</p>
             </button>
             <button
               onClick={() => { setView('landlords'); setLandlordCategory('pending'); }}
@@ -5065,8 +5105,8 @@ export function LandlordOpsDashboard({
       {/* KPIs — responsive card grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <KPICard title="Total Properties" value={kpi(totalLandlordsCount)} icon={Home} loading={totalsLoading} onClick={() => setView('houses-by-landlord')} />
-        <KPICard title="Occupied" value={kpi(occupiedLandlordsCount)} icon={UserCheck} loading={totalsLoading} color="bg-green-500/10 text-green-600" subtitle={`UGX ${fmt(totalMonthlyRevenue ?? 0)}/mo`} onClick={() => setView('occupied')} />
-        <KPICard title="Empty" value={kpi(emptyLandlordsCount)} icon={DoorOpen} loading={totalsLoading} color="bg-red-500/10 text-red-600" subtitle={`UGX ${fmt(lostMonthlyRevenue ?? 0)}/mo lost`} onClick={() => setView('empty')} />
+        <KPICard title="Occupied" value={kpi(occupiedLandlordsCount)} icon={UserCheck} loading={totalsLoading} color="bg-green-500/10 text-green-600" subtitle={`${formatOpsUgx(totalMonthlyRevenue ?? 0)}/mo`} onClick={() => setView('occupied')} />
+        <KPICard title="Empty" value={kpi(emptyLandlordsCount)} icon={DoorOpen} loading={totalsLoading} color="bg-red-500/10 text-red-600" subtitle={`${formatOpsUgx(lostMonthlyRevenue ?? 0)}/mo lost`} onClick={() => setView('empty')} />
         <KPICard title="Landlords" value={kpi(totalLandlordsCount)} icon={Building2} loading={totalsLoading} color="bg-sky-500/10 text-sky-600" subtitle={`${kpi(verifiedLandlordsCount)} verified · ${kpi(pendingLandlordsCount)} pending · ${kpi(rejectedLandlordsCount)} rejected`} onClick={() => setView('landlords')} />
         <KPICard title="Cities" value={cityGroups.length} icon={Globe} loading={isLoading} color="bg-teal-500/10 text-teal-600" subtitle="operating in" onClick={() => setView('cities')} />
         <KPICard title="No Landlord" value={noLandlordList.length} icon={UserX} loading={isLoading} color="bg-orange-500/10 text-orange-600" subtitle="need listing" onClick={() => setView('no-landlord')} />

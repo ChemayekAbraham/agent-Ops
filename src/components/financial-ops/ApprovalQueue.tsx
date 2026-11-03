@@ -775,7 +775,7 @@ export function ApprovalQueue() {
         <CardHeader className="pb-2 px-3 sm:px-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 justify-between">
             <CardTitle className="text-sm sm:text-base flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" /> Approval Queue
+              <Clock className="h-4 w-4 text-primary" /> Pending requests
             </CardTitle>
             <div className="flex items-center gap-2">
               {selected.size > 0 && (

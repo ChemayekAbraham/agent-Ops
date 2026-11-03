@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle2, Clock, Mail, Wallet } from 'lucide-react';
+import { PageHeader, StatTile, Pager } from './FinopsKit';
 import { toast } from 'sonner';
 
 interface Row {
@@ -37,8 +38,11 @@ const REASON_TONE: Record<string, string> = {
   not_bank_payout: 'bg-muted text-muted-foreground border-border',
 };
 
+const PAGE_SIZE = 25;
+
 export function ProxyWithdrawalDiagnosticsPanel() {
   const [rows, setRows] = useState<Row[]>([]);
+  const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
 
@@ -47,6 +51,7 @@ export function ProxyWithdrawalDiagnosticsPanel() {
     const { data, error } = await (supabase.rpc as any)('diagnose_pending_proxy_withdrawals');
     if (error) toast.error(error.message);
     setRows((data as Row[]) || []);
+    setPage(0);
     setLoading(false);
   };
 
@@ -83,34 +88,33 @@ export function ProxyWithdrawalDiagnosticsPanel() {
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-            <AlertCircle className="h-6 w-6 text-amber-600" />
-            Proxy Withdrawal Diagnostics
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            Explains why each pending proxy partner withdrawal hasn't auto-settled yet.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={retryAll} disabled={retrying || openEmails === 0}>
-            {retrying ? 'Re-running…' : 'Retry auto-settle'}
-          </Button>
-        </div>
-      </div>
+  const pageRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Stat label="Pending" value={rows.length.toString()} icon={<Clock className="h-4 w-4" />} />
-        <Stat label="Open SKYBUBBLES emails" value={openEmails.toString()} />
-        <Stat label="Email capacity left" value={ugx(totalRemaining)} />
-        <Stat label="Eligible next run" value={(summary.eligible_pending_run || 0).toString()} icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />} />
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        icon={AlertTriangle}
+        tone="amber"
+        title="Proxy Withdrawal Diagnostics"
+        description="Diagnose why each pending proxy partner withdrawal has not auto-settled yet, and re-run the open bulk emails."
+        actions={
+          <>
+            <Button variant="outline" className="min-h-[44px] sm:min-h-[40px]" onClick={load} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button className="min-h-[44px] sm:min-h-[40px]" onClick={retryAll} disabled={retrying || openEmails === 0}>
+              {retrying ? 'Re-running…' : 'Retry auto-settle'}
+            </Button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatTile icon={Clock} tone="amber" label="Pending" value={rows.length.toLocaleString()} note="Proxy withdrawals waiting" />
+        <StatTile icon={Mail} tone="primary" label="Open bulk emails" value={openEmails.toLocaleString()} note="Not yet auto-settled" />
+        <StatTile icon={Wallet} tone="sky" label="Email capacity left" value={ugx(totalRemaining)} note="Across open emails" />
+        <StatTile icon={CheckCircle2} tone="emerald" label="Eligible next run" value={(summary.eligible_pending_run || 0).toLocaleString()} note="Will settle on the next run" />
       </div>
 
       {Object.keys(summary).length > 0 && (
@@ -123,7 +127,8 @@ export function ProxyWithdrawalDiagnosticsPanel() {
         </div>
       )}
 
-      <div className="border rounded-lg overflow-x-auto">
+      <div className="rounded-2xl border bg-card shadow-2xs overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-xs uppercase">
             <tr>
@@ -142,7 +147,7 @@ export function ProxyWithdrawalDiagnosticsPanel() {
             {!loading && rows.length === 0 && (
               <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">No pending proxy withdrawals.</td></tr>
             )}
-            {rows.map((r) => (
+            {pageRows.map((r) => (
               <tr key={r.withdrawal_id} className="border-t hover:bg-muted/30">
                 <td className="p-2.5">
                   <div className="font-medium">{r.partner_name || '—'}</div>
@@ -162,6 +167,12 @@ export function ProxyWithdrawalDiagnosticsPanel() {
             ))}
           </tbody>
         </table>
+        </div>
+        {rows.length > PAGE_SIZE && (
+          <div className="border-t px-4 py-3">
+            <Pager page={page} pageSize={PAGE_SIZE} total={rows.length} onPage={setPage} noun="withdrawals" />
+          </div>
+        )}
       </div>
     </div>
   );

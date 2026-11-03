@@ -160,7 +160,7 @@ export default defineConfig(({ mode }) => {
       transformIndexHtml: {
         // 'pre': must run before Vite's own pass, which rewrites a relative-looking
         // href (the placeholder) into a path and would corrupt the final value.
-        order: "pre",
+        order: "pre" as const,
         handler(html: string) {
           let origin = "";
           try {

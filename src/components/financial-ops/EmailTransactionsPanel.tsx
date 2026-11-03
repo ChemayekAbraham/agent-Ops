@@ -42,6 +42,7 @@ import { DepositNumberConflictsPanel } from './DepositNumberConflictsPanel';
 import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { DialableNumber } from './DialableNumber';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
+import { EmailTransactionsTableView } from './EmailTransactionsTableView';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -303,18 +304,30 @@ export function EmailTransactionsPanel() {
             </button>
           </div>
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="shrink-0 h-9 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => {
-            const next = focusView === 'gmail' ? 'ops' : 'gmail';
-            setFocusView(next);
-            if (next === 'gmail') setFocusDirection(null);
-          }}
-        >
-          {focusView === 'gmail' ? 'Ops layout' : 'Inbox layout'}
-        </Button>
+        <div className="shrink-0 flex items-center gap-0.5 rounded-full bg-muted/60 p-0.5" role="group" aria-label="Layout">
+          {([
+            { key: 'table', label: 'Table' },
+            { key: 'gmail', label: 'Inbox' },
+            { key: 'ops', label: 'Ops' },
+          ] as const).map((l) => (
+            <button
+              key={l.key}
+              type="button"
+              aria-pressed={focusView === l.key}
+              onClick={() => {
+                setFocusView(l.key);
+                if (l.key !== 'ops') setFocusDirection(null);
+              }}
+              className={`h-8 rounded-full px-3 text-xs font-medium transition-colors ${
+                focusView === l.key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Gmail's advanced search card — drops beneath the search field with
@@ -433,7 +446,7 @@ export function EmailTransactionsPanel() {
             key={p.label}
             type="button"
             onClick={() => applyRecentWindow(p.days)}
-            className="shrink-0 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-full border bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
           >
             {p.label}
           </button>
@@ -471,9 +484,10 @@ export function EmailTransactionsPanel() {
                   setMatchFilter('all');
                   setDebitFilter('all');
                   setGmailNavOpen(false);
-                  // Selecting a label always lands the operator in the Gmail
-                  // reading experience for that label, never the ops table.
-                  setFocusView('gmail');
+                  // Selecting a label lands the operator in a reading layout for
+                  // that label, never the ops rows. Stay in the table layout if
+                  // that's where they already are.
+                  setFocusView(focusView === 'table' ? 'table' : 'gmail');
                   setSearchOptionsOpen(false);
                   if (typeof document !== 'undefined') {
                     document.getElementById('email-tx-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -767,8 +781,8 @@ export function EmailTransactionsPanel() {
         ) : (
           <div className="divide-y max-h-[calc(100vh-16rem)] min-h-[420px] overflow-y-auto">
             {selectedIds.size > 0 && (
-              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b bg-background/95 backdrop-blur px-3 py-2 shadow-sm">
-                <div className="text-xs font-medium">
+              <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 bg-primary/10 backdrop-blur px-3.5 py-2.5 shadow-sm">
+                <div className="text-sm font-semibold">
                   <span className="text-primary">{selectedIds.size}</span> selected
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -824,7 +838,22 @@ export function EmailTransactionsPanel() {
                 </div>
               </div>
             )}
-            {focusView === 'gmail' ? (
+            {focusView === 'table' ? (
+              <EmailTransactionsTableView
+                rows={visibleRows}
+                selectedIds={selectedIds}
+                setSelectedIds={setSelectedIds}
+                routingHistory={routingHistory}
+                creditedDeposits={creditedDeposits}
+                manualMarks={manualMarks}
+                ledgerCredits={ledgerCredits}
+                justRoutedIds={justRoutedIds}
+                onSendToWallet={(row) => setPendingSwipe({ row, mode: 'credit' })}
+                onChargeWallet={(row) => setPendingSwipe({ row, mode: 'debit' })}
+                onMarkResolved={(row) => setPendingSwipe({ row, mode: 'resolve' })}
+                onViewHistory={(row) => setHistoryDrawerRow(row)}
+              />
+            ) : focusView === 'gmail' ? (
               // Every label (Inbox / Money in / Money out / Needs routing /
               // Unparsed / Credited) renders as a Gmail inbox that endlessly
               // scrolls through ALL rows behind that label's count.

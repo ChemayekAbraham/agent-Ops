@@ -10,6 +10,9 @@ export interface V360Summary {
   partner_monthly: number; partner_12_months: number;
   paid_days: number; missed_days: number; vacant_days: number;
   remaining_receivable: number; maturity_on: string | null; buffer_drawn: number;
+  agent_sub?: number | null; agent_general?: number | null;
+  cover_pool?: number | null; proxy_agent?: number | null;
+  welile?: number | null; tithe?: number | null; welile_net?: number | null;
 }
 
 export function useV360PlanSummary(rentRequestId: string | null | undefined) {

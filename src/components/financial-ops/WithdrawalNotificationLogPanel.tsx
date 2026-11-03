@@ -17,9 +17,10 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { format } from 'date-fns';
 import {
   Bell, Search, Loader2, RefreshCw, X,
-  ChevronLeft, ChevronRight, ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronUp, ChevronDown, ChevronsUpDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageHeader, Pager } from './FinopsKit';
 
 type LogRow = {
   id: string;
@@ -118,7 +119,6 @@ export function WithdrawalNotificationLogPanel() {
 
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const hasFilters = recipient || minAmount || maxAmount || fromDate || toDate || statusFilter !== 'all';
   const clearFilters = () => {
@@ -148,15 +148,11 @@ export function WithdrawalNotificationLogPanel() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <Bell className="h-6 w-6 text-violet-600" />
-          Withdrawal Notification Log
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Every merchant withdrawal alert and every paid-confirmation SMS sent to the withdrawing user — with live delivery status (queued → sent / failed). Search by recipient, status, amount range and date to trace delivery.
-        </p>
-      </div>
+      <PageHeader
+        icon={Bell}
+        title="Withdrawal Notification Log"
+        description="Every merchant withdrawal alert and every paid-confirmation SMS sent to the withdrawing user, with live delivery status (queued, sent or failed). Search by recipient, status, amount range and date to trace delivery."
+      />
 
       <Card>
         <CardHeader className="pb-3">
@@ -275,28 +271,8 @@ export function WithdrawalNotificationLogPanel() {
                 </TableBody>
               </Table>
             </ScrollArea>
-            <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
-              <span className="text-[11px] text-muted-foreground">
-                Page {page + 1} of {totalPages}
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline" size="icon" className="h-7 w-7"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0 || isFetching}
-                  aria-label="Previous page"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline" size="icon" className="h-7 w-7"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1 || isFetching}
-                  aria-label="Next page"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="border-t border-border px-4 py-3">
+              <Pager page={page} pageSize={PAGE_SIZE} total={total} onPage={setPage} noun="notifications" />
             </div>
             </>
           )}
