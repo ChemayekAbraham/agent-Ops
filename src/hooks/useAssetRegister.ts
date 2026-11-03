@@ -93,7 +93,7 @@ function useInvalidateRegister() {
 export function useCreateAsset() {
   const invalidate = useInvalidateRegister();
   return useMutation({
-    mutationFn: (input: Partial<AssetInput>) => call<Asset>('asset_register_create', { p_asset: input }),
+    mutationFn: (input: AssetWriteInput) => call<Asset>('asset_register_create', { p_asset: input }),
     onSuccess: () => invalidate(),
   });
 }
@@ -101,7 +101,7 @@ export function useCreateAsset() {
 export function useUpdateAsset() {
   const invalidate = useInvalidateRegister();
   return useMutation({
-    mutationFn: (args: { id: string; expectedUpdatedAt: string; changes: Partial<AssetInput>; reason?: string | null }) =>
+    mutationFn: (args: { id: string; expectedUpdatedAt: string; changes: AssetWriteInput; reason?: string | null }) =>
       call<Asset>('asset_register_update', {
         p_id: args.id,
         p_expected_updated_at: args.expectedUpdatedAt,
