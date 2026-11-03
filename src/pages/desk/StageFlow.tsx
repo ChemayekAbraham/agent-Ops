@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
 import { fmt } from './format';
 import type { FeedState, Row } from './useDeskFeed';
-import { CALM, FOCUS, statusEdge, statusFill, statusText, type Status } from './deskTheme';
+import { CALM, FIGURE, FOCUS, PANEL, statusEdge, statusGlass, statusText, type Status } from './deskTheme';
+import { CountUp } from './CountUp';
 import { Skeleton } from './Skeleton';
 
 /** Which desk each stage belongs to, and the order work flows in. */
@@ -66,85 +66,102 @@ function flowSentence(rows: Row[]): string | null {
   return `${rate(entry?.per_day_7d)} new requests a day come in; the slowest desk, ${where}, clears ${rate(neck.per_day_7d)} a day.`;
 }
 
+/** Particle speed follows the stage's throughput. Nothing moving means no particles at all. */
+function particleSeconds(perDay: unknown): number | null {
+  const n = num(perDay);
+  if (n === null || n <= 0) return null;
+  return Math.min(9, Math.max(1.2, 45 / n));
+}
+
+function Connector({ seconds }: { seconds: number | null }) {
+  return (
+    <>
+      <div
+        className="relative hidden md:block h-[2px] w-8 shrink-0 self-center overflow-hidden rounded-full"
+        style={{ background: 'linear-gradient(90deg, hsl(var(--primary)/0.12), hsl(var(--primary)/0.45), hsl(var(--primary)/0.12))' }}
+        aria-hidden
+      >
+        {seconds !== null &&
+          [0, 1].map((i) => (
+            <span
+              key={i}
+              className="desk-particle absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[hsl(var(--primary))]"
+              style={{
+                animationDuration: `${seconds}s`,
+                animationDelay: `${(seconds / 2) * i}s`,
+                boxShadow: '0 0 8px 2px hsl(var(--primary) / 0.7)',
+              }}
+            />
+          ))}
+      </div>
+      <div
+        className="md:hidden mx-auto h-4 w-[2px] shrink-0 rounded-full"
+        style={{ background: 'linear-gradient(180deg, hsl(var(--primary)/0.45), hsl(var(--primary)/0.12))' }}
+        aria-hidden
+      />
+    </>
+  );
+}
+
 function Metric({ label, value, tone, size }: { label: string; value: string; tone?: string; size: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2 min-w-0">
       <span className={`${size} text-muted-foreground truncate`}>{label}</span>
-      <span className={`${size} font-medium tabular-nums ${tone ?? 'text-foreground'}`}>{value}</span>
+      <span className={`${size} font-medium tabular-nums ${tone ?? 'text-[hsl(var(--desk-lavender))]'}`}>{value}</span>
     </div>
   );
 }
 
-function Stage({
-  row,
-  max,
-  isNeck,
-  board,
-}: {
-  row: Row;
-  max: number;
-  isNeck: boolean;
-  board: boolean;
-}) {
+function Capsule({ row, isNeck, board }: { row: Row; isNeck: boolean; board: boolean }) {
   const state = stageStatus(row);
-  const text = statusText(board);
-  const fill = statusFill(board);
-  const edge = statusEdge(board);
   const waiting = num(row.waiting) ?? 0;
-  const pct = max > 0 ? Math.max(waiting > 0 ? 6 : 2, Math.round((waiting / max) * 100)) : 2;
   const desk = STAGE_DESK[String(row.ord)];
-
-  const name = board ? 'text-sm' : 'text-xs';
-  const value = board ? 'text-[40px] leading-none' : 'text-2xl leading-none';
   const meta = board ? 'text-xs' : 'text-[11px]';
-  const track = board ? 'h-24' : 'h-14';
+  const figure = board ? 'text-[52px] leading-none' : 'text-[40px] leading-none';
 
   const body = (
     <>
       <div className="flex items-start justify-between gap-1.5 min-w-0">
-        <span className={`${name} font-semibold text-foreground leading-snug`}>{String(row.stage ?? '—')}</span>
-        <span className={`h-2 w-2 shrink-0 rounded-full mt-1 ${fill[state]}`} aria-hidden />
+        <span className={`${board ? 'text-sm' : 'text-xs'} font-semibold text-foreground leading-snug`}>
+          {String(row.stage ?? '—')}
+        </span>
+        <span className={`h-2 w-2 shrink-0 rounded-full mt-1 ${statusText[state]} bg-current`} aria-hidden />
       </div>
 
       {isNeck && (
-        <span className={`inline-flex w-fit items-center rounded border px-1.5 py-0.5 ${meta} font-semibold ${edge.bad} ${text.bad}`}>
+        <span className={`desk-pill inline-flex w-fit items-center border px-2 py-0.5 ${meta} font-semibold ${statusGlass.bad}`}>
           Bottleneck
         </span>
       )}
 
-      {/* Volume: the bar follows the number waiting. Upright on a wide screen, flat on a phone. */}
-      <div className={`hidden md:flex ${track} items-end`} aria-hidden>
-        <div className="w-full rounded-sm bg-muted" style={{ height: '100%' }}>
-          <div className={`w-full rounded-sm ${fill[state]}`} style={{ height: `${pct}%`, marginTop: `${100 - pct}%` }} />
-        </div>
-      </div>
-      <div className="md:hidden h-2 w-full rounded-sm bg-muted" aria-hidden>
-        <div className={`h-full rounded-sm ${fill[state]}`} style={{ width: `${pct}%` }} />
-      </div>
-
       <div className="flex items-baseline gap-1.5">
-        <span className={`${value} font-semibold tabular-nums text-foreground`}>{fmt('int', waiting)}</span>
+        <CountUp value={waiting} format={(n) => fmt('int', n)} className={`${FIGURE} ${figure}`} />
         <span className={`${meta} text-muted-foreground`}>waiting</span>
       </div>
 
       <div className="space-y-0.5">
         <Metric label="UGX" value={fmt('ugx', row.waiting_ugx ?? 0)} size={meta} />
         <Metric label="Cleared today" value={fmt('int', row.done_24h ?? 0)} size={meta} />
-        <Metric label="Per day" value={rate(row.per_day_7d)} size={meta} />
         <Metric
           label="Days to clear"
           value={num(row.days_to_clear) === null ? (waiting > 0 ? 'Not clearing' : '—') : rate(row.days_to_clear)}
-          tone={text[state]}
+          tone={statusText[state]}
           size={meta}
         />
       </div>
     </>
   );
 
-  const shell = `flex flex-col gap-2 rounded-lg border bg-card ${board ? 'p-4' : 'p-3'} min-w-0 ${edge[state]}`;
+  const shell = `${PANEL} flex flex-col gap-2 ${board ? 'p-4' : 'p-3'} min-w-0 ${
+    isNeck ? `desk-bottleneck ${statusEdge.bad}` : ''
+  }`;
 
   return desk ? (
-    <Link to={`/desk/${desk}`} className={`${shell} ${CALM} ${FOCUS} hover:bg-muted/40`} aria-label={`${String(row.stage)} — open the ${desk} desk`}>
+    <Link
+      to={`/desk/${desk}`}
+      className={`${shell} ${CALM} ${FOCUS} hover:bg-white/10`}
+      aria-label={`${String(row.stage)} — open the ${desk} desk`}
+    >
       {body}
     </Link>
   ) : (
@@ -156,15 +173,14 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
   const rows = ordered(feed.rows);
   const sentence = flowSentence(feed.rows);
   const neck = bottleneckOf(feed.rows);
-  const max = Math.max(1, ...rows.map((r) => num(r.waiting) ?? 0));
 
   if (feed.loading) {
     return (
       <section className="space-y-3" aria-busy>
-        <Skeleton className={`${board ? 'h-9' : 'h-6'} w-full max-w-3xl`} />
+        <Skeleton className={`${board ? 'h-10' : 'h-7'} w-full max-w-3xl`} />
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-5 xl:grid-cols-9">
           {Array.from({ length: 9 }, (_, i) => (
-            <Skeleton key={i} className={board ? 'h-72' : 'h-52'} />
+            <Skeleton key={i} className={board ? 'h-60' : 'h-48'} />
           ))}
         </div>
       </section>
@@ -173,8 +189,8 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
 
   if (feed.error) {
     return (
-      <section className={`rounded-lg border bg-card p-5 space-y-1 ${statusEdge(board).bad}`} role="alert">
-        <h2 className={`font-semibold ${statusText(board).bad}`}>The stage flow could not load</h2>
+      <section className={`${PANEL} p-5 space-y-1 ${statusEdge.bad}`} role="alert">
+        <h2 className={`font-semibold ${statusText.bad}`}>The stage flow could not load</h2>
         <p className="text-sm text-muted-foreground">{feed.error}</p>
         <p className="text-sm text-muted-foreground">
           Use “Refresh now” above. If it keeps failing, tell the COO office — the desks below still work.
@@ -190,21 +206,19 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
           {sentence ?? 'No stages are reporting yet.'}
         </h2>
         <p className={`${board ? 'text-sm' : 'text-xs'} text-muted-foreground`}>
-          Rates are 7-day averages. Red is over 2 days to clear, amber over 1 — thresholds are assumptions until the desk
-          leads agree them.
+          Rates are 7-day averages. Rose is over 2 days to clear, amber over 1 — thresholds are assumptions until the
+          desk leads agree them.
         </p>
       </div>
 
-      {/* The pipeline, left to right. On a phone it stacks. */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-stretch md:gap-0 md:overflow-x-auto md:pb-1">
+      {/* The river, left to right. On a phone it stacks. */}
+      <div className="flex flex-col md:flex-row md:items-stretch">
         {rows.map((row, i) => (
-          <div key={String(row.ord ?? i)} className="flex min-w-0 md:flex-1 md:items-center">
-            <div className="min-w-0 flex-1 md:min-w-[138px]">
-              <Stage row={row} max={max} isNeck={!!neck && String(neck.ord) === String(row.ord)} board={board} />
+          <div key={String(row.ord ?? i)} className="flex flex-col md:flex-row min-w-0 md:flex-1 md:items-stretch">
+            <div className="min-w-0 md:flex-1">
+              <Capsule row={row} isNeck={!!neck && String(neck.ord) === String(row.ord)} board={board} />
             </div>
-            {i < rows.length - 1 && (
-              <ChevronRight className="hidden md:block h-4 w-4 shrink-0 text-muted-foreground/50 mx-0.5" aria-hidden />
-            )}
+            {i < rows.length - 1 && <Connector seconds={particleSeconds(row.per_day_7d)} />}
           </div>
         ))}
       </div>

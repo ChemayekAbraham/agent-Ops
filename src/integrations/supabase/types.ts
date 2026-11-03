@@ -82335,6 +82335,20 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      get_partner_ops_returns_arrears: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          arrears_deduction: number
+          expected_returns: number
+          investor_id: string
+          net_payout: number
+          plan_outstanding: number
+          plan_overdue: number
+          pledge_mode: string
+          pledge_value: number
+          portfolio_id: string
+        }[]
+      }
       get_partner_ops_returns_forecast: {
         Args: {
           p_bucket?: string

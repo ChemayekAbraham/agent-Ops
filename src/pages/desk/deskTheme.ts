@@ -1,76 +1,59 @@
 /**
- * One accent (the app's brand violet, via --primary) on neutral slate surfaces.
- * Green / amber / red carry status only — never decoration.
+ * The desks are always the dark glass board, whatever theme the app is in, so
+ * these maps no longer switch on board mode. The palette itself lives in
+ * `src/index.css` under `.desk-root`, which redefines the Tailwind tokens; board
+ * mode only changes size, never colour.
  *
- * Board mode re-declares the surface tokens inline on the desk wrapper, so the
- * wall display is dark whatever theme the browser is in. Token-driven classes
- * (bg-card, text-muted-foreground, border-border) follow automatically; the
- * fixed palette colours below cannot, so each has a board variant.
+ * Green / amber / rose carry status only — never decoration.
  */
 
 export type Status = 'ok' | 'warn' | 'bad' | 'idle';
 
-/** Dark slate surfaces for Board mode. Applied as inline custom properties. */
-export const BOARD_TOKENS: Record<string, string> = {
-  '--background': '222 47% 7%',
-  '--foreground': '210 20% 98%',
-  '--card': '222 40% 11%',
-  '--card-foreground': '210 20% 98%',
-  '--muted': '222 30% 17%',
-  '--muted-foreground': '214 20% 72%',
-  '--border': '215 25% 26%',
-  '--input': '215 25% 26%',
-  '--primary': '271 81% 72%',
-  '--primary-foreground': '222 47% 8%',
-  '--ring': '271 81% 72%',
-  colorScheme: 'dark',
-};
-
-const TEXT_APP: Record<Status, string> = {
-  ok: 'text-emerald-700 dark:text-emerald-400',
-  warn: 'text-amber-800 dark:text-amber-300',
-  bad: 'text-red-700 dark:text-red-400',
-  idle: 'text-muted-foreground',
-};
-const TEXT_BOARD: Record<Status, string> = {
-  ok: 'text-emerald-300',
-  warn: 'text-amber-300',
-  bad: 'text-red-300',
+export const statusText: Record<Status, string> = {
+  ok: 'text-[hsl(var(--desk-ok))]',
+  warn: 'text-[hsl(var(--desk-warn))]',
+  bad: 'text-[hsl(var(--desk-bad))]',
   idle: 'text-muted-foreground',
 };
 
-const FILL_APP: Record<Status, string> = {
-  ok: 'bg-emerald-600',
-  warn: 'bg-amber-500',
-  bad: 'bg-red-600',
-  idle: 'bg-muted-foreground/40',
-};
-const FILL_BOARD: Record<Status, string> = {
-  ok: 'bg-emerald-400',
-  warn: 'bg-amber-300',
-  bad: 'bg-red-400',
+export const statusFill: Record<Status, string> = {
+  ok: 'bg-[hsl(var(--desk-ok))]',
+  warn: 'bg-[hsl(var(--desk-warn))]',
+  bad: 'bg-[hsl(var(--desk-bad))]',
   idle: 'bg-muted-foreground/40',
 };
 
-const EDGE_APP: Record<Status, string> = {
-  ok: 'border-emerald-600/40',
-  warn: 'border-amber-600/50',
-  bad: 'border-red-600/50',
-  idle: 'border-border',
-};
-const EDGE_BOARD: Record<Status, string> = {
-  ok: 'border-emerald-400/40',
-  warn: 'border-amber-300/50',
-  bad: 'border-red-400/50',
-  idle: 'border-border',
+export const statusEdge: Record<Status, string> = {
+  ok: 'border-[hsl(var(--desk-ok)/0.6)]',
+  warn: 'border-[hsl(var(--desk-warn)/0.6)]',
+  bad: 'border-[hsl(var(--desk-bad)/0.6)]',
+  idle: 'border-white/12',
 };
 
-export const statusText = (board: boolean): Record<Status, string> => (board ? TEXT_BOARD : TEXT_APP);
-export const statusFill = (board: boolean): Record<Status, string> => (board ? FILL_BOARD : FILL_APP);
-export const statusEdge = (board: boolean): Record<Status, string> => (board ? EDGE_BOARD : EDGE_APP);
+/** Tinted glass: the status colour at 15% fill behind a 60% border. */
+export const statusGlass: Record<Status, string> = {
+  ok: 'bg-[hsl(var(--desk-ok)/0.15)] border-[hsl(var(--desk-ok)/0.6)] text-[hsl(var(--desk-ok))]',
+  warn: 'bg-[hsl(var(--desk-warn)/0.15)] border-[hsl(var(--desk-warn)/0.6)] text-[hsl(var(--desk-warn))]',
+  bad: 'bg-[hsl(var(--desk-bad)/0.15)] border-[hsl(var(--desk-bad)/0.6)] text-[hsl(var(--desk-bad))]',
+  idle: 'bg-white/5 border-white/12 text-muted-foreground',
+};
 
-/** Visible keyboard focus, used on every interactive element in the desks. */
-export const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+/** Glass surfaces, defined in index.css so the backdrop-filter fallback can live in @supports. */
+export const PANEL = 'desk-panel';
+export const TILE = 'desk-tile';
+
+/** Large figures: white for contrast, with a faint violet glow. */
+export const FIGURE = 'desk-figure tabular-nums font-semibold text-foreground';
+
+/** Visible keyboard focus, in violet (--ring). */
+export const FOCUS =
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0718]';
 
 /** Transitions that stop when the viewer asks for reduced motion. */
 export const CALM = 'transition-colors motion-reduce:transition-none';
+
+/** True when the viewer has asked for less motion. Read at call time, not cached. */
+export function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || !window.matchMedia) return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}

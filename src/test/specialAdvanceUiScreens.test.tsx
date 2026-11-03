@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpecialAdvancesPanel } from '@/components/cfo/special-advances/SpecialAdvancesPanel';
 import { SpecialAdvanceDetailSheet } from '@/components/cfo/special-advances/SpecialAdvanceDetailSheet';
@@ -199,10 +200,9 @@ describe('Special Advances UI - Accounting and Status Figures', () => {
 
   it('displays A25 allowance and Net receivable in reconciliation when returned from server', async () => {
     renderWithClient(<SpecialAdvancesPanel />);
-    await waitFor(() => {
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('A25 allowance');
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('net');
-    });
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
+    expect(await screen.findByText('Account A25 (Impairment Allowance)')).toBeTruthy();
+    expect(await screen.findByText('Net Special Advances Receivable')).toBeTruthy();
   });
 });
 
