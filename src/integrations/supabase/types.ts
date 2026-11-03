@@ -37501,6 +37501,47 @@ export type Database = {
           },
         ]
       }
+      ontology_authorities: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          function_code: string
+          id: number
+          position_id: string
+          reason: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code: string
+          id?: never
+          position_id: string
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code?: string
+          id?: never
+          position_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_authorities_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ontology_capture: {
         Row: {
           enabled: boolean
@@ -37543,6 +37584,8 @@ export type Database = {
         Row: {
           decided_at: string | null
           decided_by: string | null
+          decided_position_id: string | null
+          decided_staff_ref: string | null
           decision_reason: string | null
           evidence: Json
           id: number
@@ -37556,6 +37599,8 @@ export type Database = {
         Insert: {
           decided_at?: string | null
           decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
           decision_reason?: string | null
           evidence?: Json
           id?: never
@@ -37569,6 +37614,8 @@ export type Database = {
         Update: {
           decided_at?: string | null
           decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
           decision_reason?: string | null
           evidence?: Json
           id?: never
@@ -37842,6 +37889,143 @@ export type Database = {
           total_landlords?: number
           total_rent_requested?: number
           total_requests?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_case_events: {
+        Row: {
+          actor: string
+          actor_name: string | null
+          actor_role: string | null
+          actor_staff_id: string | null
+          actor_user: string | null
+          at: string
+          case_id: string
+          detail: Json
+          event: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          actor: string
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_staff_id?: string | null
+          actor_user?: string | null
+          at?: string
+          case_id: string
+          detail?: Json
+          event: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          actor?: string
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_staff_id?: string | null
+          actor_user?: string | null
+          at?: string
+          case_id?: string
+          detail?: Json
+          event?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_case_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ops_cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_cases: {
+        Row: {
+          assigned_name: string | null
+          assigned_staff_id: string | null
+          assigned_to: string | null
+          case_ref: string
+          detail: Json
+          due_at: string | null
+          first_run_id: string | null
+          id: string
+          last_run_id: string | null
+          opened_at: string
+          opened_by: string
+          owner_desk: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_name: string | null
+          resolved_role: string | null
+          resolved_staff_id: string | null
+          severity: string
+          source_key: string
+          source_kind: string
+          status: string
+          still_found: boolean
+          times_seen: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_name?: string | null
+          assigned_staff_id?: string | null
+          assigned_to?: string | null
+          case_ref?: string
+          detail?: Json
+          due_at?: string | null
+          first_run_id?: string | null
+          id?: string
+          last_run_id?: string | null
+          opened_at?: string
+          opened_by: string
+          owner_desk?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_name?: string | null
+          resolved_role?: string | null
+          resolved_staff_id?: string | null
+          severity: string
+          source_key: string
+          source_kind: string
+          status?: string
+          still_found?: boolean
+          times_seen?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_name?: string | null
+          assigned_staff_id?: string | null
+          assigned_to?: string | null
+          case_ref?: string
+          detail?: Json
+          due_at?: string | null
+          first_run_id?: string | null
+          id?: string
+          last_run_id?: string | null
+          opened_at?: string
+          opened_by?: string
+          owner_desk?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_name?: string | null
+          resolved_role?: string | null
+          resolved_staff_id?: string | null
+          severity?: string
+          source_key?: string
+          source_kind?: string
+          status?: string
+          still_found?: boolean
+          times_seen?: number
+          title?: string
           updated_at?: string
         }
         Relationships: []
@@ -74293,6 +74477,7 @@ export type Database = {
           week_start: string
         }[]
       }
+      agreement_findings_to_cases: { Args: { p_run: string }; Returns: number }
       agreement_register_can_read: { Args: never; Returns: boolean }
       agreement_register_can_write: { Args: never; Returns: boolean }
       agreement_register_upload: {
@@ -86900,6 +87085,23 @@ export type Database = {
         Returns: Json
       }
       ops_caller_is_ops: { Args: never; Returns: boolean }
+      ops_case_actor: {
+        Args: { p_desk: string }
+        Returns: Record<string, unknown>
+      }
+      ops_case_assign: {
+        Args: { p_case: string; p_reason: string; p_staff_id: string }
+        Returns: undefined
+      }
+      ops_case_close: {
+        Args: { p_case: string; p_outcome: string; p_reason: string }
+        Returns: undefined
+      }
+      ops_case_due: { Args: { p_severity: string }; Returns: string }
+      ops_case_note: {
+        Args: { p_case: string; p_note: string }
+        Returns: undefined
+      }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
@@ -92021,6 +92223,10 @@ export type Database = {
       staff_assistant_write_or_read_roles_list: {
         Args: never
         Returns: string[]
+      }
+      staff_authority_position: {
+        Args: { p_function: string; p_user: string }
+        Returns: string
       }
       staff_calling_detailed_report: {
         Args: { p_from: string; p_to: string }
