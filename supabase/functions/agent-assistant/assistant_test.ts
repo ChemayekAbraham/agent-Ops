@@ -425,3 +425,17 @@ Deno.test("long ungrounded answers are cut at a sentence end", () => {
   assert(cut.endsWith("."));
   assertEquals(trimToSentence("Short one.", 300), "Short one.");
 });
+
+Deno.test("target progress tool: no arguments, no identity, agent-only", () => {
+  const t = findTool("get_target_progress")!;
+  assertEquals(t.rpc, "assistant_agent_target_progress");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ agent_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assert(!isGeneralTool("get_target_progress"));
+});
+
+Deno.test("target figures from the tool pass the guard, invented ones do not", () => {
+  const out = JSON.stringify({ amount_needed_to_pass: 75869, needed_per_day_including_today: 37935, percent_so_far: 35.1 });
+  assert(checkAnswer("You need UGX 75,869 more, about UGX 37,935 a day.", [out], "am i on target").ok);
+  assertEquals(checkAnswer("You need UGX 80,000 more.", [out], "am i on target").ok, false);
+});
