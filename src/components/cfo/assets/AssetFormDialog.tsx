@@ -75,8 +75,9 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const saving = create.isPending || update.isPending || bulk.isPending;
   const currentCount = editing && asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 0;
   const qty = parseAssetQuantity(quantity);
-  const extra = editing && qty !== null ? qty - currentCount : 0;
-  const many = editing ? extra > 0 : (qty ?? 0) > 1;
+  // The number is stored on this one asset row; it never creates extra rows.
+  const extra = 0;
+  const many = false;
 
   useEffect(() => {
     if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 1)); setErrors([]); }
@@ -128,7 +129,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
       }
       return;
     }
-    const payload = toPayload(!editing && many ? { ...form, serial_number: '' } : form, asset);
+    const basePayload = toPayload(form, asset);
+    const payload = editing && qty !== currentCount ? { ...basePayload, quantity: qty } : basePayload;
     if (editing && Object.keys(payload).length === 0) {
       toast.info('Nothing was changed.');
       return;
