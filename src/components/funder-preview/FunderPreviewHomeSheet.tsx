@@ -257,9 +257,8 @@ export function FunderPreviewHomeSheet({
                             )}
                           />
                         ) : null}
-
-
                         <span
+
                           className={cn(
                             'relative z-10 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-card ring-4 ring-card',
                             tone === 'filled' && 'bg-primary text-primary-foreground',
