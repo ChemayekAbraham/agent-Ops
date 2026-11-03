@@ -37923,6 +37923,48 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_case_digests: {
+        Row: {
+          cleared_at_source_7d: number
+          closed_by_staff_7d: number
+          desk: string
+          generated_at: string
+          id: string
+          oldest_overdue_days: number | null
+          open_count: number
+          opened_7d: number
+          overdue_count: number
+          top_overdue: Json
+          week_start: string
+        }
+        Insert: {
+          cleared_at_source_7d: number
+          closed_by_staff_7d: number
+          desk: string
+          generated_at?: string
+          id?: string
+          oldest_overdue_days?: number | null
+          open_count: number
+          opened_7d: number
+          overdue_count: number
+          top_overdue?: Json
+          week_start: string
+        }
+        Update: {
+          cleared_at_source_7d?: number
+          closed_by_staff_7d?: number
+          desk?: string
+          generated_at?: string
+          id?: string
+          oldest_overdue_days?: number | null
+          open_count?: number
+          opened_7d?: number
+          overdue_count?: number
+          top_overdue?: Json
+          week_start?: string
+        }
+        Relationships: []
+      }
       ops_case_events: {
         Row: {
           actor: string
@@ -37971,7 +38013,56 @@ export type Database = {
             referencedRelation: "ops_cases"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ops_case_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ops_cases_overdue"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      ops_case_sources: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          desk: string
+          enabled: boolean
+          last_error: string | null
+          last_sync_at: string | null
+          last_sync_open: number | null
+          severity: string
+          source_sql: string
+          source_table: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description: string
+          desk: string
+          enabled?: boolean
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_open?: number | null
+          severity: string
+          source_sql: string
+          source_table: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          desk?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_open?: number | null
+          severity?: string
+          source_sql?: string
+          source_table?: string
+        }
+        Relationships: []
       }
       ops_cases: {
         Row: {
@@ -37984,6 +38075,7 @@ export type Database = {
           first_run_id: string | null
           id: string
           last_run_id: string | null
+          last_synced_at: string | null
           opened_at: string
           opened_by: string
           owner_desk: string
@@ -37996,6 +38088,7 @@ export type Database = {
           severity: string
           source_key: string
           source_kind: string
+          source_opened_at: string | null
           status: string
           still_found: boolean
           times_seen: number
@@ -38012,6 +38105,7 @@ export type Database = {
           first_run_id?: string | null
           id?: string
           last_run_id?: string | null
+          last_synced_at?: string | null
           opened_at?: string
           opened_by: string
           owner_desk?: string
@@ -38024,6 +38118,7 @@ export type Database = {
           severity: string
           source_key: string
           source_kind: string
+          source_opened_at?: string | null
           status?: string
           still_found?: boolean
           times_seen?: number
@@ -38040,6 +38135,7 @@ export type Database = {
           first_run_id?: string | null
           id?: string
           last_run_id?: string | null
+          last_synced_at?: string | null
           opened_at?: string
           opened_by?: string
           owner_desk?: string
@@ -38052,6 +38148,7 @@ export type Database = {
           severity?: string
           source_key?: string
           source_kind?: string
+          source_opened_at?: string | null
           status?: string
           still_found?: boolean
           times_seen?: number
@@ -54610,6 +54707,53 @@ export type Database = {
           },
         ]
       }
+      staff_assistant_research_logs: {
+        Row: {
+          conversation_id: string | null
+          cost_usd: number
+          created_at: string
+          id: string
+          kampala_date: string
+          provider: string
+          query_text: string
+          source_count: number
+          urls_fetched: string[]
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kampala_date?: string
+          provider?: string
+          query_text: string
+          source_count?: number
+          urls_fetched?: string[]
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kampala_date?: string
+          provider?: string
+          query_text?: string
+          source_count?: number
+          urls_fetched?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_research_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_assistant_schedules: {
         Row: {
           cancelled_at: string | null
@@ -68707,6 +68851,69 @@ export type Database = {
           subcounty_name: string | null
           village_id: number | null
           village_name: string | null
+        }
+        Relationships: []
+      }
+      ops_case_scorecard_desk: {
+        Row: {
+          cleared_at_source_30d: number | null
+          closed_by_staff_30d: number | null
+          closed_on_time_share_30d: number | null
+          desk: string | null
+          median_hours_to_close_30d: number | null
+          oldest_open_days: number | null
+          open_now: number | null
+          overdue_now: number | null
+        }
+        Relationships: []
+      }
+      ops_case_scorecard_staff: {
+        Row: {
+          assigned_open: number | null
+          assigned_overdue: number | null
+          dismissed_30d: number | null
+          median_hours_to_close: number | null
+          on_time_share: number | null
+          resolved_30d: number | null
+          role: string | null
+          staff_id: string | null
+          staff_name: string | null
+        }
+        Relationships: []
+      }
+      ops_cases_overdue: {
+        Row: {
+          case_ref: string | null
+          days_overdue: number | null
+          due_at: string | null
+          id: string | null
+          owner: string | null
+          owner_desk: string | null
+          severity: string | null
+          source_kind: string | null
+          title: string | null
+        }
+        Insert: {
+          case_ref?: string | null
+          days_overdue?: never
+          due_at?: string | null
+          id?: string | null
+          owner?: never
+          owner_desk?: string | null
+          severity?: string | null
+          source_kind?: string | null
+          title?: string | null
+        }
+        Update: {
+          case_ref?: string | null
+          days_overdue?: never
+          due_at?: string | null
+          id?: string | null
+          owner?: never
+          owner_desk?: string | null
+          severity?: string | null
+          source_kind?: string | null
+          title?: string | null
         }
         Relationships: []
       }
@@ -87437,6 +87644,9 @@ export type Database = {
         Args: { p_case: string; p_note: string }
         Returns: undefined
       }
+      ops_case_weekly_digest: { Args: never; Returns: number }
+      ops_case_window: { Args: { p_severity: string }; Returns: string }
+      ops_cases_sync_sources: { Args: never; Returns: Json }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
