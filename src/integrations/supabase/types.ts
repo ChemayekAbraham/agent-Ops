@@ -41767,6 +41767,231 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_check_catalog: {
+        Row: {
+          assumption: string | null
+          auto_source: string | null
+          code: string
+          created_at: string
+          fail_reason_code: string | null
+          label: string
+          method: string
+          on_fail: string
+          question: string
+          required: boolean
+          sort: number
+          source: string
+          stage: string
+          status: string
+          value_kind: string | null
+          version: string
+          weight: number
+        }
+        Insert: {
+          assumption?: string | null
+          auto_source?: string | null
+          code: string
+          created_at?: string
+          fail_reason_code?: string | null
+          label: string
+          method: string
+          on_fail: string
+          question: string
+          required?: boolean
+          sort: number
+          source?: string
+          stage: string
+          status?: string
+          value_kind?: string | null
+          version?: string
+          weight?: number
+        }
+        Update: {
+          assumption?: string | null
+          auto_source?: string | null
+          code?: string
+          created_at?: string
+          fail_reason_code?: string | null
+          label?: string
+          method?: string
+          on_fail?: string
+          question?: string
+          required?: boolean
+          sort?: number
+          source?: string
+          stage?: string
+          status?: string
+          value_kind?: string | null
+          version?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      pipeline_check_results: {
+        Row: {
+          check_code: string
+          id: number
+          note: string | null
+          recorded_at: string
+          rent_request_id: string
+          result: string
+          review_id: number
+          reviewer_id: string
+          stage: string
+          system_said: string | null
+          value: Json | null
+        }
+        Insert: {
+          check_code: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          rent_request_id: string
+          result: string
+          review_id: number
+          reviewer_id: string
+          stage: string
+          system_said?: string | null
+          value?: Json | null
+        }
+        Update: {
+          check_code?: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          rent_request_id?: string
+          result?: string
+          review_id?: number
+          reviewer_id?: string
+          stage?: string
+          system_said?: string | null
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_check_results_check_code_fkey"
+            columns: ["check_code"]
+            isOneToOne: false
+            referencedRelation: "pipeline_check_catalog"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "pipeline_check_results_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stage_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_intake_details: {
+        Row: {
+          captured_at: string
+          captured_by: string
+          family_size: number | null
+          id: number
+          lc1_phone_confirmation: string | null
+          rent_request_id: string
+          source: string
+          work_business: string | null
+          work_location: string | null
+        }
+        Insert: {
+          captured_at?: string
+          captured_by: string
+          family_size?: number | null
+          id?: never
+          lc1_phone_confirmation?: string | null
+          rent_request_id: string
+          source: string
+          work_business?: string | null
+          work_location?: string | null
+        }
+        Update: {
+          captured_at?: string
+          captured_by?: string
+          family_size?: number | null
+          id?: never
+          lc1_phone_confirmation?: string | null
+          rent_request_id?: string
+          source?: string
+          work_business?: string | null
+          work_location?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_stage_reviews: {
+        Row: {
+          authority: string
+          decision: string
+          failed_checks: string[]
+          followed: boolean
+          funder_board: boolean | null
+          id: number
+          note: string | null
+          reason_code: string | null
+          recommended: string
+          recommended_reason_code: string | null
+          rent_request_id: string
+          request_score: number | null
+          reviewed_at: string
+          reviewer_id: string
+          reviewer_roles: string[] | null
+          reviewer_staff_ref: string | null
+          round: number
+          stage: string
+          stage_score: number | null
+          status_at_review: string
+          target_agent_id: string | null
+        }
+        Insert: {
+          authority?: string
+          decision: string
+          failed_checks?: string[]
+          followed: boolean
+          funder_board?: boolean | null
+          id?: never
+          note?: string | null
+          reason_code?: string | null
+          recommended: string
+          recommended_reason_code?: string | null
+          rent_request_id: string
+          request_score?: number | null
+          reviewed_at?: string
+          reviewer_id: string
+          reviewer_roles?: string[] | null
+          reviewer_staff_ref?: string | null
+          round?: number
+          stage: string
+          stage_score?: number | null
+          status_at_review: string
+          target_agent_id?: string | null
+        }
+        Update: {
+          authority?: string
+          decision?: string
+          failed_checks?: string[]
+          followed?: boolean
+          funder_board?: boolean | null
+          id?: never
+          note?: string | null
+          reason_code?: string | null
+          recommended?: string
+          recommended_reason_code?: string | null
+          rent_request_id?: string
+          request_score?: number | null
+          reviewed_at?: string
+          reviewer_id?: string
+          reviewer_roles?: string[] | null
+          reviewer_staff_ref?: string | null
+          round?: number
+          stage?: string
+          stage_score?: number | null
+          status_at_review?: string
+          target_agent_id?: string | null
+        }
+        Relationships: []
+      }
       plan_balance_duplicate_correction_20260929: {
         Row: {
           amount_repaid_after: number | null
@@ -72657,6 +72882,25 @@ export type Database = {
       }
       _pf_restore: { Args: { p_definition: string }; Returns: undefined }
       _pf_unlocked: { Args: never; Returns: boolean }
+      _pipeline_auto_checks: {
+        Args: { p_request_id: string }
+        Returns: {
+          code: string
+          detail: string
+          system_said: string
+        }[]
+      }
+      _pipeline_can_review: {
+        Args: { p_request_id: string; p_stage: string; p_uid: string }
+        Returns: boolean
+      }
+      _pipeline_can_view: {
+        Args: { p_request_id: string; p_uid: string }
+        Returns: boolean
+      }
+      _pipeline_my_roles: { Args: { p_uid: string }; Returns: string[] }
+      _pipeline_staff_ref: { Args: { p_uid: string }; Returns: string }
+      _pipeline_stage_status: { Args: { p_stage: string }; Returns: string }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -74207,6 +74451,15 @@ export type Database = {
       }
       agent_reverse_tenant_allocation: {
         Args: { p_collection_id: string; p_reason: string }
+        Returns: Json
+      }
+      agent_save_intake_details: {
+        Args: {
+          p_family_size: number
+          p_request_id: string
+          p_work_business: string
+          p_work_location?: string
+        }
         Returns: Json
       }
       agent_set_own_contact_email: {
@@ -89024,6 +89277,114 @@ export type Database = {
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
         Returns: Json
+      }
+      pipeline_coo_funding_plan: {
+        Args: never
+        Returns: {
+          agent_name: string
+          confirmed_by_people_pct: number
+          cumulative_ugx: number
+          failed: Json
+          landlord_name: string
+          landlord_verified: boolean
+          reason: string
+          recommendation: string
+          rent_amount: number
+          rent_request_id: string
+          room_ugx: number
+          score: number
+          tenant_name: string
+          waiting_days: number
+        }[]
+      }
+      pipeline_desk_daily: {
+        Args: { p_date?: string }
+        Returns: {
+          call_again: number
+          calls_logged: number
+          dashboards_activated: number
+          day: string
+          followed_pct: number
+          overrides: number
+          passed: number
+          rejected: number
+          reviews: number
+          sent_back: number
+          stage: string
+          top_override_reason: string
+          transferred: number
+        }[]
+      }
+      pipeline_funder_board_preview: {
+        Args: never
+        Returns: {
+          area: string
+          duration_days: number
+          photos: number
+          photos_confirmed_by: string
+          rent_amount: number
+          rent_request_id: string
+          score: number
+          status: string
+          tenant_first_name: string
+        }[]
+      }
+      pipeline_overrides: {
+        Args: { p_date?: string }
+        Returns: {
+          decision: string
+          note: string
+          reason_code: string
+          recommended: string
+          rent_request_id: string
+          reviewed_at: string
+          reviewer_name: string
+          staff_ref: string
+          stage: string
+          tenant_name: string
+        }[]
+      }
+      pipeline_recommend: {
+        Args: { p_request_id: string; p_results: Json; p_stage: string }
+        Returns: Json
+      }
+      pipeline_record_review: {
+        Args: {
+          p_decision: string
+          p_note?: string
+          p_reason_code?: string
+          p_request_id: string
+          p_results: Json
+          p_stage: string
+          p_target_agent_id?: string
+        }
+        Returns: Json
+      }
+      pipeline_request_score: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_send_back_reasons: {
+        Args: { p_agent_id?: string; p_days?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          check_code: string
+          check_label: string
+          requests_reviewed: number
+          share_pct: number
+          times: number
+        }[]
+      }
+      pipeline_suggest_agents: {
+        Args: { p_limit?: number; p_request_id: string }
+        Returns: {
+          active_tenants: number
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          in_window_pct: number
+          km: number
+          week_start: string
+        }[]
       }
       place_company_receipt_as_float_return: {
         Args: {
