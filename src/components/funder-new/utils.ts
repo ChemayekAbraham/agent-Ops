@@ -114,11 +114,27 @@ export function readyPlanTitle(plan: FunderNewReadyPlan): string {
   return formatHouseCategory(plan.house_category) || 'Rent Plan';
 }
 
+/**
+ * Uganda's sub-county level is recorded as "X Town Council", "X County",
+ * "X Division", "X Municipality" or "X Sub County". Funders browse by village
+ * and district, so a rent plan's place line never shows it: the agent-recorded
+ * request_city is usually that same sub-county, which is why it used to appear
+ * twice on one card.
+ */
+const SUBCOUNTY_LEVEL = /\b(town council|sub ?county|municipality|division|county)\b/i;
+
+/** Place parts as recorded, minus the sub-county level and its duplicate. */
 export function readyPlanPlace(plan: FunderNewReadyPlan): string {
-  const local = plan.tenant_location ? prettyName(plan.tenant_location) : '';
-  const city = plan.request_city ? prettyName(plan.request_city) : '';
-  const parts = [city, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
-  return parts.join(', ') || 'Location on file';
+  const recorded = plan.request_city?.trim() ? prettyName(plan.request_city) : '';
+  const parts = (plan.tenant_location ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => prettyName(part))
+    .filter((part) => !SUBCOUNTY_LEVEL.test(part))
+    .filter((part) => part.toLowerCase() !== recorded.toLowerCase())
+    .filter((part, index, all) => all.indexOf(part) === index);
+  return parts.join(', ') || recorded || 'Location on file';
 }
 
 
@@ -204,6 +220,7 @@ export function matchesReadyPlanSearch(plan: FunderNewReadyPlan, filters: Funder
   const haystack = [
     readyPlanTitle(plan),
     readyPlanPlace(plan),
+    plan.request_city,
     plan.house_category,
     plan.landlord_name,
     plan.tenant_first_name,
