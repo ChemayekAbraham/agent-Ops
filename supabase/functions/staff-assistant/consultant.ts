@@ -25,8 +25,151 @@ export const MAX_WEB_SEARCHES_PER_USER_PER_DAY = 30;
 export const MAX_WEB_SEARCHES_PER_QUESTION = 5;
 export const MAX_RESEARCH_SOURCES_PER_QUESTION = 10;
 export const MAX_WEB_PAGE_TEXT_CHARS = 4000;
+export const MAX_WEB_REDIRECT_HOPS = 3;
 export const ESTIMATED_COST_PER_WEB_SEARCH_USD = 0.005;
 export const DEFAULT_MAX_WEB_RESEARCH_COST_USD = 0.05;
+
+/**
+ * Part C item (2) — Web-research SSRF defence:
+ * Blocks any literal IP or DNS-resolved IP in private, loopback, link-local,
+ * CGNAT, multicast, unspecified, or cloud-metadata ranges (IPv4 and IPv6).
+ */
+export function isPrivateOrReservedIp(rawIp: string): boolean {
+  const ip = (rawIp ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (!ip) return true;
+
+  // Handle IPv4-mapped IPv6 addresses like ::ffff:127.0.0.1 or ::ffff:169.254.169.254
+  if (ip.startsWith("::ffff:")) {
+    const mappedV4 = ip.slice("::ffff:".length);
+    if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(mappedV4)) {
+      return isPrivateOrReservedIp(mappedV4);
+    }
+  }
+
+  // IPv4 check
+  const v4Match = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4Match) {
+    const octets = [
+      Number(v4Match[1]),
+      Number(v4Match[2]),
+      Number(v4Match[3]),
+      Number(v4Match[4]),
+    ];
+    if (octets.some((o) => !Number.isInteger(o) || o < 0 || o > 255)) {
+      return true;
+    }
+    const [a, b, c] = octets;
+    if (a === 0) return true; // 0.0.0.0/8 current network
+    if (a === 10) return true; // 10.0.0.0/8 RFC1918 private
+    if (a === 127) return true; // 127.0.0.0/8 loopback
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local & AWS/GCP/Azure metadata (169.254.169.254)
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12 RFC1918 private
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16 RFC1918 private
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT & Alibaba metadata (100.100.100.200)
+    if (a === 192 && b === 0 && (c === 0 || c === 2)) return true; // IETF protocol / TEST-NET-1
+    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmarking
+    if (a === 198 && b === 51 && c === 100) return true; // TEST-NET-2
+    if (a === 203 && b === 0 && c === 113) return true; // TEST-NET-3
+    if (a >= 224) return true; // 224.0.0.0/4 multicast & 240.0.0.0/4 reserved/broadcast
+    return false;
+  }
+
+  // IPv6 check
+  if (ip.includes(":")) {
+    if (
+      ip === "::" ||
+      ip === "::1" ||
+      ip === "0:0:0:0:0:0:0:1" ||
+      ip === "0:0:0:0:0:0:0:0"
+    ) {
+      return true;
+    }
+    // Unique local fc00::/7 (fc.. or fd..)
+    if (/^f[cd][0-9a-f]{0,2}:/i.test(ip)) return true;
+    // Link-local fe80::/10 (fe8.., fe9.., fea.., feb..)
+    if (/^fe[89ab][0-9a-f]?:/i.test(ip)) return true;
+    // Multicast ff00::/8
+    if (/^ff[0-9a-f]{2}:/i.test(ip)) return true;
+    // Documentation 2001:db8::/32
+    if (/^2001:0?db8:/i.test(ip)) return true;
+    return false;
+  }
+
+  return false;
+}
+
+export type DnsResolveFn = (hostname: string) => Promise<string[]>;
+
+/**
+ * Resolves a hostname via DNS (`Deno.resolveDns` when available or injected `dnsResolver`)
+ * and verifies that every resolved A/AAAA record is a public, non-reserved IP address.
+ */
+export async function resolveAndVerifyPublicIp(
+  hostname: string,
+  dnsResolver?: DnsResolveFn,
+): Promise<{ ok: true; ips: string[] } | { ok: false; reason: string; detail: string }> {
+  const cleanHost = (hostname ?? "").trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (!cleanHost) {
+    return {
+      ok: false,
+      reason: "invalid_host",
+      detail: "Empty hostname is not allowed.",
+    };
+  }
+
+  if (
+    /^\d{1,3}(?:\.\d{1,3}){3}$/.test(cleanHost) ||
+    cleanHost.includes(":")
+  ) {
+    if (isPrivateOrReservedIp(cleanHost)) {
+      return {
+        ok: false,
+        reason: "private_or_metadata_ip",
+        detail: `IP address ${cleanHost} is in a private, loopback, link-local, or cloud-metadata range.`,
+      };
+    }
+    return { ok: true, ips: [cleanHost] };
+  }
+
+  try {
+    let resolvedIps: string[] = [];
+    if (dnsResolver) {
+      resolvedIps = await dnsResolver(cleanHost);
+    } else if (
+      typeof Deno !== "undefined" &&
+      typeof (Deno as unknown as { resolveDns?: unknown }).resolveDns === "function"
+    ) {
+      const denoResolve = (
+        Deno as unknown as {
+          resolveDns: (q: string, rType: "A" | "AAAA") => Promise<string[]>;
+        }
+      ).resolveDns;
+      const [aRecords, aaaaRecords] = await Promise.all([
+        denoResolve(cleanHost, "A").catch(() => [] as string[]),
+        denoResolve(cleanHost, "AAAA").catch(() => [] as string[]),
+      ]);
+      resolvedIps = [...aRecords, ...aaaaRecords];
+    }
+
+    for (const ip of resolvedIps) {
+      if (isPrivateOrReservedIp(ip)) {
+        return {
+          ok: false,
+          reason: "dns_resolved_to_private_ip",
+          detail: `Hostname ${cleanHost} resolved to restricted private/metadata IP ${ip}.`,
+        };
+      }
+    }
+
+    return { ok: true, ips: resolvedIps };
+  } catch (err) {
+    return {
+      ok: false,
+      reason: "dns_resolution_failed",
+      detail: err instanceof Error ? err.message : "DNS resolution failed",
+    };
+  }
+}
 
 /**
  * Tools that MUST NEVER be exposed or executed in the Consultant or Research path.
@@ -402,20 +545,28 @@ export function validateConsultantWebUrl(
     };
   }
 
-  const host = parsed.hostname.toLowerCase();
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (
     host === "localhost" ||
+    host === "metadata" ||
+    host === "instance-data" ||
+    host === "metadata.google.internal" ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
+    host.endsWith(".localhost") ||
     host.includes("supabase.co") ||
     host.includes("welilereceipts") ||
     host.includes("welile") ||
-    /^(127\.|10\.|192\.168\.|169\.254\.|0\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)
+    isPrivateOrReservedIp(host) ||
+    /^(127\.|10\.|192\.168\.|169\.254\.|0\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|172\.(1[6-9]|2\d|3[01])\.)/.test(
+      host,
+    )
   ) {
     return {
       ok: false,
       reason: "private_or_internal_host",
-      detail: "read_web_page may only access public external domains.",
+      detail:
+        "read_web_page may only access public external domains (private, loopback, link-local, and cloud-metadata hosts are blocked).",
     };
   }
 
@@ -667,6 +818,7 @@ export interface WebResearchExecutionOptions {
   maxCostUsdPerQuestion?: number;
   maxResults?: number;
   signal?: AbortSignal;
+  dnsResolver?: DnsResolveFn;
 }
 
 export function checkWebResearchQuota(opts?: WebResearchExecutionOptions):
@@ -906,17 +1058,71 @@ export async function executeConsultantReadWebPage(
     };
   }
 
+  // Part C item (2): Verify initial hostname does not resolve to a private/loopback/metadata IP
+  const initialDnsCheck = await resolveAndVerifyPublicIp(check.hostname, opts?.dnsResolver);
+  if (initialDnsCheck.ok === false) {
+    return {
+      ok: false,
+      reason: initialDnsCheck.reason,
+      error: initialDnsCheck.detail,
+    };
+  }
+
   const today = kampalaToday();
   let rawHtml = "";
+  let finalUrl = check.url;
+  let finalHostname = check.hostname;
 
   try {
-    const res = await fetcher(check.url, {
-      method: "GET",
-      headers: { Accept: "text/html, text/plain;q=0.9" },
-      ...(opts?.signal ? { signal: opts.signal } : {}),
-    });
-    if (res.ok) {
-      rawHtml = (await res.text()).slice(0, 60_000);
+    let currentUrl = check.url;
+    for (let hop = 0; hop <= MAX_WEB_REDIRECT_HOPS; hop++) {
+      const res = await fetcher(currentUrl, {
+        method: "GET",
+        redirect: "manual",
+        headers: { Accept: "text/html, text/plain;q=0.9" },
+        ...(opts?.signal ? { signal: opts.signal } : {}),
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        if (hop >= MAX_WEB_REDIRECT_HOPS) {
+          return {
+            ok: false,
+            reason: "too_many_redirects",
+            error: `Web page exceeded maximum redirect hops (${MAX_WEB_REDIRECT_HOPS}).`,
+          };
+        }
+        const locationHeader = res.headers?.get("location")?.trim() ?? "";
+        if (!locationHeader) break;
+        const resolvedRedirectUrl = new URL(locationHeader, currentUrl).toString();
+        const redirectUrlCheck = validateConsultantWebUrl(resolvedRedirectUrl, rawToolOutputs);
+        if (redirectUrlCheck.ok === false) {
+          return {
+            ok: false,
+            reason: "ssrf_redirect_blocked",
+            error: `Redirect blocked by SSRF firewall: ${redirectUrlCheck.detail}`,
+          };
+        }
+        const redirectDnsCheck = await resolveAndVerifyPublicIp(
+          redirectUrlCheck.hostname,
+          opts?.dnsResolver,
+        );
+        if (redirectDnsCheck.ok === false) {
+          return {
+            ok: false,
+            reason: "ssrf_redirect_blocked",
+            error: `Redirect target blocked by SSRF DNS firewall: ${redirectDnsCheck.detail}`,
+          };
+        }
+        currentUrl = redirectUrlCheck.url;
+        finalUrl = redirectUrlCheck.url;
+        finalHostname = redirectUrlCheck.hostname;
+        continue;
+      }
+
+      if (res.ok) {
+        rawHtml = (await res.text()).slice(0, 60_000);
+      }
+      break;
     }
   } catch {
     rawHtml = "";
@@ -924,19 +1130,19 @@ export async function executeConsultantReadWebPage(
 
   const sanitized = extractAndSanitizeWebPageText(
     rawHtml,
-    check.url,
-    check.hostname,
+    finalUrl,
+    finalHostname,
     today,
   );
 
   return {
     ok: true,
     payload: {
-      source: `Outside source (${check.hostname} · ${today})`,
+      source: `Outside source (${finalHostname} · ${today})`,
       period: today,
       outside_source: true,
       label: "Outside source",
-      url: check.url,
+      url: finalUrl,
       accessed_date: today,
       title: sanitized.title,
       excerpt: sanitized.cleanExcerpt,
@@ -1079,4 +1285,71 @@ export function scoreConsultantAnswer(reply: string): ConsultantChecklistScore {
     checks,
     reasons,
   };
+}
+
+/**
+ * Part C item (5) — Coaching on a person's own work (with the advisory-only defence):
+ * Detects when a staff member asks "how am I doing", "how can I improve", or for personal/team coaching.
+ */
+export function isCoachingQuestion(userMessage: string): boolean {
+  const s = (userMessage ?? "").trim();
+  if (!s) return false;
+  return /\b(how\s+am\s+i\s+doing|how\s+can\s+i\s+improve|coach\s+me|my\s+work\s+summary|my\s+coaching|how\s+is\s+my\s+team\s+doing|how\s+is\s+my\s+department\s+doing|team\s+work\s+summary)\b/i.test(
+    s,
+  );
+}
+
+/**
+ * Blocks any attempt by a non-manager to inspect a named colleague's individual coaching scorecard
+ * or personal work summary (`assistant_staff_my_work_summary` is strictly `(select auth.uid())`).
+ */
+export function isColleagueCoachingForbiddenRequest(
+  userMessage: string,
+  callerRoles: readonly string[],
+): boolean {
+  const s = (userMessage ?? "").trim();
+  if (!s) return false;
+  const asksForOtherPerson =
+    /\b(colleague(?:'s)?|coworker(?:'s)?|winnie(?:'s)?|jane(?:'s)?|hanisha(?:'s)?|kato(?:'s)?|other\s+staff(?:'s)?)\b[\s\S]*\b(coaching|scorecard|work\s+summary|how\s+is\s+(?:she|he)\s+doing)\b/i.test(
+      s,
+    ) ||
+    /\bshow\s+(?:me\s+)?(?:my\s+colleague|winnie|jane|hanisha)(?:'s)?\s+(?:individual\s+)?(?:coaching|work\s+summary|scorecard)\b/i.test(
+      s,
+    );
+  if (!asksForOtherPerson) return false;
+  const managerRoles = new Set([
+    "hr",
+    "coo",
+    "ceo",
+    "cfo",
+    "cto",
+    "crm",
+    "manager",
+    "super_admin",
+  ]);
+  return !callerRoles.some((r) => managerRoles.has(r.toLowerCase().trim()));
+}
+
+/**
+ * Ensures every coaching answer carries the mandatory advisory-only label:
+ * "Advisory suggestion only — not a rating or HR decision."
+ */
+export function ensureCoachingAdvisoryNotice(
+  reply: string,
+  usedCoachingTool: boolean,
+): string {
+  if (!usedCoachingTool) return reply;
+  if (/advisory\s+suggestion\s+only|not\s+a\s+rating\s+or\s+hr\s+decision/i.test(reply)) {
+    return reply;
+  }
+  const notice =
+    "*(Advisory suggestion only — not a rating or HR decision. Coaching suggestions are private guidance for human review.)*";
+  const trimmed = reply.trim();
+  const sourceIdx = trimmed.search(/\n*Source:\s*/i);
+  if (sourceIdx >= 0) {
+    const before = trimmed.slice(0, sourceIdx).trimEnd();
+    const after = trimmed.slice(sourceIdx).trimStart();
+    return `${before}\n\n${notice}\n\n${after}`;
+  }
+  return `${trimmed}\n\n${notice}`;
 }

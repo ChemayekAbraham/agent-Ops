@@ -15,10 +15,14 @@ import {
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import {
   buildResearchModePlan,
+  COACHING_ADVISORY_NOTICE,
   CONSULTANT_FORBIDDEN_TOOLS,
+  ensureCoachingAdvisoryNotice,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   filterToolsForConsultantMode,
+  isCoachingQuestion,
+  isColleagueCoachingForbiddenRequest,
   isConsultantQuestion,
   MAX_RESEARCH_SOURCES_PER_QUESTION,
   MAX_WEB_SEARCHES_PER_QUESTION,
@@ -27,6 +31,10 @@ import {
   WEB_RESEARCH_TOOL_NAMES,
 } from "./consultant.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
+import {
+  formatFastAnswerFromToolPayload,
+  matchFastAnswerTemplate,
+} from "./fastAnswers.ts";
 import {
   buildReportEmailDraft,
   extractRecipientQuery,
@@ -952,6 +960,184 @@ export async function handleStaffAssistantRequest(
     }
   }
 
+  // Part C item (8): Private Projects (`staff_assistant_projects`)
+  if (body.action === "list_projects") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_list_projects");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, source: "staff_assistant_projects", rows: [] });
+  }
+
+  if (body.action === "save_project") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_save_project", {
+        p_project_id: body.project_id ?? null,
+        p_name: body.name,
+        p_instructions: body.instructions ?? "",
+        p_pinned_files: body.pinned_files ?? [],
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error) {
+        return json(400, { ok: false, error: error.message });
+      }
+    } catch (err) {
+      return json(400, { ok: false, error: err instanceof Error ? err.message : "save_project failed" });
+    }
+    return json(200, { ok: true });
+  }
+
+  if (body.action === "delete_project") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_delete_project", {
+        p_project_id: body.project_id,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // best effort
+    }
+    return json(200, { ok: true });
+  }
+
+  // Part D item (1): Teaching loop (`staff_assistant_department_teaching_queue`, `staff_assistant_teach_from_review_queue`, `assistant_staff_my_taught_updates`)
+  if (body.action === "list_teaching_queue") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_department_teaching_queue", {
+        p_department: body.department ?? "all",
+        p_status: body.status ?? "open",
+        p_limit: 100,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, rows: [], row_count: 0 });
+  }
+
+  if (body.action === "approve_teaching_entry") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_teach_from_review_queue", {
+        p_unanswered_id: body.unanswered_id,
+        p_title: body.title,
+        p_approved_answer: body.approved_answer,
+        p_category: body.category ?? "faq",
+        p_department: body.department ?? null,
+        p_source_doc: body.source_doc ?? "Department Lead Teaching Queue",
+        p_screen_path: body.screen_path ?? null,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+      if (error) {
+        return json(400, { ok: false, error: error.message });
+      }
+    } catch (err) {
+      return json(400, { ok: false, error: err instanceof Error ? err.message : "approve_teaching_entry failed" });
+    }
+    return json(200, { ok: true });
+  }
+
+  if (body.action === "my_taught_updates") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_my_taught_updates");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, rows: [], row_count: 0 });
+  }
+
+  // Part D item (5): Real-Use Dashboard + Role Goals & Measures (`staff_assistant_real_use_dashboard`, `staff_assistant_role_goals_and_measures`)
+  if (body.action === "real_use_dashboard") {
+    try {
+      const [dashRes, goalsRes] = await Promise.all([
+        userClient.rpc("staff_assistant_real_use_dashboard", { p_days: body.days ?? 30 }),
+        userClient.rpc("staff_assistant_role_goals_and_measures"),
+      ]);
+      if (dashRes.error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+      const dashPayload =
+        dashRes.data && typeof dashRes.data === "object" && !Array.isArray(dashRes.data)
+          ? (dashRes.data as Record<string, unknown>)
+          : {};
+      const goalsPayload =
+        goalsRes.data && typeof goalsRes.data === "object" && !Array.isArray(goalsRes.data)
+          ? (goalsRes.data as Record<string, unknown>)
+          : { rows: [] };
+      return json(200, {
+        ok: true,
+        ...dashPayload,
+        role_goals_and_measures: goalsPayload,
+      });
+    } catch {
+      return json(200, { ok: true, totals: {}, role_goals_and_measures: { rows: [] } });
+    }
+  }
+
+  // Part C item (9): Web Push consent & preferences (`staff_assistant_get_push_prefs`, `staff_assistant_set_push_prefs`)
+  if (body.action === "get_push_prefs") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_get_push_prefs");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, {
+      ok: true,
+      push_enabled: false,
+      morning_brief_push: false,
+      taught_updates_push: false,
+      soft_prompt_shown: false,
+      daily_cap: 2,
+      sent_today: 0,
+    });
+  }
+
+  if (body.action === "set_push_prefs") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_set_push_prefs", {
+        p_push_enabled: body.push_enabled ?? null,
+        p_morning_brief_push: body.morning_brief_push ?? null,
+        p_taught_updates_push: body.taught_updates_push ?? null,
+        p_soft_prompt_shown: body.soft_prompt_shown ?? null,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, {
+      ok: true,
+      push_enabled: body.push_enabled ?? false,
+      morning_brief_push: body.morning_brief_push ?? false,
+      taught_updates_push: body.taught_updates_push ?? false,
+      soft_prompt_shown: body.soft_prompt_shown ?? false,
+      daily_cap: 2,
+    });
+  }
+
   // ---- 5. Requirement (d): Daily question budget, runtime config & burst rate limit -----------
   const callerRoles = await resolveCallerRoles(userClient, user.id);
   activeCallerRoles = callerRoles;
@@ -1029,6 +1215,10 @@ export async function handleStaffAssistantRequest(
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const userText = body.message;
+  const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  const hasUntrustedAttachments = attachments.length > 0;
+  const pageContext = body.page_context ?? null;
+  const projectId = body.project_id ?? null;
   const temporaryChat = body.temporary_chat === true;
   const memPrefs = store.getMemoryPrefs
     ? await store.getMemoryPrefs(user.id).catch(() => ({
@@ -1042,16 +1232,21 @@ export async function handleStaffAssistantRequest(
     memPrefs.memory_enabled !== false;
 
   const researchMode = body.research_mode === true;
+  const coachingMode = isCoachingQuestion(userText);
   const consultantMode = isConsultantQuestion(userText);
   const isConsultantOrResearch = consultantMode || researchMode;
-  const webResearchEnabled = isConsultantOrResearch && budget.webResearchEnabled === true;
+  // Lethal-trifecta rule: when untrusted file attachments are present, web research and outbound/draft tools are disabled
+  const webResearchEnabled =
+    !hasUntrustedAttachments && isConsultantOrResearch && budget.webResearchEnabled === true;
   const researchPlan = researchMode ? buildResearchModePlan(userText) : [];
   const baseOpenAiTools = openAiToolsForRoles(callerRoles);
-  const allowedOpenAiTools = isConsultantOrResearch
-    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
-    : baseOpenAiTools;
+  const allowedOpenAiTools = (
+    isConsultantOrResearch || hasUntrustedAttachments
+      ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
+      : baseOpenAiTools
+  ).filter((t) => !(hasUntrustedAttachments && WEB_RESEARCH_TOOL_NAMES.has(t.function.name)));
   const toolDescriptions = describeToolsForRoles(callerRoles).filter(
-    (line) => !isConsultantOrResearch || !line.startsWith("draft_"),
+    (line) => !(isConsultantOrResearch || hasUntrustedAttachments) || !line.startsWith("draft_"),
   );
   if (webResearchEnabled) {
     toolDescriptions.push(
@@ -1357,7 +1552,7 @@ export async function handleStaffAssistantRequest(
   };
 
   try {
-    // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
+    // ---- 7. Deterministic prompt-injection / write-mutation / colleague-coaching pre-check ----
     if (isDirectPromptInjection(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
@@ -1368,6 +1563,17 @@ export async function handleStaffAssistantRequest(
         unansweredReason: "out_of_scope",
       });
     }
+    if (isColleagueCoachingForbiddenRequest(userText, callerRoles)) {
+      return await finish(MSG.roleRestricted, "not_staff", {
+        unansweredReason: "role_restricted",
+      });
+    }
+
+    // ---- 7b. Part D item (4): Fast-answer template hint (30 fixed checked templates) -----------
+    const matchedFastAnswer =
+      !hasUntrustedAttachments && !researchMode && !consultantMode
+        ? matchFastAnswerTemplate(userText, callerRoles)
+        : null;
 
     // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
     // When `temporaryChat === true` or `memoryEnabled === false`, read NO memory.
@@ -1414,6 +1620,35 @@ export async function handleStaffAssistantRequest(
     const memoryBlock = memoryEnabled ? formatConversationMemoryForPrompt(existingMemory) : "";
     const zoeNotesBlock = memoryEnabled ? formatZoeNotesForPrompt(userNotes) : "";
 
+    // Part C item (4): Page awareness (route, filters, period ONLY — never screen data)
+    const pageContextBlock = pageContext
+      ? `CURRENT WORKSPACE SCREEN CONTEXT (ROUTE, FILTERS & PERIOD ONLY — NO SCREEN DATA):
+- Route: ${pageContext.route}${pageContext.title ? ` (${pageContext.title})` : ""}
+- Period: ${pageContext.period ?? "default"}
+- Visible Filters: ${pageContext.filters ? JSON.stringify(pageContext.filters) : "none"}
+Use your role-checked tools to fetch any figures for this screen.`
+      : "";
+
+    // Part C item (8): Private project instructions (`staff_assistant_projects`)
+    let projectInstructionsBlock = "";
+    if (projectId && !temporaryChat) {
+      try {
+        const { data: projData } = await userClient.rpc("assistant_staff_list_projects");
+        if (projData && typeof projData === "object" && !Array.isArray(projData)) {
+          const projRows = Array.isArray((projData as Record<string, unknown>).rows)
+            ? ((projData as Record<string, unknown>).rows as Array<Record<string, unknown>>)
+            : [];
+          const matchedProj = projRows.find((r) => String(r.id ?? "") === projectId);
+          if (matchedProj) {
+            projectInstructionsBlock = `ACTIVE PRIVATE PROJECT (${String(matchedProj.name ?? "Project")}):
+- Instructions: ${String(matchedProj.instructions ?? "None")}`;
+          }
+        }
+      } catch {
+        // best effort
+      }
+    }
+
     // Deliverable (6): Use the last 20 turns (40 messages) verbatim; summarise older turns
     const splitMemory = memoryEnabled
       ? splitTurnsForPromptMemory(
@@ -1431,7 +1666,25 @@ export async function handleStaffAssistantRequest(
     updatedRollingSummary = splitMemory.rollingSummaryText;
     const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;
 
-    const currentUserMessageFormatted = formatCurrentUserMessageForModel(userText);
+    // Part C item (1): Wrap every uploaded file's extracted text in `<UNTRUSTED_FILE_ATTACHMENT>`
+    const untrustedAttachmentBlocks: string[] = [];
+    for (const att of attachments) {
+      const safeText = (att.extracted_text ?? "")
+        .replace(/<\s*\/?\s*UNTRUSTED_FILE_ATTACHMENT[^>]*>/gi, "[redacted-tag]")
+        .slice(0, 32000);
+      untrustedAttachmentBlocks.push(
+        `<UNTRUSTED_FILE_ATTACHMENT name="${att.name.replace(/"/g, "'")}" kind="${att.kind}" mime_type="${att.mime_type}">\n${safeText}\n</UNTRUSTED_FILE_ATTACHMENT>`,
+      );
+    }
+
+    const baseUserFormatted = formatCurrentUserMessageForModel(userText);
+    const currentUserMessageFormatted =
+      untrustedAttachmentBlocks.length > 0
+        ? `${untrustedAttachmentBlocks.join("\n\n")}\n\n${baseUserFormatted}`
+        : matchedFastAnswer
+        ? `${baseUserFormatted}\n[Fast-answer template hint: prefer certified tool ${matchedFastAnswer.template.tool} (${matchedFastAnswer.template.rpc}) if allowed for caller]`
+        : baseUserFormatted;
+
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -1439,8 +1692,11 @@ export async function handleStaffAssistantRequest(
           conversationMemoryBlock: memoryBlock,
           zoeNotesBlock,
           rollingSummaryBlock,
+          pageContextBlock,
+          projectInstructionsBlock,
           modelTier: selectedTier.tier,
           consultantMode,
+          coachingMode,
           researchMode,
           webResearchEnabled,
         }),
@@ -1459,6 +1715,11 @@ export async function handleStaffAssistantRequest(
     for (const h of history) {
       if (h.role === "assistant" && typeof h.content === "string" && h.content.trim()) {
         rawToolOutputs.push(h.content);
+      }
+    }
+    for (const att of attachments) {
+      if (typeof att.extracted_text === "string" && att.extracted_text.trim()) {
+        rawToolOutputs.push(att.extracted_text);
       }
     }
 
@@ -1796,8 +2057,24 @@ Answer the user's question in plain text without calling any tools:
           continue;
         }
 
-        // Consultant & Research modes block all write/action/export draft tools
-        if (isConsultantOrResearch && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+        // Consultant, Research & Lethal-Trifecta rule: block all write/action/export draft tools
+        // whenever untrusted attachments or web research are present in the turn
+        if (
+          (isConsultantOrResearch ||
+            hasUntrustedAttachments ||
+            webSearchesInQuestion > 0 ||
+            webSourcesReadInQuestion > 0) &&
+          CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)
+        ) {
+          return await finish(MSG.outOfScope, "blocked", {
+            tools: toolsCalled,
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+
+        // Lethal-trifecta rule: never allow web fetch/search in the same turn as an untrusted file upload
+        if (hasUntrustedAttachments && WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
           return await finish(MSG.outOfScope, "blocked", {
             tools: toolsCalled,
             model: lastModel,
@@ -3150,12 +3427,22 @@ Answer the user's question in plain text without calling any tools:
       answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
     }
 
+    // Part C item (5): Ensure every coaching answer carries "Advisory suggestion only — not a rating or HR decision"
+    const usedCoachingTool =
+      coachingMode ||
+      toolsCalled.includes("get_my_work_summary") ||
+      toolsCalled.includes("get_team_work_summary");
+    if (usedCoachingTool) {
+      answerWithCitation = ensureCoachingAdvisoryNotice(answerWithCitation, true);
+    }
+
     const allowedOutputsForGuard = [
       ...rawToolOutputs,
       JSON.stringify({
         source: sourceLabel,
         period: periodLabel,
         ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+        ...(usedCoachingTool ? { advisory_notice: COACHING_ADVISORY_NOTICE } : {}),
       }),
     ];
 
