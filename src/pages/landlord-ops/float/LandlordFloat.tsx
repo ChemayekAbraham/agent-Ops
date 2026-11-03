@@ -1995,11 +1995,11 @@ export default function LandlordFloat() {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="flex w-full flex-wrap justify-start gap-1 h-auto">
-          <TabsTrigger value="needed">1 · Float needed</TabsTrigger>
-          <TabsTrigger value="collecting">2 · Being collected</TabsTrigger>
-          <TabsTrigger value="agents">3 · With agents</TabsTrigger>
-          <TabsTrigger value="no-tenant">4 · No tenant attached</TabsTrigger>
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto md:flex-wrap">
+          <TabsTrigger value="needed" className="min-h-11 shrink-0 px-3 text-sm md:min-h-0 md:text-xs">1 · Float needed</TabsTrigger>
+          <TabsTrigger value="collecting" className="min-h-11 shrink-0 px-3 text-sm md:min-h-0 md:text-xs">2 · Being collected</TabsTrigger>
+          <TabsTrigger value="agents" className="min-h-11 shrink-0 px-3 text-sm md:min-h-0 md:text-xs">3 · With agents</TabsTrigger>
+          <TabsTrigger value="no-tenant" className="min-h-11 shrink-0 px-3 text-sm md:min-h-0 md:text-xs">4 · No tenant attached</TabsTrigger>
         </TabsList>
 
         {/* 1 — Float needed */}
