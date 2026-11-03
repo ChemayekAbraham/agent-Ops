@@ -16,6 +16,14 @@ export const statusText: Record<Status, string> = {
   idle: 'text-muted-foreground',
 };
 
+/** Status dots, softened to 80% so the river reads as a flow and not as alarms. */
+export const statusDot: Record<Status, string> = {
+  ok: 'bg-[hsl(var(--desk-ok)/0.8)]',
+  warn: 'bg-[hsl(var(--desk-warn)/0.8)]',
+  bad: 'bg-[hsl(var(--desk-bad)/0.8)]',
+  idle: 'bg-muted-foreground/40',
+};
+
 export const statusFill: Record<Status, string> = {
   ok: 'bg-[hsl(var(--desk-ok))]',
   warn: 'bg-[hsl(var(--desk-warn))]',
@@ -41,6 +49,11 @@ export const statusGlass: Record<Status, string> = {
 /** Glass surfaces, defined in index.css so the backdrop-filter fallback can live in @supports. */
 export const PANEL = 'desk-panel';
 export const TILE = 'desk-tile';
+/** A river capsule: the panel glass at a tighter radius. */
+export const CAPSULE = 'desk-panel desk-capsule';
+
+/** Every small label on the desks: 13px at 70%, sentence case. */
+export const LABEL = 'desk-label';
 
 /** Large figures: white for contrast, with a faint violet glow. */
 export const FIGURE = 'desk-figure tabular-nums font-semibold text-foreground';
