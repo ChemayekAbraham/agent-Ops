@@ -178,10 +178,9 @@ describe('Special Advances UI - Accounting and Status Figures', () => {
 
   it('displays A25 allowance and Net receivable in reconciliation when returned from server', async () => {
     renderWithClient(<SpecialAdvancesPanel />);
-    await waitFor(() => {
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('A25 allowance');
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('net');
-    });
+    fireEvent.click(screen.getByText('Reconciliation & Balances'));
+    expect(await screen.findByText('Account A25 (Impairment Allowance)')).toBeTruthy();
+    expect(await screen.findByText('Net Special Advances Receivable')).toBeTruthy();
   });
 });
 
