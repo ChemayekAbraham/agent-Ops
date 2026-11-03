@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
+import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { prettyName } from '@/lib/formatting';
@@ -101,12 +102,14 @@ export function FunderPreviewHomeSheet({
   distanceLabel?: string | null;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
   const stripRef = useRef<HTMLDivElement | null>(null);
   const entryKey = entry ? toSelectionItem(entry.category, entry.item).id : null;
 
   useEffect(() => {
     setPhotoIndex(0);
+    setViewerIndex(null);
     stripRef.current?.scrollTo({ left: 0 });
   }, [entryKey]);
 
@@ -357,6 +360,14 @@ export function FunderPreviewHomeSheet({
             {picked ? 'This home is in your plan.' : 'You can review or remove it before anything is paid.'}
           </p>
         </div>
+        {/* Full-screen photo view: opened by tapping any photo above. */}
+        <ImageLightbox
+          images={photos.map((url, i) => ({ id: `${entryKey}-${i}`, image_url: url }))}
+          initialIndex={viewerIndex ?? 0}
+          open={viewerIndex !== null}
+          onClose={() => setViewerIndex(null)}
+          productName={view.title}
+        />
       </DialogContent>
     </Dialog>
   );
