@@ -139,6 +139,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
               <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Category</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Serial</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Custodian</th>
+              <th className="hidden px-3 py-2.5 text-right font-medium xl:table-cell">Number</th>
               <th className="px-3 py-2.5 text-left font-medium">Status</th>
               <th className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">Cost</th>
               <th className="w-14 px-3 py-2.5 text-center font-medium">Actions</th>
@@ -146,13 +147,13 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           </thead>
           <tbody className="divide-y divide-border/50">
             {q.isLoading && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
             )}
             {q.isError && (
-              <tr><td colSpan={9} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
+              <tr><td colSpan={10} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
             )}
             {!q.isLoading && !q.isError && items.length === 0 && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">
                 {filtered ? 'No assets match these filters.' : 'No assets registered yet. Add one or import from Excel.'}
               </td></tr>
             )}
@@ -180,6 +181,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="hidden whitespace-nowrap px-3 py-2.5 text-muted-foreground md:table-cell">{categoryLabel(a.category)}</td>
                 <td className="hidden whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-muted-foreground lg:table-cell">{a.serial_number ?? '—'}</td>
                 <td className="hidden max-w-[12rem] truncate px-3 py-2.5 text-muted-foreground lg:table-cell">{a.custodian_display ?? '—'}</td>
+                <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground xl:table-cell">{a.same_item_count}</td>
                 <td className="whitespace-nowrap px-3 py-2.5">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_TONE[a.status] ?? ''}`}>{statusLabel(a.status)}</span>
                 </td>

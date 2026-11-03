@@ -16,7 +16,7 @@ const asset = (i: number, over: Record<string, unknown> = {}) => ({
   purchase_date: '2025-01-15', supplier: 'Kampala Computers', purchase_cost: 3500000, currency: 'UGX',
   invoice_reference: 'INV-1', department_key: 'finance', department_name: 'Finance',
   location: 'Head office', custodian_user_id: null, custodian_name: 'Jane', custodian_display: 'Jane',
-  condition: 'good', status: 'in_use', photo_paths: [], evidence_paths: [], notes: null, import_batch_id: null,
+  condition: 'good', status: 'in_use', photo_paths: [], evidence_paths: [], notes: null, import_batch_id: null, same_item_count: 1,
   created_by: 'u1', created_by_name: 'CFO User', created_at: '2026-10-26T08:00:00Z',
   updated_by: 'u1', updated_by_name: 'CFO User', updated_at: '2026-10-26T08:00:00Z',
   ...over,
@@ -34,7 +34,7 @@ function respond(fn: string, args: Record<string, unknown>) {
     case 'asset_register_reference_data':
       return { data: { departments: [{ key: 'finance', name: 'Finance' }], custodians: [] }, error: null };
     case 'asset_register_list':
-      return { data: { total_count: 2, limit: 25, offset: Number(args.p_offset), items: [asset(1), asset(2)] }, error: null };
+      return { data: { total_count: 2, limit: 25, offset: Number(args.p_offset), items: [asset(1), asset(2, { same_item_count: 7 })] }, error: null };
     case 'asset_register_get':
       return {
         data: {
@@ -70,6 +70,14 @@ describe('CFO Asset Register panel', () => {
     expect(screen.getByText(/not a ledger value/)).toBeTruthy();
     expect(screen.getByText('Showing 1–2 of 2')).toBeTruthy();
     expect(mocks.rpc).toHaveBeenCalledWith('asset_register_list', expect.objectContaining({ p_search: null, p_limit: 25, p_offset: 0 }));
+  });
+
+  it('shows the number the server counted for that item, and no Location column', async () => {
+    setup();
+    const row = (await screen.findByText('WEL-AST-000002')).closest('tr')!;
+    expect(within(row).getByText('7')).toBeTruthy();
+    expect(screen.getByRole('columnheader', { name: 'Number' })).toBeTruthy();
+    expect(screen.queryByRole('columnheader', { name: 'Location' })).toBeNull();
   });
 
   it('sends the search text to the server after a pause', async () => {

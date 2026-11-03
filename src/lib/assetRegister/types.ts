@@ -126,6 +126,11 @@ export interface Asset {
   evidence_paths: string[];
   notes: string | null;
   import_batch_id: string | null;
+  /**
+   * How many of this same item (same name, category and site) are on the register. Decided by
+   * `asset_register_list` on the server; the browser only displays it and never counts rows itself.
+   */
+  same_item_count: number;
   created_by: string;
   created_by_name: string | null;
   created_at: string;
