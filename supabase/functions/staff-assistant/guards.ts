@@ -465,7 +465,7 @@ export function checkStreamedParagraph(
   return {
     ok: false,
     paragraph: UNVERIFIED_PARAGRAPH_REPLACEMENT,
-    reason: check.reason,
+    reason: (check as Extract<GuardResult, { ok: false }>).reason,
   };
 }
 
