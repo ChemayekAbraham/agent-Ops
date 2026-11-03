@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
@@ -62,7 +63,7 @@ describe('Special Advances panel', () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
     expect(screen.getByText('Acme Supplies Ltd')).toBeTruthy();
-    fireEvent.click(screen.getByText('Reconciliation & Balances'));
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
     expect(await screen.findByText('Reconciled')).toBeTruthy();
     fireEvent.click(btn('special-advance-new'));
     expect(screen.getByText('record modal open')).toBeTruthy();
@@ -71,7 +72,7 @@ describe('Special Advances panel', () => {
   it('highlights a reconciliation difference', async () => {
     mocks.server.recon = { a24_ledger_balance: 940007, subledger_outstanding: 940000, difference: 7, balanced: false, mismatched_advances: [] };
     renderPanel();
-    fireEvent.click(screen.getByText('Reconciliation & Balances'));
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
     expect(await screen.findByText('Imbalance detected')).toBeTruthy();
   });
 
