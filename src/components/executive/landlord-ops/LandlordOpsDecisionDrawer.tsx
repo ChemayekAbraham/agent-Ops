@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatOpsUgx } from '@/components/executive/landlord-ops/mobile/landlordOpsPhone';
 import {
   LISTING_REJECTION_CHARGE,
   LISTING_VERIFICATION_BONUS,
@@ -42,6 +42,9 @@ interface DrawerListing {
   agent: { full_name?: string | null; phone?: string | null } | null;
 }
 
+
+const drawerFrame =
+  'fixed inset-0 z-[80] flex h-[100dvh] w-full max-w-none flex-col border-border bg-card shadow-lg md:static md:inset-auto md:z-20 md:h-full md:w-[360px] md:shrink-0 md:border-l xl:w-[380px]';
 
 export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawerProps) {
   const [params, setParams] = useSearchParams();
@@ -177,7 +180,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
           throw new Error(await extractFromErrorObject(error, 'Verification failed'));
         }
         if (data?.error) throw new Error(data.error);
-        toast.success(`Verified ${displayItem!.code} — listing bonus credited to the agent`);
+        toast.success(`Verified ${displayItem!.code}. Listing bonus credited to the agent`);
       } else {
         const { data, error } = await supabase.rpc('reject_house_listing', {
           p_listing_id: displayItem.id,
@@ -197,8 +200,8 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         const result = (data ?? {}) as { charged?: boolean; charge_amount?: number };
         toast.success(
           result.charged
-            ? `Rejected ${displayItem!.code} — UGX ${(result.charge_amount ?? 0).toLocaleString()} charged to the agent`
-            : `Rejected ${displayItem!.code} — no charge was applied`,
+            ? `Rejected ${displayItem!.code}. ${formatOpsUgx(result.charge_amount ?? 0)} charged to the agent`
+            : `Rejected ${displayItem!.code}. No charge was applied`,
         );
       }
 
@@ -225,10 +228,10 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
 
   if (!isLoading && !displayItem) {
     return (
-      <aside className={`w-[360px] xl:w-[380px] shrink-0 border-l border-border bg-card flex flex-col h-full z-20 shadow-lg ${className || ''}`}>
+      <aside className={`${drawerFrame} ${className || ''}`}>
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h3 className="font-bold text-sm text-foreground">Listing not found</h3>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleClose}>
+          <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-foreground md:h-7 md:w-7" onClick={handleClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -244,23 +247,23 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
   }
 
   return (
-    <aside className={`w-[360px] xl:w-[380px] shrink-0 border-l border-border bg-card flex flex-col h-full z-20 shadow-lg animate-in slide-in-from-right-6 duration-200 ${className || ''}`}>
+    <aside className={`${drawerFrame} animate-in slide-in-from-right-6 duration-200 md:animate-none ${className || ''}`}>
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         <div>
-          <h3 className="font-bold text-sm text-foreground">Verify listing</h3>
-          <p className="text-xs text-muted-foreground">House listing verification {displayItem?.code ?? ''}</p>
+          <h3 className="text-base font-bold text-foreground md:text-sm">Verify listing</h3>
+          <p className="text-sm text-muted-foreground md:text-xs">House listing verification {displayItem?.code ?? ''}</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleClose}>
+        <Button variant="ghost" size="icon" className="h-11 w-11 text-muted-foreground hover:text-foreground md:h-7 md:w-7" onClick={handleClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border px-4 text-xs font-semibold">
+      <div className="flex border-b border-border px-4 text-sm font-semibold md:text-xs">
         <button
           onClick={() => setActiveTab('details')}
-          className={`py-2.5 mr-6 border-b-2 transition-colors ${
+          className={`mr-6 min-h-11 border-b-2 py-2.5 transition-colors ${
             activeTab === 'details'
               ? 'border-emerald-600 text-emerald-700 dark:text-emerald-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -270,7 +273,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`py-2.5 border-b-2 transition-colors ${
+          className={`min-h-11 border-b-2 py-2.5 transition-colors ${
             activeTab === 'history'
               ? 'border-emerald-600 text-emerald-700 dark:text-emerald-500'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -374,8 +377,8 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
                   <RadioGroupItem value="verify" id="decide-verify" className="mt-0.5 text-emerald-600" />
                   <div className="space-y-0.5 text-xs">
                     <p className="font-semibold text-foreground">Verify and credit agent</p>
-                    <p className="text-[11px] text-emerald-600 font-medium">
-                      Agent wallet: + {formatUGX(LISTING_VERIFICATION_BONUS)}
+                    <p className="text-sm font-medium text-emerald-600 md:text-[11px]">
+                      Agent wallet: + {formatOpsUgx(LISTING_VERIFICATION_BONUS)}
                     </p>
                   </div>
                 </label>
@@ -391,8 +394,8 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
                   <RadioGroupItem value="reject" id="decide-reject" className="mt-0.5 text-rose-600" />
                   <div className="space-y-0.5 text-xs">
                     <p className="font-semibold text-foreground">Reject and charge</p>
-                    <p className="text-[11px] text-rose-600 font-medium">
-                      Agent wallet: - {formatUGX(LISTING_REJECTION_CHARGE)}
+                    <p className="text-sm font-medium text-rose-600 md:text-[11px]">
+                      Agent wallet: - {formatOpsUgx(LISTING_REJECTION_CHARGE)}
                     </p>
                   </div>
                 </label>
@@ -406,7 +409,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
                 <span className="text-[10px] text-muted-foreground">{reason.length}/500</span>
               </div>
               <Textarea
-                placeholder="Enter verification notes (minimum 10 characters)..."
+                placeholder="Enter verification notes (minimum 10 characters)"
                 value={reason}
                 onChange={(e) => setReason(e.target.value.slice(0, 500))}
                 className="text-xs min-h-[75px] resize-none"
@@ -444,7 +447,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
         <Button
           onClick={handleDecisionSubmit}
           disabled={isSubmitting || reason.trim().length < 10}
-          className={`w-full text-xs font-semibold py-2.5 h-auto transition-all ${
+          className={`h-12 w-full text-sm font-semibold transition-all md:h-auto md:py-2.5 md:text-xs ${
             decision === 'verify'
               ? 'bg-[#0FA958] hover:bg-[#0c8c48] text-white'
               : 'bg-rose-600 hover:bg-rose-700 text-white'
@@ -459,7 +462,7 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
           )}
         </Button>
 
-        <Button variant="ghost" size="sm" onClick={handleClose} className="w-full text-xs h-8 text-muted-foreground hover:text-foreground">
+        <Button variant="ghost" size="sm" onClick={handleClose} className="h-11 w-full text-sm text-muted-foreground hover:text-foreground md:h-8 md:text-xs">
           Cancel
         </Button>
 
@@ -467,10 +470,10 @@ export function LandlordOpsDecisionDrawer({ onClose, className }: DecisionDrawer
           <Info className="h-3 w-3 text-sky-500 shrink-0 mt-0.5" />
           <span>
             {decision === 'verify'
-              ? `Marks the listing verified and credits ${formatUGX(
+              ? `Marks the listing verified and credits ${formatOpsUgx(
                   LISTING_VERIFICATION_BONUS,
                 )} to the field agent's commission wallet.`
-              : `Marks the listing rejected, notifies the agent and applies the standard ${formatUGX(
+              : `Marks the listing rejected, notifies the agent and applies the standard ${formatOpsUgx(
                   LISTING_REJECTION_CHARGE,
                 )} rejection charge to their wallet.`}
           </span>

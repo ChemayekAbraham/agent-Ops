@@ -7,6 +7,7 @@ import { IosInstallReporter } from './components/IosInstallReporter';
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
+import { ExplanationDemandOverlay } from "@/components/ExplanationDemandOverlay";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
@@ -974,6 +975,7 @@ function AppRoutes() {
         </Routes>
       </Suspense>
       <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
+      <ExplanationDemandOverlay />
       </div>
     </div>
   );

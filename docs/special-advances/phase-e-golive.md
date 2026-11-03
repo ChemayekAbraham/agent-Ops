@@ -23,7 +23,8 @@ the last step below. Nothing in this phase changes production by itself.
 - **Read-only go-live check** (`supabase/tests/special_advances_golive_check.sql`): one SELECT, run inside a read-only
   transaction, returning `ready` and every item with ok / detail. It checks migrations recorded, function fingerprints
   (Phases 4, B, C, D), tables, accounts A24 / A25, the 12 mappings and allowlist entries, the storage policies (two,
-  both aal2, no update / delete), the proof bucket, the CFO with a verified authenticator (one CFO since 2026-11-03), A24 against the
+  CFO only, no update / delete, no authenticator clause), the proof bucket, the number of enabled CFO accounts (Welile
+  has one) and that Special Advances no longer require an authenticator, A24 against the
   paid-out outstanding, every Special Advances ledger group netting to zero, the one-step workflow (no request,
   decision or queue function), grants, and the
   issuance switch.
@@ -36,12 +37,13 @@ enabled CFOs have a verified authenticator**.
 
 ## Go-live sequence (each step needs the CFO's explicit approval)
 
-1. **Screens (Gemini):** authenticator enrolment; step-up on `MFA_REQUIRED`; proof upload on payout / repayment /
+1. **Screens:** proof upload on payout / repayment /
    correction / write-off / recovery; correction, provision-review and write-off queues; detail-sheet additions
    (Phase A, B, C hand-offs). Published by Lovable.
-2. **Project owner:** confirm Authentication → Multi-Factor → TOTP is enabled; apply the two proof storage policies
+2. **Project owner:** apply the two proof storage policies
    (`docs/special-advances/phase-a-readiness.md`); Claude verifies them read-only.
-3. **CFOs:** at least two enrol an authenticator app.
+3. **CFO roles:** only the one CFO keeps an enabled `cfo` role (any CFO account can act alone). No authenticator is
+   needed (decision 2026-11-03); apply `20261103150000` with the CFO's approval.
 4. **Apply** Phase B (`20261102210000`), then Phase C (`20261102220000`), and Phase D (`20261102230000`), each by CLI in
    one transaction with its `schema_migrations` row, each preceded and followed by a read-only check (same method as
    Phase 4 and Phase A).
@@ -66,6 +68,6 @@ enabled CFOs have a verified authenticator**.
 
 - The concurrency run used PostgreSQL 18.6 (the only local version); production is 17.11. The functions use only
   long-standing features (row locks, advisory locks, unique indexes), but it is not proven on 17.
-- Supabase's PostgREST, Auth and Storage layers are not in the local runs: real step-up (aal2) and real uploads are
+- Supabase's PostgREST, Auth and Storage layers are not in the local runs: real sign-in sessions and real uploads are
   proven only in the pilot.
 - Whether TOTP is enabled in the project's Auth settings is not visible from SQL.

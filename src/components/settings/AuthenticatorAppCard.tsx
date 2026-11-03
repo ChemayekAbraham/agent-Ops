@@ -59,7 +59,7 @@ export function AuthenticatorAppCard() {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-foreground">Set up authenticator app</p>
                 <p className="text-xs text-muted-foreground">
-                  Required for CFO approvals, payouts, repayments and staff MFA.
+                  Optional extra sign-in protection for staff accounts.
                 </p>
               </div>
               <Button

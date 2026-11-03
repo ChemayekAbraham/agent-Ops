@@ -26,7 +26,12 @@ import type { AppRole, AuthContextType } from './auth/types';
 import { DEFAULT_ROLES, fetchUserRoles, addRoleForUser } from './auth/roleManager';
 import * as ops from './auth/authOperations';
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+/**
+ * Exported so a component that is also mounted without a provider (the floating
+ * assistant launcher, rendered standalone in tests) can read the session
+ * through `useContext` instead of `useAuth()`, which throws when there is none.
+ */
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Synthetic placeholder addresses issued to accounts that never gave a real
 // email (phone-only signups, agent-assisted registrations) — these are

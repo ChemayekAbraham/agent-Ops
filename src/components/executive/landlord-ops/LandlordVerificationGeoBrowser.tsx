@@ -274,7 +274,7 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange, tenantsBy
                 title={LEVEL_LABEL[lvl]}
               >
                 <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{LEVEL_LABEL[lvl]}</span>
-                <span className="max-w-[9rem] truncate text-xs font-semibold">{value || (isCurrent ? 'Choose…' : '—')}</span>
+                <span className="max-w-[9rem] truncate text-xs font-semibold">{value || (isCurrent ? 'Choose' : 'Not set')}</span>
               </Button>
             </span>
           );
@@ -341,14 +341,14 @@ export function LandlordVerificationGeoBrowser({ rows, path, onChange, tenantsBy
                   className={`rounded-lg border px-3 py-3 ${active ? 'border-amber-500/70 bg-amber-500/5' : 'border-border bg-background'}`}
                 >
                    <div className="flex flex-wrap items-center gap-2">
-                     <span className="text-[12px] font-semibold text-foreground">
+                     <span className="text-sm font-semibold text-foreground">
                        {r.landlord_name || 'Unnamed landlord'}
                      </span>
                      <Badge variant="outline" className="h-4 px-1 text-[9px] capitalize">{r.status}</Badge>
                    </div>
                    <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-muted-foreground">
                      <UserCircle className="h-3 w-3" />
-                     Agent {r.agent_name || '—'}{r.agent_phone ? ` · ${r.agent_phone}` : ''}
+                     Agent {r.agent_name || 'Not recorded'}{r.agent_phone ? ` · ${r.agent_phone}` : ''}
                      <MapPin className="ml-1.5 h-3 w-3" />
                      {[geoValueAt(r.geo, 'village'), geoValueAt(r.geo, 'subcounty'), geoValueAt(r.geo, 'district')]
                        .filter((v) => v !== UNRECORDED)

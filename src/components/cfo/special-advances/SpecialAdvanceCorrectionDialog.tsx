@@ -18,11 +18,9 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
-  hasAuthenticatorSession,
   useRecordSpecialAdvanceCorrection,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 
 interface SpecialAdvanceCorrectionDialogProps {
   open: boolean;
@@ -51,7 +49,6 @@ export function SpecialAdvanceCorrectionDialog({
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const idempotencyKey = useRef(newIdempotencyKey());
 
@@ -109,10 +106,6 @@ export function SpecialAdvanceCorrectionDialog({
     let path = uploadedPath;
     try {
       if (!path && file) {
-        if (!(await hasAuthenticatorSession())) {
-          setStepUpOpen(true);
-          return;
-        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -120,12 +113,7 @@ export function SpecialAdvanceCorrectionDialog({
 
       await executeRequest(path);
     } catch (err) {
-      const msg = (err as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(err));
-      }
+      setError(describeSpecialAdvanceError(err));
     } finally {
       setSubmitting(false);
     }
@@ -161,7 +149,7 @@ export function SpecialAdvanceCorrectionDialog({
               <span>Posts immediately</span>
             </div>
             <p>
-              Confirming posts the reversing entries to the ledger at once, under your authenticator-verified session.
+              Confirming posts the reversing entries to the ledger at once.
               The original entries are never edited or deleted.
             </p>
           </div>
@@ -226,12 +214,6 @@ export function SpecialAdvanceCorrectionDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleSubmit()}
-      />
     </>
   );
 }
