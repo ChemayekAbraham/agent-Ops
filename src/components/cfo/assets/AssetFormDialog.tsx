@@ -204,9 +204,6 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
               onChange={(v) => set('site_key', v)}
             />
           </Field>
-          <Field id="asset-location" label="Location (room / floor)" error={errorFor.get('location')}>
-            <Input id="asset-location" placeholder="e.g. 2nd floor, finance office" value={form.location} maxLength={200} onChange={(e) => set('location', e.target.value)} />
-          </Field>
 
           <Field id="asset-department" label="Department" error={errorFor.get('department_key')}>
             <ListSelect
