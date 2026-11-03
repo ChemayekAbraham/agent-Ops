@@ -23,7 +23,7 @@ only and the internal helpers are closed; the private `special-advance-proofs` b
 | D5 | Staff MFA for money-moving actions | Approval, payout and repayment need an authenticator-verified session (aal2) | **Decided 2026-10-27: accepted** |
 | D6 | Balance-sheet heading for A24 | Reported under "Other Assets" | **Implemented, open to change** |
 
-Later decisions (D7 impairment rates, D14 proof files need aal2, both 2026-11-02) and the readiness work are in
+Later decisions (D7 impairment rates, 2026-11-02; D14 proof files need aal2, 2026-11-02, withdrawn 2026-11-03) and the readiness work are in
 `docs/special-advances/phase-a-readiness.md`.
 
 Already decided by the CFO (2026-10-27) and implemented: payout to a Welile borrower goes to their withdrawable wallet;
@@ -129,7 +129,7 @@ main safeguard.
 **Decision (CFO, 2026-11-02): option 1, the same CFO may approve and pay out (as implemented); a CFO still cannot
 advance to themselves.** D5 (authenticator-verified session) is the safeguard.
 
-## D5. Staff MFA for money-moving actions (DECIDED 2026-10-27: accepted)
+## D5. Staff MFA for money-moving actions (DECIDED 2026-10-27: accepted; WITHDRAWN 2026-11-03, see the last amendment)
 
 **Finding (read-only, 2026-10-27).** Production `staff_mfa_config.mode` is `shadow`, so `staff_mfa_ok()` passes for
 everyone and every Special Advances action works with a password-only session. **No user in production, including
@@ -184,5 +184,46 @@ may do all of it. For the parts not yet in production the CFO decided ONE approv
 - Protection that replaces the old review step: the server recomputes under lock when posting and refuses (posting
   nothing) if the figure the CFO saw has moved — `expected_total_delta` for a provision review, `expected_gross_amount`
   for a write-off.
-- Control note: one person both makes and authorises these entries; the compensating controls are the authenticator,
+- Control note: one person both makes and authorises these entries; the compensating controls were the authenticator,
   the reason and proof file, the stale-figure check and the audit trail.
+
+## Amendment 2026-11-03 (later the same day): no authenticator in Special Advances
+
+CFO decision: the authenticator app (MFA / TOTP, an `aal2` session) is no longer required anywhere in Special Advances.
+D5 (2026-10-27) and D14 (2026-11-02) are withdrawn. An enabled CFO completes approval, payout, repayment, correction,
+provision review, write-off and recovery with a normal signed-in session.
+
+- Server: migration `20261103150000_special_advances_remove_mfa.sql` (not applied) drops the approval / payout trigger
+  `special_advances_require_mfa` and makes `_special_advance_require_mfa()` refuse nothing; the seven applied functions
+  that call it are not rewritten. Rollback restores the Phase 4 check exactly. The unapplied proof storage policies
+  (`20261028153100`) no longer require `aal2`.
+- Screens: the Special Advances step-up dialog and every "verify with your authenticator" prompt are removed.
+- Kept: enabled-CFO role on every function (CEO, super admin and others cannot act), the self-advance rule, the issuance
+  switch, reasons and proof files (private bucket, short-lived links, used once), idempotency, locking, append-only
+  records and audit events, ledger postings and accounts.
+- Not changed (Welile-wide, outside Special Advances): `staff_mfa_config` (mode `shadow`), the `staff_mfa_ok()` policy
+  on every table, the staff sign-in authenticator screens and Settings card, and the project's TOTP setting.
+- Control note: a CFO account is now protected by its password only; with one CFO doing every step, the remaining
+  controls are the role, the reason and proof file, the stale-figure check and the audit trail.
+
+## Amendment 2026-11-03 (later the same day): one Access fee, no Registration fee
+
+CFO decision: the rate-based fee and the fixed UGX 10,000 (principal up to 200,000) / UGX 20,000 (above) are recognised
+as the **Access fee** only. Special Advances have no Registration fee in new advances, repayment allocations, ledger
+descriptions, reports or exports. Amounts are unchanged: what a borrower owes, the instalments, the due dates and the
+principal in each instalment are identical.
+
+- Server: migration `20261103170000_special_advances_single_access_fee.sql` (not applied; rollback in
+  `supabase/rollbacks/`). Calculation version `sa-calc-2` (access fee = rate part + fixed part); repayments allocate
+  each instalment's whole fee part as access fee, then principal; payout and payout reversal post one access fee pair
+  (DR A24 / CR R1 and back); the statement, position and new audit events report one access fee. Constraints: a
+  `sa-calc-2` agreement and every repayment allocation hold registration fee 0.
+- Ledger and accounts: categories, mappings, A1, A24 and R1 unchanged. No reclassification journal: both fees were
+  always posted to `special_advance_fee_revenue` (R1) against `special_advance_receivable` (A24).
+- Historical reporting reclassification (SA-000001, made under `sa-calc-1`): stored as access fee 700 + registration
+  fee 10,000; reported as one access fee of 10,700 (instalments 1-3: 4,386 / 4,386 / 1,928). Its stored agreement,
+  instalments, audit events and its six payout ledger rows stay as recorded; two of those rows are described
+  "registration fee" / "registration fee receivable" (UGX 10,000 each, R1 / A24) and cannot be reworded without
+  editing the append-only ledger. This amendment is the record that they are part of the Access fee.
+- Wording: the agreement a borrower accepts should describe one access fee that includes the fixed amount.
+

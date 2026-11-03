@@ -2,8 +2,7 @@
  * Fixes from the review of the Special Advances screens (2026-11-03):
  *  H1 the authenticator set-up screen asks the auth server once, not in a loop, when set-up fails;
  *  H2 the app-wide authenticator gate clears as soon as a code is accepted (separate hook copies stay in step);
- *  H3 a proof form asks for the authenticator code BEFORE uploading (the proofs bucket refuses a password-only session);
- *  M1 a retry that fails after the code dialog closed still tells the CFO.
+ *  H3 (as changed 2026-11-03) a proof form never asks for an authenticator code: Special Advances no longer need one.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -12,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthenticatorSetupScreen } from '@/components/auth/AuthenticatorSetupScreen';
 import { StaffAuthenticatorGate } from '@/components/auth/StaffAuthenticatorGate';
 import { SpecialAdvanceRecoveryForm } from '@/components/cfo/special-advances/SpecialAdvanceRecoveryForm';
-import { SpecialAdvanceStepUpDialog } from '@/components/cfo/special-advances/SpecialAdvanceStepUpDialog';
 import type { SpecialAdvanceStatement } from '@/lib/specialAdvances';
 
 const ADVANCE_ID = '0b6f1c2e-3d4a-4b5c-8d9e-0f1a2b3c4d5e';
@@ -130,51 +128,25 @@ describe('H2: the app-wide gate clears once the code is accepted', () => {
   });
 });
 
-describe('H3: a proof form asks for the code before uploading', () => {
+describe('H3 (CFO decision 2026-11-03): a proof form never asks for an authenticator code', () => {
   const fillRecovery = () => {
     fireEvent.change(document.getElementById('recovery-amount') as HTMLInputElement, { target: { value: '50000' } });
-    fireEvent.change(document.getElementById('recovery-reference') as HTMLInputElement, { target: { value: 'MTN-12345' } });
+    fireEvent.change(document.getElementById('recovery-reference') as HTMLInputElement, { target: { value: 'MM-12345' } });
     const pdf = new File(['%PDF-1.4'], 'receipt.pdf', { type: 'application/pdf' });
     fireEvent.change(document.getElementById('recovery-proof') as HTMLInputElement, { target: { files: [pdf] } });
   };
 
-  it('opens the code dialog with nothing uploaded, then uploads and records once verified', async () => {
-    withClient(<SpecialAdvanceRecoveryForm advance={{ id: ADVANCE_ID } as unknown as SpecialAdvanceStatement} />);
-    fillRecovery();
-    fireEvent.click(document.getElementById('recovery-submit') as HTMLButtonElement);
-
-    expect(await screen.findByText('Authenticator verification')).toBeTruthy();
-    expect(mocks.upload).not.toHaveBeenCalled();
-    expect(mocks.rpc).not.toHaveBeenCalledWith('special_advance_record_recovery', expect.anything());
-
-    enterCode('special-advance-step-up-code', 'special-advance-step-up-submit');
-
-    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('special_advance_record_recovery', expect.anything()));
-    expect(mocks.upload).toHaveBeenCalledTimes(1);
-    const sent = mocks.rpc.mock.calls.find(([fn]) => fn === 'special_advance_record_recovery')![1];
-    expect(sent.p_recovery.proof_path).toBe(mocks.upload.mock.calls[0][0]);
-  });
-
-  it('uploads straight away when the session is already verified', async () => {
-    mocks.aal.level = 'aal2';
+  it('uploads the proof and records the recovery in one go on a password-only session', async () => {
     withClient(<SpecialAdvanceRecoveryForm advance={{ id: ADVANCE_ID } as unknown as SpecialAdvanceStatement} />);
     fillRecovery();
     fireEvent.click(document.getElementById('recovery-submit') as HTMLButtonElement);
 
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('special_advance_record_recovery', expect.anything()));
     expect(screen.queryByText('Authenticator verification')).toBeNull();
+    expect(mocks.mfa.getAuthenticatorAssuranceLevel).not.toHaveBeenCalled();
+    expect(mocks.mfa.challengeAndVerify).not.toHaveBeenCalled();
     expect(mocks.upload).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('M1: a failed retry after the code dialog closed is reported', () => {
-  it('shows the refusal instead of losing it', async () => {
-    const onSuccess = vi.fn().mockRejectedValue({ message: 'MFA_REQUIRED' });
-    render(<SpecialAdvanceStepUpDialog open onOpenChange={() => {}} onSuccess={onSuccess} />);
-
-    enterCode('special-advance-step-up-code', 'special-advance-step-up-submit');
-
-    await waitFor(() => expect(mocks.toast.error).toHaveBeenCalled());
-    expect(onSuccess).toHaveBeenCalledTimes(1);
+    const sent = mocks.rpc.mock.calls.find(([fn]) => fn === 'special_advance_record_recovery')![1];
+    expect(sent.p_recovery.proof_path).toBe(mocks.upload.mock.calls[0][0]);
   });
 });

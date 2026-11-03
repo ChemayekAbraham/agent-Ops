@@ -15,11 +15,9 @@ import {
 } from '@/lib/specialAdvances';
 import {
   uploadSpecialAdvanceProof,
-  hasAuthenticatorSession,
   useRecordSpecialAdvanceRecovery,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 
 export function SpecialAdvanceRecoveryForm({
   advance,
@@ -40,7 +38,6 @@ export function SpecialAdvanceRecoveryForm({
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   // When inputs change, generate a new idempotency key
   useEffect(() => {
@@ -87,10 +84,6 @@ export function SpecialAdvanceRecoveryForm({
     let path = uploadedPath;
     try {
       if (!path && file) {
-        if (!(await hasAuthenticatorSession())) {
-          setStepUpOpen(true);
-          return;
-        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
@@ -98,12 +91,7 @@ export function SpecialAdvanceRecoveryForm({
 
       await executeRecovery(path);
     } catch (err) {
-      const msg = (err as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(err));
-      }
+      setError(describeSpecialAdvanceError(err));
     } finally {
       setSubmitting(false);
     }
@@ -197,12 +185,6 @@ export function SpecialAdvanceRecoveryForm({
         {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
         Record recovery
       </Button>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleSubmit()}
-      />
     </div>
   );
 }

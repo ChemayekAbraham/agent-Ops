@@ -7782,6 +7782,228 @@ export type Database = {
         }
         Relationships: []
       }
+      agreement_check_findings: {
+        Row: {
+          check_code: string
+          created_at: string
+          detail: Json
+          finding_kind: string
+          id: string
+          message: string
+          register_codes: string[]
+          run_id: string
+          severity: string
+        }
+        Insert: {
+          check_code: string
+          created_at?: string
+          detail?: Json
+          finding_kind: string
+          id?: string
+          message: string
+          register_codes?: string[]
+          run_id: string
+          severity: string
+        }
+        Update: {
+          check_code?: string
+          created_at?: string
+          detail?: Json
+          finding_kind?: string
+          id?: string
+          message?: string
+          register_codes?: string[]
+          run_id?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_check_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_check_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_check_rules: {
+        Row: {
+          active: boolean
+          applies_to: string[]
+          assert_patterns: string[] | null
+          code: string
+          created_at: string
+          deny_patterns: string[] | null
+          description: string
+          kind: string
+          severity: string
+          value_patterns: string[] | null
+        }
+        Insert: {
+          active?: boolean
+          applies_to: string[]
+          assert_patterns?: string[] | null
+          code: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description: string
+          kind: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Update: {
+          active?: boolean
+          applies_to?: string[]
+          assert_patterns?: string[] | null
+          code?: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description?: string
+          kind?: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Relationships: []
+      }
+      agreement_check_runs: {
+        Row: {
+          documents_checked: number | null
+          error: string | null
+          findings_count: number | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Update: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
+      agreement_register: {
+        Row: {
+          acceptance_table: string | null
+          acceptance_version_column: string | null
+          code: string
+          created_at: string
+          current_version_id: string | null
+          id: string
+          notes: string | null
+          party: string
+          source_kind: string
+          source_ref: string | null
+          status: string
+          title: string
+          updated_at: string
+          upload_order: number
+        }
+        Insert: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party: string
+          source_kind: string
+          source_ref?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          upload_order: number
+        }
+        Update: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code?: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party?: string
+          source_kind?: string
+          source_ref?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          upload_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_current_version_fk"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_register_versions: {
+        Row: {
+          body_sha256: string | null
+          body_text: string
+          effective_from: string | null
+          id: string
+          notes: string | null
+          register_id: string
+          retired_at: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          version_label: string
+        }
+        Insert: {
+          body_sha256?: string | null
+          body_text: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label: string
+        }
+        Update: {
+          body_sha256?: string | null
+          body_text?: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id?: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_versions_register_id_fkey"
+            columns: ["register_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_chat_messages: {
         Row: {
           content: string
@@ -37209,6 +37431,291 @@ export type Database = {
           target_count?: number
           target_month?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ontology_action_aliases: {
+        Row: {
+          action: string | null
+          raw_name: string
+          source: string
+        }
+        Insert: {
+          action?: string | null
+          raw_name: string
+          source: string
+        }
+        Update: {
+          action?: string | null
+          raw_name?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_aliases_action_fkey"
+            columns: ["action"]
+            isOneToOne: false
+            referencedRelation: "ontology_action_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_action_types: {
+        Row: {
+          evidence_column: string | null
+          from_states: string[] | null
+          name: string
+          object_type: string
+          owner_desk: string | null
+          since_version: string
+          status: string
+          to_state: string | null
+        }
+        Insert: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name: string
+          object_type: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Update: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name?: string
+          object_type?: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_types_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_capture: {
+        Row: {
+          enabled: boolean
+          key_column: string
+          link_columns: Json
+          object_type: string | null
+          personal_columns: string[]
+          table_name: string
+          tier: string
+        }
+        Insert: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name: string
+          tier: string
+        }
+        Update: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_capture_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_changes: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          evidence: Json
+          id: number
+          kind: string
+          payload: Json
+          proposed_at: string
+          source: string
+          status: string
+          target: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind: string
+          payload?: Json
+          proposed_at?: string
+          source: string
+          status?: string
+          target: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind?: string
+          payload?: Json
+          proposed_at?: string
+          source?: string
+          status?: string
+          target?: string
+        }
+        Relationships: []
+      }
+      ontology_daily_map: {
+        Row: {
+          generated_at: string
+          map_date: string
+          ontology_version: string | null
+          payload: Json
+        }
+        Insert: {
+          generated_at?: string
+          map_date: string
+          ontology_version?: string | null
+          payload: Json
+        }
+        Update: {
+          generated_at?: string
+          map_date?: string
+          ontology_version?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
+      ontology_meta: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      ontology_object_types: {
+        Row: {
+          description: string | null
+          family: string
+          name: string
+          since_version: string
+          sot: string | null
+          status: string
+        }
+        Insert: {
+          description?: string | null
+          family: string
+          name: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Update: {
+          description?: string | null
+          family?: string
+          name?: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_reason_codes: {
+        Row: {
+          code: string
+          desks: string[] | null
+          meaning: string
+          requires_text: boolean
+          status: string
+        }
+        Insert: {
+          code: string
+          desks?: string[] | null
+          meaning: string
+          requires_text?: boolean
+          status?: string
+        }
+        Update: {
+          code?: string
+          desks?: string[] | null
+          meaning?: string
+          requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_system_actors: {
+        Row: {
+          kind: string
+          owner: string | null
+          purpose: string | null
+          ref: string
+          status: string
+        }
+        Insert: {
+          kind: string
+          owner?: string | null
+          purpose?: string | null
+          ref: string
+          status?: string
+        }
+        Update: {
+          kind?: string
+          owner?: string | null
+          purpose?: string | null
+          ref?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_table_activity: {
+        Row: {
+          del: number | null
+          ins: number | null
+          snap_at: string
+          table_name: string
+          upd: number | null
+        }
+        Insert: {
+          del?: number | null
+          ins?: number | null
+          snap_at: string
+          table_name: string
+          upd?: number | null
+        }
+        Update: {
+          del?: number | null
+          ins?: number | null
+          snap_at?: string
+          table_name?: string
+          upd?: number | null
         }
         Relationships: []
       }
@@ -73786,6 +74293,18 @@ export type Database = {
           week_start: string
         }[]
       }
+      agreement_register_can_read: { Args: never; Returns: boolean }
+      agreement_register_can_write: { Args: never; Returns: boolean }
+      agreement_register_upload: {
+        Args: {
+          p_body: string
+          p_code: string
+          p_effective_from?: string
+          p_notes?: string
+          p_version_label: string
+        }
+        Returns: string
+      }
       allocate_company_managed_portfolio: {
         Args: { p_portfolio_id: string }
         Returns: Json
@@ -74281,6 +74800,7 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_target_progress: { Args: never; Returns: Json }
       assistant_agent_team_summary: {
         Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
@@ -77557,6 +78077,15 @@ export type Database = {
       }
       decide_national_id_unlink: {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
+      decide_ontology_changes: {
+        Args: {
+          p_decision: string
+          p_ids: number[]
+          p_override?: Json
+          p_reason?: string
+        }
         Returns: Json
       }
       decrement_rent_requested: {
@@ -82040,6 +82569,20 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      get_partner_ops_returns_arrears: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          arrears_deduction: number
+          expected_returns: number
+          investor_id: string
+          net_payout: number
+          plan_outstanding: number
+          plan_overdue: number
+          pledge_mode: string
+          pledge_value: number
+          portfolio_id: string
+        }[]
+      }
       get_partner_ops_returns_forecast: {
         Args: {
           p_bucket?: string
@@ -86307,6 +86850,8 @@ export type Database = {
         Args: { p_email: string; p_new_id: string }
         Returns: string
       }
+      ontology_can_read: { Args: never; Returns: boolean }
+      ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
@@ -90424,6 +90969,10 @@ export type Database = {
       revoke_return_cycle_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: undefined
+      }
+      run_agreement_contradiction_check: {
+        Args: { p_trigger?: string }
+        Returns: string
       }
       run_email_auto_match_retry: {
         Args: { p_window_hours?: number }

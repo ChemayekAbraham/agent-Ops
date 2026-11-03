@@ -655,7 +655,7 @@ export default function SupporterDashboard({
       )}
 
       <div className={cn("flex-1 min-h-0 overflow-y-auto overscroll-contain", !mapExpanded && "pb-nav")}>
-        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
+        <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 w-full min-w-0 max-w-lg mx-auto">
           {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
           {(() => {
             // The same market summary as the hero below (one shared request), not a

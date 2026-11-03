@@ -10,7 +10,7 @@ approval. Migration `supabase/migrations/20261102210000_special_advances_correct
 | # | Decision |
 |---|---|
 | D11a | A correction posts **new** ledger legs: the same `special_advance_*` categories in the opposite direction, `source_table = 'special_advance_corrections'`, linked to the original. No new account, mapping or allowlist entry. Nothing posted is ever edited or deleted. |
-| D11b | **One step (CFO decision 2026-11-03).** Welile has one CFO, who records and posts a correction in a single authorised action: enabled CFO role and an authenticator-verified session (aal2), checked by the server. There is no pending state, queue, approval, rejection or withdrawal. (This replaces the request-then-approve design of 2026-11-02.) |
+| D11b | **One step (CFO decision 2026-11-03).** Welile has one CFO, who records and posts a correction in a single authorised action: enabled CFO role, checked by the server (no authenticator since 2026-11-03). There is no pending state, queue, approval, rejection or withdrawal. (This replaces the request-then-approve design of 2026-11-02.) |
 | D11c | Scope: (1) reverse an erroneous repayment, on a paid-out or settled advance (a settled one reopens); (2) reverse an **external** payout recorded in error, once every repayment on it has been reversed (the advance ends `reversed`). A payout to a Welile wallet cannot be reversed here. |
 | D11d | Every correction carries a reason (20-1000 characters) and an archived proof file in the private bucket (this advance's folder, must exist, used once across payouts, repayments and corrections). |
 
@@ -32,7 +32,7 @@ day of approval; the original entries keep their dates.
   in the same transaction as its ledger group (`ledger_group_id` always set); never updated or deleted; the recorder
   must be an enabled CFO (`_special_advance_guard_posted`); RLS CFO read + staff-MFA policy; no client writes. A
   repayment is reversed at most once and a payout at most once (unique indexes).
-- New function (authenticated only; CFO + aal2 inside): `special_advance_record_correction(p_id, p_request)` — checks
+- New function (authenticated only; CFO check inside): `special_advance_record_correction(p_id, p_request)` — checks
   everything against the records as they are now, posts the opposite legs once (ledger key
   `special_advance:correction:<id>`), writes the record and the `correction_posted` event, all in one transaction. A
   retry with the same `idempotency_key` and the same request returns the posted correction (`replayed: true`); the
@@ -59,7 +59,7 @@ MFA and role checks.
 
 1. **Correct** (detail sheet): on each repayment that stands, "Reverse this repayment"; on an external advance with no
    standing repayment, "Reverse the payout". Form: reason (min `CORRECTION_REASON_MIN` = 20) and proof file; the
-   authenticator check comes before the upload; one confirm posts it (`useRecordSpecialAdvanceCorrection` with
+   one confirm uploads the file and posts it (`useRecordSpecialAdvanceCorrection` with
    `buildCorrectionRequest(...)` and a `newIdempotencyKey()` reused only for a retry of the same request).
 2. **Detail sheet**: list `statement.corrections` (posted by, when, reason, proof); show a repayment with
    `reversed_by_correction` as reversed (struck through, not counted). The events list shows `correction_posted`.
@@ -67,5 +67,5 @@ MFA and role checks.
 
 ## Before applying
 
-Phase A storage policies applied (proof uploads), the CFO enrolled with an authenticator, CFO approval to apply.
+Phase A storage policies applied (proof uploads), CFO approval to apply.
 Issuance stays off.

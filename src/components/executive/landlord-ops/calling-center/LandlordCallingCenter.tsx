@@ -316,7 +316,7 @@ export function LandlordCallingCenter() {
       {/* Main 8-Tab Navigation: Overview, Work Queue, Live Call, Received Calls, Issues Review, History, Reports, Settings */}
       <Tabs value={tab} onValueChange={setTab} className="space-y-4">
         <div className="overflow-x-auto -mx-1 px-1">
-          <TabsList className="h-auto p-1 bg-muted/60 backdrop-blur-xs rounded-2xl border border-border/60 inline-flex w-auto min-w-full sm:min-w-0 gap-1">
+          <TabsList className="inline-flex h-auto w-max min-w-full gap-1 rounded-2xl border border-border/60 bg-muted/60 p-1 backdrop-blur-xs sm:min-w-0">
             <TabsTrigger
               value="overview"
               className="text-xs gap-1.5 rounded-xl px-3 py-2 data-[state=active]:bg-background data-[state=active]:shadow-xs"

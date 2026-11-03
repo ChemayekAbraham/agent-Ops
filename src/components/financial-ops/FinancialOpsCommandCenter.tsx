@@ -1439,19 +1439,7 @@ function ActionStatTile({
   countLabel: string;
   title: string;
 }) {
-  const toneClass =
-    tone === 'primary'
-      ? 'bg-primary/15 text-primary border-primary/25'
-      : tone === 'secondary'
-      ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25'
-      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/25';
-
-  const gradientBg =
-    tone === 'primary'
-      ? 'bg-card hover:border-primary/50'
-      : tone === 'secondary'
-      ? 'bg-card hover:border-primary/50'
-      : 'bg-card hover:border-warning/50';
+  const gradientBg = 'bg-card hover:border-primary/50';
 
   return (
     <button

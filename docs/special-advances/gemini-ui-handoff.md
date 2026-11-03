@@ -36,7 +36,7 @@ Terminology (mandatory): "Special Advance", "access fee", "registration fee", "r
   hide their sections when absent.
 - Proof storage policies are not applied yet: uploads and viewing fail until the project owner applies them. Show
   "Proof files are not available yet" on a storage permission error.
-- 0 of 4 CFOs have an authenticator: every money-moving action returns `MFA_REQUIRED` until they enrol.
+- No authenticator is needed (decision 2026-11-03); until `20261103150000` is applied the server may still answer `MFA_REQUIRED`.
 
 ## Hooks and helpers to use (all exist)
 From `@/hooks/useSpecialAdvances`:
@@ -60,7 +60,7 @@ Idempotency: create ONE key per intended action with `newIdempotencyKey()`; reus
 after step-up); make a new key only when the user changes the inputs (copy `RepaymentForm`'s `useEffect` pattern). A
 response with `replayed: true` means "already recorded" — show the same success state, not an error.
 
-## 1. Authenticator enrolment and step-up
+## 1. Authenticator enrolment and step-up — **Withdrawn 2026-11-03** (CFO decision: no authenticator in Special Advances; migration `20261103150000`). Special Advances screens must not ask for a code.
 a) Build what `docs/security/mfa-screens-brief.md` specifies: `AuthenticatorSetupScreen`, `AuthenticatorChallengeScreen`,
    `AuthenticatorPromptBanner`, `StaffAuthenticatorGate` mounted in `src/App.tsx` beside `ForceResetPasswordGate`, plus
    the DEV-only `?mfaPreview=` switch. Also add "Set up authenticator app" in account settings (`src/pages/Settings.tsx`)
@@ -144,15 +144,14 @@ Acceptance: an approved-but-unpaid advance never shows money owed; tile figures 
   double submit.
 - Empty: "No Special Advances yet", "No provisions posted".
 - Errors: always `describeSpecialAdvanceError(err)`; missing server function → "Not available yet"; `NOT_AUTHORIZED` →
-  "Only an enabled CFO can do this" (no retry); storage permission → "Proof files are not available yet" or step-up.
+  "Only an enabled CFO can do this" (no retry); storage permission → "Proof files are not available yet".
 - Permission: the Special Advances tab stays CFO-only as today; do not add role checks that differ from the server.
 - Audit history: extend `EVENT_TEXT` with `reopened`, `reversed`, `correction_posted`, `written_off`,
   `write_off_posted`, `provision_posted`, `recovery_recorded`; show actor and time. Events in one transaction can share a timestamp — keep the server's order.
 - Mobile first, light and dark theme, labelled inputs, `autocomplete="one-time-code"` on code inputs.
 
 ## Tests (vitest + React Testing Library; mock `supabase.rpc` / `supabase.storage` as `src/test/specialAdvancesPanel.test.tsx` does)
-- Step-up: `MFA_REQUIRED` opens the dialog; `verifyChallenge` success retries with the same idempotency key and proof
-  path; a wrong code keeps the dialog open; no authenticator → setup link.
+- No step-up: a password session posts directly; `MFA_REQUIRED` (old server) is only worded, never prompts for a code.
 - Proofs: wrong type / size refused before upload; external payout, repayment, correction, write-off, recovery cannot
   submit without a file; a wallet payout sends no `proof_path`; "View proof" calls `getSpecialAdvanceProofUrl` on click only.
 - Corrections: one confirm posts via `special_advance_record_correction`; reversed repayments render struck through; payout reversal not offered for a wallet payout or while a repayment stands.

@@ -1,4 +1,5 @@
 # Architecture Decisions
+- Rent Request Assistant voice playback uses browser speech synthesis with tap-to-enable, current-reply-only playback and cancellation on close/account changes, so speech adds no server writes or changes to Rent Plan submission.
 - Cash Position uses scoped page tokens and existing read-only account totals for its charts/table; unreported available/pending balances and historical account snapshots are never fabricated to match a design reference.
 - FloatingToolbar owns the single global Welile Assistant launcher and open-welile-assistant event; AgentAssistant and deep-linked WelileAIChatDrawer share AssistantChatSurface built on AI Elements. Personal history stays server-owned, never enters public AI history, and account transitions abort and clear local chat.
 - Nexa public account, wallet, pledge, starter-intent and financial-access guidance shares pure helpers under `supabase/functions/_shared/` with browser re-exports; privacy guidance precedes financial topics and model/learning reads, phone input never authenticates, and public fallbacks never mask terminal AI denials, refusals or service configuration errors.

@@ -42,7 +42,8 @@ export interface ServerScheduleRow {
   due_date: string;
   amount: number;
   access_fee: number;
-  registration_fee: number;
+  /** Only from a server before migration 20261103170000; added into the access fee for display. */
+  registration_fee?: number;
   principal: number;
   balance_after: number;
 }
@@ -55,8 +56,10 @@ export interface ServerSchedule {
   term_days: number;
   frequency: SpecialAdvanceFrequency;
   start_date: string;
+  /** sa-calc-2: rate part + fixed part (one access fee; no registration fee). */
   access_fee: number;
-  registration_fee: number;
+  /** Only from a server before migration 20261103170000; added into the access fee for display. */
+  registration_fee?: number;
   total_repayable: number;
   instalments: number;
   instalment_amount: number;
@@ -102,8 +105,10 @@ export interface SpecialAdvance {
   rate_basis: RateBasis;
   term_days: number;
   frequency: SpecialAdvanceFrequency;
+  /** One access fee (CFO decision 2026-11-03). */
   access_fee: number;
-  registration_fee: number;
+  /** Only from a server before migration 20261103170000; added into the access fee for display. */
+  registration_fee?: number;
   total_repayable: number;
   instalments: number;
   purpose: string;
@@ -116,9 +121,24 @@ export interface SpecialAdvance {
   decision_reason: string | null;
   created_at: string;
   updated_at: string;
-  schedule?: Array<{ number: number; due_offset_days: number; due_date: string | null; amount: number; access_fee: number; registration_fee: number; principal: number }>;
+  schedule?: Array<{ number: number; due_offset_days: number; due_date: string | null; amount: number; access_fee: number; registration_fee?: number; principal: number }>;
   events?: SpecialAdvanceEvent[];
   replayed?: boolean;
+}
+
+/**
+ * CFO decision 2026-11-03: the rate-based fee and the fixed UGX 10,000 / 20,000 are ONE "Access fee"; Special Advances
+ * have no registration fee. From migration 20261103170000 the server reports one access fee (SA-000001, made under
+ * sa-calc-1, included). A server without that migration still sends the two parts; this adds them so the screens are
+ * right either way.
+ */
+export function combinedAccessFee(fees: { access_fee?: number | null; registration_fee?: number | null }): number {
+  return Number(fees.access_fee ?? 0) + Number(fees.registration_fee ?? 0);
+}
+
+/** The Access fee still unpaid on an advance. */
+export function outstandingAccessFee(p: Pick<SpecialAdvancePosition, 'outstanding_access_fee' | 'outstanding_registration_fee'>): number {
+  return combinedAccessFee({ access_fee: p.outstanding_access_fee, registration_fee: p.outstanding_registration_fee });
 }
 
 export interface SpecialAdvancePosition {
@@ -131,7 +151,8 @@ export interface SpecialAdvancePosition {
   scheduled_outstanding?: number;
   outstanding: number;
   outstanding_access_fee: number;
-  outstanding_registration_fee: number;
+  /** Only from a server before migration 20261103170000. */
+  outstanding_registration_fee?: number;
   outstanding_principal: number;
   overdue_amount: number;
   overdue_instalments: number;
@@ -272,7 +293,7 @@ export function buildWriteOffRequest(input: {
 }
 
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
- * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file, aal2) in a single
+ * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file) in a single
  * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
 export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
 
@@ -401,9 +422,10 @@ export function describeSpecialAdvanceError(err: unknown): string {
   const detail = parseDetail(e.details ?? e.detail);
   const list = Array.isArray(detail) ? (detail as string[]) : [];
   if (msg.includes('SELF_ADVANCE')) return ELIGIBILITY_TEXT.SELF_ADVANCE;
-  // Phase 4 (CFO decision D5): approval, payout and repayment recording need an authenticator-verified session (aal2).
+  // CFO decision 2026-11-03: Special Advances no longer need an authenticator (migration 20261103150000). Until that
+  // migration is applied the server may still answer MFA_REQUIRED; say so plainly instead of asking for a code.
   if (msg.includes('MFA_REQUIRED')) {
-    return 'Verify with your authenticator app first: approving, paying out or recording a repayment needs it.';
+    return 'The server still asks for an authenticator for this step: the change removing it has not been applied yet.';
   }
   if (/NOT_AUTHORIZED|AUTH_REQUIRED|permission denied/i.test(msg)) {
     return 'Only an enabled CFO account (with its second factor, where required) can do this.';

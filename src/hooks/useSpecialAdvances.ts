@@ -123,7 +123,7 @@ export function useRecordSpecialAdvanceRepayment() {
 }
 
 /* ── Corrections (Phase B, CFO decisions D11; migration 20261102210000) ───────────────────────────────
- * One step (CFO decision 2026-11-03): the CFO records and posts in a single authorised action (aal2). */
+ * One step (CFO decision 2026-11-03): the CFO records and posts in a single authorised action. */
 
 /** Records and posts a correction at once (reason + proof, see buildCorrectionRequest). A retry with the same key replays. */
 export function useRecordSpecialAdvanceCorrection() {
@@ -136,7 +136,7 @@ export function useRecordSpecialAdvanceCorrection() {
 }
 
 /* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10; migration 20261102220000) ─────
- * One step (CFO decision 2026-11-03): preview, then the CFO posts in a single authorised action (aal2). */
+ * One step (CFO decision 2026-11-03): preview, then the CFO posts in a single authorised action. */
 
 /** What a provision review would post now (read-only). `request` may carry individual_rates. */
 export function useSpecialAdvanceProvisionPreview(request: Record<string, unknown> | null, enabled = true) {
@@ -187,20 +187,6 @@ export function useRecordSpecialAdvanceRecovery() {
 }
 
 /**
- * True when this session is already authenticator-verified (aal2). Check it BEFORE uploading a proof file: the
- * proofs bucket refuses a password-only session (D14), and that refusal is a storage error, not MFA_REQUIRED, so
- * the step-up prompt would never be offered. Any failure to read the level counts as not verified.
- */
-export async function hasAuthenticatorSession(): Promise<boolean> {
-  try {
-    const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-    return data?.currentLevel === 'aal2';
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Uploads a proof file (receipt or statement) for one advance to the private proofs bucket and returns its path, to be
  * sent as `proof_path` with the payout or repayment. Upload alone moves no money; the server then checks the file
  * exists, belongs to this advance and is not used elsewhere. Files are never overwritten (upsert off).
@@ -214,8 +200,8 @@ export async function uploadSpecialAdvanceProof(advanceId: string, file: File): 
 
 /**
  * A short-lived signed link to view one archived proof file (payout, repayment, correction, write-off or recovery).
- * Ask for it when the CFO clicks "View proof", never in advance; the private bucket's policies (CFO + authenticator,
- * D14) decide whether it is granted. Only a well-formed proof path is ever sent.
+ * Ask for it when the CFO clicks "View proof", never in advance; the private bucket's policies (enabled CFO) decide
+ * whether it is granted. Only a well-formed proof path is ever sent.
  */
 export async function getSpecialAdvanceProofUrl(path: string): Promise<string> {
   if (!SPECIAL_ADVANCE_PROOF_PATH_RE.test(path)) throw new Error('This proof file reference is not valid.');

@@ -1,1 +1,5 @@
-Sync check only: the sandbox is on 595cd1d4a1 and does not yet include df3a963c68. No files will be changed; the re-sync is picked up automatically by Lovable's GitHub sync. No Special Advances migrations, ledger mappings or issuance switch will be touched.
+Re-sync confirmation only — no edits.
+
+- Project is on e7072c58e0 (includes 8ce0849b6f), with no local changes.
+- Special Advances single "Access fee" (combinedAccessFee, sa-calc-2) is present.
+- Will not re-run or edit the single-access-fee migration, or reintroduce a registration fee in Special Advances screens.

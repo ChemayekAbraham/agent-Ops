@@ -15,6 +15,7 @@ import { rateLabel } from '@/lib/specialAdvancePreview';
 import {
   STATUS_LABEL,
   CORRECTION_KIND_LABEL,
+  combinedAccessFee,
   describeSpecialAdvanceError,
   newIdempotencyKey,
   type SpecialAdvanceStatement,
@@ -26,10 +27,8 @@ import {
   useSpecialAdvanceDecision,
   useSpecialAdvanceStatement,
   uploadSpecialAdvanceProof,
-  hasAuthenticatorSession,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from './SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 import { SpecialAdvanceCorrectionDialog } from './SpecialAdvanceCorrectionDialog';
 import { SpecialAdvanceWriteOffDialog } from './SpecialAdvanceWriteOffDialog';
 import { SpecialAdvanceRecoveryForm } from './SpecialAdvanceRecoveryForm';
@@ -121,8 +120,7 @@ export function SpecialAdvanceDetailSheet({
               <Item label="Agreed rate" value={rateLabel(a.rate_percent, a.rate_basis)} />
               <Item label="Term" value={`${a.term_days} days, ${a.frequency} repayments`} />
               <Item label="Principal" value={formatUGX(a.principal)} />
-              <Item label="Access fee" value={formatUGX(a.access_fee)} />
-              <Item label="Registration fee" value={formatUGX(a.registration_fee)} />
+              <Item label="Access fee" value={formatUGX(combinedAccessFee(a))} />
               <Item label="Total repayable" value={formatUGX(a.total_repayable)} />
               <Item label="Paid" value={formatUGX(a.position.total_paid)} />
 
@@ -504,8 +502,6 @@ function DecisionForm({
   const decide = useSpecialAdvanceDecision();
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | 'cancel' | null>(null);
 
   const reasonOk = note.trim().length >= 5;
 
@@ -517,16 +513,10 @@ function DecisionForm({
 
   const handleAction = async (action: 'approve' | 'reject' | 'cancel') => {
     setError(null);
-    setPendingAction(action);
     try {
       await runDecision(action);
     } catch (e) {
-      const msg = (e as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(e));
-      }
+      setError(describeSpecialAdvanceError(e));
     }
   };
 
@@ -577,12 +567,6 @@ function DecisionForm({
         </div>
         {error && <p role="alert" className="text-destructive">{error}</p>}
       </div>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => (pendingAction ? handleAction(pendingAction) : undefined)}
-      />
     </>
   );
 }
@@ -603,7 +587,6 @@ function PayoutForm({
   const [file, setFile] = useState<File | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const ready =
     issuanceEnabled &&
@@ -632,21 +615,12 @@ function PayoutForm({
     let path = uploadedPath;
     try {
       if (external && !path && file) {
-        if (!(await hasAuthenticatorSession())) {
-          setStepUpOpen(true);
-          return;
-        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
       await executeDisburse(path ?? null);
     } catch (e) {
-      const msg = (e as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(e));
-      }
+      setError(describeSpecialAdvanceError(e));
     }
   };
 
@@ -727,12 +701,6 @@ function PayoutForm({
         </Button>
         {error && <p role="alert" className="text-destructive">{error}</p>}
       </div>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleRun()}
-      />
     </>
   );
 }
@@ -749,7 +717,6 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
   const [file, setFile] = useState<File | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const value = Number(amount) || 0;
   const outstanding = advance.position.outstanding;
@@ -799,21 +766,12 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
     let path = uploadedPath;
     try {
       if (!path && file) {
-        if (!(await hasAuthenticatorSession())) {
-          setStepUpOpen(true);
-          return;
-        }
         path = await uploadSpecialAdvanceProof(advance.id, file);
         setUploadedPath(path);
       }
       await executeRepayment(path ?? null);
     } catch (e) {
-      const msg = (e as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(e));
-      }
+      setError(describeSpecialAdvanceError(e));
     }
   };
 
@@ -890,12 +848,6 @@ function RepaymentForm({ advance }: { advance: SpecialAdvanceStatement }) {
         </Button>
         {error && <p role="alert" className="text-destructive">{error}</p>}
       </div>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleRun()}
-      />
     </>
   );
 }

@@ -1,14 +1,14 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SpecialAdvancesPanel } from '@/components/cfo/special-advances/SpecialAdvancesPanel';
 import { SpecialAdvanceDetailSheet } from '@/components/cfo/special-advances/SpecialAdvanceDetailSheet';
 import { SpecialAdvanceProofInput, SpecialAdvanceProofLink } from '@/components/cfo/special-advances/SpecialAdvanceProofInput';
-import { SpecialAdvanceStepUpDialog } from '@/components/cfo/special-advances/SpecialAdvanceStepUpDialog';
 import { SpecialAdvanceProvisionsTab } from '@/components/cfo/special-advances/SpecialAdvanceProvisionsTab';
 import { SpecialAdvanceCorrectionDialog } from '@/components/cfo/special-advances/SpecialAdvanceCorrectionDialog';
 import { SpecialAdvanceWriteOffDialog } from '@/components/cfo/special-advances/SpecialAdvanceWriteOffDialog';
-import { describeSpecialAdvanceError } from '@/lib/specialAdvances';
+import { combinedAccessFee, describeSpecialAdvanceError, outstandingAccessFee } from '@/lib/specialAdvances';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(),
@@ -153,6 +153,27 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances UI - Accounting and Status Figures', () => {
+  it('shows one Access fee: registration fee added to the access fee, no registration fee (CFO decision 2026-11-03)', async () => {
+    // SA-000001 as recorded in production: principal 20,000, access fee 700, registration fee 10,000, total 30,700.
+    const sa1 = mockAdvance('1', 'disbursed', { principal: 20000, access_fee: 700, registration_fee: 10000, total_repayable: 30700 });
+    mocks.rpc.mockImplementation((fn: string) =>
+      Promise.resolve(fn === 'special_advance_statement' ? { data: sa1, error: null } : { data: null, error: null }));
+
+    renderWithClient(<SpecialAdvanceDetailSheet advanceId="1" issuanceEnabled={true} onOpenChange={() => {}} />);
+    const label = await screen.findByText('Access fee', { selector: 'dt' });
+    expect(label.parentElement?.textContent).toMatch(/10,700/);
+    expect(screen.queryByText('Registration fee', { selector: 'dt' })).toBeNull();
+    expect(screen.getByText('Total repayable', { selector: 'dt' }).parentElement?.textContent).toMatch(/30,700/);
+  });
+
+  it('the combined figures keep the full value and change nothing else', () => {
+    expect(combinedAccessFee({ access_fee: 700, registration_fee: 10000 })).toBe(10700);
+    expect(combinedAccessFee({ access_fee: null, registration_fee: 10000 })).toBe(10000);
+    expect(outstandingAccessFee({ outstanding_access_fee: 700, outstanding_registration_fee: 5614 })).toBe(6314);
+    // principal + combined fee = the agreed total, so nothing is lost or added
+    expect(20000 + combinedAccessFee({ access_fee: 700, registration_fee: 10000 })).toBe(30700);
+  });
+
   it('displays "Repayable after payout" when paid_out is false', async () => {
     const unposted = mockAdvance('1', 'pending_approval', {
       position: {
@@ -179,10 +200,9 @@ describe('Special Advances UI - Accounting and Status Figures', () => {
 
   it('displays A25 allowance and Net receivable in reconciliation when returned from server', async () => {
     renderWithClient(<SpecialAdvancesPanel />);
-    await waitFor(() => {
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('A25 allowance');
-      expect(document.getElementById('special-advance-reconciliation')?.textContent).toContain('net');
-    });
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
+    expect(await screen.findByText('Account A25 (Impairment Allowance)')).toBeTruthy();
+    expect(await screen.findByText('Net Special Advances Receivable')).toBeTruthy();
   });
 });
 
@@ -230,8 +250,7 @@ describe('Special Advances UI - Proof Inputs and Links', () => {
 
 describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)', () => {
   const pdf = () => new File(['%PDF-1.4'], 'statement.pdf', { type: 'application/pdf' });
-  const verified = () => {
-    mocks.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: { currentLevel: 'aal2' } });
+  const uploadsWork = () => {
     mocks.storage.from.mockReturnValue({ upload: vi.fn().mockResolvedValue({ error: null }), createSignedUrl: vi.fn() });
   };
 
@@ -244,7 +263,7 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 
   it('a correction is posted in one action: one call to special_advance_record_correction with reason, proof and key', async () => {
-    verified();
+    uploadsWork();
     mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_record_correction'
       ? { data: { id: 'c1', reference: 'SAC-000001', replayed: false }, error: null } : { data: null, error: null }));
     const onSuccess = vi.fn();
@@ -264,7 +283,7 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 
   it('a write-off is posted in one action and sends the balance the CFO saw', async () => {
-    verified();
+    uploadsWork();
     mocks.rpc.mockImplementation((fn: string) => Promise.resolve(fn === 'special_advance_write_off'
       ? { data: { id: 'w1', reference: 'SAW-000001', replayed: false }, error: null } : { data: null, error: null }));
     const onSuccess = vi.fn();
@@ -305,45 +324,10 @@ describe('Special Advances UI - Corrections (one step, CFO decision 2026-11-03)'
   });
 });
 
-describe('Special Advances UI - Step-Up MFA Dialog', () => {
-  it('opens step-up dialog and retries with onSuccess after entering 6-digit code', async () => {
-    mocks.auth.mfa.challengeAndVerify.mockResolvedValueOnce({ error: null });
-    const onSuccess = vi.fn();
-
-    render(
-      <SpecialAdvanceStepUpDialog open={true} onOpenChange={() => {}} onSuccess={onSuccess} />
-    );
-
-    expect(screen.getByText('Authenticator verification')).toBeTruthy();
-
-    const input = document.getElementById('special-advance-step-up-code') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '123456' } });
-
-    fireEvent.click(screen.getByText('Confirm & Proceed'));
-
-    await waitFor(() => {
-      expect(mocks.auth.mfa.challengeAndVerify).toHaveBeenCalledWith({ factorId: 'factor-1', code: '123456' });
-      expect(onSuccess).toHaveBeenCalled();
-    });
-  });
-
-  it('keeps step-up dialog open and shows error if wrong code is entered', async () => {
-    mocks.auth.mfa.challengeAndVerify.mockResolvedValueOnce({ error: { message: 'Invalid code. Check phone clock.' } });
-    const onSuccess = vi.fn();
-
-    render(
-      <SpecialAdvanceStepUpDialog open={true} onOpenChange={() => {}} onSuccess={onSuccess} />
-    );
-
-    const input = document.getElementById('special-advance-step-up-code') as HTMLInputElement;
-    fireEvent.change(input, { target: { value: '000000' } });
-
-    fireEvent.click(screen.getByText('Confirm & Proceed'));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toContain('Invalid code');
-      expect(onSuccess).not.toHaveBeenCalled();
-    });
+describe('Special Advances UI - no authenticator (CFO decision 2026-11-03)', () => {
+  it('words a leftover MFA_REQUIRED from a server without the change, never asking for a code', () => {
+    expect(describeSpecialAdvanceError({ message: 'MFA_REQUIRED' })).toMatch(/not been applied yet/);
+    expect(describeSpecialAdvanceError({ message: 'MFA_REQUIRED' })).not.toMatch(/authenticator app first/);
   });
 });
 

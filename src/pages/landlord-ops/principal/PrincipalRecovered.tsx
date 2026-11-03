@@ -114,9 +114,9 @@ export default function PrincipalRecovered() {
   const asOfLabel = comparison?.as_of ? new Date(`${comparison.as_of}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', dateStyle: 'medium' }) : '—';
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
-        <Button asChild variant="ghost" size="icon">
+        <Button asChild variant="ghost" size="icon" className="h-11 w-11">
           <Link to="/landlord-ops" aria-label="Back"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
         <div>
@@ -128,9 +128,9 @@ export default function PrincipalRecovered() {
       </div>
 
       <Tabs value={key} onValueChange={setKey}>
-        <TabsList className="flex h-auto flex-wrap justify-start">
+        <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto md:flex-wrap">
           {periods.map((p) => (
-            <TabsTrigger key={p.key} value={p.key} className="text-xs">{p.label}</TabsTrigger>
+            <TabsTrigger key={p.key} value={p.key} className="min-h-11 shrink-0 px-3 text-sm md:min-h-0 md:text-xs">{p.label}</TabsTrigger>
           ))}
         </TabsList>
       </Tabs>

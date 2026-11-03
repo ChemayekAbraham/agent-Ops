@@ -78,7 +78,7 @@ export function FunderPreviewFilterDialog({
         onClick={() => setOpen(true)}
         aria-label={`More filters${activeCount ? `, ${activeCount} on` : ''}`}
         className={cn(
-          'relative inline-flex h-8 w-9 flex-none items-center justify-center rounded-md border transition-colors',
+          'relative ml-auto inline-flex h-8 w-9 flex-none items-center justify-center rounded-md border transition-colors',
           activeCount ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-foreground hover:bg-muted',
         )}
       >
