@@ -178,7 +178,7 @@ export function FunderPreviewHomeSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-40">
           {/* Photos */}
-          <div className="relative h-[262px] w-full flex-none bg-muted">
+          <div className="sticky top-0 z-0 h-[262px] w-full flex-none bg-muted">
             {photos.length ? (
               <div
                 ref={stripRef}
@@ -243,7 +243,7 @@ export function FunderPreviewHomeSheet({
           </div>
 
           {/* Details sheet */}
-          <div className="relative -mt-7 space-y-4 rounded-t-[28px] bg-background px-5 pt-6">
+          <div className="relative z-10 -mt-7 space-y-4 rounded-t-[28px] bg-background px-5 pt-6 shadow-[0_-16px_28px_-18px_hsl(222_47%_11%/0.35)]">
             <span aria-hidden className="absolute left-1/2 top-2.5 h-[5px] w-11 -translate-x-1/2 rounded-full bg-border" />
 
             <div className="flex flex-wrap gap-2">
