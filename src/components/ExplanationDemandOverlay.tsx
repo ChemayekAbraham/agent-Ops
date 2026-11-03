@@ -53,10 +53,14 @@ export function ExplanationDemandOverlay() {
   const explanation = text.trim();
   const ready = explanation.length >= MIN_LENGTH;
 
+  // Nothing is put in the link until she has actually written something, so a
+  // half-typed note can never be sent by accident.
   const whatsappHref = useMemo(
     () =>
-      `https://wa.me/${CEO_WHATSAPP}?text=${encodeURIComponent(`${WHATSAPP_PREFIX}\n\n${explanation}`)}`,
-    [explanation],
+      ready
+        ? `https://wa.me/${CEO_WHATSAPP}?text=${encodeURIComponent(`${WHATSAPP_PREFIX}\n\n${explanation}`)}`
+        : '#',
+    [ready, explanation],
   );
 
   if (!showDemand) return null;
