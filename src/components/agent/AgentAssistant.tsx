@@ -31,13 +31,15 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
 
   // One hello per page load: it appears beside the launcher, then fades away
   // on its own. It is never re-shown after a route change or a modal closing.
+  // While the launcher is hidden (a dialog is open) the countdown has not
+  // started yet, so the greeting is not spent on a screen that cannot show it.
   useEffect(() => {
-    if (greetedRef.current || !user) return;
+    if (greetedRef.current || !user || hideLauncher) return;
     greetedRef.current = true;
     const fadeAt = setTimeout(() => setPhase('out'), GREETING_MS);
     const offAt = setTimeout(() => setPhase('done'), GREETING_MS + GREETING_FADE_MS);
     return () => { clearTimeout(fadeAt); clearTimeout(offAt); };
-  }, [user]);
+  }, [user, hideLauncher]);
 
   const fullName = String(user?.user_metadata?.full_name ?? '').trim();
   const firstName = fullName.split(/\s+/)[0] || (user?.email ?? '').split('@')[0] || 'there';
