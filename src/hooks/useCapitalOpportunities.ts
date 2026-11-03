@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { hasUsableUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
@@ -85,15 +85,21 @@ async function resolveRunningStarts(rows: Array<{ id: string; created_at: string
   return result;
 }
 
-export function useCapitalOpportunities() {
+export function useCapitalOpportunities(options: { enabled?: boolean } = {}) {
+  // `enabled: false` skips every request (a screen that does not show this data
+  // should not pay for it); it fetches as soon as it flips to true.
+  const { enabled = true } = options;
   const { user } = useAuth();
   const signedIn = useAuthenticatedAudience();
   const [portfolios, setPortfolios] = useState<PortfolioRecord[]>([]);
   const [opportunitySummary, setOpportunitySummary] = useState<OpportunitySummary | null>(null);
   const [emptyHouseSummary, setEmptyHouseSummary] = useState<EmptyHouseOpportunitySummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
+  const loadedOnceRef = useRef(false);
 
   const fetchAll = useCallback(async () => {
+    if (!enabled) { setLoading(false); return; }
+    if (!loadedOnceRef.current) setLoading(true);
     if (!signedIn || !user?.id) { setLoading(false); return; }
     if (!(await hasUsableUserSession())) { setLoading(false); return; }
 
@@ -171,9 +177,10 @@ export function useCapitalOpportunities() {
     } catch (err) {
       console.error('[useCapitalOpportunities] fetch error:', err);
     } finally {
+      loadedOnceRef.current = true;
       setLoading(false);
     }
-  }, [signedIn, user?.id]);
+  }, [enabled, signedIn, user?.id]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

@@ -258,6 +258,7 @@ Deno.test("tools: schemas accept good arguments and reject extras", () => {
 
 import { calculateRentPlan, CALC_TOOL } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
+import { buildSystemPrompt } from "./prompt.ts";
 import { MSG } from "./messages.ts";
 import { openAiTools } from "./tools.ts";
 
@@ -292,6 +293,31 @@ Deno.test("tools: someone with no agent footprint is offered no data tools", () 
 Deno.test("guard: earning facts may be quoted, other figures may not", () => {
   assert(checkAnswer("You earn UGX 10,000 for registering a sub-agent.", [AGENT_KNOWLEDGE], "how do i earn").ok);
   assertEquals(checkAnswer("You earn UGX 50,000 per tenant.", [AGENT_KNOWLEDGE], "x"), { ok: false, reason: "figure" });
+});
+
+const LANDLORD_FLOAT_REPLY =
+  "Your landlord float always depends on the number of rent requests you have posted. How many rent requests did you post?";
+
+Deno.test("guard: the approved landlord float reply is accepted", () => {
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [AGENT_KNOWLEDGE], "How much landlord float can I spend?").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [], "how much float may I use").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [JSON.stringify({ landlord_float_available: 450000 })], "how much can I spend").ok);
+  // Short enough to be returned with no tool call (MAX_UNGROUNDED_CHARS).
+  assert(LANDLORD_FLOAT_REPLY.length <= 700);
+});
+
+Deno.test("prompt: spendable landlord float uses the approved reply, not a wallet figure", () => {
+  const prompt = buildSystemPrompt({ todayKampala: "2026-11-02", isAgent: true, page: "agent_dashboard" });
+  assert(prompt.includes(`Reply exactly: "${LANDLORD_FLOAT_REPLY}"`));
+  assert(!prompt.includes("use the wallet's landlord_float_available"));
+  const earn = AGENT_KNOWLEDGE.indexOf("the agent earns 1% of that payout");
+  const spend = AGENT_KNOWLEDGE.indexOf(
+    "How much landlord float an agent can spend always depends on the number of rent requests they have posted.",
+  );
+  assert(earn >= 0 && spend > earn);
+  assert(AGENT_KNOWLEDGE.includes('When asked, say so and ask: "How many rent requests did you post?"'));
+  assert(!findTool("get_wallet")!.description.includes("they can still spend"));
+  assert(!findTool("get_landlord_float_status")!.description.includes("use get_wallet (landlord_float_available)"));
 });
 
 Deno.test("messages: refusals are friendly, never blame, never name the rules, and pass terminology", () => {

@@ -2,14 +2,15 @@
 
 Instructions for Claude Code working in this repo. Read [`README.md`](./README.md) and [`SYSTEM_CONTEXT.md`](./SYSTEM_CONTEXT.md) first — SYSTEM_CONTEXT.md is the canonical architecture reference (data model, ledger internals, subsystem inventory) and takes precedence over this file for anything about *how the system works*. This file is about *how to work on it*.
 
-## Division of labor: Claude does logic, Gemini does UI
+## Division of labor: Claude does logic and frontend, Gemini also works on UI
 
-This project is being built by two agents in parallel. Stay in your lane so work doesn't collide:
+This project is being built by two agents in parallel. Claude works on both backend logic and the frontend; Gemini also works on UI, so keep changes focused to limit collisions:
 
 - **Claude (you) owns logic and correctness**: `supabase/functions/` (edge functions), `supabase/migrations/`, database RPCs/triggers, `src/lib/` (calculation engines, ledger math, PDF/report generation), `src/hooks/` (data fetching, mutations, auth/session state), `src/integrations/` (Supabase client, generated types), `scripts/` (build guards), and anything that touches money, wallets, the ledger, or business rules.
-- **Gemini owns UI**: JSX markup, layout, `src/components/` visual composition, `src/pages/` presentation, Tailwind classes, shadcn/ui usage, responsive/theme behavior, animations.
-- **Shared files** (a page or component that has both data logic and markup): touch only the data-fetching/state/handler code, leave JSX structure and styling to Gemini. Don't reformat or restyle a file just because you're in it for a logic change.
-- If a task is purely visual (spacing, colors, copy, layout), say so and hand it back rather than doing it — it's Gemini's job and doing it yourself risks fighting Gemini's next pass.
+- **Claude also does frontend work**: JSX markup, layout, `src/components/` visual composition, `src/pages/` presentation, Tailwind classes, shadcn/ui usage, responsive/theme behavior, animations. Do these when asked, or when a logic change needs matching UI.
+- **Gemini also works on UI**: it may be editing the same files. Check `git status`/`git diff` before editing a UI file, and re-read it if it changed since you last looked.
+- **Shared files** (a page or component that has both data logic and markup): make the change the task needs, keep the diff small, and match the existing style. Don't reformat or restyle a file just because you're in it for an unrelated change.
+- If a UI file already has uncommitted edits that aren't yours, work around them. Don't overwrite or revert them. Tell the user if your change overlaps.
 
 ## Hard rules
 

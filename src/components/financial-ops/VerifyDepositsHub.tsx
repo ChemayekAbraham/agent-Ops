@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from './FinopsKit';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -319,16 +320,12 @@ export function VerifyDepositsHub() {
 
   return (
     <div className="space-y-5">
-      <div className="px-1">
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5 tracking-tight">
-          <ShieldCheck className="h-6 w-6 text-primary" />
-          Verify Deposits
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">
-          One queue for every incoming payment. Approving credits the right
-          wallet and posts to the ledger automatically.
-        </p>
-      </div>
+      <PageHeader
+        icon={ShieldCheck}
+        tone="primary"
+        title="Verify Deposits"
+        description="Check incoming deposits and confirm they have reached user wallets. Approving credits the right wallet and posts to the ledger automatically."
+      />
 
       {/* Plain-language playbook for the currently-selected tab. Keeps
           newer operators oriented without slowing experienced ones down —
@@ -340,49 +337,30 @@ export function VerifyDepositsHub() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'user' | 'field' | 'rejected')}>
         {/* Sticky on mobile so the queue switcher (and live counts) is always
             reachable while scrolling through long panels. */}
-        <TabsList className="sticky top-0 z-20 grid grid-cols-3 w-full h-auto p-1.5 gap-1.5 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shadow-sm rounded-xl">
-          <TabsTrigger value="user" className="flex flex-col items-center gap-1 py-3.5 sm:py-3.5 min-h-[64px]">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <User className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">Users</span>
-              {counts.user > 0 && (
-                <Badge className="h-5 min-w-5 px-1.5 text-[11px] bg-primary text-primary-foreground hover:bg-primary">
-                  {counts.user}
-                </Badge>
-              )}
-            </div>
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">
-              Top-ups &amp; TID
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="field" className="flex flex-col items-center gap-1 py-3.5 sm:py-3.5 min-h-[64px]">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <Wallet className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">Field</span>
-              {counts.field > 0 && (
-                <Badge className="h-5 min-w-5 px-1.5 text-[11px] bg-primary text-primary-foreground hover:bg-primary">
-                  {counts.field}
-                </Badge>
-              )}
-            </div>
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">
-              Agent cash
-            </span>
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex flex-col items-center gap-1 py-3.5 sm:py-3.5 min-h-[64px]">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <XCircle className="h-5 w-5" />
-              <span className="font-semibold text-sm sm:text-base">Rejected</span>
-              {counts.rejected > 0 && (
-                <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-[11px]">
-                  {counts.rejected}
-                </Badge>
-              )}
-            </div>
-            <span className="text-[10px] sm:text-xs text-muted-foreground font-normal">
-              Re-review
-            </span>
-          </TabsTrigger>
+        <TabsList className="grid grid-cols-1 sm:grid-cols-3 w-full h-auto p-0 gap-3 bg-transparent rounded-none">
+          {([
+            { value: 'user', Icon: User, title: 'User deposits', note: 'pending', count: counts.user, destructive: false },
+            { value: 'field', Icon: Wallet, title: 'Field deposits', note: 'pending', count: counts.field, destructive: false },
+            { value: 'rejected', Icon: XCircle, title: 'Rejected', note: 'items', count: counts.rejected, destructive: true },
+          ] as const).map(({ value, Icon, title, note, count, destructive }) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="flex items-center justify-start gap-3 rounded-2xl border border-border bg-card p-3.5 min-h-[72px] text-left shadow-2xs data-[state=active]:border-primary data-[state=active]:bg-card data-[state=active]:shadow-2xs data-[state=active]:ring-1 data-[state=active]:ring-primary/40"
+            >
+              <span className={`h-11 w-11 rounded-xl border flex items-center justify-center shrink-0 ${
+                destructive
+                  ? 'bg-rose-500/10 text-rose-600 border-rose-500/25'
+                  : 'bg-primary/10 text-primary border-primary/20'
+              }`}>
+                <Icon className="h-5 w-5" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-base font-bold text-foreground">{title}</span>
+                <span className="block text-xs font-normal text-muted-foreground">{count.toLocaleString()} {note}</span>
+              </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="user" className="mt-5 space-y-3">
@@ -393,10 +371,10 @@ export function VerifyDepositsHub() {
           {/* Mobile-first jump bar — long page of panels otherwise forces
               a lot of scrolling. Horizontally scrollable pill row keeps
               every section one tap away without dominating the screen.
-              Hidden on md+ where the page fits comfortably. */}
+              Shown on every screen size. */}
           <nav
             aria-label="Jump to section"
-            className="md:hidden -mx-1 px-1 overflow-x-auto scrollbar-none"
+            className="-mx-1 px-1 overflow-x-auto scrollbar-none"
           >
             <ul className="flex items-center gap-2 py-1 w-max">
               {[

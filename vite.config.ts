@@ -152,6 +152,27 @@ export default defineConfig(({ mode }) => {
   plugins: [
     react(),
     {
+      // index.html preconnects to the API host. It used to hard-code a retired
+      // project, so the real host never got an early connection (the first call
+      // then pays DNS + TCP + TLS, about a second on a mobile network). The
+      // placeholder is replaced with the origin this build actually talks to.
+      name: "welile-supabase-preconnect",
+      transformIndexHtml: {
+        // 'pre': must run before Vite's own pass, which rewrites a relative-looking
+        // href (the placeholder) into a path and would corrupt the final value.
+        order: "pre" as const,
+        handler(html: string) {
+          let origin = "";
+          try {
+            origin = new URL(supabaseUrl).origin;
+          } catch {
+            // A malformed URL leaves the hint pointing nowhere, which is harmless.
+          }
+          return html.replaceAll("__SUPABASE_ORIGIN__", origin);
+        },
+      },
+    },
+    {
       name: "welile-build-info",
       configureServer(server) {
         // NOT /version.json — that path is the app's existing cache /

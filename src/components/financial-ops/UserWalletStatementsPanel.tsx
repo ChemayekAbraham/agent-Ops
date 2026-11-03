@@ -15,6 +15,7 @@ import {
 import { ChevronDown, ExternalLink, Clock } from 'lucide-react';
 import { LedgerEntryDetailDrawer } from '@/components/wallet/LedgerEntryDetailDrawer';
 
+import { PageHeader } from './FinopsKit';
 /**
  * Financial Ops — per-user wallet statements.
  *
@@ -587,15 +588,11 @@ export function UserWalletStatementsPanel() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <Wallet className="h-6 w-6 text-primary" />
-          User Wallet Statements
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Search a user and read their wallet exactly as they see it. Tap the name for the full profile.
-        </p>
-      </div>
+      <PageHeader
+        icon={Wallet}
+        title="User Wallet Statements"
+        description={<>Search a user and read their wallet exactly as they see it. Tap the name for the full profile.</>}
+      />
 
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-1">

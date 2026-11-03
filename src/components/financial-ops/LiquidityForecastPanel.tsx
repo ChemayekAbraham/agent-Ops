@@ -5,6 +5,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { CalendarClock, Wallet, TrendingDown, ChevronDown, ChevronRight, Loader2, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+import { PageHeader } from './FinopsKit';
 /**
  * Liquidity Forecast — a FinOps-only view showing:
  *  • Total withdrawable balance sitting across all user wallets right now
@@ -151,16 +152,11 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2.5">
-          <CalendarClock className="h-6 w-6 text-primary" />
-          Liquidity Forecast
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          What the pool owes on each upcoming day, and how much is sitting withdrawable right now.
-          Use this to pre-fund before ROI crons run.
-        </p>
-      </div>
+      <PageHeader
+        icon={CalendarClock}
+        title="Liquidity Forecast"
+        description={<>What the pool owes on each upcoming day, and how much is sitting withdrawable right now. Use this to pre-fund before ROI crons run.</>}
+      />
 
       {/* Top strip — three numbers that matter today. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

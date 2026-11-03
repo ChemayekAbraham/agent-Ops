@@ -491,38 +491,89 @@ import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z3 } from "npm:zod@^4.4.3";
 
 // src/lib/contractEngine360.ts
-var PARTNER_MONTHLY_RATE = 0.15;
 var CONTRACT_DAYS = 360;
 var CONTRACT_MONTHS = 12;
-function railFee(principal, months = 1) {
-  return Math.max(3500 * months, 0.025 * months * principal);
+function wholeShillings(principal) {
+  if (!(principal > 0) || !Number.isFinite(principal)) throw new Error("Rent amount must be above zero");
+  return Math.round(principal);
 }
-function grossForMonths(principal, months = 1) {
-  if (!(principal > 0)) throw new Error("Rent amount must be above zero");
-  if (!(months >= 1 && months <= 12)) throw new Error("Months must be between 1 and 12");
-  const denom = 0.9 - 0.07 * months;
-  if (denom <= 0) throw new Error("Months too long for this pricing");
-  return Math.ceil((principal * Math.pow(1.15, months) + railFee(principal, months)) / denom);
+function roundHalfEven(numerator, denominator) {
+  const q = Math.floor(numerator / denominator);
+  const rem = numerator % denominator;
+  if (rem * 2 < denominator) return q;
+  if (rem * 2 > denominator) return q + 1;
+  return q % 2 === 0 ? q : q + 1;
 }
-function dailyRate(principal, months = 1) {
-  return Math.ceil(grossForMonths(principal, months) / (30 * months));
+function ceilDiv(numerator, denominator) {
+  return Math.floor((numerator + denominator - 1) / denominator);
 }
-function quoteV360(principal) {
-  const gross = grossForMonths(principal, 1);
-  const daily = dailyRate(principal, 1);
-  const partner = Math.round(principal * PARTNER_MONTHLY_RATE);
-  const agentSub = Math.round(gross * 0.08);
-  const agentGeneral = Math.round(gross * 0.02);
-  const rail = Math.round(railFee(principal, 1));
-  const welile = Math.round(gross * 0.07);
+function v360CycleWaterfall(principal, cycle = 1) {
+  const P = wholeShillings(principal);
+  if (!(cycle >= 1 && cycle <= CONTRACT_MONTHS)) throw new Error("Cycle must be between 1 and 12");
+  const rail = Math.max(3500, ceilDiv(P, 40));
+  const gross = ceilDiv(115 * P + 100 * rail, 83);
+  const daily = ceilDiv(gross, 30);
+  const collected = daily * 30;
+  const agentSub = Math.floor(gross * 6 / 100);
+  const agentGeneral = Math.floor(gross * 2 / 100);
+  const coverPoolPercent = Math.floor(gross * 2 / 100);
+  const welile = Math.floor(gross * 7 / 100);
+  const tithe = Math.floor(welile / 10);
+  const welileNet = welile - tithe;
+  const landlord = P;
+  const partnerMargin = roundHalfEven(P * 15, 100);
+  const residual = gross - (agentSub + agentGeneral + coverPoolPercent + welile + rail + landlord + partnerMargin);
+  const surplus = collected - gross;
+  const coverPool = coverPoolPercent + residual + surplus;
+  const proxy = cycle === 1 ? roundHalfEven(P * 2, 100) : 0;
+  if (proxy > coverPool) throw new Error("Proxy Agent fee exceeds the cycle 1 Cover Pool");
+  const coverPoolRetained = coverPool - proxy;
   return {
-    principal,
+    principal: P,
+    cycle,
+    rail,
     gross,
     daily,
-    buckets: { landlord: principal, partner, agent: agentSub + agentGeneral, agentSub, agentGeneral, rail, welile },
-    partnerMonthly: partner,
-    partnerTwelveMonths: partner * CONTRACT_MONTHS,
-    receivable360: CONTRACT_DAYS * daily
+    collected,
+    surplus,
+    residual,
+    agentSub,
+    agentGeneral,
+    coverPoolPercent,
+    coverPool,
+    proxy,
+    coverPoolRetained,
+    welile,
+    tithe,
+    welileNet,
+    landlord,
+    partnerMargin
+  };
+}
+function quoteV360(principal) {
+  const wf = v360CycleWaterfall(principal, 1);
+  return {
+    principal: wf.principal,
+    gross: wf.gross,
+    daily: wf.daily,
+    buckets: {
+      landlord: wf.landlord,
+      partner: wf.partnerMargin,
+      agent: wf.agentSub + wf.agentGeneral,
+      agentSub: wf.agentSub,
+      agentGeneral: wf.agentGeneral,
+      rail: wf.rail,
+      welile: wf.welile,
+      coverPool: wf.coverPool,
+      proxy: wf.proxy,
+      coverPoolRetained: wf.coverPoolRetained,
+      tithe: wf.tithe,
+      welileNet: wf.welileNet
+    },
+    partnerMonthly: wf.partnerMargin,
+    partnerTwelveMonths: wf.partnerMargin * CONTRACT_MONTHS,
+    receivable360: CONTRACT_DAYS * wf.daily,
+    waterfall: wf
   };
 }
 var _modelA = quoteV360(1e5);
@@ -530,8 +581,19 @@ var V360_MODEL_A_EXAMPLE = {
   principal: 1e5,
   gross: _modelA.gross,
   daily: _modelA.daily,
+  collected: _modelA.waterfall.collected,
   partnerMonthly: _modelA.partnerMonthly,
-  partnerTwelveMonths: _modelA.partnerTwelveMonths
+  partnerTwelveMonths: _modelA.partnerTwelveMonths,
+  agentSub: _modelA.buckets.agentSub,
+  agentGeneral: _modelA.buckets.agentGeneral,
+  rail: _modelA.buckets.rail,
+  landlord: _modelA.buckets.landlord,
+  coverPool: _modelA.buckets.coverPool,
+  proxy: _modelA.buckets.proxy,
+  coverPoolRetained: _modelA.buckets.coverPoolRetained,
+  welile: _modelA.buckets.welile,
+  tithe: _modelA.buckets.tithe,
+  welileNet: _modelA.buckets.welileNet
 };
 
 // src/lib/mcp-public/tools/estimate-rent-access.ts
@@ -658,7 +720,7 @@ var estimate_rent_access_default = defineTool3({
       assumptions: [
         `Access fee compounds at ${MONTHLY_RATE * 100}% a month over the plan length.`,
         `Service fee is ${ugx(1e4)} for rent up to ${ugx(2e5)}, otherwise ${ugx(2e4)}.`,
-        `Agent commission shown is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee \u2014 it is never added on top, so the total is unchanged.`,
+        `Agent commission on this current Rent Plan estimate is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee. It is never added on top, so the total is unchanged. A 360-day Rent Plan, only when that pricing is on, uses 8% of Gross (6% sub-agent and 2% general agent).`,
         plans.length > 1 ? `No plan length was given, so ${DEFAULT_DURATIONS.join("/")}-day options are compared.` : `Plan length of ${plans[0].durationDays} days as requested.`,
         "Daily payment is the total divided over the plan length, rounded up."
       ],
@@ -677,7 +739,7 @@ var estimate_rent_access_default = defineTool3({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
@@ -736,7 +798,7 @@ function project(amount, months) {
 var estimate_supporter_returns_default = defineTool4({
   name: "estimate_supporter_returns",
   title: "Estimate Supporter Returns (illustrative)",
-  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time (based on 15% monthly platform rewards), then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested) \u2014 it is an illustration only, not a guarantee; actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target 15%, not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
   inputSchema: {
     amount: z4.number().describe("Amount to support in UGX (e.g. 500000). Illustration only."),
     duration_months: z4.number().describe("Optional horizon in months (1-36). Omit to compare 3/6/12-month options.").optional(),
@@ -814,7 +876,7 @@ var estimate_supporter_returns_default = defineTool4({
       )} depending on horizon and whether Returns are paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Platform rewards of ${REWARD_RATE * 100}% a month on the supported amount.`,
+        `Partner Returns target 15%, not guaranteed. This illustration uses ${REWARD_RATE * 100}% a month on the supported amount.`,
         "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
         projections.length > 1 ? `No horizon was given, so ${DEFAULT_DURATIONS2.join("/")}-month options are compared.` : `Horizon of ${projections[0].durationMonths} month${projections[0].durationMonths === 1 ? "" : "s"} as requested.`,
         "Principal is assumed to stay in place for the whole horizon, with no withdrawal."
@@ -838,7 +900,7 @@ var estimate_supporter_returns_default = defineTool4({
         }))
       },
       disclaimers: [
-        "This is an illustration only \u2014 not a guarantee of Returns.",
+        "Partner Returns target 15%, not guaranteed. This is an illustration only.",
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period."
       ],

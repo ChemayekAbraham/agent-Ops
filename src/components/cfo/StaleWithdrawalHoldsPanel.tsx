@@ -25,7 +25,9 @@ import {
   RefreshCw,
   Search,
   ShieldAlert,
+  Wallet,
 } from 'lucide-react';
+import { PageHeader, StatTile } from '@/components/financial-ops/FinopsKit';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -158,43 +160,27 @@ export function StaleWithdrawalHoldsPanel() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-amber-500" />
-              Stale Withdrawal Holds
-            </CardTitle>
-            <CardDescription>
-              Withdrawal requests still holding customer balance with no wallet debit in the ledger.
-              Review each one individually — settle the missing debit if the payout truly happened,
-              otherwise cancel it and release the hold.
-            </CardDescription>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+    <div className="space-y-5">
+      <PageHeader
+        icon={ShieldAlert}
+        tone="amber"
+        title="Stale Withdrawal Holds"
+        description="Withdrawal requests still holding customer balance with no wallet debit in the ledger. Review each one individually: settle the missing debit if the payout truly happened, otherwise cancel it and release the hold."
+        actions={
+          <Button variant="outline" className="min-h-[44px] sm:min-h-[40px]" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             <span className="ml-2">Refresh</span>
           </Button>
-        </div>
-      </CardHeader>
+        }
+      />
 
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Stale holds</p>
-            <p className="text-xl font-bold">{totals.count}</p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Balance suppressed</p>
-            <p className="text-xl font-bold">{formatUGX(totals.amount)}</p>
-          </div>
-          <div className="rounded-lg border p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Pre fresh-start</p>
-            <p className="text-xl font-bold text-destructive">{totals.preAnchor}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile icon={ShieldAlert} tone="amber" label="Stale holds" value={totals.count.toLocaleString()} note="No wallet debit in the ledger" />
+        <StatTile icon={Wallet} tone="primary" label="Balance suppressed" value={formatUGX(totals.amount)} note="Hidden from the customers" />
+        <StatTile icon={Clock} tone="rose" label="Pre fresh-start" value={totals.preAnchor.toLocaleString()} note="Older than the ledger fresh start" />
+      </div>
 
+      <div className="rounded-2xl border bg-card shadow-2xs p-4 space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-32">
             <Label htmlFor="stale-min-age" className="text-xs">Minimum age (days)</Label>
@@ -312,7 +298,7 @@ export function StaleWithdrawalHoldsPanel() {
             ))}
           </div>
         )}
-      </CardContent>
+      </div>
 
       <Dialog open={!!target} onOpenChange={(open) => !open && setTarget(null)}>
         <DialogContent className="max-w-md">
@@ -383,7 +369,7 @@ export function StaleWithdrawalHoldsPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
 

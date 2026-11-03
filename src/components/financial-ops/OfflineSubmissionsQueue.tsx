@@ -30,10 +30,12 @@ import {
   RefreshCw,
   Smartphone,
   XCircle,
+  WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
+import { PageHeader } from './FinopsKit';
 type StatusFilter = 'all' | 'processing' | 'accepted' | 'rejected' | 'needs_attention';
 
 interface SubmissionRow {
@@ -256,13 +258,11 @@ export function OfflineSubmissionsQueue() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="text-lg font-bold">Offline Collections</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Drafts submitted by agents after attaching proof. Investigate exceptions and reconcile rejections.
-          </p>
-        </div>
+      <PageHeader
+        icon={WifiOff}
+        title="Offline Collections"
+        description="Drafts submitted by agents after attaching proof. Investigate exceptions and reconcile rejections."
+        actions={
         <Button
           variant="outline"
           size="sm"
@@ -273,7 +273,8 @@ export function OfflineSubmissionsQueue() {
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-      </div>
+        }
+      />
 
       <div className="flex flex-wrap gap-1.5">
         {filters.map((f) => (

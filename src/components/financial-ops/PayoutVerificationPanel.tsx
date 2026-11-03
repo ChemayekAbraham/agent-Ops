@@ -57,6 +57,7 @@ import {
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DoubleSubmissionReasonPanel } from '@/components/financial-ops/DoubleSubmissionReasonPanel';
+import { PageHeader, StatTile, Pager } from './FinopsKit';
 
 import {
   Select,
@@ -117,13 +118,13 @@ import {
 } from '@/hooks/usePayoutVerification';
 
 const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVerificationCounts }[] = [
+  { id: 'all', label: 'All' },
   { id: 'waiting', label: 'Waiting', countKey: 'waiting' },
   { id: 'mismatch', label: 'Mismatch', countKey: 'mismatch' },
   { id: 'no_id', label: 'No ID', countKey: 'no_id' },
   { id: 'double', label: 'Double submissions', countKey: 'double' },
   { id: 'verified', label: 'Verified', countKey: 'verified' },
   { id: 'rejected', label: 'Rejected', countKey: 'rejected' },
-  { id: 'all', label: 'All' },
 ];
 
 /** Full technical detail of a failed queue request, for on-screen diagnosis. */
@@ -1521,8 +1522,123 @@ function LinkedAutoVerifiedCard({
   );
 }
 
+/** The waiting list as a table (tablet and desktop) or cards (phone). Opening a row opens its case. */
+function QueueTable({
+  rows, page, total, onReview, onPage,
+}: {
+  rows: PayoutDestinationRow[];
+  page: number;
+  total: number;
+  onReview: (indexOnPage: number) => void;
+  onPage: (page: number) => void;
+}) {
+  const shortId = (id: string) => `#${id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+  const destination = (r: PayoutDestinationRow) =>
+    r.destination_type === 'mobile_money'
+      ? `${r.provider ?? 'Mobile money'} · ${r.momo_number ?? ''}`
+      : `${r.bank_name ?? ''} ${r.bank_account_number ?? ''}`.trim();
+  // Same reasoning the case view uses, so the table never claims a case is ready when it is blocked.
+  const idPill = (r: PayoutDestinationRow) => {
+    const reason = blockedReasonFor(r);
+    return reason
+      ? { label: reason.chip, classes: reason.chipClasses }
+      : { label: 'Ready', classes: 'bg-emerald-500/15 text-emerald-700 ring-1 ring-inset ring-emerald-500/40' };
+  };
+  const pillBase = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold';
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
+          <thead>
+            <tr className="text-left text-xs font-semibold text-muted-foreground">
+              <th className="px-4 py-3">Payout #</th>
+              <th className="px-2 py-3">User</th>
+              <th className="px-2 py-3">Phone</th>
+              <th className="px-2 py-3 text-right">Held balance (UGX)</th>
+              <th className="px-2 py-3">ID status</th>
+              <th className="px-2 py-3">Name match</th>
+              <th className="px-2 py-3">Status</th>
+              <th className="px-4 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const match = matchSignal(r.name_match_score);
+              const status = statusBadge(r);
+              const id = idPill(r);
+              return (
+                <tr key={r.id} className="border-t align-middle">
+                  <td className="px-4 py-3.5 font-mono text-xs whitespace-nowrap">{shortId(r.id)}</td>
+                  <td className="px-2 py-3.5 max-w-[240px]">
+                    <p className="truncate font-semibold">{r.full_name || 'Name not recorded'}</p>
+                    <p className="truncate text-xs text-muted-foreground">{destination(r)}</p>
+                  </td>
+                  <td className="px-2 py-3.5 whitespace-nowrap">{r.user_phone ?? '—'}</td>
+                  <td className="px-2 py-3.5 text-right font-semibold tabular-nums whitespace-nowrap">{formatUGX(r.withdrawable_balance)}</td>
+                  <td className="px-2 py-3.5"><span className={`${pillBase} ${id.classes}`}>{id.label}</span></td>
+                  <td className="px-2 py-3.5">
+                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${match.text}`}>
+                      <match.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      {match.label}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3.5">
+                    <span className={`${pillBase} ${status.classes}`}>
+                      <status.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      {status.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <Button size="sm" variant="outline" className="min-h-[36px]" onClick={() => onReview(i)}>Review</Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <ul className="md:hidden space-y-3 p-3">
+        {rows.map((r, i) => {
+          const status = statusBadge(r);
+          const match = matchSignal(r.name_match_score);
+          return (
+            <li key={r.id} className="rounded-2xl border border-border p-3.5 space-y-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{r.full_name || 'Name not recorded'}</p>
+                  <p className="truncate text-xs text-muted-foreground">{destination(r)}</p>
+                </div>
+                <span className={`${pillBase} ${status.classes} shrink-0`}>
+                  <status.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {status.label}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-bold tabular-nums">{formatUGX(r.withdrawable_balance)}</span>
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${match.text}`}>
+                  <match.Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {match.label}
+                </span>
+              </div>
+              <Button className="w-full min-h-[44px]" variant="outline" onClick={() => onReview(i)}>Review</Button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="border-t px-4 py-3">
+        <Pager page={page} pageSize={PAYOUT_VERIFICATION_PAGE_SIZE} total={total} onPage={onPage} noun="results" />
+      </div>
+    </div>
+  );
+}
+
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
+  // 'queue' = the table of everything waiting; 'case' = one person at a time (the original focus view).
+  const [mode, setMode] = useState<'queue' | 'case'>('queue');
   // Financial Ops should see people who have already submitted their National ID
   // and selfie first, because those cases can be actioned immediately. The last
   // chosen sort is remembered per user/device so it survives refreshes.
@@ -1767,6 +1883,47 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-3">
+      {mode === 'queue' ? (
+        <div className="space-y-5 pb-2">
+          <PageHeader
+            icon={ShieldAlert}
+            tone="primary"
+            title="Verify Payout Numbers"
+            description="Check IDs, confirm names and approve or reject payout requests."
+            actions={
+              <Button
+                type="button"
+                className="min-h-[44px]"
+                disabled={rows.length === 0}
+                onClick={() => { setIndex(0); setMode('case'); }}
+              >
+                Start reviewing
+              </Button>
+            }
+          />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            <StatTile icon={Clock} tone="primary" label="Waiting" value={counts.data?.waiting ?? '—'} note="Awaiting review"
+              active={status === 'waiting'} onClick={() => changeFilter('waiting')} />
+            <StatTile icon={AlertTriangle} tone="rose" label="Needs review" value={counts.data?.mismatch ?? '—'} note="Names mismatch"
+              active={status === 'mismatch'} onClick={() => changeFilter('mismatch')} />
+            <StatTile icon={IdCard} tone="amber" label="No ID" value={counts.data?.no_id ?? '—'} note="Missing ID photos"
+              active={status === 'no_id'} onClick={() => changeFilter('no_id')} />
+            <StatTile icon={BadgeCheck} tone="emerald" label="Verified" value={counts.data?.verified ?? '—'} note="Ready for payout"
+              active={status === 'verified'} onClick={() => changeFilter('verified')} />
+            <StatTile icon={XCircle} tone="muted" label="Rejected" value={counts.data?.rejected ?? '—'} note="Not approved"
+              active={status === 'rejected'} onClick={() => changeFilter('rejected')} />
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setMode('queue')}
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Back to the queue
+        </button>
+      )}
+
       {/* Withdrawal number changes waiting on a Financial Ops decision. */}
       <PayoutNumberChangeQueue />
 
@@ -1958,6 +2115,14 @@ export default function PayoutVerificationPanel() {
           <BadgeCheck className="mx-auto mb-2 h-8 w-8 text-primary" />
           <p className="text-sm font-semibold text-foreground">Nothing waiting here</p>
         </div>
+      ) : mode === 'queue' ? (
+        <QueueTable
+          rows={rows}
+          page={page}
+          total={total}
+          onPage={(p) => { setPage(p); setIndex(0); }}
+          onReview={(i) => { setIndex(i); setMode('case'); }}
+        />
       ) : (
         <div
           ref={focusCardRef}
@@ -2485,7 +2650,7 @@ export default function PayoutVerificationPanel() {
         </div>
       )}
 
-      {!queue.isLoading && !queue.isError && rows.length > 0 && (
+      {mode === 'case' && !queue.isLoading && !queue.isError && rows.length > 0 && (
         <PayoutQueueBlockedList
           rows={rows}
           activeId={row?.id ?? null}

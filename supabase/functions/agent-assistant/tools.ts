@@ -87,7 +87,7 @@ export const AGENT_TOOLS: ToolDef[] = [
     description:
       "The agent's own wallet right now: wallet_balance, withdrawable_balance (can be withdrawn), " +
       "float_balance (company float available to collect with), advance_balance, locked_balance, and " +
-      "landlord_float_available (landlord-payout float they can still spend). Use for any 'how much do I have' question.",
+      "landlord_float_available (a stored landlord-payout float figure). Do not quote it, or any wallet figure, when asked how much landlord float they may use or spend; use the fixed reply in the system prompt. Use this tool for any other 'how much do I have' question.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_agent_wallet",
@@ -392,7 +392,7 @@ export const AGENT_TOOLS: ToolDef[] = [
       "Landlord float status for this agent: each allocation with landlord, tenant, allocated / paid out / remaining and its state " +
       "(open, paid, returned, cancelled) and the payout state (paid, awaiting_your_receipt, failed, being_processed). " +
       "Use for 'was the landlord paid', 'which landlord payouts are waiting on me'. recorded_balance is a stored figure that can " +
-      "still count recalled allocations: for 'how much float can I spend' use get_wallet (landlord_float_available). No receipts.",
+      "still count recalled allocations. For how much landlord float they may use or spend, do not quote recorded_balance or a wallet figure; use the fixed reply in the system prompt. No receipts.",
     parameters: {
       type: "object",
       properties: {

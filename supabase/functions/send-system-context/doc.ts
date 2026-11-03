@@ -42,7 +42,9 @@ Regulatory terminology is mandatory (BOU/CMA) in user-facing copy: *Rent Plan* (
 | Welile Homes management fee | 10% of monthly rent (2% agent / 8% Welile) | \`mem/features/welile-homes/agent-collection-model.md\` |
 | Angel Pool equity | 8% pool, UGX 20,000 per share | \`angel_pool_config\`, \`angel_pool_investments\` |
 
-Costs: agent commission (10% of total repayment), verification/event bonuses, referral bonuses, payroll, telecom sending charges, Supporter Returns, write-offs.
+Costs: agent commission (10% of total repayment on current Rent Plans), verification/event bonuses, referral bonuses, payroll, telecom sending charges, Supporter Returns, write-offs.
+
+360-day Rent Plans (`pricing_version = v360`) use a separate cycle waterfall and only while `v360_settings.new_plans_enabled` is on for plans created after that. The switch stays off until CFO, COO or super admin turn it on. Legacy and non-v360 plans keep the 10% commission above (8% sub-agent + 2% general). On a v360 cycle the tenant agent commission is 8% of Gross (6% sub-agent + 2% general). Cover Pool, Proxy Agent fee and tithe have their own ledger categories in the unapplied proposal `docs/pending-migrations/20261102160100_v360_ledger_categories_and_partner_onboarding.sql`. Worked example, rent UGX 100,000: Gross 142,772, Daily 4,760, collected 142,800; sub-agent 8,566, general agent 2,855, rail 3,500, landlord 100,000, partner margin 15,000, Cover Pool 2,885 (cycle 1: proxy 2,000 and pool 885), Welile 7% 9,994 (tithe 999, Welile keeps 8,995). Partner Returns target 15%, not guaranteed. The pure function is `v360CycleWaterfall` in `src/lib/contractEngine360.ts`.
 
 ## 1.3 Core products
 
@@ -244,7 +246,7 @@ Agent inserts into \`house_listings\` inside the 06:00–18:00 EAT window, with 
 2. Insert into \`rent_requests\`. Gates: daily eligibility ≥ 20%, landlord registered (verification pending is queued with an explanatory message), tenant photo, duplicate check, agent capacity, formula overwrite.
 3. Pipeline: \`pending\` → ops/COO approval (\`approve-rent-request\`) → CFO funding → \`funded\` → \`repaying\` → \`completed\`.
 4. Disbursement ledger: wallet/float leg \`rent_disbursement\` out, landlord \`landlord_rent_payment\` in; receivable recognized via \`rent_receivable_created\`, revenue accrued daily by \`recognize-fee-revenue-daily\` into \`fee_revenue_ledger\`.
-5. Agent commission: 10% of collected repayment (2% source / 8% manager; recruiter override 2% reduces manager to 6%).
+5. Agent commission on current Rent Plans: 10% of collected repayment (2% source / 8% manager; recruiter override 2% reduces manager to 6%). A 360-day Rent Plan uses 8% of Gross (6% sub-agent + 2% general). See section 1.2. Partner Returns on that plan target 15%, not guaranteed.
 
 Failures: \`DAILY_ELIGIBILITY_BLOCKED\`, formula drift (\`rent_request_formula_drift\`). Agent cancel path: status \`deleted_by_agent\`.
 

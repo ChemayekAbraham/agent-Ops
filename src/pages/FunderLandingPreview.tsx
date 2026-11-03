@@ -12,6 +12,9 @@ import { NotificationBell } from '@/components/supporter/NotificationBell';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { supabase } from '@/integrations/supabase/client';
+import { FunderPreviewFilterDialog } from '@/components/funder-preview/FunderPreviewFilterDialog';
+import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
+import { itemAmount } from '@/components/funder-new/utils';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
@@ -213,6 +216,7 @@ export default function FunderLandingPreview() {
   const emptyQuery = useFunderNewEmptyHouses(filters, origin, category !== 'ready');
   const readyQuery = useFunderNewReadyPlans(filters, category !== 'empty');
 
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
   const entries = useMemo<FeedEntry[]>(() => {
     const empty =
       category === 'ready'
@@ -222,8 +226,56 @@ export default function FunderLandingPreview() {
       category === 'empty'
         ? []
         : (readyQuery.data?.pages ?? []).flatMap((page) => page.items).map((item): FeedEntry => ({ category: 'ready', item }));
-    return sortFunderFeedEntries([...empty, ...ready]);
-  }, [category, emptyQuery.data, readyQuery.data]);
+    // Re-apply every chosen filter to the loaded rows: the Rent Plan read
+    // service ignores district/distance/sort, so without this those choices
+    // look like they do nothing. Presentation only.
+    const rec = (e: FeedEntry) => e.item as unknown as Record<string, unknown>;
+    const place = filters.location.trim().toLowerCase();
+    const radius = filters.radiusKm === 'all' || !origin ? null : filters.radiusKm;
+    const filtered = [...empty, ...ready].filter((entry) => {
+      const r = rec(entry);
+      const amount = itemAmount(entry.category, entry.item);
+      if (place) {
+        const where = ['district', 'city', 'area', 'location', 'region']
+          .map((k) => (typeof r[k] === 'string' ? (r[k] as string).toLowerCase() : ''))
+          .join(' ');
+        if (!where.includes(place)) return false;
+      }
+      if (filters.rentMin !== null && amount < filters.rentMin) return false;
+      if (filters.rentMax !== null && amount > filters.rentMax) return false;
+      if (radius !== null) {
+        const d = Number(r.distance_km);
+        if (!Number.isFinite(d) || r.distance_km === null || d > radius) return false;
+      }
+      if (filters.withinFloat && availableBalance !== null && !(amount > 0 && amount <= availableBalance)) return false;
+      return true;
+    });
+    const amt = (e: FeedEntry) => itemAmount(e.category, e.item);
+    switch (filters.sort) {
+      case 'rent_low':
+        return filtered.sort((a, b) => amt(a) - amt(b));
+      case 'rent_high':
+        return filtered.sort((a, b) => amt(b) - amt(a));
+      case 'nearest': {
+        const d = (e: FeedEntry) => {
+          const n = Number(rec(e).distance_km);
+          return rec(e).distance_km == null || !Number.isFinite(n) ? Infinity : n;
+        };
+        return filtered.sort((a, b) => d(a) - d(b));
+      }
+      case 'newest': {
+        const t = (e: FeedEntry) => Date.parse(String(rec(e).created_at ?? '')) || 0;
+        return filtered.sort((a, b) => t(b) - t(a));
+      }
+      default:
+        return sortFunderFeedEntries(filtered);
+    }
+  }, [category, emptyQuery.data, readyQuery.data, filters, availableBalance, origin]);
+
+  const districtOptions = useMemo(
+    () => (summary.data?.districts ?? []).map((d) => ({ value: d.value, label: d.label, count: d.count })),
+    [summary.data],
+  );
 
   const feedLoading =
     (category !== 'ready' && emptyQuery.isLoading) || (category !== 'empty' && readyQuery.isLoading);
@@ -298,7 +350,6 @@ export default function FunderLandingPreview() {
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
   const toggleSelect = useCallback((nextCategory: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     const next = toSelectionItem(nextCategory, item);
@@ -511,30 +562,35 @@ export default function FunderLandingPreview() {
             </p>
           </div>
 
-          <div role="group" aria-label="Filters" className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button type="button" aria-pressed={category === 'all'} className={chipClass(category === 'all')} onClick={() => setCategory('all')}>
-              All
-            </button>
-            <button type="button" aria-pressed={category === 'empty'} className={chipClass(category === 'empty')} onClick={() => setCategory('empty')}>
-              Empty homes
-            </button>
-            <button type="button" aria-pressed={category === 'ready'} className={chipClass(category === 'ready')} onClick={() => setCategory('ready')}>
-              Tenant ready
-            </button>
-            <button type="button" aria-pressed={filters.sort === 'nearest'} className={chipClass(filters.sort === 'nearest')} onClick={toggleNearest}>
-              Nearest
-            </button>
-            <button
-              type="button"
-              aria-pressed={filters.amount === 'under_300k'}
-              className={chipClass(filters.amount === 'under_300k')}
-              onClick={() =>
-                setFilters((current) => ({ ...current, amount: current.amount === 'under_300k' ? 'all' : 'under_300k' }))
-              }
-            >
-              Under 300K
-            </button>
-          </div>
+          <FunderNewFilterChips
+            filters={filters}
+            districts={districtOptions}
+            supportsSort
+            compact
+            hideDistance
+            afterSort={
+              <FunderPreviewFilterDialog
+                filters={filters}
+                districts={districtOptions}
+                availableBalance={availableBalance}
+                floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+                resultCount={entries.length}
+                hasOrigin={!!origin}
+                onRequestLocation={location.request}
+                onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+              />
+
+            }
+            hasOrigin={!!origin}
+            availableBalance={availableBalance}
+            floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+            onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+            onSortChange={(sort) => {
+              setSortTouched(true);
+              if (sort === 'nearest' && !origin) location.request();
+              setFilters((current) => ({ ...current, sort }));
+            }}
+          />
 
           {feedLoading ? (
             <div className="grid gap-4 sm:grid-cols-2">
