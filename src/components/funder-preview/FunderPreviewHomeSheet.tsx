@@ -234,32 +234,55 @@ export function FunderPreviewHomeSheet({
               <h3 id="preview-how-h" className="text-[15px] font-bold">
                 How your support works
               </h3>
-              <ol className="relative space-y-3.5">
-                <li
-                  aria-hidden
-                  className="absolute bottom-[18px] left-[16.5px] top-[18px] w-[3px] rounded-full bg-gradient-to-b from-primary via-primary to-success"
-                />
-                {TIMELINE.map(({ when, text, icon: Icon, tone }) => (
-                  <li key={when} className="relative flex items-center gap-3">
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'flex h-9 w-9 flex-none items-center justify-center rounded-full ring-4 ring-card',
-                        tone === 'filled' && 'bg-primary text-primary-foreground',
-                        tone === 'soft' && 'bg-primary/10 text-primary',
-                        tone === 'success' && 'bg-success/10 text-success',
-                      )}
-                    >
-                      <Icon className="h-[18px] w-[18px]" />
-                    </span>
-                    <div>
-                      <p className={cn('text-xs font-bold', tone === 'success' ? 'text-success' : 'text-primary')}>{when}</p>
-                      <p className="text-sm font-semibold">{text}</p>
-                    </div>
-                  </li>
-                ))}
+              <ol>
+                {TIMELINE.map(({ when, text, icon: Icon, tone }, index) => {
+                  const first = index === 0;
+                  const last = index === TIMELINE.length - 1;
+                  const accent = TONE_ACCENT[tone];
+                  const above = first ? null : TONE_ACCENT[TIMELINE[index - 1].tone];
+                  const below = last ? null : accent;
+                  return (
+                    <li key={when} className="flex items-center gap-3">
+                      <span aria-hidden className="relative flex w-9 flex-none self-stretch items-center justify-center">
+                        {above ? (
+                          <span
+                            className={cn(
+                              'absolute left-1/2 top-0 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
+                              joinLine(above, accent),
+                            )}
+                          />
+                        ) : null}
+                        {below ? (
+                          <span
+                            className={cn(
+                              'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
+                              joinLine(accent, below),
+                            )}
+                          />
+                        ) : null}
+                        <span
+                          className={cn(
+                            'relative z-10 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-card ring-4 ring-card',
+                            tone === 'filled' && 'bg-primary text-primary-foreground',
+                            tone === 'soft' && 'text-primary',
+                            tone === 'success' && 'text-success',
+                          )}
+                        >
+                          {tone === 'soft' ? <span className="absolute inset-0 rounded-full bg-primary/10" aria-hidden /> : null}
+                          {tone === 'success' ? <span className="absolute inset-0 rounded-full bg-success/10" aria-hidden /> : null}
+                          <Icon className="relative h-[18px] w-[18px]" />
+                        </span>
+                      </span>
+                      <div className="min-w-0 flex-1 py-2">
+                        <p className={cn('text-xs font-bold', tone === 'success' ? 'text-success' : 'text-primary')}>{when}</p>
+                        <p className="text-sm font-semibold">{text}</p>
+                      </div>
+                    </li>
+                  );
+                })}
               </ol>
             </section>
+
 
             <dl className="grid grid-cols-2 gap-2.5">
               <div className="rounded-[18px] border bg-card p-3.5">
