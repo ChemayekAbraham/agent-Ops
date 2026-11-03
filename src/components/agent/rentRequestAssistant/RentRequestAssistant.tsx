@@ -609,8 +609,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   if (!open) return null;
 
   // ----- render -----
+  // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
+    <div className="fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
