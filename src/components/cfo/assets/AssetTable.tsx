@@ -147,13 +147,13 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
           </thead>
           <tbody className="divide-y divide-border/50">
             {q.isLoading && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">Loading assets…</td></tr>
             )}
             {q.isError && (
-              <tr><td colSpan={9} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
+              <tr><td colSpan={10} role="alert" className="py-10 text-center text-destructive">Could not load the asset register.</td></tr>
             )}
             {!q.isLoading && !q.isError && items.length === 0 && (
-              <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">
+              <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">
                 {filtered ? 'No assets match these filters.' : 'No assets registered yet. Add one or import from Excel.'}
               </td></tr>
             )}
