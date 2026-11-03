@@ -20,7 +20,7 @@ The production runtime's `SUPABASE_SERVICE_ROLE_KEY` does NOT match the key show
 ## Still open in `sms-otp` (reviewed, not changed)
 1. `verify` returns `success: true, already_verified: true` with no code for a phone whose row is already verified (`otp_check_code` returns `already_verified`). Impact depends on which callers trust that reply; not traced. A code is not tied to a purpose.
 2. Codes are stored in plaintext in `otp_verifications.otp_code`, and the full SMS text including the live code is stored in `sms_delivery_log.message`. Who can read those tables was not checked.
-3. `generateOTP()` uses `Math.random()`; should use `crypto.getRandomValues`.
+3. ~~`generateOTP()` uses `Math.random()`~~ FIXED 2026-11-03 (now `crypto.getRandomValues` with rejection sampling; see doc 256 follow-up; tested, not deployed).
 4. The per-IP send cap uses the first `x-forwarded-for` value, which a client can set.
 5. The public `status` action reveals whether a number has used OTP and which provider handled it.
 6. `password-reset-sms` has not been reviewed.

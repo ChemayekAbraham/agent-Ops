@@ -28,18 +28,25 @@ function clientIpFrom(req: Request): string | null {
 
 const ADMIN_ACTION_ROLES = ["manager", "super_admin", "cto"];
 
+// Result of requireAdminCaller: either a Response to send straight back
+// (denied), or the signed-in admin's user id (callerId).
+type AdminCheck =
+  | { denied: Response; callerId: null }
+  | { denied: null; callerId: string };
+
 // Admin actions need a real signed-in caller holding an enabled privileged
 // role. verify_jwt is off for this function, so we validate the token here.
-// Returns an error Response, or null when the caller is authorised.
 async function requireAdminCaller(
   // deno-lint-ignore no-explicit-any
   adminClient: any,
   req: Request,
-): Promise<Response | null> {
-  const deny = (status: number, error: string) =>
-    new Response(JSON.stringify({ error }), {
+): Promise<AdminCheck> {
+  const deny = (status: number, error: string): AdminCheck => ({
+    denied: new Response(JSON.stringify({ error }), {
       status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    }),
+    callerId: null,
+  });
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!token) return deny(401, "Unauthorized");
   const { data: authData, error: authError } = await adminClient.auth.getUser(token);
@@ -53,15 +60,56 @@ async function requireAdminCaller(
     .in("role", ADMIN_ACTION_ROLES);
   if (roleError) return deny(500, "Authorisation check failed");
   if (!roleRows || roleRows.length === 0) return deny(403, "Forbidden");
+  return { denied: null, callerId: caller.id };
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Durable record of a privileged action. audit_logs is append-only in
+// production (triggers block UPDATE, DELETE and TRUNCATE). It is written BEFORE
+// the action and fails closed: if the record cannot be saved, the action is
+// refused. Returns an error Response, or null when the record was saved.
+// NEVER put the new password (or anything secret) in the metadata.
+async function writeAdminAudit(
+  // deno-lint-ignore no-explicit-any
+  adminClient: any,
+  req: Request,
+  callerId: string,
+  actionType: "admin_password_reset" | "admin_delete_user",
+  targetUserId: string,
+  via: string,
+): Promise<Response | null> {
+  const { error } = await adminClient.from("audit_logs").insert({
+    user_id: callerId,
+    actor_id: callerId,
+    target_user_id: targetUserId,
+    action_type: actionType,
+    action: actionType,
+    table_name: "auth.users",
+    record_id: targetUserId,
+    ip_address: clientIpFrom(req),
+    user_agent: req.headers.get("user-agent"),
+    metadata: { function: "password-reset-sms", via },
+  });
+  if (error) {
+    console.error("[password-reset-sms] audit write failed, refusing the action:", error.message);
+    return new Response(JSON.stringify({ error: "Could not record this action. Please try again." }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
   return null;
 }
 
+// 6-digit code from the platform's cryptographically secure generator
+// (Math.random is predictable). A draw at or above LIMIT is thrown away and
+// redrawn, so every code from 000000 to 999999 is equally likely.
 function generateOTP(): string {
-  let otp = "";
-  for (let i = 0; i < 6; i++) {
-    otp += Math.floor(Math.random() * 10).toString();
-  }
-  return otp;
+  const LIMIT = Math.floor(0x100000000 / 1000000) * 1000000;
+  const buf = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buf);
+  } while (buf[0] >= LIMIT);
+  return String(buf[0] % 1000000).padStart(6, "0");
 }
 
 // Known country code prefixes (longest first for greedy matching)
@@ -374,14 +422,17 @@ Deno.serve(async (req) => {
       const userId = (body.user_id as string || "").trim();
       const newPassword = (body.new_password as string || "").trim();
 
-      const denied = await requireAdminCaller(adminClient, req);
-      if (denied) return denied;
+      const check = await requireAdminCaller(adminClient, req);
+      if (check.denied) return check.denied;
 
-      if (!userId || !newPassword || newPassword.length < 6) {
+      if (!UUID_RE.test(userId) || !newPassword || newPassword.length < 6) {
         return new Response(JSON.stringify({ error: "user_id and new_password (min 6 chars) required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const auditFailed = await writeAdminAudit(adminClient, req, check.callerId, "admin_password_reset", userId, "admin_reset");
+      if (auditFailed) return auditFailed;
 
       const { error: updateError } = await adminClient.auth.admin.updateUserById(userId, {
         password: newPassword,
@@ -405,14 +456,17 @@ Deno.serve(async (req) => {
       const userId = (body.user_id as string || "").trim();
       const newPassword = (body.new_password as string || "").trim();
 
-      const denied = await requireAdminCaller(adminClient, req);
-      if (denied) return denied;
+      const check = await requireAdminCaller(adminClient, req);
+      if (check.denied) return check.denied;
 
-      if (!userId || !newPassword || newPassword.length < 6) {
+      if (!UUID_RE.test(userId) || !newPassword || newPassword.length < 6) {
         return new Response(JSON.stringify({ error: "user_id and new_password required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const auditFailed = await writeAdminAudit(adminClient, req, check.callerId, "admin_password_reset", userId, "admin_reset_password");
+      if (auditFailed) return auditFailed;
 
       const { error: resetError } = await adminClient.auth.admin.updateUserById(userId, {
         password: newPassword,
@@ -434,14 +488,17 @@ Deno.serve(async (req) => {
     if (action === "admin_delete_user") {
       const userId = (body.user_id as string || "").trim();
 
-      const denied = await requireAdminCaller(adminClient, req);
-      if (denied) return denied;
+      const check = await requireAdminCaller(adminClient, req);
+      if (check.denied) return check.denied;
 
-      if (!userId) {
+      if (!UUID_RE.test(userId)) {
         return new Response(JSON.stringify({ error: "user_id required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      const auditFailed = await writeAdminAudit(adminClient, req, check.callerId, "admin_delete_user", userId, "admin_delete_user");
+      if (auditFailed) return auditFailed;
 
       const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
       if (deleteError) {
@@ -466,9 +523,12 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      // Do not reveal whether this phone has an account: answer exactly as if a
+      // code had been sent, but send nothing and store nothing.
       if (!profile) {
-        return new Response(JSON.stringify({ error: "No account found with this phone number." }), {
-          status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        console.log(`[password-reset-sms] reset requested for an unregistered number ***${phoneKey.slice(-4)}`);
+        return new Response(JSON.stringify({ success: true, message: "Reset code sent" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 

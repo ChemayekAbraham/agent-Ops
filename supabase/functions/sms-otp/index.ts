@@ -47,13 +47,16 @@ async function userIdFromAuth(
   }
 }
 
+// 6-digit code from the platform's cryptographically secure generator
+// (Math.random is predictable). A draw at or above LIMIT is thrown away and
+// redrawn, so every code from 000000 to 999999 is equally likely.
 function generateOTP(): string {
-  const digits = "0123456789";
-  let otp = "";
-  for (let i = 0; i < 6; i++) {
-    otp += digits[Math.floor(Math.random() * 10)];
-  }
-  return otp;
+  const LIMIT = Math.floor(0x100000000 / 1000000) * 1000000;
+  const buf = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buf);
+  } while (buf[0] >= LIMIT);
+  return String(buf[0] % 1000000).padStart(6, "0");
 }
 
 // Known country code prefixes (longest first for greedy matching)

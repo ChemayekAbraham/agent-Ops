@@ -35,10 +35,12 @@
 - The happy path uses 2 attempts (the `verify` pre-check, then `verify-and-reset`). A weak-password rejection then costs one more attempt per retry.
 - The per-IP cap is shared with `sms-otp` (same `otp_send_events` table).
 
-## Still open in this function (reviewed, not changed)
-1. `send` returns 404 "No account found with this phone number", so anyone can test which phones have Welile accounts.
-2. `generateOTP()` still uses `Math.random()`.
-3. `admin_reset`, `admin_reset_password` and `admin_delete_user` (caller check is correct: manager / super_admin / cto) write no `audit_logs` row, only a console line.
-4. Passwords of 6 characters are accepted (server and frontend).
-5. A successful reset also sets `email_confirm: true` and resets every account on the phone, by design; a recycled or SIM-swapped number therefore reaches all of them.
-6. `x-forwarded-for` first value is client-settable, which weakens the per-IP cap.
+## Follow-up, same day: three more items closed (tested locally, not deployed)
+1. **No account enumeration on `send`.** An unregistered number now gets the same `200 {"success":true,"message":"Reset code sent"}` a registered one gets; nothing is sent or stored (verified: 0 `otp_verifications` rows, 0 `otp_send_events`). **Product impact for Gemini/Josh:** a person who mistypes their number now sees "Code Sent", moves to the code step, and never receives a text. The frontend should offer a "wrong number? go back" action on that step. **Limits:** a registered number still takes seconds (the SMS provider call) while an unregistered one answers instantly, so timing still reveals it; `otp-login` returns "No account found" (404) after a valid code, and sign-up/login flows may reveal registration too. This closes the cheapest probe only.
+2. **Secure codes.** `generateOTP()` in `password-reset-sms` AND `sms-otp` now uses `crypto.getRandomValues` with rejection sampling (draws at or above 4,294,000,000 are redrawn so all 1,000,000 codes are equally likely). Tested: 300,000 codes from each file's real function, all 6-digit, ~10% start with 0, even digit spread.
+3. **Audit rows for admin actions.** `admin_reset`, `admin_reset_password` and `admin_delete_user` now write an `audit_logs` row (`action_type` `admin_password_reset` or `admin_delete_user`, `actor_id` and `user_id` = the admin, `target_user_id`, `table_name` `auth.users`, `record_id`, `ip_address`, `user_agent`, `metadata {function, via}`) BEFORE acting, and refuse the action (500) if the row cannot be saved (fail closed). The new password is never written. In production `audit_logs` is append-only (triggers block UPDATE, DELETE, TRUNCATE) and captures the IP itself. `user_id` is now validated as a UUID (400 otherwise), because a bad value would fail the audit insert. `requireAdminCaller` now returns `{ denied, callerId }` instead of a Response-or-null so the caller's id reaches the audit row. Tested: no token 401, non-admin 403 (0 audit rows), manager 200 with a correct row and no password in any field, audit table down -> 500 and the password unchanged, delete audited. Not tested: the production append-only triggers and IP trigger themselves (the lab emulated append-only); callers of the admin actions outside this repo (none in `src/`) will see 400 for a non-UUID `user_id`.
+
+## Still open in this function
+1. Passwords of 6 characters are accepted (server and frontend).
+2. A successful reset also sets `email_confirm: true` and resets every account on the phone, by design; a recycled or SIM-swapped number therefore reaches all of them.
+3. `x-forwarded-for` first value is client-settable, which weakens the per-IP cap.
