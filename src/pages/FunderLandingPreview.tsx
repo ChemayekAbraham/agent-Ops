@@ -495,7 +495,7 @@ export default function FunderLandingPreview() {
         };
 
   return (
-    <div ref={rootRef} className="min-h-screen bg-background font-['Outfit'] text-foreground">
+    <div ref={rootRef} className="min-h-screen bg-background text-foreground">
       {/* ═══ APP CHROME: top bar with the logo, role switcher and notification bell ═══ */}
       <DashboardHeader
         currentRole="supporter"
