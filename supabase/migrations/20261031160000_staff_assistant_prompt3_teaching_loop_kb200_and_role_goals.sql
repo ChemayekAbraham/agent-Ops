@@ -426,6 +426,7 @@ GRANT EXECUTE ON FUNCTION public.staff_assistant_teach_from_review_queue(uuid, t
 CREATE OR REPLACE FUNCTION public.assistant_staff_my_taught_updates()
 RETURNS jsonb
 LANGUAGE plpgsql
+STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -588,7 +589,7 @@ CREATE OR REPLACE FUNCTION public.assistant_staff_search_knowledge_base(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-VOLATILE
+STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
@@ -600,7 +601,6 @@ DECLARE
   v_limit integer := LEAST(GREATEST(COALESCE(p_limit, 5), 1), 15);
   v_results jsonb := '[]'::jsonb;
   v_matched_ids uuid[] := '{}'::uuid[];
-  v_roles text[] := '{}'::text[];
 BEGIN
   IF v_uid IS NULL OR NOT public.staff_assistant_has_access() THEN
     RAISE EXCEPTION 'Not authorized: staff assistant access required.'
@@ -623,7 +623,7 @@ BEGIN
   IF v_clean_query ILIKE '%cash%' OR v_clean_query ILIKE '%bank%' THEN
     v_expanded_query := v_expanded_query || ' treasury a1 a5 float';
   END IF;
-  IF v_clean_query ILIKE '%funder%' OR v_clean_query ILIKE '%partner%' OR v_clean_query ILIKE '%investor%' THEN
+  IF v_clean_query ILIKE '%partner%' OR v_clean_query ILIKE '%investor%' THEN
     v_expanded_query := v_expanded_query || ' supporter returns portfolio';
   END IF;
   IF v_clean_query ILIKE '%call%' OR v_clean_query ILIKE '%phone%' THEN
@@ -683,45 +683,6 @@ BEGIN
     COALESCE(jsonb_agg(to_jsonb(matched)), '[]'::jsonb)
   INTO v_matched_ids, v_results
   FROM matched;
-
-  IF COALESCE(array_length(v_matched_ids, 1), 0) > 0 THEN
-    UPDATE public.staff_assistant_knowledge_base
-    SET
-      usage_count = COALESCE(usage_count, 0) + 1,
-      last_used_at = now()
-    WHERE id = ANY(v_matched_ids);
-  ELSE
-    SELECT COALESCE(array_agg(ur.role::text), '{}'::text[])
-    INTO v_roles
-    FROM public.user_roles ur
-    WHERE ur.user_id = v_uid AND COALESCE(ur.enabled, true) = true;
-
-    INSERT INTO public.staff_assistant_kb_zero_hits (
-      user_id,
-      caller_roles,
-      sanitized_query,
-      routed_department,
-      hit_count,
-      last_seen_at
-    )
-    VALUES (
-      v_uid,
-      v_roles,
-      public.staff_assistant_redact_text(v_clean_query),
-      CASE
-        WHEN v_clean_query ILIKE '%call%' THEN 'calling_center'
-        WHEN v_clean_query ILIKE '%tenant%' OR v_clean_query ILIKE '%arrears%' THEN 'tenant_ops'
-        WHEN v_clean_query ILIKE '%landlord%' THEN 'landlord_ops'
-        WHEN v_clean_query ILIKE '%agent%' OR v_clean_query ILIKE '%float%' THEN 'agent_ops'
-        WHEN v_clean_query ILIKE '%supporter%' OR v_clean_query ILIKE '%returns%' THEN 'partner_ops'
-        WHEN v_clean_query ILIKE '%cash%' OR v_clean_query ILIKE '%treasury%' OR v_clean_query ILIKE '%receivables%' THEN 'financial_ops'
-        WHEN v_clean_query ILIKE '%leave%' OR v_clean_query ILIKE '%payslip%' THEN 'hr'
-        ELSE 'general'
-      END,
-      1,
-      now()
-    );
-  END IF;
 
   RETURN jsonb_build_object(
     'source', 'assistant_staff_search_knowledge_base',

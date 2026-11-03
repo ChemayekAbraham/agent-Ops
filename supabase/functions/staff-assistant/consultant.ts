@@ -545,6 +545,14 @@ export function validateConsultantWebUrl(
     };
   }
 
+  if (parsed.username || parsed.password) {
+    return {
+      ok: false,
+      reason: "url_credentials_forbidden",
+      detail: "URLs containing embedded username or password credentials are blocked.",
+    };
+  }
+
   const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (
     host === "localhost" ||
@@ -1287,6 +1295,9 @@ export function scoreConsultantAnswer(reply: string): ConsultantChecklistScore {
   };
 }
 
+export const COACHING_ADVISORY_NOTICE =
+  "*(Advisory suggestion only — not a rating or HR decision. Coaching suggestions are private guidance for human review.)*";
+
 /**
  * Part C item (5) — Coaching on a person's own work (with the advisory-only defence):
  * Detects when a staff member asks "how am I doing", "how can I improve", or for personal/team coaching.
@@ -1294,7 +1305,7 @@ export function scoreConsultantAnswer(reply: string): ConsultantChecklistScore {
 export function isCoachingQuestion(userMessage: string): boolean {
   const s = (userMessage ?? "").trim();
   if (!s) return false;
-  return /\b(how\s+am\s+i\s+doing|how\s+can\s+i\s+improve|coach\s+me|my\s+work\s+summary|my\s+coaching|how\s+is\s+my\s+team\s+doing|how\s+is\s+my\s+department\s+doing|team\s+work\s+summary)\b/i.test(
+  return /\b(how\s+am\s+i\s+doing|how\s+can\s+i\s+improve|what\s+should\s+i\s+focus\s+on\s+today|coach\s+me|my\s+work\s+summary|my\s+coaching|how\s+is\s+my\s+team\s+doing|how\s+is\s+my\s+department\s+doing|team\s+work\s+summary)\b/i.test(
     s,
   );
 }
@@ -1310,7 +1321,10 @@ export function isColleagueCoachingForbiddenRequest(
   const s = (userMessage ?? "").trim();
   if (!s) return false;
   const asksForOtherPerson =
-    /\b(colleague(?:'s)?|coworker(?:'s)?|winnie(?:'s)?|jane(?:'s)?|hanisha(?:'s)?|kato(?:'s)?|other\s+staff(?:'s)?)\b[\s\S]*\b(coaching|scorecard|work\s+summary|how\s+is\s+(?:she|he)\s+doing)\b/i.test(
+    /\b(colleague(?:'s)?|coworker(?:'s)?|winnie(?:'s)?|jane(?:'s)?|hanisha(?:'s)?|kato(?:'s)?|other\s+staff(?:'s)?)\b[\s\S]*\b(coaching|scorecard|work\s+summary|how\s+is\s+(?:she|he)\s+doing|rank\s+us|compare)\b/i.test(
+      s,
+    ) ||
+    /\b(?:how\s+is|compare\s+my\s+\w+\s+to)\s+(?:my\s+colleague|winnie|jane|hanisha|kato)\b/i.test(
       s,
     ) ||
     /\bshow\s+(?:me\s+)?(?:my\s+colleague|winnie|jane|hanisha)(?:'s)?\s+(?:individual\s+)?(?:coaching|work\s+summary|scorecard)\b/i.test(
@@ -1336,14 +1350,13 @@ export function isColleagueCoachingForbiddenRequest(
  */
 export function ensureCoachingAdvisoryNotice(
   reply: string,
-  usedCoachingTool: boolean,
+  usedCoachingTool = true,
 ): string {
   if (!usedCoachingTool) return reply;
   if (/advisory\s+suggestion\s+only|not\s+a\s+rating\s+or\s+hr\s+decision/i.test(reply)) {
     return reply;
   }
-  const notice =
-    "*(Advisory suggestion only — not a rating or HR decision. Coaching suggestions are private guidance for human review.)*";
+  const notice = COACHING_ADVISORY_NOTICE;
   const trimmed = reply.trim();
   const sourceIdx = trimmed.search(/\n*Source:\s*/i);
   if (sourceIdx >= 0) {

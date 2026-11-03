@@ -336,6 +336,9 @@ export function auditCumulativeSqlSecurity(migrationsTextInOrder) {
     'staff_assistant_glossary',
     'staff_assistant_data_catalog',
     'staff_assistant_queries',
+    'staff_assistant_projects',
+    'staff_assistant_teaching_queue',
+    'staff_assistant_push_preferences',
   ];
 
   for (const tbl of lockedTablesSelectOnly) {
@@ -543,6 +546,15 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
       'assistant_staff_morning_brief_what_changed',
       'assistant_staff_get_data_catalog',
       'assistant_staff_data_catalog',
+      'staff_assistant_list_projects',
+      'staff_assistant_upsert_project',
+      'staff_assistant_delete_project',
+      'assistant_staff_my_taught_updates',
+      'staff_assistant_department_teaching_queue',
+      'staff_assistant_teach_from_review_queue',
+      'staff_assistant_real_use_dashboard',
+      'staff_assistant_role_goals_and_measures',
+      'staff_assistant_update_push_and_voice_prefs',
     ]);
     for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
       if (!ALLOWED_DIRECT_RPCS.has(m[1])) {

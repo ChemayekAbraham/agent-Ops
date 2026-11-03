@@ -82,8 +82,9 @@ CREATE INDEX IF NOT EXISTS idx_staff_assistant_projects_user
 
 ALTER TABLE public.staff_assistant_projects ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON TABLE public.staff_assistant_projects FROM PUBLIC, anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.staff_assistant_projects TO authenticated;
+REVOKE ALL ON TABLE public.staff_assistant_projects FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.staff_assistant_projects TO authenticated;
+GRANT ALL ON TABLE public.staff_assistant_projects TO service_role;
 
 DROP POLICY IF EXISTS "mfa_required_for_staff" ON public.staff_assistant_projects;
 CREATE POLICY "mfa_required_for_staff"

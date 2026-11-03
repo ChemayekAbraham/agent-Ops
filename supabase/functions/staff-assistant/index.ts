@@ -963,7 +963,7 @@ export async function handleStaffAssistantRequest(
   // Part C item (8): Private Projects (`staff_assistant_projects`)
   if (body.action === "list_projects") {
     try {
-      const { data, error } = await userClient.rpc("assistant_staff_list_projects");
+      const { data, error } = await userClient.rpc("staff_assistant_list_projects");
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
         return json(200, { ok: true, ...(data as Record<string, unknown>) });
       }
@@ -975,11 +975,11 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "save_project") {
     try {
-      const { data, error } = await userClient.rpc("assistant_staff_save_project", {
+      const { data, error } = await userClient.rpc("staff_assistant_upsert_project", {
         p_project_id: body.project_id ?? null,
         p_name: body.name,
         p_instructions: body.instructions ?? "",
-        p_pinned_files: body.pinned_files ?? [],
+        p_pinned_file_ids: body.pinned_files ?? [],
       });
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
         return json(200, { ok: true, ...(data as Record<string, unknown>) });
@@ -995,7 +995,7 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "delete_project") {
     try {
-      const { data, error } = await userClient.rpc("assistant_staff_delete_project", {
+      const { data, error } = await userClient.rpc("staff_assistant_delete_project", {
         p_project_id: body.project_id,
       });
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
@@ -1032,10 +1032,11 @@ export async function handleStaffAssistantRequest(
       const { data, error } = await userClient.rpc("staff_assistant_teach_from_review_queue", {
         p_unanswered_id: body.unanswered_id,
         p_title: body.title,
-        p_approved_answer: body.approved_answer,
         p_category: body.category ?? "faq",
-        p_department: body.department ?? null,
-        p_source_doc: body.source_doc ?? "Department Lead Teaching Queue",
+        p_department: body.department ?? "general",
+        p_summary: body.approved_answer,
+        p_body: body.approved_answer,
+        p_official_source: body.source_doc ?? "Department Lead Teaching Queue",
         p_screen_path: body.screen_path ?? null,
       });
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
@@ -1093,10 +1094,10 @@ export async function handleStaffAssistantRequest(
     }
   }
 
-  // Part C item (9): Web Push consent & preferences (`staff_assistant_get_push_prefs`, `staff_assistant_set_push_prefs`)
+  // Part C item (9): Web Push consent & preferences (`staff_assistant_update_push_and_voice_prefs`)
   if (body.action === "get_push_prefs") {
     try {
-      const { data, error } = await userClient.rpc("staff_assistant_get_push_prefs");
+      const { data, error } = await userClient.rpc("staff_assistant_update_push_and_voice_prefs", {});
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
         return json(200, { ok: true, ...(data as Record<string, unknown>) });
       }
@@ -1116,11 +1117,10 @@ export async function handleStaffAssistantRequest(
 
   if (body.action === "set_push_prefs") {
     try {
-      const { data, error } = await userClient.rpc("staff_assistant_set_push_prefs", {
-        p_push_enabled: body.push_enabled ?? null,
-        p_morning_brief_push: body.morning_brief_push ?? null,
-        p_taught_updates_push: body.taught_updates_push ?? null,
-        p_soft_prompt_shown: body.soft_prompt_shown ?? null,
+      const { data, error } = await userClient.rpc("staff_assistant_update_push_and_voice_prefs", {
+        p_web_push_enabled: body.push_enabled ?? null,
+        p_morning_brief_topic: body.morning_brief_push ?? null,
+        p_taught_updates_topic: body.taught_updates_push ?? null,
       });
       if (!error && data && typeof data === "object" && !Array.isArray(data)) {
         return json(200, { ok: true, ...(data as Record<string, unknown>) });
@@ -1633,7 +1633,7 @@ Use your role-checked tools to fetch any figures for this screen.`
     let projectInstructionsBlock = "";
     if (projectId && !temporaryChat) {
       try {
-        const { data: projData } = await userClient.rpc("assistant_staff_list_projects");
+        const { data: projData } = await userClient.rpc("staff_assistant_list_projects");
         if (projData && typeof projData === "object" && !Array.isArray(projData)) {
           const projRows = Array.isArray((projData as Record<string, unknown>).rows)
             ? ((projData as Record<string, unknown>).rows as Array<Record<string, unknown>>)
