@@ -8495,6 +8495,7 @@ export type Database = {
           photo_paths: string[]
           purchase_cost: number | null
           purchase_date: string | null
+          quantity: number
           serial_number: string | null
           serial_number_norm: string | null
           site_key: string | null
@@ -8526,6 +8527,7 @@ export type Database = {
           photo_paths?: string[]
           purchase_cost?: number | null
           purchase_date?: string | null
+          quantity?: number
           serial_number?: string | null
           serial_number_norm?: string | null
           site_key?: string | null
@@ -8557,6 +8559,7 @@ export type Database = {
           photo_paths?: string[]
           purchase_cost?: number | null
           purchase_date?: string | null
+          quantity?: number
           serial_number?: string | null
           serial_number_norm?: string | null
           site_key?: string | null
@@ -72767,6 +72770,7 @@ export type Database = {
           photo_paths: string[]
           purchase_cost: number | null
           purchase_date: string | null
+          quantity: number
           serial_number: string | null
           serial_number_norm: string | null
           site_key: string | null

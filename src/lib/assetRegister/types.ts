@@ -90,6 +90,9 @@ export interface AssetInput {
 
 export type AssetField = keyof AssetInput;
 
+/** Create/update payload: the editable fields plus the user-entered number of items (`assets.quantity`). */
+export type AssetWriteInput = Partial<AssetInput> & { quantity?: number };
+
 export const ASSET_FIELDS: AssetField[] = [
   'name', 'category', 'brand', 'model', 'serial_number', 'purchase_date', 'supplier', 'purchase_cost', 'currency',
   'invoice_reference', 'department_key', 'location', 'custodian_user_id', 'custodian_name', 'condition', 'status', 'notes',
@@ -131,6 +134,8 @@ export interface Asset {
    * `asset_register_list` on the server; the browser only displays it and never counts rows itself.
    */
   same_item_count: number;
+  /** User-entered number of items, stored on the row (Add/Edit form); the register table shows this figure. */
+  quantity: number;
   created_by: string;
   created_by_name: string | null;
   created_at: string;

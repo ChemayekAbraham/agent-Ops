@@ -73,13 +73,13 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const update = useUpdateAsset();
   const bulk = useCommitAssetImport();
   const saving = create.isPending || update.isPending || bulk.isPending;
-  const currentCount = editing && asset ? Math.max(1, asset.same_item_count ?? 1) : 0;
+  const currentCount = editing && asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 0;
   const qty = parseAssetQuantity(quantity);
   const extra = editing && qty !== null ? qty - currentCount : 0;
   const many = editing ? extra > 0 : (qty ?? 0) > 1;
 
   useEffect(() => {
-    if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.same_item_count ?? 1) : 1)); setErrors([]); }
+    if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 1)); setErrors([]); }
   }, [open, asset]);
 
   const errorFor = useMemo(() => {
@@ -104,10 +104,10 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
       if (copy.errors.length) { setErrors(copy.errors); return; }
       setErrors([]);
       try {
-        if (asset && Object.keys(changes).length > 0) {
-          await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: check.value, reason: reason.trim() || null });
+        if (asset) {
+          await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: { ...check.value, quantity: qty }, reason: reason.trim() || null });
         }
-        const rows = Array.from({ length: extra }, (_, i) => ({ ...copy.value, row_ref: String(i + 1) }));
+        const rows = Array.from({ length: extra }, (_, i) => ({ ...copy.value, quantity: qty, row_ref: String(i + 1) }));
         const seed = new TextEncoder().encode(`${crypto.randomUUID()}|${JSON.stringify(rows)}`);
         const res = await bulk.mutateAsync({
           fileName: `Form entry: ${copy.value.name ?? 'asset'} +${extra}`,
@@ -138,7 +138,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
     setErrors([]);
     if (many) {
       try {
-        const rows = Array.from({ length: qty }, (_, i) => ({ ...preview.value, row_ref: String(i + 1) }));
+        const rows = Array.from({ length: qty }, (_, i) => ({ ...preview.value, quantity: qty, row_ref: String(i + 1) }));
         const seed = new TextEncoder().encode(`${crypto.randomUUID()}|${JSON.stringify(rows)}`);
         const res = await bulk.mutateAsync({
           fileName: `Form entry: ${preview.value.name ?? 'asset'} x${qty}`,
@@ -163,7 +163,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
     try {
       const saved = editing && asset
         ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: preview.value, reason: reason.trim() || null })
-        : await create.mutateAsync(preview.value);
+        : await create.mutateAsync({ ...preview.value, quantity: qty ?? 1 });
       toast.success(editing ? `${assetCodes(saved).primary} updated` : `${assetCodes(saved).primary} registered`);
       onSaved?.(saved);
       onOpenChange(false);
