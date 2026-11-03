@@ -2523,7 +2523,7 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                       >
                         {followUps.slice(0, 3).map((q) => (
                           <button
-                            key={q.id}
+                            key={q}
                             type="button"
                             disabled={isLoading}
                             onClick={() => void handleSuggestionClick(q)}
