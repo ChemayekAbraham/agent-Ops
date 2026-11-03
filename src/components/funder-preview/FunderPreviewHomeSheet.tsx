@@ -73,10 +73,9 @@ const TONE_ACCENT = { filled: 'primary', soft: 'primary', success: 'success' } a
 /** Flat connector colour for a step's accent; colour changes happen behind a dot, never mid-line. */
 const ACCENT_LINE = { primary: 'bg-primary', success: 'bg-success' } as const;
 
-
-
 /**
  * "Meet the home": the first screen of the support flow on the preview route.
+
  * One decision per screen: what it costs, what it earns, why it is real, then
  * one Pick action in thumb reach.
  */
