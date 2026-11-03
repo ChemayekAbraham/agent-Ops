@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -41,9 +41,9 @@ describe('assistant hello bubble', () => {
   it('is still up just before 20 seconds and gone once the fade has run', () => {
     vi.useFakeTimers();
     renderAssistant('Angwen Sarah');
-    vi.advanceTimersByTime(19_000);
+    act(() => { vi.advanceTimersByTime(19_000); });
     expect(document.body.querySelector(BUBBLE)).not.toBeNull();
-    vi.advanceTimersByTime(2_000);
+    act(() => { vi.advanceTimersByTime(2_000); });
     expect(document.body.querySelector(BUBBLE)).toBeNull();
   });
 
