@@ -243,7 +243,7 @@ export function FunderPreviewHomeSheet({
                         {first ? null : (
                           <span
                             className={cn(
-                              'absolute left-1/2 top-0 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
+                              'absolute left-1/2 top-0 h-1/2 w-[3px] -translate-x-1/2',
                               ACCENT_LINE[accent],
                             )}
                           />
@@ -252,7 +252,7 @@ export function FunderPreviewHomeSheet({
                         {belowAccent ? (
                           <span
                             className={cn(
-                              'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
+                              'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2',
                               ACCENT_LINE[belowAccent],
                             )}
                           />
