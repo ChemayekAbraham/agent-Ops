@@ -189,13 +189,20 @@ export function FunderPreviewHomeSheet({
                 }}
               >
                 {photos.map((src, index) => (
-                  <img
+                  <button
                     key={src}
-                    src={src}
-                    alt={index === 0 ? `Photo of ${view.title} in ${view.place}` : ''}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                    className="h-full w-full flex-none snap-center object-cover"
-                  />
+                    type="button"
+                    onClick={() => setViewerIndex(index)}
+                    aria-label={`View photo ${index + 1} of ${photos.length} full screen`}
+                    className="h-full w-full flex-none cursor-zoom-in snap-center bg-transparent p-0"
+                  >
+                    <img
+                      src={src}
+                      alt={index === 0 ? `Photo of ${view.title} in ${view.place}` : ''}
+                      loading={index === 0 ? 'eager' : 'lazy'}
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
                 ))}
               </div>
             ) : (
