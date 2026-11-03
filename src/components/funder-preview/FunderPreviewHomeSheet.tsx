@@ -237,17 +237,15 @@ export function FunderPreviewHomeSheet({
                   const first = index === 0;
                   const last = index === TIMELINE.length - 1;
                   const accent = TONE_ACCENT[tone];
-                  const aboveAccent = first ? null : TONE_ACCENT[TIMELINE[index - 1].tone];
                   const belowAccent = last ? null : TONE_ACCENT[TIMELINE[index + 1].tone];
-
                   return (
                     <li key={when} className="flex items-center gap-3">
                       <span aria-hidden className="relative flex w-9 flex-none self-stretch items-center justify-center">
-                        {aboveAccent ? (
+                        {first ? null : (
                           <span
                             className={cn(
                               'absolute left-1/2 top-0 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
-                              joinLine(aboveAccent, accent),
+                              ACCENT_LINE[accent],
                             )}
                           />
                         ) : null}
@@ -255,10 +253,11 @@ export function FunderPreviewHomeSheet({
                           <span
                             className={cn(
                               'absolute bottom-0 left-1/2 h-1/2 w-[3px] -translate-x-1/2 rounded-full',
-                              joinLine(accent, belowAccent),
+                              ACCENT_LINE[belowAccent],
                             )}
                           />
                         ) : null}
+
 
                         <span
                           className={cn(
