@@ -93,10 +93,6 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
 
   const submit = async () => {
     if (qty === null) { setErrors([{ field: 'quantity', message: `Enter a whole number from 1 to ${MAX_ASSET_QUANTITY}.` }]); return; }
-    if (editing && extra < 0) {
-      setErrors([{ field: 'quantity', message: `Assets cannot be deleted. To reduce below ${currentCount}, mark the extra items Disposed or Lost.` }]);
-      return;
-    }
     if (editing && extra > 0) {
       const changes = toPayload(form, asset);
       const check = validateAssetInput(changes, { partial: true });
@@ -205,8 +201,8 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
           </Field>
           {(
             <Field id="asset-quantity" label="Number of items" required error={errorFor.get('quantity')}
-              hint={editing ? (extra > 0 ? `${extra} more will be added as separate assets with these details, each with its own ID, tag and QR label.` : `${currentCount} on the register now. Raise it to add more.`) : many ? `${qty} separate assets will be registered, each with its own asset ID, tag and QR label.` : 'Register several identical items at once.'}>
-              <Input id="asset-quantity" type="number" inputMode="numeric" min={editing ? currentCount : 1} max={MAX_ASSET_QUANTITY} step={1}
+              hint={editing ? `${currentCount} recorded now. Change it to update the number on this asset.` : 'How many of this item there are. Saved on this one asset.'}>
+              <Input id="asset-quantity" type="number" inputMode="numeric" min={1} max={MAX_ASSET_QUANTITY} step={1}
                 value={quantity} onChange={(e) => setQuantity(e.target.value)} />
             </Field>
           )}
