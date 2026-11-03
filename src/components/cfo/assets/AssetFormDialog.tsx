@@ -160,7 +160,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
     }
     try {
       const saved = editing && asset
-        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: preview.value, reason: reason.trim() || null })
+        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: qty !== currentCount ? { ...preview.value, quantity: qty ?? currentCount } : preview.value, reason: reason.trim() || null })
         : await create.mutateAsync({ ...preview.value, quantity: qty ?? 1 });
       toast.success(editing ? `${assetCodes(saved).primary} updated` : `${assetCodes(saved).primary} registered`);
       onSaved?.(saved);
