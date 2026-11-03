@@ -1,11 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { decisionTone, fmt, type Tone } from './format';
 import type { Tile } from './deskConfig';
 import { useStageFlow, type FeedState, type Row } from './useDeskFeed';
-import { StageFlow } from './StageFlow';
+import { StageFlow, actingDesk } from './StageFlow';
 import { TileGrid } from './Tiles';
 import { Skeleton, SkeletonTiles } from './Skeleton';
-import { CALM, FOCUS, PANEL, statusText, type Status } from './deskTheme';
+import { CALM, FOCUS, LABEL, PANEL, statusDot, statusText, type Status } from './deskTheme';
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -23,7 +24,7 @@ function buildBlockers(flow: Row[], kpis: Row[], care: Row[]): Blocker[] {
 
   const budget = kpis.find((r) => String(r.metric) === 'budget_today_ugx');
   if (num(budget?.value) === null) {
-    const coo = flow.find((r) => String(r.ord) === '5');
+    const coo = flow.find((r) => String(r.ord) === '6');
     out.push({
       key: 'budget',
       rank: 0,
@@ -49,8 +50,8 @@ function buildBlockers(flow: Row[], kpis: Row[], care: Row[]): Blocker[] {
         rank: stuck ? 1 : 2,
         tone: stuck || days > 2 ? 'bad' : 'warn',
         text: stuck
-          ? `${r.stage}: ${fmt('int', r.waiting)} waiting worth ${fmt('ugx', r.waiting_ugx)} and nothing cleared in 7 days — ${r.desk} acts next.`
-          : `${r.stage}: ${fmt('int', r.waiting)} waiting worth ${fmt('ugx', r.waiting_ugx)}, clearing ${Number(r.per_day_7d).toFixed(1)} a day — ${days.toFixed(1)} days to clear, ${r.desk} acts next.`,
+          ? `${r.stage}: ${fmt('int', r.waiting)} waiting worth ${fmt('ugx', r.waiting_ugx)} and nothing cleared in 7 days — ${actingDesk(r)} acts next.`
+          : `${r.stage}: ${fmt('int', r.waiting)} waiting worth ${fmt('ugx', r.waiting_ugx)}, clearing ${Number(r.per_day_7d).toFixed(1)} a day — ${days.toFixed(1)} days to clear, ${actingDesk(r)} acts next.`,
       });
     });
 
@@ -70,15 +71,21 @@ function buildBlockers(flow: Row[], kpis: Row[], care: Row[]): Blocker[] {
 
 function Panel({ title, board, children }: { title: string; board: boolean; children: React.ReactNode }) {
   return (
-    <section className={`${PANEL} flex min-h-0 flex-col gap-3 p-4 sm:p-5`}>
+    <section className={`${PANEL} flex min-h-0 flex-col gap-3.5 p-5`}>
       <h2 className={`${board ? 'text-lg' : 'text-base'} shrink-0 font-semibold text-foreground`}>{title}</h2>
       <div className="min-h-0 flex-1 overflow-auto">{children}</div>
     </section>
   );
 }
 
-function Blockers({ items, loading, board, limit }: { items: Blocker[]; loading: boolean; board: boolean; limit?: number }) {
-  const shown = limit ? items.slice(0, limit) : items;
+/** The three that matter today, with the rest a click away. */
+const BLOCKER_LIMIT = 3;
+
+function Blockers({ items, loading, board }: { items: Blocker[]; loading: boolean; board: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  const hidden = Math.max(0, items.length - BLOCKER_LIMIT);
+  const shown = expanded ? items : items.slice(0, BLOCKER_LIMIT);
+
   return (
     <Panel title="Today&rsquo;s blockers" board={board}>
       {loading && (
@@ -96,11 +103,11 @@ function Blockers({ items, loading, board, limit }: { items: Blocker[]; loading:
       )}
 
       {!loading && shown.length > 0 && (
-        <ol className="space-y-2.5">
+        <ol className="space-y-3">
           {shown.map((b) => {
             const line = (
               <>
-                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full bg-current ${statusText[b.tone]}`} aria-hidden />
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${statusDot[b.tone]}`} aria-hidden />
                 <span className={`${board ? 'text-base' : 'text-sm'} leading-snug text-foreground`}>{b.text}</span>
               </>
             );
@@ -119,8 +126,15 @@ function Blockers({ items, loading, board, limit }: { items: Blocker[]; loading:
         </ol>
       )}
 
-      {limit && items.length > limit && (
-        <p className="pt-1 text-xs text-muted-foreground">{items.length - limit} more not shown.</p>
+      {!loading && hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          aria-expanded={expanded}
+          className={`${LABEL} mt-1 w-fit rounded underline underline-offset-4 ${CALM} ${FOCUS} hover:text-foreground`}
+        >
+          {expanded ? 'Show fewer' : `+${hidden} more`}
+        </button>
       )}
     </Panel>
   );
@@ -174,7 +188,7 @@ function MoneyOut({ feed, board, limit }: { feed: FeedState; board: boolean; lim
                     style={{ width: `${Math.max(2, Math.round((ugx / max) * 100))}%` }}
                   />
                 </div>
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-[11px] text-muted-foreground">
+                <div className={`${LABEL} flex flex-wrap items-baseline justify-between gap-x-3`}>
                   <span className="truncate">
                     {fmt('int', r.n)} waiting · oldest {fmt('days', r.oldest_days)} days · {String(r.owner ?? '—')}
                   </span>
@@ -227,13 +241,13 @@ export function CommandCentre({
   if (board) {
     // One screen, no scrolling: strip, then the river, then the two panels.
     return (
-      <div className="flex h-full min-h-0 flex-col gap-4">
+      <div className="flex h-full min-h-0 flex-col gap-6">
         <div className="shrink-0">{balance}</div>
         <div className="shrink-0">
           <StageFlow feed={flow} board />
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-          <Blockers items={blockers} loading={loading} board limit={3} />
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
+          <Blockers items={blockers} loading={loading} board />
           <MoneyOut feed={gaps} board limit={3} />
         </div>
       </div>
@@ -241,10 +255,10 @@ export function CommandCentre({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {balance}
       <StageFlow feed={flow} board={false} />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Blockers items={blockers} loading={loading} board={false} />
         <MoneyOut feed={gaps} board={false} />
       </div>

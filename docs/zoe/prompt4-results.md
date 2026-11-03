@@ -1,5 +1,7 @@
 # Zoe Prompt 4 Results — Predictive, Learning, Knowledge & Proper Measurement
 
+> **Note:** Evaluation figures in this document are **simulated, not release proof** (`npm run eval:zoe`). For real production figures and `npm run eval:zoe:real` status, see [`docs/zoe/reliability-results.md`](./reliability-results.md).
+
 **Completed:** 2026-10-30  
 **Branch:** `landlord-calling-hub-foundation`  
 **Live Database Status:** Verified `ok` (`25/25` checks passed in `supabase/tests/zoe_prompt4_verification.sql`; `scripts/guard-zoe-parity.mjs` verified `18 tables, 165 columns, 19 views, and 120 RPCs across 42 code files`).

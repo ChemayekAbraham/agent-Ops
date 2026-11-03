@@ -488,3 +488,131 @@ export function resolveSourceScreenLink(source?: string | null): ZoeScreenLink {
 
   return { to: '/me', label: 'Open My space' };
 }
+
+export interface ZoePageContext {
+  route: string;
+  title?: string;
+  filters?: Record<string, string | number | boolean | null>;
+  period?: string;
+}
+
+const ROUTE_TITLE_MAP: Record<string, string> = {
+  '/me': 'My Space Home',
+  '/me/work': 'My Space Work & Tasks',
+  '/me/payslips': 'My Space Payslips',
+  '/me/requisitions': 'My Space Requisitions',
+  '/me/concerns': 'My Space Calling Concerns',
+  '/me/food': 'My Space Canteen',
+  '/me/staff-reports': 'Calling & Pipeline Feedback Reports',
+  '/tenant-ops': 'Tenant Ops Dashboard',
+  '/tenant-ops/workspace': 'Tenant Ops Workspace',
+  '/landlord-ops': 'Landlord Ops Dashboard',
+  '/landlord-ops/principal-recovered': 'Landlord Ops Principal Recovered',
+  '/executive-hub': 'Executive Operations Hub',
+  '/cfo-dashboard': 'CFO Dashboard',
+  '/cfo/cash-position': 'CFO Cash Position',
+  '/cfo/receivables-analysis': 'CFO Receivables Analysis',
+  '/cfo/payables-forecast': 'CFO Payables Forecast',
+  '/financial-ops': 'Financial Ops Workspace',
+  '/coo-dashboard': 'COO Command Center',
+  '/ceo-dashboard': 'CEO Dashboard',
+  '/hr-dashboard': 'HR Dashboard',
+  '/crm': 'CRM & Communications',
+};
+
+/**
+ * Part C item (4) — Page awareness:
+ * Extracts ONLY the route name, visible URL query filters, and period from the current browser location.
+ * Never reads or forwards any screen data, DOM tables, or client state.
+ */
+export function derivePageContextFromLocation(
+  pathname: string,
+  search = '',
+): ZoePageContext {
+  const cleanRoute = (pathname || '/me').slice(0, 160);
+  const params = new URLSearchParams(search || '');
+  const filters: Record<string, string | number | boolean | null> = {};
+  let period: string | undefined;
+
+  const allowedFilterKeys = [
+    'tab',
+    'section',
+    'period',
+    'from',
+    'to',
+    'region',
+    'district',
+    'status',
+    'bucket',
+    'frequency',
+  ];
+
+  for (const key of allowedFilterKeys) {
+    const val = params.get(key);
+    if (!val) continue;
+    const trimmed = val.trim().slice(0, 60);
+    if (key === 'period') {
+      period = trimmed;
+    } else {
+      filters[key] = trimmed;
+    }
+  }
+
+  return {
+    route: cleanRoute,
+    title: ROUTE_TITLE_MAP[cleanRoute] ?? cleanRoute,
+    ...(Object.keys(filters).length > 0 ? { filters } : {}),
+    ...(period ? { period } : {}),
+  };
+}
+
+/**
+ * Part D item (5) — "What can Zoe do for my role?" gallery of 10 example questions per role
+ * shown on the empty chat.
+ */
+export function getRoleGalleryQuestions(roles: readonly string[] = []): ZoeSuggestion[] {
+  const pool: ZoeSuggestion[] = [
+    ...getSuggestionsForRoles(roles),
+    ...MY_SPACE_SUGGESTIONS,
+    {
+      id: 'my-coaching',
+      label: 'How am I doing this month?',
+      prompt: 'How am I doing on my work over the last 28 days, and what 3 suggestions do you have?',
+      category: 'my_space',
+    },
+    {
+      id: 'kb-expected-collected',
+      label: 'Expected vs Collected Rent',
+      prompt: 'What is the difference between Expected Rent and Collected Rent in Welile reports?',
+      category: 'my_space',
+    },
+    {
+      id: 'kb-cash-vs-float',
+      label: 'Treasury Cash vs Agent Float',
+      prompt: 'What is the difference between Treasury Cash Position (A1 + A5) and Agent Float (A2)?',
+      category: 'my_space',
+    },
+    {
+      id: 'my-tickets',
+      label: 'My open HR tickets',
+      prompt: 'Show my open HR tickets in My Space.',
+      category: 'my_space',
+    },
+    {
+      id: 'my-advances',
+      label: 'My salary advances',
+      prompt: 'Show my salary advances and remaining balance in My Space.',
+      category: 'my_space',
+    },
+  ];
+
+  const seen = new Set<string>();
+  const unique: ZoeSuggestion[] = [];
+  for (const item of pool) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    unique.push(item);
+    if (unique.length >= 10) break;
+  }
+  return unique;
+}

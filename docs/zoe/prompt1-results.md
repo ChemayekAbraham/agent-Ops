@@ -1,5 +1,7 @@
 # Zoe Prompt 1 Results — Database Parity, Catch-Up Plan & Resilient Request Handling
 
+> **Note:** Evaluation figures in this document are **simulated, not release proof** (`npm run eval:zoe`). For real production figures and `npm run eval:zoe:real` status, see [`docs/zoe/reliability-results.md`](./reliability-results.md).
+
 *Date*: 2026-10-30 (Africa/Kampala)  
 *Branch*: `landlord-calling-hub-foundation` (synced with `origin/lovable`)
 

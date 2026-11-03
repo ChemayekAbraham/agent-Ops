@@ -4,6 +4,42 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { safeUUID } from '@/lib/safeUUID';
 import type { ZoeMorningBriefPayload } from '@/lib/zoe';
+import type { ZoeParsedAttachment } from '@/lib/zoe/zoeFileParser';
+import type { ZoePageContext } from './zoeConfig';
+
+export interface ZoeProjectItem {
+  id: string;
+  name: string;
+  instructions: string;
+  pinned_files: Array<{
+    name: string;
+    kind?: string;
+    storage_path?: string;
+    summary?: string;
+  }>;
+  updated_at?: string;
+}
+
+export interface ZoeTaughtUpdateItem {
+  id: string;
+  question_text: string;
+  department: string;
+  kb_slug: string;
+  kb_title: string;
+  kb_summary: string;
+  approved_by_name: string;
+  taught_at: string;
+  banner_label: string;
+}
+
+export interface ZoePushPrefs {
+  push_enabled: boolean;
+  morning_brief_push: boolean;
+  taught_updates_push: boolean;
+  soft_prompt_shown: boolean;
+  daily_cap: number;
+  sent_today: number;
+}
 
 export type ZoeTurnOutcome =
   | 'answered'
@@ -296,6 +332,11 @@ export interface UseZoeAssistantReturn {
   glossaryEntries: ZoeGlossaryEntry[];
   knowledgeEntries: ZoeKnowledgeEntry[];
   personalisedStarters: ZoePersonalisedStarter[];
+  projects: ZoeProjectItem[];
+  activeProjectId: string | null;
+  taughtUpdates: ZoeTaughtUpdateItem[];
+  pushPrefs: ZoePushPrefs;
+  pageContext: ZoePageContext | null;
   memoryEnabled: boolean;
   temporaryChat: boolean;
   memorySuggestion: ZoeMemorySuggestion | null;
@@ -311,9 +352,27 @@ export interface UseZoeAssistantReturn {
   setResearchMode: (enabled: boolean | ((prev: boolean) => boolean)) => void;
   setMemoryEnabled: (enabled: boolean) => Promise<void>;
   setTemporaryChat: (enabled: boolean) => void;
+  setPageContext: (ctx: ZoePageContext | null) => void;
+  setActiveProjectId: (projectId: string | null) => void;
+  saveProject: (input: {
+    project_id?: string;
+    name: string;
+    instructions?: string;
+    pinned_files?: ZoeProjectItem['pinned_files'];
+  }) => Promise<{ ok: boolean; error?: string }>;
+  deleteProject: (projectId: string) => Promise<{ ok: boolean }>;
+  updatePushPrefs: (input: {
+    push_enabled?: boolean;
+    morning_brief_push?: boolean;
+    taught_updates_push?: boolean;
+    soft_prompt_shown?: boolean;
+  }) => Promise<{ ok: boolean }>;
   acceptMemorySuggestion: () => Promise<{ ok: boolean; error?: string }>;
   dismissMemorySuggestion: () => Promise<void>;
-  sendMessage: (prompt: string) => Promise<void>;
+  sendMessage: (
+    prompt: string,
+    opts?: { attachments?: ZoeParsedAttachment[]; pageContext?: ZoePageContext | null },
+  ) => Promise<void>;
   stopGenerating: () => void;
   regenerateLastAnswer: () => Promise<void>;
   retryLastMessage: () => Promise<void>;
@@ -344,6 +403,18 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   const [glossaryEntries, setGlossaryEntries] = useState<ZoeGlossaryEntry[]>([]);
   const [knowledgeEntries, setKnowledgeEntries] = useState<ZoeKnowledgeEntry[]>([]);
   const [personalisedStarters, setPersonalisedStarters] = useState<ZoePersonalisedStarter[]>([]);
+  const [projects, setProjects] = useState<ZoeProjectItem[]>([]);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [taughtUpdates, setTaughtUpdates] = useState<ZoeTaughtUpdateItem[]>([]);
+  const [pushPrefs, setPushPrefs] = useState<ZoePushPrefs>({
+    push_enabled: false,
+    morning_brief_push: false,
+    taught_updates_push: false,
+    soft_prompt_shown: false,
+    daily_cap: 2,
+    sent_today: 0,
+  });
+  const [pageContext, setPageContext] = useState<ZoePageContext | null>(null);
   const [memoryEnabled, setMemoryEnabledState] = useState<boolean>(true);
   const [temporaryChat, setTemporaryChatState] = useState<boolean>(false);
   const [memorySuggestion, setMemorySuggestion] = useState<ZoeMemorySuggestion | null>(null);
@@ -540,6 +611,59 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         /* ignore knowledge base load error */
       });
 
+    // Load private Projects (`staff_assistant_projects`)
+    supabase.functions
+      .invoke<{ rows?: ZoeProjectItem[] }>('staff-assistant', {
+        body: { action: 'list_projects' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.rows)) {
+          setProjects(data.rows);
+        }
+      })
+      .catch(() => {
+        /* ignore projects load error */
+      });
+
+    // Load "Zoe learned this from <Department>" updates (`assistant_staff_my_taught_updates`)
+    supabase.functions
+      .invoke<{ rows?: ZoeTaughtUpdateItem[] }>('staff-assistant', {
+        body: { action: 'my_taught_updates' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (Array.isArray(data?.rows)) {
+          setTaughtUpdates(data.rows);
+        }
+      })
+      .catch(() => {
+        /* ignore taught updates load error */
+      });
+
+    // Load Web Push preferences (`staff_assistant_get_push_prefs`)
+    supabase.functions
+      .invoke<Partial<ZoePushPrefs>>('staff-assistant', {
+        body: { action: 'get_push_prefs' },
+      })
+      .then(({ data }) => {
+        if (cancelled || generation !== generationRef.current) return;
+        if (data && typeof data === 'object') {
+          setPushPrefs((prev) => ({
+            ...prev,
+            push_enabled: Boolean(data.push_enabled),
+            morning_brief_push: Boolean(data.morning_brief_push),
+            taught_updates_push: Boolean(data.taught_updates_push),
+            soft_prompt_shown: Boolean(data.soft_prompt_shown),
+            daily_cap: typeof data.daily_cap === 'number' ? data.daily_cap : 2,
+            sent_today: typeof data.sent_today === 'number' ? data.sent_today : 0,
+          }));
+        }
+      })
+      .catch(() => {
+        /* ignore push prefs load error */
+      });
+
     return () => {
       cancelled = true;
       clearStreamTimer();
@@ -588,9 +712,15 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
   }, []);
 
   const sendMessage = useCallback(
-    async (rawText: string) => {
+    async (
+      rawText: string,
+      opts?: { attachments?: ZoeParsedAttachment[]; pageContext?: ZoePageContext | null },
+    ) => {
       const prompt = rawText.trim().slice(0, MAX_MESSAGE_LENGTH);
       if (!prompt || inFlightRef.current || !user?.id) return;
+
+      const sentAttachments = opts?.attachments ?? [];
+      const effectivePageContext = opts?.pageContext !== undefined ? opts.pageContext : pageContext;
 
       clearStreamTimer();
       if (abortControllerRef.current) {
@@ -639,6 +769,22 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
               memory_enabled: memoryEnabled && !temporaryChat,
               ...(!temporaryChat && conversationIdRef.current
                 ? { conversation_id: conversationIdRef.current }
+                : {}),
+              ...(effectivePageContext ? { page_context: effectivePageContext } : {}),
+              ...(activeProjectId ? { project_id: activeProjectId } : {}),
+              ...(sentAttachments.length > 0
+                ? {
+                    attachments: sentAttachments.map((a) => ({
+                      name: a.name,
+                      mime_type: a.mime_type,
+                      size_bytes: a.size_bytes,
+                      kind: a.kind,
+                      extracted_text: a.extracted_text,
+                      ...(a.image_data_url ? { image_data_url: a.image_data_url } : {}),
+                      ...(a.pii_warning ? { pii_warning: a.pii_warning } : {}),
+                      ...(a.storage_path ? { storage_path: a.storage_path } : {}),
+                    })),
+                  }
                 : {}),
               client_context: { device: collectDevice() },
             },
@@ -762,7 +908,15 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
         }
       }
     },
-    [user?.id, clearStreamTimer, researchMode, temporaryChat, memoryEnabled],
+    [
+      user?.id,
+      clearStreamTimer,
+      researchMode,
+      temporaryChat,
+      memoryEnabled,
+      pageContext,
+      activeProjectId,
+    ],
   );
 
   const regenerateLastAnswer = useCallback(async () => {
@@ -1189,6 +1343,106 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     [user?.id],
   );
 
+  const saveProject = useCallback(
+    async (input: {
+      project_id?: string;
+      name: string;
+      instructions?: string;
+      pinned_files?: ZoeProjectItem['pinned_files'];
+    }): Promise<{ ok: boolean; error?: string }> => {
+      if (!user?.id) return { ok: false, error: 'Not signed in.' };
+      try {
+        const { data, error } = await supabase.functions.invoke<{
+          ok?: boolean;
+          error?: string;
+          project?: ZoeProjectItem;
+        }>('staff-assistant', {
+          body: {
+            action: 'save_project',
+            ...(input.project_id ? { project_id: input.project_id } : {}),
+            name: input.name,
+            instructions: input.instructions ?? '',
+            pinned_files: input.pinned_files ?? [],
+          },
+        });
+        if (error || data?.ok === false) {
+          return { ok: false, error: data?.error || error?.message || 'Could not save project.' };
+        }
+        if (data?.project) {
+          setProjects((prev) => {
+            const idx = prev.findIndex((p) => p.id === data.project!.id);
+            if (idx >= 0) {
+              const next = [...prev];
+              next[idx] = data.project!;
+              return next;
+            }
+            return [data.project!, ...prev];
+          });
+          setActiveProjectId(data.project.id);
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, error: 'Could not save project.' };
+      }
+    },
+    [user?.id],
+  );
+
+  const deleteProject = useCallback(
+    async (projectId: string): Promise<{ ok: boolean }> => {
+      if (!user?.id || !projectId) return { ok: false };
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      if (activeProjectId === projectId) {
+        setActiveProjectId(null);
+      }
+      try {
+        await supabase.functions.invoke('staff-assistant', {
+          body: { action: 'delete_project', project_id: projectId },
+        });
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    },
+    [user?.id, activeProjectId],
+  );
+
+  const updatePushPrefs = useCallback(
+    async (input: {
+      push_enabled?: boolean;
+      morning_brief_push?: boolean;
+      taught_updates_push?: boolean;
+      soft_prompt_shown?: boolean;
+    }): Promise<{ ok: boolean }> => {
+      setPushPrefs((prev) => ({
+        ...prev,
+        ...(typeof input.push_enabled === 'boolean' ? { push_enabled: input.push_enabled } : {}),
+        ...(typeof input.morning_brief_push === 'boolean'
+          ? { morning_brief_push: input.morning_brief_push }
+          : {}),
+        ...(typeof input.taught_updates_push === 'boolean'
+          ? { taught_updates_push: input.taught_updates_push }
+          : {}),
+        ...(typeof input.soft_prompt_shown === 'boolean'
+          ? { soft_prompt_shown: input.soft_prompt_shown }
+          : {}),
+      }));
+      if (!user?.id) return { ok: false };
+      try {
+        await supabase.functions.invoke('staff-assistant', {
+          body: {
+            action: 'set_push_prefs',
+            ...input,
+          },
+        });
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    },
+    [user?.id],
+  );
+
   return {
     messages,
     conversations,
@@ -1198,6 +1452,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     glossaryEntries,
     knowledgeEntries,
     personalisedStarters,
+    projects,
+    activeProjectId,
+    taughtUpdates,
+    pushPrefs,
+    pageContext,
     memoryEnabled,
     temporaryChat,
     memorySuggestion,
@@ -1213,6 +1472,11 @@ export function useZoeAssistant(enabled = true): UseZoeAssistantReturn {
     setResearchMode,
     setMemoryEnabled,
     setTemporaryChat,
+    setPageContext,
+    setActiveProjectId,
+    saveProject,
+    deleteProject,
+    updatePushPrefs,
     acceptMemorySuggestion,
     dismissMemorySuggestion,
     sendMessage,

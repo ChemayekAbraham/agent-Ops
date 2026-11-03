@@ -70,7 +70,7 @@ export function PortfolioRedemption({
       <Preview>
         {isFull
           ? `Capital Redemption Confirmation — ${fmtRedeemed} released in full`
-          : `Partial Capital Redemption — ${fmtRedeemed} released, ${fmtRemaining} stays invested`}
+          : `Partial Capital Redemption — ${fmtRedeemed} released, ${fmtRemaining} stays in your portfolio`}
       </Preview>
       <Body style={main}>
         <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={bgTable}>
@@ -109,7 +109,7 @@ export function PortfolioRedemption({
                     <Text style={{ ...introText, margin: 0 }}>
                       {isFull
                         ? `We confirm that your capital redemption request has been processed in full. The entire principal of ${fmtPrevious} has been released for payout and this portfolio has now been closed.`
-                        : `We confirm that your capital redemption request has been processed. ${fmtRedeemed} has been released for payout from your portfolio principal of ${fmtPrevious}. The balance of ${fmtRemaining} remains invested and continues to earn returns under your existing partnership terms.`}
+                        : `We confirm that your capital redemption request has been processed. ${fmtRedeemed} has been released for payout from your portfolio principal of ${fmtPrevious}. The balance of ${fmtRemaining} remains in your portfolio and continues to earn returns under your existing partnership terms.`}
                     </Text>
                     <Text style={{ ...introText, margin: '15px 0 0 0' }}>
                       Please note: paying out your capital takes up to {windowDays} days (about 3 months) from
@@ -140,7 +140,7 @@ export function PortfolioRedemption({
                               {expected_payout_by ? `, and on or before ${expected_payout_by}` : ''}.<br />
                               • It can come sooner. If it does, we will send you the money and inform you.<br />
                               • You do not need to do anything or ask again while you wait. We will keep you updated.
-                              {!isFull ? <><br />• The {fmtRemaining} still invested keeps earning your returns as normal during this period.</> : null}
+                              {!isFull ? <><br />• The {fmtRemaining} still in your portfolio keeps earning your returns as normal during this period.</> : null}
                             </Text>
                           </td>
                         </tr>
@@ -200,7 +200,7 @@ export function PortfolioRedemption({
                                 <tr>
                                   <td colSpan={2} style={{ paddingTop: '5px', borderTop: '1px solid #e2e8f0' }}>
                                     <Text style={totalLabel}>
-                                      {isFull ? 'Principal Remaining After Redemption' : 'Principal That Stays Invested'}
+                                      {isFull ? 'Principal Remaining After Redemption' : 'Principal Remaining in Your Portfolio'}
                                     </Text>
                                     <Text style={totalValue}>{fmtRemaining}</Text>
                                   </td>
@@ -355,7 +355,7 @@ export const template = {
     const remaining = formatAmount(data?.remaining_principal, cur)
     return data?.scope === 'full'
       ? `Capital Redemption Confirmation — ${redeemed} released in full`
-      : `Partial Capital Redemption — ${redeemed} released, ${remaining} stays invested`
+      : `Partial Capital Redemption — ${redeemed} released, ${remaining} stays in your portfolio`
   },
   displayName: 'Portfolio Capital Redemption',
   previewData: {

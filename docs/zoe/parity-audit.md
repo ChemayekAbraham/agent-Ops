@@ -234,5 +234,11 @@ When a staff member asks Zoe a question in production, the deployed `staff-assis
 | `zoe_ro_area_allowed(p_area text)` | `zoe_ro.*` views, `assistant_staff_data_catalog` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
 | `zoe_ro_area_is_sensitive(p_area text)` | `zoe_ro_require_area` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
 | `zoe_ro_require_area(p_area text)` | `zoe_ro.*` views, `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
-| `zoe_ro_validate_query(p_sql text)` | `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
-| `staff_assistant_log_query(p_question text, p_sql text, p_executed_sql text, p_role_areas text[], p_row_count integer, p_truncated boolean, p_duration_ms integer, p_status text, p_error_message text)` | `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
+| `zoe_ro_validate_query(p_sql text)` | `assistant_staff_run_query` | **yes** | `20261028180500_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` & `20261103180000_staff_assistant_consolidated_security_defences.sql` |
+| `staff_assistant_log_query(p_question text, p_sql text, p_executed_sql text, p_role_areas text[], p_row_count integer, p_truncated boolean, p_duration_ms integer, p_status text, p_error_message text)` | `assistant_staff_run_query` | **yes** | `20261028180500_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
+
+---
+
+## 4. Consolidated Reconciliation Status (2026-11-03)
+
+All 22 `public.staff_assistant_*` tables, 23 views (`public.v_staff_assistant_crm_messages_redacted` + 22 `zoe_ro.*` views with `security_invoker = true`), and 133 RPCs are verified live in production (`43e6c2e1-18a6-4503-badb-5bb6c23491cc`) and matched 1:1 with committed migration files through `20261103180000_staff_assistant_consolidated_security_defences.sql`. See `docs/zoe/schema-drift-reconciliation.md` for the full reconciliation report.

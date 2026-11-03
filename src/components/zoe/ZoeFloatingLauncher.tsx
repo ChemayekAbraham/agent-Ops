@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ExternalLink, MessageSquare } from 'lucide-react';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  type OpenZoeWithContextDetail,
+  ZOE_OPEN_WITH_PAGE_CONTEXT_EVENT,
+} from './AskZoeAboutScreenButton';
 import { ZoeChatSurface } from './ZoeChatSurface';
 import { useZoeAccess, useZoeAssistant } from './useZoeAssistant';
+import { derivePageContextFromLocation } from './zoeConfig';
 
 /**
  * Small floating "Ask Zoe" launcher displayed on My Space pages when
@@ -23,6 +28,30 @@ export const ZoeFloatingLauncher: React.FC = () => {
 
   // Only load conversation history when the floating sheet is actually opened
   const assistant = useZoeAssistant(open && hasAccess === true);
+
+  // Part C item (4): Pass only route name, visible filters, and period (never screen data)
+  useEffect(() => {
+    if (!open) return;
+    assistant.setPageContext(derivePageContextFromLocation(location.pathname, location.search));
+  }, [open, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (ev: Event) => {
+      const custom = ev as CustomEvent<OpenZoeWithContextDetail>;
+      if (custom.detail?.pageContext) {
+        assistant.setPageContext(custom.detail.pageContext);
+      }
+      setOpen(true);
+      if (custom.detail?.initialPrompt) {
+        void assistant.sendMessage(custom.detail.initialPrompt, {
+          pageContext: custom.detail.pageContext,
+        });
+      }
+    };
+    window.addEventListener(ZOE_OPEN_WITH_PAGE_CONTEXT_EVENT, handler);
+    return () => window.removeEventListener(ZOE_OPEN_WITH_PAGE_CONTEXT_EVENT, handler);
+  }, [assistant]);
 
   // Hidden if caller has no Zoe access or is already on the dedicated /me/zoe page
   if (hasAccess !== true || location.pathname === '/me/zoe') {
@@ -63,6 +92,11 @@ export const ZoeFloatingLauncher: React.FC = () => {
               glossaryEntries={assistant.glossaryEntries}
               knowledgeEntries={assistant.knowledgeEntries}
               personalisedStarters={assistant.personalisedStarters}
+              projects={assistant.projects}
+              activeProjectId={assistant.activeProjectId}
+              taughtUpdates={assistant.taughtUpdates}
+              pushPrefs={assistant.pushPrefs}
+              pageContext={assistant.pageContext}
               memoryEnabled={assistant.memoryEnabled}
               temporaryChat={assistant.temporaryChat}
               memorySuggestion={assistant.memorySuggestion}
@@ -77,6 +111,10 @@ export const ZoeFloatingLauncher: React.FC = () => {
               onToggleResearchMode={assistant.setResearchMode}
               onToggleMemoryEnabled={assistant.setMemoryEnabled}
               onToggleTemporaryChat={assistant.setTemporaryChat}
+              onSelectProject={assistant.setActiveProjectId}
+              onSaveProject={assistant.saveProject}
+              onDeleteProject={assistant.deleteProject}
+              onUpdatePushPrefs={assistant.updatePushPrefs}
               onAcceptMemorySuggestion={assistant.acceptMemorySuggestion}
               onDismissMemorySuggestion={assistant.dismissMemorySuggestion}
               onSendMessage={assistant.sendMessage}

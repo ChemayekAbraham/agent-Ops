@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           ledger_scope: 'wallet',
           recipient_type: 'user',
           source_table: 'wallets',
-          description: `Welile Operations invested UGX ${amount.toLocaleString()} from ${partnerName}'s wallet into Rent Management Pool. Payout day: ${payout_day}${getOrdinalSuffix(payout_day)}. First payout: ${firstPayoutDate}`,
+          description: `Welile Operations moved UGX ${amount.toLocaleString()} from ${partnerName}'s wallet into Rent Management Pool. Payout day: ${payout_day}${getOrdinalSuffix(payout_day)}. First payout: ${firstPayoutDate}`,
           currency: 'UGX',
           reference_id: referenceId,
           linked_party: 'Rent Management Pool',
@@ -199,8 +199,8 @@ Deno.serve(async (req) => {
     // Notify the partner
     await adminClient.from("notifications").insert({
       user_id: partner_id,
-      title: "🎉 Thank You — An Investment Was Made for You!",
-      message: `Great news! UGX ${amount.toLocaleString()} has been invested from your wallet by our operations team to help tenants access housing.\n\n💰 You'll earn 15% (UGX ${monthlyReward.toLocaleString()}) monthly on the ${payout_day}${getOrdinalSuffix(payout_day)} of every month for 12 months, starting ${firstPayoutDate}.\n\nThank you for being part of the Welile family! 🙏\n\nRef: ${referenceId}`,
+      title: "🎉 Thank You — Your Funds Are Now Supporting Tenants!",
+      message: `Great news! UGX ${amount.toLocaleString()} has been moved from your wallet by our operations team to help tenants access housing.\n\n💰 You'll earn 15% (UGX ${monthlyReward.toLocaleString()}) monthly on the ${payout_day}${getOrdinalSuffix(payout_day)} of every month for 12 months, starting ${firstPayoutDate}.\n\nThank you for being part of the Welile family! 🙏\n\nRef: ${referenceId}`,
       type: "success",
       metadata: { amount, reference_id: referenceId, payout_day, monthly_reward: monthlyReward, first_payout_date: firstPayoutDate, initiated_by: caller.id },
     });

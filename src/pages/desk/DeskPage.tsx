@@ -187,8 +187,8 @@ function DeskShell() {
     .map(([k]) => k);
 
   const header = (
-    <header className={board ? 'shrink-0 space-y-2' : 'space-y-3'}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <header className={`min-w-0 ${board ? 'shrink-0 space-y-3' : 'space-y-4'}`}>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex items-center gap-3 min-w-0">
           <WelileLogo size="sm" showText={false} linkToHome={false} variant="light" />
           <div className="min-w-0">
@@ -202,7 +202,7 @@ function DeskShell() {
       </div>
 
       {allowed.length > 1 && (
-        <nav aria-label="Desks" className="-mx-1 flex gap-1 overflow-x-auto border-b border-white/10 pb-px">
+        <nav aria-label="Desks" className="flex gap-1 overflow-x-auto border-b border-white/10 pb-px">
           {allowed.map((d) => (
             <NavLink
               key={d.id}
@@ -224,10 +224,11 @@ function DeskShell() {
   );
 
   if (board) {
+    // A wall display: full bleed, one screen, 32px of air all round.
     return (
-      <div className="desk-root flex h-[100dvh] flex-col gap-4 overflow-hidden p-5">
+      <div className="desk-root flex h-[100dvh] min-w-0 flex-col gap-6 overflow-hidden px-4 py-6 sm:px-8">
         {header}
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 flex-1">
           <DeskView key={desk.id} desk={desk} feeds={feeds} board />
         </div>
       </div>
@@ -236,7 +237,7 @@ function DeskShell() {
 
   return (
     <div className="desk-root min-h-screen">
-      <main className="mx-auto w-full max-w-[1500px] px-3 sm:px-6 py-5 space-y-5">
+      <main className="mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 py-6 sm:px-8">
         {header}
         <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />
       </main>

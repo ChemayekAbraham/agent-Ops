@@ -22,6 +22,14 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 // hidden for now (2026-10-16): the signature rent-request card is the single
 // entry point on this dashboard. Flip to true to bring them back.
 const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+/**
+ * The dashboard's "Post rent request" flow. 'assistant' is the guided chat
+ * (RentRequestAssistant), the flow for all agents since 2026-11-03. 'classic' is
+ * the old AgentRentRequestDialog chat, parked here until Pius says to delete it;
+ * switch back by setting this to 'classic'. (Renew, the tenant intake queue and
+ * the listing "swap tenant" flow still use AgentRentRequestDialog directly.)
+ */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -176,7 +184,6 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
-import { canSeeRentAssistantPreview } from '@/lib/rentAssistantPreview';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
 import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
@@ -211,11 +218,12 @@ const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepos
 // (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
 const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
 const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
-const RentRequestAssistant = lazy(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+const loadRentRequestAssistant = () => import('@/components/agent/rentRequestAssistant/RentRequestAssistant');
+const RentRequestAssistant = lazy(loadRentRequestAssistant);
 
-/** Fetch the rent-request dialog ahead of time; safe to call repeatedly. */
+/** Fetch the active rent-request flow ahead of time; safe to call repeatedly. */
 function preloadAgentRentRequestDialog() {
-  void loadAgentRentRequestDialog().catch(() => {});
+  void (DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? loadRentRequestAssistant() : loadAgentRentRequestDialog()).catch(() => {});
 }
 
 /** Skip speculative downloads on Data Saver or very slow connections. */
@@ -427,9 +435,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
-  // Rent Request Assistant preview: posts real requests, limited to listed accounts.
-  const showRentAssistantPreview = canSeeRentAssistantPreview(user?.email);
-  const [rentAssistantOpen, setRentAssistantOpen] = useState(false);
 
   // Deep link & event support for opening the Post Rent Request modal
   useEffect(() => {
@@ -1380,15 +1385,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 onPostRequest={() => { setRentRequestOpen(true); }}
                 onIntent={preloadAgentRentRequestDialog}
               />
-              {showRentAssistantPreview && (
-                <button
-                  type="button"
-                  onClick={() => setRentAssistantOpen(true)}
-                  className="mt-2 w-full min-h-11 rounded-2xl border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary"
-                >
-                  Post rent request · assistant preview
-                </button>
-              )}
               <AgentNudgePreviewButton userId={user?.id} />
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                   (2026-10-16). The signature card above is the entry point. */}
@@ -2117,18 +2113,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       />
       </LazyModal>
       <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
-      <AgentRentRequestDialog 
-        presentation="chat"
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
-      </LazyModal>
-      {showRentAssistantPreview && (
-        <LazyModal when={rentAssistantOpen}>
-          <RentRequestAssistant open={rentAssistantOpen} onOpenChange={setRentAssistantOpen} />
-        </LazyModal>
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        // Stays open on success: it shows "Posted" with "Post another" / "Back to dashboard".
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
       )}
+      </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog
         open={businessAdvanceOpen}

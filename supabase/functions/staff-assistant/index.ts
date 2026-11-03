@@ -15,10 +15,14 @@ import {
 import { ComputeArgsSchema, runSafeCompute } from "./calculator.ts";
 import {
   buildResearchModePlan,
+  COACHING_ADVISORY_NOTICE,
   CONSULTANT_FORBIDDEN_TOOLS,
+  ensureCoachingAdvisoryNotice,
   executeConsultantReadWebPage,
   executeConsultantWebSearch,
   filterToolsForConsultantMode,
+  isCoachingQuestion,
+  isColleagueCoachingForbiddenRequest,
   isConsultantQuestion,
   MAX_RESEARCH_SOURCES_PER_QUESTION,
   MAX_WEB_SEARCHES_PER_QUESTION,
@@ -27,6 +31,10 @@ import {
   WEB_RESEARCH_TOOL_NAMES,
 } from "./consultant.ts";
 import { formatPeriodLabel, kampalaToday } from "./dates.ts";
+import {
+  formatFastAnswerFromToolPayload,
+  matchFastAnswerTemplate,
+} from "./fastAnswers.ts";
 import {
   buildReportEmailDraft,
   extractRecipientQuery,
@@ -93,8 +101,11 @@ import {
   clearUserHistory,
   ConversationListItem,
   createNewConversation,
-  DEFAULT_STAFF_ASSISTANT_CONFIG,
+   DEFAULT_STAFF_ASSISTANT_CONFIG,
+  defaultErrorCodeForOutcome,
   deleteUserNote,
+  filterCleanModelHistory,
+  formatCurrentUserMessageForModel,
   getAdminClientForMfa,
   getMemoryPrefs,
   getOrCreateConversation,
@@ -949,6 +960,184 @@ export async function handleStaffAssistantRequest(
     }
   }
 
+  // Part C item (8): Private Projects (`staff_assistant_projects`)
+  if (body.action === "list_projects") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_list_projects");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, source: "staff_assistant_projects", rows: [] });
+  }
+
+  if (body.action === "save_project") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_upsert_project", {
+        p_project_id: body.project_id ?? null,
+        p_name: body.name,
+        p_instructions: body.instructions ?? "",
+        p_pinned_file_ids: body.pinned_files ?? [],
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error) {
+        return json(400, { ok: false, error: error.message });
+      }
+    } catch (err) {
+      return json(400, { ok: false, error: err instanceof Error ? err.message : "save_project failed" });
+    }
+    return json(200, { ok: true });
+  }
+
+  if (body.action === "delete_project") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_delete_project", {
+        p_project_id: body.project_id,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // best effort
+    }
+    return json(200, { ok: true });
+  }
+
+  // Part D item (1): Teaching loop (`staff_assistant_department_teaching_queue`, `staff_assistant_teach_from_review_queue`, `assistant_staff_my_taught_updates`)
+  if (body.action === "list_teaching_queue") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_department_teaching_queue", {
+        p_department: body.department ?? "all",
+        p_status: body.status ?? "open",
+        p_limit: 100,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, rows: [], row_count: 0 });
+  }
+
+  if (body.action === "approve_teaching_entry") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_teach_from_review_queue", {
+        p_unanswered_id: body.unanswered_id,
+        p_title: body.title,
+        p_category: body.category ?? "faq",
+        p_department: body.department ?? "general",
+        p_summary: body.approved_answer,
+        p_body: body.approved_answer,
+        p_official_source: body.source_doc ?? "Department Lead Teaching Queue",
+        p_screen_path: body.screen_path ?? null,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+      if (error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+      if (error) {
+        return json(400, { ok: false, error: error.message });
+      }
+    } catch (err) {
+      return json(400, { ok: false, error: err instanceof Error ? err.message : "approve_teaching_entry failed" });
+    }
+    return json(200, { ok: true });
+  }
+
+  if (body.action === "my_taught_updates") {
+    try {
+      const { data, error } = await userClient.rpc("assistant_staff_my_taught_updates");
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, { ok: true, rows: [], row_count: 0 });
+  }
+
+  // Part D item (5): Real-Use Dashboard + Role Goals & Measures (`staff_assistant_real_use_dashboard`, `staff_assistant_role_goals_and_measures`)
+  if (body.action === "real_use_dashboard") {
+    try {
+      const [dashRes, goalsRes] = await Promise.all([
+        userClient.rpc("staff_assistant_real_use_dashboard", { p_days: body.days ?? 30 }),
+        userClient.rpc("staff_assistant_role_goals_and_measures"),
+      ]);
+      if (dashRes.error?.code === "42501") {
+        return json(403, { ok: false, error: MSG.roleRestricted });
+      }
+      const dashPayload =
+        dashRes.data && typeof dashRes.data === "object" && !Array.isArray(dashRes.data)
+          ? (dashRes.data as Record<string, unknown>)
+          : {};
+      const goalsPayload =
+        goalsRes.data && typeof goalsRes.data === "object" && !Array.isArray(goalsRes.data)
+          ? (goalsRes.data as Record<string, unknown>)
+          : { rows: [] };
+      return json(200, {
+        ok: true,
+        ...dashPayload,
+        role_goals_and_measures: goalsPayload,
+      });
+    } catch {
+      return json(200, { ok: true, totals: {}, role_goals_and_measures: { rows: [] } });
+    }
+  }
+
+  // Part C item (9): Web Push consent & preferences (`staff_assistant_update_push_and_voice_prefs`)
+  if (body.action === "get_push_prefs") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_update_push_and_voice_prefs", {});
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, {
+      ok: true,
+      push_enabled: false,
+      morning_brief_push: false,
+      taught_updates_push: false,
+      soft_prompt_shown: false,
+      daily_cap: 2,
+      sent_today: 0,
+    });
+  }
+
+  if (body.action === "set_push_prefs") {
+    try {
+      const { data, error } = await userClient.rpc("staff_assistant_update_push_and_voice_prefs", {
+        p_web_push_enabled: body.push_enabled ?? null,
+        p_morning_brief_topic: body.morning_brief_push ?? null,
+        p_taught_updates_topic: body.taught_updates_push ?? null,
+      });
+      if (!error && data && typeof data === "object" && !Array.isArray(data)) {
+        return json(200, { ok: true, ...(data as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, {
+      ok: true,
+      push_enabled: body.push_enabled ?? false,
+      morning_brief_push: body.morning_brief_push ?? false,
+      taught_updates_push: body.taught_updates_push ?? false,
+      soft_prompt_shown: body.soft_prompt_shown ?? false,
+      daily_cap: 2,
+    });
+  }
+
   // ---- 5. Requirement (d): Daily question budget, runtime config & burst rate limit -----------
   const callerRoles = await resolveCallerRoles(userClient, user.id);
   activeCallerRoles = callerRoles;
@@ -1026,6 +1215,10 @@ export async function handleStaffAssistantRequest(
 
   // ---- 6. Requirement (b): Resolve caller's roles & offer ONLY allowed tools -----------------
   const userText = body.message;
+  const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  const hasUntrustedAttachments = attachments.length > 0;
+  const pageContext = body.page_context ?? null;
+  const projectId = body.project_id ?? null;
   const temporaryChat = body.temporary_chat === true;
   const memPrefs = store.getMemoryPrefs
     ? await store.getMemoryPrefs(user.id).catch(() => ({
@@ -1039,16 +1232,21 @@ export async function handleStaffAssistantRequest(
     memPrefs.memory_enabled !== false;
 
   const researchMode = body.research_mode === true;
+  const coachingMode = isCoachingQuestion(userText);
   const consultantMode = isConsultantQuestion(userText);
   const isConsultantOrResearch = consultantMode || researchMode;
-  const webResearchEnabled = isConsultantOrResearch && budget.webResearchEnabled === true;
+  // Lethal-trifecta rule: when untrusted file attachments are present, web research and outbound/draft tools are disabled
+  const webResearchEnabled =
+    !hasUntrustedAttachments && isConsultantOrResearch && budget.webResearchEnabled === true;
   const researchPlan = researchMode ? buildResearchModePlan(userText) : [];
   const baseOpenAiTools = openAiToolsForRoles(callerRoles);
-  const allowedOpenAiTools = isConsultantOrResearch
-    ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
-    : baseOpenAiTools;
+  const allowedOpenAiTools = (
+    isConsultantOrResearch || hasUntrustedAttachments
+      ? filterToolsForConsultantMode(baseOpenAiTools, webResearchEnabled)
+      : baseOpenAiTools
+  ).filter((t) => !(hasUntrustedAttachments && WEB_RESEARCH_TOOL_NAMES.has(t.function.name)));
   const toolDescriptions = describeToolsForRoles(callerRoles).filter(
-    (line) => !isConsultantOrResearch || !line.startsWith("draft_"),
+    (line) => !(isConsultantOrResearch || hasUntrustedAttachments) || !line.startsWith("draft_"),
   );
   if (webResearchEnabled) {
     toolDescriptions.push(
@@ -1094,6 +1292,7 @@ export async function handleStaffAssistantRequest(
   const wantsStream = body.stream === true;
   const liveSse = wantsStream ? createLiveSseWriter() : null;
   let streamedTokensAlreadySent = false;
+  let firstTokenAtMs: number | null = null;
   let updatedRollingSummary = memoryEnabled ? (conv.rollingSummary ?? "") : "";
   let totalQuestionCostUsd = 0;
   let cachedPromptTokens = 0;
@@ -1201,6 +1400,21 @@ export async function handleStaffAssistantRequest(
 
     let assistantMessageId = crypto.randomUUID();
     const latencyMs = Date.now() - startedAt;
+    const ttfbMs =
+      firstTokenAtMs !== null ? Math.max(0, firstTokenAtMs - startedAt) : latencyMs;
+    const requestedModel = selectedTier.model;
+    const gatewayModel = opts?.model ?? selectedTier.model;
+    const toolsUsedList = opts?.tools ?? [];
+    const analystUsed = toolsUsedList.includes("run_analyst_query");
+    const researchUsed =
+      researchMode ||
+      toolsUsedList.includes("search_web") ||
+      toolsUsedList.includes("read_web_page");
+    const resolvedErrorCode = defaultErrorCodeForOutcome(
+      outcome,
+      opts?.unansweredReason ?? null,
+      opts?.errorCode ?? (degradedErrors.length > 0 ? degradedErrors[0].errorCode : null),
+    ) as ZoeErrorCode | null;
 
     if (!temporaryChat) {
       try {
@@ -1216,10 +1430,17 @@ export async function handleStaffAssistantRequest(
           reportPayload: enrichedReportPayload,
           conversationSummary: updatedMemory,
           rollingSummary: updatedRollingSummary,
-          model: opts?.model,
+          model: gatewayModel,
+          requestedModel,
+          gatewayModel,
+          ttfbMs,
           latencyMs,
+          errorCode: resolvedErrorCode,
+          costUsd: totalQuestionCostUsd,
+          analystUsed,
+          researchUsed,
         });
-        assistantMessageId = turnRes.assistantMessageId;
+        assistantMessageId = turnRes.assistantMessageId ?? assistantMessageId;
         if (turnRes.errorCode) {
           await recordDegraded(
             turnRes.errorCode as ZoeErrorCode,
@@ -1242,8 +1463,8 @@ export async function handleStaffAssistantRequest(
             callerRoles,
             questionText: userText,
             reason: opts.unansweredReason,
-            errorCode: opts.errorCode ?? null,
-            errorDetail: opts.errorDetail ?? null,
+            errorCode: resolvedErrorCode,
+            errorDetail: opts.errorDetail ?? resolvedErrorCode ?? null,
           });
         } catch {
           // best effort
@@ -1256,7 +1477,7 @@ export async function handleStaffAssistantRequest(
         try {
           const topic = classifyQuestionTopic({
             userMessage: userText,
-            toolsCalled: opts?.tools ?? [],
+            toolsCalled: toolsUsedList,
             consultantMode,
             researchMode,
           });
@@ -1266,11 +1487,17 @@ export async function handleStaffAssistantRequest(
             userId: user.id,
             callerRoles,
             topic,
-            toolUsed: opts?.tools && opts.tools.length > 0 ? opts.tools[0] : null,
+            toolUsed: toolsUsedList.length > 0 ? toolsUsedList[0] : null,
             outcome,
             latencyMs,
+            ttfbMs,
             costUsd: totalQuestionCostUsd,
             modelTier: selectedTier.tier,
+            requestedModel,
+            gatewayModel,
+            errorCode: resolvedErrorCode,
+            analystUsed,
+            researchUsed,
           });
         } catch {
           // best effort
@@ -1294,6 +1521,11 @@ export async function handleStaffAssistantRequest(
       memory_enabled: memoryEnabled,
       status_steps: statusSteps,
       model_tier: selectedTier.tier,
+      requested_model: requestedModel,
+      gateway_model: gatewayModel,
+      ttfb_ms: ttfbMs,
+      latency_ms: latencyMs,
+      error_code: resolvedErrorCode,
       consultant_mode: consultantMode,
       research_mode: researchMode,
       ...(researchPlan.length > 0 ? { research_plan: researchPlan } : {}),
@@ -1320,7 +1552,7 @@ export async function handleStaffAssistantRequest(
   };
 
   try {
-    // ---- 7. Deterministic prompt-injection / write-mutation pre-check ------------------------
+    // ---- 7. Deterministic prompt-injection / write-mutation / colleague-coaching pre-check ----
     if (isDirectPromptInjection(userText)) {
       return await finish(MSG.outOfScope, "out_of_scope", {
         unansweredReason: "out_of_scope",
@@ -1331,10 +1563,21 @@ export async function handleStaffAssistantRequest(
         unansweredReason: "out_of_scope",
       });
     }
+    if (isColleagueCoachingForbiddenRequest(userText, callerRoles)) {
+      return await finish(MSG.roleRestricted, "not_staff", {
+        unansweredReason: "role_restricted",
+      });
+    }
+
+    // ---- 7b. Part D item (4): Fast-answer template hint (30 fixed checked templates) -----------
+    const matchedFastAnswer =
+      !hasUntrustedAttachments && !researchMode && !consultantMode
+        ? matchFastAnswerTemplate(userText, callerRoles)
+        : null;
 
     // ---- 8. Tool-calling loop (20-turn memory, approved Zoe notes, safe calculator) ----------
     // When `temporaryChat === true` or `memoryEnabled === false`, read NO memory.
-    const [history, userNotes] = memoryEnabled
+    const [rawHistory, userNotes] = memoryEnabled
       ? await Promise.all([
           store.loadRecentTurns(user.id, conv.id).catch(async (err) => {
             await recordDegraded(
@@ -1355,10 +1598,16 @@ export async function handleStaffAssistantRequest(
         ])
       : [[] as ChatMessage[], [] as ZoeNoteRecord[]];
 
+    // Part B item (1): Always exclude failed/blocked/refused turns from model context,
+    // even when `loadRecentTurns` is injected in unit tests.
+    const history = filterCleanModelHistory(
+      rawHistory as ReadonlyArray<{ role: string; content: string | null; outcome?: string | null }>,
+    );
+
     // Prompt 4 item (3): Detect repeated safe preference across recent user turns
     detectedMemorySuggestion = detectRepeatedUserPreference({
       currentMessage: userText,
-      recentUserMessages: history
+      recentUserMessages: rawHistory
         .filter((h) => h.role === "user" && typeof h.content === "string")
         .map((h) => h.content as string),
       existingNotes: userNotes,
@@ -1370,6 +1619,35 @@ export async function handleStaffAssistantRequest(
     const today = kampalaToday();
     const memoryBlock = memoryEnabled ? formatConversationMemoryForPrompt(existingMemory) : "";
     const zoeNotesBlock = memoryEnabled ? formatZoeNotesForPrompt(userNotes) : "";
+
+    // Part C item (4): Page awareness (route, filters, period ONLY — never screen data)
+    const pageContextBlock = pageContext
+      ? `CURRENT WORKSPACE SCREEN CONTEXT (ROUTE, FILTERS & PERIOD ONLY — NO SCREEN DATA):
+- Route: ${pageContext.route}${pageContext.title ? ` (${pageContext.title})` : ""}
+- Period: ${pageContext.period ?? "default"}
+- Visible Filters: ${pageContext.filters ? JSON.stringify(pageContext.filters) : "none"}
+Use your role-checked tools to fetch any figures for this screen.`
+      : "";
+
+    // Part C item (8): Private project instructions (`staff_assistant_projects`)
+    let projectInstructionsBlock = "";
+    if (projectId && !temporaryChat) {
+      try {
+        const { data: projData } = await userClient.rpc("staff_assistant_list_projects");
+        if (projData && typeof projData === "object" && !Array.isArray(projData)) {
+          const projRows = Array.isArray((projData as Record<string, unknown>).rows)
+            ? ((projData as Record<string, unknown>).rows as Array<Record<string, unknown>>)
+            : [];
+          const matchedProj = projRows.find((r) => String(r.id ?? "") === projectId);
+          if (matchedProj) {
+            projectInstructionsBlock = `ACTIVE PRIVATE PROJECT (${String(matchedProj.name ?? "Project")}):
+- Instructions: ${String(matchedProj.instructions ?? "None")}`;
+          }
+        }
+      } catch {
+        // best effort
+      }
+    }
 
     // Deliverable (6): Use the last 20 turns (40 messages) verbatim; summarise older turns
     const splitMemory = memoryEnabled
@@ -1388,6 +1666,25 @@ export async function handleStaffAssistantRequest(
     updatedRollingSummary = splitMemory.rollingSummaryText;
     const rollingSummaryBlock = splitMemory.rollingSummaryPromptBlock;
 
+    // Part C item (1): Wrap every uploaded file's extracted text in `<UNTRUSTED_FILE_ATTACHMENT>`
+    const untrustedAttachmentBlocks: string[] = [];
+    for (const att of attachments) {
+      const safeText = (att.extracted_text ?? "")
+        .replace(/<\s*\/?\s*UNTRUSTED_FILE_ATTACHMENT[^>]*>/gi, "[redacted-tag]")
+        .slice(0, 32000);
+      untrustedAttachmentBlocks.push(
+        `<UNTRUSTED_FILE_ATTACHMENT name="${att.name.replace(/"/g, "'")}" kind="${att.kind}" mime_type="${att.mime_type}">\n${safeText}\n</UNTRUSTED_FILE_ATTACHMENT>`,
+      );
+    }
+
+    const baseUserFormatted = formatCurrentUserMessageForModel(userText);
+    const currentUserMessageFormatted =
+      untrustedAttachmentBlocks.length > 0
+        ? `${untrustedAttachmentBlocks.join("\n\n")}\n\n${baseUserFormatted}`
+        : matchedFastAnswer
+        ? `${baseUserFormatted}\n[Fast-answer template hint: prefer certified tool ${matchedFastAnswer.template.tool} (${matchedFastAnswer.template.rpc}) if allowed for caller]`
+        : baseUserFormatted;
+
     const messages: ChatMessage[] = [
       {
         role: "system",
@@ -1395,14 +1692,17 @@ export async function handleStaffAssistantRequest(
           conversationMemoryBlock: memoryBlock,
           zoeNotesBlock,
           rollingSummaryBlock,
+          pageContextBlock,
+          projectInstructionsBlock,
           modelTier: selectedTier.tier,
           consultantMode,
+          coachingMode,
           researchMode,
           webResearchEnabled,
         }),
       },
       ...activeTurnWindow,
-      { role: "user", content: userText },
+      { role: "user", content: currentUserMessageFormatted },
     ];
 
     const toolsCalled: string[] = [];
@@ -1415,6 +1715,11 @@ export async function handleStaffAssistantRequest(
     for (const h of history) {
       if (h.role === "assistant" && typeof h.content === "string" && h.content.trim()) {
         rawToolOutputs.push(h.content);
+      }
+    }
+    for (const att of attachments) {
+      if (typeof att.extracted_text === "string" && att.extracted_text.trim()) {
+        rawToolOutputs.push(att.extracted_text);
       }
     }
 
@@ -1467,7 +1772,7 @@ Answer the user's question in plain text without calling any tools:
 - Always use mandatory Welile terminology: Rent Plan, Supporter, Returns.`,
           },
           ...activeTurnWindow,
-          { role: "user", content: userText },
+          { role: "user", content: currentUserMessageFormatted },
         ];
 
         const retryRes = await ai.chatCompletion({
@@ -1544,6 +1849,9 @@ Answer the user's question in plain text without calling any tools:
 
       verifiedParagraphsSoFar = 0;
       const onStreamTokenDelta = (delta: string, accumulated: string) => {
+        if (firstTokenAtMs === null) {
+          firstTokenAtMs = Date.now();
+        }
         if (!liveSse) return;
         streamedTokensAlreadySent = true;
         liveSse.emit("token", { token: delta });
@@ -1588,6 +1896,9 @@ Answer the user's question in plain text without calling any tools:
               signal: req.signal,
             });
 
+      if (firstTokenAtMs === null) {
+        firstTokenAtMs = Date.now();
+      }
       lastModel = model;
       if (usage) {
         totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
@@ -1746,8 +2057,24 @@ Answer the user's question in plain text without calling any tools:
           continue;
         }
 
-        // Consultant & Research modes block all write/action/export draft tools
-        if (isConsultantOrResearch && CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)) {
+        // Consultant, Research & Lethal-Trifecta rule: block all write/action/export draft tools
+        // whenever untrusted attachments or web research are present in the turn
+        if (
+          (isConsultantOrResearch ||
+            hasUntrustedAttachments ||
+            webSearchesInQuestion > 0 ||
+            webSourcesReadInQuestion > 0) &&
+          CONSULTANT_FORBIDDEN_TOOLS.has(call.function.name)
+        ) {
+          return await finish(MSG.outOfScope, "blocked", {
+            tools: toolsCalled,
+            model: lastModel,
+            unansweredReason: "out_of_scope",
+          });
+        }
+
+        // Lethal-trifecta rule: never allow web fetch/search in the same turn as an untrusted file upload
+        if (hasUntrustedAttachments && WEB_RESEARCH_TOOL_NAMES.has(call.function.name)) {
           return await finish(MSG.outOfScope, "blocked", {
             tools: toolsCalled,
             model: lastModel,
@@ -3100,12 +3427,22 @@ Answer the user's question in plain text without calling any tools:
       answerWithCitation = ensureAdHocCertificationNotice(answerWithCitation, true);
     }
 
+    // Part C item (5): Ensure every coaching answer carries "Advisory suggestion only — not a rating or HR decision"
+    const usedCoachingTool =
+      coachingMode ||
+      toolsCalled.includes("get_my_work_summary") ||
+      toolsCalled.includes("get_team_work_summary");
+    if (usedCoachingTool) {
+      answerWithCitation = ensureCoachingAdvisoryNotice(answerWithCitation, true);
+    }
+
     const allowedOutputsForGuard = [
       ...rawToolOutputs,
       JSON.stringify({
         source: sourceLabel,
         period: periodLabel,
         ...(usedAdHocAnalyst ? { certification: "Ad hoc, not certified", limit: 500 } : {}),
+        ...(usedCoachingTool ? { advisory_notice: COACHING_ADVISORY_NOTICE } : {}),
       }),
     ];
 

@@ -2012,6 +2012,80 @@ export const STAFF_TOOLS: StaffTool[] = [
       p_question: (p.question as string | undefined) ?? null,
     }),
   },
+  // ===========================================================================
+  // GROUP M — COACHING ON REAL WORK (ADVISORY ONLY, PART C ITEM 5)
+  // ===========================================================================
+  {
+    name: "get_my_work_summary",
+    rpc: "assistant_staff_my_work_summary",
+    description:
+      "Read-only personal work summary for the signed-in staff member over the last N days (default 28): their own calls, pipeline reviews, tasks, tickets, and overdue items, compared with their own 4-week average. Use for 'how am I doing' or 'how can I improve' coaching questions. Always label coaching answers 'Advisory suggestion only — not a rating or HR decision'.",
+    allowedRoles: ["*"],
+    sensitive: false,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 7,
+          maximum: 90,
+          description: "Lookback window in days (default 28).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(7).max(90).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 28,
+    }),
+  },
+  {
+    name: "get_team_work_summary",
+    rpc: "assistant_staff_team_work_summary",
+    description:
+      "Read-only aggregate team work summary for managers and leads over the last N days (default 28): aggregate task completion, ticket volumes, calling totals, and pipeline review counts. Never ranks, scores, or rates individuals for HR decisions. Always label coaching answers 'Advisory suggestion only — not a rating or HR decision'.",
+    allowedRoles: [
+      "hr",
+      "coo",
+      "ceo",
+      "cfo",
+      "cto",
+      "crm",
+      "operations",
+      "tenant_ops",
+      "landlord_ops",
+      "agent_ops",
+      "partner_ops",
+      "financial_ops",
+      "manager",
+      "super_admin",
+    ],
+    sensitive: true,
+    parameters: {
+      type: "object",
+      properties: {
+        days: {
+          type: "integer",
+          minimum: 7,
+          maximum: 90,
+          description: "Lookback window in days (default 28).",
+        },
+      },
+      additionalProperties: false,
+    },
+    schema: z
+      .object({
+        days: z.number().int().min(7).max(90).optional(),
+      })
+      .strict(),
+    toRpcArgs: (p) => ({
+      p_days: (p.days as number | undefined) ?? 28,
+    }),
+  },
 ];
 
 

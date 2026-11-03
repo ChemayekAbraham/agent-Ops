@@ -9,7 +9,10 @@ type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unkn
 const rpc = supabase.rpc.bind(supabase) as unknown as RpcFn;
 
 async function loadFeed(feed: string): Promise<Row[]> {
-  const { data, error } = await rpc('desk_feed', { p_feed: feed });
+  // Ontology feeds come from their own RPC; every other feed stays on desk_feed.
+  const { data, error } = feed.startsWith('onto_')
+    ? await rpc('ontology_feed', { p_feed: feed })
+    : await rpc('desk_feed', { p_feed: feed });
   if (error) throw new Error(error.message);
   return Array.isArray(data) ? (data as Row[]) : [];
 }

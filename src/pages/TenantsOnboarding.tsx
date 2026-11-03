@@ -708,14 +708,9 @@ export default function TenantsOnboarding() {
     return <Navigate to={authHref(true)} replace />;
   }
 
-  if (gate.checking && !submitted) {
-    return (
-      <div className="min-h-screen grid place-items-center bg-muted/30">
-        {onboardingHead}
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // The existing-application check runs in the background: the form shows straight away and only gives way to
+  // the "already under review" screen below if the answer is blocked. The server also refuses a duplicate on
+  // submit, so nothing is lost by not holding the page for it.
 
   if (gate.blocked && !submitted) {
     const repaying = gate.stage === 'repaying';

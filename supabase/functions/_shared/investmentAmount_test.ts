@@ -76,8 +76,8 @@ Deno.test("BOUNDARY: invalid / empty amounts are rejected", () => {
 });
 
 Deno.test("BOUNDARY: error messages are the standardized UGX 1,000 strings", () => {
-  assertEquals(MIN_INVESTMENT_ERROR, "Minimum investment is UGX 1,000");
-  assertEquals(MIN_INVESTMENT_ERROR_PORTFOLIO, "Investment amount must be at least UGX 1,000");
+  assertEquals(MIN_INVESTMENT_ERROR, "Minimum contribution is UGX 1,000");
+  assertEquals(MIN_INVESTMENT_ERROR_PORTFOLIO, "Contribution amount must be at least UGX 1,000");
 });
 
 // ════════════════════════════════════════════════════════════════
