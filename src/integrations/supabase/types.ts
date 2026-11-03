@@ -37212,6 +37212,291 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_action_aliases: {
+        Row: {
+          action: string | null
+          raw_name: string
+          source: string
+        }
+        Insert: {
+          action?: string | null
+          raw_name: string
+          source: string
+        }
+        Update: {
+          action?: string | null
+          raw_name?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_aliases_action_fkey"
+            columns: ["action"]
+            isOneToOne: false
+            referencedRelation: "ontology_action_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_action_types: {
+        Row: {
+          evidence_column: string | null
+          from_states: string[] | null
+          name: string
+          object_type: string
+          owner_desk: string | null
+          since_version: string
+          status: string
+          to_state: string | null
+        }
+        Insert: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name: string
+          object_type: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Update: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name?: string
+          object_type?: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_types_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_capture: {
+        Row: {
+          enabled: boolean
+          key_column: string
+          link_columns: Json
+          object_type: string | null
+          personal_columns: string[]
+          table_name: string
+          tier: string
+        }
+        Insert: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name: string
+          tier: string
+        }
+        Update: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_capture_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_changes: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          evidence: Json
+          id: number
+          kind: string
+          payload: Json
+          proposed_at: string
+          source: string
+          status: string
+          target: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind: string
+          payload?: Json
+          proposed_at?: string
+          source: string
+          status?: string
+          target: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind?: string
+          payload?: Json
+          proposed_at?: string
+          source?: string
+          status?: string
+          target?: string
+        }
+        Relationships: []
+      }
+      ontology_daily_map: {
+        Row: {
+          generated_at: string
+          map_date: string
+          ontology_version: string | null
+          payload: Json
+        }
+        Insert: {
+          generated_at?: string
+          map_date: string
+          ontology_version?: string | null
+          payload: Json
+        }
+        Update: {
+          generated_at?: string
+          map_date?: string
+          ontology_version?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
+      ontology_meta: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      ontology_object_types: {
+        Row: {
+          description: string | null
+          family: string
+          name: string
+          since_version: string
+          sot: string | null
+          status: string
+        }
+        Insert: {
+          description?: string | null
+          family: string
+          name: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Update: {
+          description?: string | null
+          family?: string
+          name?: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_reason_codes: {
+        Row: {
+          code: string
+          desks: string[] | null
+          meaning: string
+          requires_text: boolean
+          status: string
+        }
+        Insert: {
+          code: string
+          desks?: string[] | null
+          meaning: string
+          requires_text?: boolean
+          status?: string
+        }
+        Update: {
+          code?: string
+          desks?: string[] | null
+          meaning?: string
+          requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_system_actors: {
+        Row: {
+          kind: string
+          owner: string | null
+          purpose: string | null
+          ref: string
+          status: string
+        }
+        Insert: {
+          kind: string
+          owner?: string | null
+          purpose?: string | null
+          ref: string
+          status?: string
+        }
+        Update: {
+          kind?: string
+          owner?: string | null
+          purpose?: string | null
+          ref?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_table_activity: {
+        Row: {
+          del: number | null
+          ins: number | null
+          snap_at: string
+          table_name: string
+          upd: number | null
+        }
+        Insert: {
+          del?: number | null
+          ins?: number | null
+          snap_at: string
+          table_name: string
+          upd?: number | null
+        }
+        Update: {
+          del?: number | null
+          ins?: number | null
+          snap_at?: string
+          table_name?: string
+          upd?: number | null
+        }
+        Relationships: []
+      }
       operational_float_audit_log: {
         Row: {
           action: string
@@ -77560,6 +77845,15 @@ export type Database = {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
         Returns: Json
       }
+      decide_ontology_changes: {
+        Args: {
+          p_decision: string
+          p_ids: number[]
+          p_override?: Json
+          p_reason?: string
+        }
+        Returns: Json
+      }
       decrement_rent_requested: {
         Args: { p_amount: number; p_summary_id: string }
         Returns: undefined
@@ -86308,6 +86602,8 @@ export type Database = {
         Args: { p_email: string; p_new_id: string }
         Returns: string
       }
+      ontology_can_read: { Args: never; Returns: boolean }
+      ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
