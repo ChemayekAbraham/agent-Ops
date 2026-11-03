@@ -1,4 +1,5 @@
 import { safeUUID } from '@/lib/safeUUID';
+import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
 import { useEffect, useState, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -4884,6 +4885,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     [localPortfolios],
   );
 
+  // Smartphone arrears held back from each Returns payment, so the officer pays Returns minus arrears.
+  const arrearsByPortfolio = usePartnerReturnsArrears(
+    filtered.filter((p) => p.roiMode !== 'monthly_compounding').map((p) => p.portfolioId),
+  ).data;
+
   const generateRef = (prefix: string) => `${prefix}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
   // Human-readable description of the picked payout window, used in the PDF
@@ -5942,6 +5948,31 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
                           </p>
                         </div>
                       </div>
+                      {(() => {
+                        const a = arrearsByPortfolio?.get(p.portfolioId);
+                        if (!a || a.arrearsDeduction <= 0 || p.roiMode === 'monthly_compounding') return null;
+                        return (
+                          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 space-y-0.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                              Company arrears — smartphone
+                            </p>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">
+                                Taken on approval ({a.pledgeMode === 'percent' ? `${a.pledgeValue}% of Returns` : 'fixed amount'})
+                              </span>
+                              <span className="font-bold tabular-nums text-amber-800 dark:text-amber-300">− {formatUGX(a.arrearsDeduction)}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-semibold">Partner keeps</span>
+                              <span className="font-black tabular-nums">{formatUGX(a.netPayout)}</span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Posted against the phone plan when this payout is approved. Still owed: {formatUGX(a.planOutstanding)}
+                              {a.planOverdue > 0 && <> · overdue {formatUGX(a.planOverdue)}</>}
+                            </p>
+                          </div>
+                        );
+                      })()}
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                         <span>{p.roiPercentage}% · {p.roiMode === 'monthly_compounding' ? 'Compounding' : 'Payout'}</span>
                         <span className="font-mono">{refPreview}</span>

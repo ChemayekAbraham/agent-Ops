@@ -6,7 +6,8 @@ import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
 const mocks = vi.hoisted(() => ({
   rpc: vi.fn(), from: vi.fn(), functionsInvoke: vi.fn(), toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
-  server: { issuance: true, eligibility: [] as string[], borrowerErrors: [] as string[], createError: null as null | { code: string; message: string; details?: string } },
+  // legacyFees: a server before migration 20261103170000 (sa-calc-1) sends the fixed part separately as registration_fee
+  server: { issuance: true, legacyFees: false, eligibility: [] as string[], borrowerErrors: [] as string[], createError: null as null | { code: string; message: string; details?: string } },
 }));
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: { rpc: mocks.rpc, from: mocks.from, functions: { invoke: mocks.functionsInvoke } },
@@ -32,13 +33,19 @@ function serverQuote(req: { terms?: Record<string, unknown>; borrower?: Record<s
   const t = req.terms as { principal: number; rate_percent: number; rate_basis: 'daily' | 'monthly'; term_days: number; frequency: 'daily' | 'weekly' | 'monthly' };
   const start = req.planned_payout_date ?? kampalaTodayYmd();
   const p = previewSpecialAdvance({ principal: t.principal, ratePercent: t.rate_percent, rateBasis: t.rate_basis, termDays: t.term_days, frequency: t.frequency, issueYmd: start });
+  const fixed = p && mocks.server.legacyFees ? (p.principal <= 200_000 ? 10_000 : 20_000) : 0;
+  /** sa-calc-1 split of one instalment's access fee: the rate part first, then the fixed part (registration_fee). */
+  let rateLeft = p ? p.accessFee - fixed : 0;
+  const split = (a: number) => { const r = Math.min(a, rateLeft); rateLeft -= r; return mocks.server.legacyFees ? { access_fee: r, registration_fee: a - r } : { access_fee: a }; };
   return {
     issuance_enabled: mocks.server.issuance, dated_from: start, dated_from_is_planned: !!req.planned_payout_date, term_errors: p ? [] : ['term'],
     schedule: p && {
-      calc_version: 'sa-calc-1', principal: p.principal, rate_percent: p.ratePercent, rate_basis: p.rateBasis, term_days: p.termDays, frequency: p.frequency,
-      start_date: start, access_fee: p.accessFee, registration_fee: p.registrationFee, total_repayable: p.totalRepayable, instalments: p.instalments,
+      calc_version: mocks.server.legacyFees ? 'sa-calc-1' : 'sa-calc-2', principal: p.principal, rate_percent: p.ratePercent, rate_basis: p.rateBasis,
+      term_days: p.termDays, frequency: p.frequency, start_date: start,
+      ...(mocks.server.legacyFees ? { access_fee: p.accessFee - fixed, registration_fee: fixed } : { access_fee: p.accessFee }),
+      total_repayable: p.totalRepayable, instalments: p.instalments,
       instalment_amount: p.instalmentAmount, final_instalment_amount: p.finalInstalmentAmount, first_due_date: p.firstDueYmd, final_due_date: p.finalDueYmd,
-      schedule: p.schedule.map((s) => ({ number: s.number, due_date: s.dueYmd, amount: s.amount, access_fee: s.accessFee, registration_fee: s.registrationFee,
+      schedule: p.schedule.map((s) => ({ number: s.number, due_date: s.dueYmd, amount: s.amount, ...split(s.accessFee),
         principal: s.principal, balance_after: s.balanceAfter })),
     },
     borrower_errors: req.borrower ? mocks.server.borrowerErrors : [], eligibility: req.borrower ? mocks.server.eligibility : [],
@@ -69,7 +76,7 @@ async function fillValid() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  Object.assign(mocks.server, { issuance: true, eligibility: [], borrowerErrors: [], createError: null });
+  Object.assign(mocks.server, { issuance: true, legacyFees: false, eligibility: [], borrowerErrors: [], createError: null });
   mocks.rpc.mockImplementation((fn: string, args: { p_request: Record<string, unknown> }) => {
     if (fn === 'special_advance_quote') return Promise.resolve({ data: serverQuote(args.p_request), error: null });
     if (fn === 'special_advance_create') {
@@ -112,7 +119,8 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     const terms = document.getElementById('special-advance-agreed-terms')?.textContent ?? '';
     expect(terms).toContain('Rate 28% per month');
     expect(terms).toContain('Term 7 days');
-    for (const v of [32_667, 20_000, 552_667, 78_953, 78_949]) expect(previewText()).toContain(formatUGX(v));
+    // one Access fee = access fee 32,667 + registration fee 20,000 (CFO decision 2026-11-03)
+    for (const v of [52_667, 552_667, 78_953, 78_949]) expect(previewText()).toContain(formatUGX(v));
     expect(previewText()).not.toContain(formatUGX(140_000));
     expect(within(document.getElementById('special-advance-preview') as HTMLElement).getAllByRole('row')).toHaveLength(8);
   });
@@ -128,7 +136,7 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     expect(screen.getByText(/Choose whether the agreed rate is per day or per month/)).toBeTruthy();
     click('special-advance-basis-monthly');
     await serverShown();
-    for (const v of [42_000, 362_000]) expect(previewText()).toContain(formatUGX(v));
+    for (const v of [62_000, 362_000]) expect(previewText()).toContain(formatUGX(v)); // 42,000 access + 20,000 registration
     click('special-advance-basis-daily');
     expect(document.getElementById('special-advance-preview')).toBeNull();
     expect(screen.getByText(/Enter a rate above 0 and up to 1% per day/)).toBeTruthy();
@@ -158,12 +166,21 @@ describe('SpecialAdvanceModal — agreed terms', () => {
     expect(screen.getByText(/minimum principal is UGX 10,000/)).toBeTruthy();
   });
 
-  it('uses access-fee wording and never interest/loan terminology', async () => {
+  it('shows one Access fee (access + registration combined), no registration fee, and never interest/loan terminology', async () => {
     renderModal();
     await fillValid();
     const text = document.body.textContent ?? '';
     expect(text).toMatch(/Access fee/);
+    expect(text).not.toMatch(/Registration fee|Reg\. fee/i);
     expect(text).not.toMatch(/\binterest\b|\bloan\b|\blender\b|\bROI\b/i);
+  });
+
+  it('a server before migration 20261103170000 (two parts) still shows the same single Access fee', async () => {
+    mocks.server.legacyFees = true;
+    renderModal();
+    await fillValid();
+    for (const v of [52_667, 552_667, 78_953]) expect(previewText()).toContain(formatUGX(v));
+    expect(document.body.textContent ?? '').not.toMatch(/Registration fee|Reg\. fee/i);
   });
 });
 

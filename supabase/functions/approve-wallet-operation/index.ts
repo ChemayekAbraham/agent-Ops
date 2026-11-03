@@ -457,6 +457,30 @@ Deno.serve(async (req) => {
           }
         }
 
+        // ── SMARTPHONE REPAYMENT FROM RETURNS ──
+        // If Agent Ops set this partner to repay their Welile Smartphone from Returns, take the pledged part of
+        // this Returns payment and post it against the phone plan (outstanding, amount recovered, due balance).
+        // Partner Ops sees the same figure beforehand (get_partner_ops_returns_arrears). Only when the credit
+        // landed in the partner's own wallet: a managed-proxy or alternate-wallet credit is not theirs to deduct
+        // from. Idempotent per request, and capped at the Returns, the phone balance and the wallet.
+        if (op.category === 'roi_payout' && op.direction === 'cash_in' && op.source_table === 'investor_portfolios'
+            && ledgerUserId === op.user_id) {
+          try {
+            const { data: phone, error: phoneErr } = await adminClient.rpc('apply_smartphone_roi_pledge', {
+              p_user_id: op.user_id,
+              p_roi_amount: op.amount,
+              p_reference: `roi-op-${op.id}`,
+            });
+            if (phoneErr) {
+              console.error(`[approve-wallet-op] Smartphone repayment from Returns failed for op ${op.id}:`, phoneErr);
+            } else if ((phone as any)?.applied > 0) {
+              console.log(`[approve-wallet-op] Smartphone repayment of ${(phone as any).applied} taken from Returns for ${op.user_id}`);
+            }
+          } catch (phoneErr) {
+            console.error(`[approve-wallet-op] Smartphone repayment from Returns threw for op ${op.id}:`, phoneErr);
+          }
+        }
+
         // A catch-up Return for an older cycle must not move the schedule past the current cycle.
         if (advanceNextRoiDate && (op.category === 'roi_payout' || op.category === 'supporter_platform_rewards') && op.source_table === 'investor_portfolios' && op.source_id) {
           try {

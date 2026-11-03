@@ -5,6 +5,15 @@ import claraAvatar from '@/assets/clara-avatar.png';
 import { Button } from '@/components/ui/button';
 import { AssistantChatSurface } from '@/components/ai-chat/AssistantChatSurface';
 import { AuthContext } from '@/hooks/useAuth';
+import { FLOATING_NAV_Z } from '@/components/ui/floating-nav';
+
+/**
+ * The launcher and its hello bubble draw in front of the bottom role nav
+ * (FLOATING_NAV_Z) and behind the chat sheet's backdrop (z-[110]), so the nav
+ * can never cover the assistant while an open chat still covers the assistant.
+ */
+const LAUNCHER_Z = FLOATING_NAV_Z + 5;
+const BUBBLE_Z = LAUNCHER_Z + 1;
 
 /** How long the hello bubble stays up before it starts fading away. */
 const GREETING_MS = 20_000;
@@ -51,7 +60,7 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
     : 'calc(max(var(--fab-bottom-stacked), 9.25rem) + 4.25rem)';
 
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 z-[60] h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
     {!open && !hideLauncher && !!user && phase !== 'done' && createPortal(
       <AnimatePresence>
         {phase === 'in' && (
@@ -63,7 +72,7 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
             exit={{ opacity: 0, y: 4, scale: 0.98 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
             className="fixed right-4"
-            style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))', zIndex: 61 }}
+            style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))', zIndex: BUBBLE_Z }}
           >
             <button
               type="button"

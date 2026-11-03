@@ -10,7 +10,10 @@
  * button (see AgentDashboard). The form stays the path every other agent uses.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useAssistantSpeech } from './useAssistantSpeech';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -619,7 +622,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   };
 
   // ----- copy -----
-  const questionOf = (s: StepId): ReactNode => {
+  const questionOf = (s: StepId): string => {
     switch (s) {
       case 'type': return 'How does the tenant earn their income? It decides how they pay back.';
       case 'rent': return planType === 'weekly'
@@ -681,11 +684,27 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
 
   const isTextStep = ['rent', 'tenantPhone', 'nationalId', 'address', 'lc1Phone', 'lc1Village', 'city'].includes(current);
 
+  const spokenReply = capLoading
+    ? 'Checking whether you can post today.'
+    : postingBlocked && myCap
+      ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
+      : result
+        ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}`
+        : recordBlock && recordBlock.step === current
+          ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
+          : error || questionOf(current);
+  const speech = useAssistantSpeech(spokenReply, open && !showRegisterLandlord, user?.id);
+
+  useEffect(() => {
+    if (speech.failed) toast.error('Voice playback is unavailable. You can still read the assistant’s replies.');
+  }, [speech.failed]);
+
   if (!open) return null;
 
   // ----- render -----
+  // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
+    <div className="fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -698,6 +717,26 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
             {result ? 'Request posted' : 'Preview · posting a Rent Plan with you'}
           </p>
         </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button type="button" variant="ghost" size="icon" className="shrink-0 text-primary" disabled={!speech.supported} aria-label={speech.enabled ? 'Turn voice off' : 'Turn voice on'} aria-pressed={speech.enabled} onClick={speech.toggle}>
+                {speech.enabled ? <Volume2 /> : <VolumeX />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{speech.supported ? (speech.enabled ? 'Turn voice off' : 'Turn voice on') : 'Voice unavailable on this browser'}</TooltipContent>
+          </Tooltip>
+          {speech.enabled && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-primary" aria-label={speech.speaking ? 'Stop speaking' : 'Replay reply'} onClick={speech.speaking ? speech.stop : speech.replay}>
+                  {speech.speaking ? <Square /> : <RotateCcw />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{speech.speaking ? 'Stop speaking' : 'Replay reply'}</TooltipContent>
+            </Tooltip>
+          )}
+        </TooltipProvider>
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
@@ -1095,6 +1134,24 @@ function blockFor(step: RecordBlock['step'], self: boolean, value: string): Reco
   return { step, self, masked: step === 'nationalId' ? maskNationalId(value) : maskPhone(value) };
 }
 
+/** `spoken` drops the masked value, which reads badly aloud. */
+function recordHeadline(block: RecordBlock, spoken: boolean): string {
+  if (block.self) return block.step === 'nationalId' ? 'That’s your own National ID.' : 'That’s your own number.';
+  if (spoken) return block.step === 'nationalId' ? 'That National ID is already on Welile.' : 'That number is already on Welile.';
+  return `${block.masked} is already on Welile.`;
+}
+
+function recordBody(block: RecordBlock): string {
+  if (block.self) {
+    return block.step === 'lc1Phone'
+      ? 'The LC1 has to be someone else, so they can vouch for the tenant.'
+      : 'A tenant needs their own, so their Rent Plan messages reach them and not you.';
+  }
+  if (block.step === 'nationalId') return 'One National ID belongs to one person, so I can’t add it again. Check the card with the tenant and type it again.';
+  if (block.step === 'lc1Phone') return 'It already belongs to someone else, so it can’t be a new LC1’s number. Ask the chairperson for their own phone.';
+  return 'A new tenant needs a number that isn’t registered yet. Ask the tenant to read it out again, or use another number they own.';
+}
+
 /**
  * Shown when a typed number or ID is already on Welile. It says the record
  * exists, never whose it is, and the chat stays on the same question.
@@ -1102,18 +1159,8 @@ function blockFor(step: RecordBlock['step'], self: boolean, value: string): Reco
 function RecordExistsNotice({ block, onRetry }: { block: RecordBlock; onRetry: () => void }) {
   const [why, setWhy] = useState(false);
   const what = block.step === 'nationalId' ? 'National ID' : 'number';
-  const headline = block.self
-    ? (block.step === 'nationalId' ? 'That’s your own National ID.' : 'That’s your own number.')
-    : `${block.masked} is already on Welile.`;
-  const body = block.self
-    ? (block.step === 'lc1Phone'
-      ? 'The LC1 has to be someone else, so they can vouch for the tenant.'
-      : 'A tenant needs their own, so their Rent Plan messages reach them and not you.')
-    : block.step === 'nationalId'
-      ? 'One National ID belongs to one person, so I can’t add it again. Check the card with the tenant and type it again.'
-      : block.step === 'lc1Phone'
-        ? 'It already belongs to someone else, so it can’t be a new LC1’s number. Ask the chairperson for their own phone.'
-        : 'A new tenant needs a number that isn’t registered yet. Ask the tenant to read it out again, or use another number they own.';
+  const headline = recordHeadline(block, false);
+  const body = recordBody(block);
   return (
     <Bot>
       <Bubble tone="warn">

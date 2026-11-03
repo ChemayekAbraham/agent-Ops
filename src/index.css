@@ -1887,3 +1887,114 @@ html.reduce-motion *::after {
 @media (prefers-reduced-motion: no-preference) {
   .tlb-selection-bar { animation: tlb-bar-up 0.22s ease-out; }
 }
+
+/* ============================================
+   WELILE OPS DESKS (/desk) — a scoped dark glass board.
+   Follows the .cash-position-page precedent above: the tokens are redefined on
+   one wrapper class, so the existing Tailwind utilities (bg-card, border-border,
+   text-muted-foreground, ring-ring) restyle themselves and no other page is
+   touched. Deliberately independent of the app's light/dark setting.
+   ============================================ */
+.desk-root {
+  --background: 254 55% 6%;
+  --foreground: 251 91% 96%;
+  --card: 257 38% 11%;
+  --card-foreground: 251 91% 96%;
+  --popover: 257 38% 11%;
+  --popover-foreground: 251 91% 96%;
+  --muted: 256 28% 18%;
+  --muted-foreground: 248 27% 71%;
+  --border: 252 20% 18%;
+  --input: 252 20% 18%;
+  --primary: 271 81% 68%;
+  --primary-foreground: 254 55% 6%;
+  --accent: 253 95% 85%;
+  --accent-foreground: 254 55% 6%;
+  --ring: 271 81% 68%;
+
+  /* Status only, never decoration. */
+  --desk-ok: 158 64% 52%;
+  --desk-warn: 43 96% 56%;
+  --desk-bad: 351 95% 71%;
+  --desk-lavender: 253 95% 85%;
+
+  color-scheme: dark;
+  color: hsl(var(--foreground));
+  background-color: #0B0718;
+  background-image:
+    radial-gradient(55rem 55rem at 0% 0%, hsl(var(--primary) / 0.18), transparent 60%),
+    radial-gradient(55rem 55rem at 100% 100%, rgba(79, 70, 229, 0.12), transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  background-attachment: fixed;
+}
+
+/* Glass surfaces. */
+.desk-panel,
+.desk-tile {
+  background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.desk-panel { border-radius: 20px; }
+.desk-tile { border-radius: 14px; }
+.desk-pill { border-radius: 999px; }
+
+/* A sticky table header has to stay readable over scrolling rows. */
+.desk-thead th {
+  background: rgba(20, 14, 40, 0.72);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Without backdrop-filter the translucency would show raw text through the glass. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .desk-panel,
+  .desk-tile { background: rgba(20, 14, 40, 0.85); }
+  .desk-thead th { background: rgb(22, 16, 42); }
+}
+
+/* Figures carry a faint violet glow; the colour stays white for contrast. */
+.desk-figure { text-shadow: 0 0 24px hsl(var(--primary) / 0.45); }
+
+/* Hover lift on table rows, kept to a glow so nothing moves. */
+.desk-row:hover { background: hsl(var(--primary) / 0.1); }
+
+@keyframes desk-particle {
+  0% { transform: translateX(-10%); opacity: 0; }
+  12%, 88% { opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+@keyframes desk-shimmer {
+  0% { background-position: -160% 0; }
+  100% { background-position: 160% 0; }
+}
+@keyframes desk-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--desk-bad) / 0.45); }
+  50% { box-shadow: 0 0 0 7px hsl(var(--desk-bad) / 0); }
+}
+@keyframes desk-live {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--desk-ok) / 0.65); }
+  50% { box-shadow: 0 0 0 5px hsl(var(--desk-ok) / 0); }
+}
+
+/* Duration is set inline: particle speed follows the stage's per-day rate. */
+.desk-particle { animation-name: desk-particle; animation-timing-function: linear; animation-iteration-count: infinite; }
+.desk-shimmer {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.09) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: desk-shimmer 1.6s ease-in-out infinite;
+}
+.desk-bottleneck { animation: desk-breathe 2.8s ease-in-out infinite; }
+.desk-live-dot { animation: desk-live 2s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desk-particle,
+  .desk-shimmer,
+  .desk-bottleneck,
+  .desk-live-dot { animation: none; }
+  .desk-particle { opacity: 0.85; }
+}

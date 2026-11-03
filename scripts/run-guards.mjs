@@ -29,6 +29,7 @@ const GUARDS = [
   ['guard-assistant-readonly.mjs', 'agent assistant is read-only and user-scoped'],
   ['guard-staff-assistant.mjs', 'staff assistant (Zoe) is read-only, role-gated, and staff-email-scoped'],
   ['guard-zoe-parity.mjs', 'staff assistant (Zoe) database parity manifest and health guard'],
+  ['guard-mcp-bundles.mjs', 'MCP edge-function bundles are not Windows stubs'],
 ];
 
 const bar = '='.repeat(78);

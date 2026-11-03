@@ -7782,6 +7782,228 @@ export type Database = {
         }
         Relationships: []
       }
+      agreement_check_findings: {
+        Row: {
+          check_code: string
+          created_at: string
+          detail: Json
+          finding_kind: string
+          id: string
+          message: string
+          register_codes: string[]
+          run_id: string
+          severity: string
+        }
+        Insert: {
+          check_code: string
+          created_at?: string
+          detail?: Json
+          finding_kind: string
+          id?: string
+          message: string
+          register_codes?: string[]
+          run_id: string
+          severity: string
+        }
+        Update: {
+          check_code?: string
+          created_at?: string
+          detail?: Json
+          finding_kind?: string
+          id?: string
+          message?: string
+          register_codes?: string[]
+          run_id?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_check_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_check_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_check_rules: {
+        Row: {
+          active: boolean
+          applies_to: string[]
+          assert_patterns: string[] | null
+          code: string
+          created_at: string
+          deny_patterns: string[] | null
+          description: string
+          kind: string
+          severity: string
+          value_patterns: string[] | null
+        }
+        Insert: {
+          active?: boolean
+          applies_to: string[]
+          assert_patterns?: string[] | null
+          code: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description: string
+          kind: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Update: {
+          active?: boolean
+          applies_to?: string[]
+          assert_patterns?: string[] | null
+          code?: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description?: string
+          kind?: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Relationships: []
+      }
+      agreement_check_runs: {
+        Row: {
+          documents_checked: number | null
+          error: string | null
+          findings_count: number | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Update: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
+      agreement_register: {
+        Row: {
+          acceptance_table: string | null
+          acceptance_version_column: string | null
+          code: string
+          created_at: string
+          current_version_id: string | null
+          id: string
+          notes: string | null
+          party: string
+          source_kind: string
+          source_ref: string | null
+          status: string
+          title: string
+          updated_at: string
+          upload_order: number
+        }
+        Insert: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party: string
+          source_kind: string
+          source_ref?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          upload_order: number
+        }
+        Update: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code?: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party?: string
+          source_kind?: string
+          source_ref?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          upload_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_current_version_fk"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_register_versions: {
+        Row: {
+          body_sha256: string | null
+          body_text: string
+          effective_from: string | null
+          id: string
+          notes: string | null
+          register_id: string
+          retired_at: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          version_label: string
+        }
+        Insert: {
+          body_sha256?: string | null
+          body_text: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label: string
+        }
+        Update: {
+          body_sha256?: string | null
+          body_text?: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id?: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_versions_register_id_fkey"
+            columns: ["register_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_chat_messages: {
         Row: {
           content: string
@@ -74071,6 +74293,18 @@ export type Database = {
           week_start: string
         }[]
       }
+      agreement_register_can_read: { Args: never; Returns: boolean }
+      agreement_register_can_write: { Args: never; Returns: boolean }
+      agreement_register_upload: {
+        Args: {
+          p_body: string
+          p_code: string
+          p_effective_from?: string
+          p_notes?: string
+          p_version_label: string
+        }
+        Returns: string
+      }
       allocate_company_managed_portfolio: {
         Args: { p_portfolio_id: string }
         Returns: Json
@@ -82334,6 +82568,20 @@ export type Database = {
       get_partner_ops_recent_withdrawals: {
         Args: { p_limit?: number }
         Returns: Json
+      }
+      get_partner_ops_returns_arrears: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          arrears_deduction: number
+          expected_returns: number
+          investor_id: string
+          net_payout: number
+          plan_outstanding: number
+          plan_overdue: number
+          pledge_mode: string
+          pledge_value: number
+          portfolio_id: string
+        }[]
       }
       get_partner_ops_returns_forecast: {
         Args: {
@@ -90721,6 +90969,10 @@ export type Database = {
       revoke_return_cycle_override: {
         Args: { p_override_id: string; p_reason: string }
         Returns: undefined
+      }
+      run_agreement_contradiction_check: {
+        Args: { p_trigger?: string }
+        Returns: string
       }
       run_email_auto_match_retry: {
         Args: { p_window_hours?: number }

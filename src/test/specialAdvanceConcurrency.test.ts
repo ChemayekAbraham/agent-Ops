@@ -212,6 +212,8 @@ const PG_URL = process.env.SA_PG_URL;
 const CORRECTIONS = MIG('20261102210000_special_advances_corrections.sql');
 const IMPAIRMENT = MIG('20261102220000_special_advances_impairment_writeoff.sql');
 const MEMO = MIG('20261102230000_sofp_special_advances_memo.sql');
+// 2026-11-03: one access fee (sa-calc-2); the races run on the code as it will stand in production
+const ONE_FEE = MIG('20261103170000_special_advances_single_access_fee.sql');
 const SOFP_PROD = read('scripts/fixtures/sofp-prod-2026-11-02.sql');
 const PARALLEL = 8;
 
@@ -289,7 +291,7 @@ describeIfDb('Phase E: concurrent requests on a real Postgres (separate connecti
     }
     await pq(`insert into public.user_roles (user_id, role) values ($1,'cfo'), ($2,'coo'), ($3,'super_admin'), ($4,'tenant'), ($5,'tenant'), ($6,'agent')`, users);
     await pg.unsafe(ENGINE);
-    for (const m of [STORAGE, FUNCTIONS, PAYOUT, POSITION, CORRECTIONS, IMPAIRMENT]) await pg.begin((tx) => tx.unsafe(m));
+    for (const m of [STORAGE, FUNCTIONS, PAYOUT, POSITION, CORRECTIONS, IMPAIRMENT, ONE_FEE]) await pg.begin((tx) => tx.unsafe(m));
     // Phase D needs the statement's other inputs; production's statement and resolver are loaded verbatim
     await pg.unsafe(`create function public.has_role(p_user uuid, p_role text) returns boolean language sql stable as
         $f$ select exists (select 1 from public.user_roles where user_id = p_user and role = p_role and enabled) $f$;

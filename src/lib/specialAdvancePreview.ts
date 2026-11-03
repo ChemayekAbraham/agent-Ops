@@ -1,6 +1,7 @@
 /**
  * Special Advance — repayment PREVIEW. Mirrors the authoritative server engine
- * `_special_advance_schedule` (supabase/migrations/20261028150000_special_advances_calc_engine.sql) exactly; the
+ * `_special_advance_schedule`, calculation version sa-calc-2
+ * (supabase/migrations/20261103170000_special_advances_single_access_fee.sql) exactly; the
  * server recalculates everything and never trusts these figures. Parity is tested on thousands of random agreements
  * (src/test/specialAdvanceServerEngine.test.ts).
  *
@@ -13,19 +14,19 @@
  *   - the term and due dates run from the PAYOUT date (`issueYmd`), not the approval date; monthly = every 30 days.
  *
  * Calculation (the fee is never charged as a full month on a short term; exact integer arithmetic, half up):
- *   monthly basis: access fee = round(principal × monthly rate × days / 30)   (simple pro-rata, as existing advances)
- *   daily basis:   access fee = round(principal × daily rate × days)          (simple, not compounded)
- *   registration fee  = 10,000 if principal ≤ 200,000, else 20,000          (unchanged, applies to Special Advances)
- *   total repayable   = principal + access fee + registration fee
+ *   rate part, monthly basis: round(principal × monthly rate × days / 30)   (simple pro-rata, as existing advances)
+ *   rate part, daily basis:   round(principal × daily rate × days)          (simple, not compounded)
+ *   fixed part        = 10,000 if principal ≤ 200,000, else 20,000
+ *   access fee        = rate part + fixed part   (CFO decision 2026-11-03: ONE access fee, no registration fee)
+ *   total repayable   = principal + access fee
  *   instalments       = max(1, ceil(term days / period days))   daily 1 · weekly 7 · monthly 30
  *   instalment amount = ceil(total / instalments); the final instalment is whatever remains
  *   due dates         = payout day + min(k × period days, term) (Kampala calendar)
- *   split             = Late Fee → Access Fee → Registration Fee → Principal, assuming on-time payment (no late fee)
+ *   split             = Late Fee → Access Fee → Principal, assuming on-time payment (no late fee)
  *
  * Nothing here issues, approves or posts anything.
  */
 import {
-  calculateRegistrationFee,
   installmentCount,
   periodDays,
   type RepaymentFrequency,
@@ -90,7 +91,6 @@ export interface ScheduledInstalment {
   dueYmd: string;
   amount: number;
   accessFee: number;
-  registrationFee: number;
   principal: number;
   balanceAfter: number;
 }
@@ -102,7 +102,6 @@ export interface SpecialAdvancePreview {
   termDays: number;
   frequency: SpecialAdvanceFrequency;
   accessFee: number;
-  registrationFee: number;
   totalRepayable: number;
   instalments: number;
   instalmentAmount: number;
@@ -129,11 +128,21 @@ export function validateSpecialAdvanceInput(i: Partial<SpecialAdvanceInput>): Sp
   return errs;
 }
 
-/** Access fee for the agreed rate and basis (simple, prorated by days, exact half-up rounding to whole UGX). */
-export function specialAdvanceAccessFee(principal: number, ratePercent: number, rateBasis: RateBasis, termDays: number): number {
+/** The rate part of the access fee: the agreed rate and basis, simple, prorated by days, exact half-up rounding to whole UGX. */
+export function specialAdvanceRateFee(principal: number, ratePercent: number, rateBasis: RateBasis, termDays: number): number {
   const h = rateHundredths(ratePercent) ?? Math.round(ratePercent * 100);
   const numerator = BigInt(principal) * BigInt(h) * BigInt(termDays);
   return roundDiv(numerator, rateBasis === 'monthly' ? 300_000n : 10_000n);
+}
+
+/** The fixed part of the access fee: UGX 10,000 for a principal up to 200,000, else UGX 20,000. */
+export function specialAdvanceFixedFee(principal: number): number {
+  return principal <= 200_000 ? 10_000 : 20_000;
+}
+
+/** The access fee (sa-calc-2): rate part + fixed part. There is no registration fee. */
+export function specialAdvanceAccessFee(principal: number, ratePercent: number, rateBasis: RateBasis, termDays: number): number {
+  return specialAdvanceRateFee(principal, ratePercent, rateBasis, termDays) + specialAdvanceFixedFee(principal);
 }
 
 /** Human label for an agreed rate, e.g. "28% per month". */
@@ -147,15 +156,13 @@ export function previewSpecialAdvance(input: SpecialAdvanceInput): SpecialAdvanc
   const { principal, ratePercent, rateBasis, termDays, frequency, issueYmd } = input;
 
   const accessFee = specialAdvanceAccessFee(principal, ratePercent, rateBasis, termDays);
-  const registrationFee = calculateRegistrationFee(principal);
-  const totalRepayable = principal + accessFee + registrationFee;
+  const totalRepayable = principal + accessFee;
   const instalments = installmentCount(termDays, frequency);
   const instalmentAmount = Math.ceil(totalRepayable / instalments);
   const step = periodDays(frequency);
 
   // Waterfall buckets (no late fee on an on-time schedule).
   let accessLeft = accessFee;
-  let regLeft = registrationFee;
   let principalLeft = principal;
   let remaining = totalRepayable;
 
@@ -164,7 +171,6 @@ export function previewSpecialAdvance(input: SpecialAdvanceInput): SpecialAdvanc
     const amount = n === instalments ? remaining : Math.min(instalmentAmount, remaining);
     let left = amount;
     const toAccess = Math.min(left, accessLeft); left -= toAccess; accessLeft -= toAccess;
-    const toReg = Math.min(left, regLeft); left -= toReg; regLeft -= toReg;
     const toPrincipal = Math.min(left, principalLeft); principalLeft -= toPrincipal;
     remaining -= amount;
     schedule.push({
@@ -172,7 +178,6 @@ export function previewSpecialAdvance(input: SpecialAdvanceInput): SpecialAdvanc
       dueYmd: shiftKampalaDays(issueYmd, Math.min(n * step, termDays)),
       amount,
       accessFee: toAccess,
-      registrationFee: toReg,
       principal: toPrincipal,
       balanceAfter: remaining,
     });
@@ -185,7 +190,6 @@ export function previewSpecialAdvance(input: SpecialAdvanceInput): SpecialAdvanc
     termDays,
     frequency,
     accessFee,
-    registrationFee,
     totalRepayable,
     instalments,
     instalmentAmount,

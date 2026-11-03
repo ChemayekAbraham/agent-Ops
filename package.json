@@ -20,6 +20,7 @@
     "guard:staff-assistant": "node scripts/guard-staff-assistant.mjs",
     "guard:zoe-parity": "node scripts/guard-zoe-parity.mjs",
     "guard:schema-types": "node scripts/guard-schema-types.mjs",
+    "guard:mcp-bundles": "node scripts/guard-mcp-bundles.mjs",
     "check:runtime-env": "node scripts/check-runtime-env.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
     "publish:diagnostics": "node scripts/publish-diagnostics.mjs",
