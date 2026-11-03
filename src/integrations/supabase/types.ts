@@ -76895,23 +76895,26 @@ export type Database = {
       cfo_advance_status: {
         Args: never
         Returns: {
-          advance_id: string
           approved_at: string
           balance: number
+          borrower_name: string
           disbursed_at: string
-          first_recovery_on: string
-          full_name: string
+          history: Json
+          is_closed: boolean
+          plan: string
           principal: number
           purpose: string
+          record_id: string
           recovered: number
-          recoveries: Json
-          recovery_mode: string
-          recovery_months: number
-          recovery_value: number
+          reference: string
+          repayment_tracked: boolean
           requested_at: string
+          source: string
+          source_label: string
           staff_ref: string
           state: string
           status: string
+          total_repayable: number
         }[]
       }
       cfo_agent_lending_summary: { Args: never; Returns: Json }
