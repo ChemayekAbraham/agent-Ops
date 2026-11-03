@@ -1,4 +1,4 @@
 Re-sync confirmation only — no edits.
 
-- Project is on commit d516c61e1b with no local changes.
-- No migrations, SQL, edge function deploys, or changes to the desk styling, `src/index.css`, `supabase/functions/mcp*`, or `supabase/config.toml`.
+- Project is on 8ce0849b6f, which already includes f371fa6eff and the Windows bundler guard in `vite.config.ts`. No local changes.
+- No migrations, SQL, edge function deploys, or changes to `supabase/config.toml` or the MCP bundles.
