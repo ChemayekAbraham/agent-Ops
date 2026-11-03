@@ -21,7 +21,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { prettyName } from '@/lib/formatting';
+import { supabase } from '@/integrations/supabase/client';
 import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
+import { createPlanShareLink, planShareDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
 import { isHouseVerified, toSelectionItem } from '@/components/funder-new/utils';
 
