@@ -18,6 +18,13 @@ import { cn } from '@/lib/utils';
  * low-end Android GPUs.
  */
 
+/**
+ * Stacking level of the bottom role nav. The Welile Assistant launcher sits
+ * just above it (and still below the chat sheet's backdrop at z-[110]), so the
+ * nav can never cover the assistant.
+ */
+export const FLOATING_NAV_Z = 100;
+
 export const FLOATING_NAV_SHELL =
   'fixed left-3 right-3 rounded-full border border-border/60 bg-background/90 backdrop-blur-xl shadow-[0_10px_34px_-8px_hsl(var(--foreground)/0.3)]';
 
