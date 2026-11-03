@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!amount || typeof amount !== "number" || amount < PRICE_PER_SHARE) {
-      return new Response(JSON.stringify({ error: `Minimum purchase is UGX ${PRICE_PER_SHARE.toLocaleString()} (one share)` }),
+      return new Response(JSON.stringify({ error: `Minimum support is UGX ${PRICE_PER_SHARE.toLocaleString()} (one share)` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (!investment_date || !/^\d{4}-\d{2}-\d{2}$/.test(investment_date)) {
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     const fundingBalance = Number(availableBalance) || 0;
     if (fundingBalance < actualAmount) {
       return new Response(JSON.stringify({
-        error: `Insufficient ${fundingSource === 'agent' ? 'agent' : 'partner'} wallet balance (available: UGX ${fundingBalance.toLocaleString()})`,
+        error: `Insufficient ${fundingSource === 'agent' ? 'agent' : 'supporter'} wallet balance (available: UGX ${fundingBalance.toLocaleString()})`,
       }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
           user_id: fundingUserId, ledger_scope: 'wallet', direction: 'cash_out',
           amount: actualAmount, category: 'angel_pool_investment',
           source_table: 'angel_pool_investments', source_id: investorWallet?.id ?? null,
-          description: `Angel Pool share purchase: ${shares} shares @ UGX ${PRICE_PER_SHARE.toLocaleString()}/share (via agent, funded_by=${fundingSource}, beneficiary=${investor_id})`,
+          description: `Angel Pool support: ${shares} shares @ UGX ${PRICE_PER_SHARE.toLocaleString()}/share (via agent, funded_by=${fundingSource}, beneficiary=${investor_id})`,
           currency: 'UGX', reference_id: referenceId, transaction_date: txDate,
         },
         {

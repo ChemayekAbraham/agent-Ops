@@ -200,7 +200,7 @@ export function PartnershipSplitAllocation({
                 <tr>
                   <td align="left" className="padding-mobile" style={{ padding: '0 40px 20px 40px' }}>
                     <Text style={{ ...introText, margin: 0 }}>
-                      The withdrawal portion has been successfully processed and is now available in your wallet. The compounded portion has been added back into your portfolio for the next cycle.
+                      The withdrawal portion has been successfully processed and is now available in your wallet. The compounded portion has been added back into your portfolio for the next support cycle.
                     </Text>
                   </td>
                 </tr>

@@ -687,7 +687,7 @@ Deno.serve(async (req) => {
                     agent_id: portfolioData.agent_id,
                     amount: commissionAmount,
                     earning_type: "investment_commission",
-                    description: `2% partner funding commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
+                    description: `2% support commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
                     source_user_id: portfolioInvestorId,
                     rent_request_id: null,
                   });
@@ -757,7 +757,7 @@ Deno.serve(async (req) => {
                 amount: op.amount,
                 category: 'partner_funding',
                 ledger_scope: 'platform',
-                description: `Platform receives partner capital`,
+                description: `Platform receives support capital`,
                 source_table: 'investor_portfolios',
                 source_id: op.source_id,
                 currency: 'UGX',
@@ -965,8 +965,8 @@ Deno.serve(async (req) => {
           // Notify the FUNDER (investor)
           await adminClient.from("notifications").insert({
             user_id: portfolioInvestorId,
-            title: "Portfolio Activated ✅",
-            message: `Your UGX ${op.amount.toLocaleString()} contribution has been approved and your portfolio is now active. Monthly rewards will begin within 30 days.`,
+            title: "Support Activated ✅",
+            message: `Your UGX ${op.amount.toLocaleString()} support has been approved and your portfolio is now active. Monthly rewards will begin within 30 days.`,
             type: "success",
             metadata: { operation_id: op.id, amount: op.amount, direction: op.direction },
           });
@@ -975,8 +975,8 @@ Deno.serve(async (req) => {
           if (op.user_id !== portfolioInvestorId) {
             await adminClient.from("notifications").insert({
               user_id: op.user_id,
-              title: "Partner Portfolio Approved ✅",
-              message: `The UGX ${op.amount.toLocaleString()} partner contribution you facilitated has been approved and activated.`,
+              title: "Partner Support Approved ✅",
+              message: `The UGX ${op.amount.toLocaleString()} partner support you facilitated has been approved and activated.`,
               type: "success",
               metadata: { operation_id: op.id, amount: op.amount },
             });
@@ -1051,7 +1051,7 @@ Deno.serve(async (req) => {
                   direction: 'cash_in',
                   category: 'system_balance_correction',
                   ledger_scope: 'wallet',
-                  description: `Partner contribution rejected — funds restored. Reason: ${rejection_reason}`,
+                  description: `Partner support rejected — funds restored. Reason: ${rejection_reason}`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1062,7 +1062,7 @@ Deno.serve(async (req) => {
                   amount: portfolio.investment_amount,
                   category: 'system_balance_correction',
                   ledger_scope: 'platform',
-                  description: `Platform returns rejected partner capital`,
+                  description: `Platform returns rejected support capital`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1080,8 +1080,8 @@ Deno.serve(async (req) => {
               // Notify agent of refund
               await adminClient.from("notifications").insert({
                 user_id: portfolio.agent_id,
-                title: "💰 Partner Funding Refunded",
-                message: `Your proxy funding of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
+                title: "💰 Support Refunded",
+                message: `Your proxy support of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
                 type: "warning",
                 metadata: { operation_id: op.id, amount: portfolio.investment_amount, reason: rejection_reason },
               });
