@@ -4,8 +4,9 @@
  * (supabase/migrations/20261102220000_special_advances_impairment_writeoff.sql) on PGlite, on top of Phases 1-4, A and B.
  *
  * CFO decisions (2026-11-02): D7 minimum rates by days past due (0/10/25/50/100%), D8 A25 allowance + X4 expense,
- * provision reviews approved by a second CFO, D9 second-CFO write-off of the whole balance via A25 / X4, D10 recovery
- * DR A1 / CR X4. Same real code and stand-ins as specialAdvancePayout.test.ts, plus X4 and a second enabled CFO.
+ * D9 write-off of the whole balance via A25 / X4, D10 recovery DR A1 / CR X4. CFO decision 2026-11-03: Welile has one
+ * CFO, who posts a provision review or a write-off in ONE authorised action (no request, approval, queue or second
+ * CFO). Same real code and stand-ins as specialAdvancePayout.test.ts, plus X4.
  */
 import { readFileSync } from 'node:fs';
 import { randomUUID as uuid } from 'node:crypto';
@@ -207,16 +208,15 @@ const legs = (group: string) => q<{ ledger_scope: string; direction: string; cat
 const CORRECTIONS = MIG('20261102210000_special_advances_corrections.sql');
 const IMPAIRMENT = MIG('20261102220000_special_advances_impairment_writeoff.sql');
 const IMPAIRMENT_RB = read('supabase/rollbacks/20261102220000_special_advances_impairment_writeoff.rollback.sql');
-const cfo2 = uuid(); // another enabled CFO: Welile has one, so `cfo` approves its own requests; cfo2 only checks withdraw rights
 const PHASE4_ALLOWLIST_MD5 = 'f61da259fbb92c484402bb3149abac37'; // production, read-only check 2026-11-02
 const C_CATEGORIES = ['special_advance_impairment_charge', 'special_advance_impairment_allowance', 'special_advance_write_off',
   'special_advance_write_off_loss', 'special_advance_recovery_received', 'special_advance_recovery_income'];
 
-type Line = { advance_id: string; reference: string; gross_outstanding: number; days_past_due: number; minimum_rate: number;
-  individual_rate: number | null; applied_rate: number; required_allowance: number; held_before: number; delta: number; ledger_group_id?: string | null };
-type Review = { id: string; reference: string; status: string; total_delta: number; lines: Line[]; replayed?: boolean };
-type WriteOff = { id: string; reference: string; status: string; gross_amount: number; allowance_released: number; net_loss: number;
-  ledger_group_id: string | null; replayed?: boolean };
+type Line = { id: string; advance_id: string; reference: string; gross_outstanding: number; days_past_due: number; minimum_rate: number;
+  individual_rate: number | null; applied_rate: number; required_allowance: number; held_before: number; delta: number; ledger_group_id: string | null };
+type Review = { id: string; reference: string; total_delta: number; recorded_by: string; lines: Line[]; replayed?: boolean };
+type WriteOff = { id: string; reference: string; gross_amount: number; allowance_released: number; net_loss: number;
+  ledger_group_id: string; recorded_by: string; replayed?: boolean };
 type Recon = { balanced: boolean; difference: number; a24_ledger_balance: number; subledger_outstanding: number;
   a25_ledger_balance: number; allowance_subledger: number; allowance_difference: number; net_receivable: number;
   mismatched_advances: unknown[]; mismatched_allowances: unknown[] };
@@ -227,6 +227,7 @@ const run = async (sql: string) => {
   return e;
 };
 const count = async (sql: string, params: unknown[] = []) => (await q<{ n: number }>(sql, params))[0].n;
+const ledgerRows = () => count(`select count(*)::int n from public.general_ledger`);
 const md5Of = async (sig: string) => (await q<{ m: string }>(`select md5(replace(prosrc, chr(13), '')) m from pg_proc where oid = $1::regprocedure`, [sig]))[0]?.m;
 const recon = async () => (await call<Recon>(cfo, `select public.special_advance_reconciliation() r`)).out!;
 const statement = async (id: string) => (await call<Adv & { allowance_held: number; status: string }>(cfo, `select public.special_advance_statement($1) r`, [id])).out!;
@@ -236,16 +237,16 @@ const shiftToday = (days: number) => db.exec(`CREATE OR REPLACE FUNCTION public.
   SET search_path = public AS $$ SELECT (now() AT TIME ZONE 'Africa/Kampala')::date + ${days} $$`);
 const preview = async (rates: Record<string, number> = {}) =>
   (await call<{ lines: Line[]; total_delta: number }>(cfo, `select public.special_advance_provision_preview($1::jsonb) r`, [JSON.stringify({ individual_rates: rates })])).out!;
-const requestReview = (rates: Record<string, number> = {}, user = cfo, key = uuid(), aal = 'aal2') =>
-  call<Review>(user, `select public.special_advance_request_provision_review($1::jsonb) r`, [JSON.stringify({ individual_rates: rates, note: 'Month-end review', idempotency_key: key })], aal);
-const decideReview = (id: string, decision: string, user: string, note: string | null = null) =>
-  call<Review>(user, `select public.special_advance_decide_provision_review($1, $2, $3) r`, [id, decision, note]);
-const requestWriteOff = async (id: string, req: Record<string, unknown> = {}, user = cfo) =>
-  call<WriteOff>(user, `select public.special_advance_request_write_off($1, $2::jsonb) r`, [id, JSON.stringify({
+/** The CFO's one authorised action: compute and post a provision review (CFO decision 2026-11-03, one step). */
+const postReview = (rates: Record<string, number> = {}, opts: { user?: string; key?: string; aal?: string; expected?: number | null } = {}) =>
+  call<Review>(opts.user ?? cfo, `select public.special_advance_post_provision_review($1::jsonb) r`, [JSON.stringify({
+    individual_rates: rates, note: 'Month-end review', idempotency_key: opts.key ?? uuid(),
+    ...(opts.expected === undefined || opts.expected === null ? {} : { expected_total_delta: opts.expected }) })], opts.aal ?? 'aal2');
+/** The CFO's one authorised action: write off the whole balance (one step). */
+const writeOff = async (id: string, req: Record<string, unknown> = {}, user = cfo, aal = 'aal2') =>
+  call<WriteOff>(user, `select public.special_advance_write_off($1, $2::jsonb) r`, [id, JSON.stringify({
     idempotency_key: uuid(), reason: 'Borrower unreachable for 120 days; demand letters returned',
-    ...('proof_path' in req ? {} : { proof_path: await proof(id) }), ...req })]);
-const decideWriteOff = (id: string, decision: string, user: string, note: string | null = null) =>
-  call<WriteOff>(user, `select public.special_advance_decide_write_off($1, $2, $3) r`, [id, decision, note]);
+    ...('proof_path' in req ? {} : { proof_path: await proof(id) }), ...req })], aal);
 const recover = async (id: string, rec: Record<string, unknown>, user = cfo) =>
   call<{ id: string; ledger_group_id: string; replayed: boolean }>(user, `select public.special_advance_record_recovery($1, $2::jsonb) r`, [id, JSON.stringify({
     idempotency_key: uuid(), method: 'mobile_money', received_date: today(),
@@ -259,11 +260,11 @@ const newBorrower = async (role = 'tenant') => {
 };
 const paidOut = async (borrower: string, terms = TERMS) => (await disburse(await approved({ kind: 'welile_user', user_id: borrower }, terms), { payout_date: today(), method: 'wallet' })).out!;
 
-const PHASE_B_MD5: Record<string, string> = {
-  'public._special_advance_guard_update()': '905973f98fe6440d21fd2edaa4591182',
-  'public._special_advance_audit()': 'c0cc409f070905a07ff19504b0f196ac',
+const PHASE_B_MD5: Record<string, string> = { // the one-step Phase B (20261102210000) definitions
+  'public._special_advance_guard_update()': '672ef52ded23fec4188352f970710f88',
+  'public._special_advance_audit()': 'd232dad990ab924d4c77ba0b277e69e4',
   'public._special_advance_check_proof(uuid,text)': 'd12aa37dc682ebe7f64b376e2255e263',
-  'public.special_advance_statement(uuid)': 'e46ad4cc6e46cf0ea723c705db429947',
+  'public.special_advance_statement(uuid)': 'bac2467b11f7438455d5965a8f7dacef',
   'public.special_advance_reconciliation()': '538f7ed60a247b1b7f2eda3d25dd5da7',
   'public._special_advance_eligibility(text,uuid,text,text,text,uuid)': 'c5d49dfa28e9c6fa5cf1c270a8547cb0',
 };
@@ -275,12 +276,11 @@ async function setup() {
   await db.exec(`create trigger trg_validate_ledger_category before insert on public.general_ledger for each row execute function public.validate_ledger_category();`);
   // production's chart has X4 (Credit Losses and Write-offs)
   await db.exec(`insert into public.ledger_account_catalog (code, label, section, nature, sort_order) values ('X4', 'Credit Losses and Write-offs', 'expense', 'expense', 40)`);
-  for (const u of [...users, cfo2]) {
+  for (const u of users) {
     await db.query(`insert into auth.users values ($1)`, [u]);
     await db.query(`insert into public.profiles (id, full_name) values ($1, 'Person')`, [u]);
   }
   await db.query(`insert into public.user_roles (user_id, role) values ($1,'cfo'), ($2,'coo'), ($3,'super_admin'), ($4,'tenant'), ($5,'tenant'), ($6,'agent')`, users);
-  await db.query(`insert into public.user_roles (user_id, role) values ($1,'cfo')`, [cfo2]);
   await db.exec(ENGINE);
   for (const m of [STORAGE, FUNCTIONS, PAYOUT, POSITION, CORRECTIONS]) await db.exec(`BEGIN;\n${m}\nCOMMIT;`);
   await db.exec(`update public.special_advance_settings set issuance_enabled = true`);
@@ -324,14 +324,24 @@ describe('Phase C migration (accounting policy: A25, six mappings, six categorie
                              (select count(*)::int from pg_policies where tablename = $2) p`, [`public.${t}`, t]))
         .toEqual([{ s: true, i: false, a: false, rls: true, p: 2 }]);
     }
-    expect(await q(`select has_function_privilege('authenticated','public.special_advance_decide_write_off(uuid,text,text)','EXECUTE') a,
-                           has_function_privilege('anon','public.special_advance_record_recovery(uuid,jsonb)','EXECUTE') b,
-                           has_function_privilege('authenticated','public._special_advance_provision_line(uuid,numeric)','EXECUTE') c`))
-      .toEqual([{ a: true, b: false, c: false }]);
+    expect(await q(`select has_function_privilege('authenticated','public.special_advance_post_provision_review(jsonb)','EXECUTE') a,
+                           has_function_privilege('authenticated','public.special_advance_write_off(uuid,jsonb)','EXECUTE') b,
+                           has_function_privilege('anon','public.special_advance_write_off(uuid,jsonb)','EXECUTE') c,
+                           has_function_privilege('anon','public.special_advance_record_recovery(uuid,jsonb)','EXECUTE') d,
+                           has_function_privilege('authenticated','public._special_advance_provision_line(uuid,numeric)','EXECUTE') e`))
+      .toEqual([{ a: true, b: true, c: false, d: false, e: false }]);
+  });
+
+  it('one step only (CFO decision 2026-11-03): no request, decision or queue function and no status column', async () => {
+    expect(await q(`select p.proname from pg_proc p where p.pronamespace = 'public'::regnamespace
+                      and p.proname ~ '^(special_advance_(request|decide|list)_|_special_advance_guard_decided)' order by 1`)).toEqual([]);
+    expect(await q(`select table_name, column_name from information_schema.columns
+                      where table_name in ('special_advance_provision_reviews', 'special_advance_write_offs')
+                        and column_name in ('status', 'decided_by', 'decided_at', 'decision_note', 'requested_by') order by 1, 2`)).toEqual([]);
   });
 });
 
-describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
+describe('Provisions (D7 minimums, D8 accounts; posted by the CFO in one step)', () => {
   let w1: Adv;
   let w2: Adv;
   beforeAll(async () => {
@@ -341,7 +351,7 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
   });
   afterAll(() => shiftToday(0));
 
-  it('D7 minimum rates by days past due', async () => {
+  it('D7 minimum rates by days past due (unchanged)', async () => {
     expect(await q(`select d, public._special_advance_minimum_rate(d)::int r from unnest(array[0,1,30,31,60,61,90,91,400]) d`)).toEqual(
       [[0, 0], [1, 10], [30, 10], [31, 25], [60, 25], [61, 50], [90, 50], [91, 100], [400, 100]].map(([d, r]) => ({ d, r })));
   });
@@ -353,93 +363,101 @@ describe('Provisions (D7 minimums, D8 accounts, second-CFO approval)', () => {
     expect(await count(`select count(*)::int n from public.special_advance_provision_reviews`)).toBe(0);
   });
 
-  it('an individual rate below the minimum is refused; a higher one applies; requests need aal2 and the CFO role', async () => {
-    expect((await requestReview({ [w1.id]: 5 })).err?.message).toBe('INDIVIDUAL_RATE_BELOW_MINIMUM');
-    expect((await requestReview({ [w1.id]: 150 })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
-    expect((await requestReview({}, coo)).err?.message).toBe('NOT_AUTHORIZED');
-    expect((await requestReview({}, cfo, uuid(), 'aal1')).err?.message).toBe('MFA_REQUIRED');
+  it('refusals post and record nothing: rate below the minimum, bad rate, non-CFO, aal1, short key', async () => {
+    const ledger0 = await ledgerRows();
+    expect((await postReview({ [w1.id]: 5 })).err?.message).toBe('INDIVIDUAL_RATE_BELOW_MINIMUM');
+    expect((await postReview({ [w1.id]: 150 })).err?.message).toBe('SPECIAL_ADVANCE_INVALID_REQUEST');
+    for (const u of [coo, superAdmin, tenant]) expect((await postReview({}, { user: u })).err?.message, u).toBe('NOT_AUTHORIZED');
+    expect((await postReview({}, { aal: 'aal1' })).err?.message).toBe('MFA_REQUIRED');
+    expect((await postReview({}, { key: 'short' })).err?.message).toBe('IDEMPOTENCY_KEY_REQUIRED');
+    expect([await ledgerRows(), await count(`select count(*)::int n from public.special_advance_provision_reviews`)]).toEqual([ledger0, 0]);
   });
 
-  it('a review posts nothing until a CFO (the requester may) approves it; then DR X4 / CR A25 per advance', async () => {
-    const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
+  it('the preview total no longer matching refuses the posting (stale); nothing posts', async () => {
+    const p = await preview({ [w1.id]: 60 });
+    const ledger0 = await ledgerRows();
+    expect((await postReview({ [w1.id]: 60 }, { expected: p.total_delta + 1 })).err?.message).toBe('PROVISION_REVIEW_STALE');
+    expect(await ledgerRows()).toBe(ledger0);
+  });
+
+  it('the CFO posts the review in one action: DR X4 / CR A25 per advance, at once; a retry replays', async () => {
+    const p = await preview({ [w1.id]: 60 });
     const key = uuid();
-    const r = (await requestReview({ [w1.id]: 60 }, cfo, key)).out!;
-    expect(r).toMatchObject({ status: 'pending', total_delta: 564_000 + 94_000 });
-    expect((await requestReview({ [w1.id]: 60 }, cfo, key)).out?.replayed).toBe(true);
-    expect((await requestReview({}, cfo)).err?.message).toBe('PROVISION_REVIEW_ALREADY_PENDING');
-    expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
-    const ok = await decideReview(r.id, 'approve', cfo, 'Agreed: W1 individually impaired');
-    expect(ok.err).toBeUndefined();
-    const l1 = ok.out!.lines.find((l) => l.advance_id === w1.id)!;
+    const r = await postReview({ [w1.id]: 60 }, { key, expected: p.total_delta });
+    expect(r.err).toBeUndefined();
+    expect(r.out).toMatchObject({ total_delta: 564_000 + 94_000, recorded_by: cfo, replayed: false });
+    expect(r.out!.reference).toMatch(/^SAP-\d{6}$/);
+    const l1 = r.out!.lines.find((l) => l.advance_id === w1.id)!;
     expect(await mapped(l1.ledger_group_id!)).toEqual([{ account: 'A25', dr: 0, cr: 564_000 }, { account: 'X4', dr: 564_000, cr: 0 }]);
+    expect(await q(`select distinct source_table, source_id from public.general_ledger where transaction_group_id = $1`, [l1.ledger_group_id]))
+      .toEqual([{ source_table: 'special_advance_provision_lines', source_id: l1.id }]);
     expect(await held(w1.id)).toBe(564_000);
     expect(await held(w2.id)).toBe(94_000);
     const rc = await recon();
     expect(rc).toMatchObject({ balanced: true, difference: 0, a25_ledger_balance: 658_000, allowance_subledger: 658_000, allowance_difference: 0 });
     expect(rc.net_receivable).toBe(rc.a24_ledger_balance - 658_000);
+    const ledger1 = await ledgerRows();
+    expect((await postReview({ [w1.id]: 60 }, { key })).out).toMatchObject({ id: r.out!.id, replayed: true });
+    expect(await ledgerRows()).toBe(ledger1);
+    expect(await q(`select count(*)::int n, min(actor_id::text) a from public.special_advance_events where event_type = 'provision_posted'`))
+      .toEqual([{ n: 2, a: cfo }]);
   });
 
   it('the individual rate carries forward (nothing to change); 0 returns to the minimum and releases DR A25 / CR X4', async () => {
-    expect((await requestReview({})).err?.message).toBe('NOTHING_TO_PROVISION');
-    const r = (await requestReview({ [w1.id]: 0 })).out!;
+    expect((await postReview({})).err?.message).toBe('NOTHING_TO_PROVISION');
+    const r = (await postReview({ [w1.id]: 0 })).out!;
     expect(r.lines.map((l) => [l.advance_id, l.delta])).toEqual([[w1.id, 94_000 - 564_000]]);
-    const ok = (await decideReview(r.id, 'approve', cfo)).out!;
-    expect(await mapped(ok.lines[0].ledger_group_id!)).toEqual([{ account: 'A25', dr: 470_000, cr: 0 }, { account: 'X4', dr: 0, cr: 470_000 }]);
+    expect(await mapped(r.lines[0].ledger_group_id!)).toEqual([{ account: 'A25', dr: 470_000, cr: 0 }, { account: 'X4', dr: 0, cr: 470_000 }]);
     expect(await held(w1.id)).toBe(94_000);
   });
 
-  it('approval is refused as stale when a figure moved after the request; nothing posts', async () => {
-    const r = (await requestReview({ [w2.id]: 30 })).out!;
-    await repay(w2, { amount: 100_000, reference: 'MM-W2-STALE-1' });
-    const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
-    expect((await decideReview(r.id, 'approve', cfo)).err?.message).toBe('PROVISION_REVIEW_STALE');
-    expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
-    expect((await decideReview(r.id, 'reject', cfo)).err?.message).toBe('REASON_REQUIRED');
-    expect((await decideReview(r.id, 'reject', cfo, 'Stale: repayment received')).out?.status).toBe('rejected');
-  });
-
   it('after a repayment the next review lowers the allowance to the new gross (release)', async () => {
-    const r = (await requestReview({})).out!;
+    await repay(w2, { amount: 100_000, reference: 'MM-W2-STALE-1' });
+    const r = (await postReview({})).out!;
     expect(r.lines.map((l) => [l.advance_id, l.gross_outstanding, l.required_allowance, l.delta])).toEqual([[w2.id, 840_000, 84_000, -10_000]]);
-    expect((await decideReview(r.id, 'withdraw', cfo2)).err?.message).toBe('ONLY_REQUESTER_MAY_WITHDRAW');
-    await decideReview(r.id, 'approve', cfo);
     expect(await held(w2.id)).toBe(84_000);
     expect(await recon()).toMatchObject({ balanced: true, allowance_difference: 0 });
   });
 });
 
-describe('Write-off (D9) and recovery (D10)', () => {
+describe('Write-off (D9, one step) and recovery (D10)', () => {
   let w1: string;
   let w2: string;
-  let wo: WriteOff;
   beforeAll(async () => {
     w1 = (await q<{ id: string }>(`select id from public.special_advances where borrower_user_id = $1 and status = 'disbursed'`, [tenant]))[0].id;
     w2 = (await q<{ id: string }>(`select id from public.special_advances where borrower_user_id = $1 and status = 'disbursed'`, [tenant2]))[0].id;
   });
 
-  it('a request needs a 20+ character reason and an evidence file; posts nothing; one pending per advance', async () => {
-    expect((await requestWriteOff(w1, { reason: 'Gone quiet' })).err?.message).toBe('REASON_REQUIRED');
-    expect((await requestWriteOff(w1, { proof_path: null })).err?.message).toBe('PROOF_REQUIRED');
-    const ledger0 = await count(`select count(*)::int n from public.general_ledger`);
-    wo = (await requestWriteOff(w1)).out!;
-    expect(wo).toMatchObject({ status: 'pending', gross_amount: 940_000, allowance_released: 94_000, net_loss: 846_000 });
-    expect((await requestWriteOff(w1)).err?.message).toBe('WRITE_OFF_ALREADY_PENDING');
-    expect(await count(`select count(*)::int n from public.general_ledger`)).toBe(ledger0);
+  it('needs a 20+ character reason, an evidence file, aal2 and the CFO role; a refusal posts and records nothing', async () => {
+    const ledger0 = await ledgerRows();
+    expect((await writeOff(w1, { reason: 'Gone quiet' })).err?.message).toBe('REASON_REQUIRED');
+    expect((await writeOff(w1, { proof_path: null })).err?.message).toBe('PROOF_REQUIRED');
+    for (const u of [coo, superAdmin]) expect((await writeOff(w1, {}, u)).err?.message, u).toBe('NOT_AUTHORIZED');
+    expect((await writeOff(w1, {}, cfo, 'aal1')).err?.message).toBe('MFA_REQUIRED');
+    expect((await writeOff(w1, { expected_gross_amount: 939_999 })).err?.message).toBe('WRITE_OFF_STALE');
+    expect([await ledgerRows(), await count(`select count(*)::int n from public.special_advance_write_offs`)]).toEqual([ledger0, 0]);
+    expect((await statement(w1)).status).toBe('disbursed');
   });
 
-  it('the same CFO approves the write-off: CR A24 gross, DR A25 allowance, DR X4 the rest; the advance is written off and stays on record', async () => {
-    const r = await decideWriteOff(wo.id, 'approve', cfo, 'Evidence reviewed');
+  it('the CFO writes it off in one action: CR A24 gross, DR A25 allowance, DR X4 the rest; the advance is written off and stays on record', async () => {
+    const key = uuid(); const p = await proof(w1);
+    const r = await writeOff(w1, { idempotency_key: key, proof_path: p, expected_gross_amount: 940_000 });
     expect(r.err).toBeUndefined();
-    expect(await mapped(r.out!.ledger_group_id!)).toEqual([
+    expect(r.out).toMatchObject({ gross_amount: 940_000, allowance_released: 94_000, net_loss: 846_000, recorded_by: cfo, replayed: false });
+    expect(r.out!.reference).toMatch(/^SAW-\d{6}$/);
+    expect(await mapped(r.out!.ledger_group_id)).toEqual([
       { account: 'A24', dr: 0, cr: 940_000 }, { account: 'A25', dr: 94_000, cr: 0 }, { account: 'X4', dr: 846_000, cr: 0 }]);
     const st = await statement(w1);
     expect(st.status).toBe('written_off');
     expect(st.position).toMatchObject({ outstanding: 0 });
     expect(st.allowance_held).toBe(0);
-    expect(st.events.map((e) => e.event_type).slice(-3).sort()).toEqual(['write_off_approved', 'write_off_requested', 'written_off']);
+    expect(st.events.map((e) => e.event_type).slice(-2).sort()).toEqual(['write_off_posted', 'written_off']);
     expect(await recon()).toMatchObject({ balanced: true, difference: 0, allowance_difference: 0 });
     expect((await repay({ id: w1 }, { amount: 1_000, reference: 'MM-AFTER-WO' })).err?.message).toBe('SPECIAL_ADVANCE_NOT_REPAYABLE');
-    expect((await decideWriteOff(wo.id, 'approve', cfo)).out?.replayed).toBe(true);
+    const ledger1 = await ledgerRows();
+    expect((await writeOff(w1, { idempotency_key: key, proof_path: p })).out).toMatchObject({ id: r.out!.id, replayed: true });
+    expect((await writeOff(w1)).err?.message).toBe('SPECIAL_ADVANCE_NOT_WRITABLE_OFF');
+    expect(await ledgerRows()).toBe(ledger1);
   });
 
   it('a written-off borrower cannot get a new Special Advance (safety default)', async () => {
@@ -461,22 +479,16 @@ describe('Write-off (D9) and recovery (D10)', () => {
     expect(await recon()).toMatchObject({ balanced: true });
   });
 
-  it('an allowance above the balance is released by the write-off (CR X4), and a stale request is refused', async () => {
+  it('an allowance above the balance is released by the write-off (CR X4)', async () => {
     const id = (await paidOut(await newBorrower(), { ...TERMS, principal: 200_000 })).id; // gross 200,000 + 168,000 + 10,000 = 378,000
     await shiftToday(40);
     try {
-      const r = (await requestReview({ [id]: 100 })).out!;
-      await decideReview(r.id, 'approve', cfo);
+      expect((await postReview({ [id]: 100 })).err).toBeUndefined();
       expect(await held(id)).toBe(378_000);
-      await repay({ id }, { amount: 78_000, reference: 'MM-OVERPROV-1' }); // gross 300,000 < allowance 378,000
-      const stale = (await requestWriteOff(id)).out!;
-      await repay({ id }, { amount: 1_000, reference: 'MM-OVERPROV-2' });
-      expect((await decideWriteOff(stale.id, 'approve', cfo)).err?.message).toBe('WRITE_OFF_STALE');
-      await decideWriteOff(stale.id, 'withdraw', cfo);
-      const w = (await requestWriteOff(id)).out!;
+      await repay({ id }, { amount: 79_000, reference: 'MM-OVERPROV-1' }); // gross 299,000 < allowance 378,000
+      const w = (await writeOff(id, { expected_gross_amount: 299_000 })).out!;
       expect(w).toMatchObject({ gross_amount: 299_000, allowance_released: 378_000, net_loss: -79_000 });
-      const ok = (await decideWriteOff(w.id, 'approve', cfo)).out!;
-      expect(await mapped(ok.ledger_group_id!)).toEqual([
+      expect(await mapped(w.ledger_group_id)).toEqual([
         { account: 'A24', dr: 0, cr: 299_000 }, { account: 'A25', dr: 378_000, cr: 0 }, { account: 'X4', dr: 0, cr: 79_000 }]);
       expect(await recon()).toMatchObject({ balanced: true, difference: 0, allowance_difference: 0 });
     } finally {
@@ -485,18 +497,25 @@ describe('Write-off (D9) and recovery (D10)', () => {
   });
 });
 
-describe('Records stay append-only; the write-off edge only through an approved write-off', () => {
-  it('provision lines, decided reviews and write-offs, and recoveries never change or disappear', async () => {
+describe('Records stay append-only; the write-off edge only through a posted write-off', () => {
+  it('provision reviews and lines, write-offs and recoveries never change or disappear', async () => {
     for (const sql of [
       `update public.special_advance_provision_lines set delta = 0`,
       `delete from public.special_advance_provision_lines`,
-      `update public.special_advance_provision_reviews set status = 'rejected' where status = 'approved'`,
-      `update public.special_advance_write_offs set gross_amount = 1 where status = 'approved'`,
+      `update public.special_advance_provision_reviews set note = 'Changed afterwards'`,
+      `delete from public.special_advance_provision_reviews`,
+      `update public.special_advance_write_offs set gross_amount = 1`,
       `delete from public.special_advance_write_offs`,
       `update public.special_advance_recoveries set amount = 1`,
       `delete from public.special_advance_recoveries`]) {
       expect(((await db.exec(sql).catch((x: Err) => x)) as Err).code, sql).toBe('42501');
     }
+  });
+
+  it('only an enabled CFO can be the recorder of a review or a write-off', async () => {
+    const e = await db.query(`insert into public.special_advance_provision_reviews (reference, as_of_date, total_delta, idempotency_key, recorded_by)
+      values ('SAP-999999', current_date, 0, $1, $2)`, [uuid(), coo]).catch((x: Err) => x);
+    expect((e as Err).message).toMatch(/SPECIAL_ADVANCE_RECORDER_NOT_CFO/);
   });
 
   it('disbursed -> written_off cannot be written directly', async () => {
@@ -539,7 +558,8 @@ describe('Phase C rollback', () => {
       expect(await q(`select conname, pg_get_constraintdef(oid) d from pg_constraint where conrelid in ('public.special_advances'::regclass, 'public.special_advance_events'::regclass) order by 1`)).toEqual(before.cons);
       expect(await count(`select count(*)::int n from public.ledger_account_map`)).toBe(before.map);
       expect(await count(`select count(*)::int n from public.ledger_account_catalog`)).toBe(before.cat);
-      expect(await q(`select to_regclass('public.special_advance_write_offs') t`)).toEqual([{ t: null }]);
+      expect(await q(`select to_regclass('public.special_advance_write_offs') t, to_regprocedure('public._special_advance_guard_posted()') g`))
+        .toEqual([{ t: null, g: '_special_advance_guard_posted()' }]); // Phase B's guard stays for its corrections
       expect(await run(IMPAIRMENT)).toBeUndefined();
     } finally {
       await fresh.close();
@@ -549,20 +569,21 @@ describe('Phase C rollback', () => {
 });
 
 describe('Client helpers (src/lib/specialAdvances.ts, Phase C)', () => {
-  it('request bodies carry rates and reasons only, never amounts', async () => {
+  it('request bodies carry rates, reasons and the figure the CFO saw, never amounts to post', async () => {
     const { buildProvisionReviewRequest, buildWriteOffRequest } = await import('@/lib/specialAdvances');
-    expect(buildProvisionReviewRequest({ individualRates: { a: 60 }, note: '  Month end  ', idempotencyKey: 'k' }))
-      .toEqual({ individual_rates: { a: 60 }, note: 'Month end', idempotency_key: 'k' });
+    expect(buildProvisionReviewRequest({ individualRates: { a: 60 }, note: '  Month end  ', idempotencyKey: 'k', expectedTotalDelta: 658_000 }))
+      .toEqual({ individual_rates: { a: 60 }, note: 'Month end', idempotency_key: 'k', expected_total_delta: 658_000 });
     expect(buildProvisionReviewRequest({ idempotencyKey: 'k' })).toEqual({ individual_rates: {}, idempotency_key: 'k' });
-    expect(buildWriteOffRequest({ reason: ' Unreachable for 120 days now ', proofPath: 'p', idempotencyKey: 'k' }))
-      .toEqual({ reason: 'Unreachable for 120 days now', proof_path: 'p', idempotency_key: 'k' });
+    expect(buildWriteOffRequest({ reason: ' Unreachable for 120 days now ', proofPath: 'p', idempotencyKey: 'k', expectedGrossAmount: 940_000 }))
+      .toEqual({ reason: 'Unreachable for 120 days now', proof_path: 'p', idempotency_key: 'k', expected_gross_amount: 940_000 });
   });
 
   it('words the Phase C refusals and the written-off eligibility code', async () => {
     const { describeSpecialAdvanceError, eligibilityText, STATUS_LABEL } = await import('@/lib/specialAdvances');
     expect(describeSpecialAdvanceError({ message: 'INDIVIDUAL_RATE_BELOW_MINIMUM', details: '{"minimum_rate": 25}' })).toMatch(/\(25%\)/);
     expect(describeSpecialAdvanceError({ message: 'RECOVERY_EXCEEDS_WRITTEN_OFF', details: '{"recoverable": 640000}' })).toMatch(/640,000/);
-    expect(describeSpecialAdvanceError({ message: 'PROVISION_REVIEW_STALE' })).toMatch(/new review/);
+    expect(describeSpecialAdvanceError({ message: 'PROVISION_REVIEW_STALE' })).toMatch(/preview again/i);
+    expect(describeSpecialAdvanceError({ message: 'WRITE_OFF_STALE' })).toMatch(/balance changed/i);
     expect(describeSpecialAdvanceError({ message: 'REASON_REQUIRED', details: 'Explain the write-off in 20 to 1000 characters' })).toMatch(/at least 20/);
     expect(eligibilityText('WRITTEN_OFF_SPECIAL_ADVANCE')).toMatch(/written off/);
     expect(STATUS_LABEL.written_off).toBe('Written off');

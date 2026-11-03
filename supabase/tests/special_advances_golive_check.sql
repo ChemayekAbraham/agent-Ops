@@ -8,12 +8,15 @@ WITH fp(item, sig, md5) AS (VALUES
   ('fn: repayment (Phase B)', 'public.special_advance_record_repayment(uuid,jsonb)', '6ccc510d8797574fb5e107065bf966e5'),
   ('fn: position (Phase B)', 'public._special_advance_position(uuid)', 'c17b7e48f943731c5c5f8d29f3c2e9dc'),
   ('fn: repayment verify (Phase B)', 'public._special_advance_verify_repayments()', '50ff7fd66e4ba87d924c7815024fea35'),
-  ('fn: status guard (Phase C)', 'public._special_advance_guard_update()', '7c252ea5e107b6b4c6405ad7fbe76f29'),
-  ('fn: audit (Phase C)', 'public._special_advance_audit()', '8153c3967e2c2514bb193fa78bef7a6f'),
+  ('fn: status guard (Phase C)', 'public._special_advance_guard_update()', '111eb1a82d4c69b9b1d0809e9c16395d'),
+  ('fn: audit (Phase C)', 'public._special_advance_audit()', 'c8033574751a7ee91b9318a0a00909da'),
   ('fn: proof check (Phase C)', 'public._special_advance_check_proof(uuid,text)', '42fe52ca203a12d8f54919ee282d9320'),
   ('fn: eligibility (Phase C)', 'public._special_advance_eligibility(text,uuid,text,text,text,uuid)', 'b5f250ec93466ca074b74feab1d98432'),
-  ('fn: statement (Phase C)', 'public.special_advance_statement(uuid)', 'dfb4cb837b35e28cd0bfcd7b6dcddceb'),
+  ('fn: statement (Phase C)', 'public.special_advance_statement(uuid)', '99c56f9ef3e2242948a1bebaa01f2fb3'),
   ('fn: reconciliation (Phase C)', 'public.special_advance_reconciliation()', '71689d0f17af58ae872c436f283eab09'),
+  ('fn: correction, one step (Phase B)', 'public.special_advance_record_correction(uuid,jsonb)', 'bef74b0e245a0c754f00705ddddc768c'),
+  ('fn: provision review, one step (Phase C)', 'public.special_advance_post_provision_review(jsonb)', '2670420df4127a5372a889d2f6b545b2'),
+  ('fn: write-off, one step (Phase C)', 'public.special_advance_write_off(uuid,jsonb)', 'ca55635e1179d95d265d90788182f469'),
   ('fn: balance sheet memo (Phase D)', 'public.get_statement_of_financial_position(timestamp with time zone)', '6c6f4d3e43233ae0ca342ff26c35dc21'),
   ('fn: ledger posting (unchanged)', 'public.create_ledger_transaction(jsonb,text,boolean)', '8e570ba579b151ac17788c0ee668a93b')
 ), mig(v) AS (VALUES ('20261028150000'), ('20261028151000'), ('20261028152000'), ('20261028153000'), ('20261028153100'),
@@ -82,17 +85,10 @@ a24 AS (
                       GROUP BY gl.transaction_group_id HAVING sum(CASE WHEN gl.direction = 'cash_in' THEN gl.amount ELSE -gl.amount END) <> 0),
          to_jsonb((SELECT count(DISTINCT transaction_group_id) FROM public.general_ledger WHERE category LIKE 'special\_advance%'))
   UNION ALL
-  SELECT 'queues: nothing awaiting approval',
-         NOT coalesce((xpath('/row/n/text()', query_to_xml(
-           CASE WHEN to_regclass('public.special_advance_write_offs') IS NOT NULL THEN
-             'select (select count(*) from public.special_advance_corrections where status = ''pending'')
-                   + (select count(*) from public.special_advance_provision_reviews where status = ''pending'')
-                   + (select count(*) from public.special_advance_write_offs where status = ''pending'') as n'
-           ELSE 'select 0 as n' END, false, true, '')))[1]::text::int > 0, false),
-         to_jsonb((xpath('/row/n/text()', query_to_xml(
-           CASE WHEN to_regclass('public.special_advance_corrections') IS NOT NULL
-                THEN 'select count(*) as n from public.special_advance_corrections where status = ''pending''' ELSE 'select 0 as n' END,
-           false, true, '')))[1]::text)
+  SELECT 'workflow: one step only (no request, decision or queue function; CFO decision 2026-11-03)',
+         NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+                      AND p.proname ~ '^special_advance_(request|decide|list)_(correction|provision_review|write_off)'),
+         NULL::jsonb
   UNION ALL
   SELECT 'grants: no Special Advances function executable by anon',
          NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace

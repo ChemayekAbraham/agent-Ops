@@ -19,7 +19,7 @@ import {
 import {
   uploadSpecialAdvanceProof,
   hasAuthenticatorSession,
-  useRequestSpecialAdvanceCorrection,
+  useRecordSpecialAdvanceCorrection,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceProofInput } from './SpecialAdvanceProofInput';
 import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
@@ -45,7 +45,7 @@ export function SpecialAdvanceCorrectionDialog({
   repaymentReference,
   onSuccess,
 }: SpecialAdvanceCorrectionDialogProps) {
-  const requestCorrection = useRequestSpecialAdvanceCorrection();
+  const recordCorrection = useRecordSpecialAdvanceCorrection();
   const [reason, setReason] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
@@ -91,12 +91,12 @@ export function SpecialAdvanceCorrectionDialog({
       idempotencyKey: idempotencyKey.current,
     });
 
-    const res = await requestCorrection.mutateAsync({
+    const res = await recordCorrection.mutateAsync({
       advanceId: advance.id,
       request: payload,
     });
 
-    toast.success(`Correction request ${res.reference} submitted for second CFO review`);
+    toast.success(`Correction ${res.reference} posted`);
     onOpenChange(false);
     onSuccess?.();
   };
@@ -142,13 +142,13 @@ export function SpecialAdvanceCorrectionDialog({
             <DialogDescription className="text-xs">
               {kind === 'repayment_reversal' ? (
                 <>
-                  Request reversal of repayment {repaymentReference ? `(${repaymentReference})` : ''} of{' '}
+                  Reverse repayment {repaymentReference ? `(${repaymentReference})` : ''} of{' '}
                   <strong className="text-foreground">{repaymentAmount ? formatUGX(repaymentAmount) : ''}</strong> on{' '}
                   {advance.reference}.
                 </>
               ) : (
                 <>
-                  Request reversal of external payout of{' '}
+                  Reverse the external payout of{' '}
                   <strong className="text-foreground">{formatUGX(advance.principal)}</strong> on {advance.reference}.
                 </>
               )}
@@ -158,11 +158,11 @@ export function SpecialAdvanceCorrectionDialog({
           <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-1">
             <div className="flex items-center gap-1.5 font-semibold">
               <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>Two-CFO Maker-Checker Control</span>
+              <span>Posts immediately</span>
             </div>
             <p>
-              This request posts nothing to the ledger until approved by a different enabled CFO. Historical records
-              are never edited or deleted.
+              Confirming posts the reversing entries to the ledger at once, under your authenticator-verified session.
+              The original entries are never edited or deleted.
             </p>
           </div>
 
@@ -221,7 +221,7 @@ export function SpecialAdvanceCorrectionDialog({
               onClick={() => void handleSubmit()}
             >
               {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Submit for review
+              Post correction
             </Button>
           </DialogFooter>
         </DialogContent>

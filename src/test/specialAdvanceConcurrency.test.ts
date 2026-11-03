@@ -213,7 +213,6 @@ const CORRECTIONS = MIG('20261102210000_special_advances_corrections.sql');
 const IMPAIRMENT = MIG('20261102220000_special_advances_impairment_writeoff.sql');
 const MEMO = MIG('20261102230000_sofp_special_advances_memo.sql');
 const SOFP_PROD = read('scripts/fixtures/sofp-prod-2026-11-02.sql');
-const cfo2 = uuid();
 const PARALLEL = 8;
 
 type Sql = ReturnType<typeof postgres>;
@@ -284,12 +283,11 @@ describeIfDb('Phase E: concurrent requests on a real Postgres (separate connecti
     await pg.unsafe('set check_function_bodies = off;\n' + HELPERS + '\n' + REAL.join('\n') + '\n' + TRIGGER_VALIDATOR_ALLOWLIST + '\nset check_function_bodies = on;');
     await pg.unsafe(`create trigger trg_validate_ledger_category before insert on public.general_ledger for each row execute function public.validate_ledger_category();
       insert into public.ledger_account_catalog (code, label, section, nature, sort_order) values ('X4', 'Credit Losses and Write-offs', 'expense', 'expense', 40);`);
-    for (const u of [...users, cfo2]) {
+    for (const u of users) {
       await pq(`insert into auth.users values ($1)`, [u]);
       await pq(`insert into public.profiles (id, full_name) values ($1, 'Person')`, [u]);
     }
     await pq(`insert into public.user_roles (user_id, role) values ($1,'cfo'), ($2,'coo'), ($3,'super_admin'), ($4,'tenant'), ($5,'tenant'), ($6,'agent')`, users);
-    await pq(`insert into public.user_roles (user_id, role) values ($1,'cfo')`, [cfo2]);
     await pg.unsafe(ENGINE);
     for (const m of [STORAGE, FUNCTIONS, PAYOUT, POSITION, CORRECTIONS, IMPAIRMENT]) await pg.begin((tx) => tx.unsafe(m));
     // Phase D needs the statement's other inputs; production's statement and resolver are loaded verbatim
@@ -348,50 +346,60 @@ describeIfDb('Phase E: concurrent requests on a real Postgres (separate connecti
     expect(await pcount(`select count(*)::int n from public.special_advance_repayments where reference = 'MM-SAMEREF-1'`)).toBe(1);
   });
 
-  it('8 simultaneous correction requests on one advance leave exactly one pending; two CFOs approving at once post once', async () => {
+  it('8 simultaneous corrections of one repayment (different keys) post exactly once; the same key 8 times posts once', async () => {
     const a = await pPaidOut();
     await pRepay(a.id, { amount: 100_000, reference: 'MM-CORR-RACE' });
+    await pRepay(a.id, { amount: 50_000, reference: 'MM-CORR-RACE-2' });
     const rep = (await pq<{ id: string }>(`select id from public.special_advance_repayments where reference = 'MM-CORR-RACE'`))[0].id;
-    const reqs = await race(PARALLEL, async () => pcall<{ id: string }>(cfo, `select public.special_advance_request_correction($1, $2::text::jsonb) r`, [a.id, JSON.stringify({
-      kind: 'repayment_reversal', repayment_id: rep, reason: 'Recorded against the wrong advance; statement attached',
-      proof_path: await pProof(a.id), idempotency_key: uuid() })]));
-    expect(ok(reqs)).toHaveLength(1);
-    expect(errs(reqs).every((m) => /CORRECTION_ALREADY_PENDING|duplicate key/.test(m))).toBe(true);
-    const id = ok(reqs)[0].out!.id;
-    const decisions = await race(PARALLEL, () => pcall<{ status: string; replayed: boolean }>(cfo2, `select public.special_advance_decide_correction($1, 'approve', null) r`, [id]));
-    expect(ok(decisions)).toHaveLength(PARALLEL);                       // one approves, the rest replay the same decision
-    expect(decisions.filter((d) => d.out?.replayed === false)).toHaveLength(1);
+    const post = async (key: string, repayment: string, proofPath?: string) =>
+      pcall<{ id: string; replayed: boolean }>(cfo, `select public.special_advance_record_correction($1, $2::text::jsonb) r`, [a.id, JSON.stringify({
+        kind: 'repayment_reversal', repayment_id: repayment, reason: 'Recorded against the wrong advance; statement attached',
+        proof_path: proofPath ?? await pProof(a.id), idempotency_key: key })]);
+    const rs = await race(PARALLEL, () => post(uuid(), rep));
+    expect(ok(rs)).toHaveLength(1);
+    expect(errs(rs).every((m) => /REPAYMENT_ALREADY_REVERSED|duplicate key/.test(m))).toBe(true);
+    const id = ok(rs)[0].out!.id;
     expect(await pcount(`select count(distinct transaction_group_id)::int n from public.general_ledger where source_table = 'special_advance_corrections' and source_id = $1`, [id])).toBe(1);
+    // one request retried 8 times at once (same key, same proof): one posting, the rest replay it
+    const rep2 = (await pq<{ id: string }>(`select id from public.special_advance_repayments where reference = 'MM-CORR-RACE-2'`))[0].id;
+    const key = uuid(); const proofPath = await pProof(a.id);
+    const same = await race(PARALLEL, () => post(key, rep2, proofPath));
+    expect(ok(same)).toHaveLength(PARALLEL);
+    expect(same.filter((r) => r.out?.replayed === false)).toHaveLength(1);
+    expect(await pcount(`select count(*)::int n from public.special_advance_corrections where repayment_id = $1`, [rep2])).toBe(1);
     expect(await pRecon()).toMatchObject({ balanced: true, difference: 0 });
   });
 
-  it('a repayment racing a write-off approval: either the write-off is refused as stale or the repayment is refused; the books tie', async () => {
+  it('a repayment racing a write-off: either the write-off is refused as stale or the repayment is refused; the books tie', async () => {
     const a = await pPaidOut();
-    const w = (await pcall<{ id: string }>(cfo, `select public.special_advance_request_write_off($1, $2::text::jsonb) r`, [a.id, JSON.stringify({
-      reason: 'Borrower unreachable for 120 days; demand letters returned', proof_path: await pProof(a.id), idempotency_key: uuid() })])).out!;
-    const proofPath = await pProof(a.id);
+    const gross = (await pcall<{ position: { outstanding: number } }>(cfo, `select public.special_advance_statement($1) r`, [a.id])).out!.position.outstanding;
+    const [woProof, rpProof] = [await pProof(a.id), await pProof(a.id)];
     const [wo, rp] = await Promise.all([
-      pcall<{ status: string }>(cfo2, `select public.special_advance_decide_write_off($1, 'approve', null) r`, [w.id]),
+      pcall<{ id: string }>(cfo, `select public.special_advance_write_off($1, $2::text::jsonb) r`, [a.id, JSON.stringify({
+        reason: 'Borrower unreachable for 120 days; demand letters returned', proof_path: woProof, idempotency_key: uuid(),
+        expected_gross_amount: gross })]),
       pcall<Adv>(cfo, `select public.special_advance_record_repayment($1, $2::text::jsonb) r`, [a.id, JSON.stringify({
-        idempotency_key: uuid(), method: 'mobile_money', received_date: today(), amount: 5_000, reference: 'MM-WO-RACE', proof_path: proofPath })])]);
+        idempotency_key: uuid(), method: 'mobile_money', received_date: today(), amount: 5_000, reference: 'MM-WO-RACE', proof_path: rpProof })])]);
     const exactlyOne = (!wo.err && !!rp.err && /SPECIAL_ADVANCE_NOT_REPAYABLE/.test(rp.err.message))
                     || (!rp.err && !!wo.err && /WRITE_OFF_STALE/.test(wo.err.message));
     expect(exactlyOne, JSON.stringify({ wo: wo.err?.message ?? 'ok', rp: rp.err?.message ?? 'ok' })).toBe(true);
     expect(await pRecon()).toMatchObject({ balanced: true, difference: 0, allowance_difference: 0 });
   });
 
-  it('8 simultaneous provision review requests leave exactly one pending', async () => {
+  it('8 simultaneous provision postings (different keys) post exactly once; the others find nothing left to post', async () => {
     await pPaidOut();
     await pq(`CREATE OR REPLACE FUNCTION public._special_advance_kampala_today() RETURNS date LANGUAGE sql STABLE SET search_path = public AS
       $f$ SELECT (now() AT TIME ZONE 'Africa/Kampala')::date + 40 $f$`);
     try {
-      const rs = await race(PARALLEL, () => pcall<{ id: string }>(cfo, `select public.special_advance_request_provision_review($1::text::jsonb) r`,
-        [JSON.stringify({ individual_rates: {}, idempotency_key: uuid() })]));
+      const preview = (await pcall<{ total_delta: number }>(cfo, `select public.special_advance_provision_preview('{}'::jsonb) r`)).out!;
+      const rs = await race(PARALLEL, () => pcall<{ id: string }>(cfo, `select public.special_advance_post_provision_review($1::text::jsonb) r`,
+        [JSON.stringify({ individual_rates: {}, idempotency_key: uuid(), expected_total_delta: preview.total_delta })]));
       expect(ok(rs)).toHaveLength(1);
-      expect(errs(rs).every((m) => /PROVISION_REVIEW_ALREADY_PENDING|duplicate key/.test(m))).toBe(true);
+      expect(errs(rs).every((m) => /NOTHING_TO_PROVISION|PROVISION_REVIEW_STALE/.test(m))).toBe(true);
       const id = ok(rs)[0].out!.id;
-      const d = await race(4, () => pcall<{ replayed: boolean }>(cfo2, `select public.special_advance_decide_provision_review($1, 'approve', null) r`, [id]));
-      expect(d.filter((x) => x.out?.replayed === false)).toHaveLength(1);
+      expect(await pcount(`select count(distinct gl.transaction_group_id)::int n from public.general_ledger gl
+                             join public.special_advance_provision_lines l on l.id = gl.source_id where l.review_id = $1`, [id]))
+        .toBe(await pcount(`select count(*)::int n from public.special_advance_provision_lines where review_id = $1 and delta <> 0`, [id]));
       expect(await pRecon()).toMatchObject({ balanced: true, allowance_difference: 0 });
     } finally {
       await pq(`CREATE OR REPLACE FUNCTION public._special_advance_kampala_today() RETURNS date LANGUAGE sql STABLE SET search_path = public AS

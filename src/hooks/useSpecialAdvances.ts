@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  CorrectionDecision, CorrectionStatus, MakerCheckerStatus, ProvisionPreview, ProvisionReview, SpecialAdvance,
+  ProvisionPreview, ProvisionReview, SpecialAdvance,
   SpecialAdvanceCorrection, SpecialAdvanceList, SpecialAdvanceQuote, SpecialAdvanceReconciliation, SpecialAdvanceRecovery,
   SpecialAdvanceStatement, SpecialAdvanceStatus, SpecialAdvanceWriteOff,
 } from '@/lib/specialAdvances';
@@ -122,40 +122,21 @@ export function useRecordSpecialAdvanceRepayment() {
   });
 }
 
-/* ── Corrections (Phase B, CFO decisions D11; migration 20261102210000) ─────────────────────────────── */
+/* ── Corrections (Phase B, CFO decisions D11; migration 20261102210000) ───────────────────────────────
+ * One step (CFO decision 2026-11-03): the CFO records and posts in a single authorised action (aal2). */
 
-/** The CFO correction queue (pending by default; null = every status). */
-export function useSpecialAdvanceCorrections(status: CorrectionStatus | null = 'pending', enabled = true) {
-  return useQuery({
-    queryKey: [KEY, 'corrections', status],
-    enabled,
-    queryFn: () => call<SpecialAdvanceCorrection[]>('special_advance_list_corrections', { p_status: status, p_limit: 100 }),
-    staleTime: 30 * 1000,
-    retry: noRetryOnRefusal,
-  });
-}
-
-/** Records a correction request (reason + proof, see buildCorrectionRequest). Posts nothing until a CFO approves it (the requester may). */
-export function useRequestSpecialAdvanceCorrection() {
+/** Records and posts a correction at once (reason + proof, see buildCorrectionRequest). A retry with the same key replays. */
+export function useRecordSpecialAdvanceCorrection() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
-      call<SpecialAdvanceCorrection>('special_advance_request_correction', { p_id: advanceId, p_request: request }),
+      call<SpecialAdvanceCorrection>('special_advance_record_correction', { p_id: advanceId, p_request: request }),
     onSuccess: invalidate,
   });
 }
 
-/** approve / reject (any CFO, the requester included; reject needs a note) or withdraw (the requester). Approval posts the correction. */
-export function useDecideSpecialAdvanceCorrection() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: ({ correctionId, decision, note }: { correctionId: string; decision: CorrectionDecision; note?: string | null }) =>
-      call<SpecialAdvanceCorrection>('special_advance_decide_correction', { p_correction_id: correctionId, p_decision: decision, p_note: note ?? null }),
-    onSuccess: invalidate,
-  });
-}
-
-/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10; migration 20261102220000) ───── */
+/* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10; migration 20261102220000) ─────
+ * One step (CFO decision 2026-11-03): preview, then the CFO posts in a single authorised action (aal2). */
 
 /** What a provision review would post now (read-only). `request` may carry individual_rates. */
 export function useSpecialAdvanceProvisionPreview(request: Record<string, unknown> | null, enabled = true) {
@@ -168,59 +149,27 @@ export function useSpecialAdvanceProvisionPreview(request: Record<string, unknow
   });
 }
 
-export function useSpecialAdvanceProvisionReviews(status: MakerCheckerStatus | null = 'pending', enabled = true) {
-  return useQuery({
-    queryKey: [KEY, 'provision-reviews', status],
-    enabled,
-    queryFn: () => call<ProvisionReview[]>('special_advance_list_provision_reviews', { p_status: status, p_limit: 20 }),
-    staleTime: 30 * 1000,
-    retry: noRetryOnRefusal,
-  });
-}
-
-/** Records a pending provision review (see buildProvisionReviewRequest). Posts nothing until a CFO approves it (the requester may). */
-export function useRequestProvisionReview() {
+/**
+ * Computes and posts a provision review at once (see buildProvisionReviewRequest; send the preview's total as
+ * expectedTotalDelta so nothing posts if balances moved since the CFO looked). A retry with the same key replays.
+ */
+export function usePostProvisionReview() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: (request: Record<string, unknown>) => call<ProvisionReview>('special_advance_request_provision_review', { p_request: request }),
+    mutationFn: (request: Record<string, unknown>) => call<ProvisionReview>('special_advance_post_provision_review', { p_request: request }),
     onSuccess: invalidate,
   });
 }
 
-export function useDecideProvisionReview() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: ({ reviewId, decision, note }: { reviewId: string; decision: CorrectionDecision; note?: string | null }) =>
-      call<ProvisionReview>('special_advance_decide_provision_review', { p_review_id: reviewId, p_decision: decision, p_note: note ?? null }),
-    onSuccess: invalidate,
-  });
-}
-
-export function useSpecialAdvanceWriteOffs(status: MakerCheckerStatus | null = 'pending', enabled = true) {
-  return useQuery({
-    queryKey: [KEY, 'write-offs', status],
-    enabled,
-    queryFn: () => call<SpecialAdvanceWriteOff[]>('special_advance_list_write_offs', { p_status: status, p_limit: 100 }),
-    staleTime: 30 * 1000,
-    retry: noRetryOnRefusal,
-  });
-}
-
-/** Records a pending write-off of the whole balance (see buildWriteOffRequest). Posts nothing until a CFO approves it (the requester may). */
-export function useRequestSpecialAdvanceWriteOff() {
+/**
+ * Writes off the whole balance at once (see buildWriteOffRequest; send the outstanding the CFO saw as
+ * expectedGrossAmount). A retry with the same key replays.
+ */
+export function useWriteOffSpecialAdvance() {
   const invalidate = useInvalidate();
   return useMutation({
     mutationFn: ({ advanceId, request }: { advanceId: string; request: Record<string, unknown> }) =>
-      call<SpecialAdvanceWriteOff>('special_advance_request_write_off', { p_id: advanceId, p_request: request }),
-    onSuccess: invalidate,
-  });
-}
-
-export function useDecideSpecialAdvanceWriteOff() {
-  const invalidate = useInvalidate();
-  return useMutation({
-    mutationFn: ({ writeOffId, decision, note }: { writeOffId: string; decision: CorrectionDecision; note?: string | null }) =>
-      call<SpecialAdvanceWriteOff>('special_advance_decide_write_off', { p_write_off_id: writeOffId, p_decision: decision, p_note: note ?? null }),
+      call<SpecialAdvanceWriteOff>('special_advance_write_off', { p_id: advanceId, p_request: request }),
     onSuccess: invalidate,
   });
 }

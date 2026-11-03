@@ -212,7 +212,6 @@ const MEMO_RB = read('supabase/rollbacks/20261102230000_sofp_special_advances_me
 const SOFP_PROD = read('scripts/fixtures/sofp-prod-2026-11-02.sql');
 const SOFP_PROD_MD5 = '2ee44b04b0dd9f383116d3d218881c53';
 const SOFP_SIG = 'public.get_statement_of_financial_position(timestamptz)';
-const cfo2 = uuid();
 
 // what the statement reads besides the ledger and the chart (columns as it uses them)
 const SOFP_STANDINS = `
@@ -254,12 +253,11 @@ async function setup(withImpairment: boolean) {
   await db.exec('set check_function_bodies = off;\n' + HELPERS + '\n' + REAL.join('\n') + '\n' + TRIGGER_VALIDATOR_ALLOWLIST + '\nset check_function_bodies = on;');
   await db.exec(`create trigger trg_validate_ledger_category before insert on public.general_ledger for each row execute function public.validate_ledger_category();`);
   await db.exec(`insert into public.ledger_account_catalog (code, label, section, nature, sort_order) values ('X4', 'Credit Losses and Write-offs', 'expense', 'expense', 40)`);
-  for (const u of [...users, cfo2]) {
+  for (const u of users) {
     await db.query(`insert into auth.users values ($1)`, [u]);
     await db.query(`insert into public.profiles (id, full_name) values ($1, 'Person')`, [u]);
   }
   await db.query(`insert into public.user_roles (user_id, role) values ($1,'cfo'), ($2,'coo'), ($3,'super_admin'), ($4,'tenant'), ($5,'tenant'), ($6,'agent')`, users);
-  await db.query(`insert into public.user_roles (user_id, role) values ($1,'cfo')`, [cfo2]);
   await db.exec(ENGINE);
   for (const m of [STORAGE, FUNCTIONS, PAYOUT, POSITION, CORRECTIONS, ...(withImpairment ? [IMPAIRMENT] : [])]) await db.exec(`BEGIN;\n${m}\nCOMMIT;`);
   await db.exec(SOFP_STANDINS);
@@ -272,10 +270,10 @@ async function setup(withImpairment: boolean) {
     { principal: 300_000, rate_percent: 15, rate_basis: 'monthly', term_days: 30, frequency: 'monthly' });
   await disburse(e, { payout_date: today(), method: 'mobile_money', reference: 'MM-PAY-MEMO', proof_path: await proof(e.id, 'png') });
   await approved({ kind: 'welile_user', user_id: tenant2 });
-  if (withImpairment) { // an approved provision review: 60% individual rate on the Welile advance (444,000 of 740,000)
-    const r = (await call<{ id: string }>(cfo, `select public.special_advance_request_provision_review($1::jsonb) r`,
-      [JSON.stringify({ individual_rates: { [w.id]: 60 }, idempotency_key: uuid() })])).out!;
-    await call(cfo2, `select public.special_advance_decide_provision_review($1, 'approve', null) r`, [r.id]);
+  if (withImpairment) { // a posted provision review: 60% individual rate on the Welile advance (444,000 of 740,000)
+    const r = await call<{ id: string }>(cfo, `select public.special_advance_post_provision_review($1::jsonb) r`,
+      [JSON.stringify({ individual_rates: { [w.id]: 60 }, idempotency_key: uuid() })]);
+    if (r.err) throw new Error(r.err.message);
   }
 }
 

@@ -21,13 +21,13 @@ BEGIN
     RAISE EXCEPTION 'precondition failed: corrections have been used; they are part of the books and are not rolled back; nothing was changed';
   END IF;
   FOR r IN SELECT * FROM (VALUES
-      ('public._special_advance_guard_update()', '905973f98fe6440d21fd2edaa4591182'),
-      ('public._special_advance_audit()', 'c0cc409f070905a07ff19504b0f196ac'),
+      ('public._special_advance_guard_update()', '672ef52ded23fec4188352f970710f88'),
+      ('public._special_advance_audit()', 'd232dad990ab924d4c77ba0b277e69e4'),
       ('public._special_advance_position(uuid)', 'c17b7e48f943731c5c5f8d29f3c2e9dc'),
       ('public._special_advance_verify_repayments()', '50ff7fd66e4ba87d924c7815024fea35'),
       ('public._special_advance_check_proof(uuid,text)', 'd12aa37dc682ebe7f64b376e2255e263'),
       ('public.special_advance_record_repayment(uuid,jsonb)', '6ccc510d8797574fb5e107065bf966e5'),
-      ('public.special_advance_statement(uuid)', 'e46ad4cc6e46cf0ea723c705db429947'),
+      ('public.special_advance_statement(uuid)', 'bac2467b11f7438455d5965a8f7dacef'),
       ('public.special_advance_reconciliation()', '538f7ed60a247b1b7f2eda3d25dd5da7')) v(sig, md5)
   LOOP
     IF (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure(r.sig)) IS DISTINCT FROM r.md5 THEN
@@ -37,9 +37,7 @@ BEGIN
 END
 $pre$;
 
-DROP FUNCTION public.special_advance_request_correction(uuid, jsonb);
-DROP FUNCTION public.special_advance_decide_correction(uuid, text, text);
-DROP FUNCTION public.special_advance_list_corrections(text, integer);
+DROP FUNCTION public.special_advance_record_correction(uuid, jsonb);
 
 -- the eight functions, exactly as before Phase B
 CREATE OR REPLACE FUNCTION public._special_advance_guard_update()
@@ -385,7 +383,7 @@ ALTER TABLE public.special_advance_repayments DROP COLUMN reversed_by_correction
 CREATE UNIQUE INDEX special_advance_repayments_reference_uq ON public.special_advance_repayments (method, upper(btrim(reference)));
 
 DROP TABLE public.special_advance_corrections;
-DROP FUNCTION public._special_advance_guard_correction();
+DROP FUNCTION public._special_advance_guard_posted();
 DROP SEQUENCE public.special_advance_correction_seq;
 
 ALTER TABLE public.special_advance_events

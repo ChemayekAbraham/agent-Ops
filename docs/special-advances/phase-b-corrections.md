@@ -10,9 +10,9 @@ approval. Migration `supabase/migrations/20261102210000_special_advances_correct
 | # | Decision |
 |---|---|
 | D11a | A correction posts **new** ledger legs: the same `special_advance_*` categories in the opposite direction, `source_table = 'special_advance_corrections'`, linked to the original. No new account, mapping or allowlist entry. Nothing posted is ever edited or deleted. |
-| D11b | **Amended 2026-11-03: the same CFO may approve their own request (Welile has one CFO).** Originally: one enabled CFO requests; a **different** enabled CFO approves or rejects (rejection needs a note). Nothing posts until approval. The requester may withdraw. Both steps need an authenticator-verified session (aal2). |
+| D11b | **One step (CFO decision 2026-11-03).** Welile has one CFO, who records and posts a correction in a single authorised action: enabled CFO role and an authenticator-verified session (aal2), checked by the server. There is no pending state, queue, approval, rejection or withdrawal. (This replaces the request-then-approve design of 2026-11-02.) |
 | D11c | Scope: (1) reverse an erroneous repayment, on a paid-out or settled advance (a settled one reopens); (2) reverse an **external** payout recorded in error, once every repayment on it has been reversed (the advance ends `reversed`). A payout to a Welile wallet cannot be reversed here. |
-| D11d | Every request carries a reason (20-1000 characters) and an archived proof file in the private bucket (this advance's folder, must exist, used once across payouts, repayments and corrections). |
+| D11d | Every correction carries a reason (20-1000 characters) and an archived proof file in the private bucket (this advance's folder, must exist, used once across payouts, repayments and corrections). |
 
 ## Journal entries (UGX)
 
@@ -28,47 +28,44 @@ day of approval; the original entries keep their dates.
 
 ## What changes
 
-- New table `special_advance_corrections` (reference `SAC-000001`; pending -> approved / rejected / withdrawn, decided
-  once; no update after, no delete; RLS CFO read + staff-MFA policy; no client writes).
-- New functions (authenticated only; CFO + aal2 inside): `special_advance_request_correction(p_id, p_request)`,
-  `special_advance_decide_correction(p_correction_id, p_decision, p_note)`,
-  `special_advance_list_corrections(p_status, p_limit)`.
-- `special_advance_repayments.reversed_by_correction`: stamped once by an approved reversal; the only change ever
-  allowed to a repayment row. A reversed repayment's allocations stop counting, and its provider reference may be
-  recorded again (for example against the right advance).
-- Status edges: `settled -> disbursed` (reopened) and `disbursed -> reversed` (external only), only from inside an
-  approved correction. Events: `correction_requested / _approved / _rejected / _withdrawn`, `reopened`, `reversed`.
+- New table `special_advance_corrections` (reference `SAC-000001`): append-only, one row per posted correction, written
+  in the same transaction as its ledger group (`ledger_group_id` always set); never updated or deleted; the recorder
+  must be an enabled CFO (`_special_advance_guard_posted`); RLS CFO read + staff-MFA policy; no client writes. A
+  repayment is reversed at most once and a payout at most once (unique indexes).
+- New function (authenticated only; CFO + aal2 inside): `special_advance_record_correction(p_id, p_request)` — checks
+  everything against the records as they are now, posts the opposite legs once (ledger key
+  `special_advance:correction:<id>`), writes the record and the `correction_posted` event, all in one transaction. A
+  retry with the same `idempotency_key` and the same request returns the posted correction (`replayed: true`); the
+  same key with a different request is refused (`IDEMPOTENCY_CONFLICT`).
+- `special_advance_repayments.reversed_by_correction`: stamped once by the posted reversal of that repayment; the only
+  change ever allowed to a repayment row. A reversed repayment's allocations stop counting, and its provider reference
+  may be recorded again (for example against the right advance).
+- Status edges: `settled -> disbursed` (reopened) and `disbursed -> reversed` (external only), only from inside a
+  posted correction. Events: `correction_posted`, `reopened`, `reversed`.
 - Replaced (each pinned to its production md5 by the preflight): `_special_advance_guard_update`,
   `_special_advance_audit`, `_special_advance_position`, `_special_advance_verify_repayments`,
   `_special_advance_check_proof`, `special_advance_record_repayment`, `special_advance_statement` (adds `corrections`
   and `reversed_by_correction`), `special_advance_reconciliation` (follows correction legs; a reversed advance must
   stand at 0).
-- Client: `src/lib/specialAdvances.ts` (types, labels, `buildCorrectionRequest`, `correctionActions`, messages) and
-  `src/hooks/useSpecialAdvances.ts` (`useSpecialAdvanceCorrections`, `useRequestSpecialAdvanceCorrection`,
-  `useDecideSpecialAdvanceCorrection`).
+- Client: `src/lib/specialAdvances.ts` (types, labels, `buildCorrectionRequest`, messages) and
+  `src/hooks/useSpecialAdvances.ts` (`useRecordSpecialAdvanceCorrection`).
 
-Refusals: `ONLY_REQUESTER_MAY_WITHDRAW`, `CORRECTION_ALREADY_PENDING` (one pending per advance),
-`CORRECTION_ALREADY_DECIDED`, `REPAYMENT_ALREADY_REVERSED`, `REPAYMENTS_MUST_BE_REVERSED_FIRST`,
+Refusals (nothing is posted or recorded): `REPAYMENT_ALREADY_REVERSED`, `REPAYMENTS_MUST_BE_REVERSED_FIRST`,
 `PAYOUT_REVERSAL_NOT_SUPPORTED` (wallet payout), `SPECIAL_ADVANCE_NOT_CORRECTABLE`, `BORROWER_HAS_OPEN_ADVANCE`
-(reopening would give a borrower two open advances), plus the proof, reason, MFA and role checks.
+(reopening would give a borrower two open advances), `SELF_ADVANCE`, `IDEMPOTENCY_CONFLICT`, plus the proof, reason,
+MFA and role checks.
 
-## Gemini (UI) hand-off
+## Screens
 
-Logic is in place; these are screens only.
-
-1. **Request a correction** (detail sheet): on each repayment that stands, "Reverse this repayment"; on an external
-   advance with no standing repayment, "Reverse the payout". Form: reason (min `CORRECTION_REASON_MIN` = 20), proof
-   file via `uploadSpecialAdvanceProof(advance.id, file)`, then `useRequestSpecialAdvanceCorrection` with
-   `buildCorrectionRequest(...)` and a fresh `newIdempotencyKey()` (reuse it only for a retry).
-2. **Correction queue** for the second CFO: `useSpecialAdvanceCorrections('pending')`. Buttons from
-   `correctionActions(correction, currentUserId)`: approve / reject (reject needs a note) for another CFO, withdraw for
-   the requester. Use `CORRECTION_KIND_LABEL` / `CORRECTION_STATUS_LABEL`. Show the proof file (signed URL).
-3. **Detail sheet**: list `statement.corrections`; show a repayment with `reversed_by_correction` as reversed (struck
-   through, not counted). Add `reversed` to the terminal-status line (`SpecialAdvanceDetailSheet.tsx:70`). The events
-   list shows the new event types.
-4. Approve / reject / withdraw and requests return `MFA_REQUIRED` for a password-only session: same step-up as Phase A.
+1. **Correct** (detail sheet): on each repayment that stands, "Reverse this repayment"; on an external advance with no
+   standing repayment, "Reverse the payout". Form: reason (min `CORRECTION_REASON_MIN` = 20) and proof file; the
+   authenticator check comes before the upload; one confirm posts it (`useRecordSpecialAdvanceCorrection` with
+   `buildCorrectionRequest(...)` and a `newIdempotencyKey()` reused only for a retry of the same request).
+2. **Detail sheet**: list `statement.corrections` (posted by, when, reason, proof); show a repayment with
+   `reversed_by_correction` as reversed (struck through, not counted). The events list shows `correction_posted`.
+3. There is no correction queue and no approve / reject / withdraw step.
 
 ## Before applying
 
-Phase A storage policies applied (proof uploads), the CFO enrolled with an authenticator (originally two CFOs for maker-checker; amended 2026-11-03
-needs two), CFO approval to apply. Issuance stays off.
+Phase A storage policies applied (proof uploads), the CFO enrolled with an authenticator, CFO approval to apply.
+Issuance stays off.

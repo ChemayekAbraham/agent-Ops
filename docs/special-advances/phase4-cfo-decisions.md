@@ -167,18 +167,22 @@ account. A20-A23 keep their headings. Tests: `src/test/balanceSheetClassificatio
 **Alternative.** A dedicated "Special Advances Receivable" heading: a change to the statement's layout (presentation,
 CFO / UI decision).
 
-## Amendment 2026-11-03: one CFO does everything
+## Amendment 2026-11-03: one CFO, one step
 
 CFO decision: Welile has one CFO, who gives Special Advances without the CEO's or anyone else's approval and does every
 step. Issuance already worked this way (Phases 1-4, live): only the CFO records, approves and pays out, and the same CFO
-may do all three. The change applies to the parts not yet in production:
+may do all of it. For the parts not yet in production the CFO decided ONE approval step:
 
-- Corrections (Phase B, D11b), provision reviews (Phase C) and write-offs (Phase C, D9) keep two steps — request, then
-  approve — but the requesting CFO may approve or reject their own request. No second CFO is needed. The
-  `SECOND_CFO_REQUIRED` refusal and the `*_maker_checker` table constraints are removed from the unapplied migrations
-  `20261102210000` and `20261102220000`; withdrawal stays with the requester.
-- Unchanged: CFO-only (CEO, super admin, admin and other roles cannot act), authenticator-verified session (aal2) for
-  every decision, reason and proof file rules, the permanent audit record, and the safety default that the CFO cannot
-  give an advance to themselves (`SELF_ADVANCE`, confirmed by the CFO on 2026-11-03).
-- Control note: one person now both makes and approves these entries; the compensating controls are the authenticator,
-  the reason and proof file, and the audit trail.
+- Corrections (Phase B, D11b), provision reviews and write-offs (Phase C, D9) are posted by the CFO in a single
+  authorised action. There is no pending state, queue, approval, rejection or withdrawal, and no second CFO. The
+  unapplied migrations `20261102210000` and `20261102220000` were rewritten accordingly (an earlier same-day draft that
+  let the CFO approve their own pending request was replaced before anything was applied).
+- Unchanged: CFO-only (CEO, super admin, admin and other roles cannot act), an authenticator-verified session (aal2)
+  on every posting, the reason and proof file rules, idempotency (a retry never posts twice), the append-only records
+  and audit events, the ledger postings and accounts (A24, A25, X4, R1, A1), and the rule that the CFO cannot give an
+  advance to themselves (`SELF_ADVANCE`, confirmed by the CFO on 2026-11-03).
+- Protection that replaces the old review step: the server recomputes under lock when posting and refuses (posting
+  nothing) if the figure the CFO saw has moved — `expected_total_delta` for a provision review, `expected_gross_amount`
+  for a write-off.
+- Control note: one person both makes and authorises these entries; the compensating controls are the authenticator,
+  the reason and proof file, the stale-figure check and the audit trail.

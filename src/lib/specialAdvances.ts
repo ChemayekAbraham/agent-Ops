@@ -79,9 +79,7 @@ export interface SpecialAdvanceQuote {
 
 export interface SpecialAdvanceEvent {
   event_type: 'created' | 'approved' | 'rejected' | 'cancelled' | 'disbursed' | 'settled' | 'reopened' | 'reversed'
-    | 'correction_requested' | 'correction_approved' | 'correction_rejected' | 'correction_withdrawn'
-    | 'written_off' | 'write_off_requested' | 'write_off_approved' | 'write_off_rejected' | 'write_off_withdrawn'
-    | 'provision_posted' | 'recovery_recorded';
+    | 'correction_posted' | 'written_off' | 'write_off_posted' | 'provision_posted' | 'recovery_recorded';
   from_status: string | null;
   to_status: string;
   actor_id: string;
@@ -146,22 +144,22 @@ export interface SpecialAdvanceStatement extends SpecialAdvance {
   repayments: Array<{ id: string; amount: number; received_date: string; method: string; reference: string; note: string | null; recorded_at: string;
     /** Archived proof of the repayment (D2). */
     proof_path?: string;
-    /** Set when an approved correction reversed this repayment: it no longer counts (Phase B). */
+    /** Set when a posted correction reversed this repayment: it no longer counts (Phase B). */
     reversed_by_correction?: string | null }>;
-  /** Correction requests on this advance, oldest first (Phase B). */
+  /** Corrections posted on this advance, oldest first (Phase B). */
   corrections?: SpecialAdvanceCorrection[];
   /** Phase C: impairment allowance held now (A25 subledger), what a review would require now, and the history. */
   allowance_held?: number;
   provision?: ProvisionLine;
-  provision_history?: Array<ProvisionLine & { review: string; review_status: MakerCheckerStatus; decided_at: string | null }>;
+  provision_history?: Array<ProvisionLine & { review: string; recorded_at: string }>;
   write_offs?: SpecialAdvanceWriteOff[];
   recoveries?: SpecialAdvanceRecovery[];
 }
 
 /* ── Impairment, write-off and recovery (Phase C, CFO decisions D7-D10, 2026-11-02; migration 20261102220000) ──
- * Provision reviews and write-offs: one CFO requests, a DIFFERENT CFO approves or rejects, the requester may withdraw
- * (use `correctionActions` for the buttons). The server computes every figure; the browser never sends amounts. */
-export type MakerCheckerStatus = CorrectionStatus;
+ * One step (CFO decision 2026-11-03): Welile has one CFO, who posts a provision review or a write-off in a single
+ * authorised action; there is no pending state, approval or queue. The server computes every figure; the browser
+ * sends only the figure the CFO saw (expected_*), so a posting is refused if the balances moved in between. */
 
 /** D7 minimums, for explaining the server's figures only (the server applies them). */
 export const IMPAIRMENT_MINIMUMS: Array<{ label: string; rate: number }> = [
@@ -197,14 +195,9 @@ export interface ProvisionReview {
   as_of_date: string;
   note: string | null;
   total_delta: number;
-  status: MakerCheckerStatus;
-  requested_by: string;
-  requested_by_name: string | null;
-  requested_at: string;
-  decided_by: string | null;
-  decided_by_name: string | null;
-  decided_at: string | null;
-  decision_note: string | null;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
   lines: ProvisionLine[];
   replayed?: boolean;
 }
@@ -220,15 +213,10 @@ export interface SpecialAdvanceWriteOff {
   net_loss: number;
   reason: string;
   proof_path: string;
-  status: MakerCheckerStatus;
-  requested_by: string;
-  requested_by_name: string | null;
-  requested_at: string;
-  decided_by: string | null;
-  decided_by_name: string | null;
-  decided_at: string | null;
-  decision_note: string | null;
-  ledger_group_id: string | null;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
   replayed?: boolean;
 }
 
@@ -247,40 +235,50 @@ export interface SpecialAdvanceRecovery {
   replayed?: boolean;
 }
 
-/** The body for `special_advance_request_provision_review` (and the preview): individual rates only, never amounts. */
+/**
+ * The body for `special_advance_post_provision_review` (and the preview): individual rates only, never amounts.
+ * `expectedTotalDelta` is the preview total the CFO saw; the server refuses (PROVISION_REVIEW_STALE) if it moved.
+ */
 export function buildProvisionReviewRequest(input: {
   individualRates?: Record<string, number>;
   note?: string | null;
   idempotencyKey: string;
+  expectedTotalDelta?: number;
 }): Record<string, unknown> {
   return {
     individual_rates: { ...(input.individualRates ?? {}) },
     ...(input.note?.trim() ? { note: input.note.trim() } : {}),
     idempotency_key: input.idempotencyKey,
+    ...(input.expectedTotalDelta === undefined ? {} : { expected_total_delta: input.expectedTotalDelta }),
   };
 }
 
-/** The body for `special_advance_request_write_off`: the server writes off the whole gross outstanding. */
-export function buildWriteOffRequest(input: { reason: string; proofPath: string; idempotencyKey: string }): Record<string, unknown> {
-  return { reason: input.reason.trim(), proof_path: input.proofPath, idempotency_key: input.idempotencyKey };
+/**
+ * The body for `special_advance_write_off`: the server writes off the whole gross outstanding. `expectedGrossAmount`
+ * is the balance the CFO saw; the server refuses (WRITE_OFF_STALE) if it moved.
+ */
+export function buildWriteOffRequest(input: {
+  reason: string;
+  proofPath: string;
+  idempotencyKey: string;
+  expectedGrossAmount?: number;
+}): Record<string, unknown> {
+  return {
+    reason: input.reason.trim(),
+    proof_path: input.proofPath,
+    idempotency_key: input.idempotencyKey,
+    ...(input.expectedGrossAmount === undefined ? {} : { expected_gross_amount: input.expectedGrossAmount }),
+  };
 }
 
 /* ── Corrections (Phase B, CFO decisions D11, 2026-11-02; migration 20261102210000) ──────────────────
- * One CFO requests (reason + proof file); a DIFFERENT CFO approves or rejects; the requester may withdraw. Approval
- * posts opposite legs on the original categories; nothing posted is ever edited. Both steps need aal2. */
+ * One step (CFO decision 2026-11-03): the CFO records and posts a correction (reason + proof file, aal2) in a single
+ * authorised action. It posts opposite legs on the original categories; nothing posted is ever edited. */
 export type CorrectionKind = 'repayment_reversal' | 'payout_reversal';
-export type CorrectionStatus = 'pending' | 'approved' | 'rejected' | 'withdrawn';
-export type CorrectionDecision = 'approve' | 'reject' | 'withdraw';
 
 export const CORRECTION_KIND_LABEL: Record<CorrectionKind, string> = {
   repayment_reversal: 'Reverse a repayment',
   payout_reversal: 'Reverse an external payout',
-};
-export const CORRECTION_STATUS_LABEL: Record<CorrectionStatus, string> = {
-  pending: 'Awaiting approval',
-  approved: 'Approved — posted',
-  rejected: 'Rejected',
-  withdrawn: 'Withdrawn',
 };
 export const CORRECTION_REASON_MIN = 20;
 export const CORRECTION_REASON_MAX = 1000;
@@ -296,19 +294,14 @@ export interface SpecialAdvanceCorrection {
   amount: number;
   reason: string;
   proof_path: string;
-  status: CorrectionStatus;
-  requested_by: string;
-  requested_by_name: string | null;
-  requested_at: string;
-  decided_by: string | null;
-  decided_by_name: string | null;
-  decided_at: string | null;
-  decision_note: string | null;
-  ledger_group_id: string | null;
+  ledger_group_id: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  recorded_at: string;
   replayed?: boolean;
 }
 
-/** The body for `special_advance_request_correction`. */
+/** The body for `special_advance_record_correction`. */
 export function buildCorrectionRequest(input: {
   kind: CorrectionKind;
   repaymentId?: string | null;
@@ -323,15 +316,6 @@ export function buildCorrectionRequest(input: {
     proof_path: input.proofPath,
     idempotency_key: input.idempotencyKey,
   };
-}
-
-/**
- * What `actorId` can do with a pending correction, provision review or write-off. Welile has one CFO (decision
- * 2026-11-03), so the requester approves their own request or withdraws it; anyone else approves or rejects.
- */
-export function correctionActions(c: Pick<SpecialAdvanceCorrection, 'status' | 'requested_by'>, actorId: string | undefined): CorrectionDecision[] {
-  if (c.status !== 'pending' || !actorId) return [];
-  return c.requested_by === actorId ? ['approve', 'withdraw'] : ['approve', 'reject'];
 }
 
 export interface SpecialAdvanceList {
@@ -446,10 +430,6 @@ export function describeSpecialAdvanceError(err: unknown): string {
   if (msg.includes('IDEMPOTENCY_CONFLICT')) return 'This request was already submitted with different details. Start again.';
   if (msg.includes('STALE_VERSION')) return 'This advance was changed by someone else. Reload it and try again.';
   // Corrections (Phase B, D11)
-  if (msg.includes('ONLY_REQUESTER_MAY_WITHDRAW')) return 'Only the CFO who requested this correction can withdraw it.';
-  if (msg.includes('CORRECTION_ALREADY_PENDING')) return 'This advance already has a correction awaiting a decision.';
-  if (msg.includes('CORRECTION_ALREADY_DECIDED')) return 'This correction has already been decided.';
-  if (msg.includes('CORRECTION_NOT_FOUND')) return 'Correction not found.';
   if (msg.includes('REPAYMENT_NOT_FOUND')) return 'That repayment is not on this advance.';
   if (msg.includes('REPAYMENT_ALREADY_REVERSED')) return 'This repayment has already been reversed.';
   if (msg.includes('REPAYMENTS_MUST_BE_REVERSED_FIRST')) return 'Reverse every repayment on this advance before reversing its payout.';
@@ -462,13 +442,8 @@ export function describeSpecialAdvanceError(err: unknown): string {
     return `An individual rate cannot be below the minimum for its days past due${min !== undefined ? ` (${min}%)` : ''}.`;
   }
   if (msg.includes('NOTHING_TO_PROVISION')) return 'Every allowance already matches what is required; there is nothing to post.';
-  if (msg.includes('PROVISION_REVIEW_ALREADY_PENDING')) return 'A provision review is already awaiting approval.';
-  if (msg.includes('PROVISION_REVIEW_STALE')) return 'Balances changed since this review was requested. Reject or withdraw it and run a new review.';
-  if (msg.includes('PROVISION_REVIEW_ALREADY_DECIDED')) return 'This provision review has already been decided.';
-  if (msg.includes('PROVISION_REVIEW_NOT_FOUND')) return 'Provision review not found.';
-  if (msg.includes('WRITE_OFF_ALREADY_PENDING')) return 'A write-off for this advance is already awaiting approval.';
-  if (msg.includes('WRITE_OFF_STALE')) return 'The balance or the allowance changed since this write-off was requested. Withdraw or reject it and request again.';
-  if (msg.includes('WRITE_OFF_ALREADY_DECIDED')) return 'This write-off has already been decided.';
+  if (msg.includes('PROVISION_REVIEW_STALE')) return 'Balances changed since the preview. Nothing was posted; preview again and post the new figures.';
+  if (msg.includes('WRITE_OFF_STALE')) return 'The balance changed since you opened this write-off. Nothing was posted; reload the advance and try again.';
   if (msg.includes('WRITE_OFF_NOT_FOUND')) return 'Write-off not found.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_WRITABLE_OFF')) return 'Only a paid-out advance with a balance outstanding can be written off.';
   if (msg.includes('SPECIAL_ADVANCE_NOT_WRITTEN_OFF')) return 'A recovery can only be recorded on a written-off advance.';

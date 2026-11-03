@@ -16,7 +16,7 @@ import {
 } from '@/lib/specialAdvances';
 import {
   useSpecialAdvanceProvisionPreview,
-  useRequestProvisionReview,
+  usePostProvisionReview,
 } from '@/hooks/useSpecialAdvances';
 import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 
@@ -28,7 +28,7 @@ export function SpecialAdvanceProvisionsTab() {
   const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const idempotencyKey = useRef(newIdempotencyKey());
-  const requestProvisionReview = useRequestProvisionReview();
+  const postProvisionReview = usePostProvisionReview();
 
   const previewReq = useMemo(() => ({
     individual_rates: individualRates,
@@ -57,10 +57,13 @@ export function SpecialAdvanceProvisionsTab() {
       individualRates,
       note: note.trim() || null,
       idempotencyKey: idempotencyKey.current,
+      // the preview total the CFO saw: the server posts nothing if balances moved since (PROVISION_REVIEW_STALE)
+      expectedTotalDelta: preview?.total_delta,
     });
 
-    const res = await requestProvisionReview.mutateAsync(payload);
-    toast.success(`Provision review ${res.reference} requested and sent to second CFO`);
+    const res = await postProvisionReview.mutateAsync(payload);
+    idempotencyKey.current = newIdempotencyKey();
+    toast.success(`Provision review ${res.reference} posted`);
     setNote('');
     setIndividualRates({});
     previewQuery.refetch();
@@ -241,11 +244,11 @@ export function SpecialAdvanceProvisionsTab() {
               <Button
                 id="provision-request-submit"
                 size="sm"
-                disabled={submitting || previewQuery.isLoading}
+                disabled={submitting || !preview || previewQuery.isFetching}
                 onClick={() => void handleSubmit()}
               >
                 {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                Request second-CFO provision review
+                Post provision review
               </Button>
             </div>
           </div>
