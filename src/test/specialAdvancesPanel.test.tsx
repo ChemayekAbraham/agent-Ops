@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 
@@ -58,11 +59,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Special Advances panel', () => {
-  it('lists agreements and shows the A24 reconciliation', async () => {
+  it('lists agreements and shows the reconciliation status in its tab', async () => {
     renderPanel();
     expect(await screen.findByText('SA-000001')).toBeTruthy();
     expect(screen.getByText('Acme Supplies Ltd')).toBeTruthy();
-    await waitFor(() => expect(document.getElementById('special-advance-reconciliation')?.textContent).toMatch(/reconciled/));
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
+    expect(await screen.findByText('Reconciled')).toBeTruthy();
     fireEvent.click(btn('special-advance-new'));
     expect(screen.getByText('record modal open')).toBeTruthy();
   });
@@ -70,7 +72,8 @@ describe('Special Advances panel', () => {
   it('highlights a reconciliation difference', async () => {
     mocks.server.recon = { a24_ledger_balance: 940007, subledger_outstanding: 940000, difference: 7, balanced: false, mismatched_advances: [] };
     renderPanel();
-    await waitFor(() => expect(document.getElementById('special-advance-reconciliation')?.textContent).toMatch(/difference/));
+    await userEvent.click(screen.getByText('Reconciliation & Balances'));
+    expect(await screen.findByText('Imbalance detected')).toBeTruthy();
   });
 
   it('issuance off: approval disabled; rejection needs a reason and calls the server with the version', async () => {
