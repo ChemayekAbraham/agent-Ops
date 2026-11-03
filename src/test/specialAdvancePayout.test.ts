@@ -512,18 +512,22 @@ describe('Proof files for external payouts and repayments (CFO decision D1/D2, 2
     const again = await db.exec(`BEGIN;\n${POLICIES}\nCOMMIT;`).catch((x: Err) => x);
     await db.exec('ROLLBACK').catch(() => {});
     expect((again as Err).message).toMatch(/already exist/);
-    // D14 (2026-11-02): reading and uploading a proof need a CFO session verified with the authenticator app (aal2)
+    // CFO decision 2026-11-03: an enabled CFO reads and uploads proofs without an authenticator (D14 withdrawn); others never
     await db.exec(`GRANT USAGE ON SCHEMA storage TO authenticated; GRANT SELECT, INSERT ON storage.objects TO authenticated;`);
     try {
       const file = () => `advances/${uuid()}/${uuid()}.pdf`;
       const upload = (user: string, aal: string) => call(user, `insert into storage.objects (bucket_id, name) values ('special-advance-proofs', $1) returning 1 r`, [file()], aal);
       const visible = async (user: string, aal: string) => (await call<number>(user, `select count(*)::int r from storage.objects where bucket_id = 'special-advance-proofs'`, [], aal)).out;
-      expect((await upload(cfo, 'aal1')).err?.message).toMatch(/row-level security/);
+      expect((await upload(cfo, 'aal1')).err).toBeUndefined();
+      expect((await upload(coo, 'aal1')).err?.message).toMatch(/row-level security/);
       expect((await upload(coo, 'aal2')).err?.message).toMatch(/row-level security/);
-      expect((await upload(cfo, 'aal2')).err).toBeUndefined();
-      expect(await visible(cfo, 'aal1')).toBe(0);
+      expect((await upload(superAdmin, 'aal2')).err?.message).toMatch(/row-level security/);
+      expect(await visible(cfo, 'aal1')).toBeGreaterThan(0);
       expect(await visible(coo, 'aal2')).toBe(0);
-      expect(await visible(cfo, 'aal2')).toBeGreaterThan(0);
+      expect(await visible(superAdmin, 'aal2')).toBe(0);
+      expect(await q(`select count(*)::int n from pg_policies where schemaname = 'storage' and tablename = 'objects'
+                        and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'special-advance-proofs' and (coalesce(qual,'') || coalesce(with_check,'')) ~ 'aal'`))
+        .toEqual([{ n: 0 }]);
     } finally {
       await db.exec(`REVOKE SELECT, INSERT ON storage.objects FROM authenticated; REVOKE USAGE ON SCHEMA storage FROM authenticated;`);
     }

@@ -18,14 +18,12 @@ import {
   useSpecialAdvanceProvisionPreview,
   usePostProvisionReview,
 } from '@/hooks/useSpecialAdvances';
-import { SpecialAdvanceStepUpDialog } from './SpecialAdvanceStepUpDialog';
 
 export function SpecialAdvanceProvisionsTab() {
   const [individualRates, setIndividualRates] = useState<Record<string, number>>({});
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [stepUpOpen, setStepUpOpen] = useState(false);
 
   const idempotencyKey = useRef(newIdempotencyKey());
   const postProvisionReview = usePostProvisionReview();
@@ -75,12 +73,7 @@ export function SpecialAdvanceProvisionsTab() {
     try {
       await executeSubmit();
     } catch (err) {
-      const msg = (err as Error)?.message || '';
-      if (msg.includes('MFA_REQUIRED')) {
-        setStepUpOpen(true);
-      } else {
-        setError(describeSpecialAdvanceError(err));
-      }
+      setError(describeSpecialAdvanceError(err));
     } finally {
       setSubmitting(false);
     }
@@ -254,12 +247,6 @@ export function SpecialAdvanceProvisionsTab() {
           </div>
         )}
       </section>
-
-      <SpecialAdvanceStepUpDialog
-        open={stepUpOpen}
-        onOpenChange={setStepUpOpen}
-        onSuccess={() => handleSubmit()}
-      />
     </div>
   );
 }
