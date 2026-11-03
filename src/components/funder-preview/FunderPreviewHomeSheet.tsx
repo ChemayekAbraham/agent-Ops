@@ -205,11 +205,15 @@ export function FunderPreviewHomeSheet({
                 <ArrowLeft className="h-5 w-5" aria-hidden />
               </button>
               <div className="flex gap-2.5">
-                {entry.category === 'empty' ? (
-                  <button type="button" aria-label="Share this Rent Plan" className={roundButton} onClick={share} disabled={sharing}>
-                    {sharing ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  aria-label={entry.category === 'empty' ? 'Share this house' : 'Share this Rent Plan'}
+                  className={roundButton}
+                  onClick={share}
+                  disabled={sharing}
+                >
+                  {sharing ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
+                </button>
                 <button
                   type="button"
                   aria-label={`Save ${view.title}`}
