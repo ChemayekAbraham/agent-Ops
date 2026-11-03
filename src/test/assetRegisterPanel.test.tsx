@@ -131,7 +131,6 @@ describe('CFO Asset Register panel', () => {
     expect(box.value).toBe('3');
     fireEvent.change(box, { target: { value: typed } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
-    await new Promise((r) => setTimeout(r, 300)); console.log('DBG', dialog.textContent?.slice(0, 1500), JSON.stringify(mocks.rpc.mock.calls.map((c) => c[0])));
     await waitFor(() => expect(mocks.rpc).toHaveBeenCalledWith('asset_register_update', expect.objectContaining({
       p_id: asset(1).id, p_changes: expect.objectContaining({ quantity: expected }) })));
     expect(mocks.rpc).not.toHaveBeenCalledWith('asset_register_import_commit', expect.anything());
