@@ -47,6 +47,7 @@ import {
   checkStreamedParagraph,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  parseModelRefusal,
   UNVERIFIED_PARAGRAPH_REPLACEMENT,
   verifyAndSanitizeStreamedParagraphs,
 } from "./guards.ts";
@@ -1793,12 +1794,10 @@ Answer the user's question in plain text without calling any tools:
         // If retry call fails, fall through to deterministic plain-text explanation
       }
 
-      const upperCandidate = retryReplyText.toUpperCase();
+      const parsedRetryRefusal = parseModelRefusal(retryReplyText, userText);
       const candidateValid =
         retryReplyText.length > 0 &&
-        upperCandidate !== "UNMATCHED" &&
-        upperCandidate !== "OUT_OF_SCOPE" &&
-        upperCandidate !== "ROLE_RESTRICTED" &&
+        !parsedRetryRefusal &&
         retryReplyText !== MSG.error &&
         checkAnswer(retryReplyText, rawToolOutputs, userText).ok;
 
@@ -3328,23 +3327,29 @@ Answer the user's question in plain text without calling any tools:
       });
     }
 
-    const trimmedUpper = finalText.trim().toUpperCase();
-    if (trimmedUpper === "OUT_OF_SCOPE") {
-      return await finish(MSG.outOfScope, "out_of_scope", {
-        tools: toolsCalled,
-        model: lastModel,
-        unansweredReason: "out_of_scope",
-      });
-    }
-    if (trimmedUpper === "ROLE_RESTRICTED") {
-      return await finish(MSG.roleRestricted, "not_staff", {
-        tools: toolsCalled,
-        model: lastModel,
-        unansweredReason: "role_restricted",
-      });
-    }
-    if (trimmedUpper === "UNMATCHED") {
-      return await finish(MSG.unmatched, "unmatched", {
+    const parsedRefusal = parseModelRefusal(finalText, userText);
+    if (parsedRefusal) {
+      const stripped = parsedRefusal.sentence;
+      const validSentence =
+        stripped.length > 0 && checkAnswer(stripped, rawToolOutputs, userText).ok;
+      if (parsedRefusal.kind === "out_of_scope") {
+        const reply = validSentence ? stripped : MSG.outOfScope;
+        return await finish(reply, "out_of_scope", {
+          tools: toolsCalled,
+          model: lastModel,
+          unansweredReason: "out_of_scope",
+        });
+      }
+      if (parsedRefusal.kind === "role_restricted") {
+        const reply = validSentence ? stripped : MSG.roleRestricted;
+        return await finish(reply, "not_staff", {
+          tools: toolsCalled,
+          model: lastModel,
+          unansweredReason: "role_restricted",
+        });
+      }
+      const reply = validSentence ? stripped : MSG.unmatched;
+      return await finish(reply, "unmatched", {
         tools: toolsCalled,
         model: lastModel,
         unansweredReason: "missing_tool",

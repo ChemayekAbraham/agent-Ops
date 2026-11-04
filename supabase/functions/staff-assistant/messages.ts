@@ -46,6 +46,39 @@ export const MSG = {
     "Web research is not set up yet",
   unverifiedStreamFigure:
     "I could not verify that figure",
+  refuseRoleRestricted(question?: string, callerRoles?: readonly string[]): string {
+    const q = (question ?? "").toLowerCase();
+    const roleLabel =
+      callerRoles && callerRoles.length > 0 ? callerRoles.join(", ").replace(/_/g, " ") : "current";
+    if (/\b(treasury|cash position|balance sheet|cfo|ledger|reconcil)\b/.test(q)) {
+      return `That Finance and Treasury report belongs to the CFO desk, so I can't open it from your ${roleLabel} workspace. I can check the reports and tasks assigned to your role instead.`;
+    }
+    if (/\b(payroll|salary|salaries|payslip|disciplinary|leave|headcount)\b/.test(q)) {
+      return `That HR and Payroll record is restricted to HR and the staff member it belongs to, so I can't show it from your ${roleLabel} workspace. I can check your own My Space payslips, attendance, or tasks instead.`;
+    }
+    if (/\b(supporter|portfolio|promissory|partner ops)\b/.test(q)) {
+      return `That Supporter portfolio report is restricted to Partner Ops and Finance, so I can't open it from your ${roleLabel} workspace. Tell me if you'd like me to check a report in your own department.`;
+    }
+    return MSG.roleRestricted;
+  },
+  refuseOutOfScope(question?: string): string {
+    const q = (question ?? "").toLowerCase();
+    if (
+      /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset|post|grant|revoke)\b/.test(
+        q,
+      )
+    ) {
+      return formatWriteMutationRefusal(question ?? "");
+    }
+    return MSG.outOfScope;
+  },
+  refuseUnmatched(question?: string): string {
+    const q = (question ?? "").trim();
+    if (q.length > 0 && q.length <= 120) {
+      return `I don't have that on file from a live Welile report, and I won't guess a number. Please check the closest workspace screen (/tenant-ops, /landlord-ops, /executive-hub?tab=agent-ops, /cfo/dashboard, or /me/staff-reports) or ask your manager.`;
+    }
+    return MSG.unmatched;
+  },
 } as const;
 
 /**
