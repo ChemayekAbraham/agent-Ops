@@ -29,7 +29,7 @@ import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '@/lib/welileHomesLandlordVerify';
-import { WhLandlordPortfolioAction } from './WhLandlordPortfolioAction';
+import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordPortfolioAction';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
@@ -1447,6 +1447,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           <SheetContent
             side="bottom"
             className="h-[92vh] w-full sm:max-w-lg sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 rounded-t-3xl border border-b-0 overflow-y-auto p-0 shadow-2xl"
+            onInteractOutside={(e) => { if (hasPendingLandlordCode()) e.preventDefault(); }}
+            onEscapeKeyDown={(e) => { if (hasPendingLandlordCode()) e.preventDefault(); }}
           >
             <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b px-4 py-3">
               <SheetTitle className="flex items-center gap-2">

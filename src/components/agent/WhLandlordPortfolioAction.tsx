@@ -13,10 +13,44 @@ import { sendLandlordPortfolioCode, verifyLandlordPortfolioCode } from '@/lib/we
 
 const CODE_TTL_SECONDS = 10 * 60;
 const RESEND_COOLDOWN = 60;
+const STORE_PREFIX = 'welile.wh-landlord-code.';
+
+type Pending = { sentAt: number; code: string };
+const storeKey = (phone: string) => STORE_PREFIX + phone.replace(/\D/g, '').slice(-9);
+function readPending(phone: string): Pending | null {
+  try {
+    const raw = localStorage.getItem(storeKey(phone));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Pending;
+    if (typeof p?.sentAt !== 'number') return null;
+    // Keep for a while after expiry so the agent still sees "expired" and can Resend.
+    if (Date.now() - p.sentAt > 60 * 60 * 1000) { localStorage.removeItem(storeKey(phone)); return null; }
+    return { sentAt: p.sentAt, code: typeof p.code === 'string' ? p.code : '' };
+  } catch { return null; }
+}
+function writePending(phone: string, p: Pending | null) {
+  try {
+    if (p) localStorage.setItem(storeKey(phone), JSON.stringify(p));
+    else localStorage.removeItem(storeKey(phone));
+  } catch { /* storage unavailable */ }
+}
+
+/** True while any landlord code entry is open, so the parent sheet must not close on outside taps. */
+export function hasPendingLandlordCode(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      if (localStorage.key(i)?.startsWith(STORE_PREFIX)) return true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
 
 /**
  * One landlord SMS code per portfolio. The code is checked only on the server
  * (`wh_portfolio_verify_landlord`); this component never decides verification itself.
+ * The open code entry (send time + typed digits) is kept in localStorage so tapping
+ * outside, switching apps, or refreshing never closes it or sends a new code;
+ * it closes only on successful verification or Cancel.
  */
 export function WhLandlordPortfolioAction({
   landlordName, landlordPhone, tenantCount, totalRent, verified, verifiedAt, stageLabel, onVerified, onRequestFloat,
@@ -35,20 +69,28 @@ export function WhLandlordPortfolioAction({
   const { toast } = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sentAt, setSentAt] = useState<number | null>(null);
+  const [sentAt, setSentAt] = useState<number | null>(() => readPending(landlordPhone)?.sentAt ?? null);
   const [now, setNow] = useState(Date.now());
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => readPending(landlordPhone)?.code ?? '');
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sentAt) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const wake = () => setNow(Date.now());
+    document.addEventListener('visibilitychange', wake);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', wake); };
   }, [sentAt]);
 
-  // A changed tenant list (verified flips false) closes any old code entry.
-  useEffect(() => { if (verified) { setSentAt(null); setCode(''); setError(null); } }, [verified]);
+  // Persist the open entry so it survives remounts, app switches and refreshes.
+  useEffect(() => {
+    if (sentAt) writePending(landlordPhone, { sentAt, code });
+  }, [sentAt, code, landlordPhone]);
+
+  const cancel = () => { writePending(landlordPhone, null); setSentAt(null); setCode(''); setError(null); };
+
+  useEffect(() => { if (verified) cancel(); }, [verified]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (stageLabel) {
     return (
@@ -81,6 +123,7 @@ export function WhLandlordPortfolioAction({
     try {
       const res = await verifyLandlordPortfolioCode({ phone: landlordPhone, code: value });
       if (res.success === false) { setError(res.error); setCode(''); return; }
+      writePending(landlordPhone, null);
       toast({ title: 'Landlord verified', description: `${landlordName} confirmed ${res.tenantCount} tenants.` });
       onVerified();
     } catch (e: any) {
@@ -130,6 +173,9 @@ export function WhLandlordPortfolioAction({
           </InputOTP>
           {checking && <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking code…</p>}
           {error && <p className="flex items-center gap-1.5 text-xs text-destructive"><AlertCircle className="h-3.5 w-3.5 shrink-0" /> {error}</p>}
+          <div className="flex justify-end">
+            <Button size="sm" variant="ghost" className="h-8 text-xs" disabled={checking} onClick={cancel}>Cancel</Button>
+          </div>
         </div>
       )}
 
