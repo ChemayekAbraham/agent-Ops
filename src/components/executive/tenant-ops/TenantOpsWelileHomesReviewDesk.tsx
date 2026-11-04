@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { WhStageActions } from '@/components/welile-homes/WhFloatStageDesk';
+import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,8 +88,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
         // Only include requests that have actually reached Tenant Ops (cleared/approved by Agent Ops).
         // Never show requests still waiting or pending at a previous stage!
         return (
-          ['agent_ops_approved', 'tenant_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status) ||
-          (r.status === 'rejected' && (r.rejection_reason || '').toLowerCase().includes('tenant ops'))
+          ['agent_ops_approved', 'tenant_ops_approved', 'landlord_ops_approved', 'coo_approved', 'approved', 'funded', 'disbursed'].includes(r.status)
         );
       });
 
@@ -152,42 +153,8 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
     },
   });
 
-  // Action: Approve & Forward to COO (Skips Partner Ops!)
-  const approveMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      const req = floatRequests.find((r) => r.id === requestId);
-      if (!req) throw new Error('Request not found. Refresh and try again.');
-      await advanceWelileHomesFloat({ requestId, expectedStatus: req.status, action: 'approve' });
-    },
-    onSuccess: () => {
-      toast.success('Float request approved and forwarded directly to COO');
-      qc.invalidateQueries({ queryKey: ['tenant-ops-welile-homes-float-requests'] });
-    },
-    onError: (err: any) => {
-      toast.error('Failed to forward to COO: ' + (err.message || 'Unknown error'));
-    },
-  });
-
-  // Action: Return to Agent Ops
-  const returnMutation = useMutation({
-    mutationFn: async (requestId: string) => {
-      const req = floatRequests.find((r) => r.id === requestId);
-      if (!req) throw new Error('Request not found. Refresh and try again.');
-      await advanceWelileHomesFloat({
-        requestId,
-        expectedStatus: req.status,
-        action: 'return',
-        note: 'Returned by Tenant Ops for agent review',
-      });
-    },
-    onSuccess: () => {
-      toast.success('Returned request back to Agent Ops');
-      qc.invalidateQueries({ queryKey: ['tenant-ops-welile-homes-float-requests'] });
-    },
-    onError: (err: any) => {
-      toast.error('Failed to return request: ' + (err.message || 'Unknown error'));
-    },
-  });
+  const SENT = ['tenant_ops_approved', 'landlord_ops_approved', 'coo_approved', 'approved', 'funded'];
+  const { data: history } = useWhFloatHistory(floatRequests.map((r) => r.id));
 
   // Filter requests according to active tab
   const filteredRequests = floatRequests.filter((r) => {
@@ -205,15 +172,13 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
       return r.status === 'agent_ops_approved';
     }
     if (filterTab === 'sent_to_coo') {
-      return r.status === 'tenant_ops_approved' || r.status === 'coo_approved' || r.status === 'approved' || r.status === 'funded';
+      return SENT.includes(r.status);
     }
     return true;
   });
 
   const pendingCount = floatRequests.filter((r) => r.status === 'agent_ops_approved').length;
-  const sentCount = floatRequests.filter(
-    (r) => r.status === 'tenant_ops_approved' || r.status === 'coo_approved' || r.status === 'approved' || r.status === 'funded'
-  ).length;
+  const sentCount = floatRequests.filter((r) => SENT.includes(r.status)).length;
   const totalVolume = floatRequests.reduce((sum, r) => sum + (Number(r.requested_amount) || 0), 0);
 
   return (
@@ -240,7 +205,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Verify enrolled tenants on agent landlord float requests. Once cleared, requests advance directly to the COO (Partner Ops bypassed).
+                Verify enrolled tenants on agent landlord float requests. Once cleared, requests go to Landlord Ops, then the COO and the CFO.
               </p>
             </div>
           </div>
@@ -281,11 +246,11 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
           </div>
 
           <div className="p-3 rounded-xl bg-background/60 border border-border/40">
-            <span className="text-[11px] text-muted-foreground block font-medium">Forwarded to COO</span>
+            <span className="text-[11px] text-muted-foreground block font-medium">Forwarded to Landlord Ops</span>
             <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
               {sentCount}
             </span>
-            <span className="text-[10px] text-muted-foreground block">Advanced to COO executive approval</span>
+            <span className="text-[10px] text-muted-foreground block">Sent on to Landlord Ops and later stages</span>
           </div>
 
           <div className="p-3 rounded-xl bg-background/60 border border-border/40">
@@ -326,7 +291,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
             )}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Sent to COO ({sentCount})
+            Sent on ({sentCount})
           </button>
 
           <button
@@ -374,7 +339,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
             </p>
             <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
               {filterTab === 'pending_tenant_ops'
-                ? 'When Agent Ops clears an agent landlord float request, it will appear here for tenant verification before proceeding directly to the COO.'
+                ? 'When Agent Ops clears an agent landlord float request, it will appear here for tenant verification before it goes to Landlord Ops.'
                 : 'Try adjusting your search or tab filters above.'}
             </p>
           </Card>
@@ -425,7 +390,7 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
                         )}
                         {isSentToCoo && (
                           <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
-                            Stage 3: Forwarded to COO
+                            Stage 3: Forwarded to Landlord Ops
                           </Badge>
                         )}
                       </div>
@@ -457,36 +422,13 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
                       {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                     </Button>
 
-                    {/* Action: Approve and Forward to COO */}
-                    {isPendingTenantOps && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => returnMutation.mutate(req.id)}
-                          disabled={returnMutation.isPending}
-                          className="gap-1 text-xs h-9 text-muted-foreground hover:text-destructive"
-                        >
-                          <RotateCcw className="h-3.5 w-3.5" />
-                          Return to Agent Ops
-                        </Button>
-
-                        <Button
-                          size="sm"
-                          onClick={() => approveMutation.mutate(req.id)}
-                          disabled={approveMutation.isPending}
-                          className="gap-1.5 text-xs h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
-                        >
-                          {approveMutation.isPending ? (
-                            <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          )}
-                          Approve & Forward to COO
-                        </Button>
-                      </>
-                    )}
                   </div>
+                </div>
+
+                <div className="px-4 sm:px-5 pb-4 space-y-3">
+                  <WhFloatStageTrail status={req.status} events={history?.get(req.id)} compact />
+                  {isPendingTenantOps && <WhStageActions row={req} nextLabel="Landlord Ops"
+                    onDone={() => qc.invalidateQueries({ queryKey: ['tenant-ops-welile-homes-float-requests'] })} />}
                 </div>
 
                 {/* Expanded Attached Tenants Inspection Panel */}

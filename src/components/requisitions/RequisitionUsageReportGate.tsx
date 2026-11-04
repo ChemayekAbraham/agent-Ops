@@ -179,6 +179,13 @@ export function RequisitionUsageReportGate() {
     return () => window.clearInterval(timer);
   }, [pending.length]);
 
+  // The Requisitions page's "Write report" button asks for the popup to open now rather than wait for the next reminder.
+  useEffect(() => {
+    const openNow = () => { void load(); setOpen(true); };
+    window.addEventListener('welile:open-usage-report', openNow);
+    return () => window.removeEventListener('welile:open-usage-report', openNow);
+  }, [load]);
+
   const submitReport = async () => {
     if (!current || !user?.id) return;
     const used = Number(amountUsed);

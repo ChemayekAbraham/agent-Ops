@@ -6,8 +6,25 @@ import { decisionTone, fmt, type Tone } from './format';
 import { useDeskPrefs } from './deskPrefs';
 import { CALM, FOCUS, PANEL, statusGlass, statusText, type Status } from './deskTheme';
 import { SkeletonRows } from './Skeleton';
+import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 
 type Sort = { field: string; dir: 1 | -1 } | null;
+
+/**
+ * The review column, added by the desks that have a checklist (E26). The feeds
+ * print `req` as the first eight characters of the request id; the desk turns
+ * that back into the whole id when the button is pressed, not before, so no
+ * desk pays for a lookup on rows nobody opens.
+ */
+export type ReviewHook = {
+  /** The 8-character code this row carries, or null when the row has none. */
+  shortFor: (row: Row) => string | null;
+  onOpen: (short: string) => void;
+  /** The code currently being resolved, so that one row can say "opening". */
+  opening: string | null;
+  /** Why a code could not be opened, by code — ambiguous, gone, or an error. */
+  notes: Record<string, string>;
+};
 
 const TONE_STATUS: Record<Tone, Status> = { go: 'ok', wait: 'warn', stop: 'bad', plain: 'idle' };
 
@@ -20,13 +37,70 @@ function DecisionPill({ value }: { value: unknown }) {
   );
 }
 
-export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedState; board: boolean }) {
+function ReviewCell({
+  row,
+  review,
+  cell,
+  state,
+}: {
+  row: Row;
+  review: ReviewHook;
+  cell: string;
+  state: Record<string, { kind: string; message: string }>;
+}) {
+  const short = review.shortFor(row);
+  const mark = short ? state[short] : undefined;
+  const note = short ? review.notes[short] : undefined;
+  const opening = !!short && review.opening === short;
+
+  return (
+    <td className={`${cell} align-top text-right`}>
+      {short ? (
+        <div className="inline-flex flex-col items-end gap-1">
+          <button
+            type="button"
+            disabled={opening}
+            onClick={() => review.onOpen(short)}
+            className={`desk-pill border border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] px-3 py-1 text-xs font-medium text-foreground ${CALM} ${FOCUS} hover:bg-[hsl(var(--primary)/0.25)] disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {opening ? 'Opening…' : mark?.kind === 'move_failed' ? 'Retry' : 'Review'}
+          </button>
+          {mark?.kind === 'move_failed' && (
+            <span className={`text-[11px] leading-tight ${statusText.bad}`}>{RETRY_LABEL}</span>
+          )}
+          {mark?.kind === 'moved' && <span className={`text-[11px] leading-tight ${statusText.ok}`}>{mark.message}</span>}
+          {note && (
+            <span className={`max-w-[16rem] text-[11px] leading-tight ${statusText.warn}`} role="alert">
+              {note}
+            </span>
+          )}
+        </div>
+      ) : (
+        <span className="text-xs text-muted-foreground">—</span>
+      )}
+    </td>
+  );
+}
+
+export function DeskTable({
+  spec,
+  feed,
+  board,
+  review,
+}: {
+  spec: TableSpec;
+  feed: FeedState;
+  board: boolean;
+  review?: ReviewHook;
+}) {
   const { density } = useDeskPrefs();
+  const { byShort } = useReviewStatus();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<Sort>(null);
   const [only, setOnly] = useState<string | null>(null);
   const hasDecision = spec.columns.some((c) => c.field === 'decision' || c.field === 'next_step');
   const cell = density === 'compact' ? 'px-3 py-1.5' : 'px-3 py-2.5';
+  const colCount = spec.columns.length + (review ? 1 : 0);
 
   const summary = useMemo(() => {
     if (!spec.summarySum) return [] as { decision: string; n: number; sum: number }[];
@@ -140,14 +214,22 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
                   </th>
                 );
               })}
+              {review && (
+                <th
+                  scope="col"
+                  className="sticky top-0 z-10 border-b border-white/12 px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap"
+                >
+                  Review
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
-            {feed.loading && <SkeletonRows cols={spec.columns.length} />}
+            {feed.loading && <SkeletonRows cols={colCount} />}
 
             {!feed.loading && feed.error && (
               <tr>
-                <td colSpan={spec.columns.length} className="px-3 py-8 text-center">
+                <td colSpan={colCount} className="px-3 py-8 text-center">
                   <p className={`font-medium ${statusText.bad}`}>Could not load this table</p>
                   <p className="mt-1 text-sm text-muted-foreground">{feed.error}</p>
                   <p className="mt-1 text-sm text-muted-foreground">
@@ -159,7 +241,7 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
 
             {!feed.loading && !feed.error && rows.length === 0 && (
               <tr>
-                <td colSpan={spec.columns.length} className="px-3 py-8 text-center">
+                <td colSpan={colCount} className="px-3 py-8 text-center">
                   {feed.rows.length === 0 ? (
                     <>
                       <p className="font-medium text-foreground">Nothing waiting</p>
@@ -202,6 +284,8 @@ export function DeskTable({ spec, feed, board }: { spec: TableSpec; feed: FeedSt
                     )}
                   </td>
                 ))}
+
+                {review && <ReviewCell row={r} review={review} cell={cell} state={byShort} />}
               </tr>
             ))}
           </tbody>

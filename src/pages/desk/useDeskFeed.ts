@@ -8,11 +8,20 @@ type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unkn
 // desk_feed is not in the generated Supabase types until they are regenerated after the migration.
 const rpc = supabase.rpc.bind(supabase) as unknown as RpcFn;
 
-async function loadFeed(feed: string): Promise<Row[]> {
+/** Ontology feeds (except the day list itself) can be pinned to one mapped day. */
+const dayFor = (feed: string, day?: string | null) =>
+  feed.startsWith('onto_') && feed !== 'onto_days' && day ? day : null;
+
+async function loadFeed(feed: string, day?: string | null): Promise<Row[]> {
   // Ontology feeds come from their own RPC; every other feed stays on desk_feed.
-  const { data, error } = feed.startsWith('onto_')
-    ? await rpc('ontology_feed', { p_feed: feed })
-    : await rpc('desk_feed', { p_feed: feed });
+  const d = dayFor(feed, day);
+  const args = d ? { p_feed: feed, p_day: d } : { p_feed: feed };
+  // Ontology change feeds come from their own RPC; the rest of the ontology stays on ontology_feed.
+  const { data, error } = feed.startsWith('onto_chg_')
+    ? await rpc('ontology_changes_feed', args)
+    : feed.startsWith('onto_')
+      ? await rpc('ontology_feed', args)
+      : await rpc('desk_feed', { p_feed: feed });
   if (error) throw new Error(error.message);
   return Array.isArray(data) ? (data as Row[]) : [];
 }
@@ -57,11 +66,11 @@ export function useStageFlow(): FeedState {
 }
 
 /** Loads every feed a desk needs and refreshes each one every minute while the desk is open. */
-export function useDeskFeeds(feeds: string[]): Record<string, FeedState> {
+export function useDeskFeeds(feeds: string[], day?: string | null): Record<string, FeedState> {
   const results = useQueries({
     queries: feeds.map((feed) => ({
-      queryKey: ['desk-feed', feed],
-      queryFn: () => loadFeed(feed),
+      queryKey: dayFor(feed, day) ? ['desk-feed', feed, dayFor(feed, day)] : ['desk-feed', feed],
+      queryFn: () => loadFeed(feed, day),
       refetchInterval: 60_000,
       refetchOnWindowFocus: true,
       staleTime: 30_000,
