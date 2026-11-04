@@ -512,22 +512,40 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   // Main lifecycle tab: enrolled (ready to request float), in_progress (read-only under review), active (funded/repaying)
   const [mainTab, setMainTab] = useState<'enrolled' | 'in_progress' | 'active'>('enrolled');
 
-  // Tenants still missing a NIN/passport photo (presentation only; the server enforces the float rule).
+  // Tenants still missing a NIN/passport photo who still need a float request
+  // (not cancelled, not in progress, not active). Presentation only; the server enforces the float rule.
   const [missingIdOnly, setMissingIdOnly] = useState(false);
-  const missingIdCount = useMemo(
-    () => subs.filter((s) => s.subscription_status !== 'cancelled' && !isIdComplete(identities.get(s.tenant_id))).length,
-    [subs, identities],
+  const missingIdSubs = useMemo(
+    () => subs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      if (isIdComplete(identities.get(s.tenant_id))) return false;
+      const fp = getSubscriptionPipeline(s);
+      return !fp.isPending && !fp.canCollect;
+    }),
+    [subs, identities, getSubscriptionPipeline],
   );
+  const missingIdSubIds = useMemo(() => new Set(missingIdSubs.map((s) => s.id)), [missingIdSubs]);
+  const missingIdCount = missingIdSubs.length;
   useEffect(() => { if (missingIdCount === 0) setMissingIdOnly(false); }, [missingIdCount]);
 
   const enrolledSubs = useMemo(() => {
-    return visibleSubs.filter((s) => {
-      if (missingIdOnly && (s.subscription_status === 'cancelled' || isIdComplete(identities.get(s.tenant_id)))) return false;
+    const base = missingIdOnly ? subs : visibleSubs;
+    return base.filter((s) => {
+      if (missingIdOnly) return missingIdSubIds.has(s.id);
       if (s.subscription_status === 'cancelled') return true;
       const fp = getSubscriptionPipeline(s);
       return !fp.isPending && !fp.canCollect;
     });
-  }, [visibleSubs, getSubscriptionPipeline, missingIdOnly, identities]);
+  }, [subs, visibleSubs, getSubscriptionPipeline, missingIdOnly, missingIdSubIds]);
+
+  const showMissingIds = () => {
+    setMainTab('enrolled');
+    setMissingIdOnly(true);
+    setCollapsedGroups(new Set());
+    window.setTimeout(() => {
+      document.querySelector('[data-missing-id="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
 
   const inProgressSubs = useMemo(() => {
     return visibleSubs.filter((s) => {
@@ -886,7 +904,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           </div>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant={missingIdOnly ? 'outline' : 'default'} className="h-8"
-              onClick={() => { setMainTab('enrolled'); setMissingIdOnly((v) => !v); }}>
+              onClick={() => { if (missingIdOnly) setMissingIdOnly(false); else showMissingIds(); }}>
               {missingIdOnly ? 'Show all tenants' : 'Add missing IDs'}
             </Button>
           </div>
@@ -1205,7 +1223,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                       return (
                         <div
                           key={s.id}
-                          className={`rounded-lg border p-3 space-y-2 transition-colors ${isSelected ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'bg-card'
+                          data-missing-id={missingIdOnly && missingIdSubIds.has(s.id) ? 'true' : undefined}
+                          className={`rounded-lg border p-3 space-y-2 transition-colors ${missingIdOnly && missingIdSubIds.has(s.id) ? 'border-amber-500/60 ring-2 ring-amber-500/40 bg-amber-500/5' : isSelected ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'bg-card'
                             }`}
                         >
                           <div className="flex items-start justify-between gap-2.5">
