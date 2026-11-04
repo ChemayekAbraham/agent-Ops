@@ -67718,7 +67718,8 @@ export type Database = {
           destination_masked: string | null
           expires_at: string
           id: string
-          reset_id: string
+          purpose: string
+          reset_id: string | null
           user_id: string
           verified_at: string | null
         }
@@ -67730,7 +67731,8 @@ export type Database = {
           destination_masked?: string | null
           expires_at: string
           id?: string
-          reset_id: string
+          purpose?: string
+          reset_id?: string | null
           user_id: string
           verified_at?: string | null
         }
@@ -67742,7 +67744,8 @@ export type Database = {
           destination_masked?: string | null
           expires_at?: string
           id?: string
-          reset_id?: string
+          purpose?: string
+          reset_id?: string | null
           user_id?: string
           verified_at?: string | null
         }
@@ -90729,6 +90732,23 @@ export type Database = {
       pin_challenge_issue: {
         Args: {
           p_channel: string
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_complete: {
+        Args: {
+          p_current_pin: string
+          p_email_code_hash: string
+          p_new_pin: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_issue: {
+        Args: {
           p_code_hash: string
           p_destination_masked?: string
           p_user: string
