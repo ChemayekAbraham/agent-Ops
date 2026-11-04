@@ -16,34 +16,41 @@ export const statusText: Record<Status, string> = {
   idle: 'text-muted-foreground',
 };
 
-/** Status dots, softened to 80% so the river reads as a flow and not as alarms. */
+/**
+ * Dots and fills read off their own tokens, separate from the text ones.
+ *
+ * On the dark board the two are identical. On light they cannot be: a red dark
+ * enough to clear 4.5:1 as text on white is muddy as a 8px dot, and a dot
+ * bright enough to read is too light to use as text. So light sets a brighter
+ * `-dot` value and keeps the darker one for words.
+ */
 export const statusDot: Record<Status, string> = {
-  ok: 'bg-[hsl(var(--desk-ok)/0.8)]',
-  warn: 'bg-[hsl(var(--desk-warn)/0.8)]',
-  bad: 'bg-[hsl(var(--desk-bad)/0.8)]',
+  ok: 'bg-[hsl(var(--desk-ok-dot)/0.8)]',
+  warn: 'bg-[hsl(var(--desk-warn-dot)/0.8)]',
+  bad: 'bg-[hsl(var(--desk-bad-dot)/0.8)]',
   idle: 'bg-muted-foreground/40',
 };
 
 export const statusFill: Record<Status, string> = {
-  ok: 'bg-[hsl(var(--desk-ok))]',
-  warn: 'bg-[hsl(var(--desk-warn))]',
-  bad: 'bg-[hsl(var(--desk-bad))]',
+  ok: 'bg-[hsl(var(--desk-ok-dot))]',
+  warn: 'bg-[hsl(var(--desk-warn-dot))]',
+  bad: 'bg-[hsl(var(--desk-bad-dot))]',
   idle: 'bg-muted-foreground/40',
 };
 
 export const statusEdge: Record<Status, string> = {
-  ok: 'border-[hsl(var(--desk-ok)/0.6)]',
-  warn: 'border-[hsl(var(--desk-warn)/0.6)]',
-  bad: 'border-[hsl(var(--desk-bad)/0.6)]',
-  idle: 'border-white/12',
+  ok: 'border-[hsl(var(--desk-ok-dot)/0.6)]',
+  warn: 'border-[hsl(var(--desk-warn-dot)/0.6)]',
+  bad: 'border-[hsl(var(--desk-bad-dot)/0.6)]',
+  idle: 'border-[var(--desk-line-color)]',
 };
 
-/** Tinted glass: the status colour at 15% fill behind a 60% border. */
+/** Tinted glass: the status colour behind a border, with the readable text colour on top. */
 export const statusGlass: Record<Status, string> = {
-  ok: 'bg-[hsl(var(--desk-ok)/0.15)] border-[hsl(var(--desk-ok)/0.6)] text-[hsl(var(--desk-ok))]',
-  warn: 'bg-[hsl(var(--desk-warn)/0.15)] border-[hsl(var(--desk-warn)/0.6)] text-[hsl(var(--desk-warn))]',
-  bad: 'bg-[hsl(var(--desk-bad)/0.15)] border-[hsl(var(--desk-bad)/0.6)] text-[hsl(var(--desk-bad))]',
-  idle: 'bg-white/5 border-white/12 text-muted-foreground',
+  ok: 'bg-[hsl(var(--desk-ok-dot)/0.15)] border-[hsl(var(--desk-ok-dot)/0.6)] text-[hsl(var(--desk-ok))]',
+  warn: 'bg-[hsl(var(--desk-warn-dot)/0.15)] border-[hsl(var(--desk-warn-dot)/0.6)] text-[hsl(var(--desk-warn))]',
+  bad: 'bg-[hsl(var(--desk-bad-dot)/0.15)] border-[hsl(var(--desk-bad-dot)/0.6)] text-[hsl(var(--desk-bad))]',
+  idle: 'bg-[var(--desk-surface)] border-[var(--desk-line-color)] text-muted-foreground',
 };
 
 /** Glass surfaces, defined in index.css so the backdrop-filter fallback can live in @supports. */
@@ -60,7 +67,7 @@ export const FIGURE = 'desk-figure tabular-nums font-semibold text-foreground';
 
 /** Visible keyboard focus, in violet (--ring). */
 export const FOCUS =
-  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0718]';
+  'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--background))]';
 
 /** Transitions that stop when the viewer asks for reduced motion. */
 export const CALM = 'transition-colors motion-reduce:transition-none';

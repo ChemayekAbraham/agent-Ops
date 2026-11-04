@@ -1,11 +1,13 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { fmt } from './format';
 import type { FeedState, Row } from './useDeskFeed';
 import { CALM, CAPSULE, FIGURE, FOCUS, LABEL, PANEL, statusDot, statusEdge, statusGlass, statusText, type Status } from './deskTheme';
 import { DESKS } from './deskConfig';
 import { CountUp } from './CountUp';
 import { Skeleton } from './Skeleton';
+import { useStageTrend, type StageTrend } from './deskBriefApi';
 
 /** The first stage is intake — requests arriving — not a queue anyone works. */
 export const INTAKE_ORD = '0';
@@ -122,7 +124,50 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
   );
 }
 
-function Capsule({ row, isNeck, board }: { row: Row; isNeck: boolean; board: boolean }) {
+/**
+ * The 24-hour trend on a stage.
+ *
+ * Up means the queue grew, which is bad however fast the desk is working, so
+ * up is red and down is green — the opposite of a revenue chart, and the
+ * reason the direction is always spelled out in words for a screen reader.
+ * No comparison point yet is its own state: no arrow, and a tooltip saying so,
+ * rather than a misleading "no change".
+ */
+function Trend({ t, board }: { t: StageTrend | undefined; board: boolean }) {
+  const size = board ? 'text-sm' : 'text-xs';
+
+  if (!t || t.arrow === 'none' || t.change === null || t.change === undefined) {
+    return (
+      <span className={`${size} shrink-0 text-muted-foreground`} title="no 24h data yet">
+        —<span className="sr-only">no 24 hour data yet</span>
+      </span>
+    );
+  }
+
+  if (t.arrow === 'flat' || t.change === 0) {
+    return <span className={`${size} shrink-0 text-muted-foreground`}>no change</span>;
+  }
+
+  const up = t.arrow === 'up';
+  const n = Math.abs(t.change);
+  const Icon = up ? ArrowUp : ArrowDown;
+
+  return (
+    <span
+      className={`${size} inline-flex shrink-0 items-center gap-0.5 font-medium tabular-nums ${
+        up ? statusText.bad : statusText.ok
+      }`}
+      title={`${up ? 'More' : 'Fewer'} waiting than 24 hours ago`}
+    >
+      <Icon className={board ? 'h-4 w-4' : 'h-3.5 w-3.5'} aria-hidden />
+      {up ? '+' : '−'}
+      {fmt('int', n)}
+      <span className="sr-only">{up ? ' more than 24 hours ago' : ' fewer than 24 hours ago'}</span>
+    </span>
+  );
+}
+
+function Capsule({ row, isNeck, board, trend }: { row: Row; isNeck: boolean; board: boolean; trend?: StageTrend }) {
   const intake = String(row.ord) === INTAKE_ORD;
   const state = stageStatus(row);
   const waiting = num(row.waiting) ?? 0;
@@ -157,9 +202,10 @@ function Capsule({ row, isNeck, board }: { row: Row; isNeck: boolean; board: boo
         </>
       ) : (
         <>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <CountUp value={waiting} format={(n) => fmt('int', n)} className={`${FIGURE} ${figure}`} />
             <span className={LABEL}>waiting</span>
+            <Trend t={trend} board={board} />
           </div>
           <div className="space-y-1">
             <Metric label="UGX" value={fmt('ugx', row.waiting_ugx ?? 0)} />
@@ -182,7 +228,7 @@ function Capsule({ row, isNeck, board }: { row: Row; isNeck: boolean; board: boo
   return route ? (
     <Link
       to={`/desk/${route}`}
-      className={`${shell} ${CALM} ${FOCUS} hover:bg-white/10`}
+      className={`${shell} ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)]`}
       aria-label={`${String(row.stage)} — open the ${actingDesk(row)} desk`}
     >
       {body}
@@ -202,10 +248,13 @@ function Legend() {
   );
 }
 
-export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) {
+export function StageFlow({ feed, board, trends }: { feed: FeedState; board: boolean; trends?: boolean }) {
   const rows = ordered(feed.rows);
   const sentence = flowSentence(feed.rows);
   const neck = bottleneckOf(feed.rows);
+  // Stage-flow `ord` and trend `stage_ord` are the same scale ('1' Service
+  // Centre … '8' Landlord paid), so the two line up without a lookup table.
+  const trend = useStageTrend(!!trends);
 
   if (feed.loading) {
     return (
@@ -255,7 +304,12 @@ export function StageFlow({ feed, board }: { feed: FeedState; board: boolean }) 
         {rows.map((row, i) => (
           <Fragment key={String(row.ord ?? i)}>
             <div className="desk-river-unit">
-              <Capsule row={row} isNeck={!!neck && String(neck.ord) === String(row.ord)} board={board} />
+              <Capsule
+                row={row}
+                isNeck={!!neck && String(neck.ord) === String(row.ord)}
+                board={board}
+                trend={trends ? trend.byOrd.get(String(row.ord)) : undefined}
+              />
               {i < rows.length - 1 && <Connector seconds={particleSeconds(row.per_day_7d)} />}
             </div>
             {i === foldAfter && i < rows.length - 1 && <span className="desk-river-break" aria-hidden />}

@@ -3,6 +3,17 @@ import { useSearchParams } from 'react-router-dom';
 
 export type Density = 'compact' | 'comfortable';
 
+/** What the viewer chose. 'system' follows the device; the other two override it. */
+export type ThemeChoice = 'system' | 'light' | 'dark';
+/** What that resolves to once the device setting is read. */
+export type Theme = 'light' | 'dark';
+
+/** The device's own setting, read at call time so a test can run without matchMedia. */
+function deviceTheme(): Theme {
+  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
 type Prefs = {
   /** Board mode: a dark, large-type wall display. Driven by ?board=1 so a screen can be bookmarked straight into it. */
   board: boolean;
@@ -12,6 +23,11 @@ type Prefs = {
   /** Auto-rotation through the desks. Off by default; only offered in board mode. */
   rotate: boolean;
   setRotate: (on: boolean) => void;
+  /** The viewer's choice, which may be "follow the device". */
+  themeChoice: ThemeChoice;
+  setThemeChoice: (t: ThemeChoice) => void;
+  /** The choice resolved against the device. Board mode ignores this and stays dark. */
+  theme: Theme;
 };
 
 const Ctx = createContext<Prefs | null>(null);
@@ -58,9 +74,32 @@ export function DeskPrefsProvider({ children }: { children: ReactNode }) {
     store('desk-rotate', on ? 'on' : 'off');
   }, []);
 
+  const [themeChoice, setThemeChoiceState] = useState<ThemeChoice>(() =>
+    readStored('desk-theme', 'system', ['system', 'light', 'dark'] as const),
+  );
+  const [device, setDevice] = useState<Theme>(deviceTheme);
+
+  // Follow the device while the choice is 'system' — someone switching their
+  // laptop to night mode should not have to reload the desk.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = () => setDevice(mq.matches ? 'light' : 'dark');
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const setThemeChoice = useCallback((t: ThemeChoice) => {
+    setThemeChoiceState(t);
+    store('desk-theme', t);
+  }, []);
+
+  const theme: Theme = themeChoice === 'system' ? device : themeChoice;
+
   const value = useMemo<Prefs>(
-    () => ({ board, setBoard, density, setDensity, rotate, setRotate }),
-    [board, setBoard, density, setDensity, rotate, setRotate],
+    () => ({ board, setBoard, density, setDensity, rotate, setRotate, themeChoice, setThemeChoice, theme }),
+    [board, setBoard, density, setDensity, rotate, setRotate, themeChoice, setThemeChoice, theme],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

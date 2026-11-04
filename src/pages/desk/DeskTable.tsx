@@ -157,7 +157,7 @@ export function DeskTable({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search names, IDs, decisions"
-              className={`desk-pill h-9 w-full border border-white/12 bg-white/5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
+              className={`desk-pill h-9 w-full border border-[var(--desk-line-color)] bg-[var(--desk-surface)] pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
             />
           </label>
         )}
@@ -174,7 +174,7 @@ export function DeskTable({
                 type="button"
                 onClick={() => setOnly(active ? null : s.decision)}
                 aria-pressed={active}
-                className={`desk-pill border px-3 py-1 text-xs text-left ${CALM} ${FOCUS} ${statusGlass[state]} ${active ? 'ring-1 ring-inset ring-white/25' : ''}`}
+                className={`desk-pill border px-3 py-1 text-xs text-left ${CALM} ${FOCUS} ${statusGlass[state]} ${active ? 'ring-1 ring-inset ring-[var(--desk-ring)]' : ''}`}
               >
                 <span className="font-medium">{s.decision}</span>
                 <span className="ml-2 tabular-nums">{fmt('int', s.n)}</span>
@@ -187,7 +187,7 @@ export function DeskTable({
         </div>
       )}
 
-      <div className={`${board ? 'max-h-[22rem]' : 'max-h-[32rem]'} overflow-auto rounded-xl border border-white/10`}>
+      <div className={`${board ? 'max-h-[22rem]' : 'max-h-[32rem]'} overflow-auto rounded-xl border border-[var(--desk-line-color)]`}>
         <table className="w-full border-collapse text-sm tabular-nums">
           <thead className="desk-thead">
             <tr>
@@ -198,7 +198,7 @@ export function DeskTable({
                     key={c.field}
                     scope="col"
                     aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}
-                    className={`sticky top-0 z-10 border-b border-white/12 px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${c.right ? 'text-right' : 'text-left'}`}
+                    className={`sticky top-0 z-10 border-b border-[var(--desk-line-color)] px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${c.right ? 'text-right' : 'text-left'}`}
                   >
                     <button
                       type="button"
@@ -217,7 +217,7 @@ export function DeskTable({
               {review && (
                 <th
                   scope="col"
-                  className="sticky top-0 z-10 border-b border-white/12 px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap"
+                  className="sticky top-0 z-10 border-b border-[var(--desk-line-color)] px-3 py-2 text-right font-medium text-muted-foreground whitespace-nowrap"
                 >
                   Review
                 </th>
@@ -260,7 +260,7 @@ export function DeskTable({
             )}
 
             {!feed.loading && !feed.error && rows.map((r, i) => (
-              <tr key={String(r[spec.rowKey] ?? i)} className={`desk-row border-b border-white/5 last:border-0 ${CALM}`}>
+              <tr key={String(r[spec.rowKey] ?? i)} className={`desk-row border-b border-[var(--desk-line-soft)] last:border-0 ${CALM}`}>
                 {spec.columns.map((c) => (
                   <td
                     key={c.field}
