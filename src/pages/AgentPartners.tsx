@@ -11,6 +11,7 @@ import { hapticTap } from '@/lib/haptics';
 import { format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { createShortLink } from '@/lib/createShortLink';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { formatDynamic } from '@/lib/currencyFormat';
 import {
@@ -90,21 +91,20 @@ export default function AgentPartners() {
         // a funder is reassigned the prior row is flipped is_active=false.
         .eq('is_active', true);
 
-      // Fetch portfolio data for this agent's partners
-      const { data: portfolios } = await supabase
-        .from('investor_portfolios')
-        .select('investor_id, investment_amount, status, created_at')
-        .eq('agent_id', user.id);
+      // Limited portfolio cards. No phone, bank, PIN, or full portfolio code.
+      const portfolios = await fetchAgentOnboardedPortfolios();
 
-      // Get proxy beneficiary profiles
       const proxyIds = (proxyAssignments || []).map(p => p.beneficiary_id).filter(Boolean);
-      let proxyProfiles: Record<string, any> = {};
-      if (proxyIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone, avatar_url')
-          .in('id', proxyIds);
-        (profiles || []).forEach(p => { proxyProfiles[p.id] = p; });
+      const proxyProfiles: Record<string, { id: string; full_name: string; phone: string; avatar_url: null }> = {};
+      for (const card of portfolios) {
+        if (card.investor_id && proxyIds.includes(card.investor_id)) {
+          proxyProfiles[card.investor_id] = {
+            id: card.investor_id,
+            full_name: card.partner_name,
+            phone: '',
+            avatar_url: null,
+          };
+        }
       }
 
       // Check whether this agent is currently attached to a lead partner.
@@ -118,9 +118,10 @@ export default function AgentPartners() {
 
       // Build portfolio lookup by investor_id
       const portfolioMap: Record<string, { amount: number; status: string }> = {};
-      (portfolios || []).forEach(p => {
-        if (!portfolioMap[p.investor_id] || p.investment_amount > portfolioMap[p.investor_id].amount) {
-          portfolioMap[p.investor_id] = { amount: Number(p.investment_amount), status: p.status };
+      portfolios.forEach(p => {
+        if (!p.investor_id) return;
+        if (!portfolioMap[p.investor_id] || Number(p.investment_amount) > portfolioMap[p.investor_id].amount) {
+          portfolioMap[p.investor_id] = { amount: Number(p.investment_amount), status: p.status || 'pending' };
         }
       });
 

@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
 import { fetchAgentLedgerEarnings } from '@/lib/agentLedgerEarnings';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { cn } from '@/lib/utils';
 import {
   Users, TrendingUp, Wallet, Banknote, Copy, Check, Share2,
@@ -60,43 +61,31 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
     if (!user) return;
     setLoading(true);
     try {
-      // 1. Fetch portfolios where this agent is the agent_id
-      const { data: portfolios } = await supabase
-        .from('investor_portfolios')
-        .select('id, investor_id, investment_amount, roi_percentage, status, created_at')
-        .eq('agent_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      // 2. Get partner profiles
-      const investorIds = [...new Set((portfolios || []).map(p => p.investor_id).filter(Boolean))];
-      let profileMap = new Map<string, { full_name: string; phone: string }>();
-      if (investorIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone')
-          .in('id', investorIds.slice(0, 50));
-        (profiles || []).forEach(p => profileMap.set(p.id, { full_name: p.full_name || '', phone: p.phone || '' }));
+      const cards = await fetchAgentOnboardedPortfolios();
+      const portfolios = cards.filter(p => p.portfolio_id && p.investor_id);
+      const profileMap = new Map<string, { full_name: string; phone: string }>();
+      for (const card of cards) {
+        if (card.investor_id) profileMap.set(card.investor_id, { full_name: card.partner_name || '', phone: '' });
       }
 
       // Build partner list grouped by investor
       const partnerMap = new Map<string, Partner>();
-      (portfolios || []).forEach(p => {
+      portfolios.forEach(p => {
         if (!p.investor_id) return;
         const existing = partnerMap.get(p.investor_id);
         const prof = profileMap.get(p.investor_id);
         if (existing) {
-          existing.investedAmount += p.investment_amount || 0;
+          existing.investedAmount += Number(p.investment_amount) || 0;
           if (p.status === 'active') existing.status = 'Active';
         } else {
           partnerMap.set(p.investor_id, {
             id: p.investor_id,
-            name: prof?.full_name || p.investor_id.slice(0, 8),
-            phone: prof?.phone || '',
+            name: prof?.full_name || 'Partner',
+            phone: '',
             status: p.status === 'active' ? 'Active' : 'Pending',
-            investedAmount: p.investment_amount || 0,
-            roiPercentage: p.roi_percentage || 15,
-            dateJoined: p.created_at,
+            investedAmount: Number(p.investment_amount) || 0,
+            roiPercentage: Number(p.roi_percentage) || 10,
+            dateJoined: p.created_at || new Date().toISOString(),
           });
         }
       });
@@ -130,7 +119,7 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
       (portfolios || []).slice(0, 10).forEach(p => {
         const prof = p.investor_id ? profileMap.get(p.investor_id) : null;
         feed.push({
-          id: `portfolio-${p.id}`,
+          id: `portfolio-${p.portfolio_id}`,
           type: p.status === 'active' ? 'investment_activated' : 'partner_signup',
           description: p.status === 'active'
             ? `${formatUGX(p.investment_amount)} activated for ${prof?.full_name || 'Partner'}`

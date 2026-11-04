@@ -23,6 +23,7 @@ import {
   Users, Loader2, Phone, Send, HandCoins, UserPlus, AlertCircle,
 } from 'lucide-react';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 
 interface LinkedFunder {
   id: string;
@@ -73,43 +74,51 @@ export function FunderManagementSheet({ open, onOpenChange }: { open: boolean; o
     if (!user) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('proxy_agent_assignments')
-        .select('id, beneficiary_id, beneficiary_role, reason, created_at, approval_status, beneficiary:beneficiary_id(id, full_name, phone)')
-        .eq('agent_id', user.id)
-        .eq('beneficiary_role', 'supporter')
-        // Only show assignments that are still the live link to the funder.
-        // When a funder is reassigned to another proxy agent, the prior row
-        // is flipped is_active=false by `trg_deactivate_stale_proxy_assignments`,
-        // and the previous agent must immediately stop seeing them.
-        .eq('is_active', true)
-        .in('approval_status', ['pending', 'approved'])
-        .order('created_at', { ascending: false });
+      const [{ data, error }, cards] = await Promise.all([
+        supabase
+          .from('proxy_agent_assignments')
+          .select('id, beneficiary_id, beneficiary_role, reason, created_at, approval_status')
+          .eq('agent_id', user.id)
+          .eq('beneficiary_role', 'supporter')
+          // Only show assignments that are still the live link to the funder.
+          // When a funder is reassigned to another proxy agent, the prior row
+          // is flipped is_active=false by `trg_deactivate_stale_proxy_assignments`,
+          // and the previous agent must immediately stop seeing them.
+          .eq('is_active', true)
+          .in('approval_status', ['pending', 'approved'])
+          .order('created_at', { ascending: false }),
+        fetchAgentOnboardedPortfolios().catch(() => []),
+      ]);
 
       if (error) throw error;
-      setFunders((data as any) || []);
+      const nameByPartner = new Map<string, string>();
+      for (const card of cards) {
+        if (card.investor_id && card.partner_name) nameByPartner.set(card.investor_id, card.partner_name);
+      }
+      const funders = ((data as any) || []).map((row: any) => ({
+        ...row,
+        beneficiary: row.beneficiary_id ? {
+          id: row.beneficiary_id,
+          full_name: nameByPartner.get(row.beneficiary_id) || 'Partner',
+          phone: '',
+        } : null,
+      }));
+      setFunders(funders);
 
-      if (data && data.length > 0) {
+      if (funders.length > 0) {
         const statsMap: Record<string, FunderStats> = {};
-        for (const f of data) {
-          const bid = (f as any).beneficiary?.id;
+        for (const f of funders) {
+          const bid = f.beneficiary?.id;
           if (!bid) continue;
-          const [portfoliosRes, balanceRes] = await Promise.all([
-            supabase
-              .from('investor_portfolios')
-              .select('investment_amount, total_roi_earned, status')
-              .eq('investor_id', bid)
-              .in('status', ['active', 'matured']),
-            supabase.rpc('get_proxy_partner_balance', {
-              p_agent_id: user.id,
-              p_partner_id: bid,
-            }),
-          ]);
-          const portfolios = portfoliosRes.data || [];
+          const balanceRes = await supabase.rpc('get_proxy_partner_balance', {
+            p_agent_id: user.id,
+            p_partner_id: bid,
+          });
+          const portfolios = cards.filter(p => p.investor_id === bid && p.portfolio_id && ['active', 'matured'].includes(String(p.status)));
           statsMap[bid] = {
-            totalInvested: portfolios.reduce((s: number, p: any) => s + (p.investment_amount || 0), 0),
-            totalROI: portfolios.reduce((s: number, p: any) => s + (p.total_roi_earned || 0), 0),
-            activeCount: portfolios.filter((p: any) => p.status === 'active').length,
+            totalInvested: portfolios.reduce((s, p) => s + (Number(p.investment_amount) || 0), 0),
+            totalROI: portfolios.reduce((s, p) => s + (Number(p.total_roi_earned) || 0), 0),
+            activeCount: portfolios.filter(p => p.status === 'active').length,
             walletBalance: Number(balanceRes.data) || 0,
           };
         }

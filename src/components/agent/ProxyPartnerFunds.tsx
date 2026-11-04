@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOnboardedPortfolios, fetchAgentPayoutRoutes, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -159,6 +160,7 @@ export function ProxyPartnerFunds() {
   const [prefillAmount, setPrefillAmount] = useState<number>(0);
   const [prefillReason, setPrefillReason] = useState('');
   const [prefillPayout, setPrefillPayout] = useState<any>(null);
+  const [payoutOnFile, setPayoutOnFile] = useState<{ portfolioId: string; routeKey: string; summary: string } | null>(null);
   // Where the locked payout destination came from, shown to the agent so it is
   // obvious the number is the partner's saved one and not something typed here.
   const [payoutSourceLabel, setPayoutSourceLabel] = useState<string | undefined>(undefined);
@@ -491,12 +493,16 @@ export function ProxyPartnerFunds() {
       // Fetch portfolios first so we can resolve partner IDs
       let fetchedPortfolios: PortfolioInfo[] = [];
       if (uniquePortfolioIds.length > 0) {
-        fetchedPortfolios = await fetchChunks<PortfolioInfo>(uniquePortfolioIds, (chunk) =>
-          supabase
-            .from('investor_portfolios')
-            .select('id, portfolio_code, account_name, investor_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number')
-            .in('id', chunk),
-        );
+        const cards = await fetchAgentOnboardedPortfolios();
+        const wanted = new Set(uniquePortfolioIds);
+        fetchedPortfolios = cards
+          .filter(c => c.portfolio_id && wanted.has(c.portfolio_id) && c.investor_id)
+          .map(c => ({
+            id: c.portfolio_id as string,
+            portfolio_code: c.portfolio_code_masked,
+            account_name: c.partner_name,
+            investor_id: c.investor_id as string,
+          }));
       }
       setPortfolios(fetchedPortfolios);
 
@@ -559,45 +565,17 @@ export function ProxyPartnerFunds() {
       // Step 4: Fetch profiles, completed withdrawals, active withdrawals, and
       // terminal-unpaid history in parallel
       const userScopeIds = Array.from(new Set([user.id, ...uniquePartnerIds]));
-      const [profileRows, completedRows, activeWithdrawalRows, terminalRows, strictBalanceRows] = await Promise.all([
-        fetchChunks<any>(uniquePartnerIds, (chunk) =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', chunk),
-        ),
-        // Completed withdrawals for these partners (already delivered)
-        // Custody V2: partner-owned rows (`user_id = partner`, no
-        // `linked_party`). Legacy: agent-owned rows (`user_id = agent`,
-        // `linked_party = partner`). Pull both, dedupe in JS.
-        fetchChunks<any>(userScopeIds, (chunk) =>
-          supabase
-            .from('withdrawal_requests')
-            .select('id, user_id, linked_party, amount, status, reason, updated_at, created_at')
-            .in('user_id', chunk)
-            .in('status', [...COMPLETED_PROXY_WITHDRAWAL_STATUSES])
-            .or(`linked_party.not.is.null,agent_id.eq.${user.id}`),
-        ),
-        // Active (pending/processing) withdrawal requests — same dual scope.
-        fetchChunks<any>(userScopeIds, (chunk) =>
-          supabase
-            .from('withdrawal_requests')
-            .select('id, user_id, linked_party, status, reason, amount, updated_at, created_at, agent_id')
-            .in('user_id', chunk)
-            .in('status', [...ACTIVE_PROXY_WITHDRAWAL_STATUSES])
-            .or(`linked_party.not.is.null,agent_id.eq.${user.id}`),
-        ),
-        // Terminal-unpaid: rejected / expired / cancelled.
-        fetchChunks<any>(userScopeIds, (chunk) =>
-          supabase
-            .from('withdrawal_requests')
-            .select('id, user_id, linked_party, status, rejection_reason, updated_at, created_at, agent_id')
-            .in('user_id', chunk)
-            .in('status', [...TERMINAL_UNPAID_STATUSES])
-            .or(`linked_party.not.is.null,agent_id.eq.${user.id}`)
-            // Defense-in-depth: only consider terminal events from the last 7 days
-            // so old rejections naturally fall off Caro's view.
-            .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-            .order('updated_at', { ascending: false })
-            .limit(500),
-        ),
+      const names = await fetchAgentOnboardedPortfolios().catch(() => []);
+      const profileRows = names
+        .filter(c => c.investor_id && uniquePartnerIds.includes(c.investor_id))
+        .map(c => ({ id: c.investor_id, full_name: c.partner_name, phone: '' }));
+      const withdrawalRows = await fetchAgentProxyWithdrawals().catch(() => []);
+      const inScope = (w: { user_id: string | null }) => !!w.user_id && userScopeIds.includes(w.user_id);
+      const completedRows = withdrawalRows.filter(w => inScope(w) && (COMPLETED_PROXY_WITHDRAWAL_STATUSES as readonly string[]).includes(w.status));
+      const activeWithdrawalRows = withdrawalRows.filter(w => inScope(w) && (ACTIVE_PROXY_WITHDRAWAL_STATUSES as readonly string[]).includes(w.status));
+      const terminalSince = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const terminalRows = withdrawalRows.filter(w => inScope(w) && (TERMINAL_UNPAID_STATUSES as readonly string[]).includes(w.status) && new Date(w.created_at).getTime() >= terminalSince);
+      const [strictBalanceRows] = await Promise.all([
         fetchChunks<any>(userScopeIds, (chunk) =>
           // Checked function (replaces the direct read of v_user_wallet_strict).
           // Includes the AGENT's own row so the managed-proxy clamp can use
@@ -987,7 +965,6 @@ export function ProxyPartnerFunds() {
     if (sharingCardId) return;
     setSharingCardId(partner.partnerId);
     try {
-      const pInfo = partner.portfolioId ? portfolioMap[partner.portfolioId] : null;
       let cardData: PayoutCardData = {
         partnerName: partner.partnerName,
         portfolioName: partner.accountName || partner.portfolioCode || undefined,
@@ -995,36 +972,7 @@ export function ProxyPartnerFunds() {
         amount: partner.available,
         reference: (partner.portfolioId || partner.partnerId).slice(0, 8).toUpperCase(),
       };
-      if (pInfo?.payment_method === 'mobile_money') {
-        cardData = {
-          ...cardData, mode: 'mobile_money', provider: pInfo.mobile_network || 'MoMo',
-          momoName: pInfo.bank_account_name || partner.partnerName,
-          momoNumber: pInfo.mobile_money_number || '',
-        };
-      } else if (pInfo?.payment_method === 'bank_transfer') {
-        cardData = {
-          ...cardData, mode: 'bank_transfer', bankName: pInfo.bank_name,
-          bankAccountName: pInfo.bank_account_name || partner.partnerName, bankAccountNumber: pInfo.account_number,
-        };
-      } else if (pInfo?.payment_method === 'cash') {
-        cardData = { ...cardData, mode: 'cash' };
-      } else {
-        const { data: saved } = await supabase
-          .from('saved_payout_methods' as never)
-          .select('*')
-          .eq('user_id', partner.partnerId)
-          .order('is_default', { ascending: false })
-          .order('last_used_at', { ascending: false, nullsFirst: false })
-          .limit(1);
-        const s: any = (saved ?? [])[0];
-        if (s?.payout_mode === 'mobile_money') {
-          cardData = { ...cardData, mode: 'mobile_money', provider: s.momo_provider, momoName: s.momo_name || partner.partnerName, momoNumber: s.momo_number };
-        } else if (s?.payout_mode === 'bank_transfer') {
-          cardData = { ...cardData, mode: 'bank_transfer', bankName: s.bank_name, bankAccountName: s.bank_account_name || partner.partnerName, bankAccountNumber: s.bank_account_number };
-        } else {
-          cardData = { ...cardData, mode: 'mobile_money', momoName: partner.partnerName };
-        }
-      }
+      cardData = { ...cardData, mode: 'cash' };
       const res = await sharePayoutCardViaWhatsApp(cardData);
       if (res.method === 'downloaded') {
         toast.success('Payout card ready', { description: 'Image downloaded — attach it in the WhatsApp chat that just opened.' });
@@ -1060,88 +1008,15 @@ export function ProxyPartnerFunds() {
     //   3. The partner's `profiles.mobile_money_number` as a last resort.
     // If none of those exist, prefillPayout stays null and the form shows
     // empty fields for manual entry (audited).
-    const pInfo = partner.portfolioId ? portfolioMap[partner.portfolioId] : null;
-    let resolved: any = null;
-    let sourceLabel: string | undefined;
-    if (pInfo?.payment_method === 'mobile_money') {
-      resolved = {
-        payoutMode: pInfo.mobile_network === 'Airtel' ? 'airtel' : 'mtn',
-        momoNumber: pInfo.mobile_money_number || '',
-        momoName: pInfo.account_name || partner.partnerName || '',
-      };
-      sourceLabel = `the payment details saved on portfolio ${partner.portfolioCode || pInfo.portfolio_code || ''}`.trim();
-    } else if (pInfo?.payment_method === 'bank_transfer') {
-      resolved = {
-        payoutMode: 'bank',
-        bankName: pInfo.bank_name || '',
-        bankAccountName: pInfo.bank_account_name || partner.partnerName || '',
-        bankAccountNumber: pInfo.account_number || '',
-      };
-      sourceLabel = `the payment details saved on portfolio ${partner.portfolioCode || pInfo.portfolio_code || ''}`.trim();
-    } else if (pInfo?.payment_method === 'cash') {
-      resolved = { payoutMode: 'cash' };
-      sourceLabel = `the payment details saved on portfolio ${partner.portfolioCode || pInfo.portfolio_code || ''}`.trim();
-    }
+    const routes = await fetchAgentPayoutRoutes(partner.partnerId).catch(() => []);
+    const portfolioRoutes = routes.filter(r => !partner.portfolioId || r.portfolio_id === partner.portfolioId || r.route_key.startsWith('saved:'));
+    const primary = portfolioRoutes.find(r => r.route_key.startsWith('portfolio:')) || portfolioRoutes[0];
+    const hasExtras = portfolioRoutes.some(r => r.route_key.startsWith('extra:'));
+    setPrefillPayout(null);
+    setPayoutOnFile(primary?.portfolio_id ? { portfolioId: primary.portfolio_id, routeKey: primary.route_key, summary: primary.label } : null);
+    setPayoutSourceLabel(primary ? primary.label : undefined);
 
-    if (!resolved) {
-      try {
-        const { data: saved } = await supabase
-          .from('saved_payout_methods' as never)
-          .select('*')
-          .eq('user_id', partner.partnerId)
-          .order('is_default', { ascending: false })
-          .order('last_used_at', { ascending: false, nullsFirst: false })
-          .order('created_at', { ascending: false })
-          .limit(1);
-        const s: any = (saved ?? [])[0];
-        if (s?.payout_mode === 'mobile_money') {
-          resolved = {
-            payoutMode: s.momo_provider === 'Airtel' ? 'airtel' : 'mtn',
-            momoNumber: s.momo_number || '',
-            momoName: s.momo_name || partner.partnerName || '',
-          };
-          sourceLabel = "the partner's saved payout method";
-        } else if (s?.payout_mode === 'bank_transfer') {
-          resolved = {
-            payoutMode: 'bank',
-            bankName: s.bank_name || '',
-            bankAccountName: s.bank_account_name || partner.partnerName || '',
-            bankAccountNumber: s.bank_account_number || '',
-          };
-          sourceLabel = "the partner's saved payout method";
-        } else if (s?.payout_mode === 'cash') {
-          resolved = { payoutMode: 'cash' };
-          sourceLabel = "the partner's saved payout method";
-        }
-      } catch { /* non-fatal: fall through to profile lookup */ }
-    }
-
-    if (!resolved) {
-      try {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('mobile_money_number, mobile_money_provider, full_name')
-          .eq('id', partner.partnerId)
-          .maybeSingle();
-        if (prof?.mobile_money_number) {
-          const prov = (prof.mobile_money_provider || '').toLowerCase();
-          resolved = {
-            payoutMode: prov === 'airtel' ? 'airtel' : 'mtn',
-            momoNumber: prof.mobile_money_number,
-            momoName: prof.full_name || partner.partnerName || '',
-          };
-          sourceLabel = "the partner's registered mobile money number";
-        }
-      } catch { /* non-fatal */ }
-    }
-
-    setPrefillPayout(resolved);
-    setPayoutSourceLabel(sourceLabel);
-
-    // AIM: a portfolio payout MUST use the portfolio's own payment details.
-    // If the portfolio carries none and no fallback exists, stop here rather
-    // than letting the agent type a destination by hand.
-    if (!resolved) {
+    if (!primary) {
       toast.error('No payment details on file for this partner', {
         description: 'Ask Partner Ops to save the MoMo or bank details on the portfolio before requesting this payout.',
         duration: 9000,
@@ -1149,17 +1024,7 @@ export function ProxyPartnerFunds() {
       return;
     }
 
-    // Portfolios with extra payout numbers (set by Partner Ops) must be split
-    // across those numbers — open the split dialog instead of the single one.
-    let hasExtras = false;
-    if (partner.portfolioId) {
-      const { count } = await supabase
-        .from('portfolio_payout_destinations' as never)
-        .select('id', { count: 'exact', head: true })
-        .eq('portfolio_id', partner.portfolioId);
-      hasExtras = (count ?? 0) > 0;
-    }
-    if (hasExtras) {
+    if (hasExtras && partner.portfolioId) {
       setSplitTarget({
         funderId: partner.partnerId,
         funderName: partner.partnerName,
@@ -1650,23 +1515,9 @@ export function ProxyPartnerFunds() {
         const isSubmitting = submittingCardKeys.has(cardKey);
 
         // Registered payout destination for this partner (clear, labelled).
-        const pInfo = partner.portfolioId ? portfolioMap[partner.portfolioId] : null;
-        const destLabel =
-          pInfo?.payment_method === 'bank_transfer' ? 'Account name'
-          : pInfo?.payment_method === 'cash' ? 'Payout'
-          : 'MoMo name';
-        const destName =
-          pInfo?.payment_method === 'bank_transfer'
-            ? (pInfo.bank_account_name || partner.partnerName)
-            : pInfo?.payment_method === 'cash'
-            ? 'Cash pickup'
-            : (pInfo?.bank_account_name || partner.partnerName || 'Name not set');
-        const destExtra =
-          pInfo?.payment_method === 'bank_transfer'
-            ? [pInfo.bank_name, pInfo.account_number].filter(Boolean).join(' · ')
-            : pInfo?.payment_method === 'cash'
-            ? ''
-            : [pInfo?.mobile_network, pInfo?.mobile_money_number].filter(Boolean).join(' · ');
+        const destLabel = 'Payout';
+        const destName = partner.partnerName || 'Partner';
+        const destExtra = 'Payout details on file';
 
         return (
           <Card
@@ -1873,6 +1724,7 @@ export function ProxyPartnerFunds() {
         prefillAmount={prefillAmount}
         prefillReason={prefillReason}
         prefillPayout={prefillPayout}
+        payoutOnFile={payoutOnFile}
         linkedParty={selectedPartnerId}
         lockAmount
         // Destination is dictated by the portfolio's saved payment details —
