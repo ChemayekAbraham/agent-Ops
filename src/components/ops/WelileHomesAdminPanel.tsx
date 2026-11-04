@@ -16,6 +16,7 @@ import { WhHistoricalDisbursementsPanel, WhPlanHistoricalSection } from '@/compo
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { WhFloatRequestTenantIds } from '@/components/welile-homes/WhTenantIdentity';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
@@ -2135,6 +2136,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                         {/* Attached Tenant Applications */}
                         {isExpanded && (
                           <div className="p-3 sm:p-4 pt-2 sm:pt-2 space-y-2.5 bg-muted/5 border-t border-border/40">
+                            <WhFloatRequestTenantIds requestId={req.id} />
                             {matchingTenants.length > 0 ? (
                               matchingTenants.map((t) => (
                                 <div

@@ -66803,6 +66803,33 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_tenant_identity: {
+        Row: {
+          created_at: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          nin?: string
+          photo_path?: string
+          recorded_by?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -74084,6 +74111,10 @@ export type Database = {
       }
       _wh_hist_can_read: { Args: never; Returns: boolean }
       _wh_hist_can_write: { Args: never; Returns: boolean }
+      _wh_is_tenant_agent: {
+        Args: { p_tenant: string; p_uid: string }
+        Returns: boolean
+      }
       _wh_owns_landlord_key: {
         Args: { p_agent: string; p_key: string }
         Returns: boolean
@@ -74097,6 +74128,7 @@ export type Database = {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
       }
+      _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -96726,6 +96758,16 @@ export type Database = {
         }
         Returns: Json
       }
+      wh_float_request_tenant_ids: {
+        Args: { p_request_id: string }
+        Returns: {
+          nin: string
+          photo_path: string
+          subscription_id: string
+          tenant_id: string
+          tenant_name: string
+        }[]
+      }
       wh_hist_overview: {
         Args: {
           p_agent_id?: string
@@ -96781,6 +96823,10 @@ export type Database = {
           p_recipient_phone?: string
           p_subscription_ids: string[]
         }
+        Returns: Json
+      }
+      wh_set_tenant_identity: {
+        Args: { p_nin: string; p_photo_path: string; p_tenant_id: string }
         Returns: Json
       }
       withdrawal_destination_gate: {

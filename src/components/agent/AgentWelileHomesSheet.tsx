@@ -30,6 +30,8 @@ import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
 import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '@/lib/welileHomesLandlordVerify';
 import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordPortfolioAction';
+import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
+import { fetchTenantIdentities, isIdComplete, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
@@ -313,6 +315,15 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [collectionsUnknown, setCollectionsUnknown] = useState(true);
   // Landlord OTP state per landlord phone key (server-decided, see wh_my_portfolio_status).
   const [portfolioStatus, setPortfolioStatus] = useState<Map<string, PortfolioStatus>>(new Map());
+  const [identities, setIdentities] = useState<Map<string, WhTenantIdentity>>(new Map());
+  const [idFor, setIdFor] = useState<{ tenantId: string; name?: string } | null>(null);
+  const refreshIdentities = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('welile_homes_subscriptions').select('tenant_id').eq('agent_id', user?.id ?? '');
+      const ids = ((data ?? []) as { tenant_id: string }[]).map((r) => r.tenant_id);
+      setIdentities(await fetchTenantIdentities(ids));
+    } catch { /* keep current */ }
+  }, [user?.id]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -344,6 +355,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       }
       setSubs(list);
       fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => setPortfolioStatus(new Map()));
+      fetchTenantIdentities(list.map((s) => s.tenant_id)).then(setIdentities).catch(() => setIdentities(new Map()));
 
       // Which plans have collections or landlord payouts recorded (locks Delete).
       // A failed read locks every plan rather than offering Delete on unknown history.
@@ -1116,6 +1128,15 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                         verifiedAt={st?.verifiedAt}
                         onVerified={() => fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => { })}
                         onRequestFloat={() => {
+                          const missing = portfolio.filter((t) => !isIdComplete(identities.get(t.tenant_id)));
+                          if (missing.length > 0) {
+                            toast({
+                              title: 'Tenant ID missing',
+                              description: `Add the NIN and passport photo for ${missing.map((t) => t.tenant_name).join(', ')} before requesting float.`,
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
                           setSelectedTenantIds(new Set(portfolio.map((t) => t.id)));
                           setRequestFloatOpen(true);
                         }}
@@ -1234,6 +1255,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                     </Badge>
                                   );
                                 })()}
+                                <WhTenantIdBadge identity={identities.get(s.tenant_id)} />
+                                {mainTab === 'enrolled' && (
+                                  <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-[11px]"
+                                    onClick={() => setIdFor({ tenantId: s.tenant_id, name: s.tenant_name })}>
+                                    {isIdComplete(identities.get(s.tenant_id)) ? 'Edit ID' : 'Add NIN & photo'}
+                                  </Button>
+                                )}
                               </>
                             )}
                           </div>
@@ -1467,7 +1495,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         onOpenChange={setEnrollOpen}
         agentId={user?.id}
         onDone={load}
-        onTenantEnrolled={() => {}}
+        onTenantEnrolled={(sub) => setIdFor({ tenantId: sub.tenant_id, name: sub.tenant_name })}
       />
       <RequestFloatDialog
         open={requestFloatOpen}
@@ -1481,7 +1509,18 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         }}
       />
       <AllocateDialog sub={allocFor} onClose={() => setAllocFor(null)} onDone={load} />
-      <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load} />
+      <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load}
+        identity={editFor ? identities.get(editFor.tenant_id) : null}
+        onEditId={() => editFor && setIdFor({ tenantId: editFor.tenant_id, name: editFor.tenant_name })} />
+      <WhTenantIdDialog
+        open={!!idFor}
+        onOpenChange={(o) => { if (!o) setIdFor(null); }}
+        agentId={user?.id}
+        tenantId={idFor?.tenantId ?? null}
+        tenantName={idFor?.name}
+        identity={idFor ? identities.get(idFor.tenantId) : null}
+        onSaved={() => refreshIdentities()}
+      />
 
       <AlertDialog open={!!deleteFor} onOpenChange={(open) => { if (!open) setDeleteFor(null); }}>
         <AlertDialogContent>
@@ -3653,8 +3692,9 @@ function PreviewRow({ label, oldText, newText, changed }: {
   );
 }
 
-function EditDialog({ sub, agentId, onClose, onDone }: {
+function EditDialog({ sub, agentId, onClose, onDone, identity, onEditId }: {
   sub: WHSubscription | null; agentId?: string; onClose: () => void; onDone: () => void;
+  identity?: WhTenantIdentity | null; onEditId?: () => void;
 }) {
   const { toast } = useToast();
   const [rent, setRent] = useState('');
@@ -3794,6 +3834,15 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
           </div>
         ) : (
           <div className="space-y-3">
+            {onEditId && sub && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border p-2.5">
+                <div className="flex items-center gap-2 text-xs"><span className="font-semibold">Tenant ID</span><WhTenantIdBadge identity={identity} /></div>
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={onEditId}>
+                  {isIdComplete(identity) ? 'Edit NIN / photo' : 'Add NIN & photo'}
+                </Button>
+              </div>
+            )}
+
             <div>
               <Label className="text-xs font-semibold">Monthly rent (UGX)</Label>
               <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
