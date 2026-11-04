@@ -7,6 +7,7 @@ import { generateWelileAiId, getRiskTierLabel } from '@/lib/welileAiId';
 import { formatUGX, calculateRequestFee } from '@/lib/rentCalculations';
 import { getEffectiveRentRequestAmounts } from '@/lib/rentRequestAmounts';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -416,11 +417,14 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .select('balance')
           .eq('user_id', tenantId)
           .maybeSingle(),
-        supabase
-          .from('investor_portfolios')
-          .select('investment_amount')
-          .eq('investor_id', tenantId)
-          .in('status', ['active', 'pending', 'pending_approval']),
+        fetchAgentOnboardedPortfolios()
+          .then(cards => ({
+            data: cards
+              .filter(c => c.investor_id === tenantId && ['active', 'pending', 'pending_approval'].includes(String(c.status)))
+              .map(c => ({ investment_amount: Number(c.investment_amount) || 0 })),
+            error: null,
+          }))
+          .catch(error => ({ data: [], error })),
         supabase
           .from('general_ledger')
           .select('amount, direction')
