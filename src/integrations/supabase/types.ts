@@ -9145,6 +9145,54 @@ export type Database = {
           },
         ]
       }
+      bike_lease_value_corrections: {
+        Row: {
+          amount_already_paid: number
+          corrected_at: string
+          corrected_by: string
+          id: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding: number | null
+          old_total_repayable: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Insert: {
+          amount_already_paid: number
+          corrected_at?: string
+          corrected_by: string
+          id?: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Update: {
+          amount_already_paid?: number
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          lease_id?: string
+          new_outstanding?: number
+          new_total_repayable?: number
+          new_value?: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value?: number
+          reason?: string
+          sale_id?: string
+        }
+        Relationships: []
+      }
       blocked_signup_ips: {
         Row: {
           blocked_by: string | null
@@ -65977,6 +66025,8 @@ export type Database = {
       welile_homes_subscriptions: {
         Row: {
           agent_id: string | null
+          archive_reason: string | null
+          archived_at: string | null
           created_at: string
           email_statements_enabled: boolean | null
           enrolled_by: string | null
@@ -66007,6 +66057,8 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
@@ -66037,6 +66089,8 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
@@ -66959,6 +67013,27 @@ export type Database = {
           },
         ]
       }
+      wh_fresh_start: {
+        Row: {
+          archived_at: string
+          cutoff: string
+          id: boolean
+          note: string
+        }
+        Insert: {
+          archived_at?: string
+          cutoff: string
+          id?: boolean
+          note: string
+        }
+        Update: {
+          archived_at?: string
+          cutoff?: string
+          id?: boolean
+          note?: string
+        }
+        Relationships: []
+      }
       wh_historical_disbursements: {
         Row: {
           agent_id: string | null
@@ -67027,6 +67102,7 @@ export type Database = {
       wh_landlord_portfolio_verifications: {
         Row: {
           agent_id: string
+          archived_at: string | null
           created_at: string
           id: string
           landlord_name: string | null
@@ -67040,6 +67116,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           created_at?: string
           id?: string
           landlord_name?: string | null
@@ -67053,6 +67130,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           created_at?: string
           id?: string
           landlord_name?: string | null
@@ -67069,6 +67147,7 @@ export type Database = {
       wh_nin_check_log: {
         Row: {
           agent_id: string
+          archived_at: string | null
           checked_at: string
           id: number
           result: string
@@ -67076,6 +67155,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           checked_at?: string
           id?: number
           result: string
@@ -67083,6 +67163,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           checked_at?: string
           id?: number
           result?: string
@@ -67123,6 +67204,7 @@ export type Database = {
       wh_tenant_drafts: {
         Row: {
           agent_id: string
+          archived_at: string | null
           created_at: string
           form: Json
           id: string
@@ -67135,6 +67217,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           created_at?: string
           form?: Json
           id?: string
@@ -67147,6 +67230,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           created_at?: string
           form?: Json
           id?: string
@@ -74114,6 +74198,10 @@ export type Database = {
         Args: { p_bike: boolean; p_plans: string[]; p_sale: string }
         Returns: Json
       }
+      _merch_release_receivable_category: {
+        Args: { p_item_name: string }
+        Returns: string
+      }
       _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_on_issue: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_queue: {
@@ -74670,6 +74758,7 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_archive_viewer: { Args: never; Returns: boolean }
       _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
       _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
       _wh_hist_can_read: { Args: never; Returns: boolean }
@@ -74692,6 +74781,7 @@ export type Database = {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
       }
+      _wh_sub_archived: { Args: { p_sub: string }; Returns: boolean }
       _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -78266,6 +78356,10 @@ export type Database = {
         Returns: Json
       }
       cfo_corr_5300000_preflight: { Args: never; Returns: Json }
+      cfo_correct_bike_lease_value: {
+        Args: { p_lease_id: string; p_new_value: number; p_reason: string }
+        Returns: Json
+      }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
@@ -97384,6 +97478,10 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      wh_archive_declined_subscription: {
+        Args: { p_reason?: string; p_subscription_id: string }
+        Returns: Json
+      }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
       wh_enroll_tenant_with_identity: {
         Args: {
