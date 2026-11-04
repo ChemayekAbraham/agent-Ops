@@ -80,7 +80,7 @@ export function WhLandlordPortfolioAction({
     setChecking(true); setError(null);
     try {
       const res = await verifyLandlordPortfolioCode({ phone: landlordPhone, code: value });
-      if (!res.success) { setError(res.error); setCode(''); return; }
+      if (res.success === false) { setError(res.error); setCode(''); return; }
       toast({ title: 'Landlord verified', description: `${landlordName} confirmed ${res.tenantCount} tenants.` });
       onVerified();
     } catch (e: any) {
