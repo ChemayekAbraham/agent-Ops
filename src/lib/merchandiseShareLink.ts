@@ -4,11 +4,11 @@
  * WhatsApp only renders a rich preview from OG tags present in the HTML the
  * crawler receives, which is produced by the `og-merchandise` edge function.
  * To keep that preview while showing a short Welile address, a tiny proxy
- * (Cloudflare Worker — see infra/share-proxy/) is published on the share host
+ * (Cloudflare Pages Functions — see infra/share-host/) is published on the share host
  * and forwards `/m/<code>` to the function, returning the same body.
  *
  * The branded host is share.welileapp.com (same as rent-plan /s/ links),
- * served by the Vercel edge function in infra/share-host/, so crawlers get the
+ * served by the Cloudflare Pages project in infra/share-host/, so crawlers get the
  * rich preview at the branded URL. Older welileapp.com/m/<code> links still
  * work for humans through the app route `/m/:code`.
  */

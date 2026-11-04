@@ -48,7 +48,7 @@ export function planShareDescription(plan: SharePlanInput): string {
  * appear in a WhatsApp message, native share sheet, copied link or the UI.
  *
  * The backend `og-plan` edge function stays internal: `share.welileapp.com/s/<code>`
- * is served by the Vercel edge function in `infra/share-host/`, which PROXIES
+ * is served by the Cloudflare Pages project in `infra/share-host/`, which PROXIES
  * the function so crawlers receive the per-plan Open Graph head (house photo,
  * rent, returns) at the branded URL. welileapp.com itself is hosted by Lovable
  * and only ever returns the app shell, whose preview is the Welile logo.
