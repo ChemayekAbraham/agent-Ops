@@ -66,7 +66,9 @@ import { agentChainLines } from '@/lib/rentAgentChain';
 import { TIMING_BATCH_LIMIT } from '@/lib/rentTiming';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 import { RentApprovalMoneyCounter } from './RentApprovalMoneyCounter';
-import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus } from '@/hooks/useLandlordFloatBudget';
+import { useLandlordFloatBudgetActions, useLandlordFloatBudgetStatus, type CooApprovalDecision } from '@/hooks/useLandlordFloatBudget';
+import { cooDecide, cooDecisionSummary, CooDecisionCancelled, type CooDecideOutcome } from '@/lib/cooDecide';
+import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import {
   fitsLandlordFloatBudget,
   partitionByLandlordFloatRoom,
@@ -284,14 +286,22 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const requestFitsLandlordFloatBudget = (req: { rent_amount?: number | null }) =>
     fitsLandlordFloatBudget(landlordFloatBudget.data, req.rent_amount);
 
-  const toastCooApproval = (res: CooApprovalResult) => {
+  // COO: "Why are you going against the system?" — only opens when the server says REASON_REQUIRED.
+  const cooReason = useCooReasonPicker();
+  const cooSummary = (o: CooDecideOutcome) => cooDecisionSummary(o.response, cooReason.meaningOf(o.reasonCode));
+
+  const toastCooApproval = (res: CooApprovalDecision) => {
     const s = summarizeCooApproval(res);
-    toast({ title: s.title, description: s.description, variant: s.variant });
+    toast({ title: s.title, description: [s.description, cooSummary(res.decide)].filter(Boolean).join(' '), variant: s.variant });
   };
 
   /** COO step: one call for one or many requests; ones over the budget stay at the COO step. */
   const approveAtCooStage = (ids: string[], note?: string) =>
-    landlordFloatActions.approveAtCoo.mutateAsync({ requestIds: ids, comment: note });
+    landlordFloatActions.approveAtCoo.mutateAsync({ requestIds: ids, comment: note, askReason: cooReason.askReason });
+
+  /** COO step: return for correction through coo_decide_rent_requests; the dialog's reason is p_reason_text. */
+  const returnAtCooStage = (ids: string[], reason: string) =>
+    cooDecide(supabase.rpc.bind(supabase) as never, { ids, decision: 'return', reasonText: reason }, cooReason.askReason);
 
   /**
    * COO step: ask the CFO to approve requests above the budget, one reason each (min 10 characters).
@@ -758,13 +768,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       try {
         const res = await approveAtCooStage([req.id]);
         if (res.approved.length > 0) {
-          toast({ title: '✅ Approved', description: `${req.tenant_name} → CFO` });
+          toast({ title: '✅ Approved', description: `${req.tenant_name} → CFO. ${cooSummary(res.decide)}` });
           invalidateAllPipelineQueries();
         } else {
           toastCooApproval(res);
         }
       } catch (err) {
-        toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
+        if (err instanceof CooDecisionCancelled) toast({ title: 'Not approved', description: err.message });
+        else toast({ title: 'Error', description: landlordFloatErrorText(err), variant: 'destructive' });
       } finally {
         setQuickProcessingId(null);
       }
@@ -1200,6 +1211,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           toastCooApproval(res);
           return;
         }
+        sonnerToast(cooSummary(res.decide));
       } else {
         const updateData: any = {
           status: config.nextStatus,
@@ -1313,11 +1325,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       if (isCooStage) {
         // return_rent_request_for_correction does not accept the COO step ("Invalid stage"); coo_return_rent_request
         // does the same return and stamps the COO reviewer + comment itself.
-        const { error } = await supabase.rpc('coo_return_rent_request', {
-          p_request_id: selectedRequest.id,
-          p_reason: comment.trim(),
-        });
-        if (error) throw error;
+        const outcome = await returnAtCooStage([selectedRequest.id], comment.trim());
+        const item = outcome.response.items.find(i => i.id === selectedRequest.id) ?? outcome.response.items[0];
+        if (item && !item.ok) throw new Error(item.error || 'This rent request could not be returned');
+        sonnerToast(cooSummary(outcome));
       } else {
         const { error } = await supabase.rpc('return_rent_request_for_correction', {
           p_request_id: selectedRequest.id,
@@ -1505,14 +1516,14 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       const ids = [...selectedIds];
       const failures: string[] = [];
       let rejected = 0;
-      for (const id of ids) {
-        if (isCooStage) {
-          // Same as the single COO return: coo_return_rent_request stamps the reviewer + comment itself.
-          const { error } = await supabase.rpc('coo_return_rent_request', { p_request_id: id, p_reason: reason });
-          if (error) failures.push(error.message);
-          else rejected += 1;
-          continue;
-        }
+      if (isCooStage) {
+        // One coo_decide_rent_requests call for the batch: it returns each one and records whether the
+        // COO followed the system (one "why" for the whole batch if not).
+        const outcome = await returnAtCooStage(ids, reason);
+        outcome.response.items.forEach(i => (i.ok ? (rejected += 1) : failures.push(i.error || 'Not returned')));
+        sonnerToast(cooSummary(outcome));
+      }
+      for (const id of isCooStage ? [] : ids) {
         const { error } = await supabase.rpc('return_rent_request_for_correction', {
           p_request_id: id,
           p_stage: stage,
@@ -1548,7 +1559,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       setBulkRejectOpen(false);
       invalidateAllPipelineQueries();
     } catch (err: any) {
-      toast({ title: 'Bulk return error', description: err.message, variant: 'destructive' });
+      if (err instanceof CooDecisionCancelled) toast({ title: 'Not returned', description: err.message });
+      else toast({ title: 'Bulk return error', description: err.message, variant: 'destructive' });
     } finally {
       setProcessing(false);
     }
@@ -1597,6 +1609,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   return (
     <div className="space-y-4">
+      {isCooStage && cooReason.picker}
       {isCooStage && (landlordFloatBudget.data ? <LandlordFloatBudgetPosition position={landlordFloatBudget.data} /> : <p role="status" className="text-sm text-destructive">{landlordFloatBudget.isError ? landlordFloatErrorText(landlordFloatBudget.error) : 'Loading landlord float budget…'}</p>)}
       {isCfoStage && landlordFloatBudget.data && <LandlordFloatExcessBanner daily={landlordFloatBudget.data.daily.excess} weekly={landlordFloatBudget.data.weekly.excess} />}
       <RentApprovalMoneyCounter

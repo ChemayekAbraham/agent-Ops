@@ -7,6 +7,7 @@ import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText, type Status
 import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
 import { isRecordOnly, needsNote, runMove } from './deskActions';
+import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import {
   lcLetterUrl,
@@ -223,6 +224,7 @@ export function ReviewDrawer({
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
   const [decision, setDecision] = useState<Decision | null>(null);
   const [reasonCode, setReasonCode] = useState<string>('');
+  const cooReason = useCooReasonPicker();
   const [note, setNote] = useState('');
   const [targetAgentId, setTargetAgentId] = useState<string | null>(null);
   const [proxyAgentId, setProxyAgentId] = useState<string | null>(null);
@@ -314,6 +316,9 @@ export function ReviewDrawer({
         note: note.trim(),
         targetAgentId,
         proxyAgentId,
+        reasonCode: against ? reasonCode : reasonCode || null,
+        askReason: cooReason.askReason,
+        reasonMeaning: cooReason.meaningOf,
       });
 
       if (!moved.ok) {
@@ -347,6 +352,9 @@ export function ReviewDrawer({
       note: note.trim(),
       targetAgentId,
       proxyAgentId,
+      reasonCode: against ? reasonCode : reasonCode || null,
+      askReason: cooReason.askReason,
+      reasonMeaning: cooReason.meaningOf,
     });
     setBusy(false);
     if (!moved.ok) {
@@ -365,6 +373,7 @@ export function ReviewDrawer({
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
       <button type="button" aria-label="Close the review" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      {stage === 'coo' && cooReason.picker}
 
       <div className="desk-root relative flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-white/10 shadow-2xl">
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
