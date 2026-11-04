@@ -74379,6 +74379,18 @@ export type Database = {
         Returns: Json
       }
       _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
+      _release_unpaid_commission_budget: {
+        Args: {
+          p_budget: number
+          p_idempotency_key: string
+          p_offset_category: string
+          p_paid: number
+          p_reference_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       _renewal_advice_core: {
         Args: {
           p_as_at: string
@@ -79568,6 +79580,19 @@ export type Database = {
       credit_agent_tid_backed_float: {
         Args: { p_agent_id: string; p_delta: number }
         Returns: undefined
+      }
+      credit_collection_commission: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_commission_budget?: number
+          p_context: string
+          p_idempotency_key: string
+          p_offset_category?: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
       }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
