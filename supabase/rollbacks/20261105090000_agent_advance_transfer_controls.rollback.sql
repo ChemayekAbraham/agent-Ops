@@ -1,4 +1,4 @@
--- Rollback of 20261104230000_agent_advance_transfer_controls: the seven functions as in production on 2026-11-04 (verbatim), the new functions dropped, the cron
+-- Rollback of 20261105090000_agent_advance_transfer_controls: the seven functions as in production on 2026-11-04 (verbatim), the new functions dropped, the cron
 -- job removed. KEPT (data / audit): the new tables and columns, every transfer, write-off and reversal entry posted meanwhile, and
 -- the widened cancellation_mode check (rows recorded as transfer / write_off_approved / payout_reversed stay valid).
 SET lock_timeout = '5s';

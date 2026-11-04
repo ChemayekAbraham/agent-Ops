@@ -74,6 +74,8 @@ export default function CFOAdvanceTopupDialog({ open, onOpenChange, advance, onS
     !amountError && !daysError && !!amount && !!extendDays && reasonError(reason) === null;
 
   const topupMutation = useMutation({
+    // a money movement is never retried automatically: a lost reply would re-send a top-up that already went through
+    retry: false,
     mutationFn: async (newMoney: boolean = false) => {
       const { data, error } = await supabase.rpc('apply_advance_topup' as any, {
         p_advance_id: advance.id,

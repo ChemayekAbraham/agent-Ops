@@ -1,6 +1,6 @@
 // @vitest-environment node
 /**
- * Agent Advances permanent controls (supabase/migrations/20261104230000_agent_advance_transfer_controls.sql), CFO 2026-11-04.
+ * Agent Advances permanent controls (supabase/migrations/20261105090000_agent_advance_transfer_controls.sql), CFO 2026-11-04.
  *
  * Runs on PGlite with production's code verbatim: the merchandise replica (ledger, posting engine, resolver, advance tables) plus
  * production's advance functions (scripts/fixtures/agent-advance-prod-2026-11-04.sql: cancel, CFO-initiated create, disburse,
@@ -193,8 +193,8 @@ const ADV = JSON.parse(read('scripts/fixtures/agent-advance-prod-2026-11-04.json
   ddl: Ddl; checks: Array<{ t: string; n: string; def: string }>; map: Array<Record<string, unknown>>; md5: Record<string, string>;
 };
 const ADV_SQL = read('scripts/fixtures/agent-advance-prod-2026-11-04.sql');
-const MIG = read('supabase/migrations/20261104230000_agent_advance_transfer_controls.sql');
-const RB = read('supabase/rollbacks/20261104230000_agent_advance_transfer_controls.rollback.sql');
+const MIG = read('supabase/migrations/20261105090000_agent_advance_transfer_controls.sql');
+const RB = read('supabase/rollbacks/20261105090000_agent_advance_transfer_controls.rollback.sql');
 const EDGE = read('supabase/functions/finops-wallet-move/index.ts');
 const MGR = '00000000-0000-0000-0000-0000000000a9';   // a second approver (CEO)
 const AG1 = '00000000-0000-0000-0000-00000000ad01';
@@ -382,6 +382,15 @@ describe('1-2. accounting-only transfers: no payout, no duplicate receivable', (
       p_new_agent_id => $2, p_new_recovery_source => 'roi', p_new_roi_percent => 20, p_cross_account_reason => 'Same person, partner account holds the portfolio')`, [a.advance, AG1]);
     const n = await advRow(db, t.to_advance_id);
     expect([n.agent_id, n.recovery_source, num(n.roi_recovery_percent), n.funding_type]).toEqual([AG1, 'roi', 20, 'transfer']);
+    // moving a Returns-recovered advance on: an inherited 'roi' keeps its percentage; an explicit wallet_daily switches it off
+    const t2 = await cfo<{ to_advance_id: string }>(db, `public.cfo_transfer_agent_advance($1, 'new_advance', 'Back to the same account', 'xfer-ptn-0003',
+      p_new_agent_id => $2, p_cross_account_reason => 'Partner account closed; the agent repays it again')`, [t.to_advance_id, AG2]);
+    const n2 = await advRow(db, t2.to_advance_id);
+    expect([n2.agent_id, n2.recovery_source, num(n2.roi_recovery_percent)]).toEqual([AG2, 'roi', 20]);
+    const t3 = await cfo<{ to_advance_id: string }>(db, `public.cfo_transfer_agent_advance($1, 'new_advance', 'Daily wallet recovery from now on', 'xfer-ptn-0004',
+      p_new_recovery_source => 'wallet_daily')`, [t2.to_advance_id]);
+    const n3 = await advRow(db, t3.to_advance_id);
+    expect([n3.recovery_source, num(n3.roi_recovery_percent)]).toEqual(['wallet_daily', 0]);
   });
   it('limits: more than the balance, a closed source, the same advance, a short reason or key', async () => {
     const a = await issue(db, AG2, 150000, 'Advance for limit checks');
@@ -576,6 +585,23 @@ describe('8. reconciliation and exceptions', () => {
       'reversal_exceeds_original', 'undocumented_cancellation']));
     const over = ex.exceptions.find((e) => e.agent_id === Y && e.kind === 'reversal_exceeds_original')!;
     expect(num(over.detail.excess)).toBe(22913);
+  });
+  it('a duplicate payout whose second credit was returned (Kalule 2026-11-04 shape) is no longer flagged', async () => {
+    const Z = '00000000-0000-0000-0000-00000000ad32';
+    await db.exec(`insert into profiles (id, full_name) values ('${Z}', 'Returned Duplicate Case') on conflict do nothing`);
+    await fund(db, Z, 1000);
+    const p1 = await issue(db, Z, 640000, '[NEW MONEY] first of two equal payouts');
+    await issue(db, Z, 640000, '[NEW MONEY] second of two equal payouts');
+    const flagged = async () => (await cfo<typeof ex>(db, `public.get_agent_advance_exceptions()`)).exceptions.filter((e) => e.agent_id === Z && e.kind === 'duplicate_payout');
+    const dup = await flagged();
+    expect(dup.length).toBe(1);
+    const second = String(dup[0].detail.second_group);
+    await fund(db, Z, 2_000_000);
+    await db.query(`select public.create_ledger_transaction(jsonb_build_array(
+      jsonb_build_object('user_id', $1::uuid, 'ledger_scope', 'wallet', 'direction', 'cash_out', 'amount', 640000, 'category', 'agent_advance_reversed', 'wallet_bucket', 'withdrawable', 'recipient_type', 'user', 'source_table', 'agent_advances', 'source_id', $2::uuid, 'reference_id', $3::text, 'description', 'Duplicate advance payout returned'),
+      jsonb_build_object('user_id', $1::uuid, 'ledger_scope', 'platform', 'direction', 'cash_in', 'amount', 640000, 'category', 'agent_advance_reversed', 'source_table', 'agent_advances', 'source_id', $2::uuid, 'reference_id', $3::text, 'description', 'Advance receivable reduced')),
+      'adv_dup_payout_reversal:test-' || $3::text)`, [Z, p1.advance, second]);
+    expect(await flagged()).toEqual([]);
   });
   it('clean transfers and approved write-offs produce no exception', () => {
     const clean = ex.exceptions.filter((e) => e.agent_id !== Y && ['closed_with_book_balance', 'undocumented_cancellation'].includes(e.kind));

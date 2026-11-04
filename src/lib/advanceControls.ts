@@ -1,5 +1,5 @@
 /**
- * Agent-advance controls (migration 20261104230000): the codes the database raises, the "[NEW MONEY]" tag a payout
+ * Agent-advance controls (migration 20261105090000): the codes the database raises, the "[NEW MONEY]" tag a payout
  * needs when it equals an existing balance, and idempotency keys for accounting-only transfers.
  */
 
@@ -77,7 +77,9 @@ export function transferArgs(input: {
     ...base,
     p_destination: 'new_advance',
     p_new_agent_id: input.destination === 'partnership' ? input.partnerAgentId ?? null : null,
-    p_new_recovery_source: input.destination === 'roi' || (input.destination === 'partnership' && (input.roiPercent ?? 0) > 0) ? 'roi' : null,
+    // replacement keeps the source's recovery terms; Returns recovery is explicit; a partnership with 0% is daily wallet recovery
+    p_new_recovery_source: input.destination === 'roi' ? 'roi'
+      : input.destination === 'partnership' ? ((input.roiPercent ?? 0) > 0 ? 'roi' : 'wallet_daily') : null,
     p_new_roi_percent: (input.destination === 'roi' || input.destination === 'partnership') && (input.roiPercent ?? 0) > 0 ? input.roiPercent : null,
     p_new_cycle_days: input.cycleDays && input.cycleDays > 0 ? input.cycleDays : null,
     p_cross_account_reason: input.destination === 'partnership' ? input.crossAccountReason?.trim() || null : null,

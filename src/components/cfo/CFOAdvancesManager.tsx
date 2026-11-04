@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { exportAdvanceStatements, exportConsolidatedPayments } from '@/lib/agentAdvancePdfExport';
 import { downloadAdvancesExcel, downloadAdvancesPdf } from '@/lib/advancesListExport';
 import { FileSpreadsheet } from 'lucide-react';
@@ -461,7 +461,7 @@ export function CFOAdvancesManager() {
               </Button>
             )}
             <Button variant="destructive" size="sm" className="gap-1" onClick={() => setDeleteDialogOpen(true)}>
-              <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
+              <Ban className="h-4 w-4" /> Cancel selected ({selectedIds.size})
             </Button>
           </div>
         </div>

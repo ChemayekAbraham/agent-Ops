@@ -33,7 +33,7 @@ const MIN_NOTE = 10;
  * Write-off requests waiting for a decision. The person who asked for a write-off cannot approve it: another CFO or the
  * CEO must. Approving does not post anything; the advance is closed (and the loss booked) from the Close advance dialog.
  */
-export function AdvanceWriteOffApprovals() {
+export function AdvanceWriteOffApprovals({ hideWhenEmpty = false }: { hideWhenEmpty?: boolean } = {}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -86,6 +86,8 @@ export function AdvanceWriteOffApprovals() {
       setBusy(null);
     }
   };
+
+  if (hideWhenEmpty && !isLoading && !error && rows.length === 0) return null;
 
   return (
     <Card>

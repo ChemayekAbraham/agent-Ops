@@ -26,7 +26,7 @@
 --      balance, undocumented cancellations, payouts returned by unlinked corrections, reversals above the original, duplicate
 --      payouts, live advances whose books differ from the record.
 -- Repayment, deduction and commission rules are unchanged. Categories used are all already allowlisted and mapped.
--- Rollback: supabase/rollbacks/20261104230000_agent_advance_transfer_controls.rollback.sql. Tests: src/test/agentAdvanceTransferControls.test.ts.
+-- Rollback: supabase/rollbacks/20261105090000_agent_advance_transfer_controls.rollback.sql. Tests: src/test/agentAdvanceTransferControls.test.ts.
 -- TRANSACTION: run as ONE transaction.
 
 SET lock_timeout = '5s';
@@ -328,7 +328,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = v_to_agent) THEN RAISE EXCEPTION 'Destination agent not found'; END IF;
     v_src := COALESCE(p_new_recovery_source, f.recovery_source, 'wallet_daily');
     IF v_src NOT IN ('wallet_daily', 'roi') THEN RAISE EXCEPTION 'Recovery source must be wallet_daily or roi'; END IF;
-    v_roi := CASE WHEN v_src = 'roi' THEN p_new_roi_percent ELSE 0 END;
+    v_roi := CASE WHEN v_src = 'roi' THEN COALESCE(p_new_roi_percent, NULLIF(f.roi_recovery_percent, 0)) ELSE 0 END;  -- an inherited 'roi' keeps its percentage
     IF v_src = 'roi' AND (v_roi IS NULL OR v_roi <= 0 OR v_roi > 100) THEN RAISE EXCEPTION 'Recovery from Returns needs a percentage between 0 and 100'; END IF;
     v_cycle := COALESCE(p_new_cycle_days, f.cycle_days, 30);
     IF v_cycle <= 0 THEN RAISE EXCEPTION 'Cycle days must be greater than zero'; END IF;
@@ -605,6 +605,10 @@ BEGIN
       jsonb_build_object('first_group', c1.gid, 'second_group', c2.gid, 'amount', c1.amount, 'first_at', c1.created_at, 'second_at', c2.created_at)
     FROM credits c1 JOIN credits c2 ON c2.user_id = c1.user_id AND c2.amount = c1.amount AND c2.created_at > c1.created_at
       AND c2.created_at < c1.created_at + interval '48 hours' AND c2.gid <> c1.gid
+      -- a duplicate whose second payout was returned (linked reversal, or an advance-reversal posting that names it) is resolved
+      AND NOT EXISTS (SELECT 1 FROM public.wallet_reversal_links w WHERE w.original_group_id IN (c1.gid, c2.gid) AND w.status = 'posted')
+      AND NOT EXISTS (SELECT 1 FROM public.general_ledger r WHERE r.category = 'agent_advance_reversed' AND r.ledger_scope = 'platform'
+                        AND r.reference_id IN (c1.gid::text, c2.gid::text))
     UNION ALL
     SELECT 'live_book_mismatch', CASE WHEN a.issued_at < '2026-09-29' THEN 'legacy' ELSE 'medium' END, a.id, a.agent_id,
       jsonb_build_object('record_outstanding', a.outstanding_balance, 'book', a.book,

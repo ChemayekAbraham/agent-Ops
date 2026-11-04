@@ -7,7 +7,7 @@ import {
 } from '@/lib/advanceControls';
 
 /*
- * The CFO screens for the 20261104230000 controls: closing an advance (transfer / recoup / approved write-off), the
+ * The CFO screens for the 20261105090000 controls: closing an advance (transfer / recoup / approved write-off), the
  * second-person write-off queue, and the "this is new money" confirmation on a top-up. The database is mocked; what is
  * checked is which RPC each screen calls with which arguments, and that nothing is sent that the controls would refuse.
  */
@@ -77,7 +77,7 @@ describe('advanceControls helpers', () => {
     expect(transferArgs({ ...base, destination: 'roi', roiPercent: 25, amount: 500 })).toMatchObject({ p_destination: 'new_advance',
       p_new_recovery_source: 'roi', p_new_roi_percent: 25, p_amount: 500, p_new_agent_id: null });
     expect(transferArgs({ ...base, destination: 'partnership', partnerAgentId: 'p', roiPercent: 0, crossAccountReason: ' same person ' }))
-      .toMatchObject({ p_destination: 'new_advance', p_new_agent_id: 'p', p_new_recovery_source: null, p_new_roi_percent: null,
+      .toMatchObject({ p_destination: 'new_advance', p_new_agent_id: 'p', p_new_recovery_source: 'wallet_daily', p_new_roi_percent: null,
         p_cross_account_reason: 'same person' });
     expect(transferArgs({ ...base, destination: 'existing', toAdvanceId: 'b' })).toMatchObject({ p_destination: 'existing_advance',
       p_to_advance: 'b', p_cross_account_reason: null });
