@@ -1,6 +1,9 @@
--- Rollback of 20261104110000_merchandise_phase3_stock_phone_pledge: restores cfo_disburse_smartphone_order, apply_smartphone_roi_pledge and the allowlist to the
--- production definitions of 2026-11-04 (verbatim), drops the stock-issue trigger and functions and the settings column.
--- STAY (append-only / evidence): the 8 correction groups, any posted stock recognitions and the review rows; the two
+-- Rollback of 20261104150000_merchandise_phase3_stock_phone_pledge: restores cfo_disburse_smartphone_order, apply_smartphone_roi_pledge and the allowlist to the
+-- production definitions of 2026-11-04 (verbatim), restores _merch_receivable_event, _merch_post_derecognition and
+-- cfo_post_merchandise_derecognition (20261104100000, verbatim), drops the stock-issue trigger and functions and the
+-- settings column. The derecognition counterpart check keeps 'retained' (rows recorded under the policy stay valid).
+-- STAY (append-only / evidence): the 8 correction groups, the 2 retained-payment groups, any posted stock recognitions
+-- and the review rows; the three
 -- mapping rows stay while any leg uses them (removing a mapping would restate those legs to A9).
 SET lock_timeout = '5s';
 CREATE OR REPLACE FUNCTION public.cfo_disburse_smartphone_order(p_sale_id uuid, p_amount numeric DEFAULT NULL::numeric, p_note text DEFAULT NULL::text)
@@ -361,15 +364,163 @@ AS $function$
                        'special_advance_write_off_loss', 'special_advance_recovery_received', 'special_advance_recovery_income']::text[];
 $function$;
 
+CREATE OR REPLACE FUNCTION public._merch_receivable_event(p_sale uuid, p_plan uuid, p_event text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_subject uuid := COALESCE(p_sale, p_plan); v_plans uuid[]; v_item text; v_customer uuid; v_bike boolean;
+  v_net jsonb; v_a12 numeric; v_a13 numeric; v_cash numeric; v_row record; v_flags text[]; v_auto text; v_id uuid;
+  v_ev jsonb;
+BEGIN
+  IF v_subject IS NULL THEN RETURN; END IF;
+  SELECT COALESCE(array_agg(p.id), '{}') INTO v_plans FROM public.merchandise_recovery_plans p
+  WHERE (p_sale IS NOT NULL AND p.sale_id = p_sale) OR p.id = p_plan;
+  IF p_plan IS NOT NULL AND NOT p_plan = ANY (v_plans) THEN v_plans := v_plans || p_plan; END IF;
+  SELECT s.item_name, s.customer_id INTO v_item, v_customer FROM public.merchandise_sales s WHERE s.id = p_sale;
+  IF v_item IS NULL THEN
+    SELECT p.item_name, p.customer_id INTO v_item, v_customer FROM public.merchandise_recovery_plans p
+    WHERE p.id = ANY (v_plans) ORDER BY p.created_at LIMIT 1;
+  END IF;
+  -- bike or not exactly as the balance-sheet resolver decides it (agent_product_category of the plan's item)
+  v_bike := EXISTS (SELECT 1 FROM public.merchandise_recovery_plans p WHERE p.id = ANY (v_plans)
+                    AND public.agent_product_category(p.item_name) = 'motor_bike');
+  SELECT * INTO v_row FROM public.merchandise_receivable_derecognitions
+  WHERE subject_id = v_subject AND status = 'pending' FOR UPDATE;
+  IF FOUND THEN
+    SELECT COALESCE(array_agg(DISTINCT x), '{}') INTO v_plans FROM unnest(v_row.plan_ids || v_plans) x;
+  END IF;
+  v_net := public._merch_receivable_net(p_sale, v_plans, v_bike);
+  v_a12 := (v_net->>'a12')::numeric; v_a13 := (v_net->>'a13')::numeric; v_cash := (v_net->>'cash')::numeric;
+  IF v_row.id IS NULL AND v_a12 = 0 AND v_a13 = 0 AND v_cash <= 0 THEN RETURN; END IF;
+  v_flags := '{}';
+  IF v_a12 <> 0 OR v_a13 <> 0 THEN v_flags := v_flags || 'receivable_open'::text; END IF;
+  IF v_a12 < 0 OR v_a13 < 0 THEN v_flags := v_flags || 'credit_balance'::text; END IF;
+  IF v_cash > 0 THEN v_flags := v_flags || 'possible_refund'::text; END IF;
+  IF p_event LIKE '%deleted' THEN v_flags := v_flags || 'deleted'::text; END IF;
+  v_ev := jsonb_build_object('event', p_event, 'at', now(), 'by', auth.uid());
+  IF v_row.id IS NULL THEN
+    INSERT INTO public.merchandise_receivable_derecognitions (subject_id, sale_id, plan_ids, item_name, customer_id, is_bike,
+      events, a12_net, a13_net, cash_collected_net, flags)
+    VALUES (v_subject, p_sale, v_plans, v_item, v_customer, COALESCE(v_bike, false), jsonb_build_array(v_ev),
+      v_a12, v_a13, v_cash, v_flags)
+    RETURNING id INTO v_id;
+  ELSE
+    v_id := v_row.id;
+    UPDATE public.merchandise_receivable_derecognitions
+    SET plan_ids = v_plans, events = events || v_ev, a12_net = v_a12, a13_net = v_a13, cash_collected_net = v_cash,
+        -- flags describe the subject now; 'deleted' is kept once seen
+        flags = ARRAY(SELECT DISTINCT f FROM unnest(v_flags || CASE WHEN 'deleted' = ANY (flags) THEN ARRAY['deleted'] ELSE '{}'::text[] END) f ORDER BY 1),
+        is_bike = is_bike OR COALESCE(v_bike, false), updated_at = now()
+    WHERE id = v_id;
+  END IF;
+  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
+  VALUES (auth.uid(), 'merchandise_receivable_event', 'merchandise_receivable_derecognitions', v_id::text, p_event,
+          jsonb_build_object('subject_id', v_subject, 'sale_id', p_sale, 'plan_id', p_plan, 'a12', v_a12, 'a13', v_a13,
+                             'cash_collected_net', v_cash, 'flags', v_flags));
+  SELECT auto_derecognition_counterpart INTO v_auto FROM public.merchandise_accounting_controls WHERE id;
+  IF v_auto IS NOT NULL AND (v_a12 <> 0 OR v_a13 <> 0) THEN
+    PERFORM public._merch_post_derecognition(v_id, v_auto, 'automatic: ' || p_event, auth.uid());
+  END IF;
+END $function$;
+
+CREATE OR REPLACE FUNCTION public._merch_post_derecognition(p_review uuid, p_counterpart text, p_note text, p_actor uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  r record; v_plans uuid[]; v_net jsonb; v_entries jsonb := '[]'::jsonb; v_key text; v_group uuid;
+  v_acct text; v_amt numeric; v_src_table text; v_src uuid; v_desc text;
+BEGIN
+  IF p_counterpart NOT IN ('E3', 'X4') THEN RAISE EXCEPTION 'counterpart must be E3 or X4'; END IF;
+  SELECT * INTO r FROM public.merchandise_receivable_derecognitions WHERE id = p_review FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'derecognition % not found', p_review; END IF;
+  IF r.status <> 'pending' THEN
+    RETURN jsonb_build_object('id', r.id, 'status', r.status, 'ledger_group_id', r.ledger_group_id, 'already', true);
+  END IF;
+  SELECT COALESCE(array_agg(DISTINCT x), '{}') INTO v_plans
+  FROM unnest(r.plan_ids || COALESCE((SELECT array_agg(p.id) FROM public.merchandise_recovery_plans p WHERE p.sale_id = r.sale_id), '{}')) x;
+  v_net := public._merch_receivable_net(r.sale_id, v_plans, r.is_bike);
+  v_src_table := CASE WHEN r.sale_id IS NOT NULL THEN 'merchandise_sales' ELSE 'merchandise_recovery_plans' END;
+  v_src := COALESCE(r.sale_id, r.subject_id);
+  v_key := 'merch_recv_derecog:' || r.id::text;
+  FOREACH v_acct IN ARRAY ARRAY['A12', 'A13'] LOOP
+    v_amt := (v_net->>lower(v_acct))::numeric;
+    CONTINUE WHEN v_amt = 0;
+    v_desc := 'Receivable derecognised (' || v_acct || ', CFO ' || CASE p_counterpart WHEN 'E3' THEN 'restatement' ELSE 'write-off' END
+              || '): ' || COALESCE(r.item_name, 'merchandise') || ' - ' || COALESCE(p_note, '');
+    -- a positive balance is removed with a credit to the receivable; a credit balance with a debit
+    IF p_counterpart = 'E3' THEN
+      v_entries := v_entries || jsonb_build_array(
+        jsonb_build_object('ledger_scope', 'platform', 'category', 'receivable_restatement_equity',
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_in' ELSE 'cash_out' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
+        jsonb_build_object('ledger_scope', 'bridge',
+          'category', CASE v_acct WHEN 'A12' THEN 'merchandise_recovery_receivable_opening' ELSE 'bike_recovery_receivable_opening' END,
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_out' ELSE 'cash_in' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
+    ELSE
+      v_entries := v_entries || jsonb_build_array(
+        jsonb_build_object('ledger_scope', 'platform', 'category', 'platform_loss_writeoff',
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_out' ELSE 'cash_in' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
+        jsonb_build_object('ledger_scope', 'platform',
+          'category', CASE v_acct WHEN 'A12' THEN 'merchandise_recovery_repayment' ELSE 'bike_recovery_repayment' END,
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_in' ELSE 'cash_out' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
+    END IF;
+  END LOOP;
+  IF jsonb_array_length(v_entries) > 0 THEN
+    v_group := public.create_ledger_transaction(entries => v_entries, idempotency_key => v_key);
+  END IF;
+  UPDATE public.merchandise_receivable_derecognitions
+  SET status = CASE WHEN v_group IS NULL THEN 'no_action' ELSE 'posted' END,
+      counterpart = CASE WHEN v_group IS NULL THEN NULL ELSE p_counterpart END,
+      a12_net = (v_net->>'a12')::numeric, a13_net = (v_net->>'a13')::numeric,
+      ledger_group_id = v_group, idempotency_key = CASE WHEN v_group IS NULL THEN NULL ELSE v_key END,
+      decided_by = p_actor, decided_at = now(), decision_note = p_note, updated_at = now()
+  WHERE id = r.id;
+  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
+  VALUES (p_actor, 'merchandise_receivable_derecognised', 'merchandise_receivable_derecognitions', r.id::text, p_note,
+          jsonb_build_object('subject_id', r.subject_id, 'sale_id', r.sale_id, 'plan_ids', v_plans, 'counterpart', p_counterpart,
+                             'a12', v_net->'a12', 'a13', v_net->'a13', 'ledger_group_id', v_group, 'idempotency_key', v_key));
+  RETURN jsonb_build_object('id', r.id, 'status', CASE WHEN v_group IS NULL THEN 'no_action' ELSE 'posted' END,
+    'ledger_group_id', v_group, 'a12', v_net->'a12', 'a13', v_net->'a13', 'counterpart', p_counterpart);
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.cfo_post_merchandise_derecognition(p_review_id uuid, p_counterpart text, p_note text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'cfo'::app_role) OR NOT public.staff_mfa_ok() THEN
+    RAISE EXCEPTION 'Only the CFO can derecognise a merchandise receivable';
+  END IF;
+  IF p_counterpart IS NULL OR p_counterpart NOT IN ('E3', 'X4') THEN
+    RAISE EXCEPTION 'Choose E3 (receivable that should not have been recognised) or X4 (write-off)';
+  END IF;
+  IF length(btrim(COALESCE(p_note, ''))) < 10 THEN
+    RAISE EXCEPTION 'Give a reason of at least 10 characters';
+  END IF;
+  RETURN public._merch_post_derecognition(p_review_id, p_counterpart, btrim(p_note), auth.uid());
+END $function$;
+
 DROP TRIGGER trg_merch_stock_issue_insert ON public.merchandise_sales;
 DROP TRIGGER trg_merch_stock_issue_status ON public.merchandise_sales;
 DROP FUNCTION public.trg_merch_stock_issue_event();
-DROP FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text, text);
+DROP FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text);
+DROP FUNCTION public._merch_stock_on_handover(uuid);
 DROP FUNCTION public._merch_stock_queue(uuid, text);
 DROP FUNCTION public._merch_post_stock_recognition(uuid, text, text, uuid);
 DROP FUNCTION public._merch_stock_receivable_due(uuid);
 ALTER TABLE public.merchandise_accounting_controls DROP COLUMN stock_issue_counterpart;
-DELETE FROM public.ledger_account_map m WHERE m.category IN ('merchandise_revenue', 'merchandise_advance_memo_offset')
+DELETE FROM public.ledger_account_map m WHERE m.category IN ('merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained')
   AND NOT EXISTS (SELECT 1 FROM public.general_ledger g WHERE g.category = m.category);
 DO $post$
 BEGIN
@@ -378,7 +529,13 @@ BEGIN
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.apply_smartphone_roi_pledge(uuid, numeric, text)'))
        IS DISTINCT FROM '74ae9dca248b4b92e6e81a3bd472d997'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.ledger_category_allowlist()'))
-       IS DISTINCT FROM 'd1b408552ac7f96bb3b84a286261c7fd' THEN
+       IS DISTINCT FROM 'd1b408552ac7f96bb3b84a286261c7fd'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_receivable_event(uuid, uuid, text)'))
+       IS DISTINCT FROM 'bbea4b509dbf340a522ac66ad1ddb8c7'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_post_derecognition(uuid, text, text, uuid)'))
+       IS DISTINCT FROM '0cfb35ac332e0b1cc3241efcbb2f3cdb'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.cfo_post_merchandise_derecognition(uuid, text, text)'))
+       IS DISTINCT FROM '6979a4c7a26c1800c9adf15d90f5a4e9' THEN
     RAISE EXCEPTION 'rollback post-check failed';
   END IF;
 END $post$;

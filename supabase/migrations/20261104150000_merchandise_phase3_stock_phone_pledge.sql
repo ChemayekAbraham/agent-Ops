@@ -6,14 +6,28 @@
 --   2. Smartphone payouts (cfo_disburse_smartphone_order), company-side legs only: the phone's cost is the A12 receivable
 --      (was X1 expense) and the advance shown on the agent's wallet is offset in L1 (was a second A12 debit).
 --   3. One-off: 8 historical payouts, DR L1 / CR X1 5,245,000 (the X1 expense and the L1 agent memo counted the same phone).
---   4. Company stock issued on credit: queued for the CFO in merchandise_stock_recognitions (one row per order) on every
---      issue path; the CFO recognises it (revenue; E3 only for items issued before these controls) once, or sets
---      merchandise_accounting_controls.stock_issue_counterpart = 'revenue' to recognise on issue automatically.
+--   4. Company stock issued on credit (CFO decision 2026-11-04: sales revenue, never E3): queued for the CFO in
+--      merchandise_stock_recognitions (one row per order) on every issue path. The receivable and the revenue
+--      (DR A12/A13 / CR R1 merchandise_revenue) are recognised ONLY on verified delivery evidence:
+--        * a handover record (merchandise_sales.handed_over_at AND handed_over_by, set by confirm_merchandise_handover):
+--          recognised automatically in the same transaction (stock_issue_counterpart = 'revenue', set here); or
+--        * a delivery document the CFO has verified (signed delivery note / acknowledgement), recorded with
+--          cfo_post_merchandise_stock_recognition(id, evidence) - at least 20 characters naming the document.
+--      NOT evidence: the order status alone (issued / approved / completed) and customer payments (a customer paid
+--      34,929 on the undelivered pending order fdb05fd5). Items without evidence stay pending in the queue.
 --   5. Monthly Returns smartphone pledge (apply_smartphone_roi_pledge): collects only on an approved, delivered order
 --      (merchandise_plan_recovery_eligible); an ineligible order is skipped and recorded in audit_logs. Accounting
 --      unchanged; the Returns payout is never affected.
---   6. Review rows, no posting: the 7 company-stock items (1,015,000) and the 2 bikes rejected with cash kept (109,554.48).
--- Rollback: supabase/rollbacks/20261104110000_merchandise_phase3_stock_phone_pledge.rollback.sql (functions, triggers and mapping; posted entries and review rows stay).
+--   6. The 7 historical company-stock items (1,015,000): none has a handover record or other delivery evidence, so all
+--      7 stay pending in the queue (nothing posted).
+--   7. Rejected motorcycle plans (CFO policy 2026-11-04): a rejected plan ends and the customer is NOT refunded; the
+--      payments are retained by the company. The 2 plans rejected on 6 Oct (Martin Lukwago 109,451 paid 2-6 Aug;
+--      Peter Bukoma 103.48 paid 24 Sep) sit as a credit in E3 after the 22 Sep restatement and J5. Retention happened at
+--      rejection (6 Oct, current period), so it is income: DR E3 / CR R1 merchandise_payment_retained (new mapped
+--      category). Review rows are flagged retained_payment, not possible_refund. Future rejected / cancelled bike
+--      plans: cash collected is classified retained_payment and the CFO recognises a credit balance as retained income
+--      ('retained' counterpart). No refund, no wallet change; reject_bike_lease is unchanged.
+-- Rollback: supabase/rollbacks/20261104150000_merchandise_phase3_stock_phone_pledge.rollback.sql (functions, triggers and mapping; posted entries and review rows stay).
 -- Tests: src/test/merchandisePhase3.test.ts. TRANSACTION: run as ONE transaction.
 
 SET lock_timeout = '5s';
@@ -39,6 +53,10 @@ BEGIN
        IS DISTINCT FROM '6e6a67f7d0926adbd9845aa12c8dca66'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_receivable_event(uuid, uuid, text)'))
        IS DISTINCT FROM 'bbea4b509dbf340a522ac66ad1ddb8c7'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_post_derecognition(uuid, text, text, uuid)'))
+       IS DISTINCT FROM '0cfb35ac332e0b1cc3241efcbb2f3cdb'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.cfo_post_merchandise_derecognition(uuid, text, text)'))
+       IS DISTINCT FROM '6979a4c7a26c1800c9adf15d90f5a4e9'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.merchandise_plan_recovery_eligible(uuid)'))
        IS DISTINCT FROM 'fd52204a0662a4353f1e1fb32c278ad2'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.merchandise_plan_ineligible_reason(uuid)'))
@@ -46,8 +64,8 @@ BEGIN
     RAISE EXCEPTION 'merchandise phase 3: preflight refused - a function differs from the production definition of 2026-11-04';
   END IF;
   IF to_regclass('public.merchandise_stock_recognitions') IS NOT NULL
-     OR EXISTS (SELECT 1 FROM public.ledger_account_map WHERE category IN ('merchandise_revenue', 'merchandise_advance_memo_offset'))
-     OR EXISTS (SELECT 1 FROM public.general_ledger WHERE category IN ('merchandise_revenue', 'merchandise_advance_memo_offset')) THEN
+     OR EXISTS (SELECT 1 FROM public.ledger_account_map WHERE category IN ('merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained'))
+     OR EXISTS (SELECT 1 FROM public.general_ledger WHERE category IN ('merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained')) THEN
     RAISE EXCEPTION 'merchandise phase 3: already applied (or the categories are already in use)';
   END IF;
   IF (SELECT count(*) FROM public.ledger_account_map m WHERE m.wallet_bucket IS NULL AND (m.ledger_scope, m.category, m.account_code, m.debit_when) IN (
@@ -87,13 +105,26 @@ BEGIN
      OR (public._merch_receivable_net(v.sale, (SELECT array_agg(p.id) FROM public.merchandise_recovery_plans p WHERE p.sale_id = v.sale), false)->>'a12')::numeric
         NOT IN (0, -6410);
   IF v_bad <> 0 THEN RAISE EXCEPTION 'merchandise phase 3: company-stock evidence moved (% orders)', v_bad; END IF;
+  -- evidence, per rejected motorcycle plan: rejected order, the cash collected, A13 cleared by J5, nothing retained yet
+  SELECT count(*) INTO v_bad FROM (VALUES
+    ('dddc2333-efb2-4855-9ab7-f3d5c3793873'::uuid, '08f711e2-927a-43dd-bce0-73831c4dd16a'::uuid, 109451::numeric),
+    ('54c4c664-6004-4aab-a56c-b285050633cd'::uuid, '9be1f0c5-c24a-4ea1-a4fc-c65fab57c2e0'::uuid, 103.48::numeric)) v(sale, plan, cash)
+  LEFT JOIN public.merchandise_sales s ON s.id = v.sale
+  WHERE s.id IS NULL OR s.order_status <> 'rejected'
+     OR (public._merch_receivable_net(v.sale, ARRAY[v.plan], true)->>'a13')::numeric <> 0
+     OR (public._merch_receivable_net(v.sale, ARRAY[v.plan], true)->>'cash')::numeric <> v.cash
+     OR NOT EXISTS (SELECT 1 FROM public.general_ledger g WHERE g.idempotency_key LIKE 'merch\_a12\_a13\_correction\_20261104:' || v.plan::text || ':DEREC')
+     OR EXISTS (SELECT 1 FROM public.general_ledger g WHERE g.idempotency_key = 'merch_phase3_20261104:' || v.sale::text || ':RETAINED');
+  IF v_bad <> 0 THEN RAISE EXCEPTION 'merchandise phase 3: rejected-motorcycle evidence moved (% plans)', v_bad; END IF;
 END $pre$;
 
 -- ---------------------------------------------------------------- 1. categories
 INSERT INTO public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when, notes) VALUES
   ('platform', 'merchandise_revenue', NULL, 'R1', 'cash_out', '2026-11-04 (CFO): merchandise sales revenue (company stock sold on credit or for cash)'),
   ('platform', 'merchandise_advance_memo_offset', NULL, 'L1', 'cash_out',
-   '2026-11-04 (CFO): offsets the advance shown on an agent''s wallet (advance_credit) for goods the company paid for; not money owed to the agent');
+   '2026-11-04 (CFO): offsets the advance shown on an agent''s wallet (advance_credit) for goods the company paid for; not money owed to the agent'),
+  ('platform', 'merchandise_payment_retained', NULL, 'R1', 'cash_in',
+   '2026-11-04 (CFO policy): customer payments retained when a motorcycle plan is rejected (no refund). Post cash_out to CREDIT R1.');
 
 CREATE OR REPLACE FUNCTION public.ledger_category_allowlist()
  RETURNS text[]
@@ -157,7 +188,7 @@ AS $function$
                        'special_advance_write_off_loss', 'special_advance_recovery_received', 'special_advance_recovery_income']::text[]
     -- 2026-11-04 (CFO, merchandise phase 3): merchandise sales revenue (R1); offset of the advance shown on an agent's
     -- wallet for a phone bought by the company (L1 memo, not money owed to the agent)
-    || ARRAY['merchandise_revenue', 'merchandise_advance_memo_offset']::text[];
+    || ARRAY['merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained']::text[];
 $function$;
 
 -- ---------------------------------------------------------------- 2. smartphone payout: company-side legs only
@@ -429,8 +460,10 @@ END $phone$;
 ALTER TABLE public.merchandise_accounting_controls
   ADD COLUMN stock_issue_counterpart text CHECK (stock_issue_counterpart IN ('revenue'));
 COMMENT ON COLUMN public.merchandise_accounting_controls.stock_issue_counterpart IS
-  'CFO decision. NULL (default): an issue of company stock on credit is queued in merchandise_stock_recognitions for the '
-  'CFO. ''revenue'': the receivable is recognised automatically on issue (DR A12/A13 / CR R1 merchandise_revenue).';
+  'CFO decision 2026-11-04: ''revenue''. Company stock issued on credit is queued in merchandise_stock_recognitions; '
+  'the receivable and the revenue (DR A12/A13 / CR R1 merchandise_revenue) are recognised automatically only when the '
+  'handover is confirmed (handed_over_at and handed_over_by). NULL: every item waits for the CFO.';
+UPDATE public.merchandise_accounting_controls SET stock_issue_counterpart = 'revenue', updated_at = now() WHERE id;
 
 CREATE TABLE public.merchandise_stock_recognitions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -441,16 +474,19 @@ CREATE TABLE public.merchandise_stock_recognitions (
   principal numeric NOT NULL,                    -- order total (price x quantity)
   amount_paid numeric NOT NULL DEFAULT 0,        -- customer payments on the order when queued / posted
   amount numeric NOT NULL,                       -- receivable to recognise: principal not yet paid or already recognised
-  flags text[] NOT NULL DEFAULT '{}',            -- no_handover_record, unrecorded_payment, historical
+  flags text[] NOT NULL DEFAULT '{}',            -- no_handover_record, unrecorded_payment, customer_payment_only,
+                                                 -- outsourced_item_no_supplier_payout, historical
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'posted', 'no_action')),
-  counterpart text CHECK (counterpart IN ('revenue', 'E3')),
+  counterpart text CHECK (counterpart IN ('revenue')),
+  evidence_kind text CHECK (evidence_kind IN ('handover_record', 'cfo_verified_document')),
+  delivery_evidence text,                        -- the handover note, or the document the CFO verified
   ledger_group_id uuid, idempotency_key text,
   decided_by uuid, decided_at timestamptz, decision_note text,
   created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE public.merchandise_stock_recognitions IS
-  'Company stock issued to an agent on credit: the receivable to recognise (A12 / A13) and how the CFO recognised it '
-  '(revenue, or E3 for items issued before these controls). Written only by the merchandise controls (20261104110000).';
+  'Company stock issued to an agent on credit: the receivable and sales revenue to recognise once delivery is evidenced '
+  '(handover record, or a delivery document the CFO verified). Written only by the merchandise controls (20261104150000).';
 ALTER TABLE public.merchandise_stock_recognitions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY cfo_reads_merch_stock_recognitions ON public.merchandise_stock_recognitions FOR SELECT TO authenticated
   USING ((select public.has_role((select auth.uid()), 'cfo'::app_role)) OR (select public.has_role((select auth.uid()), 'ceo'::app_role))
@@ -501,14 +537,22 @@ CREATE OR REPLACE FUNCTION public._merch_stock_queue(p_sale uuid, p_origin text)
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE s record; v jsonb; v_id uuid; v_flags text[] := '{}'; v_auto text;
+DECLARE s record; v jsonb; v_id uuid; v_flags text[] := '{}';
 BEGIN
   IF EXISTS (SELECT 1 FROM public.merchandise_stock_recognitions WHERE sale_id = p_sale) THEN RETURN NULL; END IF;
   SELECT * INTO s FROM public.merchandise_sales WHERE id = p_sale;
   v := public._merch_stock_receivable_due(p_sale);
   IF v IS NULL OR (v->>'due')::numeric <= 0 THEN RETURN NULL; END IF;
-  IF s.handed_over_at IS NULL THEN v_flags := v_flags || 'no_handover_record'::text; END IF;
+  IF s.handed_over_at IS NULL OR s.handed_over_by IS NULL THEN v_flags := v_flags || 'no_handover_record'::text; END IF;
   IF (v->>'unrecorded_payment')::numeric > 0 THEN v_flags := v_flags || 'unrecorded_payment'::text; END IF;
+  -- a customer payment is not delivery evidence (customers also pay on undelivered orders)
+  IF s.handed_over_at IS NULL AND (COALESCE(s.amount_paid, 0) > 0 OR (v->>'cash_recorded')::numeric > 0) THEN
+    v_flags := v_flags || 'customer_payment_only'::text;
+  END IF;
+  -- an item the catalog fulfils through a supplier, issued with no supplier payout: probably never delivered
+  IF EXISTS (SELECT 1 FROM public.merchandise_catalog c WHERE lower(c.item_name) = lower(s.item_name) AND c.fulfilment_type = 'outsourced') THEN
+    v_flags := v_flags || 'outsourced_item_no_supplier_payout'::text;
+  END IF;
   IF p_origin = 'historical_20261104' THEN v_flags := v_flags || 'historical'::text; END IF;
   INSERT INTO public.merchandise_stock_recognitions (sale_id, plan_ids, item_name, customer_id, account, origin, principal,
     amount_paid, amount, flags)
@@ -518,53 +562,50 @@ BEGIN
   INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
   VALUES (auth.uid(), 'merchandise_stock_issue_queued', 'merchandise_stock_recognitions', v_id::text, p_origin,
           jsonb_build_object('sale_id', p_sale, 'due', v));
-  SELECT stock_issue_counterpart INTO v_auto FROM public.merchandise_accounting_controls WHERE id;
-  IF v_auto IS NOT NULL AND p_origin = 'issue' THEN
-    PERFORM public._merch_post_stock_recognition(v_id, v_auto, 'automatic on issue', auth.uid());
-  END IF;
   RETURN v_id;
 END $function$;
 
-CREATE OR REPLACE FUNCTION public._merch_post_stock_recognition(p_review uuid, p_counterpart text, p_note text, p_actor uuid)
+CREATE OR REPLACE FUNCTION public._merch_post_stock_recognition(p_review uuid, p_evidence_kind text, p_evidence text, p_actor uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE r record; v jsonb; v_amt numeric; v_key text; v_group uuid; v_desc text; v_entries jsonb;
+DECLARE r record; s record; v jsonb; v_amt numeric; v_key text; v_group uuid; v_desc text; v_entries jsonb;
+  p_counterpart constant text := 'revenue'; p_note text;
 BEGIN
-  IF p_counterpart NOT IN ('revenue', 'E3') THEN RAISE EXCEPTION 'counterpart must be revenue or E3'; END IF;
+  IF p_evidence_kind IS NULL OR p_evidence_kind NOT IN ('handover_record', 'cfo_verified_document') THEN
+    RAISE EXCEPTION 'delivery evidence kind must be handover_record or cfo_verified_document';
+  END IF;
   SELECT * INTO r FROM public.merchandise_stock_recognitions WHERE id = p_review FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'stock recognition % not found', p_review; END IF;
   IF r.status <> 'pending' THEN
     RETURN jsonb_build_object('id', r.id, 'status', r.status, 'ledger_group_id', r.ledger_group_id, 'already', true);
   END IF;
-  IF p_counterpart = 'E3' AND r.origin <> 'historical_20261104' THEN
-    RAISE EXCEPTION 'E3 (restatement) is only for items issued before these controls; a current issue is a sale (revenue)';
+  SELECT * INTO s FROM public.merchandise_sales WHERE id = r.sale_id;
+  IF p_evidence_kind = 'handover_record' AND (s.handed_over_at IS NULL OR s.handed_over_by IS NULL) THEN
+    RAISE EXCEPTION 'no handover record on order %: recognise only on verified delivery evidence', r.sale_id;
   END IF;
-  -- recomputed now: what was paid or recognised since it was queued is taken into account
+  IF p_evidence_kind = 'cfo_verified_document' AND length(btrim(COALESCE(p_evidence, ''))) < 20 THEN
+    RAISE EXCEPTION 'name the delivery document verified (at least 20 characters)';
+  END IF;
+  p_note := p_evidence_kind || ': ' || COALESCE(btrim(p_evidence), '');
+  -- recomputed now: what was paid or recognised since it was queued is taken into account; an order that is no longer
+  -- issued (rejected / cancelled / failed / deleted) recognises nothing (the derecognition controls cover what is left)
   v := public._merch_stock_receivable_due(r.sale_id);
-  v_amt := COALESCE((v->>'due')::numeric, 0);
+  v_amt := CASE WHEN s.id IS NULL OR s.order_status NOT IN ('issued', 'completed', 'approved') THEN 0
+                ELSE COALESCE((v->>'due')::numeric, 0) END;
   v_key := 'merch_stock_recog:' || r.id::text;
   IF v_amt > 0 THEN
     v_desc := 'Company stock issued on credit: ' || COALESCE(r.item_name, 'merchandise') || ' - receivable ' || r.account
-              || CASE p_counterpart WHEN 'revenue' THEN ' / sales revenue (R1)' ELSE ' / restatement (E3)' END
+              || ' / sales revenue (R1)'
               || ' - ' || COALESCE(p_note, '');
-    IF p_counterpart = 'revenue' THEN
       v_entries := jsonb_build_array(
         jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_out', 'amount', v_amt,
           'category', CASE r.account WHEN 'A13' THEN 'bike_recovery_repayment' ELSE 'smartphone_advance_receivable' END,
           'source_table', 'merchandise_sales', 'source_id', r.sale_id, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
         jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', v_amt, 'category', 'merchandise_revenue',
           'source_table', 'merchandise_sales', 'source_id', r.sale_id, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
-    ELSE
-      v_entries := jsonb_build_array(
-        jsonb_build_object('ledger_scope', 'bridge', 'direction', 'cash_in', 'amount', v_amt,
-          'category', CASE r.account WHEN 'A13' THEN 'bike_recovery_receivable_opening' ELSE 'merchandise_recovery_receivable_opening' END,
-          'source_table', 'merchandise_sales', 'source_id', r.sale_id, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
-        jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_out', 'amount', v_amt, 'category', 'receivable_restatement_equity',
-          'source_table', 'merchandise_sales', 'source_id', r.sale_id, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
-    END IF;
     v_group := public.create_ledger_transaction(entries => v_entries, idempotency_key => v_key);
   END IF;
   UPDATE public.merchandise_stock_recognitions
@@ -572,6 +613,7 @@ BEGIN
       counterpart = CASE WHEN v_group IS NULL THEN NULL ELSE p_counterpart END,
       amount = v_amt, amount_paid = COALESCE((v->>'amount_paid')::numeric, amount_paid),
       ledger_group_id = v_group, idempotency_key = CASE WHEN v_group IS NULL THEN NULL ELSE v_key END,
+      evidence_kind = p_evidence_kind, delivery_evidence = btrim(p_evidence),
       decided_by = p_actor, decided_at = now(), decision_note = p_note, updated_at = now()
   WHERE id = r.id;
   INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
@@ -582,29 +624,60 @@ BEGIN
     'ledger_group_id', v_group, 'amount', v_amt, 'counterpart', p_counterpart);
 END $function$;
 
-CREATE OR REPLACE FUNCTION public.cfo_post_merchandise_stock_recognition(p_review_id uuid, p_counterpart text, p_note text)
+CREATE OR REPLACE FUNCTION public.cfo_post_merchandise_stock_recognition(p_review_id uuid, p_delivery_evidence text)
  RETURNS jsonb
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+DECLARE v_sale uuid; v_handed boolean;
 BEGIN
   IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'cfo'::app_role) OR NOT public.staff_mfa_ok() THEN
     RAISE EXCEPTION 'Only the CFO can recognise a company-stock receivable';
   END IF;
-  IF p_counterpart IS NULL OR p_counterpart NOT IN ('revenue', 'E3') THEN
-    RAISE EXCEPTION 'Choose revenue (a sale) or E3 (restatement, only for items issued before these controls)';
+  SELECT r.sale_id, (s.handed_over_at IS NOT NULL AND s.handed_over_by IS NOT NULL) INTO v_sale, v_handed
+  FROM public.merchandise_stock_recognitions r LEFT JOIN public.merchandise_sales s ON s.id = r.sale_id WHERE r.id = p_review_id;
+  IF v_sale IS NULL THEN RAISE EXCEPTION 'stock recognition % not found', p_review_id; END IF;
+  -- sales revenue only (CFO decision 2026-11-04), and only on verified delivery evidence
+  IF v_handed THEN
+    RETURN public._merch_post_stock_recognition(p_review_id, 'handover_record', COALESCE(NULLIF(btrim(p_delivery_evidence), ''), 'handover record'), auth.uid());
   END IF;
-  IF length(btrim(COALESCE(p_note, ''))) < 10 THEN
-    RAISE EXCEPTION 'Give a reason of at least 10 characters';
+  IF length(btrim(COALESCE(p_delivery_evidence, ''))) < 20 THEN
+    RAISE EXCEPTION 'No handover record: name the delivery document you verified (at least 20 characters), or leave the item in the queue';
   END IF;
-  RETURN public._merch_post_stock_recognition(p_review_id, p_counterpart, btrim(p_note), auth.uid());
+  RETURN public._merch_post_stock_recognition(p_review_id, 'cfo_verified_document', btrim(p_delivery_evidence), auth.uid());
 END $function$;
 
 -- Every path that puts company stock in an agent's hands on credit with no payout behind it: handover
 -- (confirm_merchandise_handover -> issued), Agent Ops approval of a non-boutique order (-> issued), an Agent Ops issue
 -- (agent_ops_issue_agent_product: inserted as approved, channel agent_ops) and completion. Orders with a CFO payout
 -- (bike, smartphone, out-sourced) open their receivable at payout and are excluded.
+CREATE OR REPLACE FUNCTION public._merch_stock_on_handover(p_sale uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+-- A confirmed handover is the delivery evidence: queue the order if it is not queued yet, and recognise the receivable
+-- and the revenue once, in the handover's own transaction, when the CFO's standing choice is 'revenue'.
+DECLARE s record; v_id uuid; v_auto text;
+BEGIN
+  SELECT * INTO s FROM public.merchandise_sales WHERE id = p_sale;
+  IF NOT FOUND OR s.handed_over_at IS NULL OR s.handed_over_by IS NULL THEN RETURN; END IF;
+  IF s.cfo_disbursed_at IS NOT NULL OR s.disbursement_group_id IS NOT NULL OR s.customer_id IS NULL THEN RETURN; END IF;
+  PERFORM public._merch_stock_queue(p_sale, 'issue');
+  SELECT id INTO v_id FROM public.merchandise_stock_recognitions WHERE sale_id = p_sale AND status = 'pending';
+  SELECT stock_issue_counterpart INTO v_auto FROM public.merchandise_accounting_controls WHERE id;
+  IF v_id IS NOT NULL AND v_auto = 'revenue' THEN
+    PERFORM public._merch_post_stock_recognition(v_id, 'handover_record',
+      COALESCE(NULLIF(btrim(s.handover_note), ''), 'handover confirmed ' || to_char(s.handed_over_at, 'YYYY-MM-DD')), s.handed_over_by);
+  END IF;
+END $function$;
+
+-- Every path that puts company stock in an agent's hands on credit with no payout behind it is QUEUED (handover ->
+-- issued, Agent Ops approval of a non-boutique order -> issued, an Agent Ops issue, completion). Recognition needs
+-- delivery evidence: the handover confirmation (here, automatic) or a CFO-verified delivery document (RPC).
+-- Orders with a CFO payout (bike, smartphone, out-sourced) open their receivable at payout and are excluded.
 CREATE OR REPLACE FUNCTION public.trg_merch_stock_issue_event()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -613,27 +686,201 @@ CREATE OR REPLACE FUNCTION public.trg_merch_stock_issue_event()
 AS $function$
 BEGIN
   IF NEW.cfo_disbursed_at IS NOT NULL OR NEW.disbursement_group_id IS NOT NULL OR NEW.customer_id IS NULL THEN RETURN NULL; END IF;
-  IF NOT (NEW.order_status IN ('issued', 'completed') OR (NEW.order_status = 'approved' AND NEW.issued_channel = 'agent_ops')) THEN
-    RETURN NULL;
+  IF (NEW.order_status IN ('issued', 'completed') OR (NEW.order_status = 'approved' AND NEW.issued_channel = 'agent_ops'))
+     AND NOT (TG_OP = 'UPDATE' AND (OLD.order_status IN ('issued', 'completed')
+                                    OR (OLD.order_status = 'approved' AND OLD.issued_channel = 'agent_ops'))) THEN
+    PERFORM public._merch_stock_queue(NEW.id, 'issue');
   END IF;
-  IF TG_OP = 'UPDATE' AND (OLD.order_status IN ('issued', 'completed')
-                           OR (OLD.order_status = 'approved' AND OLD.issued_channel = 'agent_ops')) THEN
-    RETURN NULL;
+  IF NEW.handed_over_at IS NOT NULL AND NEW.handed_over_by IS NOT NULL
+     AND (TG_OP = 'INSERT' OR OLD.handed_over_at IS NULL OR OLD.handed_over_by IS NULL) THEN
+    PERFORM public._merch_stock_on_handover(NEW.id);
   END IF;
-  PERFORM public._merch_stock_queue(NEW.id, 'issue');
   RETURN NULL;
 END $function$;
 CREATE TRIGGER trg_merch_stock_issue_insert AFTER INSERT ON public.merchandise_sales
   FOR EACH ROW EXECUTE FUNCTION public.trg_merch_stock_issue_event();
-CREATE TRIGGER trg_merch_stock_issue_status AFTER UPDATE OF order_status ON public.merchandise_sales
-  FOR EACH ROW WHEN (OLD.order_status IS DISTINCT FROM NEW.order_status) EXECUTE FUNCTION public.trg_merch_stock_issue_event();
+CREATE TRIGGER trg_merch_stock_issue_status AFTER UPDATE OF order_status, handed_over_at, handed_over_by ON public.merchandise_sales
+  FOR EACH ROW WHEN (OLD.order_status IS DISTINCT FROM NEW.order_status OR OLD.handed_over_at IS DISTINCT FROM NEW.handed_over_at
+                     OR OLD.handed_over_by IS DISTINCT FROM NEW.handed_over_by)
+  EXECUTE FUNCTION public.trg_merch_stock_issue_event();
 
 REVOKE ALL ON FUNCTION public._merch_stock_receivable_due(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._merch_stock_queue(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public._merch_post_stock_recognition(uuid, text, text, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._merch_stock_on_handover(uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.trg_merch_stock_issue_event() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cfo_post_merchandise_stock_recognition(uuid, text) TO authenticated;
+
+-- ---------------------------------------------------------------- 4b. rejected motorcycle plans: payments retained (CFO policy)
+ALTER TABLE public.merchandise_receivable_derecognitions DROP CONSTRAINT merchandise_receivable_derecognitions_counterpart_check;
+ALTER TABLE public.merchandise_receivable_derecognitions ADD CONSTRAINT merchandise_receivable_derecognitions_counterpart_check
+  CHECK (counterpart IN ('E3', 'X4', 'retained'));
+COMMENT ON COLUMN public.merchandise_receivable_derecognitions.flags IS
+  'receivable_open, credit_balance, possible_refund (non-motorcycle cash collected, review), retained_payment (motorcycle '
+  'plan: cash kept by the company, CFO policy 2026-11-04, no refund), deleted';
+CREATE OR REPLACE FUNCTION public._merch_receivable_event(p_sale uuid, p_plan uuid, p_event text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_subject uuid := COALESCE(p_sale, p_plan); v_plans uuid[]; v_item text; v_customer uuid; v_bike boolean;
+  v_net jsonb; v_a12 numeric; v_a13 numeric; v_cash numeric; v_row record; v_flags text[]; v_auto text; v_id uuid;
+  v_ev jsonb;
+BEGIN
+  IF v_subject IS NULL THEN RETURN; END IF;
+  SELECT COALESCE(array_agg(p.id), '{}') INTO v_plans FROM public.merchandise_recovery_plans p
+  WHERE (p_sale IS NOT NULL AND p.sale_id = p_sale) OR p.id = p_plan;
+  IF p_plan IS NOT NULL AND NOT p_plan = ANY (v_plans) THEN v_plans := v_plans || p_plan; END IF;
+  SELECT s.item_name, s.customer_id INTO v_item, v_customer FROM public.merchandise_sales s WHERE s.id = p_sale;
+  IF v_item IS NULL THEN
+    SELECT p.item_name, p.customer_id INTO v_item, v_customer FROM public.merchandise_recovery_plans p
+    WHERE p.id = ANY (v_plans) ORDER BY p.created_at LIMIT 1;
+  END IF;
+  -- bike or not exactly as the balance-sheet resolver decides it (agent_product_category of the plan's item)
+  v_bike := EXISTS (SELECT 1 FROM public.merchandise_recovery_plans p WHERE p.id = ANY (v_plans)
+                    AND public.agent_product_category(p.item_name) = 'motor_bike');
+  SELECT * INTO v_row FROM public.merchandise_receivable_derecognitions
+  WHERE subject_id = v_subject AND status = 'pending' FOR UPDATE;
+  IF FOUND THEN
+    SELECT COALESCE(array_agg(DISTINCT x), '{}') INTO v_plans FROM unnest(v_row.plan_ids || v_plans) x;
+  END IF;
+  v_net := public._merch_receivable_net(p_sale, v_plans, v_bike);
+  v_a12 := (v_net->>'a12')::numeric; v_a13 := (v_net->>'a13')::numeric; v_cash := (v_net->>'cash')::numeric;
+  IF v_row.id IS NULL AND v_a12 = 0 AND v_a13 = 0 AND v_cash <= 0 THEN RETURN; END IF;
+  v_flags := '{}';
+  IF v_a12 <> 0 OR v_a13 <> 0 THEN v_flags := v_flags || 'receivable_open'::text; END IF;
+  IF v_a12 < 0 OR v_a13 < 0 THEN v_flags := v_flags || 'credit_balance'::text; END IF;
+  -- CFO policy 2026-11-04: a rejected / cancelled motorcycle plan ends and the customer is not refunded; the cash
+  -- collected is retained by the company. Other merchandise keeps the possible_refund flag for review.
+  IF v_cash > 0 THEN
+    v_flags := v_flags || CASE WHEN v_bike THEN 'retained_payment' ELSE 'possible_refund' END;
+  END IF;
+  IF p_event LIKE '%deleted' THEN v_flags := v_flags || 'deleted'::text; END IF;
+  v_ev := jsonb_build_object('event', p_event, 'at', now(), 'by', auth.uid());
+  IF v_row.id IS NULL THEN
+    INSERT INTO public.merchandise_receivable_derecognitions (subject_id, sale_id, plan_ids, item_name, customer_id, is_bike,
+      events, a12_net, a13_net, cash_collected_net, flags)
+    VALUES (v_subject, p_sale, v_plans, v_item, v_customer, COALESCE(v_bike, false), jsonb_build_array(v_ev),
+      v_a12, v_a13, v_cash, v_flags)
+    RETURNING id INTO v_id;
+  ELSE
+    v_id := v_row.id;
+    UPDATE public.merchandise_receivable_derecognitions
+    SET plan_ids = v_plans, events = events || v_ev, a12_net = v_a12, a13_net = v_a13, cash_collected_net = v_cash,
+        -- flags describe the subject now; 'deleted' is kept once seen
+        flags = ARRAY(SELECT DISTINCT f FROM unnest(v_flags || CASE WHEN 'deleted' = ANY (flags) THEN ARRAY['deleted'] ELSE '{}'::text[] END) f ORDER BY 1),
+        is_bike = is_bike OR COALESCE(v_bike, false), updated_at = now()
+    WHERE id = v_id;
+  END IF;
+  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
+  VALUES (auth.uid(), 'merchandise_receivable_event', 'merchandise_receivable_derecognitions', v_id::text, p_event,
+          jsonb_build_object('subject_id', v_subject, 'sale_id', p_sale, 'plan_id', p_plan, 'a12', v_a12, 'a13', v_a13,
+                             'cash_collected_net', v_cash, 'flags', v_flags));
+  SELECT auto_derecognition_counterpart INTO v_auto FROM public.merchandise_accounting_controls WHERE id;
+  IF v_auto IS NOT NULL AND (v_a12 <> 0 OR v_a13 <> 0) THEN
+    PERFORM public._merch_post_derecognition(v_id, v_auto, 'automatic: ' || p_event, auth.uid());
+  END IF;
+END $function$;
+
+CREATE OR REPLACE FUNCTION public._merch_post_derecognition(p_review uuid, p_counterpart text, p_note text, p_actor uuid)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE
+  r record; v_plans uuid[]; v_net jsonb; v_entries jsonb := '[]'::jsonb; v_key text; v_group uuid;
+  v_acct text; v_amt numeric; v_src_table text; v_src uuid; v_desc text;
+BEGIN
+  IF p_counterpart NOT IN ('E3', 'X4', 'retained') THEN RAISE EXCEPTION 'counterpart must be E3, X4 or retained'; END IF;
+  SELECT * INTO r FROM public.merchandise_receivable_derecognitions WHERE id = p_review FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'derecognition % not found', p_review; END IF;
+  IF r.status <> 'pending' THEN
+    RETURN jsonb_build_object('id', r.id, 'status', r.status, 'ledger_group_id', r.ledger_group_id, 'already', true);
+  END IF;
+  SELECT COALESCE(array_agg(DISTINCT x), '{}') INTO v_plans
+  FROM unnest(r.plan_ids || COALESCE((SELECT array_agg(p.id) FROM public.merchandise_recovery_plans p WHERE p.sale_id = r.sale_id), '{}')) x;
+  v_net := public._merch_receivable_net(r.sale_id, v_plans, r.is_bike);
+  v_src_table := CASE WHEN r.sale_id IS NOT NULL THEN 'merchandise_sales' ELSE 'merchandise_recovery_plans' END;
+  v_src := COALESCE(r.sale_id, r.subject_id);
+  v_key := 'merch_recv_derecog:' || r.id::text;
+  FOREACH v_acct IN ARRAY ARRAY['A12', 'A13'] LOOP
+    v_amt := (v_net->>lower(v_acct))::numeric;
+    CONTINUE WHEN v_amt = 0;
+    -- 'retained' (CFO policy 2026-11-04): only a motorcycle plan's credit balance, i.e. customer cash collected on a
+    -- receivable that is gone, recognised as retained-payment income (DR A13 / CR R1). A receivable still open is
+    -- derecognised with E3 or X4, never as income.
+    IF p_counterpart = 'retained' AND NOT (r.is_bike AND v_acct = 'A13' AND v_amt < 0) THEN
+      RAISE EXCEPTION 'retained applies only to a motorcycle plan''s credit balance (cash collected); % is %', v_acct, v_amt;
+    END IF;
+    v_desc := 'Receivable derecognised (' || v_acct || ', CFO ' || CASE p_counterpart WHEN 'E3' THEN 'restatement' WHEN 'retained' THEN 'payments retained, rejected motorcycle plan' ELSE 'write-off' END
+              || '): ' || COALESCE(r.item_name, 'merchandise') || ' - ' || COALESCE(p_note, '');
+    -- a positive balance is removed with a credit to the receivable; a credit balance with a debit
+    IF p_counterpart = 'retained' THEN
+      v_entries := v_entries || jsonb_build_array(
+        jsonb_build_object('ledger_scope', 'bridge', 'category', 'bike_recovery_receivable_opening', 'direction', 'cash_in', 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
+        jsonb_build_object('ledger_scope', 'platform', 'category', 'merchandise_payment_retained', 'direction', 'cash_out', 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
+    ELSIF p_counterpart = 'E3' THEN
+      v_entries := v_entries || jsonb_build_array(
+        jsonb_build_object('ledger_scope', 'platform', 'category', 'receivable_restatement_equity',
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_in' ELSE 'cash_out' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
+        jsonb_build_object('ledger_scope', 'bridge',
+          'category', CASE v_acct WHEN 'A12' THEN 'merchandise_recovery_receivable_opening' ELSE 'bike_recovery_receivable_opening' END,
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_out' ELSE 'cash_in' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
+    ELSE
+      v_entries := v_entries || jsonb_build_array(
+        jsonb_build_object('ledger_scope', 'platform', 'category', 'platform_loss_writeoff',
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_out' ELSE 'cash_in' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc),
+        jsonb_build_object('ledger_scope', 'platform',
+          'category', CASE v_acct WHEN 'A12' THEN 'merchandise_recovery_repayment' ELSE 'bike_recovery_repayment' END,
+          'direction', CASE WHEN v_amt > 0 THEN 'cash_in' ELSE 'cash_out' END, 'amount', abs(v_amt),
+          'source_table', v_src_table, 'source_id', v_src, 'reference_id', r.id::text, 'currency', 'UGX', 'description', v_desc));
+    END IF;
+  END LOOP;
+  IF jsonb_array_length(v_entries) > 0 THEN
+    v_group := public.create_ledger_transaction(entries => v_entries, idempotency_key => v_key);
+  END IF;
+  UPDATE public.merchandise_receivable_derecognitions
+  SET status = CASE WHEN v_group IS NULL THEN 'no_action' ELSE 'posted' END,
+      counterpart = CASE WHEN v_group IS NULL THEN NULL ELSE p_counterpart END,
+      a12_net = (v_net->>'a12')::numeric, a13_net = (v_net->>'a13')::numeric,
+      ledger_group_id = v_group, idempotency_key = CASE WHEN v_group IS NULL THEN NULL ELSE v_key END,
+      decided_by = p_actor, decided_at = now(), decision_note = p_note, updated_at = now()
+  WHERE id = r.id;
+  INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
+  VALUES (p_actor, 'merchandise_receivable_derecognised', 'merchandise_receivable_derecognitions', r.id::text, p_note,
+          jsonb_build_object('subject_id', r.subject_id, 'sale_id', r.sale_id, 'plan_ids', v_plans, 'counterpart', p_counterpart,
+                             'a12', v_net->'a12', 'a13', v_net->'a13', 'ledger_group_id', v_group, 'idempotency_key', v_key));
+  RETURN jsonb_build_object('id', r.id, 'status', CASE WHEN v_group IS NULL THEN 'no_action' ELSE 'posted' END,
+    'ledger_group_id', v_group, 'a12', v_net->'a12', 'a13', v_net->'a13', 'counterpart', p_counterpart);
+END $function$;
+
+CREATE OR REPLACE FUNCTION public.cfo_post_merchandise_derecognition(p_review_id uuid, p_counterpart text, p_note text)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR NOT public.has_role(auth.uid(), 'cfo'::app_role) OR NOT public.staff_mfa_ok() THEN
+    RAISE EXCEPTION 'Only the CFO can derecognise a merchandise receivable';
+  END IF;
+  IF p_counterpart IS NULL OR p_counterpart NOT IN ('E3', 'X4', 'retained') THEN
+    RAISE EXCEPTION 'Choose E3 (receivable that should not have been recognised), X4 (write-off) or retained (payments kept on a rejected motorcycle plan)';
+  END IF;
+  IF length(btrim(COALESCE(p_note, ''))) < 10 THEN
+    RAISE EXCEPTION 'Give a reason of at least 10 characters';
+  END IF;
+  RETURN public._merch_post_derecognition(p_review_id, p_counterpart, btrim(p_note), auth.uid());
+END $function$;
 
 -- ---------------------------------------------------------------- 5. monthly Returns pledge: eligible orders only
 CREATE OR REPLACE FUNCTION public.apply_smartphone_roi_pledge(p_user_id uuid, p_roi_amount numeric, p_reference text)
@@ -728,8 +975,9 @@ BEGIN
 END $function$;
 
 -- ---------------------------------------------------------------- 6. CFO review rows (no ledger posting)
--- 6a. the 7 company-stock items issued 24-25 Sep with nothing posted: queued; the CFO recognises each with
---     cfo_post_merchandise_stock_recognition(id, 'revenue' | 'E3', reason).
+-- 6a. the 7 company-stock items issued 24-25 Sep with nothing posted: queued, NOT posted - none has a handover record,
+--     a customer acceptance or a delivery document (verified read-only 2026-11-04). Each is recognised as sales revenue
+--     only when a handover is confirmed or the CFO records a verified delivery document.
 SELECT public._merch_stock_queue(v.sale, 'historical_20261104') FROM (VALUES
     ('cdd33740-b2ee-47ab-b49d-1c7a4e23db7b'::uuid, 55000::numeric),
     ('9a8b2824-1241-40a1-b2ec-77519a66d2d4'::uuid, 55000::numeric),
@@ -738,10 +986,37 @@ SELECT public._merch_stock_queue(v.sale, 'historical_20261104') FROM (VALUES
     ('bf40085c-dedc-44ef-9e38-d6170a57209a'::uuid, 650000::numeric),
     ('4cf491c5-21b0-4366-9369-7a210b431013'::uuid, 110000::numeric),
     ('882c5336-b5b0-4108-bbc3-11b004dde5c3'::uuid, 35000::numeric)) v(sale, amt);
--- 6b. the two bikes rejected on 6 Oct with customer cash kept (before the controls existed): review rows flagged
---     possible_refund in merchandise_receivable_derecognitions (receivable already 0; no posting, no refund).
-SELECT public._merch_receivable_event(v.sale, NULL, 'historical_review_20261104: rejected 2026-10-06 before the receivable controls; customer cash kept')
-FROM (VALUES ('dddc2333-efb2-4855-9ab7-f3d5c3793873'::uuid), ('54c4c664-6004-4aab-a56c-b285050633cd'::uuid)) v(sale);
+-- 6b. the two motorcycle plans rejected on 6 Oct (CFO policy: no refund; payments retained). After the 22 Sep restatement
+--     (DR A13 / CR E3: 120,000 and 665,000) and J5 (DR E3 / CR A13: 10,549 and 664,896.52) the cash collected sits as
+--     a credit in E3: 109,451 (13 deductions 2-6 Aug) and 103.48 (24 Sep). It became the company's at rejection (6 Oct),
+--     so it is income now: DR E3 receivable_restatement_equity / CR R1 merchandise_payment_retained. Platform legs only;
+--     no refund, no wallet change; the original payments and entries stay. Idempotent (key ...:<sale>:RETAINED).
+DO $retained$
+DECLARE r record; v_group uuid; v_id uuid;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('dddc2333-efb2-4855-9ab7-f3d5c3793873'::uuid, '08f711e2-927a-43dd-bce0-73831c4dd16a'::uuid, 109451::numeric, 'Martin Lukwago, 13 wallet deductions 2-6 Aug 2026'),
+    ('54c4c664-6004-4aab-a56c-b285050633cd'::uuid, '9be1f0c5-c24a-4ea1-a4fc-c65fab57c2e0'::uuid, 103.48::numeric, 'Peter Bukoma, payment 24 Sep 2026')) v(sale, plan, amt, who) LOOP
+    v_group := public.create_ledger_transaction(entries => jsonb_build_array(
+      jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_in', 'amount', r.amt, 'category', 'receivable_restatement_equity',
+        'source_table', 'merchandise_recovery_plans', 'source_id', r.plan, 'reference_id', r.sale::text, 'currency', 'UGX',
+        'description', 'Correction 2026-11-04 (CFO policy): motorcycle plan rejected 6 Oct; customer payments retained (' || r.who || '); moved from E3 to income'),
+      jsonb_build_object('ledger_scope', 'platform', 'direction', 'cash_out', 'amount', r.amt, 'category', 'merchandise_payment_retained',
+        'source_table', 'merchandise_recovery_plans', 'source_id', r.plan, 'reference_id', r.sale::text, 'currency', 'UGX',
+        'description', 'Payments retained on rejected motorcycle plan (no refund, CFO policy 2026-11-04): ' || r.who)),
+      idempotency_key => 'merch_phase3_20261104:' || r.sale::text || ':RETAINED');
+    -- the review row records the policy: retained_payment, not a refund; nothing left to derecognise
+    PERFORM public._merch_receivable_event(r.sale, NULL, 'historical_review_20261104: motorcycle plan rejected 2026-10-06; payments retained (CFO policy, no refund)');
+    SELECT id INTO v_id FROM public.merchandise_receivable_derecognitions WHERE sale_id = r.sale AND status = 'pending';
+    UPDATE public.merchandise_receivable_derecognitions
+    SET status = 'no_action', counterpart = 'retained', ledger_group_id = v_group,
+        idempotency_key = 'merch_phase3_20261104:' || r.sale::text || ':RETAINED',
+        decided_at = now(), updated_at = now(),
+        decision_note = 'CFO policy 2026-11-04: a rejected motorcycle plan ends without a refund; the ' || r.amt
+          || ' collected is retained and recognised as income (merchandise_payment_retained) by this group.'
+    WHERE id = v_id;
+  END LOOP;
+END $retained$;
 
 -- ---------------------------------------------------------------- 7. post-checks
 DO $post$
@@ -752,20 +1027,28 @@ BEGIN
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.apply_smartphone_roi_pledge(uuid, numeric, text)'))
        IS DISTINCT FROM 'c220bb27f307d55f43dfb6a8d37eff8e'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.ledger_category_allowlist()'))
-       IS DISTINCT FROM 'a40a39f6e8eba041720e93fda4de7229'
+       IS DISTINCT FROM '0cf8f4c90c5fc99832b276f8615a3423'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_stock_receivable_due(uuid)'))
        IS DISTINCT FROM '207408ebee59bc98fd0b0b37e2983857'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_stock_queue(uuid, text)'))
-       IS DISTINCT FROM '1a059fc074b3f563f06cc91230b80b81'
+       IS DISTINCT FROM '89553dbcc1749ad9ade915c8bd4ad19a'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_post_stock_recognition(uuid, text, text, uuid)'))
-       IS DISTINCT FROM '913d14c37bac81b389d72c5d937f62f3'
-     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.cfo_post_merchandise_stock_recognition(uuid, text, text)'))
-       IS DISTINCT FROM '03ffd6281d7018dae250eddd3744195c'
+       IS DISTINCT FROM '02ef461b3be40455767aedf0582c9351'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.cfo_post_merchandise_stock_recognition(uuid, text)'))
+       IS DISTINCT FROM 'bd7bb30d5d5278a08c75c6633fdce853'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_stock_on_handover(uuid)'))
+       IS DISTINCT FROM 'eb39ed08009547bc584c086c92bf2091'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_receivable_event(uuid, uuid, text)'))
+       IS DISTINCT FROM 'a3ebe03834ff09f9de34b026df3a4a40'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public._merch_post_derecognition(uuid, text, text, uuid)'))
+       IS DISTINCT FROM 'e1f4951ad940b1b85099f6c379bddd42'
+     OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.cfo_post_merchandise_derecognition(uuid, text, text)'))
+       IS DISTINCT FROM '7566061334de00933825b532351da9d9'
      OR (SELECT md5(replace(prosrc, chr(13), '')) FROM pg_proc WHERE oid = to_regprocedure('public.trg_merch_stock_issue_event()'))
-       IS DISTINCT FROM '857125ed83e81a62f877b64c28e698d2' THEN
+       IS DISTINCT FROM '6cc969e183f4d4733ba7e51c28eb3308' THEN
     RAISE EXCEPTION 'merchandise phase 3: post-check failed (function fingerprints)';
   END IF;
-  IF NOT (public.ledger_category_allowlist() @> ARRAY['merchandise_revenue', 'merchandise_advance_memo_offset']) THEN
+  IF NOT (public.ledger_category_allowlist() @> ARRAY['merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained']) THEN
     RAISE EXCEPTION 'merchandise phase 3: categories not allowlisted';
   END IF;
   -- the 8 smartphone groups: two platform legs each, balanced raw and on mapped accounts, 5,245,000 in total
@@ -773,7 +1056,7 @@ BEGIN
     SELECT g.transaction_group_id, sum(g.amount) FILTER (WHERE g.direction = 'cash_in') amt
     FROM public.general_ledger g
     JOIN public.ledger_account_map m ON m.ledger_scope = g.ledger_scope AND m.category = g.category AND m.wallet_bucket IS NULL
-    WHERE g.idempotency_key LIKE 'merch_phase3_20261104:%'
+    WHERE g.idempotency_key LIKE 'merch\_phase3\_20261104:%:PHONE\_MEMO'
     GROUP BY 1
     HAVING count(*) = 2 AND bool_and(g.ledger_scope = 'platform')
        AND sum(CASE WHEN g.direction = m.debit_when THEN g.amount ELSE -g.amount END) = 0
@@ -786,14 +1069,33 @@ BEGIN
     RAISE EXCEPTION 'merchandise phase 3: company-stock queue post-check failed (% rows, %)', v_n, v_amt;
   END IF;
   IF (SELECT count(*) FROM public.merchandise_receivable_derecognitions WHERE sale_id IN ('dddc2333-efb2-4855-9ab7-f3d5c3793873', '54c4c664-6004-4aab-a56c-b285050633cd')
-        AND status = 'pending' AND 'possible_refund' = ANY (flags)) <> 2 THEN
-    RAISE EXCEPTION 'merchandise phase 3: rejected-bike review rows missing';
+        AND status = 'no_action' AND counterpart = 'retained' AND 'retained_payment' = ANY (flags) AND NOT 'possible_refund' = ANY (flags)) <> 2 THEN
+    RAISE EXCEPTION 'merchandise phase 3: rejected-motorcycle review rows not recorded as retained payments';
+  END IF;
+  -- the two retained-payment groups: DR E3 / CR R1, platform only, 109,554.48
+  SELECT count(*), COALESCE(sum(amt), 0) INTO v_n, v_amt FROM (
+    SELECT g.transaction_group_id, sum(g.amount) FILTER (WHERE g.direction = 'cash_in') amt
+    FROM public.general_ledger g
+    JOIN public.ledger_account_map m ON m.ledger_scope = g.ledger_scope AND m.category = g.category AND m.wallet_bucket IS NULL
+    WHERE g.idempotency_key LIKE 'merch\_phase3\_20261104:%:RETAINED'
+    GROUP BY 1
+    HAVING count(*) = 2 AND bool_and(g.ledger_scope = 'platform')
+       AND sum(CASE WHEN g.direction = m.debit_when THEN g.amount ELSE -g.amount END) = 0
+       AND sum(CASE WHEN g.direction = 'cash_in' THEN g.amount ELSE -g.amount END) = 0
+       AND bool_or(m.account_code = 'E3') AND bool_or(m.account_code = 'R1')) z;
+  IF v_n <> 2 OR v_amt <> 109554.48 THEN
+    RAISE EXCEPTION 'merchandise phase 3: retained-payment post-check failed (% groups, %)', v_n, v_amt;
+  END IF;
+  IF (SELECT stock_issue_counterpart FROM public.merchandise_accounting_controls WHERE id) IS DISTINCT FROM 'revenue'
+     OR EXISTS (SELECT 1 FROM public.merchandise_stock_recognitions WHERE status = 'posted') THEN
+    RAISE EXCEPTION 'merchandise phase 3: stock recognition must be automatic on handover only, and nothing posted yet';
   END IF;
   IF has_function_privilege('authenticated', 'public._merch_post_stock_recognition(uuid, text, text, uuid)', 'EXECUTE')
      OR has_function_privilege('authenticated', 'public._merch_stock_queue(uuid, text)', 'EXECUTE')
      OR has_table_privilege('authenticated', 'public.merchandise_stock_recognitions', 'INSERT')
      OR has_table_privilege('anon', 'public.merchandise_stock_recognitions', 'SELECT')
-     OR NOT has_function_privilege('authenticated', 'public.cfo_post_merchandise_stock_recognition(uuid, text, text)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public._merch_stock_on_handover(uuid)', 'EXECUTE')
+     OR NOT has_function_privilege('authenticated', 'public.cfo_post_merchandise_stock_recognition(uuid, text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'merchandise phase 3: grants not as intended';
   END IF;
 END $post$;

@@ -1,7 +1,7 @@
--- Read-only dry run of 20261104110000_merchandise_phase3_stock_phone_pledge against production (run through a
+-- Read-only dry run of 20261104150000_merchandise_phase3_stock_phone_pledge against production (run through a
 -- read-only transaction, e.g. qro_file.sh). Writes nothing. Shows: the evidence each one-off correction rests on, the
--- groups the migration would post, the company-stock receivables it would queue (not post), the rejected-bike review
--- rows, and the resulting balances.
+-- groups the migration would post, the company-stock receivables it would queue (not post - none has delivery evidence),
+-- the retained payments on the two rejected motorcycle plans (DR E3 / CR R1), and the resulting balances.
 with phones(sale, amt) as (values
     ('9b704619-2d97-44cb-a61e-5ba7ac6525f6'::uuid, 165000::numeric),
     ('8c6a5ae9-8b38-42cd-a8aa-486dc95a298e'::uuid, 165000::numeric),
@@ -40,11 +40,24 @@ st as (
        where g.category = 'access_fee_collected' and ((g.source_table = 'merchandise_sales' and g.source_id = v.sale)
           or (g.source_table = 'merchandise_recovery_plans' and g.source_id in (select id from merchandise_recovery_plans where sale_id = v.sale)))) charges
   from stock v join merchandise_sales s on s.id = v.sale),
+rb(sale, plan, cash) as (values
+    ('dddc2333-efb2-4855-9ab7-f3d5c3793873'::uuid, '08f711e2-927a-43dd-bce0-73831c4dd16a'::uuid, 109451::numeric),
+    ('54c4c664-6004-4aab-a56c-b285050633cd'::uuid, '9be1f0c5-c24a-4ea1-a4fc-c65fab57c2e0'::uuid, 103.48::numeric)),
+rbx as (
+  select rb.*, s.order_status, (select full_name from profiles where id = s.customer_id) customer,
+    public._merch_receivable_net(rb.sale, array[rb.plan], true) net,
+    exists (select 1 from general_ledger g where g.idempotency_key = 'merch_a12_a13_correction_20261104:' || rb.plan::text || ':DEREC') j5,
+    exists (select 1 from general_ledger g where g.idempotency_key = 'merch_phase3_20261104:' || rb.sale::text || ':RETAINED') already,
+    (select coalesce(sum(case when g.direction = 'cash_out' then g.amount else -g.amount end), 0) from general_ledger g
+       where g.category = 'receivable_restatement_equity' and g.source_id = rb.plan) e3_credit_now,
+    (select string_agg(distinct to_char(g.created_at at time zone 'Africa/Kampala', 'YYYY-MM-DD'), ', ') from general_ledger g
+       where g.ledger_scope = 'wallet' and g.category = 'agent_repayment' and g.source_id = rb.plan) paid_on
+  from rb join merchandise_sales s on s.id = rb.sale),
 bal as (select account_code a, round(sum(dr) - sum(cr), 2) n from sofp_ledger_legs(now()) where account_code in ('A12', 'A13', 'X1', 'L1', 'R1', 'E3') group by 1)
 select json_build_object(
   'as_at', now(),
   'already_applied', to_regclass('public.merchandise_stock_recognitions') is not null
-     or exists (select 1 from ledger_account_map where category in ('merchandise_revenue', 'merchandise_advance_memo_offset')),
+     or exists (select 1 from ledger_account_map where category in ('merchandise_revenue', 'merchandise_advance_memo_offset', 'merchandise_payment_retained')),
   'prerequisites_27_corrections', (select count(distinct transaction_group_id) from general_ledger where idempotency_key like 'merch\_a12\_a13\_correction\_20261104:%'),
   'phones', (select json_agg(json_build_object('sale', sale, 'agent', agent, 'amount', amt, 'x1_group', x1_group, 'memo_group', memo_group,
        'evidence_ok', x1_legs = 1 and memo_legs = 1 and not already,
@@ -53,11 +66,17 @@ select json_build_object(
   'stock_queue', (select json_agg(json_build_object('sale', sale, 'item', item_name, 'customer', customer, 'status', order_status,
        'handed_over', handed_over_at, 'principal', total_revenue, 'paid', amount_paid, 'a12_now', net->'a12', 'charges_recorded', charges,
        'would_queue', greatest(total_revenue - amount_paid + charges - (net->>'a12')::numeric, 0),
+       'delivery_evidence', case when handed_over_at is not null then 'handover record' else 'none (stays in the CFO queue; not posted)' end,
+       'would_post_now', 0,
        'evidence_ok', order_status = 'issued' and total_revenue = amt and (net->>'a12')::numeric in (0, -6410))) from st),
   'stock_total', (select sum(greatest(total_revenue - amount_paid + charges - (net->>'a12')::numeric, 0)) from st),
-  'rejected_bikes', (select json_agg(json_build_object('sale', s.id, 'customer', (select full_name from profiles where id = s.customer_id), 'status', s.order_status,
-       'net', public._merch_receivable_net(s.id, (select array_agg(p.id) from merchandise_recovery_plans p where p.sale_id = s.id), true)))
-     from merchandise_sales s where s.id in ('dddc2333-efb2-4855-9ab7-f3d5c3793873', '54c4c664-6004-4aab-a56c-b285050633cd')),
+  'rejected_motorcycles_retained', (select json_agg(json_build_object('sale', sale, 'plan', plan, 'customer', customer, 'status', order_status,
+       'paid_on', paid_on, 'cash_collected', net->'cash', 'a13_now', net->'a13', 'e3_credit_now', e3_credit_now, 'j5_applied', j5,
+       'evidence_ok', order_status = 'rejected' and (net->>'a13')::numeric = 0 and (net->>'cash')::numeric = cash and j5 and not already,
+       'post', json_build_array('DR E3 receivable_restatement_equity ' || cash, 'CR R1 merchandise_payment_retained ' || cash))) from rbx),
+  'retained_total', (select sum(cash) from rbx),
+  'retained_evidence_failures', (select count(*) from rbx where not (order_status = 'rejected' and (net->>'a13')::numeric = 0 and (net->>'cash')::numeric = cash and j5 and not already)),
   'balances_now', (select json_object_agg(a, n) from bal),
-  'balances_after_migration', (select json_object_agg(a, n + case a when 'X1' then -(select sum(amt) from ph) when 'L1' then (select sum(amt) from ph) else 0 end) from bal)
+  'balances_after_migration', (select json_object_agg(a, n + case a when 'X1' then -(select sum(amt) from ph) when 'L1' then (select sum(amt) from ph)
+       when 'E3' then (select sum(cash) from rbx) when 'R1' then -(select sum(cash) from rbx) else 0 end) from bal)
 ) dry_run;

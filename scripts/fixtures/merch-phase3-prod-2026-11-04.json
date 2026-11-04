@@ -348,17 +348,17 @@
   ]
  },
  "md5": {
-  "_merch_post_stock_recognition": "913d14c37bac81b389d72c5d937f62f3",
-  "_merch_stock_queue": "1a059fc074b3f563f06cc91230b80b81",
+  "_merch_post_stock_recognition": "02ef461b3be40455767aedf0582c9351",
+  "_merch_stock_queue": "89553dbcc1749ad9ade915c8bd4ad19a",
   "_merch_stock_receivable_due": "207408ebee59bc98fd0b0b37e2983857",
-  "allow_new": "a40a39f6e8eba041720e93fda4de7229",
+  "allow_new": "0cf8f4c90c5fc99832b276f8615a3423",
   "allow_old": "d1b408552ac7f96bb3b84a286261c7fd",
-  "cfo_post_merchandise_stock_recognition": "03ffd6281d7018dae250eddd3744195c",
+  "cfo_post_merchandise_stock_recognition": "bd7bb30d5d5278a08c75c6633fdce853",
   "phone_new": "2034e5c247e2cf8eacfbd5573873f3f3",
   "phone_old": "a3642e31906685a7cee1dbea3462ea1e",
   "pledge_new": "c220bb27f307d55f43dfb6a8d37eff8e",
   "pledge_old": "74ae9dca248b4b92e6e81a3bd472d997",
-  "trg_merch_stock_issue_event": "857125ed83e81a62f877b64c28e698d2"
+  "trg_merch_stock_issue_event": "6cc969e183f4d4733ba7e51c28eb3308"
  },
  "phones": [
   [
