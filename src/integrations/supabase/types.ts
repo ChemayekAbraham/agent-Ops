@@ -93676,6 +93676,10 @@ export type Database = {
         Args: { p_recipient_count?: number; p_user_id: string }
         Returns: Json
       }
+      staff_assistant_check_model_drift: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       staff_assistant_check_owner_access: {
         Args: { p_owner_id: string }
         Returns: boolean
