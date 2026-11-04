@@ -42,6 +42,7 @@ import { RentCategory } from '@/components/supporter/RentCategoryFeed';
 // FundingPoolCard removed from direct import
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
+import { useFunderBookedHouses } from '@/hooks/useFunderBookedHouses';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
@@ -143,7 +144,10 @@ export default function SupporterDashboard({
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showSavedItems, setShowSavedItems] = useState(false);
-  const { count: savedCount } = useFunderSavedItems();
+  const { count: bookmarkedCount } = useFunderSavedItems();
+  // Saved Items holds both bookmarks and the houses booked for this Supporter.
+  const { heldCount: bookedCount } = useFunderBookedHouses();
+  const savedCount = bookmarkedCount + bookedCount;
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapExpandRequest, setMapExpandRequest] = useState(0);
