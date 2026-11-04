@@ -4,18 +4,17 @@
  * WhatsApp only renders a rich preview from OG tags present in the HTML the
  * crawler receives, which is produced by the `og-merchandise` edge function.
  * To keep that preview while showing a short Welile address, a tiny proxy
- * (Cloudflare Worker — see infra/share-proxy/) is published on the share host
+ * (Cloudflare Pages Functions — see infra/share-host/) is published on the share host
  * and forwards `/m/<code>` to the function, returning the same body.
  *
- * The branded host is welileapp.com (same as rent-plan /s/ links). The app
- * route `/m/:code` hands visitors to the `og-merchandise` function, which
- * logs the click and sends humans to the store. If the Cloudflare share
- * proxy (infra/share-proxy/) is later deployed on this host, crawlers will
- * also receive the rich preview directly at the branded URL.
+ * The branded host is share.welileapp.com (same as rent-plan /s/ links),
+ * served by the Cloudflare Pages project in infra/share-host/, so crawlers get the
+ * rich preview at the branded URL. Older welileapp.com/m/<code> links still
+ * work for humans through the app route `/m/:code`.
  */
 export const SHARE_LINK_HOST =
   (import.meta.env.VITE_SHARE_LINK_HOST as string | undefined)?.replace(/\/+$/, "") ||
-  "https://welileapp.com";
+  "https://share.welileapp.com";
 
 export function shortMerchandiseUrl(code: string, src: string): string | null {
   if (!SHARE_LINK_HOST || !code) return null;

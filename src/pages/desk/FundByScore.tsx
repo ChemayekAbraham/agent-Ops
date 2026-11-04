@@ -5,6 +5,8 @@ import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText } from './de
 import { Skeleton } from './Skeleton';
 import { readableError, rpc, useFundingPlan, useReasonCodes } from './reviewApi';
 import { useReviewStatus } from './reviewStatus';
+import { cooDecide, cooDecisionSummary, mergeApproveResults } from '@/lib/cooDecide';
+import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 
 /**
  * Fund by score — the COO's batch.
@@ -42,6 +44,7 @@ export function FundByScore({ board }: { board: boolean }) {
   const { mark } = useReviewStatus();
   const plan = useFundingPlan(true);
   const reasons = useReasonCodes();
+  const cooReason = useCooReasonPicker();
 
   const rows = useMemo(() => (plan.data ?? []) as unknown as PlanRow[], [plan.data]);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
@@ -107,15 +110,20 @@ export function FundByScore({ board }: { board: boolean }) {
         recorded.push(r.rent_request_id);
       }
 
-      const { data, error: fundErr } = await rpc('coo_approve_rent_requests', {
-        p_request_ids: ids,
-        p_comment: note.trim() || null,
-      });
-      if (fundErr) throw fundErr;
-
-      const res = data as { approved?: string[]; skipped?: { rent_request_id?: string; message?: string }[] } | null;
-      const approved = res?.approved ?? [];
-      const skipped = res?.skipped ?? [];
+      // coo_decide_rent_requests wraps the same approval and records, per request, whether the COO
+      // followed the system. If the server still wants a reason, the picker asks once and it retries.
+      const decided = await cooDecide(
+        rpc as never,
+        { ids, decision: 'approve', reasonCode: against.length > 0 ? reasonCode : null, reasonText: note.trim() || null },
+        cooReason.askReason,
+      );
+      const res = mergeApproveResults(decided.response);
+      const approved = res.approved.map((a) => a.id);
+      const skipped = res.skipped.map((s) => ({ rent_request_id: s.id ?? undefined, message: s.message ?? s.reason }));
+      const summary = cooDecisionSummary(
+        decided.response,
+        cooReason.meaningOf(decided.reasonCode) ?? (reasons.data ?? []).find((r) => r.code === decided.reasonCode)?.meaning,
+      );
 
       approved.forEach((id) => mark(String(id), { kind: 'moved', message: 'Approved and sent to the CFO.' }));
       skipped.forEach((s) => {
@@ -134,7 +142,7 @@ export function FundByScore({ board }: { board: boolean }) {
         );
       } else {
         setOutcome(
-          `${approved.length} request${approved.length === 1 ? '' : 's'} approved${skipped.length ? `, ${skipped.length} left behind` : ''}.`,
+          `${approved.length} request${approved.length === 1 ? '' : 's'} approved${skipped.length ? `, ${skipped.length} left behind` : ''}. ${summary}.`,
         );
         setPicked({});
       }
@@ -149,6 +157,7 @@ export function FundByScore({ board }: { board: boolean }) {
 
   return (
     <section className={`${PANEL} space-y-4 p-4 sm:p-5`}>
+      {cooReason.picker}
       <div className="space-y-1">
         <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>Fund by score</h2>
         <p className="max-w-3xl text-xs leading-snug text-muted-foreground">
