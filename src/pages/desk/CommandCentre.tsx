@@ -7,6 +7,7 @@ import { StageFlow, actingDesk } from './StageFlow';
 import { TileGrid } from './Tiles';
 import { Skeleton, SkeletonTiles } from './Skeleton';
 import { CALM, FOCUS, LABEL, PANEL, statusDot, statusText, type Status } from './deskTheme';
+import { TodayByDesk, WentAgainstTheSystem, WhyRequestsBounce } from './PipelineCards';
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -216,10 +217,13 @@ export function CommandCentre({
   feeds,
   board,
   tiles,
+  pipelineCards,
 }: {
   feeds: Record<string, FeedState>;
   board: boolean;
   tiles: Tile[];
+  /** The E26 cards — today by desk, overrides, and why requests bounce. Off with the flag. */
+  pipelineCards?: boolean;
 }) {
   const flow = useStageFlow();
   const kpis = feeds.coo_kpis?.rows ?? [];
@@ -239,17 +243,25 @@ export function CommandCentre({
   );
 
   if (board) {
-    // One screen, no scrolling: strip, then the river, then the two panels.
+    // One screen, no scrolling: strip, then the river, then the panels. Each
+    // panel scrolls inside itself, so the wall display never grows a scrollbar.
     return (
       <div className="flex h-full min-h-0 flex-col gap-6">
         <div className="shrink-0">{balance}</div>
         <div className="shrink-0">
           <StageFlow feed={flow} board />
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-3">
           <Blockers items={blockers} loading={loading} board />
           <MoneyOut feed={gaps} board limit={3} />
+          {pipelineCards && <TodayByDesk board enabled />}
         </div>
+        {pipelineCards && (
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
+            <WentAgainstTheSystem board enabled />
+            <WhyRequestsBounce board enabled />
+          </div>
+        )}
       </div>
     );
   }
@@ -262,6 +274,15 @@ export function CommandCentre({
         <Blockers items={blockers} loading={loading} board={false} />
         <MoneyOut feed={gaps} board={false} />
       </div>
+      {pipelineCards && (
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TodayByDesk board={false} enabled />
+            <WentAgainstTheSystem board={false} enabled />
+          </div>
+          <WhyRequestsBounce board={false} enabled />
+        </>
+      )}
     </div>
   );
 }

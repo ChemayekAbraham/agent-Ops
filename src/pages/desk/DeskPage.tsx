@@ -1,19 +1,42 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Play, RefreshCw, Rows3, Square } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
-import { useDeskFeeds, type FeedState } from './useDeskFeed';
-import { DeskTable } from './DeskTable';
+import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
+import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
 import { CALM, FOCUS, statusText } from './deskTheme';
+import { deskChecklistOn } from './deskFlag';
+import { DESK_STAGE } from './reviewTypes';
+import { AMBIGUOUS_MSG, NOT_FOUND_MSG, NO_STAFF_ID, resolveShortId, useMyStaffRef } from './reviewApi';
+import { ReviewStatusProvider } from './reviewStatus';
+import { ReviewDrawer } from './ReviewDrawer';
+import { FundByScore } from './FundByScore';
+import { FunderBoard } from './FunderBoard';
 
 const ROTATE_MS = 45_000;
+
+/** The one table on each desk whose rows are reviewable requests. */
+const QUEUE_TABLE: Record<string, string> = {
+  'service-centre': 'sc-queue',
+  'agent-ops': 'agent-ops-queue',
+  'tenant-ops': 'tenant-ops-queue',
+  'landlord-ops': 'landlord-ops-queue',
+  'partner-ops': 'partner-queue',
+  coo: 'coo-queue',
+};
+
+/** The desks that carry a second tab beside their queue. */
+const EXTRA_TAB: Record<string, string> = {
+  coo: 'Fund by score',
+  'partner-ops': 'Funder board — preview',
+};
 
 function ToolButton({
   onClick,
@@ -131,7 +154,62 @@ function DayPicker({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
+/**
+ * The reviewer's staff ID. Every pipeline RPC refuses a review without one, so
+ * the desk says so here rather than letting the drawer fail on submit.
+ */
+function StaffBadge() {
+  const { data, isLoading } = useMyStaffRef();
+  if (!deskChecklistOn() || isLoading) return null;
+  if (data) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Staff ID <span className="font-mono text-foreground">{data}</span>
+      </p>
+    );
+  }
+  return <p className={`text-xs ${statusText.warn}`}>{NO_STAFF_ID}</p>;
+}
+
 function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, FeedState>; board: boolean }) {
+  // The review drawer (E26). The stage is null on desks with no checklist, and
+  // the whole thing is off unless the flag says this host may have it.
+  const checklistOn = deskChecklistOn();
+  const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
+  const [openRequest, setOpenRequest] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<'queue' | 'extra'>('queue');
+
+  /**
+   * The row carries an 8-character code, so the id is looked up on the press.
+   * An ambiguous code opens nothing: recording a review against the wrong
+   * tenant is worse than making someone find the request another way.
+   */
+  const openByShort = async (short: string) => {
+    if (!stage) return;
+    setOpening(short);
+    setNotes((n) => {
+      if (!(short in n)) return n;
+      const next = { ...n };
+      delete next[short];
+      return next;
+    });
+    const found = await resolveShortId(short, stage);
+    setOpening(null);
+    if (found.status === 'ok') {
+      setOpenRequest(found.id);
+      return;
+    }
+    const why =
+      found.status === 'ambiguous'
+        ? AMBIGUOUS_MSG
+        : found.status === 'not_found'
+          ? NOT_FOUND_MSG
+          : found.message;
+    setNotes((n) => ({ ...n, [short]: why }));
+  };
+
   const g: Getter = (ref) => (feeds[ref.feed]?.loading ? '—' : show(feeds[ref.feed]?.rows ?? [], ref));
   const anyLoading = Object.values(feeds).some((f) => f.loading);
   const tiles = desk.tiles.filter(
@@ -145,8 +223,21 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
 
   // The command centre owns its own strip, river and panels.
   if (desk.id === 'command') {
-    return <CommandCentre feeds={feeds} board={board} tiles={tiles} />;
+    return <CommandCentre feeds={feeds} board={board} tiles={tiles} pipelineCards={checklistOn} />;
   }
+
+  const queueTable = QUEUE_TABLE[desk.id];
+  const review: ReviewHook | undefined = stage
+    ? {
+        shortFor: (row: Row) => (typeof row.req === 'string' && row.req ? row.req : null),
+        onOpen: openByShort,
+        opening,
+        notes,
+      }
+    : undefined;
+
+  const extraTab = checklistOn ? EXTRA_TAB[desk.id] : undefined;
+  const showQueue = !extraTab || tab === 'queue';
 
   return (
     <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
@@ -168,14 +259,46 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
-      {desk.tables.map((spec) => (
-        <DeskTable
-          key={spec.id}
-          spec={spec}
-          board={board}
-          feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
-        />
-      ))}
+      {extraTab && (
+        <div role="tablist" aria-label={`${desk.name} views`} className="flex flex-wrap gap-1.5">
+          {(['queue', 'extra'] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                tab === t
+                  ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+                  : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
+              }`}
+            >
+              {t === 'queue' ? 'Queue' : extraTab}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
+
+      {showQueue &&
+        desk.tables.map((spec) => (
+          <DeskTable
+            key={spec.id}
+            spec={spec}
+            board={board}
+            feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
+            review={review && spec.id === queueTable ? review : undefined}
+          />
+        ))}
+
+      {/* Keyed on the request: opening a second row never carries the first
+          request's ticks, note or logged call across to another tenant. */}
+      {stage && openRequest && (
+        <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
+      )}
     </div>
   );
 }
@@ -237,6 +360,7 @@ function DeskShell() {
               Ops Command Centre
             </h1>
             <p className={`${board ? 'text-base' : 'text-sm'} text-[hsl(var(--desk-lavender))]`}>{desk.name}</p>
+            <StaffBadge />
           </div>
         </div>
         <Toolbar updated={updated} failed={failed} board={board} />
@@ -289,7 +413,9 @@ function DeskShell() {
 export default function DeskPage() {
   return (
     <DeskPrefsProvider>
-      <DeskShell />
+      <ReviewStatusProvider>
+        <DeskShell />
+      </ReviewStatusProvider>
     </DeskPrefsProvider>
   );
 }
