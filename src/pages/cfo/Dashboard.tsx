@@ -30,6 +30,7 @@ import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpen
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
 import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
 import { CFOWelileHomesDisbursementDesk } from '@/components/cfo/CFOWelileHomesDisbursementDesk';
+import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
 import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
 import { RevenueExpenseDashboard } from '@/components/cfo/RevenueExpenseDashboard';
@@ -427,6 +428,7 @@ export default function CFODashboardPage() {
         return (
           <div className="space-y-4">
             <CFOWelileHomesDisbursementDesk />
+            <WhHistoricalDisbursementsPanel mode="readonly" offSystem />
           </div>
         );
       case 'signages':

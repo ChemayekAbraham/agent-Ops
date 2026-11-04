@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatUGX } from '@/lib/rentCalculations';
+import { WhHistoricalDisbursementsPanel, WhPlanHistoricalSection } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
@@ -1258,6 +1259,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
           </Button>
         )}
       </div>
+
+      <WhHistoricalDisbursementsPanel mode="ops" />
 
       {/* OVERVIEW TAB CONTENT */}
       {activeTab === 'overview' ? (
@@ -3749,6 +3752,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </div>
               )}
             </div>
+            {historySub && <WhPlanHistoricalSection subscriptionId={historySub.id} />}
           </div>
           <DialogFooter className="p-3 border-t border-border/60 bg-muted/10">
             <Button variant="outline" size="sm" onClick={() => setHistorySub(null)} className="h-8 text-xs cursor-pointer">

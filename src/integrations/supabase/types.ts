@@ -66618,6 +66618,71 @@ export type Database = {
           },
         ]
       }
+      wh_historical_disbursements: {
+        Row: {
+          agent_id: string | null
+          amount: number | null
+          channel: string | null
+          client_ref: string
+          evidence_path: string | null
+          id: string
+          kind: string
+          landlord_id: string | null
+          notes: string | null
+          paid_on: string | null
+          reason: string | null
+          recorded_at: string
+          recorded_by: string
+          reference: string | null
+          reverses_id: string | null
+          subscription_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          amount?: number | null
+          channel?: string | null
+          client_ref: string
+          evidence_path?: string | null
+          id?: string
+          kind: string
+          landlord_id?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          reason?: string | null
+          recorded_at?: string
+          recorded_by: string
+          reference?: string | null
+          reverses_id?: string | null
+          subscription_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number | null
+          channel?: string | null
+          client_ref?: string
+          evidence_path?: string | null
+          id?: string
+          kind?: string
+          landlord_id?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          reason?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string | null
+          reverses_id?: string | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_historical_disbursements_reverses_id_fkey"
+            columns: ["reverses_id"]
+            isOneToOne: true
+            referencedRelation: "wh_historical_disbursements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -73882,6 +73947,8 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_hist_can_read: { Args: never; Returns: boolean }
+      _wh_hist_can_write: { Args: never; Returns: boolean }
       _wh_resolve_landlord_ref: {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
@@ -96510,6 +96577,37 @@ export type Database = {
         }
         Returns: Json
       }
+      wh_hist_overview: {
+        Args: {
+          p_agent_id?: string
+          p_channel?: string
+          p_from?: string
+          p_subscription_id?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      wh_hist_record: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_channel: string
+          p_client_ref: string
+          p_confirm_duplicate?: boolean
+          p_evidence_path?: string
+          p_notes?: string
+          p_paid_on: string
+          p_reference: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
+      wh_hist_reverse: {
+        Args: { p_client_ref: string; p_entry_id: string; p_reason: string }
+        Returns: Json
+      }
+      wh_hist_search_agents: { Args: { p_search: string }; Returns: Json }
+      wh_hist_search_plans: { Args: { p_search: string }; Returns: Json }
       wh_landlord_delete_blockers: {
         Args: { p_landlord_id: string }
         Returns: Json
