@@ -87803,8 +87803,9 @@ export type Database = {
         Returns: string
       }
       ontology_can_read: { Args: never; Returns: boolean }
-      ontology_feed: { Args: { p_feed: string }; Returns: Json }
+      ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
+      ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
