@@ -36,6 +36,7 @@ import {
   X,
   Compass,
 } from 'lucide-react';
+import zoeAvatar from '@/assets/zoe-avatar.svg';
 import { cn } from '@/lib/utils';
 import {
   evaluateZoeFileRequest,
@@ -617,7 +618,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px';
     }
-    await onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+    if (currentAttachments.length > 0 || pageContext) {
+      await onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+    } else {
+      await onSendMessage(promptToSend);
+    }
   };
 
   const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -638,7 +643,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
       if (textareaRef.current) {
         textareaRef.current.style.height = '44px';
       }
-      void onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+      if (currentAttachments.length > 0 || pageContext) {
+        void onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+      } else {
+        void onSendMessage(promptToSend);
+      }
     }
   };
 
@@ -928,6 +937,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 <History className="h-4 w-4 shrink-0" aria-hidden="true" />
               </button>
 
+              <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card">
+                <img
+                  src={zoeAvatar}
+                  alt="Zoe"
+                  data-testid="zoe-header-avatar"
+                  className="h-full w-full object-cover"
+                />
+              </span>
               <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
                 Zoe
               </h2>
@@ -2034,8 +2051,13 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 data-testid="zoe-empty-state"
                 className="my-auto flex flex-col items-center justify-center py-8 text-center"
               >
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Sparkles className="h-5 w-5" aria-hidden="true" />
+                <div className="mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-border bg-card shadow-sm">
+                  <img
+                    src={zoeAvatar}
+                    alt="Zoe"
+                    data-testid="zoe-empty-state-avatar"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                   What would you like to check?
