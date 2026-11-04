@@ -1042,7 +1042,21 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       if (skipped.length) {
         const nameOf = (id: string) => rows.find((r) => r.id === id)?.tenant_name || 'Application';
         toast.warning(`Skipped ${skipped.length} application(s)`, {
-          description: skipped.map((s) => `${nameOf(s.id)}: ${s.reason}`).join('\n'),
+          description: (
+            <div className="space-y-1.5 text-xs">
+              {Object.entries(
+                skipped.reduce<Record<string, string[]>>((acc, s) => {
+                  (acc[s.reason] ||= []).push(nameOf(s.id));
+                  return acc;
+                }, {})
+              ).map(([reason, names]) => (
+                <div key={reason}>
+                  <p className="font-semibold">{reason} ({names.length})</p>
+                  <p className="text-muted-foreground">{names.join(', ')}</p>
+                </div>
+              ))}
+            </div>
+          ),
           duration: 15000,
         });
       }
