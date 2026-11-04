@@ -38337,6 +38337,123 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_event_objects: {
+        Row: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Insert: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Update: {
+          event_id?: number
+          object_id?: string
+          object_type?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ops_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_stage_events_v"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_kind: string
+          actor_ref: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          changed: Json
+          channel: string | null
+          correlation_id: string | null
+          explained: boolean
+          followed: boolean | null
+          from_state: string | null
+          id: number
+          object_id: string
+          object_type: string
+          occurred_at: string
+          op: string
+          reason_code: string | null
+          reason_text: string | null
+          recommended: string | null
+          rule_id: string | null
+          rule_inputs: Json | null
+          to_state: string | null
+          txid: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_kind: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id: string
+          object_type: string
+          occurred_at?: string
+          op: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_kind?: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id?: string
+          object_type?: string
+          occurred_at?: string
+          op?: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
+        }
+        Relationships: []
+      }
       ops_inbox_events: {
         Row: {
           bucket: string
@@ -69700,6 +69817,48 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_request_stage_events_v: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          actor_kind: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          from_state: string | null
+          id: number | null
+          occurred_at: string | null
+          reason: string | null
+          rent_request_id: string | null
+          to_state: string | null
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
+        }
+        Relationships: []
+      }
       supporter_referral_leaderboard: {
         Row: {
           avatar_url: string | null
@@ -89067,6 +89226,7 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_set_context: { Args: { p: Json }; Returns: undefined }
       ops_set_rent_plan_frequency: {
         Args: {
           p_frequency: string
