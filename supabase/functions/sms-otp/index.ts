@@ -647,6 +647,9 @@ Deno.serve(async (req) => {
         p_max_user_day: MAX_SENDS_PER_USER_DAY,
         p_max_ip_hour: MAX_SENDS_PER_IP_HOUR,
         p_max_ip_day: MAX_SENDS_PER_IP_DAY,
+        // Landlord portfolio verification: every send/resend issues a fresh code and the
+        // previous one stops working (one stored code per phone is overwritten).
+        p_always_new: isLandlordPortfolioVerify,
       });
       if (reserveError || !reserve) {
         console.error("[sms-otp] reserve error:", reserveError);

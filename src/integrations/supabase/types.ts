@@ -89085,6 +89085,7 @@ export type Database = {
       }
       otp_reserve_send: {
         Args: {
+          p_always_new?: boolean
           p_cooldown_seconds: number
           p_ip: string
           p_max_ip_day: number
