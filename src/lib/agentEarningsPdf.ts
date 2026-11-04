@@ -105,7 +105,7 @@ export async function generateAgentEarningsPdf(): Promise<Blob> {
   // ---- Recruit & funders ----
   sectionTitle('Grow Your Network');
   bullet('From every tenant managed by an agent you recruited', '2%');
-  bullet('From investment by a funder you bring (1% on Angel Pool)', '2%');
+  bullet('From support by a funder you bring (1% on Angel Pool)', '2%');
   y += 8;
 
   // ---- Cash bonuses ----

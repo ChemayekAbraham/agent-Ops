@@ -342,10 +342,10 @@ const services = [
       },
       {
         icon: TrendingUp,
-        title: "Investment Returns - Earn 10-15%",
-        description: "Be a Supporter! Fund verified rent requests and earn guaranteed returns. Your money works for you 24/7.",
+        title: "Support Returns - Earn 10-15%",
+        description: "Be a Supporter! Fund verified rent requests and earn steady returns. Your money works for you 24/7.",
         color: "bg-indigo-500/10 text-indigo-500",
-        tag: "INVESTORS"
+        tag: "SUPPORTERS"
       },
       {
         icon: BadgeDollarSign,
@@ -486,7 +486,7 @@ const services = [
       {
         icon: TrendingUp,
         title: "Earnings Dashboard",
-        description: "Track your referral earnings, commissions, and investment returns in real-time.",
+        description: "Track your referral earnings, commissions, and support returns in real-time.",
         color: "bg-indigo-500/10 text-indigo-500"
       },
       {

@@ -27,7 +27,7 @@ type KindFilter = 'all' | ProxyPvActivityKind;
 
 const KIND_META: Record<ProxyPvActivityKind, { label: string; icon: typeof FileCheck2; iconClass: string }> = {
   commitments: { label: 'Commitments', icon: FileCheck2, iconClass: 'bg-success/10 text-success' },
-  investment: { label: 'Investments', icon: PiggyBank, iconClass: 'bg-primary/10 text-primary' },
+  investment: { label: 'Support', icon: PiggyBank, iconClass: 'bg-primary/10 text-primary' },
   topups: { label: 'Top-ups', icon: Wallet, iconClass: 'bg-warning/10 text-warning' },
 };
 
@@ -92,9 +92,9 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
           kind: 'investment',
           icon: PiggyBank,
           iconClass: 'bg-primary/10 text-primary',
-          title: `New partner investment — ${money(d.new_investment)}`,
+          title: `New partner support — ${money(d.new_investment)}`,
           detail: `A new partner you brought in funded a portfolio, and the commission was paid.`,
-          impact: `New investments add ${rates.investment_pct}% of the amount as PV.`,
+          impact: `New support adds ${rates.investment_pct}% of the amount as PV.`,
           pv: d.investment_pv,
           status: 'verified',
         });
@@ -170,7 +170,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
               {
                 icon: PiggyBank,
                 cls: 'bg-primary/10 text-primary',
-                title: 'New partner investments',
+                title: 'New partner support',
                 text: `Bring in a new partner who funds a portfolio. You earn ${rates.investment_pct}% of the amount as PV once the commission is paid.`,
                 chip: `+${rates.investment_pct}% of amount`,
               },
@@ -284,7 +284,7 @@ export function ProxyPerformanceActivities({ report }: { report: ProxyPvReport }
                   <p className="text-[10px] text-muted-foreground">
                     {statusFilter === 'pending'
                       ? 'Everything you have recorded this month has already been verified or paid.'
-                      : 'Record a promissory note or bring in a partner investment — once verified or paid, it shows up here with the PV it earned.'}
+                      : 'Record a promissory note or bring in a partner support — once verified or paid, it shows up here with the PV it earned.'}
                   </p>
                 </div>
               </div>

@@ -73,10 +73,10 @@ export function sharePortfolioViaWhatsApp(data: PortfolioPdfData) {
   const displayName = data.accountName || data.portfolioCode;
   const monthlyROI = Math.round(data.investmentAmount * (data.roiPercentage / 100));
   const message = [
-    `📊 *Investment Portfolio: ${displayName}*`,
+    `📊 *Support Portfolio: ${displayName}*`,
     ``,
     `💰 Capital: ${formatUGX(data.investmentAmount)}`,
-    `📈 ROI Rate: ${data.roiPercentage}% per month`,
+    `📈 Returns Rate: ${data.roiPercentage}% per month`,
     `💵 Monthly Return: ${formatUGX(monthlyROI)}`,
     `📅 Duration: ${data.durationMonths} months`,
     `🔄 Mode: ${data.roiMode === 'monthly_compounding' ? 'Compounding' : 'Monthly Payout'}`,
@@ -84,7 +84,7 @@ export function sharePortfolioViaWhatsApp(data: PortfolioPdfData) {
     ``,
     `Total Earned So Far: ${formatUGX(data.totalRoiEarned)}`,
     ``,
-    `_Welile Technologies Limited - Investment Portfolio_`,
+    `_Welile Technologies Limited - Support Portfolio_`,
   ].join('\n');
 
   const encoded = encodeURIComponent(message);

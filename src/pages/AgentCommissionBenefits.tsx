@@ -39,7 +39,7 @@ Here's how it works:
 If you brought another agent to Welile, you get *2%* from every tenant THEY manage. It's free money!
 
 💼 *Earn from Funders You Bring*
-Bring an investor who funds rent → earn *2%* of their investment (1% on Angel Pool)!
+Bring a supporter who funds rent → earn *2%* of their support (1% on Angel Pool)!
 
 🎁 *Extra Cash Bonuses*
 • Register a landlord (paid when verified) → *UGX 5,000*
@@ -245,10 +245,10 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <TrendingUp className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-foreground">Investment / Funder Commission</p>
+                      <p className="text-sm font-semibold text-foreground">Support / Funder Commission</p>
                       <span className="text-xs font-bold text-primary whitespace-nowrap">2%</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Bring a funder who invests — earn 2% on their investment (plus 1% on Angel Pool investments)</p>
+                    <p className="text-sm text-muted-foreground">Bring a funder who supports — earn 2% on their support (plus 1% on Angel Pool support)</p>
                   </div>
                 </div>
 
@@ -380,7 +380,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       <p className="text-sm font-semibold text-foreground">Invite a Funder</p>
                       <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">Referral</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Share your referral link to bring investors who fund rent — helping you and your tenants</p>
+                    <p className="text-sm text-muted-foreground">Share your referral link to bring supporters who fund rent — helping you and your tenants</p>
                   </div>
                 </div>
               </div>
@@ -619,7 +619,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     </div>
                     <div className="rounded-xl bg-muted/40 p-3">
                       <p className="font-semibold text-foreground text-sm">🔗 Invite a Funder</p>
-                      <p className="text-xs mt-1">Share your referral link with potential investors. When a funder you bring invests, you earn a <span className="font-bold text-primary">2% commission</span> on their investment (and <span className="font-bold text-primary">1%</span> on Angel Pool investments) — tenants get rent, you get paid, and the funder earns returns.</p>
+                      <p className="text-xs mt-1">Share your referral link with potential supporters. When a funder you bring supports, you earn a <span className="font-bold text-primary">2% commission</span> on their support (and <span className="font-bold text-primary">1%</span> on Angel Pool support) — tenants get rent, you get paid, and the funder earns returns.</p>
                     </div>
                     <div className="rounded-xl bg-muted/40 p-3">
                       <p className="font-semibold text-foreground text-sm">📈 Collection Streaks</p>

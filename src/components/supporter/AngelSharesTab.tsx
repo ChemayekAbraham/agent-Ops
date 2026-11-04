@@ -26,7 +26,7 @@ export function AngelSharesTab() {
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <Gem className="h-10 w-10 text-muted-foreground/30 mb-3" />
         <p className="text-sm font-medium text-muted-foreground">No angel shares yet</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">Invest in the Angel Pool to own equity</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">Support the Angel Pool to own equity</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export function AngelSharesTab() {
         </div>
       </div>
 
-      {/* Investment History */}
+      {/* Support History */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
           <div className="flex items-center gap-2">

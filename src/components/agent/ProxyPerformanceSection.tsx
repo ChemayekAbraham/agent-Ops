@@ -282,7 +282,7 @@ export function ProxyPerformanceSection({ agentId, month: monthProp, hideHeading
           </div>
           {[
             [`Verified commitments (${r.mtd.commitments} × ${money(r.rates.commitment_pv)})`, money(r.mtd.commitment_pv)],
-            [`New partner investments — ${money(r.mtd.new_investment)} × ${r.rates.investment_pct}%`, money(r.mtd.investment_pv)],
+            [`New partner support — ${money(r.mtd.new_investment)} × ${r.rates.investment_pct}%`, money(r.mtd.investment_pv)],
             [`Partner top-ups — ${money(r.mtd.topups)} × ${r.rates.topup_pct}%`, money(r.mtd.topup_pv)],
             ['Total PV', money(r.mtd.total_pv)],
           ].map(([k, v], i, arr) => (

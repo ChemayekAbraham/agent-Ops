@@ -142,7 +142,7 @@ export default function BecomeSupporter() {
       
       toast({ 
         title: '🎉 Welcome, Supporter!', 
-        description: 'You are now a Tenant Supporter. Start investing today!' 
+        description: 'You are now a Tenant Supporter. Start supporting tenants today!' 
       });
       navigate(roleToSlug(role));
     }
@@ -309,10 +309,10 @@ export default function BecomeSupporter() {
               <span className="text-sm font-medium text-success">Become a Tenant Supporter</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black mb-3">
-              Invest & Earn <span className="text-success">15% Monthly</span>
+              Support & Earn <span className="text-success">15% Monthly</span>
             </h1>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Help tenants pay their rent while growing your investment portfolio with guaranteed returns
+              Help tenants pay their rent while growing your support portfolio with steady returns
             </p>
           </div>
 
@@ -330,7 +330,7 @@ export default function BecomeSupporter() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Your friend will earn a bonus when you make your first investment!
+                  Your friend will earn a bonus when you make your first support!
                 </p>
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function BecomeSupporter() {
                   <div>
                     <h3 className="font-bold text-sm">Referral Rewards</h3>
                     <p className="text-xs text-muted-foreground">
-                      Invite friends and earn <span className="font-bold text-primary">5,000 UGX</span> when they make their first investment!
+                      Invite friends and earn <span className="font-bold text-primary">5,000 UGX</span> when they make their first support!
                     </p>
                   </div>
                 </div>
@@ -375,7 +375,7 @@ export default function BecomeSupporter() {
               <div className="grid grid-cols-3 gap-3 mt-6">
                 <div className="p-4 rounded-xl bg-success/5 border border-success/20 text-center">
                   <p className="text-2xl font-black text-success">15%</p>
-                  <p className="text-xs text-muted-foreground">Monthly ROI</p>
+                  <p className="text-xs text-muted-foreground">Monthly Returns</p>
                 </div>
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
                   <p className="text-2xl font-black text-primary">24/7</p>

@@ -37,7 +37,7 @@ const BREAKDOWN_ITEMS: {
   bgClass: string;
 }[] = [
   { key: 'rentCommission', label: 'Rent Repayment Commission', description: 'UGX 10,000 flat per repayment', icon: Banknote, colorClass: 'text-emerald-600', bgClass: 'bg-emerald-500/10 border-emerald-500/20' },
-  { key: 'investmentCommission', label: 'Investment Commission', description: '2% on investment activation', icon: PiggyBank, colorClass: 'text-blue-600', bgClass: 'bg-blue-500/10 border-blue-500/20' },
+  { key: 'investmentCommission', label: 'Support Commission', description: '2% on support activation', icon: PiggyBank, colorClass: 'text-blue-600', bgClass: 'bg-blue-500/10 border-blue-500/20' },
   { key: 'subagentCommission', label: 'Sub-Agent Override', description: 'UGX 2,000 from sub-agent collections', icon: Users, colorClass: 'text-violet-600', bgClass: 'bg-violet-500/10 border-violet-500/20' },
   { key: 'registrationBonus', label: 'Registration Bonus', description: 'UGX 10,000 per tenant registered', icon: UserPlus, colorClass: 'text-amber-600', bgClass: 'bg-amber-500/10 border-amber-500/20' },
   { key: 'facilitationBonus', label: 'Facilitation Bonus', description: 'UGX 5,000 upon rent funding', icon: Award, colorClass: 'text-orange-600', bgClass: 'bg-orange-500/10 border-orange-500/20' },
@@ -122,7 +122,7 @@ export default function AgentEarnings() {
   const getEarningLabel = (type: string) => {
     switch (type) {
       case 'commission': case 'rent_commission': return 'Rent Commission';
-      case 'investment_commission': return 'Investment Commission';
+      case 'investment_commission': return 'Support Commission';
       case 'subagent_commission': case 'subagent_override': return 'Sub-Agent Override';
       case 'registration': case 'registration_bonus': return 'Registration Bonus';
       case 'verification_bonus': return 'Verification Bonus';
@@ -483,8 +483,8 @@ export default function AgentEarnings() {
             <div className="flex items-start gap-3">
               <div className="p-2 rounded-lg bg-blue-500/10"><PiggyBank className="h-4 w-4 text-blue-600" /></div>
               <div>
-                <p className="font-medium text-foreground">2% Investment Commission</p>
-                <p>Earn 2% on investment amounts moved to the Ops Ledger.</p>
+                <p className="font-medium text-foreground">2% Support Commission</p>
+                <p>Earn 2% on support amounts moved to the Ops Ledger.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

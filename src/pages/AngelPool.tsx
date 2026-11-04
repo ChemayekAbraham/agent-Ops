@@ -81,7 +81,7 @@ export default function AngelPool() {
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] text-muted-foreground font-medium">Welcome back</p>
                 <h1 className="font-bold text-lg leading-tight flex items-center gap-1.5">
-                  <span className="break-words">{profile?.full_name?.split(' ')[0] || 'Investor'}</span>
+                  <span className="break-words">{profile?.full_name?.split(' ')[0] || 'Supporter'}</span>
                   {profile?.verified ? (
                     <BadgeCheck className="h-4 w-4 text-primary fill-primary/20 shrink-0" />
                   ) : (
@@ -220,7 +220,7 @@ export default function AngelPool() {
             </div>
             <div className="flex-1 text-left min-w-0">
               <p className="font-bold text-base text-foreground">My Portfolios</p>
-              <p className="text-xs text-muted-foreground mt-0.5">View & manage your active investments</p>
+              <p className="text-xs text-muted-foreground mt-0.5">View & manage your active support</p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground/50 shrink-0" />
           </button>
@@ -240,7 +240,7 @@ export default function AngelPool() {
               className="flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-card border-2 border-border/60 text-foreground font-bold text-sm shadow-sm active:scale-[0.96] transition-transform touch-manipulation min-h-[48px]"
             >
               <Calculator className="h-4.5 w-4.5 text-primary" />
-              ROI
+              Returns
             </button>
 
             <button

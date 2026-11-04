@@ -198,13 +198,13 @@ export default function RegisterPartnerPublic() {
           </div>
           <h2 className="text-xl font-bold">Registration Submitted!</h2>
           <p className="text-muted-foreground text-sm">
-            Thank you for your interest. Our team will review your application and contact you shortly.
+            Thank you for your application. Our team will review your application and contact you shortly.
           </p>
           {amount > 0 && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-1">
-              <p className="text-xs text-muted-foreground">Investment Summary</p>
-              <p className="font-semibold">{formatUGX(amount)} invested</p>
-              <p className="text-sm text-primary font-medium">Monthly ROI: {formatUGX(monthlyROI)}</p>
+              <p className="text-xs text-muted-foreground">Support Summary</p>
+              <p className="font-semibold">{formatUGX(amount)} in support</p>
+              <p className="text-sm text-primary font-medium">Monthly Returns: {formatUGX(monthlyROI)}</p>
             </div>
           )}
           <AgentFooter agentInfo={agentInfo} />
@@ -223,7 +223,7 @@ export default function RegisterPartnerPublic() {
             <TrendingUp className="h-7 w-7 text-primary" />
           </div>
           <h1 className="text-xl font-bold">Partner Registration</h1>
-          <p className="text-sm text-muted-foreground">Join Welile as an investment partner and start earning monthly returns.</p>
+          <p className="text-sm text-muted-foreground">Join Welile as a support partner and start earning monthly returns.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -254,14 +254,14 @@ export default function RegisterPartnerPublic() {
             </div>
           </div>
 
-          {/* B. Investment Details */}
+          {/* B. Support Details */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-primary" /> Investment Details
+              <Banknote className="h-4 w-4 text-primary" /> Support Details
             </h3>
 
             <div className="space-y-1.5">
-              <Label htmlFor="investAmount">Amount to Invest (UGX) *</Label>
+              <Label htmlFor="investAmount">Amount to Support (UGX) *</Label>
               <Input
                 id="investAmount"
                 type="number"
@@ -287,7 +287,7 @@ export default function RegisterPartnerPublic() {
                 </button>
                 <p className="text-xs font-semibold text-emerald-600 mb-1">💡 Did You Know?</p>
                 <p className="text-sm">
-                  With an investment of <span className="font-bold">{formatUGX(amount)}</span>, you could earn up to:
+                  With a support of <span className="font-bold">{formatUGX(amount)}</span>, you could earn up to:
                 </p>
                 <p className="text-lg font-bold text-emerald-600 mt-1">
                   {formatUGX(annualROI)} per year
@@ -298,11 +298,11 @@ export default function RegisterPartnerPublic() {
               </div>
             )}
 
-            {/* ROI Display */}
+            {/* Returns Display */}
             {amount >= 100000 && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Monthly ROI (15%)</span>
+                  <span className="text-xs text-muted-foreground">Monthly Returns (15%)</span>
                   <span className="font-bold text-primary">{formatUGX(monthlyROI)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">You will earn this amount every 30 days.</p>
@@ -317,7 +317,7 @@ export default function RegisterPartnerPublic() {
           {/* C. Payment Preferences */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-primary" /> ROI Payment Preferences
+              <Wallet className="h-4 w-4 text-primary" /> Returns Payment Preferences
             </h3>
 
             <div className="space-y-1.5">
