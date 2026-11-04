@@ -33,7 +33,7 @@ import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordP
 import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
 import { fetchTenantIdentities, isIdComplete, isValidNin, normalizeNin, tenantPhotoUrl, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
 import {
-  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, checkNin, NIN_RATE_LIMIT_MESSAGE,
+  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, draftDaysLeft, touchTenantDraft, checkNin, NIN_RATE_LIMIT_MESSAGE,
   saveTenantDraft, uploadDraftTenantPhoto, type WhTenantDraft,
 } from '@/lib/welileHomesTenantDrafts';
 import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
@@ -320,13 +320,14 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const continueDraft = (d: WhTenantDraft) => {
     setResumeDraft(d);
     setEnrollOpen(true);
+    touchTenantDraft(d.id).then(loadDrafts).catch(() => {});
   };
   const renderDraftRow = (d: WhTenantDraft) => (
     <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
       <div className="min-w-0">
         <p className="text-sm font-medium truncate">{d.form?.newName || d.form?.existingTenantName || d.form?.phone || 'Unnamed tenant'}</p>
         <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0 font-normal border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
-          Draft – incomplete
+          {(() => { const left = draftDaysLeft(d.updated_at); return left == null ? 'Draft – incomplete' : `Draft – deletes in ${left} day${left === 1 ? '' : 's'}`; })()}
         </Badge>
       </div>
       <div className="flex items-center gap-1 shrink-0">

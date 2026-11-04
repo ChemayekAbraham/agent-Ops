@@ -67090,6 +67090,36 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_tenant_draft_cleanup_log: {
+        Row: {
+          drafts_deleted: number
+          id: number
+          photos_deleted: number
+          photos_failed: number
+          reminders_sent: number
+          run_at: string
+          run_date: string
+        }
+        Insert: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Update: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Relationships: []
+      }
       wh_tenant_drafts: {
         Row: {
           agent_id: string
@@ -97490,6 +97520,11 @@ export type Database = {
       wh_set_tenant_identity: {
         Args: { p_nin: string; p_photo_path: string; p_tenant_id: string }
         Returns: Json
+      }
+      wh_tenant_drafts_cleanup: { Args: never; Returns: Json }
+      wh_touch_tenant_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
       }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }

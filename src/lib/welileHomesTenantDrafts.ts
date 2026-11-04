@@ -75,6 +75,21 @@ export async function saveTenantDraft(d: {
   return data.id as string;
 }
 
+export const DRAFT_KEEP_DAYS = 30;
+export const DRAFT_WARN_DAYS = 7;
+
+/** Days left before an untouched draft is deleted by the daily cleanup (null when not yet in the last 7 days). */
+export function draftDaysLeft(updatedAt: string, now: Date = new Date()): number | null {
+  const ageDays = (now.getTime() - new Date(updatedAt).getTime()) / 86400000;
+  const left = Math.max(1, Math.ceil(DRAFT_KEEP_DAYS - ageDays));
+  return left <= DRAFT_WARN_DAYS ? left : null;
+}
+
+/** Opening a draft resets its 30 days (server checks the owner). */
+export async function touchTenantDraft(id: string) {
+  await (supabase.rpc as any)('wh_touch_tenant_draft', { p_draft_id: id });
+}
+
 export async function deleteTenantDraft(id: string) {
   const { error } = await (supabase.from as any)('wh_tenant_drafts').delete().eq('id', id);
   if (error) throw error;
