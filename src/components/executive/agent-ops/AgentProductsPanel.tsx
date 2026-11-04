@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 import { useSmartphoneRepaymentStartDates } from '@/hooks/useSmartphoneRepaymentMethods';
 import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MerchandiseReceivablesReconciliation } from '@/components/merchandise/MerchandiseReceivablesReconciliation';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
@@ -1121,6 +1122,15 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                       <span className="text-muted-foreground">Outstanding</span>
                       <span className="font-medium tabular-nums">{formatUGX(repayableTotal)} total</span>
                     </div>
+                    {effectiveKpis.in_field_ledger_receivable !== undefined && (
+                      <div
+                        className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]"
+                        title="What the books carry for these orders (A12 / A13). The rest of the outstanding balance is future monthly charges, income only when collected."
+                      >
+                        <span className="text-muted-foreground">On balance sheet</span>
+                        <span className="font-medium tabular-nums">{formatUGX(Number(effectiveKpis.in_field_ledger_receivable || 0))}</span>
+                      </div>
+                    )}
                     <Progress
                       value={recoveryPct}
                       className="h-1.5"
@@ -1184,6 +1194,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           )}
         </div>
       )}
+
+      {/* How the outstanding balances tie to the balance sheet (A12 + A13). */}
+      {showIssued && <MerchandiseReceivablesReconciliation category={category} />}
 
       {/* KPI drill-down: every overview card opens the exact list behind its number. */}
       <Sheet open={drill !== null} onOpenChange={(o) => { if (!o) setDrill(null); }}>
