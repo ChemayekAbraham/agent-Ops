@@ -23,6 +23,9 @@ import {
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
 } from '@/lib/welileHomesPlanStatus';
 import {
+  fetchWhRealFigures, whApplicationLabel, type WhRealFigures,
+} from '@/lib/welileHomesRealFigures';
+import {
   Building2, Loader2, Search, Users, Banknote, TrendingUp, Clock,
   RefreshCw, Download, Wallet, Coins, Activity, Home,
   Smartphone, UserCheck, X, CheckCircle2, ArrowRight, ArrowUpRight,
@@ -94,10 +97,12 @@ type DrillMetric =
   | 'agents'
   | 'landlords'
   | 'monthly_pipeline'
-  | 'receivable'
   | 'collections'
   | 'revenue'
-  | 'payouts';
+  | 'payouts'
+  | 'approved_float'
+  | 'disbursed_float'
+  | 'manual_float';
 
 interface Row {
   id: string;
@@ -248,7 +253,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const openSubscriptions = (_filter: SubscriptionFilter = 'all') => {
     setActiveTab('landlords');
   };
-  const [stats, setStats] = useState({ collectedThisMonth: 0, welileNet: 0, pendingPayouts: 0 });
+  // Real figures behind the money cards: approved / disbursed applications and rent received.
+  const [real, setReal] = useState<WhRealFigures | null>(null);
   const [activeDrill, setActiveDrill] = useState<DrillMetric | null>(null);
   const [drillSearch, setDrillSearch] = useState('');
   const [expandedLandlords, setExpandedLandlords] = useState<Record<string, boolean>>({});
@@ -397,27 +403,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
         console.warn('Float requests fetch warning:', fErr);
       }
 
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      const { data: dues } = await supabase
-        .from('welile_homes_monthly_dues')
-        .select('amount_collected, welile_net, landlord_net, collection_status, payout_status, period_month');
-      let collectedThisMonth = 0, welileNet = 0, pendingPayouts = 0;
-      const mKey = monthStart.toISOString().slice(0, 7);
-      const duesList = (dues ?? []) as unknown as {
-        amount_collected: number | null;
-        welile_net: number | null;
-        landlord_net: number | null;
-        collection_status: string | null;
-        payout_status: string | null;
-        period_month: string | null;
-      }[];
-      duesList.forEach((d) => {
-        if (String(d.period_month).slice(0, 7) === mKey) collectedThisMonth += Number(d.amount_collected) || 0;
-        if (d.collection_status === 'collected') welileNet += Number(d.welile_net) || 0;
-        if (d.collection_status === 'collected' && d.payout_status === 'unpaid') pendingPayouts += Number(d.landlord_net) || 0;
-      });
-      setStats({ collectedThisMonth, welileNet, pendingPayouts });
+      // Money cards: recorded applications and rent actually received, never a projection.
+      try {
+        setReal(await fetchWhRealFigures());
+      } catch (rErr) {
+        console.warn('Welile Homes real figures read failed:', rErr);
+        setReal(null);
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error('Failed to load Welile Homes: ' + msg);
@@ -429,11 +421,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   useEffect(() => { load(); }, [load]);
 
   // Calculations for Agent Ops Overview metrics
-  const totalReceivable = useMemo(() => rows.reduce((a, r) => a + (Number(r.receivable_total) || 0), 0), [rows]);
   const monthlyRentTotal = useMemo(() => rows.reduce((a, r) => a + (Number(r.monthly_rent) || 0), 0), [rows]);
-  const totalOutstanding = useMemo(() => rows.reduce((a, r) => a + (Number(r.outstanding_balance) || 0), 0), [rows]);
-  const totalRepaid = Math.max(0, totalReceivable - totalOutstanding);
-  const collectionRate = totalReceivable > 0 ? (totalRepaid / totalReceivable) * 100 : 0;
+
+  // Real figures behind the money cards: recorded applications and rent actually received.
+  const approvedTotal = real?.approvedTotal ?? 0;
+  const disbursedTotal = real?.disbursedTotal ?? 0;
+  const manualTotal = real?.manualTotal ?? 0;
+  const collectionsTotal = real?.collectionsTotal ?? 0;
+  const welileNetTotal = real?.welileNetTotal ?? 0;
+  const pendingPayoutsTotal = real?.pendingPayoutsTotal ?? 0;
+
+  // Tenant names for the collections / revenue / payout breakdown lists.
+  const tenantNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of rows) if (r.tenant_id) m.set(r.tenant_id, r.tenant_name ?? 'Tenant');
+    return m;
+  }, [rows]);
 
   const uniqueAgentCount = useMemo(() => new Set(rows.map((r) => r.agent_id).filter(Boolean)).size, [rows]);
   const uniqueLandlordCount = useMemo(() => new Set(rows.map((r) => (r.landlord_name || '').trim().toLowerCase()).filter(Boolean)).size, [rows]);
@@ -493,39 +496,6 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       },
     ];
   }, [walletVolume, floatVolume, walletLandlordsCount, floatLandlordsCount]);
-
-  const healthBands = useMemo(() => {
-    let nearCompletion = 0;
-    let nearCompletionAmount = 0;
-    let midTerm = 0;
-    let midTermAmount = 0;
-    let highBalance = 0;
-    let highBalanceAmount = 0;
-
-    rows.forEach((r) => {
-      const rent = Number(r.monthly_rent) || 0;
-      const bal = Number(r.outstanding_balance) || 0;
-      if (bal <= rent * 3) {
-        nearCompletion += 1;
-        nearCompletionAmount += bal;
-      } else if (bal <= rent * 6) {
-        midTerm += 1;
-        midTermAmount += bal;
-      } else {
-        highBalance += 1;
-        highBalanceAmount += bal;
-      }
-    });
-
-    return {
-      nearCompletion,
-      nearCompletionAmount,
-      midTerm,
-      midTermAmount,
-      highBalance,
-      highBalanceAmount,
-    };
-  }, [rows]);
 
   const agentsBreakdown = useMemo(() => {
     const map = new Map<string, { id: string; name: string; tenantsCount: number; rentTotal: number; receivableTotal: number; outstandingTotal: number }>();
@@ -638,45 +608,41 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const totalLandlordProfit = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.ourProfit, 0), [enrolledLandlordsBreakdown]);
   const monthlyLandlordProfit = useMemo(() => enrolledLandlordsBreakdown.reduce((s, l) => s + l.monthlyProfit, 0), [enrolledLandlordsBreakdown]);
 
-  // Chart Data for Capital Recovery & Aging Exposure Distribution
-  const receivablesDistributionChartData = useMemo(() => [
-    {
-      category: 'Repaid',
-      label: 'Collected Capital (Repaid)',
-      amount: totalRepaid,
-      percent: totalReceivable > 0 ? (totalRepaid / totalReceivable) * 100 : 0,
-      accounts: rows.filter((r) => (Number(r.receivable_total) - Number(r.outstanding_balance)) > 0).length,
-      fill: '#10b981',
-      status: 'Recovered',
-    },
-    {
-      category: '<3 Months',
-      label: 'Near Completion (<3 Mo)',
-      amount: healthBands.nearCompletionAmount,
-      percent: totalReceivable > 0 ? (healthBands.nearCompletionAmount / totalReceivable) * 100 : 0,
-      accounts: healthBands.nearCompletion,
-      fill: '#06b6d4',
-      status: 'Low Risk',
-    },
-    {
-      category: '3-6 Months',
-      label: 'Mid-Cycle (3-6 Mo)',
-      amount: healthBands.midTermAmount,
-      percent: totalReceivable > 0 ? (healthBands.midTermAmount / totalReceivable) * 100 : 0,
-      accounts: healthBands.midTerm,
-      fill: '#3b82f6',
-      status: 'Standard',
-    },
-    {
-      category: '>6 Months',
-      label: 'High Exposure (>6 Mo)',
-      amount: healthBands.highBalanceAmount,
-      percent: totalReceivable > 0 ? (healthBands.highBalanceAmount / totalReceivable) * 100 : 0,
-      accounts: healthBands.highBalance,
-      fill: '#f43f5e',
-      status: 'High Exposure',
-    },
-  ], [totalRepaid, totalReceivable, healthBands, rows]);
+  // Chart Data — real figures only: float actually funded against rent actually received.
+  const receivablesDistributionChartData = useMemo(() => {
+    const fundedTotal = disbursedTotal + manualTotal;
+    const stillOwed = Math.max(0, fundedTotal - collectionsTotal);
+    const pct = (v: number) => (fundedTotal > 0 ? (v / fundedTotal) * 100 : 0);
+    return [
+      {
+        category: 'Collected',
+        label: 'Rent actually received',
+        amount: collectionsTotal,
+        percent: pct(collectionsTotal),
+        accounts: real?.collectionRows.length ?? 0,
+        fill: '#10b981',
+        status: 'Received',
+      },
+      {
+        category: 'Awaiting',
+        label: 'Disbursed float not yet collected',
+        amount: stillOwed,
+        percent: pct(stillOwed),
+        accounts: real?.disbursed.length ?? 0,
+        fill: '#f59e0b',
+        status: 'Awaiting rent',
+      },
+      {
+        category: 'Manual',
+        label: 'Manually entered payouts',
+        amount: manualTotal,
+        percent: pct(manualTotal),
+        accounts: real?.manualCount ?? 0,
+        fill: '#8b5cf6',
+        status: 'Off-system',
+      },
+    ];
+  }, [collectionsTotal, disbursedTotal, manualTotal, real]);
 
   // Applications calculations & grouping
   const totalFloatRequired = useMemo(() => activeRows.reduce((s, r) => s + (Number(r.monthly_rent) || 0), 0), [activeRows]);
@@ -1326,13 +1292,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               <KpiTile
                 title="Monthly Rent Pipeline"
                 value={loading ? '...' : formatUGX(monthlyRentTotal)}
-                subtitle={`Annualized: ${formatUGX(monthlyRentTotal * 12)}`}
+                subtitle="Projected – not yet approved"
                 icon={TrendingUp}
                 accent="bg-indigo-600"
                 onClick={() => { setActiveDrill('monthly_pipeline'); setDrillSearch(''); }}
                 badge={
                   <Badge variant="secondary" className="text-[10px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20">
-                    Per Month
+                    Projected
                   </Badge>
                 }
                 loading={loading}
@@ -1340,66 +1306,108 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             </div>
           </div>
 
-          {/* Row B: Financial & Collections KPIs */}
+          {/* Row B: real figures — approved / disbursed applications and rent actually received */}
           <div>
             <div className="flex items-center justify-between mb-2 px-0.5">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Collections & Revenue Performance
+                Real Figures – Rent Float Applications
               </h3>
-              <span className="text-[11px] text-muted-foreground hidden sm:inline">General Ledger Flow</span>
+              <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                Approved &amp; disbursed only – nothing estimated
+              </span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
               <KpiTile
-                title="Total Booked Receivable"
-                value={loading ? '...' : formatUGX(totalReceivable)}
-                subtitle="12-month advance receivables recognized"
+                title="Float Approved"
+                value={loading ? '...' : formatUGX(approvedTotal)}
+                subtitle={real && real.approved.length > 0
+                  ? `${real.approved.length} application${real.approved.length === 1 ? '' : 's'} through the approval flow`
+                  : 'No approved float yet'}
                 icon={Banknote}
                 accent="bg-blue-600"
-                onClick={() => { setActiveDrill('receivable'); setDrillSearch(''); }}
+                onClick={() => { setActiveDrill('approved_float'); setDrillSearch(''); }}
                 badge={
                   <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20">
-                    Booked
+                    Approved
                   </Badge>
                 }
                 loading={loading}
               />
               <KpiTile
-                title="Collections (MTD)"
-                value={loading ? '...' : formatUGX(stats.collectedThisMonth)}
-                subtitle="Cash collected this month"
+                title="Float Disbursed"
+                value={loading ? '...' : formatUGX(disbursedTotal)}
+                subtitle={real && real.disbursed.length > 0
+                  ? `${real.disbursed.length} released by the CFO`
+                  : 'No approved float yet'}
                 icon={Wallet}
                 accent="bg-emerald-700"
-                onClick={() => { setActiveDrill('collections'); setDrillSearch(''); }}
+                onClick={() => { setActiveDrill('disbursed_float'); setDrillSearch(''); }}
                 badge={
                   <Badge variant="secondary" className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
-                    MTD Cash
+                    CFO
                   </Badge>
                 }
                 loading={loading}
               />
               <KpiTile
-                title="Welile Net Revenue (8%)"
-                value={loading ? '...' : formatUGX(stats.welileNet)}
-                subtitle="Platform commission from collected rent"
+                title="Manually Entered Payouts"
+                value={loading ? '...' : formatUGX(manualTotal)}
+                subtitle={real && real.manualCount > 0
+                  ? `${real.manualCount} past disbursement${real.manualCount === 1 ? '' : 's'} recorded by Agent Ops`
+                  : 'None recorded'}
+                icon={History}
+                accent="bg-violet-600"
+                onClick={() => { setActiveDrill('manual_float'); setDrillSearch(''); }}
+                badge={
+                  <Badge variant="secondary" className="text-[10px] bg-violet-500/10 text-violet-700 dark:text-violet-400 border-violet-500/20">
+                    Off-system
+                  </Badge>
+                }
+                loading={loading}
+              />
+              <KpiTile
+                title="Collections (Rent Received)"
+                value={loading ? '...' : formatUGX(collectionsTotal)}
+                subtitle={real && real.hasApprovedFloat
+                  ? `Rent actually received · this month ${formatUGX(real.collectionsMtd)}`
+                  : 'No approved float yet'}
+                icon={Coins}
+                accent="bg-teal-600"
+                onClick={() => { setActiveDrill('collections'); setDrillSearch(''); }}
+                badge={
+                  <Badge variant="secondary" className="text-[10px] bg-teal-500/10 text-teal-700 dark:text-teal-400 border-teal-500/20">
+                    Received
+                  </Badge>
+                }
+                loading={loading}
+              />
+              <KpiTile
+                title="Welile Net Revenue"
+                value={loading ? '...' : formatUGX(welileNetTotal)}
+                subtitle={real && real.hasApprovedFloat
+                  ? 'Platform share of collected rent'
+                  : 'No approved float yet'}
                 icon={Coins}
                 accent="bg-fuchsia-600"
                 onClick={() => { setActiveDrill('revenue'); setDrillSearch(''); }}
                 badge={
                   <Badge variant="secondary" className="text-[10px] bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/20">
-                    8% Net
+                    Collected only
                   </Badge>
                 }
                 loading={loading}
               />
               <KpiTile
                 title="Pending Landlord Payouts"
-                value={loading ? '...' : formatUGX(stats.pendingPayouts)}
-                subtitle={stats.pendingPayouts > 0 ? "Ready for batch disbursement" : "All payouts settled"}
+                value={loading ? '...' : formatUGX(pendingPayoutsTotal)}
+                subtitle={real && real.hasApprovedFloat
+                  ? (pendingPayoutsTotal > 0 ? 'Ready for batch disbursement' : 'All payouts settled')
+                  : 'No approved float yet'}
                 icon={Clock}
                 accent="bg-amber-600"
                 onClick={() => { setActiveDrill('payouts'); setDrillSearch(''); }}
                 badge={
-                  stats.pendingPayouts > 0 ? (
+                  pendingPayoutsTotal > 0 ? (
                     <Badge variant="secondary" className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 animate-pulse">
                       Action Due
                     </Badge>
@@ -1412,25 +1420,38 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 loading={loading}
               />
             </div>
+            {real && real.unapprovedCollectionsTotal > 0 ? (
+              <p className="mt-2 text-[11px] text-muted-foreground px-0.5">
+                {formatUGX(real.unapprovedCollectionsTotal)} of rent received sits on tenants with no
+                approved float application, so it is reported here but kept out of every total above.
+              </p>
+            ) : null}
+            {real?.incomplete ? (
+              <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400 px-0.5">
+                Some records could not be read, so these totals may be short.
+              </p>
+            ) : null}
           </div>
 
-          {/* Portfolio Progress & Breakdown Card with Capital Distribution Graph */}
+          {/* Float actually funded against rent actually received — real figures only */}
           <Card className="rounded-2xl border-border/60 p-3.5 sm:p-5 shadow-2xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <div>
-                <h4 className="text-xs sm:text-sm font-bold text-foreground">Receivables Repayment & Distribution Coverage</h4>
+                <h4 className="text-xs sm:text-sm font-bold text-foreground">Float Disbursed vs Rent Collected</h4>
                 <p className="text-[11px] sm:text-xs text-muted-foreground">
-                  {formatUGX(totalRepaid)} collected of {formatUGX(totalReceivable)} booked advance receivables ({collectionRate.toFixed(1)}% recovery rate)
+                  {real && real.hasApprovedFloat
+                    ? `${formatUGX(collectionsTotal)} of rent received against ${formatUGX(disbursedTotal + manualTotal)} of float funded (${(((disbursedTotal + manualTotal) > 0 ? collectionsTotal / (disbursedTotal + manualTotal) : 0) * 100).toFixed(1)}% recovered)`
+                    : 'No approved float yet'}
                 </p>
               </div>
               <div className="flex items-center gap-3 text-[11px] sm:text-xs text-muted-foreground flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
-                  Repaid ({formatUGX(totalRepaid)})
+                  Collected ({formatUGX(collectionsTotal)})
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
-                  Outstanding ({formatUGX(totalOutstanding)})
+                  Awaiting rent ({formatUGX(Math.max(0, disbursedTotal + manualTotal - collectionsTotal))})
                 </span>
               </div>
             </div>
@@ -3023,34 +3044,73 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                   <div className="flex items-center gap-2">
                     <DialogTitle className="text-lg font-bold">Monthly Rent Pipeline & Fee Distribution</DialogTitle>
                     <Badge className="bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30 text-[10px]">
-                      {formatUGX(monthlyRentTotal)} / Month
+                      Projected – not yet approved
                     </Badge>
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    The gross monthly rent volume committed across active subscriptions. Rent is partitioned into guaranteed landlord rent and the regulatory platform fee pool (Returns + Commission + Platform Fee).
+                    Projected – not yet approved: the gross monthly rent of enrolled tenants. None of it counts as approved float until a Rent Float Application is approved through the flow, so it never enters any real total above.
                   </DialogDescription>
                 </div>
               </div>
             )}
 
-            {activeDrill === 'receivable' && (
+            {activeDrill === 'approved_float' && (
               <div className="flex items-start gap-3.5">
                 <div className="h-10 w-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
                   <Banknote className="h-5 w-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <DialogTitle className="text-lg font-bold">12-Month Advance Booked Receivables</DialogTitle>
+                    <DialogTitle className="text-lg font-bold">Float Approved Through the Flow</DialogTitle>
                     <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30 text-[10px]">
-                      {formatUGX(totalReceivable)} Booked
+                      {formatUGX(approvedTotal)} Approved
                     </Badge>
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    Upon subscription onboarding, 12 months of rent is recognized as an advance receivable. Daily repayments amortize this balance over 365 days until full recovery.
+                    Every Rent Float Application a review stage has actually approved (Agent Ops, Tenant Ops, Landlord Ops or COO). Requests still pending, returned or rejected are not counted, and nothing here counts as disbursed until the CFO releases it.
                   </DialogDescription>
                 </div>
               </div>
             )}
+
+            {activeDrill === 'disbursed_float' && (
+              <div className="flex items-start gap-3.5">
+                <div className="h-10 w-10 rounded-2xl bg-emerald-700 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <DialogTitle className="text-lg font-bold">Float Disbursed by the CFO</DialogTitle>
+                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
+                      {formatUGX(disbursedTotal)} Disbursed
+                    </Badge>
+                  </div>
+                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                    Approved applications the CFO has actually paid out through the disbursement flow, each carrying its ledger record. Approved-but-unpaid requests stay out of this total.
+                  </DialogDescription>
+                </div>
+              </div>
+            )}
+
+            {activeDrill === 'manual_float' && (
+              <div className="flex items-start gap-3.5">
+                <div className="h-10 w-10 rounded-2xl bg-violet-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <History className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <DialogTitle className="text-lg font-bold">Manually Entered Past Payouts</DialogTitle>
+                    <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-400 border-violet-500/30 text-[10px]">
+                      {formatUGX(manualTotal)} Off-system
+                    </Badge>
+                  </div>
+                  <DialogDescription className="text-xs text-muted-foreground mt-1">
+                    Float paid before the app recorded it, entered by hand in Agent Ops. Kept apart from system payouts so the two are never mixed, and reversals are removed from the total.
+                  </DialogDescription>
+                </div>
+              </div>
+            )}
+
 
             {activeDrill === 'collections' && (
               <div className="flex items-start gap-3.5">
@@ -3059,13 +3119,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <DialogTitle className="text-lg font-bold">Month-To-Date (MTD) Collections</DialogTitle>
+                    <DialogTitle className="text-lg font-bold">Rent Actually Received</DialogTitle>
                     <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
-                      {formatUGX(stats.collectedThisMonth)} Cash Inflow
+                      {formatUGX(collectionsTotal)} Collected
                     </Badge>
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    Actual cash collected from tenant daily repayments during the current calendar month. Recorded in the general ledger and automatically funds upcoming landlord payouts.
+                    Rent actually received on tenants whose float was approved or disbursed, plus tenants carrying a manually entered payout. Rent received on tenants with no approved float is listed below and kept out of this total.
                   </DialogDescription>
                 </div>
               </div>
@@ -3078,13 +3138,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <DialogTitle className="text-lg font-bold">Welile Net Platform Revenue (8%)</DialogTitle>
+                    <DialogTitle className="text-lg font-bold">Welile Net Revenue From Collected Rent</DialogTitle>
                     <Badge className="bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400 border-fuchsia-500/30 text-[10px]">
-                      8% Platform Fee
+                      {formatUGX(welileNetTotal)} Earned
                     </Badge>
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    Welile retains 8% of all collected rent as its primary platform fee (from the 10% fee pool; 2% goes to agent commissions). This funds operations, KYC verification, and payout processing.
+                    Welile's share of rent actually received on funded applications. Nothing is recognised from a booking, a projection, or rent received on a tenant whose float was never approved.
                   </DialogDescription>
                 </div>
               </div>
@@ -3097,10 +3157,10 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <DialogTitle className="text-lg font-bold">Automated Landlord Payouts Queue</DialogTitle>
-                    {stats.pendingPayouts > 0 ? (
+                    <DialogTitle className="text-lg font-bold">Landlord Payouts Awaiting Disbursement</DialogTitle>
+                    {pendingPayoutsTotal > 0 ? (
                       <Badge variant="destructive" className="text-[10px]">
-                        {formatUGX(stats.pendingPayouts)} Action Due
+                        {formatUGX(pendingPayoutsTotal)} Action Due
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="text-[10px] text-emerald-700 bg-emerald-500/10">
@@ -3109,7 +3169,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     )}
                   </div>
                   <DialogDescription className="text-xs text-muted-foreground mt-1">
-                    Rent collected from tenants due for disbursement to property owners. Payouts can be triggered automatically on scheduled payout days or manually on-demand.
+                    Landlord share of rent actually received on funded applications, not yet paid out. Rent received on tenants with no approved float is excluded.
                   </DialogDescription>
                 </div>
               </div>
@@ -3202,23 +3262,65 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               </>
             )}
 
-            {activeDrill === 'receivable' && (
+            {activeDrill === 'approved_float' && (
               <>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Total Booked (12M)</span>
-                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(totalReceivable)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Approved Total</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(approvedTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Repaid to Date</span>
-                  <p className="text-base font-bold text-emerald-600 mt-0.5">{formatUGX(totalRepaid)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Applications</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{real?.approved.length ?? 0}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Outstanding</span>
-                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(totalOutstanding)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Awaiting CFO</span>
+                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(real?.awaitingDisbursementTotal ?? 0)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Recovery Rate</span>
-                  <p className="text-base font-bold text-primary mt-0.5">{collectionRate.toFixed(1)}%</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Tenants Covered</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{real?.coveredSubscriptionIds.size ?? 0}</p>
+                </div>
+              </>
+            )}
+
+            {activeDrill === 'disbursed_float' && (
+              <>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Disbursed Total</span>
+                  <p className="text-base font-bold text-emerald-600 mt-0.5">{formatUGX(disbursedTotal)}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Applications</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{real?.disbursed.length ?? 0}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Approved, Not Paid</span>
+                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(real?.awaitingDisbursementTotal ?? 0)}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Rent Received</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(collectionsTotal)}</p>
+                </div>
+              </>
+            )}
+
+            {activeDrill === 'manual_float' && (
+              <>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Manually Entered</span>
+                  <p className="text-base font-bold text-violet-600 mt-0.5">{formatUGX(manualTotal)}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Entries</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{real?.manualCount ?? 0}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">System Payouts</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(real?.systemTotal ?? 0)}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-card border border-border/50">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Float Funded</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(disbursedTotal + manualTotal)}</p>
                 </div>
               </>
             )}
@@ -3226,22 +3328,20 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             {activeDrill === 'collections' && (
               <>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Collected MTD</span>
-                  <p className="text-base font-bold text-emerald-600 mt-0.5">{formatUGX(stats.collectedThisMonth)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Rent Received (Funded)</span>
+                  <p className="text-base font-bold text-emerald-600 mt-0.5">{formatUGX(collectionsTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Monthly Pipeline</span>
-                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(monthlyRentTotal)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">This Month</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(real?.collectionsMtd ?? 0)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Platform Fee Earned</span>
-                  <p className="text-base font-bold text-fuchsia-600 mt-0.5">{formatUGX(stats.welileNet)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Welile Net</span>
+                  <p className="text-base font-bold text-fuchsia-600 mt-0.5">{formatUGX(welileNetTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Realization</span>
-                  <p className="text-base font-bold text-primary mt-0.5">
-                    {monthlyRentTotal > 0 ? `${((stats.collectedThisMonth / monthlyRentTotal) * 100).toFixed(1)}%` : '0%'}
-                  </p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Not Counted</span>
+                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(real?.unapprovedCollectionsTotal ?? 0)}</p>
                 </div>
               </>
             )}
@@ -3249,20 +3349,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             {activeDrill === 'revenue' && (
               <>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Platform Fee Rate</span>
-                  <p className="text-base font-bold text-fuchsia-600 mt-0.5">8.0% Net</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Welile Net Earned</span>
+                  <p className="text-base font-bold text-fuchsia-600 mt-0.5">{formatUGX(welileNetTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">MTD Net Earned</span>
-                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(stats.welileNet)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">From Rent Received</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(collectionsTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Monthly Target</span>
-                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(monthlyRentTotal * 0.08)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Welile Share</span>
+                  <p className="text-base font-bold text-foreground mt-0.5">
+                    {collectionsTotal > 0 ? `${((welileNetTotal / collectionsTotal) * 100).toFixed(1)}%` : '0.0%'}
+                  </p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
-                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Annual Projected</span>
-                  <p className="text-base font-bold text-foreground mt-0.5">{formatUGX(monthlyRentTotal * 0.08 * 12)}</p>
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">From Projections</span>
+                  <p className="text-base font-bold text-muted-foreground mt-0.5">{formatUGX(0)}</p>
                 </div>
               </>
             )}
@@ -3271,7 +3373,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               <>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Pending Amount</span>
-                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(stats.pendingPayouts)}</p>
+                  <p className="text-base font-bold text-amber-600 mt-0.5">{formatUGX(pendingPayoutsTotal)}</p>
                 </div>
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Total Landlords</span>
@@ -3284,7 +3386,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 <div className="p-2.5 rounded-xl bg-card border border-border/50">
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">Status</span>
                   <p className="text-base font-bold text-primary mt-0.5">
-                    {stats.pendingPayouts > 0 ? 'Disbursement Due' : 'Up to Date'}
+                    {pendingPayoutsTotal > 0 ? 'Disbursement Due' : 'Up to Date'}
                   </p>
                 </div>
               </>
@@ -3487,9 +3589,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               </div>
             )}
 
-            {/* Drilldown 4: Monthly Rent Pipeline */}
+            {/* Drilldown 4: Monthly Rent Pipeline — projection, clearly separated */}
             {activeDrill === 'monthly_pipeline' && (
               <div className="space-y-4">
+                <div className="p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-[11px] text-indigo-800 dark:text-indigo-300">
+                  Projected – not yet approved. This is the rent enrolled tenants would pay if every
+                  one were funded. It is not approved float and is never added to any real total above.
+                </div>
                 <div className="p-4 rounded-2xl bg-card border border-border/70 space-y-3">
                   <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
                     Four-Part Rent Flow Waterfall (Regulatory Model)
@@ -3539,139 +3645,170 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               </div>
             )}
 
-            {/* Drilldown 5: Total Booked Receivable */}
-            {activeDrill === 'receivable' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-card border border-border/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        12-Month Advance Amortization
-                      </h4>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        {formatUGX(totalRepaid)} repaid of {formatUGX(totalReceivable)} recognized
+            {/* Drilldown: the applications behind the approved figure */}
+            {activeDrill === 'approved_float' && (
+              <div className="space-y-2">
+                {real && real.approved.length > 0 ? real.approved.map((a) => (
+                  <div key={a.id} className="p-3 rounded-xl border border-border/60 bg-card flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-foreground truncate">{a.agent_name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {a.tenant_count} tenant{a.tenant_count === 1 ? '' : 's'} · submitted {new Date(a.created_at).toLocaleDateString('en-GB')}
                       </p>
                     </div>
-                    <Badge className="bg-primary text-primary-foreground font-bold text-xs">
-                      {collectionRate.toFixed(1)}% Collected
-                    </Badge>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm text-foreground tabular-nums">{formatUGX(a.amount)}</p>
+                      <Badge variant="outline" className="text-[10px] mt-0.5">{whApplicationLabel(a.status)}</Badge>
+                    </div>
                   </div>
-                  <Progress value={collectionRate} className="h-2 rounded-full" />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      openSubscriptions('high_outstanding');
-                      setActiveDrill(null);
-                    }}
-                    className="flex-1 text-xs gap-1.5 h-9"
-                  >
-                    <Clock className="h-3.5 w-3.5 text-amber-600" />
-                    Filter High Outstanding ({highBalanceCount})
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      openSubscriptions('all');
-                      setActiveDrill(null);
-                    }}
-                    className="flex-1 text-xs gap-1.5 h-9"
-                  >
-                    <Users className="h-3.5 w-3.5 text-primary" />
-                    View All Subscriptions ({rows.length})
-                  </Button>
-                </div>
+                )) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    No approved float yet — no Rent Float Application has been approved through the flow.
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Drilldown 6: Collections MTD */}
+            {/* Drilldown: the applications the CFO has disbursed */}
+            {activeDrill === 'disbursed_float' && (
+              <div className="space-y-2">
+                {real && real.disbursed.length > 0 ? real.disbursed.map((a) => (
+                  <div key={a.id} className="p-3 rounded-xl border border-border/60 bg-card flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-foreground truncate">{a.agent_name}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {a.tenant_count} tenant{a.tenant_count === 1 ? '' : 's'} · submitted {new Date(a.created_at).toLocaleDateString('en-GB')}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm text-foreground tabular-nums">{formatUGX(a.amount)}</p>
+                      <Badge variant="outline" className="text-[10px] mt-0.5">Disbursed by the CFO</Badge>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    No approved float yet — the CFO has not disbursed any Welile Homes float.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Drilldown: manually entered past payouts, kept apart from system payouts */}
+            {activeDrill === 'manual_float' && (
+              <div className="space-y-2">
+                {real && real.manualRows.length > 0 ? real.manualRows.map((m) => (
+                  <div key={m.id} className="p-3 rounded-xl border border-border/60 bg-card flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-xs text-foreground truncate">{m.agent_name || 'Agent'}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {m.tenant_name || 'Tenant'} · paid {new Date(m.paid_on).toLocaleDateString('en-GB')}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm text-foreground tabular-nums">{formatUGX(m.amount)}</p>
+                      <Badge variant="outline" className="text-[10px] mt-0.5">Manually entered</Badge>
+                    </div>
+                  </div>
+                )) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    None recorded — no past disbursements have been entered by hand in Agent Ops.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Drilldown: rent actually received on funded applications, listed */}
             {activeDrill === 'collections' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-card border border-border/70 space-y-3">
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                    Current Month Collection Realization
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Cash collected across Welile Homes daily tenant repayments during this month. Daily repayments automatically credit each tenant's receivable ledger and replenish the landlord settlement reserve.
-                  </p>
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Cash Collected MTD</span>
-                      <span className="text-lg font-bold text-emerald-600">{formatUGX(stats.collectedThisMonth)}</span>
-                    </div>
-                    <div className="p-3 rounded-xl bg-muted/40">
-                      <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Target Monthly Bill</span>
-                      <span className="text-lg font-bold text-foreground">{formatUGX(monthlyRentTotal)}</span>
-                    </div>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-muted/40">
+                    <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Rent received (funded tenants)</span>
+                    <span className="text-lg font-bold text-emerald-600">{formatUGX(collectionsTotal)}</span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-muted/40">
+                    <span className="text-[10px] text-muted-foreground uppercase block font-semibold">This month</span>
+                    <span className="text-lg font-bold text-foreground">{formatUGX(real?.collectionsMtd ?? 0)}</span>
                   </div>
                 </div>
+                {real && real.collectionRows.length > 0 ? (
+                  <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                    {real.collectionRows.map((d) => (
+                      <div key={d.id} className="p-2.5 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">{tenantNameById.get(d.tenant_id) ?? 'Tenant'}</p>
+                          <p className="text-[10px] text-muted-foreground">{d.period_month} · {d.collection_status}</p>
+                        </div>
+                        <span className="font-bold text-foreground tabular-nums shrink-0">{formatUGX(d.amount_collected)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    No approved float yet — rent is only counted once it arrives on a tenant whose float application was approved.
+                  </p>
+                )}
+                {real && real.unapprovedCollectionsTotal > 0 ? (
+                  <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[11px] text-amber-800 dark:text-amber-300">
+                    {formatUGX(real.unapprovedCollectionsTotal)} received on tenants with no approved float
+                    application, so it is excluded from every real total above.
+                  </div>
+                ) : null}
               </div>
             )}
 
-            {/* Drilldown 7: Welile Net Revenue */}
+            {/* Drilldown: Welile share of rent actually received, listed */}
             {activeDrill === 'revenue' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-card border border-border/70 space-y-3">
-                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                    Platform Revenue Recognition
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Welile retains 8% of all collected rent as recognized platform operating income. The remaining 2% from the 10% fee pool is credited directly to certified agents who manage the tenant's daily collection.
-                  </p>
-                  <div className="space-y-2 pt-1 text-xs">
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">
-                      <span>Platform Fee (Welile Net)</span>
-                      <span className="font-bold text-fuchsia-600">8.0%</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">
-                      <span>Agent Commission</span>
-                      <span className="font-bold text-emerald-600">2.0%</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30">
-                      <span>Landlord Net Payout</span>
-                      <span className="font-bold text-sky-600">90.0%</span>
-                    </div>
-                  </div>
+              <div className="space-y-3">
+                <div className="p-3 rounded-xl bg-muted/40">
+                  <span className="text-[10px] text-muted-foreground uppercase block font-semibold">Welile net from collected rent</span>
+                  <span className="text-lg font-bold text-fuchsia-600">{formatUGX(welileNetTotal)}</span>
                 </div>
+                {real && real.collectionRows.some((d) => d.collection_status === 'collected') ? (
+                  <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                    {real.collectionRows.filter((d) => d.collection_status === 'collected').map((d) => (
+                      <div key={d.id} className="p-2.5 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between gap-3 text-xs">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground truncate">{tenantNameById.get(d.tenant_id) ?? 'Tenant'}</p>
+                          <p className="text-[10px] text-muted-foreground">{d.period_month}</p>
+                        </div>
+                        <span className="font-bold text-fuchsia-600 tabular-nums shrink-0">{formatUGX(d.welile_net)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    No approved float yet — nothing is recognised until rent arrives on a funded application.
+                  </p>
+                )}
               </div>
             )}
 
-            {/* Drilldown 8: Pending Landlord Payouts */}
+            {/* Drilldown: landlord share of collected rent awaiting payout, listed */}
             {activeDrill === 'payouts' && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-card border border-border/70 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
-                        Pending Payout Disbursement
-                      </h4>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {stats.pendingPayouts > 0
-                          ? `${formatUGX(stats.pendingPayouts)} due for automated batch disbursement.`
-                          : 'All landlord payouts are up to date!'}
-                      </p>
-                    </div>
-                    {stats.pendingPayouts > 0 && (
-                      <Badge variant="destructive" className="animate-pulse text-xs">
-                        Action Due
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-xs text-muted-foreground">
-                    <p className="flex items-center gap-1.5 font-medium text-foreground">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                      Automated Daily Settlement
-                    </p>
-                    <p className="mt-1 text-[11px] leading-relaxed">
-                      Landlord payouts are processed automatically on each landlord's scheduled cycle day (Day 5, 10, 15, 20, 25, 28) via the platform daily settlement cron.
-                    </p>
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-muted/40">
+                  <span className="text-[10px] text-muted-foreground uppercase font-semibold">Landlord share awaiting payout</span>
+                  <span className="text-lg font-bold text-amber-600">{formatUGX(pendingPayoutsTotal)}</span>
                 </div>
+                {real && real.collectionRows.some((d) => d.collection_status === 'collected' && d.payout_status === 'unpaid') ? (
+                  <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                    {real.collectionRows
+                      .filter((d) => d.collection_status === 'collected' && d.payout_status === 'unpaid')
+                      .map((d) => (
+                        <div key={d.id} className="p-2.5 rounded-xl bg-muted/20 border border-border/40 flex items-center justify-between gap-3 text-xs">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{tenantNameById.get(d.tenant_id) ?? 'Tenant'}</p>
+                            <p className="text-[10px] text-muted-foreground">{d.period_month}</p>
+                          </div>
+                          <span className="font-bold text-amber-600 tabular-nums shrink-0">{formatUGX(d.landlord_net)}</span>
+                        </div>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="p-4 rounded-xl bg-muted/30 text-xs text-muted-foreground">
+                    No approved float yet — no landlord payout is queued from tenants without an approved float application.
+                  </p>
+                )}
               </div>
             )}
           </div>
