@@ -34586,18 +34586,21 @@ export type Database = {
         Row: {
           auto_derecognition_counterpart: string | null
           id: boolean
+          stock_issue_counterpart: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           auto_derecognition_counterpart?: string | null
           id?: boolean
+          stock_issue_counterpart?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           auto_derecognition_counterpart?: string | null
           id?: boolean
+          stock_issue_counterpart?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -35223,6 +35226,81 @@ export type Database = {
           share_code?: string | null
           source?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      merchandise_stock_recognitions: {
+        Row: {
+          account: string
+          amount: number
+          amount_paid: number
+          counterpart: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          delivery_evidence: string | null
+          evidence_kind: string | null
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          item_name: string | null
+          ledger_group_id: string | null
+          origin: string
+          plan_ids: string[]
+          principal: number
+          sale_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account: string
+          amount: number
+          amount_paid?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          delivery_evidence?: string | null
+          evidence_kind?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          item_name?: string | null
+          ledger_group_id?: string | null
+          origin: string
+          plan_ids?: string[]
+          principal: number
+          sale_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account?: string
+          amount?: number
+          amount_paid?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          delivery_evidence?: string | null
+          evidence_kind?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          item_name?: string | null
+          ledger_group_id?: string | null
+          origin?: string
+          plan_ids?: string[]
+          principal?: number
+          sale_id?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -73432,6 +73510,15 @@ export type Database = {
         }
         Returns: Json
       }
+      _merch_post_stock_recognition: {
+        Args: {
+          p_actor: string
+          p_evidence: string
+          p_evidence_kind: string
+          p_review: string
+        }
+        Returns: Json
+      }
       _merch_receivable_event: {
         Args: { p_event: string; p_plan: string; p_sale: string }
         Returns: undefined
@@ -73440,6 +73527,12 @@ export type Database = {
         Args: { p_bike: boolean; p_plans: string[]; p_sale: string }
         Returns: Json
       }
+      _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
+      _merch_stock_queue: {
+        Args: { p_origin: string; p_sale: string }
+        Returns: string
+      }
+      _merch_stock_receivable_due: { Args: { p_sale: string }; Returns: Json }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -77747,6 +77840,10 @@ export type Database = {
       }
       cfo_post_merchandise_derecognition: {
         Args: { p_counterpart: string; p_note: string; p_review_id: string }
+        Returns: Json
+      }
+      cfo_post_merchandise_stock_recognition: {
+        Args: { p_delivery_evidence: string; p_review_id: string }
         Returns: Json
       }
       cfo_prepare_correction_decision: {
