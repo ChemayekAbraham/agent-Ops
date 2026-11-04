@@ -605,7 +605,7 @@ export function FunderCapitalOpportunities({
         body: { amount: angelAmount },
       });
       if (error) {
-        const msg = await extractFromErrorObject(error, 'Investment failed. Please try again.');
+        const msg = await extractFromErrorObject(error, 'Support failed. Please try again.');
         toast.error(msg);
         return;
       }
@@ -617,7 +617,7 @@ export function FunderCapitalOpportunities({
       window.dispatchEvent(new CustomEvent('supporter-contribution-changed'));
       window.dispatchEvent(new CustomEvent('wallet-balance-changed'));
     } catch (err: any) {
-      toast.error(err?.message || 'Investment failed');
+      toast.error(err?.message || 'Support failed');
     } finally {
       setInvestLoading(false);
     }

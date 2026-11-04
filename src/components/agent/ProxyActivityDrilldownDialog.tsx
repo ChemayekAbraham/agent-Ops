@@ -16,7 +16,7 @@ const money = (v: unknown) => formatDynamic(v);
 
 const KIND_LABEL: Record<ProxyPvActivityKind, string> = {
   commitments: 'Verified commitments',
-  investment: 'New partner investment',
+  investment: 'New partner support',
   topups: 'Partner top-ups',
 };
 

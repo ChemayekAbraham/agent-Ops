@@ -117,7 +117,7 @@ function OptionCards({ onSelect }: { onSelect: (pool: PoolType) => void }) {
           className="w-full h-11 rounded-2xl text-sm font-bold gap-2"
         >
           <Rocket className="h-4 w-4" />
-          Invest in Angel Pool
+          Support Angel Pool
         </Button>
       </div>
     </div>
@@ -137,7 +137,7 @@ export function InvestmentSelectionSheet({ open, onOpenChange, onSelect }: Inves
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[90vh]">
           <DrawerHeader className="text-left">
-            <DrawerTitle className="text-base font-black">Choose Your Investment</DrawerTitle>
+            <DrawerTitle className="text-base font-black">Choose Your Support</DrawerTitle>
             <DrawerDescription className="text-xs">
               Select where to allocate your capital
             </DrawerDescription>
@@ -154,7 +154,7 @@ export function InvestmentSelectionSheet({ open, onOpenChange, onSelect }: Inves
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
-          <DialogTitle className="text-base font-black">Choose Your Investment</DialogTitle>
+          <DialogTitle className="text-base font-black">Choose Your Support</DialogTitle>
           <DialogDescription className="text-xs">
             Select where to allocate your capital
           </DialogDescription>

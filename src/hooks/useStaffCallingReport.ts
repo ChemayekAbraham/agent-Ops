@@ -129,6 +129,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
   refused: 'Refused',
   'not reached': 'Not reached',
   'review recorded': 'Pipeline review',
+  awaiting_result: 'Awaiting result',
 };
 
 export function outcomeLabel(o: string | null | undefined): string {
@@ -259,13 +260,48 @@ export function themesOf(text: string): string[] {
   return out;
 }
 
-export function hasWrittenNote(r: Pick<EnrichedStaffCallingRow, 'feedback' | 'answered' | 'outcome'>): boolean {
-  return Boolean(r.feedback && (r.answered || ['verified', 'received', 'review recorded'].includes(r.outcome)));
+export function rowFeedbackThemes(
+  r: Pick<EnrichedStaffCallingRow, 'outcome' | 'feedback' | 'fb' | 'answered' | 'extra'>,
+): string[] {
+  const set = new Set<string>();
+  const isWrongNumber = r.outcome === 'wrong_number' || r.extra?.feedback_category === 'wrong_number';
+  const isPhoneOff = r.outcome === 'phone_off';
+
+  if (isWrongNumber) {
+    set.add('Wrong number');
+  }
+  if (isPhoneOff) {
+    set.add('Phone off');
+  }
+
+  if (hasWrittenNote(r)) {
+    for (const t of themesOf(r.fb)) {
+      if (isWrongNumber && t === 'Wrong person or wrong phone number') continue;
+      set.add(t);
+    }
+  }
+
+  return [...set];
 }
 
-// ------------------------------------------------------------------ Period Windows (Week Wed-Tue & Specific Month)
+export function hasWrittenNote(r: Pick<EnrichedStaffCallingRow, 'feedback' | 'answered' | 'outcome'>): boolean {
+  return Boolean(r.feedback && r.feedback.trim().length > 0 && r.outcome !== 'awaiting_result');
+}
 
-export type StaffReportPeriodMode = 'week' | 'month';
+export function hasFeedbackOrOutcomeTheme(
+  r: Pick<EnrichedStaffCallingRow, 'feedback' | 'answered' | 'outcome' | 'extra'>,
+): boolean {
+  return (
+    r.outcome === 'wrong_number' ||
+    r.outcome === 'phone_off' ||
+    r.extra?.feedback_category === 'wrong_number' ||
+    hasWrittenNote(r)
+  );
+}
+
+// ------------------------------------------------------------------ Period Windows (Week Wed-Tue, Specific Month & Custom Days)
+
+export type StaffReportPeriodMode = 'week' | 'month' | 'custom';
 
 export interface StaffCallingPeriodWindow {
   mode: StaffReportPeriodMode;
@@ -410,6 +446,40 @@ export function buildMonthPeriodWindow(yearMonth: string, todayYmd = kampalaToda
   };
 }
 
+/**
+ * Builds a custom date-range window (`startYmd` .. `endYmd` inclusive in Africa/Kampala).
+ * When `startYmd` and `endYmd` match a week or month boundary, `fromIso` and `toIso`
+ * are identical to `buildWeekPeriodWindow` / `buildMonthPeriodWindow`.
+ */
+export function buildCustomDaysPeriodWindow(startYmd: string, endYmd: string): StaffCallingPeriodWindow {
+  const cleanStart = /^\d{4}-\d{2}-\d{2}$/.test(startYmd) ? startYmd : kampalaTodayYmd();
+  const cleanEnd = /^\d{4}-\d{2}-\d{2}$/.test(endYmd) ? endYmd : cleanStart;
+  const [startDay, endDay] = cleanStart <= cleanEnd ? [cleanStart, cleanEnd] : [cleanEnd, cleanStart];
+  const nextDayAfterEnd = addUtcDays(endDay, 1);
+  const days = enumerateDays(startDay, endDay);
+
+  const sDate = new Date(`${startDay}T00:00:00Z`);
+  const eDate = new Date(`${endDay}T00:00:00Z`);
+  const sStr = `${String(sDate.getUTCDate()).padStart(2, '0')} ${MONTHS_SHORT[sDate.getUTCMonth()]} ${sDate.getUTCFullYear()}`;
+  const eStr = `${String(eDate.getUTCDate()).padStart(2, '0')} ${MONTHS_SHORT[eDate.getUTCMonth()]} ${eDate.getUTCFullYear()}`;
+  const isSingleDay = startDay === endDay;
+
+  return {
+    mode: 'custom',
+    startDay,
+    endDay,
+    fromIso: `${startDay}T00:00:00+03:00`,
+    toIso: `${nextDayAfterEnd}T00:00:00+03:00`,
+    periodLabel: isSingleDay
+      ? `Custom days: ${sStr} (00:00 - 23:59 EAT)`
+      : `Custom days: ${sStr} - ${eStr} (${days.length} days, 00:00 - 23:59 EAT)`,
+    shortLabel: isSingleDay ? sStr : `${sStr} - ${eStr}`,
+    timeRangeLabel: `${sStr} 00:00 EAT to ${eStr} 23:59 EAT`,
+    fileSlug: isSingleDay ? `Custom-${startDay}` : `Custom-${startDay}-to-${endDay}`,
+    days,
+  };
+}
+
 export function listRecentWedTueWeeks(count = 16, todayYmd = kampalaTodayYmd()) {
   const currentWed = getWedWeekStartYmd(todayYmd);
   return Array.from({ length: count }, (_, idx) => {
@@ -443,6 +513,12 @@ export function listRecentMonths(count = 12, todayYmd = kampalaTodayYmd()) {
 
 export interface StaffCallStats {
   total: number;
+  callsMade: number;
+  recordedCalls: number;
+  awaitingResultCalls: number;
+  headlineCallsMadeLabel: string;
+  excludedCrossSourceDupes: number;
+  excludedTestContacts: number;
   people: number;
   reached: number;
   notReached: number;
@@ -477,6 +553,7 @@ export interface ThemeBreakdownRow {
   value: number;
   sharePct: number;
   byStaff: Record<string, number>;
+  sampleNotes?: string[];
 }
 
 export interface DirectoryPersonRow {
@@ -548,11 +625,26 @@ export interface TeamCallingReportData {
   }>;
 }
 
+export function formatCallsMadeHeadline(
+  callsMade: number,
+  recordedCalls: number,
+  awaitingResultCalls: number,
+): string {
+  return `Calls made: ${callsMade.toLocaleString()} (${recordedCalls.toLocaleString()} recorded, ${awaitingResultCalls.toLocaleString()} awaiting a result)`;
+}
+
 export function computeStats(rs: EnrichedStaffCallingRow[]): StaffCallStats {
-  const known = rs.filter((r) => r.answered !== null && r.answered !== undefined);
+  const awaitingResultCalls = rs.filter((r) => r.outcome === 'awaiting_result').length;
+  const reviewOnly = rs.filter(
+    (r) => (r.answered === null || r.answered === undefined) && r.outcome !== 'awaiting_result',
+  ).length;
+  const known = rs.filter(
+    (r) => r.answered !== null && r.answered !== undefined && r.outcome !== 'awaiting_result',
+  );
+  const recordedCalls = known.length;
+  const callsMade = recordedCalls + awaitingResultCalls;
   const reached = known.filter((r) => r.answered === true).length;
   const notReached = known.filter((r) => r.answered === false).length;
-  const reviewOnly = rs.length - known.length;
   const people = new Set(rs.map((r) => r.pk));
   const byDay = new Map<string, EnrichedStaffCallingRow[]>();
   rs.forEach((r) => {
@@ -565,8 +657,27 @@ export function computeStats(rs: EnrichedStaffCallingRow[]): StaffCallStats {
   byDay.forEach((a, k) => {
     if (!busiest || a.length > busiest.n) busiest = { day: k, n: a.length };
   });
+
+  // Sum per-staff exclusion counts when rows span multiple staff members
+  const dupesByStaff = new Map<string, number>();
+  const testsByStaff = new Map<string, number>();
+  rs.forEach((r) => {
+    const d = Number(r.extra?.excluded_cross_source_dupes ?? 0);
+    const t = Number(r.extra?.excluded_test_contacts ?? 0);
+    dupesByStaff.set(r.staff_id, Math.max(dupesByStaff.get(r.staff_id) ?? 0, d));
+    testsByStaff.set(r.staff_id, Math.max(testsByStaff.get(r.staff_id) ?? 0, t));
+  });
+  const excludedCrossSourceDupes = [...dupesByStaff.values()].reduce((s, n) => s + n, 0);
+  const excludedTestContacts = [...testsByStaff.values()].reduce((s, n) => s + n, 0);
+
   return {
     total: rs.length,
+    callsMade,
+    recordedCalls,
+    awaitingResultCalls,
+    headlineCallsMadeLabel: formatCallsMadeHeadline(callsMade, recordedCalls, awaitingResultCalls),
+    excludedCrossSourceDupes,
+    excludedTestContacts,
     people: people.size,
     reached,
     notReached,
@@ -632,7 +743,7 @@ export function buildIndividualReportData(
   rs.forEach((r) => {
     const a = bySrc.get(r.src) || { n: 0, reached: 0, known: 0, notes: 0 };
     a.n += 1;
-    if (r.answered !== null && r.answered !== undefined) {
+    if (r.answered !== null && r.answered !== undefined && r.outcome !== 'awaiting_result') {
       a.known += 1;
       if (r.answered) a.reached += 1;
     }
@@ -663,12 +774,23 @@ export function buildIndividualReportData(
       tone: classifyOutcomeTone(label),
     }));
 
-  // Themes
+  // Themes (includes written notes + "Wrong number" and "Phone off" outcome categories with officer notes)
   const th = new Map<string, number>();
+  const thNotes = new Map<string, string[]>();
   let withNotes = 0;
-  rs.filter(hasWrittenNote).forEach((r) => {
+  rs.filter(hasFeedbackOrOutcomeTheme).forEach((r) => {
     withNotes += 1;
-    themesOf(r.fb).forEach((t) => th.set(t, (th.get(t) || 0) + 1));
+    const noteText = r.feedback ? cleanAscii(r.feedback) : '';
+    rowFeedbackThemes(r).forEach((t) => {
+      th.set(t, (th.get(t) || 0) + 1);
+      if (noteText) {
+        const list = thNotes.get(t) || [];
+        if (list.length < 3 && !list.includes(noteText)) {
+          list.push(noteText);
+          thNotes.set(t, list);
+        }
+      }
+    });
   });
   const themes: ThemeBreakdownRow[] = [...th.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -677,6 +799,7 @@ export function buildIndividualReportData(
       value,
       sharePct: withNotes ? Math.round((value / withNotes) * 100) : 0,
       byStaff: { [person.short]: value },
+      sampleNotes: thNotes.get(label) || [],
     }));
 
   // Directory of people called
@@ -763,17 +886,27 @@ export function buildTeamCallingReportData(
       tone: classifyOutcomeTone(label),
     }));
 
-  // Team themes
+  // Team themes (includes written notes + "Wrong number" and "Phone off" outcome categories with officer notes)
   const themeCount = new Map<string, number>();
   const themeBy = new Map<string, Record<string, number>>();
+  const themeNotes = new Map<string, string[]>();
   let withNotes = 0;
-  all.filter(hasWrittenNote).forEach((r) => {
+  all.filter(hasFeedbackOrOutcomeTheme).forEach((r) => {
     withNotes += 1;
-    themesOf(r.fb).forEach((t) => {
+    const noteText = r.feedback ? cleanAscii(r.feedback) : '';
+    rowFeedbackThemes(r).forEach((t) => {
       themeCount.set(t, (themeCount.get(t) || 0) + 1);
       const map = themeBy.get(t) || {};
       map[r.short_name] = (map[r.short_name] || 0) + 1;
       themeBy.set(t, map);
+      if (noteText) {
+        const list = themeNotes.get(t) || [];
+        const tagged = `${r.short_name}: ${noteText}`;
+        if (list.length < 3 && !list.includes(tagged)) {
+          list.push(tagged);
+          themeNotes.set(t, list);
+        }
+      }
     });
   });
   const themes: ThemeBreakdownRow[] = [...themeCount.entries()]
@@ -783,6 +916,7 @@ export function buildTeamCallingReportData(
       value,
       sharePct: withNotes ? Math.round((value / withNotes) * 100) : 0,
       byStaff: themeBy.get(label) || {},
+      sampleNotes: themeNotes.get(label) || [],
     }));
 
   // Calling Center & Calling Hub structured categories

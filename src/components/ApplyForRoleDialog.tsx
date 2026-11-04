@@ -108,7 +108,7 @@ export default function ApplyForRoleDialog({ open, onOpenChange, role, hasApplie
             <div className="bg-muted/50 border border-border/50 rounded-xl p-3 flex items-start gap-2">
               <ShieldCheck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
-                As a qualified investor with deployed capital, role access requires manager approval. This ensures platform security.
+                As a qualified supporter with deployed capital, role access requires manager approval. This ensures platform security.
               </p>
             </div>
 

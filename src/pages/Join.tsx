@@ -101,7 +101,7 @@ export default function Join() {
           </div>
           <CardTitle className="text-2xl">Welcome to Welile!</CardTitle>
           <CardDescription>
-            Join our platform to access rent support, invest as a supporter, or manage properties.
+            Join our platform to access rent support, become a supporter, or manage properties.
           </CardDescription>
 
           <div className="flex items-center justify-center mt-4">

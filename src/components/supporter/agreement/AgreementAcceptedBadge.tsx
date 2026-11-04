@@ -112,10 +112,10 @@ export function AgreementAcceptedBadge({
             isAnimating ? "text-white/80" : "text-emerald-600/70"
           )}>
             {isAnimating 
-              ? 'You can now start investing and helping tenants!'
+              ? 'You can now start supporting tenants!'
               : acceptedAt 
                 ? `Accepted on ${new Date(acceptedAt).toLocaleDateString()}`
-                : 'You have full access to investment features'
+                : 'You have full access to support features'
             }
           </p>
         </div>

@@ -38,9 +38,15 @@ export const QUESTION_PAYOUT_OTP =
 export const LABEL_LANDLORD_CONSENT = 'Landlord consent';
 export const LABEL_PAYOUT_OTP = 'Knew about payment code (OTP)';
 
-/** A short script the caller can read aloud to the landlord. */
+/** A short script the caller can read aloud to the landlord when verifying an existing Rent Plan payout. */
 export const LANDLORD_READ_ALOUD =
   'Hello, I am calling from Welile about the rent for your tenant. Welile will pay the rent to you directly, and we would like to confirm that you agree to receive it this way. When we pay you, you will get an SMS from WELILE with a 6-digit code that is valid for 1 hour. Please share that code only with the agent who is paying you, and with no one else.';
+
+export {
+  NEW_LANDLORD_PHONE_OPENING_SCRIPT,
+  NEW_LANDLORD_HOW_PAYMENT_WORKS_SCRIPT,
+  NEW_LANDLORD_CALLING_STEPS,
+} from './landlordPitchScript';
 
 /** What an older landlord call shows for a question it was not asked, or for the old merchant-code question. */
 export const OLD_QUESTION_LABEL = 'Old question';

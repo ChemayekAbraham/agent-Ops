@@ -375,7 +375,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                         {/* Tags */}
                         <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-primary/8 text-[9px] font-semibold text-primary">
-                            {entry.roi_percentage}% ROI
+                            {entry.roi_percentage}% Returns
                           </span>
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-muted text-[9px] font-semibold text-muted-foreground capitalize">
                             {entry.roi_mode.replace(/_/g, ' ')}
@@ -640,7 +640,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
               <div className="rounded-xl bg-muted/50 border p-3 space-y-1">
                 <p className="text-xs text-muted-foreground font-semibold">Available Capital</p>
                 <p className="text-xl font-black text-foreground">{formatAmount(withdrawDialog.maxAmount)}</p>
-                <p className="text-[11px] text-muted-foreground">You can withdraw part or all — the rest stays invested</p>
+                <p className="text-[11px] text-muted-foreground">You can withdraw part or all — the rest keeps supporting tenants</p>
               </div>
 
               <div className="space-y-1.5">
@@ -689,7 +689,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                       </div>
                       {remaining > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Stays Invested</span>
+                          <span className="text-muted-foreground">Keeps Supporting</span>
                           <span className="font-bold text-success">{formatAmount(remaining)}</span>
                         </div>
                       )}
