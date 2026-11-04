@@ -303,6 +303,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [editFor, setEditFor] = useState<WHSubscription | null>(null);
   const [deleteFor, setDeleteFor] = useState<WHSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletePortfolioFor, setDeletePortfolioFor] = useState<{ name: string; tenants: WHSubscription[] } | null>(null);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
 
   // Grouping and multi-landlord float selection
@@ -1129,6 +1130,19 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                     <Badge variant="outline" className="text-[11px] font-semibold text-primary border-primary/30 bg-primary/5">
                       {formatUGX(group.totalRent)}
                     </Badge>
+                    {mainTab === 'enrolled' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        title="Delete portfolio"
+                        aria-label={`Delete portfolio for ${group.name}`}
+                        onClick={() => setDeletePortfolioFor({ name: group.name, tenants: group.tenants })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
