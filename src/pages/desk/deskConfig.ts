@@ -177,9 +177,14 @@ export const DESKS: Desk[] = [
     ],
     tables: [
       {
+        id: 'onto-trend', feed: 'onto_trend', title: 'Last 7 days', rowKey: 'day_iso',
+        note: 'Newest first. Explained = share of recorded changes that say why. Desk actions = rent-request approvals across all desks that day.',
+        columns: [{ field: 'day_label', label: 'Day' }, { field: 'explained_share', label: 'Explained', fmt: 'pct', right: true }, { field: 'desk_actions', label: 'Desk actions', fmt: 'int', right: true }, { field: 'coo_approved', label: 'COO approved', fmt: 'int', right: true }, { field: 'funded', label: 'Funded', fmt: 'int', right: true }, { field: 'receipts_missing', label: 'Receipts missing', fmt: 'int', right: true }, { field: 'receipts_missing_ugx', label: 'Receipts missing (UGX)', fmt: 'ugx', right: true }, { field: 'funded_not_paid', label: 'Funded, not paid', fmt: 'int', right: true }, { field: 'failed_payouts', label: 'Failed payouts', fmt: 'int', right: true }, { field: 'idle_float', label: 'Idle float', fmt: 'int', right: true }],
+      },
+      {
         id: 'onto-heartbeat', feed: 'onto_actions', title: 'Desk heartbeat on the mapped day', rowKey: 'ord',
-        note: 'A desk with requests waiting and no action on a working day is stalled. Waiting is the queue at the time of the map.',
-        columns: [{ field: 'action', label: 'Ontology action' }, { field: 'desk', label: 'Desk' }, { field: 'n', label: 'Actions that day', fmt: 'int', right: true }, { field: 'waiting', label: 'Waiting', fmt: 'int', right: true }, DEC],
+        note: 'Clearing: actions covered the whole queue. Moving: at least a quarter of the queue cleared that day. Slow: under a quarter (assumption until desk leads agree). Stalled: requests waiting, no action. Days to clear = requests waiting ÷ that day\'s actions. Service Centre excludes the August 2026 batch.',
+        columns: [{ field: 'action', label: 'Ontology action' }, { field: 'desk', label: 'Desk' }, { field: 'n', label: 'Actions that day', fmt: 'int', right: true }, { field: 'waiting', label: 'Waiting', fmt: 'int', right: true }, { field: 'days_to_clear', label: 'Days to clear', fmt: 'days', right: true }, DEC],
       },
       {
         id: 'onto-clocks', feed: 'onto_clocks', title: 'Open money clocks', rowKey: 'ord',
@@ -222,5 +227,7 @@ export function feedsOf(desk: Desk): string[] {
   if (['coo', 'partner-ops', 'cfo', 'command'].includes(desk.id)) s.add('coo_kpis');
   // The command centre also carries a Customer Care card.
   if (desk.id === 'command') s.add('cc_owners');
+  // The Ontology desk's day picker lists the mapped days.
+  if (desk.id === 'ontology') s.add('onto_days');
   return Array.from(s);
 }

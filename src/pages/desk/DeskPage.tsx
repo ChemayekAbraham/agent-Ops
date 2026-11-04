@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { Navigate, NavLink, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Play, RefreshCw, Rows3, Square } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
@@ -94,6 +94,43 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
   );
 }
 
+/** Ontology only: choose which mapped day every onto_ feed shows. Stored as ?day=YYYY-MM-DD. */
+function DayPicker({ rows }: { rows: Record<string, unknown>[] }) {
+  const [params, setParams] = useSearchParams();
+  const chosen = params.get('day') ?? '';
+  const latest = rows.find((r) => r.latest === true || r.latest === 'true');
+  const latestIso = latest ? String(latest.day_iso) : '';
+  const value = chosen || latestIso;
+  const past = !!chosen && !!latestIso && chosen !== latestIso;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <label htmlFor="onto-day" className="text-muted-foreground">Day</label>
+      <select
+        id="onto-day"
+        value={value}
+        onChange={(e) => {
+          const next = new URLSearchParams(params);
+          if (!e.target.value || e.target.value === latestIso) next.delete('day');
+          else next.set('day', e.target.value);
+          setParams(next, { replace: true });
+        }}
+        className="rounded border border-border bg-background px-2 py-1 text-foreground"
+      >
+        {!value && <option value="">Latest</option>}
+        {rows.map((r) => {
+          const iso = String(r.day_iso);
+          return (
+            <option key={iso} value={iso}>
+              {iso === latestIso ? `Latest — ${String(r.day_label)}` : String(r.day_label)}
+            </option>
+          );
+        })}
+      </select>
+      {past && <span className="text-xs text-[hsl(var(--desk-lavender))]">Viewing a past day.</span>}
+    </div>
+  );
+}
+
 function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, FeedState>; board: boolean }) {
   const g: Getter = (ref) => (feeds[ref.feed]?.loading ? '—' : show(feeds[ref.feed]?.rows ?? [], ref));
   const anyLoading = Object.values(feeds).some((f) => f.loading);
@@ -115,6 +152,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
       <div className="space-y-1.5">
         <p className="text-sm text-muted-foreground">{desk.question}</p>
+        {desk.id === 'ontology' && <DayPicker rows={feeds.onto_days?.rows ?? []} />}
         {anyLoading ? (
           <SkeletonLead />
         ) : (
@@ -151,7 +189,10 @@ function DeskShell() {
   const mine = (roles ?? []) as unknown as string[];
   const allowed = DESKS.filter((d) => d.roles.some((r) => mine.includes(r)));
   const desk = allowed.find((d) => d.id === deskId);
-  const feeds = useDeskFeeds(desk ? feedsOf(desk) : []);
+  const [search] = useSearchParams();
+  const rawDay = search.get('day');
+  const day = desk?.id === 'ontology' && rawDay && /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : null;
+  const feeds = useDeskFeeds(desk ? feedsOf(desk) : [], day);
 
   // Board mode can walk itself through the desks for a wall display. Off unless asked for.
   const deskKey = desk?.id;
