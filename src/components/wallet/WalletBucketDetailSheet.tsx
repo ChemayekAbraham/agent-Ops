@@ -42,7 +42,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   landlord_payout: 'Paid landlord',
   partner_float_transfer_out: 'Partner transfer out',
   // withdrawable / commission
-  agent_rent_commission: 'Rent commission (10%)',
+  agent_rent_commission: 'Rent commission',
   rent_commission: 'Rent commission',
   agent_commission_earned: 'Commission earned',
   agent_commission: 'Commission earned',
@@ -98,9 +98,9 @@ const CATEGORY_REASON: Record<string, string> = {
   landlord_payout: 'You paid a landlord from float.',
   partner_float_transfer_out: 'Float moved from your wallet to your partner.',
 
-  agent_rent_commission: 'Your 10% earnings for collecting rent.',
+  agent_rent_commission: 'Your commission for collecting rent.',
   rent_commission: 'Earnings from a rent collection.',
-  agent_commission_earned: 'Your 10% earnings for paying a tenant’s rent.',
+  agent_commission_earned: 'Your commission for paying a tenant’s rent.',
   agent_commission: 'Earnings credited to you.',
   agent_commission_payout: 'Earnings released into your withdrawable balance.',
   agent_commission_payable: 'Platform recorded your earnings (matches your commission credit).',

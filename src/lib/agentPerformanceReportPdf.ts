@@ -92,7 +92,7 @@ export async function generateAgentPerformancePdf(opts: {
     { k: 'pct_paid',     w: 18, align: 'right',  label: '% Paid' },
     { k: 'collected',    w: 28, align: 'right',  label: 'Collected' },
     { k: 'payments',     w: 18, align: 'right',  label: 'Payments' },
-    { k: 'commission',   w: 28, align: 'right',  label: '10% Commission' },
+    { k: 'commission',   w: 28, align: 'right',  label: 'Commission' },
     { k: 'interest',     w: 26, align: 'right',  label: '0.5% Interest' },
     { k: 'wallet_total', w: 28, align: 'right',  label: 'Total Wallet' },
     { k: 'rate',         w: 18, align: 'right',  label: '% Rate' },

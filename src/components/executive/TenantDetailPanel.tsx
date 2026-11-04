@@ -720,6 +720,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
         tenantDeducted: Number(data.tenant_deducted) || 0,
         agentDeducted: Number(data.agent_deducted) || 0,
         commissionPaid: Number(data.commission_paid) || 0,
+        commissionRateLabel: typeof data.commission_rate_label === 'string' ? data.commission_rate_label : undefined,
         remainingBalance,
         requestedAmount,
         isPartial,
@@ -742,7 +743,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
   });
 
   // Reconcile the receipt against the posted collection ledger. Checks that the
-  // tenant/agent UGX deductions, total collected, 10% commission, and remaining
+  // tenant/agent UGX deductions, total collected, agent commission, and remaining
   // balance on the receipt match the double-entry ledger before download.
   const validateReceiptAgainstLedger = async (): Promise<{ ok: boolean; issues: string[] }> => {
     const r = lastReceipt;

@@ -95,17 +95,17 @@ IMPORTANT — WALLET SEPARATION:
 
 6.3 Commission Structure on Rent Repayments:
 
-A) Direct Agent Commission (5%)
-If YOU directly onboarded a tenant, you earn 5% commission on every rent repayment that tenant makes. This is your primary income stream — the more tenants you onboard, the more you earn continuously.
+A) Direct Agent Commission (8%)
+If YOU directly onboarded a tenant, you earn 8% commission on every rent repayment that tenant makes. This is your primary income stream — the more tenants you onboard, the more you earn continuously.
 
-B) Sub-Agent Commission (8%)
-If you are a Sub-Agent (recruited by another agent), you earn 8% commission on every rent repayment from tenants YOU onboarded. The remaining 2% goes to your recruiting (Super) Agent.
+B) Sub-Agent Commission (6%)
+If you are a Sub-Agent (recruited by another agent), you earn 6% commission on every rent repayment from tenants YOU onboarded. The remaining 2% goes to your recruiting (Super) Agent. Whitelisted and elite-ranked Sub-Agents keep the full 8%.
 
 C) Super Agent Override Commission (2%)
 If you recruit Sub-Agents, you earn 2% override commission on ALL rent repayments made by tenants onboarded by your Sub-Agents. This is PASSIVE INCOME — you earn without doing the field work yourself.
 
 Example: If your Sub-Agent onboards 50 tenants each paying UGX 300,000/month in rent repayments:
-• Your Sub-Agent earns: 8% × 300,000 × 50 = UGX 1,200,000/month
+• Your Sub-Agent earns: 6% × 300,000 × 50 = UGX 900,000/month
 • YOU earn as Super Agent: 2% × 300,000 × 50 = UGX 300,000/month (passive!)
 • With 10 Sub-Agents at this level = UGX 1,500,000/month passive income
 

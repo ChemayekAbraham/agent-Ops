@@ -1627,7 +1627,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   <p className="text-sm font-bold text-warning">This rent cycle was rejected</p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     The tenant still owes <strong className="font-mono">{formatUGX(summary.currentOutstanding)}</strong>.
-                    Reopen the cycle to collect from your float and earn 10% commission.
+                    Reopen the cycle to collect from your float and earn 8% commission.
                   </p>
                   <Button
                     onClick={handleReopenRejectedCycle}
@@ -1870,7 +1870,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 <div>
                   <p className="text-base font-bold text-success">Pay from Wallet Float</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">10% commission</strong> instantly.
+                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">8% commission</strong> instantly.
                   </p>
                 </div>
               </div>

@@ -32,8 +32,8 @@ interface Props {
 /**
  * Lets an agent reverse one of their own recent (≤7 days) tenant float
  * allocations. Money goes back to their landlord float bucket (tagged with the
- * same landlord name), the rent plan's amount_repaid is reduced, and the 10%
- * commission is clawed back. A reason of 10+ characters is required.
+ * same landlord name), the rent plan's amount_repaid is reduced, and the
+ * commission paid on it is clawed back. A reason of 10+ characters is required.
  */
 export function MarkNotFundedDialog({ open, onOpenChange, rentRequestId, tenantName, onReversed }: Props) {
   const { user } = useAuth();
@@ -129,7 +129,7 @@ export function MarkNotFundedDialog({ open, onOpenChange, rentRequestId, tenantN
           <DialogTitle>Mark {tenantName} as not funded</DialogTitle>
           <DialogDescription>
             Reverses a funding you previously made. Within 7 days it's instant — older fundings need CFO approval.
-            On reversal, the money goes back to your landlord float and your 10% commission is clawed back.
+            On reversal, the money goes back to your landlord float and the commission you earned on it is clawed back.
           </DialogDescription>
         </DialogHeader>
 

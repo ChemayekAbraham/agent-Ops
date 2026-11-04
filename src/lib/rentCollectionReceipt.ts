@@ -15,6 +15,8 @@ export interface RentCollectionReceiptData {
   tenantDeducted: number;
   agentDeducted: number;
   commissionPaid?: number;
+  /** Rate the server applied, e.g. "8%" or "6%". Derived from commissionPaid / totalCollected when absent. */
+  commissionRateLabel?: string;
   remainingBalance?: number;
   requestedAmount?: number; // amount the collector tried to take (for partial collections)
   isPartial?: boolean;      // true when this is a partial / shortfall collection
@@ -32,6 +34,23 @@ function safeRef(ref: string): string {
 
 export function rentCollectionReceiptFilename(data: RentCollectionReceiptData, ext: 'pdf' | 'xlsx'): string {
   return `rent_collection_${safeRef(data.reference)}.${ext}`;
+}
+
+/**
+ * "Agent commission (8%)" — never a hard-coded rate. The commission is 8% of a
+ * collection, or 6% for a sub-agent whose parent takes 2%, so the label comes
+ * from what the server actually paid.
+ */
+export function commissionLineLabel(data: RentCollectionReceiptData): string {
+  if (data.commissionRateLabel) return `Agent commission (${data.commissionRateLabel})`;
+  const paid = Number(data.commissionPaid);
+  const total = Number(data.totalCollected);
+  if (Number.isFinite(paid) && paid > 0 && Number.isFinite(total) && total > 0) {
+    // Commission is rounded to whole shillings, so round the rate to 0.5%.
+    const pct = Math.round((paid / total) * 200) / 2;
+    return `Agent commission (${pct}%)`;
+  }
+  return 'Agent commission';
 }
 
 function fmt(n: number, currency = CURRENCY): string {
@@ -107,7 +126,7 @@ async function renderPdf(data: RentCollectionReceiptData) {
   }
   drawLine('Total collected', fmt(data.totalCollected, currency), { bold: true });
   if (typeof data.commissionPaid === 'number' && data.commissionPaid > 0) {
-    drawLine('Agent commission (10%)', fmt(data.commissionPaid, currency), { muted: true });
+    drawLine(commissionLineLabel(data), fmt(data.commissionPaid, currency), { muted: true });
   }
   if (typeof data.remainingBalance === 'number') {
     drawLine(
@@ -182,7 +201,7 @@ export async function downloadRentCollectionReceiptXlsx(data: RentCollectionRece
     ['From tenant wallet', Math.round(data.tenantDeducted)],
     ['From linked agent wallet', Math.round(data.agentDeducted)],
     ['Total collected', Math.round(data.totalCollected)],
-    ...(typeof data.commissionPaid === 'number' ? [['Agent commission (10%)', Math.round(data.commissionPaid)]] : []),
+    ...(typeof data.commissionPaid === 'number' ? [[commissionLineLabel(data), Math.round(data.commissionPaid)]] : []),
     ...(typeof data.remainingBalance === 'number' ? [['Balance remaining', Math.round(data.remainingBalance)]] : []),
     ['Reason', data.reason],
   ];

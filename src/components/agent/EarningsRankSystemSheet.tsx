@@ -98,7 +98,7 @@ export function EarningsRankSystemSheet({ open, onOpenChange }: EarningsRankSyst
 
 💰 Earn UGX 500 per registration
 ✅ UGX 5,000 per approved rent request
-📈 Up to 10% commission on every repayment
+📈 Up to 8% commission on every repayment
 🎁 Recruit 2 agents → Unlock advances (300k-30M)
 🏍️ Get 50 repaying tenants → Win Electric Bike!
 
@@ -315,7 +315,7 @@ Start your journey: ${shareLink}`;
                       <p className="font-semibold text-success">If you have NO upline</p>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      You earn the full <span className="font-bold text-success">10%</span> of every tenant repayment.
+                      You earn the full <span className="font-bold text-success">8%</span> of every tenant repayment.
                     </p>
                   </div>
 
@@ -327,7 +327,7 @@ Start your journey: ${shareLink}`;
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm">You (Sub-Agent) earn</span>
-                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400">8%</Badge>
+                        <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400">6%</Badge>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm">Your Upline earns</span>
@@ -336,7 +336,7 @@ Start your journey: ${shareLink}`;
                       <Separator className="my-2" />
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium">Total System Payout</span>
-                        <Badge variant="outline">10% (Fixed)</Badge>
+                        <Badge variant="outline">8% (Fixed)</Badge>
                       </div>
                     </div>
                   </div>
