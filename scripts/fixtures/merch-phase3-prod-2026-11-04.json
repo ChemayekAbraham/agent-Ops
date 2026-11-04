@@ -1,0 +1,461 @@
+{
+ "ddl": {
+  "merchandise_accounting_controls": [
+   {
+    "c": "id",
+    "d": "true",
+    "n": "NO",
+    "t": "boolean"
+   },
+   {
+    "c": "auto_derecognition_counterpart",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_by",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   }
+  ],
+  "merchandise_receivable_derecognitions": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "subject_id",
+    "d": null,
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "sale_id",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   },
+   {
+    "c": "plan_ids",
+    "d": "'{}'::uuid[]",
+    "n": "NO",
+    "t": "text[]"
+   },
+   {
+    "c": "item_name",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "customer_id",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   },
+   {
+    "c": "is_bike",
+    "d": "false",
+    "n": "NO",
+    "t": "boolean"
+   },
+   {
+    "c": "events",
+    "d": "'[]'::jsonb",
+    "n": "NO",
+    "t": "jsonb"
+   },
+   {
+    "c": "a12_net",
+    "d": "0",
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "a13_net",
+    "d": "0",
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "cash_collected_net",
+    "d": "0",
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "flags",
+    "d": "'{}'::text[]",
+    "n": "NO",
+    "t": "text[]"
+   },
+   {
+    "c": "status",
+    "d": "'pending'::text",
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "counterpart",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "ledger_group_id",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   },
+   {
+    "c": "idempotency_key",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "decided_by",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   },
+   {
+    "c": "decided_at",
+    "d": null,
+    "n": "YES",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "decision_note",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   }
+  ],
+  "notifications": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "title",
+    "d": null,
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "message",
+    "d": null,
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "type",
+    "d": "'info'::text",
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "metadata",
+    "d": "'{}'::jsonb",
+    "n": "YES",
+    "t": "jsonb"
+   },
+   {
+    "c": "is_read",
+    "d": "false",
+    "n": "YES",
+    "t": "boolean"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "n": "YES",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "n": "YES",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "event_key",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "link_path",
+    "d": null,
+    "n": "YES",
+    "t": "text"
+   },
+   {
+    "c": "notification_log_id",
+    "d": null,
+    "n": "YES",
+    "t": "uuid"
+   },
+   {
+    "c": "dismissed_at",
+    "d": null,
+    "n": "YES",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "read_at",
+    "d": null,
+    "n": "YES",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "expires_at",
+    "d": null,
+    "n": "YES",
+    "t": "timestamp with time zone"
+   }
+  ],
+  "smartphone_roi_pledge_applications": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "plan_id",
+    "d": null,
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "reference",
+    "d": null,
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "roi_amount",
+    "d": null,
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "pledged_amount",
+    "d": null,
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "applied_amount",
+    "d": null,
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "outstanding_after",
+    "d": null,
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   }
+  ],
+  "smartphone_roi_pledges": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "n": "NO",
+    "t": "uuid"
+   },
+   {
+    "c": "mode",
+    "d": null,
+    "n": "NO",
+    "t": "text"
+   },
+   {
+    "c": "value",
+    "d": null,
+    "n": "NO",
+    "t": "numeric"
+   },
+   {
+    "c": "active",
+    "d": "true",
+    "n": "NO",
+    "t": "boolean"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "n": "NO",
+    "t": "timestamp with time zone"
+   }
+  ]
+ },
+ "md5": {
+  "_merch_post_stock_recognition": "913d14c37bac81b389d72c5d937f62f3",
+  "_merch_stock_queue": "1a059fc074b3f563f06cc91230b80b81",
+  "_merch_stock_receivable_due": "207408ebee59bc98fd0b0b37e2983857",
+  "allow_new": "a40a39f6e8eba041720e93fda4de7229",
+  "allow_old": "d1b408552ac7f96bb3b84a286261c7fd",
+  "cfo_post_merchandise_stock_recognition": "03ffd6281d7018dae250eddd3744195c",
+  "phone_new": "2034e5c247e2cf8eacfbd5573873f3f3",
+  "phone_old": "a3642e31906685a7cee1dbea3462ea1e",
+  "pledge_new": "c220bb27f307d55f43dfb6a8d37eff8e",
+  "pledge_old": "74ae9dca248b4b92e6e81a3bd472d997",
+  "trg_merch_stock_issue_event": "857125ed83e81a62f877b64c28e698d2"
+ },
+ "phones": [
+  [
+   "9b704619-2d97-44cb-a61e-5ba7ac6525f6",
+   165000
+  ],
+  [
+   "8c6a5ae9-8b38-42cd-a8aa-486dc95a298e",
+   165000
+  ],
+  [
+   "3d11c494-31b9-468a-a638-24921a83a0b5",
+   700000
+  ],
+  [
+   "548c49eb-d62b-4901-a3dd-7f745377a469",
+   1500000
+  ],
+  [
+   "85bce373-09ee-4d15-b130-8380e81fea0a",
+   165000
+  ],
+  [
+   "0a128951-9353-47c3-b51a-203e257ab582",
+   800000
+  ],
+  [
+   "561e4919-4a93-4961-a33f-5900d0f11276",
+   800000
+  ],
+  [
+   "c60db3db-334d-453e-89b8-aa1557535778",
+   950000
+  ]
+ ],
+ "pledges": [
+  {
+   "active": true,
+   "created_at": "2026-10-16T16:55:38.37003+00:00",
+   "id": "4db01ffa-4fa6-4f42-a538-ffd99ea61e69",
+   "mode": "percent",
+   "updated_at": "2026-11-03T10:52:35.132124+00:00",
+   "user_id": "1409e6e0-89e7-46a6-89c8-feb3207b1df9",
+   "value": 100
+  }
+ ],
+ "rejected_bikes": [
+  "dddc2333-efb2-4855-9ab7-f3d5c3793873",
+  "54c4c664-6004-4aab-a56c-b285050633cd"
+ ],
+ "stock": [
+  [
+   "cdd33740-b2ee-47ab-b49d-1c7a4e23db7b",
+   55000
+  ],
+  [
+   "9a8b2824-1241-40a1-b2ec-77519a66d2d4",
+   55000
+  ],
+  [
+   "d99c3173-a6c9-4168-af94-02e695cb398c",
+   55000
+  ],
+  [
+   "ded6710e-1a30-4f17-9f24-463de40081d4",
+   55000
+  ],
+  [
+   "bf40085c-dedc-44ef-9e38-d6170a57209a",
+   650000
+  ],
+  [
+   "4cf491c5-21b0-4366-9369-7a210b431013",
+   110000
+  ],
+  [
+   "882c5336-b5b0-4108-bbc3-11b004dde5c3",
+   35000
+  ]
+ ],
+ "triggers": [
+  "CREATE TRIGGER trg_bike_plan_complete_at_zero BEFORE UPDATE ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_bike_plan_complete_at_zero()",
+  "CREATE TRIGGER trg_bike_plan_completed_notify AFTER UPDATE OF status ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_bike_plan_completed_notify()",
+  "CREATE TRIGGER trg_bike_plan_unhold_starts_month1 BEFORE UPDATE OF recovery_hold ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_bike_plan_unhold_starts_month1()",
+  "CREATE TRIGGER trg_flag_bike_lease_plan BEFORE INSERT ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_flag_bike_lease_plan()",
+  "CREATE TRIGGER trg_merch_receivable_plan_delete BEFORE DELETE ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_merch_receivable_plan_event()",
+  "CREATE TRIGGER trg_merch_receivable_plan_status AFTER UPDATE OF status ON public.merchandise_recovery_plans FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) AND (new.status = 'cancelled'::text))) EXECUTE FUNCTION trg_merch_receivable_plan_event()",
+  "CREATE TRIGGER trg_zz_bike_plan_zero_daily_rate BEFORE INSERT OR UPDATE ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION trg_bike_plan_zero_daily_rate()",
+  "CREATE TRIGGER update_merch_recovery_plans_updated_at BEFORE UPDATE ON public.merchandise_recovery_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()",
+  "CREATE TRIGGER trg_create_merchandise_recovery_plan AFTER INSERT ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION create_merchandise_recovery_plan()",
+  "CREATE TRIGGER trg_merch_hold_for_handover BEFORE UPDATE OF order_status ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION trg_merch_hold_for_handover()",
+  "CREATE TRIGGER trg_merch_receivable_sale_delete BEFORE DELETE ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION trg_merch_receivable_sale_event()",
+  "CREATE TRIGGER trg_merch_receivable_sale_status AFTER UPDATE OF order_status ON public.merchandise_sales FOR EACH ROW WHEN (((old.order_status IS DISTINCT FROM new.order_status) AND (new.order_status = ANY (ARRAY['rejected'::text, 'failed'::text, 'cancelled'::text])))) EXECUTE FUNCTION trg_merch_receivable_sale_event()",
+  "CREATE TRIGGER trg_merch_stamp_fulfilment_type BEFORE INSERT ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION trg_merch_stamp_fulfilment_type()",
+  "CREATE TRIGGER trg_merchandise_sale_cascade_recovery BEFORE DELETE ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION merchandise_sale_cascade_recovery()",
+  "CREATE TRIGGER trg_merchandise_sync_completion BEFORE INSERT OR UPDATE OF order_status, amount_outstanding, amount_paid ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION merchandise_sync_completion()",
+  "CREATE TRIGGER trg_sync_bike_lease_from_sale AFTER INSERT OR UPDATE ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION sync_bike_lease_from_sale()",
+  "CREATE TRIGGER update_merchandise_sales_updated_at BEFORE UPDATE ON public.merchandise_sales FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()"
+ ]
+}
