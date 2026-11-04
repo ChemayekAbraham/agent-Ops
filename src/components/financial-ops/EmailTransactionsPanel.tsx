@@ -43,6 +43,7 @@ import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { DialableNumber } from './DialableNumber';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
 import { EmailTransactionsTableView } from './EmailTransactionsTableView';
+import { PageHeader } from './FinopsKit';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -180,28 +181,44 @@ export function EmailTransactionsPanel() {
     startHistoryQueue, historyQueueIndex, swipeNavigate, refreshRowStatus, gmailLabelCounts, gmailLabels,
     applyRecentWindow,
   } = useEmailTransactionsPanel();
+  // Which of the quick date windows (Today / 7 / 30 days) is currently applied.
+  const todayKeyNow = dateKeyInTz(new Date(), tz);
+  const windowStartKey = (days: number) => {
+    const [y, m, d] = todayKeyNow.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d) - (days - 1) * 86_400_000);
+    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
+  };
+  const isWindowActive = (days: number) => toDate === todayKeyNow && fromDate === windowStartKey(days);
   return (
     <div className="space-y-3.5">
-      {/* ── Page header + at-a-glance summary (all figures follow the current
-          date range and search, same as the list below). ── */}
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold tracking-tight">Email Transactions</h2>
-        <p className="text-sm text-muted-foreground">Live transactions extracted from connected Gmail</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[
-          { label: 'Emails in view', value: filteredRows.length.toLocaleString(), note: 'Read from connected Gmail' },
-          { label: 'Money in', value: `UGX ${Math.round(totalIn).toLocaleString()}`, note: 'Deposits read from email' },
-          { label: 'Awaiting routing', value: (unmatchedInCount + unmatchedOutCount).toLocaleString(), note: 'Need a wallet match' },
-          { label: 'Could not read', value: unparsedRows.length.toLocaleString(), note: 'A person needs to look' },
-        ].map((s) => (
-          <div key={s.label} className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-sm">
-            <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
-            <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{s.value}</span>
-            <span className="text-xs text-muted-foreground">{s.note}</span>
-          </div>
-        ))}
-      </div>
+      <PageHeader
+        icon={Mail}
+        title="Email Transactions"
+        description="Scan and process incoming deposit notifications from email."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="min-h-[44px] sm:min-h-[40px] gap-2"
+              onClick={() => { void load(); }}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
+            </Button>
+            <Button
+              className="min-h-[44px] sm:min-h-[40px] gap-2"
+              onClick={() => {
+                setSearchQuery('');
+                setPhoneQuery('');
+                setSearchOptionsOpen(true);
+                if (typeof document !== 'undefined') document.getElementById('email-tx-search')?.focus();
+              }}
+            >
+              <Search className="h-4 w-4" aria-hidden="true" /> New search
+            </Button>
+          </>
+        }
+      />
 
       {/* ── Top Workspace Tab Navigation ── */}
       <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
@@ -287,14 +304,11 @@ export function EmailTransactionsPanel() {
         >
           <Menu className="h-4 w-4" />
         </Button>
-        <div className="hidden sm:flex items-center gap-2 shrink-0 pl-1 pr-1">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium tracking-tight">Email transactions</span>
-        </div>
         <TelecomBalanceStrip refreshKey={rows[0]?.id ?? null} />
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <input
+            id="email-tx-search"
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -467,7 +481,12 @@ export function EmailTransactionsPanel() {
             key={p.label}
             type="button"
             onClick={() => applyRecentWindow(p.days)}
-            className="shrink-0 rounded-full border bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
+            aria-pressed={isWindowActive(p.days)}
+            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-medium shadow-sm transition-colors ${
+              isWindowActive(p.days)
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'bg-card text-foreground hover:bg-muted'
+            }`}
           >
             {p.label}
           </button>
