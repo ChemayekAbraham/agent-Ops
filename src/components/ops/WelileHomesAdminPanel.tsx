@@ -16,6 +16,7 @@ import { WhHistoricalDisbursementsPanel, WhPlanHistoricalSection } from '@/compo
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { advanceWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
 import { WhFloatRequestTenantIds } from '@/components/welile-homes/WhTenantIdentity';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
@@ -27,7 +28,7 @@ import {
   Smartphone, UserCheck, X, CheckCircle2, ArrowRight, ArrowUpRight,
   Filter, Info, ShieldCheck, Sparkles, AlertCircle, ChevronRight, ChevronDown, ChevronUp, Phone,
   LayoutDashboard, ArrowLeft, Calendar, ClipboardList, Inbox, Trash2, History, UserPlus, FileText, MoreHorizontal,
-  BarChart3, XCircle, Lock
+  BarChart3, XCircle, Lock, RotateCcw
 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { WelileHomesMobileBottomNav } from './WelileHomesMobileBottomNav';
@@ -680,6 +681,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   // Applications calculations & grouping
   const totalFloatRequired = useMemo(() => activeRows.reduce((s, r) => s + (Number(r.monthly_rent) || 0), 0), [activeRows]);
   const unverifiedTenantsCount = useMemo(() => activeRows.filter((r) => !r.tenant_verified).length, [activeRows]);
+  const { data: floatHistory } = useWhFloatHistory(floatRequests.map((f) => f.id));
   const pendingFloatRequestsCount = useMemo(() => floatRequests.filter((f) => f.status === 'pending').length, [floatRequests]);
 
   const applicationsByLandlord = useMemo(() => {
@@ -806,11 +808,13 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   // through the new flow (which records exactly which tenants the request covers).
   const [rejectReq, setRejectReq] = useState<FloatRequestItem | null>(null);
   const [rejectNote, setRejectNote] = useState('');
+  const [rejectMode, setRejectMode] = useState<'reject' | 'return'>('reject');
   const [rejectingReq, setRejectingReq] = useState(false);
 
-  const openRejectRequest = (req: FloatRequestItem) => {
+  const openRejectRequest = (req: FloatRequestItem, mode: 'reject' | 'return' = 'reject') => {
     setRejectReq(req);
-    setRejectNote('Please request again from your Welile Homes screen so the tenants are linked to the request.');
+    setRejectMode(mode);
+    setRejectNote(mode === 'return' ? '' : 'Please request again from your Welile Homes screen so the tenants are linked to the request.');
   };
 
   const confirmRejectRequest = async () => {
@@ -820,10 +824,12 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       await advanceWelileHomesFloat({
         requestId: rejectReq.id,
         expectedStatus: rejectReq.status,
-        action: 'reject',
+        action: rejectMode,
         note: rejectNote,
       });
-      toast.success(`Float request from ${rejectReq.agent_name || 'agent'} rejected. Tenants stay enrolled.`);
+      toast.success(rejectMode === 'return'
+        ? `Float request returned to ${rejectReq.agent_name || 'the agent'} with your reason.`
+        : `Float request from ${rejectReq.agent_name || 'agent'} rejected. Tenants stay enrolled.`);
       setRejectReq(null);
       await load();
     } catch (err: unknown) {
@@ -2127,6 +2133,20 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                               <span>Reject with note</span>
                             </Button>
 
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openRejectRequest(req, 'return');
+                              }}
+                              disabled={forwardingId === req.id || rejectingReq}
+                              className="h-8 px-2.5 sm:px-3 text-xs font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              <span>Return to agent</span>
+                            </Button>
+
                             <div className="text-muted-foreground">
                               {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </div>
@@ -2136,6 +2156,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                         {/* Attached Tenant Applications */}
                         {isExpanded && (
                           <div className="p-3 sm:p-4 pt-2 sm:pt-2 space-y-2.5 bg-muted/5 border-t border-border/40">
+                            <WhFloatStageTrail status={req.status} events={floatHistory?.get(req.id)} compact />
                             <WhFloatRequestTenantIds requestId={req.id} />
                             {matchingTenants.length > 0 ? (
                               matchingTenants.map((t) => (
@@ -3853,7 +3874,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2">
               <XCircle className="h-5 w-5" />
-              Reject float request
+              {rejectMode === 'return' ? 'Return float request to the agent' : 'Reject float request'}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               {rejectReq?.agent_name || 'Agent'} · {formatUGX(Number(rejectReq?.requested_amount) || 0)}.
@@ -3893,7 +3914,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
               className="h-8 text-xs font-semibold gap-1.5 cursor-pointer"
             >
               {rejectingReq ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-              Reject request
+              {rejectMode === 'return' ? 'Return to agent' : 'Reject request'}
             </Button>
           </DialogFooter>
         </DialogContent>

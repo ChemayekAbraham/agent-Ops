@@ -32,8 +32,9 @@ import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '
 import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordPortfolioAction';
 import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
 import { fetchTenantIdentities, isIdComplete, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
+import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
 import {
-  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, fetchWhFloatLinkIds,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
 } from '@/lib/welileHomesPlanStatus';
 import { UgLocationPicker } from '@/components/location/UgLocationPicker';
@@ -311,6 +312,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [floatRequests, setFloatRequests] = useState<any[]>([]);
   // Recorded facts behind each plan's stage and delete lock (see src/lib/welileHomesPlanStatus.ts).
   const [floatLinks, setFloatLinks] = useState<Map<string, string>>(new Map());
+  const [floatLinkIds, setFloatLinkIds] = useState<Map<string, string>>(new Map());
+  const { data: floatHistory } = useWhFloatHistory(Array.from(new Set(floatLinkIds.values())));
   const [collectedSubIds, setCollectedSubIds] = useState<Set<string>>(new Set());
   const [collectionsUnknown, setCollectionsUnknown] = useState(true);
   // Landlord OTP state per landlord phone key (server-decided, see wh_my_portfolio_status).
@@ -382,6 +385,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       // Float request linked to each subscription (empty until the float-link migration).
       try {
         const dbLinks = await fetchWhFloatLinks();
+        fetchWhFloatLinkIds().then(setFloatLinkIds).catch(() => {});
         // Resilient fallback: merge with locally recorded pending float links for this agent
         const localKey = `wh_pending_float_subs_${user.id}`;
         let localSaved: Record<string, string> = {};
@@ -1296,7 +1300,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                           {/* Float Approval Stepper (Shown while float request traverses pipeline) */}
                           {(() => {
                             const fp = getSubscriptionPipeline(s);
-                            if (!fp.isPending) return null;
+                            if (!fp.isPending && fp.stage !== 'request_returned') return null;
                             return (
                               <div className="rounded-lg border border-border/60 bg-muted/30 p-2 space-y-1">
                                 <div className="flex items-center justify-between text-[11px]">
@@ -1305,20 +1309,11 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                   </span>
                                   <span className="text-[10px] text-muted-foreground">{fp.label}</span>
                                 </div>
-                                <div className="grid grid-cols-4 gap-1 text-[10px] pt-0.5">
-                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_agent_ops' ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
-                                    1. Agent Ops
-                                  </div>
-                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_tenant_ops' ? "bg-amber-500/20 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
-                                    2. Tenant Ops
-                                  </div>
-                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_coo' ? "bg-blue-500/20 border-blue-500/40 text-blue-700 dark:text-blue-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
-                                    3. COO
-                                  </div>
-                                  <div className={cn("text-center py-1 rounded border", fp.stage === 'pending_cfo' ? "bg-purple-500/20 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold" : "bg-background/50 border-border/40 text-muted-foreground")}>
-                                    4. CFO Allocates
-                                  </div>
-                                </div>
+                                {(() => {
+                                  const rid = floatLinkIds.get(s.id);
+                                  const st = floatLinks.get(s.id);
+                                  return rid && st ? <WhFloatStageTrail status={st} events={floatHistory?.get(rid)} compact /> : null;
+                                })()}
                               </div>
                             );
                           })()}

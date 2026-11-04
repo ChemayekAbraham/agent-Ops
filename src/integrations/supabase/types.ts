@@ -66696,6 +66696,50 @@ export type Database = {
           },
         ]
       }
+      wh_float_request_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          float_request_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          stage: string | null
+          to_status: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_float_request_events_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wh_historical_disbursements: {
         Row: {
           agent_id: string | null
@@ -74109,6 +74153,8 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
       _wh_hist_can_read: { Args: never; Returns: boolean }
       _wh_hist_can_write: { Args: never; Returns: boolean }
       _wh_is_tenant_agent: {
@@ -96758,6 +96804,20 @@ export type Database = {
         }
         Returns: Json
       }
+      wh_float_request_history: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          action: string
+          actor_id: string
+          actor_name: string
+          created_at: string
+          float_request_id: string
+          from_status: string
+          note: string
+          stage: string
+          to_status: string
+        }[]
+      }
       wh_float_request_tenant_ids: {
         Args: { p_request_id: string }
         Returns: {
@@ -96766,6 +96826,23 @@ export type Database = {
           subscription_id: string
           tenant_id: string
           tenant_name: string
+        }[]
+      }
+      wh_float_review_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          created_at: string
+          expected_recipient_phone: string
+          id: string
+          reason: string
+          rejection_reason: string
+          requested_amount: number
+          status: string
+          tenant_count: number
+          updated_at: string
         }[]
       }
       wh_hist_overview: {
