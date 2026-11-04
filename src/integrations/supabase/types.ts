@@ -313,6 +313,27 @@ export type Database = {
           },
         ]
       }
+      agent_advance_exception_runs: {
+        Row: {
+          counts: Json
+          exceptions: Json
+          id: string
+          run_at: string
+        }
+        Insert: {
+          counts: Json
+          exceptions: Json
+          id?: string
+          run_at?: string
+        }
+        Update: {
+          counts?: Json
+          exceptions?: Json
+          id?: string
+          run_at?: string
+        }
+        Relationships: []
+      }
       agent_advance_ledger: {
         Row: {
           adjustment_amount: number
@@ -384,6 +405,27 @@ export type Database = {
             referencedColumns: ["advance_id"]
           },
         ]
+      }
+      agent_advance_op_guard: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          key: string
+          op: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          key: string
+          op: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          key?: string
+          op?: string
+        }
+        Relationships: []
       }
       agent_advance_pause_events: {
         Row: {
@@ -1136,6 +1178,164 @@ export type Database = {
           },
         ]
       }
+      agent_advance_transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          cross_account_reason: string | null
+          destination_type: string
+          from_advance_id: string
+          from_agent_id: string
+          from_outstanding_after: number
+          from_outstanding_before: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string | null
+          moved_a10: number
+          moved_a11: number
+          moved_a20: number
+          not_previously_booked: number
+          reason: string
+          source_closed: boolean
+          to_advance_id: string
+          to_agent_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          cross_account_reason?: string | null
+          destination_type: string
+          from_advance_id: string
+          from_agent_id: string
+          from_outstanding_after: number
+          from_outstanding_before: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id?: string | null
+          moved_a10?: number
+          moved_a11?: number
+          moved_a20?: number
+          not_previously_booked?: number
+          reason: string
+          source_closed: boolean
+          to_advance_id: string
+          to_agent_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          cross_account_reason?: string | null
+          destination_type?: string
+          from_advance_id?: string
+          from_agent_id?: string
+          from_outstanding_after?: number
+          from_outstanding_before?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string | null
+          moved_a10?: number
+          moved_a11?: number
+          moved_a20?: number
+          not_previously_booked?: number
+          reason?: string
+          source_closed?: boolean
+          to_advance_id?: string
+          to_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_transfers_from_advance_id_fkey"
+            columns: ["from_advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_from_advance_id_fkey"
+            columns: ["from_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_to_advance_id_fkey"
+            columns: ["to_advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_to_advance_id_fkey"
+            columns: ["to_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
+      agent_advance_write_off_requests: {
+        Row: {
+          advance_id: string
+          amount: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          ledger_group_id: string | null
+          reason: string
+          requested_at: string
+          requested_by: string
+          status: string
+          used_at: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          reason: string
+          requested_at?: string
+          requested_by: string
+          status?: string
+          used_at?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_write_off_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_write_off_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       agent_advances: {
         Row: {
           access_fee: number | null
@@ -1153,6 +1353,7 @@ export type Database = {
           daily_rate: number
           deduction_paused: boolean
           expires_at: string
+          funding_type: string
           gate_override: boolean
           id: string
           installment_amount: number | null
@@ -1179,6 +1380,8 @@ export type Database = {
           reversed_by: string | null
           roi_recovery_percent: number
           status: string
+          transfer_id: string | null
+          transferred_from_advance_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1197,6 +1400,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          funding_type?: string
           gate_override?: boolean
           id?: string
           installment_amount?: number | null
@@ -1223,6 +1427,8 @@ export type Database = {
           reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
+          transfer_id?: string | null
+          transferred_from_advance_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1241,6 +1447,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          funding_type?: string
           gate_override?: boolean
           id?: string
           installment_amount?: number | null
@@ -1267,6 +1474,8 @@ export type Database = {
           reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
+          transfer_id?: string | null
+          transferred_from_advance_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -35376,6 +35585,75 @@ export type Database = {
         }
         Relationships: []
       }
+      merchandise_unrecorded_sales: {
+        Row: {
+          amount_paid: number | null
+          client_name: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          flags: string[]
+          id: string
+          item_name: string | null
+          order_status: string | null
+          payment_plan: string | null
+          quantity: number | null
+          recorded_by: string | null
+          sale_date: string | null
+          sale_id: string
+          status: string
+          total_revenue: number | null
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          client_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          flags?: string[]
+          id?: string
+          item_name?: string | null
+          order_status?: string | null
+          payment_plan?: string | null
+          quantity?: number | null
+          recorded_by?: string | null
+          sale_date?: string | null
+          sale_id: string
+          status?: string
+          total_revenue?: number | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number | null
+          client_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          flags?: string[]
+          id?: string
+          item_name?: string | null
+          order_status?: string | null
+          payment_plan?: string | null
+          quantity?: number | null
+          recorded_by?: string | null
+          sale_date?: string | null
+          sale_id?: string
+          status?: string
+          total_revenue?: number | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       merchant_agent_referrals: {
         Row: {
           beneficiary_id: string
@@ -65468,6 +65746,48 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_reversal_links: {
+        Row: {
+          advance_id: string | null
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          original_group_id: string
+          posted_at: string | null
+          reference: string
+          reversal_group_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          advance_id?: string | null
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          original_group_id: string
+          posted_at?: string | null
+          reference: string
+          reversal_group_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          advance_id?: string | null
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          original_group_id?: string
+          posted_at?: string | null
+          reference?: string
+          reversal_group_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_routing_v2_corrections: {
         Row: {
           amount_moved: number
@@ -73671,6 +73991,31 @@ export type Database = {
         Args: { p_advance_id: string }
         Returns: Record<string, unknown>
       }
+      _agent_advance_assert_new_money: {
+        Args: {
+          p_agent: string
+          p_amount: number
+          p_exclude: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      _agent_advance_book_balance: {
+        Args: { p_advance: string }
+        Returns: Json
+      }
+      _agent_advance_guard: {
+        Args: { p_op: string; p_parts: string }
+        Returns: undefined
+      }
+      _agent_advance_post_write_off: {
+        Args: { p_actor: string; p_request_id: string }
+        Returns: string
+      }
+      _agent_advance_transfer_lookalike: {
+        Args: { p_agent: string; p_amount: number; p_exclude: string }
+        Returns: Json
+      }
       _agent_collections_app_error_included: {
         Args: {
           p_component_stack: string
@@ -74422,6 +74767,10 @@ export type Database = {
         Returns: string
       }
       _merch_stock_receivable_due: { Args: { p_sale: string }; Returns: Json }
+      _merch_unrecorded_sale_check: {
+        Args: { p_origin: string; p_sale: string }
+        Returns: string
+      }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -78998,6 +79347,22 @@ export type Database = {
           user_id: string
         }[]
       }
+      cfo_transfer_agent_advance: {
+        Args: {
+          p_amount?: number
+          p_cross_account_reason?: string
+          p_destination: string
+          p_from_advance: string
+          p_idempotency_key: string
+          p_new_agent_id?: string
+          p_new_cycle_days?: number
+          p_new_recovery_source?: string
+          p_new_roi_percent?: number
+          p_reason: string
+          p_to_advance?: string
+        }
+        Returns: Json
+      }
       cfo_welile_homes_day_report: { Args: { p_day: string }; Returns: Json }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }
@@ -80151,6 +80516,10 @@ export type Database = {
       current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
+      decide_agent_advance_write_off: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: Json
+      }
       decide_agent_vetting: {
         Args: { p_agent_id: string; p_approve: boolean; p_note?: string }
         Returns: Json
@@ -81707,6 +82076,7 @@ export type Database = {
           visits_count: number
         }[]
       }
+      get_agent_advance_exceptions: { Args: never; Returns: Json }
       get_agent_advance_limits: {
         Args: { _limit?: number; _offset?: number; _search?: string }
         Returns: {
@@ -92972,6 +93342,10 @@ export type Database = {
         Args: { p_message: string; p_withdrawal_id: string }
         Returns: string
       }
+      request_agent_advance_write_off: {
+        Args: { p_advance_id: string; p_reason: string }
+        Returns: Json
+      }
       request_agent_unallocation: {
         Args: {
           p_agent_id: string
@@ -93102,6 +93476,16 @@ export type Database = {
       }
       reserve_merchant_float: {
         Args: { p_agent_id?: string; p_withdrawal_id: string }
+        Returns: Json
+      }
+      reserve_wallet_reversal: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_original_group: string
+          p_reference: string
+          p_user: string
+        }
         Returns: Json
       }
       reset_agent_float_if_stale: {
@@ -93317,6 +93701,7 @@ export type Database = {
         Args: { p_override_id: string; p_reason: string }
         Returns: undefined
       }
+      run_agent_advance_reconciliation: { Args: never; Returns: string }
       run_agreement_contradiction_check: {
         Args: { p_trigger?: string }
         Returns: string
@@ -93812,6 +94197,10 @@ export type Database = {
       }
       settle_tenant_rent_from_deposit: {
         Args: { p_deposit_request_id: string }
+        Returns: Json
+      }
+      settle_wallet_reversal: {
+        Args: { p_link_id: string; p_reversal_group: string }
         Returns: Json
       }
       share_onboarding_get: {
