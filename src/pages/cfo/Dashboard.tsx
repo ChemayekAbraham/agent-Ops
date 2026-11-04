@@ -482,7 +482,7 @@ export default function CFODashboardPage() {
             <div>
               <h1 className="text-xl font-bold">Welile Motorbikes</h1>
               <p className="text-sm text-muted-foreground">
-                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery. Files you have already released stay listed here and open read-only.
+                Applications approved by the COO. Releasing one pays the assigned supplier and starts the agent's daily recovery. Files you have already released stay listed here and open read-only, with what was paid out and what the books carry.
               </p>
             </div>
             <BikeLeaseApprovalQueue stage="cfo" />

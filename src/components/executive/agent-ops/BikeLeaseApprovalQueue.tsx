@@ -32,6 +32,7 @@ import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
+import { bikeReleaseDifference } from './BikeLeaseReleaseBooks';
 import { BikeLeaseSupplierAssign, useBikeLeaseSupplier } from './BikeLeaseSupplierAssign';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
@@ -651,6 +652,14 @@ export function BikeLeaseApprovalQueue({
                         ) : (
                           <td className="py-2 pr-3 text-right font-semibold">
                             {formatUGX(Number(o.valuation_amount || 0))}
+                            {bikeReleaseDifference(o) !== 0 && (
+                              <p
+                                className="text-[10px] font-medium text-amber-600"
+                                title="Paid out at release differs from the bike value; open the file for the books"
+                              >
+                                paid out {formatUGX(Number(o.disbursed_amount || 0))}
+                              </p>
+                            )}
                           </td>
                         )}
                         <td className="py-2 pr-3 text-right">{o.lease_term_months || 12}m</td>
