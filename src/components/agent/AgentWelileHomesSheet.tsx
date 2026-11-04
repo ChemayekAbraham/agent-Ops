@@ -28,6 +28,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '@/lib/welileHomesLandlordVerify';
+import { WhLandlordPortfolioAction } from './WhLandlordPortfolioAction';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks,
   WH_STAGE_META, type WhPlanStage, type WhStageMeta,
@@ -309,6 +311,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const [floatLinks, setFloatLinks] = useState<Map<string, string>>(new Map());
   const [collectedSubIds, setCollectedSubIds] = useState<Set<string>>(new Set());
   const [collectionsUnknown, setCollectionsUnknown] = useState(true);
+  // Landlord OTP state per landlord phone key (server-decided, see wh_my_portfolio_status).
+  const [portfolioStatus, setPortfolioStatus] = useState<Map<string, PortfolioStatus>>(new Map());
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -339,6 +343,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         });
       }
       setSubs(list);
+      fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => setPortfolioStatus(new Map()));
 
       // Which plans have collections or landlord payouts recorded (locks Delete).
       // A failed read locks every plan rather than offering Delete on unknown history.
@@ -541,7 +546,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     displayedSubs.forEach((s) => {
       const name = (s.landlord_name || '').trim() || 'Unassigned Landlord';
       const phone = (s.landlord_phone || '').trim();
-      const key = `${name.toLowerCase()}|${phone}`;
+      const key = landlordPhoneKey(phone) ?? `${name.toLowerCase()}|${phone}`;
       let group = map.get(key);
       if (!group) {
         group = {
@@ -823,12 +828,6 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </CardContent>
       </Card>
 
-      {pendingConfirmation > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-          <Clock className="h-3.5 w-3.5 shrink-0" />
-          {pendingConfirmation} {pendingConfirmation === 1 ? 'tenant is' : 'tenants are'} unverified. Tap Verify to send them a verification SMS.
-        </div>
-      )}
 
       <Button
         className="w-full gap-2 bg-primary text-primary-foreground font-bold shadow-xs h-10 sm:h-11 rounded-xl text-sm"
@@ -1102,6 +1101,36 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                   </div>
                 </div>
 
+                {mainTab === 'enrolled' && (() => {
+                  const portfolio = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && getSubscriptionPipeline(t).canRequestFloat);
+                  if (portfolio.length === 0) return null;
+                  const st = portfolioStatus.get(landlordPhoneKey(group.phone) ?? '');
+                  return (
+                    <div className="p-3 border-b bg-card">
+                      <WhLandlordPortfolioAction
+                        landlordName={group.name}
+                        landlordPhone={group.phone}
+                        tenantCount={portfolio.length}
+                        totalRent={portfolio.reduce((a, t) => a + (Number(t.monthly_rent) || 0), 0)}
+                        verified={!!st?.verified}
+                        verifiedAt={st?.verifiedAt}
+                        onVerified={() => fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => { })}
+                        onRequestFloat={() => {
+                          setSelectedTenantIds(new Set(portfolio.map((t) => t.id)));
+                          setRequestFloatOpen(true);
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
+                {mainTab === 'in_progress' && (
+                  <div className="p-3 border-b bg-card">
+                    <WhLandlordPortfolioAction landlordName={group.name} landlordPhone={group.phone} tenantCount={0} totalRent={0}
+                      verified={false} stageLabel={(() => { const lp = getLandlordPipeline(group); return (lp.stage === 'requested' || lp.stage === 'pending_agent_ops') ? 'Pending – awaiting Agent Ops review' : lp.label; })()}
+                      onVerified={() => { }} onRequestFloat={() => { }} />
+                  </div>
+                )}
+
                 {/* Tenants under this landlord */}
                 {!isCollapsed && (
                   <div className="p-2 space-y-2 bg-background/50">
@@ -1286,15 +1315,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                       </Button>
                                     );
                                   }
-                                  return (
-                                    <Button size="sm" className="gap-1.5 h-8 text-xs bg-primary text-primary-foreground font-semibold shadow-xs"
-                                      onClick={() => {
-                                        setSelectedTenantIds(new Set([s.id]));
-                                        setRequestFloatOpen(true);
-                                      }}>
-                                      <Banknote className="h-3.5 w-3.5" /> {fp.stage === 'request_rejected' ? 'Request Float Again' : 'Request Float'}
-                                    </Button>
-                                  );
+                                  return null; // Float is requested once per landlord portfolio, above.
                                 })()}
                                 {(() => {
                                   if (getSubscriptionPipeline(s).isLocked) {
@@ -1336,7 +1357,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       )}
 
       {/* Sticky / Fixed Floating Action Bar for Total Float Request */}
-      {selectedTenants.length > 0 && (
+      {false && selectedTenants.length > 0 && (
         <div
           className={cn(
             isPage
@@ -3612,256 +3633,6 @@ function EnrollDialog({
   );
 }
 
-// ---------------- Verify tenant dialog ----------------
-function VerifyTenantDialog({ sub, onClose, onDone, autoSend = false }: {
-  sub: WHSubscription | null; onClose: () => void; onDone: () => void; autoSend?: boolean;
-}) {
-  const { toast } = useToast();
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(180);
-  const autoSentSubRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
-
-  // 3-minute live countdown timer
-  useEffect(() => {
-    if (!sent || !expiresAt) return;
-    const updateCountdown = () => {
-      const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-      setSecondsLeft(remaining);
-      if (remaining <= 0) {
-        setOtpError('Verification code has expired (3-minute limit). Please tap "Send a New Code" below.');
-      }
-    };
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [sent, expiresAt]);
-
-  const phone = sub?.tenant_phone?.trim() || '';
-
-  const sendOtp = async () => {
-    if (!phone) { toast({ title: 'This tenant has no phone number', variant: 'destructive' }); return; }
-    setSending(true); setOtpError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone, category: 'welile_homes_tenant_verify', purpose: 'welile_homes_tenant_verify' },
-      });
-      if (error) throw new Error(error.message || 'Could not send the code');
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const exp = Date.now() + 180 * 1000;
-      setExpiresAt(exp);
-      setSecondsLeft(180);
-      setSent(true);
-      setOtpValue('');
-      setCooldown(60);
-      toast({ title: '6-digit verification code sent', description: `Sent to ${phone}. Valid for 3 minutes.` });
-    } catch (err: any) {
-      toast({ title: 'Could not send verification SMS', description: err.message, variant: 'destructive' });
-    } finally { setSending(false); }
-  };
-
-  useEffect(() => {
-    if (sub) {
-      setSent(false);
-      setOtpValue('');
-      setOtpError(null);
-      setCooldown(0);
-      setExpiresAt(null);
-      setSecondsLeft(180);
-
-      if (autoSend && sub.tenant_phone?.trim() && autoSentSubRef.current !== sub.id) {
-        autoSentSubRef.current = sub.id;
-        sendOtp();
-      }
-    } else {
-      autoSentSubRef.current = null;
-    }
-  }, [sub?.id, autoSend]);
-
-  const formatTimer = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
-
-  const verifyOtp = async (code: string) => {
-    if (!sub) return;
-    if (secondsLeft <= 0 || (expiresAt && Date.now() > expiresAt)) {
-      setOtpError('Verification code has expired (3-minute limit). Please tap "Send a New Code".');
-      return;
-    }
-    setVerifying(true); setOtpError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone, otp: code, category: 'welile_homes_tenant_verify', purpose: 'welile_homes_tenant_verify' },
-      });
-      if (error) throw new Error('Invalid or expired code');
-      if ((data as any)?.error) throw new Error((data as any).error);
-      if (!(data as any)?.success) throw new Error('Verification failed');
-
-      const { data: markRes, error: markErr } = await supabase.rpc('welile_home_mark_tenant_verified', {
-        p_subscription_id: sub.id,
-      });
-      if (markErr) throw markErr;
-      if (!(markRes as any)?.success) throw new Error((markRes as any)?.error || 'Could not mark tenant verified');
-
-      toast({ title: 'Tenant verified', description: `${sub.tenant_name} is now verified and eligible for float requests.` });
-      onClose();
-      onDone();
-    } catch (err: any) {
-      setOtpValue('');
-      setOtpError(err.message || 'Verification failed');
-    } finally { setVerifying(false); }
-  };
-
-  return (
-    <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader className="space-y-1">
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <ShieldCheck className="h-5 w-5 text-primary shrink-0" /> Verify Tenant Phone
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            {sent
-              ? `Enter the 6-digit code sent to ${phone}. Code expires in 3 minutes.`
-              : `Send a 6-digit SMS verification code to ${sub?.tenant_name || 'this tenant'} on ${phone || 'no phone on file'}.`}
-          </DialogDescription>
-        </DialogHeader>
-
-        {sent ? (
-          <div className="space-y-4">
-            {/* Expiration Timer Card */}
-            <div className="rounded-xl border bg-muted/30 p-3 space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground flex items-center gap-1.5 font-medium">
-                  <Clock className={cn("h-3.5 w-3.5", secondsLeft > 0 ? "text-primary" : "text-destructive")} />
-                  Code Expiration:
-                </span>
-                <span className={cn(
-                  "font-mono font-bold px-2 py-0.5 rounded-md text-xs",
-                  secondsLeft > 60
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : secondsLeft > 0
-                    ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 animate-pulse"
-                    : "bg-destructive/15 text-destructive border border-destructive/30"
-                )}>
-                  {secondsLeft > 0 ? formatTimer(secondsLeft) : 'Expired (00:00)'}
-                </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {secondsLeft > 0
-                  ? `Sent to ${phone}. Code is valid for 3 minutes.`
-                  : `Code expired. Tap "Send a New 3-Minute Code" below to request a fresh code.`}
-              </p>
-            </div>
-
-            <div className="flex justify-center">
-              <InputOTP
-                maxLength={6}
-                value={otpValue}
-                disabled={verifying || secondsLeft <= 0}
-                onChange={(v) => {
-                  setOtpValue(v);
-                  setOtpError(null);
-                  if (v.length === 6) verifyOtp(v);
-                }}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
-            </div>
-
-            {verifying && (
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin shrink-0" /> Verifying code…
-              </div>
-            )}
-            {otpError && (
-              <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive text-center">
-                {otpError}
-              </div>
-            )}
-
-            {secondsLeft <= 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={sendOtp}
-                disabled={sending}
-                className="w-full gap-2 border-primary/30 text-primary hover:bg-primary/10 h-10 rounded-xl text-xs font-semibold"
-              >
-                {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                Send a New 3-Minute Code
-              </Button>
-            ) : (
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => { if (cooldown === 0 && !sending) sendOtp(); }}
-                  disabled={cooldown > 0 || sending || verifying}
-                  className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  {cooldown > 0 ? `Resend code in ${cooldown}s` : sending ? 'Sending…' : 'Resend code'}
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="rounded-xl border bg-muted/20 p-3 space-y-2 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tenant:</span>
-                <span className="font-semibold text-foreground">{sub?.tenant_name}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Phone:</span>
-                <span className="font-mono font-medium text-foreground">{phone || 'None'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Validity:</span>
-                <span className="font-medium text-foreground">6-digit code · 3 minutes expiry</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground text-center">
-              Tenant verification is required before float can be requested.
-            </p>
-            <DialogFooter className="pt-2">
-              <Button
-                className="w-full gap-2 h-11 rounded-xl text-xs sm:text-sm font-semibold"
-                onClick={sendOtp}
-                disabled={sending || !phone}
-              >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <ShieldCheck className="h-4 w-4 shrink-0" />}
-                Send 6-Digit Verification SMS
-              </Button>
-            </DialogFooter>
-          </div>
-        )}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------- Edit dialog ----------------
 function PreviewRow({ label, oldText, newText, changed }: {
   label: string; oldText: string; newText: string; changed: boolean;
 }) {

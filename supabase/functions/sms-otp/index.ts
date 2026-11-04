@@ -621,7 +621,8 @@ Deno.serve(async (req) => {
       // callers that only ever set `purpose` are tagged for free.
       const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
       const isTenantVerify = category === "welile_homes_tenant_verify" || purpose === "welile_homes_tenant_verify";
-      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : 60 * 60 * 1000;
+      const isLandlordPortfolioVerify = category === "welile_homes_landlord_verify" || purpose === "welile_homes_landlord_verify";
+      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : isLandlordPortfolioVerify ? 10 * 60 * 1000 : 60 * 60 * 1000;
 
       // Every limit (per phone, per account, per network) is checked and counted in ONE locked
       // database step, so simultaneous requests are serialized and cannot all slip under a cap.
@@ -690,6 +691,8 @@ Deno.serve(async (req) => {
         ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
           `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
           `If you did NOT authorise this, ignore this message.`
+        : isLandlordPortfolioVerify
+        ? `Welile Homes: your agent is registering ${Math.max(0, Math.min(500, Number(body.tenant_count) || 0)) || "your"} tenants under you for a Rent Plan. If you agree, share this code with them: ${otp}. It expires in 10 minutes.`
         : isTenantVerify
         ? `Your Welile Homes tenant verification code is: ${otp}. It expires in 3 minutes. Do not share this code.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;

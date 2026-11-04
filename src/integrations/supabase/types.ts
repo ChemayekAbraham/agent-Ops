@@ -66683,6 +66683,48 @@ export type Database = {
           },
         ]
       }
+      wh_landlord_portfolio_verifications: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          landlord_name: string | null
+          landlord_phone_key: string
+          landlord_phone_sent: string
+          subscription_ids: string[]
+          tenant_count: number
+          total_monthly_rent: number
+          verified_at: string
+          verified_by: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          landlord_name?: string | null
+          landlord_phone_key: string
+          landlord_phone_sent: string
+          subscription_ids: string[]
+          tenant_count: number
+          total_monthly_rent?: number
+          verified_at?: string
+          verified_by: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          landlord_name?: string | null
+          landlord_phone_key?: string
+          landlord_phone_sent?: string
+          subscription_ids?: string[]
+          tenant_count?: number
+          total_monthly_rent?: number
+          verified_at?: string
+          verified_by?: string
+        }
+        Relationships: []
+      }
       wishlists: {
         Row: {
           created_at: string
@@ -73949,6 +73991,15 @@ export type Database = {
       }
       _wh_hist_can_read: { Args: never; Returns: boolean }
       _wh_hist_can_write: { Args: never; Returns: boolean }
+      _wh_owns_landlord_key: {
+        Args: { p_agent: string; p_key: string }
+        Returns: boolean
+      }
+      _wh_phone_key: { Args: { p: string }; Returns: string }
+      _wh_portfolio_subs: {
+        Args: { p_agent: string; p_key: string }
+        Returns: string[]
+      }
       _wh_resolve_landlord_ref: {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
@@ -96610,6 +96661,20 @@ export type Database = {
       wh_hist_search_plans: { Args: { p_search: string }; Returns: Json }
       wh_landlord_delete_blockers: {
         Args: { p_landlord_id: string }
+        Returns: Json
+      }
+      wh_my_portfolio_status: {
+        Args: never
+        Returns: {
+          current_count: number
+          landlord_phone_key: string
+          phone_sent: string
+          verified: boolean
+          verified_at: string
+        }[]
+      }
+      wh_portfolio_verify_landlord: {
+        Args: { p_code: string; p_landlord_phone: string }
         Returns: Json
       }
       wh_request_float: {
