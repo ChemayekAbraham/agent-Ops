@@ -166,6 +166,17 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     });
       data = res.data;
       fnErr = res.error;
+      // A non-2xx reply gives data=null and a generic "Edge Function returned a
+      // non-2xx status code"; the function's real reason (e.g. user_not_found,
+      // code_in_progress, not_authorized) is in the response body.
+      const ctx = (res.error as any)?.context;
+      if (res.error && ctx && typeof ctx.json === 'function') {
+        try {
+          const body = await ctx.json();
+          if (body && typeof body === 'object') data = body;
+          if (body?.message || body?.error) fnErr = null;
+        } catch { /* body was not JSON; keep the generic message */ }
+      }
     } catch (e) {
       fnErr = { message: e instanceof Error ? e.message : 'Network problem' };
     }

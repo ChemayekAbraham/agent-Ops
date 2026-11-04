@@ -82,6 +82,13 @@ export default defineConfig(({ mode }) => {
   server: {
     host: "::",
     port: 8080,
+    // Uploaded images (MTN/Airtel logos etc.) are imported via *.asset.json
+    // pointers whose URL is /__l5e/assets-v1/... — a path only the hosted app
+    // serves. Locally it falls through to the SPA and returns index.html, so the
+    // <img> renders empty. Dev-only: forward it to production. Not in the build.
+    proxy: {
+      "/__l5e": { target: "https://welileapp.com", changeOrigin: true, secure: true },
+    },
   },
   plugins: [
     react(),
