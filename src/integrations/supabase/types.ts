@@ -73572,6 +73572,10 @@ export type Database = {
         Args: { p_amount: number; p_on: string; p_plan_id: string }
         Returns: Json
       }
+      _merch_order_marked_issued: {
+        Args: { p_channel: string; p_status: string }
+        Returns: boolean
+      }
       _merch_post_derecognition: {
         Args: {
           p_actor: string
@@ -73599,6 +73603,7 @@ export type Database = {
         Returns: Json
       }
       _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
+      _merch_stock_on_issue: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_queue: {
         Args: { p_origin: string; p_sale: string }
         Returns: string
@@ -83307,6 +83312,10 @@ export type Database = {
       }
       get_map_query_metrics: { Args: { p_hours?: number }; Returns: Json }
       get_maps_browser_key: { Args: never; Returns: string }
+      get_merchandise_receivables_reconciliation: {
+        Args: { p_with_balance_sheet?: boolean }
+        Returns: Json
+      }
       get_merchandise_share_code: {
         Args: { p_catalog_id: string }
         Returns: string
