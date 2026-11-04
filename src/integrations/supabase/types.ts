@@ -67066,6 +67066,60 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_nin_check_log: {
+        Row: {
+          agent_id: string
+          checked_at: string
+          id: number
+          result: string
+          source: string
+        }
+        Insert: {
+          agent_id: string
+          checked_at?: string
+          id?: number
+          result: string
+          source: string
+        }
+        Update: {
+          agent_id?: string
+          checked_at?: string
+          id?: number
+          result?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_draft_cleanup_log: {
+        Row: {
+          drafts_deleted: number
+          id: number
+          photos_deleted: number
+          photos_failed: number
+          reminders_sent: number
+          run_at: string
+          run_date: string
+        }
+        Insert: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Update: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Relationships: []
+      }
       wh_tenant_drafts: {
         Row: {
           agent_id: string
@@ -74624,6 +74678,7 @@ export type Database = {
         Args: { p_tenant: string; p_uid: string }
         Returns: boolean
       }
+      _wh_nin_checks_last_hour: { Args: { p_agent: string }; Returns: number }
       _wh_owns_landlord_key: {
         Args: { p_agent: string; p_key: string }
         Returns: boolean
@@ -97429,6 +97484,23 @@ export type Database = {
           verified_at: string
         }[]
       }
+      wh_nin_check: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: Json
+      }
+      wh_nin_check_activity: {
+        Args: { p_hours?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          blocked: number
+          checks: number
+          enrol_duplicates: number
+          in_use: number
+          last_check: string
+        }[]
+      }
       wh_nin_in_use: {
         Args: { p_nin: string; p_tenant_id?: string }
         Returns: boolean
@@ -97448,6 +97520,11 @@ export type Database = {
       wh_set_tenant_identity: {
         Args: { p_nin: string; p_photo_path: string; p_tenant_id: string }
         Returns: Json
+      }
+      wh_tenant_drafts_cleanup: { Args: never; Returns: Json }
+      wh_touch_tenant_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
       }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }

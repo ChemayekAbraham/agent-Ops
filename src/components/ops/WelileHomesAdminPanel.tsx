@@ -12,6 +12,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { formatUGX } from '@/lib/rentCalculations';
+import { WhNinCheckActivityPanel } from '@/components/welile-homes/WhNinCheckActivityPanel';
 import { WhHistoricalDisbursementsPanel, WhPlanHistoricalSection } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -1234,6 +1235,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       </div>
 
       <WhHistoricalDisbursementsPanel mode="ops" />
+      <WhNinCheckActivityPanel />
 
       {/* OVERVIEW TAB CONTENT */}
       {activeTab === 'overview' ? (
