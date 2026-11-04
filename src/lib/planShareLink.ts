@@ -47,15 +47,19 @@ export function planShareDescription(plan: SharePlanInput): string {
  * Branded host for every user-facing share link. This is the ONLY host that may
  * appear in a WhatsApp message, native share sheet, copied link or the UI.
  *
- * The backend `og-plan` edge function stays internal: `welileapp.com/s/<code>`
- * is served by the Cloudflare Worker in `infra/share-proxy/` (route
- * `welileapp.com/s/*`), which PROXIES the function so crawlers receive the
- * per-plan Open Graph head (house photo, rent, returns) at the branded URL.
+ * The backend `og-plan` edge function stays internal: `share.welileapp.com/s/<code>`
+ * is served by the Vercel edge function in `infra/share-host/`, which PROXIES
+ * the function so crawlers receive the per-plan Open Graph head (house photo,
+ * rent, returns) at the branded URL. welileapp.com itself is hosted by Lovable
+ * and only ever returns the app shell, whose preview is the Welile logo.
  * Never build a share URL from VITE_SUPABASE_URL.
  */
 export const SHARE_LINK_HOST =
   (import.meta.env.VITE_SHARE_LINK_HOST as string | undefined)?.replace(/\/+$/, '') ||
-  'https://welileapp.com';
+  'https://share.welileapp.com';
+
+/** The app itself, where humans land after a share link. */
+const APP_HOST = 'https://welileapp.com';
 
 /** Public, branded share URL for a short-link code — safe to expose anywhere. */
 export function planShareUrl(code: string): string {
@@ -64,7 +68,7 @@ export function planShareUrl(code: string): string {
 
 /** SPA route a human lands on after the branded link returns its metadata. */
 export function planShareDestinationUrl(code: string): string {
-  return `${SHARE_LINK_HOST}/?share=${code}`;
+  return `${APP_HOST}/?share=${code}`;
 }
 
 /**
