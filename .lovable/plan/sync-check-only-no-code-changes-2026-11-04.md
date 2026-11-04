@@ -1,7 +1,8 @@
 Sync check only: no code changes.
 
-- Merge commit `e4425f2ce6` is already in my copy's history. My copy is now at `1d7a22a4e1`, which comes after it.
-- The grant migration `20261104140000` and the renamed `20261103100001` file are both there.
-- I won't re-run any migration. I won't touch the Financial Ops board files, docs 258, the README or the architecture map unless I sync again first.
+- Commit `cbade4c0fd` is already in my copy's history.
+- The migration `20261104230000_agent_commission_8pct.sql` and the hook `useMyCommissionRate.ts` are present.
+- I won't re-run the migration or redeploy the edge functions.
+- I won't revert the 8% / 6% / 2% rates or the commission copy.
 
 Nothing to build.
