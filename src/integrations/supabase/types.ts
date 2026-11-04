@@ -29829,6 +29829,7 @@ export type Database = {
           full_name: string
           guaranteed_12m_income: number | null
           id: string
+          is_test_contact: boolean
           number_of_units: number
           phone: string
           property_location: string
@@ -29843,6 +29844,7 @@ export type Database = {
           full_name: string
           guaranteed_12m_income?: number | null
           id?: string
+          is_test_contact?: boolean
           number_of_units?: number
           phone: string
           property_location: string
@@ -29857,6 +29859,7 @@ export type Database = {
           full_name?: string
           guaranteed_12m_income?: number | null
           id?: string
+          is_test_contact?: boolean
           number_of_units?: number
           phone?: string
           property_location?: string
@@ -31419,6 +31422,7 @@ export type Database = {
           id: string
           is_agent_managed: boolean | null
           is_occupied: boolean
+          is_test_contact: boolean
           latitude: number | null
           location_captured_at: string | null
           location_captured_by: string | null
@@ -31500,6 +31504,7 @@ export type Database = {
           id?: string
           is_agent_managed?: boolean | null
           is_occupied?: boolean
+          is_test_contact?: boolean
           latitude?: number | null
           location_captured_at?: string | null
           location_captured_by?: string | null
@@ -31581,6 +31586,7 @@ export type Database = {
           id?: string
           is_agent_managed?: boolean | null
           is_occupied?: boolean
+          is_test_contact?: boolean
           latitude?: number | null
           location_captured_at?: string | null
           location_captured_by?: string | null
@@ -34576,6 +34582,27 @@ export type Database = {
         }
         Relationships: []
       }
+      merchandise_accounting_controls: {
+        Row: {
+          auto_derecognition_counterpart: string | null
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_derecognition_counterpart?: string | null
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_derecognition_counterpart?: string | null
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       merchandise_catalog: {
         Row: {
           created_at: string
@@ -34671,6 +34698,78 @@ export type Database = {
           supplier?: string | null
           total_cost?: number
           unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merchandise_receivable_derecognitions: {
+        Row: {
+          a12_net: number
+          a13_net: number
+          cash_collected_net: number
+          counterpart: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          events: Json
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          is_bike: boolean
+          item_name: string | null
+          ledger_group_id: string | null
+          plan_ids: string[]
+          sale_id: string | null
+          status: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          a12_net?: number
+          a13_net?: number
+          cash_collected_net?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          events?: Json
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          is_bike?: boolean
+          item_name?: string | null
+          ledger_group_id?: string | null
+          plan_ids?: string[]
+          sale_id?: string | null
+          status?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          a12_net?: number
+          a13_net?: number
+          cash_collected_net?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          events?: Json
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          is_bike?: boolean
+          item_name?: string | null
+          ledger_group_id?: string | null
+          plan_ids?: string[]
+          sale_id?: string | null
+          status?: string
+          subject_id?: string
           updated_at?: string
         }
         Relationships: []
@@ -43766,6 +43865,7 @@ export type Database = {
           is_frozen: boolean
           is_seller: boolean
           is_test: boolean
+          is_test_contact: boolean
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
@@ -43885,6 +43985,7 @@ export type Database = {
           is_frozen?: boolean
           is_seller?: boolean
           is_test?: boolean
+          is_test_contact?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -44004,6 +44105,7 @@ export type Database = {
           is_frozen?: boolean
           is_seller?: boolean
           is_test?: boolean
+          is_test_contact?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -44405,6 +44507,84 @@ export type Database = {
             referencedColumns: ["note_id"]
           },
         ]
+      }
+      promissory_note_derecognitions: {
+        Row: {
+          a7_derecognised: number
+          a7_recognised: number
+          agent_id: string | null
+          approval_bonus_paid: boolean | null
+          bonus_net: number
+          created_at: string
+          delete_action: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          ledger_group_id: string | null
+          note_amount: number | null
+          note_id: string
+          note_status: string | null
+          origin: string
+          partner_name: string | null
+          partner_user_id: string | null
+          recognition_group_id: string | null
+          review_status: string
+          total_collected: number | null
+        }
+        Insert: {
+          a7_derecognised?: number
+          a7_recognised?: number
+          agent_id?: string | null
+          approval_bonus_paid?: boolean | null
+          bonus_net?: number
+          created_at?: string
+          delete_action?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          ledger_group_id?: string | null
+          note_amount?: number | null
+          note_id: string
+          note_status?: string | null
+          origin: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          recognition_group_id?: string | null
+          review_status?: string
+          total_collected?: number | null
+        }
+        Update: {
+          a7_derecognised?: number
+          a7_recognised?: number
+          agent_id?: string | null
+          approval_bonus_paid?: boolean | null
+          bonus_net?: number
+          created_at?: string
+          delete_action?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          ledger_group_id?: string | null
+          note_amount?: number | null
+          note_id?: string
+          note_status?: string | null
+          origin?: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          recognition_group_id?: string | null
+          review_status?: string
+          total_collected?: number | null
+        }
+        Relationships: []
       }
       promissory_note_fulfilment_notices: {
         Row: {
@@ -73132,12 +73312,42 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      _merch_manual_split_safe: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
+      }
+      _merch_post_derecognition: {
+        Args: {
+          p_actor: string
+          p_counterpart: string
+          p_note: string
+          p_review: string
+        }
+        Returns: Json
+      }
+      _merch_receivable_event: {
+        Args: { p_event: string; p_plan: string; p_sale: string }
+        Returns: undefined
+      }
+      _merch_receivable_net: {
+        Args: { p_bike: boolean; p_plans: string[]; p_sale: string }
+        Returns: Json
+      }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
           existing_count: number
           existing_total: number
         }[]
+      }
+      _partner_receivable_derecognise_deleted: {
+        Args: {
+          p_note_id: string
+          p_partner_name: string
+          p_reason: string
+          p_status: string
+        }
+        Returns: Json
       }
       _partner_statement_build: { Args: { p_user_id: string }; Returns: Json }
       _pf_identity: { Args: { p_oid: unknown }; Returns: string }
@@ -73307,6 +73517,14 @@ export type Database = {
           transfer_total: number
           user_id: string
         }[]
+      }
+      _smartphone_recovery_split: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
+      }
+      _smartphone_recovery_split_safe: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
       }
       _special_advance_allocate: {
         Args: { p_amount: number; p_due: Json }
@@ -77408,6 +77626,10 @@ export type Database = {
           total_paye: number
           total_reinvest: number
         }[]
+      }
+      cfo_post_merchandise_derecognition: {
+        Args: { p_counterpart: string; p_note: string; p_review_id: string }
+        Returns: Json
       }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
@@ -89186,6 +89408,7 @@ export type Database = {
           is_frozen: boolean
           is_seller: boolean
           is_test: boolean
+          is_test_contact: boolean
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
@@ -89658,6 +89881,7 @@ export type Database = {
         Returns: Json
       }
       pipeline_request_score: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
       pipeline_send_back_reasons: {
         Args: { p_agent_id?: string; p_days?: number }
