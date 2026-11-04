@@ -24,6 +24,13 @@ const Body = z.discriminatedUnion("action", [
     pdfBase64: z.string().min(100).max(15_000_000),
   }),
   z.object({ action: z.literal("cancel"), id: z.string().uuid(), reason: z.string().trim().min(10).max(500) }),
+  z.object({
+    action: z.literal("sign_on_behalf"),
+    id: z.string().uuid(),
+    shareholderName: z.string().trim().min(3).max(120),
+    shareholderSignature: z.string().startsWith("data:image/").max(700_000),
+    typedSignature: z.boolean().default(false),
+  }),
 ]);
 
 function b64ToBytes(b64: string): Uint8Array {
@@ -63,6 +70,30 @@ Deno.serve(async (req) => {
         logSystemEvent(admin, "account_activated", row.shareholder_id, "share_onboarding_requests", row.id, { action: "share_onboarding.cancelled", reason: body.reason }),
         admin.from("audit_logs").insert({ user_id: user.id, action_type: "share_onboarding_cancelled",
           table_name: "share_onboarding_requests", record_id: row.id, reason: body.reason }),
+      ]);
+      return json({ ok: true });
+    }
+
+    if (body.action === "sign_on_behalf") {
+      // Partner Ops fills the shareholder's part for them. No money moves here;
+      // approval stays a separate step with its own fresh checks.
+      if (row.status !== "awaiting_signature") return json({ error: "This agreement has already been signed" }, 400);
+      const signedAt = new Date().toISOString();
+      const { data: upd, error } = await admin.from("share_onboarding_requests")
+        .update({ status: "submitted", shareholder_name: body.shareholderName,
+          shareholder_signature_data_url: body.shareholderSignature, shareholder_signed_at: signedAt, token_hash: null })
+        .eq("id", row.id).eq("status", "awaiting_signature").select("id");
+      if (error) throw error;
+      if (!upd || upd.length === 0) return json({ error: "This agreement has already been signed" }, 409);
+      const reason = body.typedSignature
+        ? "Partner Ops filled the agreement on behalf of the shareholder using a typed name signature"
+        : "Partner Ops filled the agreement on behalf of the shareholder with a provided signature";
+      await Promise.all([
+        logSystemEvent(admin, "account_activated", row.shareholder_id, "share_onboarding_requests", row.id,
+          { action: "share_onboarding.signed_on_behalf", reference_id: row.reference_id, signed_by: user.id, typed_signature: body.typedSignature }),
+        admin.from("audit_logs").insert({ user_id: user.id, action_type: "share_onboarding_signed_on_behalf",
+          table_name: "share_onboarding_requests", record_id: row.id, reason,
+          metadata: { shareholder_name: body.shareholderName, typed_signature: body.typedSignature } }),
       ]);
       return json({ ok: true });
     }
