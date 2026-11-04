@@ -15,9 +15,13 @@ const dayFor = (feed: string, day?: string | null) =>
 async function loadFeed(feed: string, day?: string | null): Promise<Row[]> {
   // Ontology feeds come from their own RPC; every other feed stays on desk_feed.
   const d = dayFor(feed, day);
-  const { data, error } = feed.startsWith('onto_')
-    ? await rpc('ontology_feed', d ? { p_feed: feed, p_day: d } : { p_feed: feed })
-    : await rpc('desk_feed', { p_feed: feed });
+  const args = d ? { p_feed: feed, p_day: d } : { p_feed: feed };
+  // Ontology change feeds come from their own RPC; the rest of the ontology stays on ontology_feed.
+  const { data, error } = feed.startsWith('onto_chg_')
+    ? await rpc('ontology_changes_feed', args)
+    : feed.startsWith('onto_')
+      ? await rpc('ontology_feed', args)
+      : await rpc('desk_feed', { p_feed: feed });
   if (error) throw new Error(error.message);
   return Array.isArray(data) ? (data as Row[]) : [];
 }
