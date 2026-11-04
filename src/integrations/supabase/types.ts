@@ -34828,35 +34828,50 @@ export type Database = {
       merchandise_recovery_deductions: {
         Row: {
           amount: number
+          collection_mode: string | null
           created_at: string
           customer_id: string
           id: string
           item_name: string | null
           outstanding_after: number
           plan_id: string
+          reference: string | null
           transaction_ref: string | null
+          trigger_amount: number | null
+          trigger_category: string | null
+          trigger_ledger_id: string | null
           withdrawable_before: number
         }
         Insert: {
           amount: number
+          collection_mode?: string | null
           created_at?: string
           customer_id: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Update: {
           amount?: number
+          collection_mode?: string | null
           created_at?: string
           customer_id?: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id?: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Relationships: [
@@ -34888,6 +34903,9 @@ export type Database = {
           fee_recovered: number
           fee_total: number | null
           id: string
+          instant_sweep_set_at: string | null
+          instant_sweep_set_by: string | null
+          instant_wallet_sweep: boolean
           is_bike_lease: boolean
           item_name: string
           last_attempt_on: string | null
@@ -34931,6 +34949,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name: string
           last_attempt_on?: string | null
@@ -34974,6 +34995,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name?: string
           last_attempt_on?: string | null
@@ -73842,6 +73866,15 @@ export type Database = {
         Args: { p_agent: string }
         Returns: boolean
       }
+      _bike_instant_sweep: {
+        Args: {
+          p_agent: string
+          p_trigger_amount: number
+          p_trigger_cat: string
+          p_trigger_id: string
+        }
+        Returns: number
+      }
       _bike_priority_remaining: {
         Args: { p_agent: string; p_day: string }
         Returns: number
@@ -73858,6 +73891,7 @@ export type Database = {
           surplus: number
         }[]
       }
+      _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -78697,6 +78731,10 @@ export type Database = {
       }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
+        Returns: Json
+      }
+      cfo_set_bike_instant_sweep: {
+        Args: { p_enabled: boolean; p_plan_id: string; p_reason: string }
         Returns: Json
       }
       cfo_set_landlord_float_budget: {
