@@ -66886,6 +66886,45 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_tenant_drafts: {
+        Row: {
+          agent_id: string
+          created_at: string
+          form: Json
+          id: string
+          landlord_id: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
+          landlord_snapshot: Json
+          photo_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       wh_tenant_identity: {
         Row: {
           created_at: string
@@ -97049,6 +97088,24 @@ export type Database = {
       }
       welile_transfer_items: { Args: never; Returns: string[] }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_enroll_tenant_with_identity: {
+        Args: {
+          p_agent_id: string
+          p_draft_id?: string
+          p_has_smartphone: boolean
+          p_landlord_id: string
+          p_landlord_name: string
+          p_landlord_phone: string
+          p_landlord_uses_wallet: boolean
+          p_monthly_rent: number
+          p_nin: string
+          p_notes: string
+          p_payout_day: number
+          p_photo_path: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       wh_float_advance: {
         Args: {
           p_action: string
