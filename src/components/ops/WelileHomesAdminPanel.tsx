@@ -277,7 +277,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     [floatLinks, collectedSubIds, collectionsUnknown],
   );
   const [selectedAppTenantIds, setSelectedAppTenantIds] = useState<Set<string>>(new Set());
-  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined'>('all');
+  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined' | 'repaying'>('all');
   const [expandedAppLandlords, setExpandedAppLandlords] = useState<Record<string, boolean>>({});
   const [expandedEnrolledLandlords, setExpandedEnrolledLandlords] = useState<Record<string, boolean>>({});
 
@@ -548,6 +548,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     })();
     return () => { cancelled = true; };
   }, [declinedIdsKey]);
+  const repayingCount = Object.keys(declinedKept).length;
 
   const buildLandlordBreakdown = (source: Row[]): LandlordBreakdownItem[] => {
     const map = new Map<string, LandlordBreakdownItem>();
@@ -703,10 +704,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       }
 
       // Filter active vs declined
+      const isCancelled = r.subscription_status === 'cancelled';
+      const hasMoney = isCancelled && !!declinedKept[r.id];
       if (appStatusFilter === 'declined') {
-        if (r.subscription_status !== 'cancelled') return;
+        if (!isCancelled || hasMoney) return;
+      } else if (appStatusFilter === 'repaying') {
+        if (!hasMoney) return;
       } else {
-        if (r.subscription_status === 'cancelled') return;
+        if (isCancelled) return;
       }
 
       const name = (r.landlord_name || 'Unassigned Landlord').trim();
@@ -733,7 +738,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     });
 
     return Array.from(map.values()).sort((a, b) => b.totalFloat - a.totalFloat);
-  }, [rows, appSearch, appStatusFilter]);
+  }, [rows, appSearch, appStatusFilter, declinedKept]);
 
   const selectedAppTenants = useMemo(() => {
     return rows.filter((r) => selectedAppTenantIds.has(r.id));
@@ -2072,7 +2077,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 >
                   All Applications ({activeRows.length})
                 </button>
-                {declinedTenantsCount > 0 && (
+                {declinedTenantsCount - repayingCount > 0 && (
                   <button
                     type="button"
                     onClick={() => setAppStatusFilter('declined')}
@@ -2084,7 +2089,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     )}
                   >
                     <XCircle className="h-3 w-3" />
-                    Declined ({declinedTenantsCount})
+                    Declined ({declinedTenantsCount - repayingCount})
+                  </button>
+                )}
+                {repayingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAppStatusFilter('repaying')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0",
+                      appStatusFilter === 'repaying'
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                    )}
+                  >
+                    <Banknote className="h-3 w-3" />
+                    Repaying ({repayingCount})
                   </button>
                 )}
               </div>
@@ -2444,7 +2464,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                             {formatUGX(group.totalFloat)}
                           </Badge>
 
-                          {appStatusFilter === 'declined' ? (
+                          {appStatusFilter === 'repaying' ? null : appStatusFilter === 'declined' ? (
                             <Button
                               size="sm"
                               variant="outline"
@@ -2621,7 +2641,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                     // it is withheld once money is attached or the plan is already declined.
                                     const canDecline = !['declined', 'repaying', 'funded', 'approved_unconfirmed'].includes(pStatus.stage);
 
-                                    if (appStatusFilter === 'declined') {
+                                    if (appStatusFilter === 'declined' || appStatusFilter === 'repaying') {
                                       const keptReason = declinedKept[t.id];
                                       if (keptReason) {
                                         return (
@@ -2732,7 +2752,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     <Download className="h-3.5 w-3.5" />
                     <span>Export Selected</span>
                   </Button>
-                  {appStatusFilter === 'declined' ? (
+                  {appStatusFilter === 'repaying' ? null : appStatusFilter === 'declined' ? (
                     <Button
                       variant="destructive"
                       size="sm"
