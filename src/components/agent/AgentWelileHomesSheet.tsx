@@ -1608,6 +1608,63 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deletePortfolioFor} onOpenChange={(open) => { if (!open && !deleting) setDeletePortfolioFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this portfolio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const ts = deletePortfolioFor?.tenants ?? [];
+                const locked = ts.filter((t) => getSubscriptionPipeline(t).isLocked).length;
+                return (
+                  <>
+                    This will permanently remove {ts.length - locked} {ts.length - locked === 1 ? 'tenant' : 'tenants'} under <span className="font-semibold text-foreground">{deletePortfolioFor?.name}</span> and their monthly dues from Welile Homes. This cannot be undone.
+                    {locked > 0 && ` ${locked} ${locked === 1 ? 'tenant has' : 'tenants have'} collections, a live float request or funding and will be kept.`}
+                  </>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deletePortfolioFor) return;
+                const targets = deletePortfolioFor.tenants.filter((t) => !getSubscriptionPipeline(t).isLocked);
+                if (targets.length === 0) {
+                  toast({ title: 'Nothing to delete', description: 'Every tenant in this portfolio has collections, a float request or funding recorded.', variant: 'destructive' });
+                  setDeletePortfolioFor(null);
+                  return;
+                }
+                setDeleting(true);
+                let ok = 0;
+                const failed: string[] = [];
+                for (const t of targets) {
+                  const { error } = await (supabase.rpc as any)('delete_welile_home_subscription', { p_subscription_id: t.id });
+                  if (error) failed.push(t.tenant_name); else ok++;
+                }
+                setSelectedTenantIds((prev) => {
+                  const next = new Set(prev);
+                  targets.forEach((t) => next.delete(t.id));
+                  return next;
+                });
+                setDeleting(false);
+                setDeletePortfolioFor(null);
+                toast(failed.length
+                  ? { title: `Deleted ${ok} of ${targets.length}`, description: `Could not delete: ${failed.join(', ')}`, variant: 'destructive' }
+                  : { title: 'Portfolio deleted', description: `${ok} ${ok === 1 ? 'tenant' : 'tenants'} removed.` });
+                load();
+              }}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete portfolio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
