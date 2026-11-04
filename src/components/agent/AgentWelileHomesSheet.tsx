@@ -237,10 +237,7 @@ function getEnrollStatus(s: WHSubscription): EnrollStatus {
   if (s.subscription_status === 'cancelled') {
     return { label: 'Declined', ready: false, className: 'border-destructive/40 bg-destructive/10 text-destructive font-semibold' };
   }
-  if (s.tenant_verified) {
-    return { label: 'Verified', ready: true, className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' };
-  }
-  return { label: 'Unverified', ready: false, className: 'border-amber-500/40 bg-amber-500/10 text-amber-600' };
+  return { label: 'Enrolled', ready: true, className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' };
 }
 
 const STAGE_TONE_CLASS: Record<WhStageMeta['tone'], string> = {
@@ -299,8 +296,6 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
   const [allocFor, setAllocFor] = useState<WHSubscription | null>(null);
   const [editFor, setEditFor] = useState<WHSubscription | null>(null);
-  const [verifyFor, setVerifyFor] = useState<WHSubscription | null>(null);
-  const [verifyAutoSend, setVerifyAutoSend] = useState(false);
   const [deleteFor, setDeleteFor] = useState<WHSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
@@ -590,7 +585,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   const toggleTenant = (tenantId: string) => {
     if (mainTab !== 'enrolled') return;
     const target = subs.find((s) => s.id === tenantId);
-    if (target?.subscription_status === 'cancelled' || !target?.tenant_verified) return;
+    if (target?.subscription_status === 'cancelled') return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
       if (next.has(tenantId)) next.delete(tenantId);
@@ -601,13 +596,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
   const isLandlordAllSelected = (group: { tenants: WHSubscription[] }) => {
     if (mainTab !== 'enrolled') return false;
-    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
     return active.length > 0 && active.every((t) => selectedTenantIds.has(t.id));
   };
 
   const isLandlordPartiallySelected = (group: { tenants: WHSubscription[] }) => {
     if (mainTab !== 'enrolled') return false;
-    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
     return active.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
   };
 
@@ -615,7 +610,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
     if (mainTab !== 'enrolled') return;
     setSelectedTenantIds((prev) => {
       const next = new Set(prev);
-      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && t.tenant_verified);
+      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
       const allSelected = active.length > 0 && active.every((t) => next.has(t.id));
       if (allSelected) {
         active.forEach((t) => next.delete(t.id));
@@ -636,7 +631,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   };
 
   const selectedTenants = useMemo(
-    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled' && s.tenant_verified),
+    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled'),
     [subs, selectedTenantIds]
   );
 
@@ -646,7 +641,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       if (prev.size === 0) return prev;
       const validIds = new Set(
         subs
-          .filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified)
+          .filter((s) => s.subscription_status !== 'cancelled')
           .map((s) => s.id)
       );
       let changed = false;
@@ -674,7 +669,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
 
   const handleToggleSelectAll = () => {
     if (mainTab !== 'enrolled') return;
-    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified);
+    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled');
     if (selectedTenantIds.size === active.length && active.length > 0) {
       setSelectedTenantIds(new Set());
     } else {
@@ -1003,13 +998,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                 </span>
               )}
             </span>
-            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled' && s.tenant_verified) && (
+            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled') && (
               <button
                 type="button"
                 onClick={handleToggleSelectAll}
                 className="text-primary hover:underline font-medium"
               >
-                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled' && s.tenant_verified).length && selectedTenantIds.size > 0
+                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
                   ? 'Deselect all'
                   : 'Select all'}
               </button>
@@ -1034,11 +1029,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                       <Checkbox
                         id={`group-${group.key}`}
                         checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
-                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled' || !t.tenant_verified)}
+                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
                         onCheckedChange={() => toggleLandlord(group)}
-                        aria-label={`Select all verified tenants for landlord ${group.name}`}
-                        title={group.tenants.every((t) => t.subscription_status === 'cancelled' || !t.tenant_verified) ? 'All tenants under this landlord must be verified first' : undefined}
-                      />
+                        aria-label={`Select all tenants for landlord ${group.name}`}
+                                              />
                     ) : mainTab === 'in_progress' ? (
                       <div className="h-5 w-5 rounded-md flex items-center justify-center text-amber-500 bg-amber-500/10 shrink-0" title="Float in progress · At Agent Ops">
                         <Clock className="h-3.5 w-3.5 animate-pulse" />
@@ -1126,11 +1120,10 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                   <Checkbox
                                     id={`tenant-${s.id}`}
                                     checked={isSelected}
-                                    disabled={s.subscription_status === 'cancelled' || !s.tenant_verified}
+                                    disabled={s.subscription_status === 'cancelled'}
                                     onCheckedChange={() => toggleTenant(s.id)}
                                     aria-label={`Select ${s.tenant_name}`}
-                                    title={!s.tenant_verified ? 'Tenant must be verified before requesting float' : undefined}
-                                  />
+                                                                      />
                                 ) : mainTab === 'in_progress' ? (
                                   <div className="h-4 w-4 flex items-center justify-center text-amber-500 shrink-0 mt-0.5" title="Under review with Agent Ops">
                                     <Clock className="h-3.5 w-3.5 animate-pulse" />
@@ -1273,21 +1266,6 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                                     return (
                                       <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
                                         <XCircle className="h-3.5 w-3.5" /> Declined
-                                      </Button>
-                                    );
-                                  }
-                                  if (!s.tenant_verified) {
-                                    return (
-                                      <Button
-                                        size="sm"
-                                        className="gap-1.5 h-8 text-xs bg-amber-600 hover:bg-amber-700 text-white font-semibold shadow-xs"
-                                        onClick={() => {
-                                          setVerifyAutoSend(false);
-                                          setVerifyFor(s);
-                                        }}
-                                        title="Verify tenant with a 6-digit SMS code to unlock float request"
-                                      >
-                                        <ShieldCheck className="h-3.5 w-3.5" /> Verify Tenant
                                       </Button>
                                     );
                                   }
@@ -1466,10 +1444,7 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         onOpenChange={setEnrollOpen}
         agentId={user?.id}
         onDone={load}
-        onTenantEnrolled={(sub) => {
-          setVerifyAutoSend(true);
-          setVerifyFor(sub);
-        }}
+        onTenantEnrolled={() => {}}
       />
       <RequestFloatDialog
         open={requestFloatOpen}
@@ -1481,15 +1456,6 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
           setMainTab('in_progress');
           load();
         }}
-      />
-      <VerifyTenantDialog
-        sub={verifyFor}
-        autoSend={verifyAutoSend}
-        onClose={() => {
-          setVerifyFor(null);
-          setVerifyAutoSend(false);
-        }}
-        onDone={load}
       />
       <AllocateDialog sub={allocFor} onClose={() => setAllocFor(null)} onDone={load} />
       <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load} />
@@ -1599,21 +1565,8 @@ function RequestFloatDialog({
     }
   }, [open, agentId, landlordBreakdown, selectedTenants.length]);
 
-  const unverifiedTenants = useMemo(
-    () => selectedTenants.filter((s) => !s.tenant_verified),
-    [selectedTenants]
-  );
-
   const handleSubmit = async () => {
     if (!agentId) return;
-    if (unverifiedTenants.length > 0) {
-      toast({
-        title: 'Tenant Verification Required',
-        description: `All enrolled tenants must be verified before float can be requested. Unverified: ${unverifiedTenants.map((t) => t.tenant_name).join(', ')}`,
-        variant: 'destructive',
-      });
-      return;
-    }
     if (totalAmount <= 0) {
       toast({ title: 'No float amount selected', variant: 'destructive' });
       return;
@@ -1730,25 +1683,6 @@ function RequestFloatDialog({
             />
           </div>
 
-          {/* Unverified Tenants Warning */}
-          {unverifiedTenants.length > 0 && (
-            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 border border-destructive/25 text-xs text-destructive">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="font-semibold">Tenant Verification Required</p>
-                <p className="text-[11px] text-destructive/90 mt-0.5">
-                  The following tenant(s) have not completed 6-digit phone verification:
-                </p>
-                <p className="font-semibold text-xs mt-1">
-                  {unverifiedTenants.map((u) => u.tenant_name).join(', ')}
-                </p>
-                <p className="text-[11px] text-destructive/80 mt-1">
-                  Float cannot be requested until all selected tenants are verified.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Notes */}
           <div>
             <Label className="text-xs font-semibold">Purpose / Reason</Label>
@@ -1767,14 +1701,12 @@ function RequestFloatDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={submitting || totalAmount <= 0 || unverifiedTenants.length > 0}
+            disabled={submitting || totalAmount <= 0}
             className="gap-2 h-10 sm:h-11 rounded-xl flex-1 sm:flex-none"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Banknote className="h-4 w-4 shrink-0" />}
             <span className="truncate">
-              {unverifiedTenants.length > 0
-                ? 'Verification Required'
-                : `Confirm Float Request (${formatUGX(totalAmount)})`}
+              {`Confirm Float Request (${formatUGX(totalAmount)})`}
             </span>
           </Button>
         </DialogFooter>
@@ -2755,7 +2687,7 @@ function EnrollDialog({
 
       toast({
         title: 'Tenant enrolled successfully',
-        description: `Starting 6-digit SMS verification for ${newSubRecord.tenant_name}...`,
+        description: `${newSubRecord.tenant_name} can now be included in a float request.`,
       });
       reset();
       onOpenChange(false);

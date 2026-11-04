@@ -2431,7 +2431,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                   </div>
                                 </div>
 
-                                {/* Action Buttons: Edit, Allocate, Delete (+ History, Verify OTP) */}
+                                {/* Action Buttons: History, Decline, Delete */}
                                 <div className="flex items-center justify-between gap-2 pt-2.5 flex-wrap">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <Button
