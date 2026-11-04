@@ -25,6 +25,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
+/**
+ * cfo_payroll_history() and cfo_advance_status() are not in the generated
+ * Supabase types yet, so the calls go through this cast rather than `any` —
+ * the same shape the desk pages use. Both take no arguments.
+ */
+type RpcFn = (fn: string) => Promise<{ data: unknown; error: { message: string } | null }>;
+const rpc = supabase.rpc.bind(supabase) as unknown as RpcFn;
+
 interface RunRow {
   run_id: string;
   period_code: string;
@@ -151,6 +159,19 @@ function downloadCsv(filename: string, header: string[], rows: (string | number 
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Both functions raise "not authorised" for anyone without the enabled cfo role
+ * or super_admin. Other finance roles can reach the CFO dashboard, so that is an
+ * ordinary outcome rather than a fault — say so plainly, and never put the raw
+ * Postgres string on screen.
+ */
+function readableRpcError(message: string | null | undefined): string {
+  if (message && /not\s+authori[sz]ed/i.test(message)) {
+    return 'You need the CFO role to see payroll history.';
+  }
+  return 'Could not load this. Refresh the page, and tell the CFO office if it keeps failing.';
+}
+
 function PayrollHistory() {
   const [rows, setRows] = useState<RunRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -160,9 +181,9 @@ function PayrollHistory() {
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const { data, error: err } = await (supabase.rpc as any)('cfo_payroll_history');
+      const { data, error: err } = await rpc('cfo_payroll_history');
       if (!alive) return;
-      if (err) setError(err.message);
+      if (err) setError(readableRpcError(err.message));
       else setRows((data ?? []) as RunRow[]);
       setLoading(false);
     })();
@@ -338,9 +359,9 @@ function AdvanceStatus() {
   useEffect(() => {
     let alive = true;
     void (async () => {
-      const { data, error: err } = await (supabase.rpc as any)('cfo_advance_status');
+      const { data, error: err } = await rpc('cfo_advance_status');
       if (!alive) return;
-      if (err) setError(err.message);
+      if (err) setError(readableRpcError(err.message));
       else setRows((data ?? []) as AdvanceRow[]);
       setLoading(false);
     })();
