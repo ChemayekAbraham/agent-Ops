@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fmt } from './format';
 import { readableError, rpc, useReasonCodes } from './reviewApi';
 import { isMissingDbObject, logMissingOnce } from './deskLive';
 import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
@@ -118,45 +117,62 @@ export function waitReasonOptions(
 
 /* ───────────────────────── the list ───────────────────────── */
 
+/** One row of `pipeline_waiting_list(p_desk)`. */
+export type WaitingRow = {
+  waiting_id: string;
+  rent_request_id: string;
+  req: string | null;
+  tenant: string | null;
+  reason_code: string;
+  owner_kind: string;
+  owner_name: string | null;
+  note: string | null;
+  set_by_name: string | null;
+  set_by_staff_ref: string | null;
+  set_at: string;
+  until_at: string;
+  expired: boolean;
+  hours_left: number | null;
+};
+
 export type WaitingItem = {
+  waitingId: string;
   requestId: string;
+  req: string;
   tenant: string;
   reasonCode: string;
   ownerKind: string;
+  ownerName: string | null;
+  note: string | null;
   setByName: string;
   setByStaffRef: string | null;
-  expiresAt: string | null;
-  setAt: string | null;
-  ugx: number | null;
-  note: string | null;
+  setAt: string;
+  untilAt: string;
+  expired: boolean;
+  hoursLeft: number | null;
 };
 
-const s = (v: unknown): string | null => (v === null || v === undefined || v === '' ? null : String(v));
-const n = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
-
-/** The RPC's row shape is not pinned in types yet, so read the likely names. */
-export function toWaitingItem(r: Record<string, unknown>): WaitingItem {
+export function toWaitingItem(r: WaitingRow): WaitingItem {
   return {
-    requestId: s(r.request_id) ?? s(r.rent_request_id) ?? s(r.id) ?? '',
-    tenant: s(r.tenant_name) ?? s(r.tenant) ?? '—',
-    reasonCode: s(r.reason_code) ?? s(r.reason) ?? '—',
-    ownerKind: s(r.owner_kind) ?? s(r.owner) ?? 'other',
-    setByName: s(r.set_by_name) ?? s(r.set_by) ?? s(r.created_by_name) ?? '—',
-    setByStaffRef: s(r.set_by_staff_ref) ?? s(r.staff_ref) ?? null,
-    expiresAt: s(r.expires_at) ?? s(r.wait_until) ?? s(r.until) ?? null,
-    setAt: s(r.set_at) ?? s(r.created_at) ?? null,
-    ugx: n(r.rent_ugx) ?? n(r.rent_amount) ?? n(r.ugx),
-    note: s(r.note),
+    waitingId: String(r.waiting_id),
+    requestId: String(r.rent_request_id),
+    req: r.req ?? String(r.rent_request_id).slice(0, 8),
+    tenant: r.tenant ?? '—',
+    reasonCode: r.reason_code,
+    ownerKind: r.owner_kind,
+    ownerName: r.owner_name,
+    note: r.note,
+    setByName: r.set_by_name ?? '—',
+    setByStaffRef: r.set_by_staff_ref,
+    setAt: r.set_at,
+    untilAt: r.until_at,
+    expired: r.expired === true,
+    hoursLeft: r.hours_left === null || r.hours_left === undefined ? null : Number(r.hours_left),
   };
 }
 
-/** Hours left (negative once the time is up), or null with no end time. */
-export function hoursLeft(expiresAt: string | null, now = Date.now()): number | null {
-  if (!expiresAt) return null;
-  const t = new Date(expiresAt).getTime();
-  if (Number.isNaN(t)) return null;
-  return (t - now) / 3_600_000;
-}
+/** The server decides when a wait is up; `expired` is its word for it. */
+export const isTimeUp = (w: WaitingItem): boolean => w.expired || (w.hoursLeft !== null && w.hoursLeft <= 0);
 
 export function timeLeftText(h: number | null): string {
   if (h === null) return '—';
@@ -179,7 +195,7 @@ async function loadWaiting(desk: WaitDesk): Promise<{ items: WaitingItem[]; miss
     }
     throw error;
   }
-  const rows = Array.isArray(data) ? (data as Record<string, unknown>[]) : [];
+  const rows = Array.isArray(data) ? (data as WaitingRow[]) : [];
   return { items: rows.map(toWaitingItem), missing: false };
 }
 
@@ -365,8 +381,6 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const now = Date.now();
-
   const backToQueue = async (requestId: string) => {
     setBusy(requestId);
     const { error } = await rpc('pipeline_clear_waiting', {
@@ -388,8 +402,9 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
   if (list.items.length === 0) return <p className="text-sm text-muted-foreground">Nothing is waiting on anyone at this desk.</p>;
 
   const size = board ? 'text-base' : 'text-sm';
+  // Time-up first, then the least time left.
   const sorted = [...list.items].sort(
-    (a, b) => (hoursLeft(a.expiresAt, now) ?? Infinity) - (hoursLeft(b.expiresAt, now) ?? Infinity),
+    (a, b) => Number(isTimeUp(b)) - Number(isTimeUp(a)) || (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity),
   );
 
   return (
@@ -407,19 +422,21 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
         </thead>
         <tbody>
           {sorted.map((w) => {
-            const h = hoursLeft(w.expiresAt, now);
-            const up = h !== null && h <= 0;
+            const up = isTimeUp(w);
             return (
-              <tr key={w.requestId || `${w.tenant}-${w.setAt}`} className="border-t border-[var(--desk-line-color)] align-top">
+              <tr key={w.waitingId} className="border-t border-[var(--desk-line-color)] align-top">
                 <td className="px-2 py-2 text-foreground">
                   {w.tenant}
-                  {w.requestId && <span className={`${LABEL} block font-mono`}>{w.requestId.slice(0, 8)}</span>}
+                  <span className={`${LABEL} block font-mono`}>{w.req}</span>
                 </td>
                 <td className="px-2 py-2 text-foreground">
                   {w.reasonCode}
                   {w.note && <span className={`${LABEL} block`}>{w.note}</span>}
                 </td>
-                <td className="px-2 py-2 text-foreground">{OWNER_LABEL[w.ownerKind] ?? w.ownerKind}</td>
+                <td className="px-2 py-2 text-foreground">
+                  {OWNER_LABEL[w.ownerKind] ?? w.ownerKind}
+                  {w.ownerName && <span className={`${LABEL} block`}>{w.ownerName}</span>}
+                </td>
                 <td className="px-2 py-2 text-foreground">
                   {w.setByName}
                   <span className={`${LABEL} block`}>{w.setByStaffRef ? `Staff ${w.setByStaffRef}` : 'No staff ID'}</span>
@@ -428,20 +445,18 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
                   {up ? (
                     <span className={`desk-pill inline-block border px-2 py-0.5 text-xs font-semibold ${statusGlass.bad}`}>Time up</span>
                   ) : (
-                    <span className="text-foreground">{timeLeftText(h)}</span>
+                    <span className="text-foreground">{timeLeftText(w.hoursLeft)}</span>
                   )}
                 </td>
                 <td className="px-2 py-2 text-right">
-                  {w.requestId && (
-                    <button
-                      type="button"
-                      disabled={busy === w.requestId}
-                      onClick={() => backToQueue(w.requestId)}
-                      className={`desk-pill whitespace-nowrap border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1 text-xs ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] disabled:opacity-60`}
-                    >
-                      {busy === w.requestId ? 'Moving…' : 'Back to queue'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={busy === w.requestId}
+                    onClick={() => backToQueue(w.requestId)}
+                    className={`desk-pill whitespace-nowrap border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1 text-xs ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] disabled:opacity-60`}
+                  >
+                    {busy === w.requestId ? 'Moving…' : 'Back to queue'}
+                  </button>
                   {notes[w.requestId] && <span className={`block text-[11px] ${statusText.bad}`}>{notes[w.requestId]}</span>}
                 </td>
               </tr>
@@ -449,11 +464,6 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
           })}
         </tbody>
       </table>
-      {sorted.some((w) => w.ugx !== null) && (
-        <p className={`${LABEL} mt-2`}>
-          Rent waiting: UGX {fmt('ugxfull', sorted.reduce((t, w) => t + (w.ugx ?? 0), 0))}
-        </p>
-      )}
     </div>
   );
 }

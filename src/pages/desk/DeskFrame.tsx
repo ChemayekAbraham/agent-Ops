@@ -6,7 +6,7 @@ import { useDeskDaily } from './reviewApi';
 import { CALM, FOCUS, LABEL, statusGlass } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { STRIP_STAGES } from './PipelineStrip';
-import { WAIT_DESK_OF, WaitingRows, hoursLeft, useWaitingList } from './waitOn';
+import { WAIT_DESK_OF, WaitingRows, isTimeUp, useWaitingList } from './waitOn';
 
 /**
  * The frame every stage desk shares when it is live:
@@ -81,10 +81,7 @@ export function WaitingOnFold({ deskId, board }: { deskId: string; board: boolea
   const desk = WAIT_DESK_OF[deskId] ?? null;
   const list = useWaitingList(desk);
   if (!desk || list.missing) return null;
-  const timeUp = list.items.filter((w) => {
-    const h = hoursLeft(w.expiresAt);
-    return h !== null && h <= 0;
-  }).length;
+  const timeUp = list.items.filter(isTimeUp).length;
   return (
     <Fold
       title="Waiting on…"

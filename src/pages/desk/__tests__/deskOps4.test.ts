@@ -6,8 +6,8 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }
 import { deskChecklistOn } from '../deskFlag';
 import { deskLiveFrom, isMissingDbObject } from '../deskLive';
 import { STRIP_STAGES, stripMarks } from '../PipelineStrip';
-import { defaultWaitHours, hoursLeft, timeLeftText, waitBlocked, waitReasonOptions, waitDeskForStage } from '../waitOn';
-import { findGap, oldestTimeUp, topBlockers } from '../CommandAdditions';
+import { defaultWaitHours, isTimeUp, timeLeftText, toWaitingItem, waitBlocked, waitReasonOptions, waitDeskForStage } from '../waitOn';
+import { findGap, oldestTimeUp, toPerson, topBlockers } from '../CommandAdditions';
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -74,6 +74,26 @@ describe('PipelineStrip marks', () => {
   });
 });
 
+function waitRow(over: Partial<Parameters<typeof toWaitingItem>[0]> = {}): Parameters<typeof toWaitingItem>[0] {
+  return {
+    waiting_id: 'w1',
+    rent_request_id: '11111111-2222-3333-4444-555555555555',
+    req: '11111111',
+    tenant: 'T1',
+    reason_code: 'NO_RECEIVER',
+    owner_kind: 'landlord',
+    owner_name: 'L. Owner',
+    note: null,
+    set_by_name: 'Staff',
+    set_by_staff_ref: 'WL-001',
+    set_at: '2026-11-02T10:00:00Z',
+    until_at: '2026-11-04T10:00:00Z',
+    expired: false,
+    hours_left: 5,
+    ...over,
+  };
+}
+
 describe('Wait on…', () => {
   const ok = { owner: 'agent' as const, reasonCode: 'TENANT_ID_MISSING', hours: 24, note: '' };
 
@@ -105,34 +125,45 @@ describe('Wait on…', () => {
     expect(waitDeskForStage('coo')).toBe('coo');
   });
 
-  it('says Time up once the wait runs out', () => {
-    const now = Date.parse('2026-11-04T12:00:00Z');
-    expect(timeLeftText(hoursLeft('2026-11-04T11:00:00Z', now))).toBe('Time up');
-    expect(timeLeftText(hoursLeft('2026-11-04T18:00:00Z', now))).toBe('6 h left');
+  it('reads the pipeline_waiting_list row and trusts its expired flag', () => {
+    const w = toWaitingItem(waitRow({ expired: true, hours_left: 2 }));
+    expect(w.requestId).toBe('11111111-2222-3333-4444-555555555555');
+    expect(w.req).toBe('11111111');
+    expect(isTimeUp(w)).toBe(true);
+    expect(isTimeUp(toWaitingItem(waitRow({ expired: false, hours_left: 6 })))).toBe(false);
+    expect(timeLeftText(0)).toBe('Time up');
+    expect(timeLeftText(6)).toBe('6 h left');
   });
 });
 
 describe('command centre additions', () => {
   const gaps = [
-    { ord: 1, gap: 'Funded, landlord not paid', n: 4, ugx: 2_000_000, owner: 'CFO', next_step: 'Pay landlord' },
-    { ord: 2, gap: 'Paid, no receipt after 24 h', n: 3, ugx: 900_000, owner: 'Agent', next_step: 'Upload receipt' },
+    { ord: '1', gap: 'Funded, landlord not yet paid', n: 4, ugx: 2_000_000, oldest_days: 3.5, owner: 'CFO', next_step: 'Pay landlord' },
+    { ord: '2', gap: 'Paid, receipt missing over 24h', n: 3, ugx: 900_000, oldest_days: 2, owner: 'Agent', next_step: 'Upload receipt' },
+    { ord: '3', gap: 'Something else', n: 1, ugx: 50_000, oldest_days: 1, owner: 'COO', next_step: 'Check' },
   ];
 
-  it('picks the two money-line rows out of the payment gaps', () => {
-    expect(findGap(gaps, 'funded_not_paid')?.n).toBe(4);
-    expect(findGap(gaps, 'receipts_missing')?.ugx).toBe(900_000);
-    expect(findGap([], 'receipts_missing')).toBeNull();
+  it('picks the money-line rows by ord, not by label', () => {
+    expect(findGap(gaps, 'funded_not_paid')).toMatchObject({ n: 4, ugx: 2_000_000, oldestDays: 3.5 });
+    expect(findGap(gaps, 'receipts_missing')).toMatchObject({ n: 3, ugx: 900_000 });
+    expect(findGap([{ ord: '1', gap: 'receipt', n: 9, ugx: 1 }], 'receipts_missing')).toBeNull();
+    expect(findGap([], 'funded_not_paid')).toBeNull();
   });
 
-  it('ranks the top 3 blockers by UGX across gaps and waits', () => {
-    const now = Date.parse('2026-11-04T12:00:00Z');
-    const waits = [
-      { requestId: 'a', tenant: 'T1', reasonCode: 'NO_RECEIVER', ownerKind: 'landlord', setByName: 'S', setByStaffRef: null, expiresAt: '2026-11-04T10:00:00Z', setAt: null, ugx: 5_000_000, note: null, desk: 'cfo' as const },
-      { requestId: 'b', tenant: 'T2', reasonCode: 'OTHER', ownerKind: 'agent', setByName: 'S', setByStaffRef: null, expiresAt: '2026-11-05T10:00:00Z', setAt: null, ugx: 100, note: null, desk: 'coo' as const },
-    ];
-    const top = topBlockers(gaps, waits, now);
-    expect(top.map((b) => b.ugx)).toEqual([5_000_000, 2_000_000, 900_000]);
-    expect(top[0].next).toMatch(/Time up/);
-    expect(oldestTimeUp(waits, now)?.requestId).toBe('a');
+  it('ranks gaps by UGX first; waiting items (no amount) fill the rest, time-up first', () => {
+    const late = { ...toWaitingItem(waitRow({ waiting_id: 'a', expired: true, until_at: '2026-11-03T10:00:00Z' })), desk: 'cfo' as const };
+    const later = { ...toWaitingItem(waitRow({ waiting_id: 'b', expired: true, until_at: '2026-11-04T09:00:00Z' })), desk: 'coo' as const };
+    const fresh = { ...toWaitingItem(waitRow({ waiting_id: 'c', expired: false })), desk: 'coo' as const };
+
+    expect(topBlockers(gaps, [fresh, late]).map((b) => b.ugx)).toEqual([2_000_000, 900_000, 50_000]);
+    const mixed = topBlockers(gaps.slice(0, 1), [fresh, late]);
+    expect(mixed.map((b) => b.key)).toEqual(['gap-1', 'wait-a', 'wait-c']);
+    expect(mixed[1].next).toMatch(/Time up/);
+    expect(oldestTimeUp([fresh, later, late])?.waitingId).toBe('a');
+  });
+
+  it('reads desk_sc_people rows', () => {
+    const p = toPerson({ person_id: 'p1', name: 'Amina', phone: null, open_new: 7, open_batch: 2, oldest_new_days: 4.2, has_staff_id: false, has_desk_role: true });
+    expect(p).toEqual({ key: 'p1', name: 'Amina', openNew: 7, oldestDays: 4.2, hasStaffId: false });
   });
 });

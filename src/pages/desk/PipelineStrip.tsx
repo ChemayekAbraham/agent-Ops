@@ -12,7 +12,8 @@ import { Skeleton } from './Skeleton';
  * Waiting counts come from the `pipeline` feed (its `ord`: '0b' Service Centre
  * new … '7' Landlord paid). Days to clear, red/amber/green and the 24-hour
  * trend come from the river's own stage flow and helpers, which number the
- * same stages one higher ('1' Service Centre … '8' Landlord paid).
+ * same stages one higher ('0' Submitted, '1' Service Centre, '2' Agent Ops …
+ * '8' Landlord paid) — confirmed against desk_stage_flow 4 Nov.
  */
 
 export type StripStage = {

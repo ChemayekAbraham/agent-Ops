@@ -11,7 +11,7 @@ import {
   OWNER_LABEL,
   WAIT_DESKS,
   WAIT_DESK_NAME,
-  hoursLeft,
+  isTimeUp,
   timeLeftText,
   useAllWaiting,
   type WaitDesk,
@@ -51,21 +51,19 @@ function Card({ title, note, board, children }: { title: string; note?: string; 
 
 /* ───────────────────────── money line ───────────────────────── */
 
-type Gap = { label: string; n: number | null; ugx: number | null };
+type Gap = { label: string; n: number | null; ugx: number | null; oldestDays: number | null };
 
 /**
- * The payment-gap rows carry a plain-words label, not a key, so the two the
- * money line needs are picked out by what the label says. A row that does not
- * match shows as a dash rather than a guess.
+ * The payment-gap rows are keyed by `ord`:
+ *   '1' funded, landlord not yet paid
+ *   '2' paid, receipt missing over 24 h
+ * A missing row shows as a dash.
  */
-export function findGap(rows: Row[], kind: 'funded_not_paid' | 'receipts_missing'): Gap | null {
-  const text = (r: Row) => `${String(r.gap ?? '')} ${String(r.key ?? r.gap_key ?? '')}`;
-  const receipt = /receipt|proof|evidence/i;
-  const row =
-    kind === 'receipts_missing'
-      ? rows.find((r) => receipt.test(text(r)))
-      : rows.find((r) => !receipt.test(text(r)) && /not (yet )?paid|unpaid|awaiting (landlord )?pay|funded_not_paid/i.test(text(r)));
-  return row ? { label: String(row.gap ?? ''), n: num(row.n), ugx: num(row.ugx) } : null;
+export const GAP_ORD = { funded_not_paid: '1', receipts_missing: '2' } as const;
+
+export function findGap(rows: Row[], kind: keyof typeof GAP_ORD): Gap | null {
+  const row = rows.find((r) => String(r.ord) === GAP_ORD[kind]);
+  return row ? { label: String(row.gap ?? ''), n: num(row.n), ugx: num(row.ugx), oldestDays: num(row.oldest_days) } : null;
 }
 
 function kpi(rows: Row[], metric: string): number | null {
@@ -106,11 +104,13 @@ export function MoneyLine({ kpis, gaps, board }: { kpis: FeedState | undefined; 
       {dot}
       <Figure label="This week">{week === null ? <span className={statusText.bad}>No weekly budget set</span> : `UGX ${fmt('ugxfull', weekRoom)}`}</Figure>
       {dot}
-      <Figure label="Funded, not paid" title={fnp?.label || 'No matching row in the payment gaps'}>
-        {fnp ? `${fmt('int', fnp.n)} · UGX ${fmt('ugxfull', fnp.ugx)}` : '—'}
+      <Figure label="Funded, not paid" title={fnp?.label || undefined}>
+        {fnp
+          ? `${fmt('int', fnp.n)} · UGX ${fmt('ugxfull', fnp.ugx)}${fnp.oldestDays !== null ? ` · oldest ${fmt('days', fnp.oldestDays)} days` : ''}`
+          : '—'}
       </Figure>
       {dot}
-      <Figure label="Receipts missing over 24 h" title={rcp?.label || 'No matching row in the payment gaps'}>
+      <Figure label="Receipts missing over 24 h" title={rcp?.label || undefined}>
         {rcp ? `${fmt('int', rcp.n)} · UGX ${fmt('ugxfull', rcp.ugx)}` : '—'}
       </Figure>
       {dot}
@@ -125,18 +125,15 @@ export function MoneyLine({ kpis, gaps, board }: { kpis: FeedState | undefined; 
 
 type Placed = WaitingItem & { desk: WaitDesk };
 
-export function oldestTimeUp(items: Placed[], now = Date.now()): Placed | null {
-  let worst: Placed | null = null;
-  let worstH = 0;
-  items.forEach((w) => {
-    const h = hoursLeft(w.expiresAt, now);
-    if (h !== null && h <= 0 && (worst === null || h < worstH)) {
-      worst = w;
-      worstH = h;
-    }
-  });
-  return worst;
+/** The time-up wait whose end passed longest ago (earliest `until_at`). */
+export function oldestTimeUp(items: Placed[]): Placed | null {
+  const up = items.filter(isTimeUp);
+  if (up.length === 0) return null;
+  return up.reduce((a, b) => (Date.parse(b.untilAt) < Date.parse(a.untilAt) ? b : a));
 }
+
+/** Whole hours since a wait ran out. */
+const hoursPast = (w: WaitingItem, now = Date.now()): number => Math.max(0, Math.round((now - Date.parse(w.untilAt)) / 3_600_000));
 
 export function WaitingByDesk({ board, waiting }: { board: boolean; waiting: ReturnType<typeof useAllWaiting> }) {
   const desks = WAIT_DESKS.filter((d) => !waiting[d].missing);
@@ -154,7 +151,7 @@ export function WaitingByDesk({ board, waiting }: { board: boolean; waiting: Ret
           <ul className="space-y-1.5">
             {desks.map((d) => {
               const list = waiting[d];
-              const up = list.items.filter((w) => (hoursLeft(w.expiresAt) ?? 1) <= 0).length;
+              const up = list.items.filter(isTimeUp).length;
               return (
                 <li key={d}>
                   <Link
@@ -173,8 +170,9 @@ export function WaitingByDesk({ board, waiting }: { board: boolean; waiting: Ret
           </ul>
           {oldest ? (
             <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.bad}`}>
-              Oldest time-up: {oldest.tenant} at {WAIT_DESK_NAME[oldest.desk]}, waiting on {(OWNER_LABEL[oldest.ownerKind] ?? oldest.ownerKind).toLowerCase()} ({oldest.reasonCode}) —{' '}
-              {Math.abs(Math.round(hoursLeft(oldest.expiresAt) ?? 0))} h past its time.
+              Oldest time-up: {oldest.tenant} at {WAIT_DESK_NAME[oldest.desk]}, waiting on{' '}
+              {oldest.ownerName ?? (OWNER_LABEL[oldest.ownerKind] ?? oldest.ownerKind).toLowerCase()} ({oldest.reasonCode}) —{' '}
+              {hoursPast(oldest)} h past its time.
             </p>
           ) : (
             <p className={LABEL}>No wait has run out of time.</p>
@@ -187,32 +185,47 @@ export function WaitingByDesk({ board, waiting }: { board: boolean; waiting: Ret
 
 /* ───────────────────────── top 3 blockers ───────────────────────── */
 
-export type MoneyBlocker = { key: string; what: string; ugx: number; owner: string; next: string };
+/** `ugx` is null for a waiting item: `pipeline_waiting_list` carries no amount. */
+export type MoneyBlocker = { key: string; what: string; ugx: number | null; owner: string; next: string; timeUp: boolean };
 
-/** The three largest by UGX across payment gaps and waiting items. */
-export function topBlockers(gaps: Row[], waiting: Placed[], now = Date.now()): MoneyBlocker[] {
+/**
+ * The three largest by UGX across payment gaps and waiting items. Waiting
+ * items have no amount on their list, so they rank after every gap with money
+ * attached — time-up first — and only fill the slots the gaps leave.
+ */
+export function topBlockers(gaps: Row[], waiting: Placed[]): MoneyBlocker[] {
   const out: MoneyBlocker[] = [];
-  gaps.forEach((g, i) =>
+  gaps.forEach((g, i) => {
+    const ugx = num(g.ugx) ?? 0;
+    if (ugx <= 0) return;
     out.push({
       key: `gap-${String(g.ord ?? i)}`,
       what: `${String(g.gap ?? 'Payment gap')} (${fmt('int', g.n)})`,
-      ugx: num(g.ugx) ?? 0,
+      ugx,
       owner: String(g.owner ?? '—'),
       next: String(g.next_step ?? '—'),
-    }),
-  );
-  waiting.forEach((w, i) => {
-    const h = hoursLeft(w.expiresAt, now);
-    const owner = OWNER_LABEL[w.ownerKind] ?? w.ownerKind;
-    out.push({
-      key: `wait-${w.desk}-${w.requestId || i}`,
-      what: `${w.tenant} waiting at ${WAIT_DESK_NAME[w.desk]} (${w.reasonCode})`,
-      ugx: w.ugx ?? 0,
-      owner,
-      next: h !== null && h <= 0 ? `Time up: chase the ${owner.toLowerCase()} or put it back in the queue` : `Chase the ${owner.toLowerCase()} — ${timeLeftText(h)}`,
+      timeUp: false,
     });
   });
-  return out.filter((b) => b.ugx > 0).sort((a, b) => b.ugx - a.ugx).slice(0, 3);
+  waiting.forEach((w) => {
+    const owner = OWNER_LABEL[w.ownerKind] ?? w.ownerKind;
+    const who = w.ownerName ? `${owner} (${w.ownerName})` : owner;
+    const up = isTimeUp(w);
+    out.push({
+      key: `wait-${w.waitingId}`,
+      what: `${w.tenant} waiting at ${WAIT_DESK_NAME[w.desk]} (${w.reasonCode})`,
+      ugx: null,
+      owner: who,
+      next: up ? `Time up: chase the ${owner.toLowerCase()} or put it back in the queue` : `Chase the ${owner.toLowerCase()} — ${timeLeftText(w.hoursLeft)}`,
+      timeUp: up,
+    });
+  });
+  return out
+    .sort(
+      (a, b) =>
+        (b.ugx ?? -1) - (a.ugx ?? -1) || Number(b.timeUp) - Number(a.timeUp),
+    )
+    .slice(0, 3);
 }
 
 export function TopBlockers({ board, gaps, waiting }: { board: boolean; gaps: FeedState; waiting: ReturnType<typeof useAllWaiting> }) {
@@ -223,14 +236,16 @@ export function TopBlockers({ board, gaps, waiting }: { board: boolean; gaps: Fe
   return (
     <Card title="Top 3 blockers" note="The largest by UGX across payment gaps and waiting requests." board={board}>
       {loading && <Skeleton className="h-24 w-full" />}
-      {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nothing with money attached is blocked.</p>}
+      {!loading && items.length === 0 && <p className="text-sm text-muted-foreground">Nothing is blocked.</p>}
       {!loading && items.length > 0 && (
         <ol className="space-y-3">
           {items.map((b) => (
             <li key={b.key} className="space-y-0.5">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm text-foreground">{b.what}</span>
-                <span className="shrink-0 text-sm tabular-nums text-foreground">UGX {fmt('ugxfull', b.ugx)}</span>
+                <span className={`shrink-0 text-sm tabular-nums ${b.timeUp ? statusText.bad : 'text-foreground'}`}>
+                  {b.ugx === null ? (b.timeUp ? 'Time up' : 'Waiting') : `UGX ${fmt('ugxfull', b.ugx)}`}
+                </span>
               </div>
               <p className={LABEL}>
                 Owner: {b.owner} · Next: {b.next}
@@ -245,22 +260,27 @@ export function TopBlockers({ board, gaps, waiting }: { board: boolean; gaps: Fe
 
 /* ───────────────────────── service centre people ───────────────────────── */
 
+/** One row of `desk_sc_people()`. */
+type ScPersonRow = {
+  person_id: string;
+  name: string | null;
+  phone: string | null;
+  open_new: number | null;
+  open_batch: number | null;
+  oldest_new_days: number | null;
+  has_staff_id: boolean;
+  has_desk_role: boolean;
+};
+
 type Person = { key: string; name: string; openNew: number; oldestDays: number | null; hasStaffId: boolean };
 
-export function toPerson(r: Row, i: number): Person {
-  const staff = r.staff_ref ?? r.staff_id ?? null;
-  const has =
-    typeof r.has_staff_id === 'boolean'
-      ? r.has_staff_id
-      : typeof r.has_staff_ref === 'boolean'
-        ? r.has_staff_ref
-        : staff !== null && staff !== undefined && String(staff).trim() !== '';
+export function toPerson(r: ScPersonRow): Person {
   return {
-    key: String(r.user_id ?? r.manager_id ?? r.id ?? i),
-    name: String(r.name ?? r.full_name ?? r.manager ?? '—'),
+    key: String(r.person_id),
+    name: r.name ?? '—',
     openNew: num(r.open_new) ?? 0,
-    oldestDays: num(r.oldest_days) ?? num(r.oldest_new_days),
-    hasStaffId: !!has,
+    oldestDays: num(r.oldest_new_days),
+    hasStaffId: r.has_staff_id === true,
   };
 }
 
@@ -277,7 +297,7 @@ function useScPeople(enabled: boolean) {
         }
         throw error;
       }
-      const rows = Array.isArray(data) ? (data as Row[]) : [];
+      const rows = Array.isArray(data) ? (data as ScPersonRow[]) : [];
       return { people: rows.map(toPerson).sort((a, b) => b.openNew - a.openNew), missing: false };
     },
     refetchInterval: 60_000,
