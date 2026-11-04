@@ -24,3 +24,9 @@ describe('Welile Homes enrolment requires full tenant ID', () => {
     expect(enrollmentIdBlockers({ ...base, existingTenant: true, nin: '', hasPhoto: false, idAlreadyComplete: true })).toEqual([]);
   });
 });
+
+describe('NIN check limit', () => {
+  it('blocks enrolment with the rate-limit message', () => {
+    expect(enrollmentIdBlockers({ ...base, ninLimited: true })).toEqual(['Too many ID checks – try again later']);
+  });
+});

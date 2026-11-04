@@ -67066,6 +67066,30 @@ export type Database = {
         }
         Relationships: []
       }
+      wh_nin_check_log: {
+        Row: {
+          agent_id: string
+          checked_at: string
+          id: number
+          result: string
+          source: string
+        }
+        Insert: {
+          agent_id: string
+          checked_at?: string
+          id?: number
+          result: string
+          source: string
+        }
+        Update: {
+          agent_id?: string
+          checked_at?: string
+          id?: number
+          result?: string
+          source?: string
+        }
+        Relationships: []
+      }
       wh_tenant_drafts: {
         Row: {
           agent_id: string
@@ -74624,6 +74648,7 @@ export type Database = {
         Args: { p_tenant: string; p_uid: string }
         Returns: boolean
       }
+      _wh_nin_checks_last_hour: { Args: { p_agent: string }; Returns: number }
       _wh_owns_landlord_key: {
         Args: { p_agent: string; p_key: string }
         Returns: boolean
@@ -97427,6 +97452,23 @@ export type Database = {
           phone_sent: string
           verified: boolean
           verified_at: string
+        }[]
+      }
+      wh_nin_check: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: Json
+      }
+      wh_nin_check_activity: {
+        Args: { p_hours?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          blocked: number
+          checks: number
+          enrol_duplicates: number
+          in_use: number
+          last_check: string
         }[]
       }
       wh_nin_in_use: {

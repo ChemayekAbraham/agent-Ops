@@ -33,7 +33,7 @@ import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordP
 import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
 import { fetchTenantIdentities, isIdComplete, isValidNin, normalizeNin, tenantPhotoUrl, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
 import {
-  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, isNinInUse,
+  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, checkNin, NIN_RATE_LIMIT_MESSAGE,
   saveTenantDraft, uploadDraftTenantPhoto, type WhTenantDraft,
 } from '@/lib/welileHomesTenantDrafts';
 import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
@@ -2098,6 +2098,7 @@ function EnrollDialog({
   const [idPhotoPath, setIdPhotoPath] = useState<string | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [ninInUse, setNinInUse] = useState(false);
+  const [ninLimited, setNinLimited] = useState(false);
   const [existingIdComplete, setExistingIdComplete] = useState(false);
   const idCamRef = useRef<HTMLInputElement>(null);
   const idGalRef = useRef<HTMLInputElement>(null);
@@ -2122,7 +2123,7 @@ function EnrollDialog({
 
   const enrollBlockers = enrollmentIdBlockers({
     phone, fullName: newName, existingTenant: !!tenant, nin: newNationalId,
-    hasPhoto: !!idPhotoFile || !!idPhotoPath, ninInUse, idAlreadyComplete: !!tenant && existingIdComplete,
+    hasPhoto: !!idPhotoFile || !!idPhotoPath, ninInUse, ninLimited, idAlreadyComplete: !!tenant && existingIdComplete,
   });
 
   // Existing tenant found by phone: is their ID already on file?
@@ -2146,7 +2147,7 @@ function EnrollDialog({
     if (!isValidNin(newNationalId)) return;
     let live = true;
     const t = setTimeout(() => {
-      isNinInUse(newNationalId, tenant?.id).then((used) => live && setNinInUse(used));
+      checkNin(newNationalId, tenant?.id).then((r) => { if (!live) return; setNinLimited(r.limited); if (!r.limited) setNinInUse(r.inUse); });
     }, 400);
     return () => { live = false; clearTimeout(t); };
   }, [newNationalId, tenant?.id]);
@@ -2967,7 +2968,13 @@ function EnrollDialog({
       toast({ title: 'Complete the tenant details', description: `Still needed: ${enrollBlockers.join(', ')}.`, variant: 'destructive' });
       return;
     }
-    if (!existingIdComplete && await isNinInUse(newNationalId, tenant?.id)) {
+    const ninRes = existingIdComplete ? null : await checkNin(newNationalId, tenant?.id);
+    if (ninRes?.limited) {
+      setNinLimited(true);
+      toast({ title: NIN_RATE_LIMIT_MESSAGE, variant: 'destructive' });
+      return;
+    }
+    if (ninRes?.inUse) {
       setNinInUse(true);
       toast({ title: 'This NIN is already recorded for another tenant', variant: 'destructive' });
       return;
@@ -3077,6 +3084,8 @@ function EnrollDialog({
         throw error;
       }
       const res = data as any;
+      if (res?.code === 'nin_rate_limited') setNinLimited(true);
+      if (res?.code === 'nin_in_use') setNinInUse(true);
       if (!res?.success) throw new Error(res?.error || 'Enrollment failed');
 
       const newSubRecord: WHSubscription = {
@@ -3890,7 +3899,10 @@ function EnrollDialog({
                   {newNationalId && !isValidNin(newNationalId) && (
                     <p className="mt-1 text-[11px] text-destructive">14 characters, starting with CM or CF.</p>
                   )}
-                  {ninInUse && (
+                  {ninLimited && (
+                    <p className="mt-1 text-[11px] text-destructive">{NIN_RATE_LIMIT_MESSAGE}</p>
+                  )}
+                  {!ninLimited && ninInUse && (
                     <p className="mt-1 text-[11px] text-destructive">This NIN is already recorded for another tenant.</p>
                   )}
                 </div>
