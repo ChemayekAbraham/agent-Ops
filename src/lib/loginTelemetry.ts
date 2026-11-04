@@ -36,6 +36,8 @@ const TRACE_KEY = 'welile_login_trace_id';
 const MAX_EVENTS = 200;
 const FLUSH_INTERVAL_MS = 4000;
 const MAX_PENDING = 40;
+const STALE_RING_MS = 60 * 60 * 1000;
+const MAX_INT4 = 2_147_483_647;
 
 function genTraceId() {
   try {
@@ -121,6 +123,9 @@ function ensureInit() {
   if (state.traceId !== 'pending') return;
   state.traceId = loadTraceId();
   state.events = loadRing();
+  // A ring left in localStorage from an earlier visit is stale; anchoring to it produced timings of
+  // days (past the integer column, ~6 rejected batches an hour). Keep it only if it is recent.
+  if (state.events.length > 0 && Date.now() - state.events[0].at > STALE_RING_MS) state.events = [];
   // Anchor "ms_since_start" to the earliest recorded event this trace, if any;
   // otherwise anchor to now.
   if (state.events.length > 0) {
@@ -209,7 +214,7 @@ function record(phase: string, status: string | undefined, detail: PhaseDetail, 
     status,
     detail,
     duration_ms: durationMs,
-    ms_since_start: Math.max(0, now - state.start),
+    ms_since_start: Math.min(MAX_INT4, Math.max(0, now - state.start)),
     at: now,
   };
   state.events.push(evt);
