@@ -1,5 +1,7 @@
 # Zoe Prompt 3 Results — General Knowledge, True Streaming, Real Web Research & Safety Proof
 
+> **Note:** Evaluation figures in this document are **simulated, not release proof** (`npm run eval:zoe`). For real production figures and `npm run eval:zoe:real` status, see [`docs/zoe/reliability-results.md`](./reliability-results.md).
+
 **Date:** 2026-10-30  
 **Branch:** `landlord-calling-hub-foundation`  
 **Live Database Parity Pre-Check:** `PASS` (`[guard:zoe-parity] live database parity ok — 15 tables, 117 columns, 19 views, and 111 RPCs verified across 41 code files`)

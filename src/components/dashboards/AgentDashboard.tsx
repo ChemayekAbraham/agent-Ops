@@ -160,7 +160,6 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
-import { canSeeRentAssistantPreview } from '@/lib/rentAssistantPreview';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -190,6 +189,8 @@ const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionD
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
 const RentRequestAssistant = lazy(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -372,9 +373,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const { isMerchantAgent: isMerchantAgentEarly } = useIsMerchantAgent();
   // Weekly Listing Mission promo dialog removed — campaign expired.
   const [rentRequestOpen, setRentRequestOpen] = useState(false);
-  // Rent Request Assistant preview: posts real requests, limited to listed accounts.
-  const showRentAssistantPreview = canSeeRentAssistantPreview(user?.email);
-  const [rentAssistantOpen, setRentAssistantOpen] = useState(false);
 
   // Deep link & event support for opening the Post Rent Request modal
   useEffect(() => {
@@ -1322,15 +1320,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               >
                 and <span className="font-semibold text-green-600 dark:text-green-400">earn UGX 5000</span> per tenant
               </p>
-              {showRentAssistantPreview && (
-                <button
-                  type="button"
-                  onClick={() => setRentAssistantOpen(true)}
-                  className="mt-2 w-full min-h-11 rounded-2xl border border-primary/30 bg-primary/10 px-4 text-sm font-semibold text-primary"
-                >
-                  Post rent request · assistant preview
-                </button>
-              )}
             </div>
 
             {/* Merchant Agent invites moved to CTO dashboard → "Merchant Invites" tab */}
@@ -1632,7 +1621,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </div>
               <div className="flex-1 text-left">
                 <div className="font-bold text-sm text-foreground">Lending Agent</div>
-                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn interest</div>
+                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
                 <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2.4} />
                   Principal 100% protected by Welile
@@ -1974,7 +1963,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               navigator.share({ title: 'Back the Welile Angel Pool', text: shareText, url: investorLink }).catch(() => {});
             } else {
               await navigator.clipboard.writeText(investorLink);
-              toast.success('Angel investor signup link copied!');
+              toast.success('Angel supporter signup link copied!');
             }
           } catch (err: any) {
             const { toast } = await import('sonner');
@@ -2013,7 +2002,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly ROI! Register here: ${partnerFormLink}`;
+            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {
@@ -2069,18 +2058,17 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       />
       </LazyModal>
       <LazyModal when={rentRequestOpen}>
-      <AgentRentRequestDialog 
-        presentation="chat"
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
-      </LazyModal>
-      {showRentAssistantPreview && (
-        <LazyModal when={rentAssistantOpen}>
-          <RentRequestAssistant open={rentAssistantOpen} onOpenChange={setRentAssistantOpen} />
-        </LazyModal>
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
       )}
+      </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog
         open={businessAdvanceOpen}

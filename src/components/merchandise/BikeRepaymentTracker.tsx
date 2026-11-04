@@ -75,6 +75,13 @@ export default function BikeRepaymentTracker({ userId, saleId }: Props) {
                   <p className="text-[10px] text-muted-foreground">
                     {format(new Date(d.created_at), 'd MMM yyyy, HH:mm')}
                   </p>
+                  {d.collection_mode === 'instant' && (
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      Collected on arrival of {(d.trigger_category || 'money').replace(/_/g, ' ')}
+                      {d.trigger_amount != null ? ` (${formatUGX(Number(d.trigger_amount))})` : ''}
+                      {d.reference ? ` · Ref ${d.reference.slice(-8)}` : ''}
+                    </p>
+                  )}
                 </div>
                 <p className="text-[10px] text-muted-foreground whitespace-nowrap">
                   Left {formatUGX(Number(d.outstanding_after))}

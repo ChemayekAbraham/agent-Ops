@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Wallet, TrendingUp, Calendar, Clock, User, Shield, PiggyBank } from 'lucide-react';
+import { Wallet, Calendar, Clock, User, Shield, PiggyBank } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function InvestorPortfolioPublic() {
@@ -22,27 +22,21 @@ export default function InvestorPortfolioPublic() {
   const fetchPortfolio = async () => {
     setLoading(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('investor_portfolios')
-        .select('*')
-        .eq('activation_token', token)
-        .maybeSingle();
+      const { data, error: fetchError } = await supabase.rpc(
+        'get_portfolio_by_activation_token' as never,
+        { p_token: token } as never,
+      );
 
       if (fetchError) throw fetchError;
-      if (!data) {
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      const row = rows[0];
+      if (!row) {
         setError('Portfolio not found or link expired');
         return;
       }
 
-      setPortfolio(data);
-
-      // Fetch agent name
-      const { data: agentProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.agent_id)
-        .maybeSingle();
-      if (agentProfile) setAgentName(agentProfile.full_name);
+      setPortfolio(row);
+      if (row.agent_name) setAgentName(row.agent_name);
     } catch (e: any) {
       setError(e.message || 'Failed to load portfolio');
     } finally {
@@ -84,7 +78,7 @@ export default function InvestorPortfolioPublic() {
         <div className="max-w-lg mx-auto">
           <div className="flex items-center gap-2 mb-1">
             <PiggyBank className="h-5 w-5 text-primary-foreground/70" />
-            <span className="text-primary-foreground/70 text-xs font-medium uppercase tracking-wide">Investor Portfolio</span>
+            <span className="text-primary-foreground/70 text-xs font-medium uppercase tracking-wide">Supporter Portfolio</span>
           </div>
           <p className="text-3xl font-black">{formatUGX(portfolio.investment_amount)}</p>
           <div className="flex items-center gap-2 mt-2">
@@ -95,18 +89,18 @@ export default function InvestorPortfolioPublic() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 -mt-4 space-y-4">
-        {/* Investment Details Card */}
+        {/* Support Details Card */}
         <Card className="shadow-lg">
           <CardContent className="p-5 space-y-4">
             <h3 className="font-bold text-base flex items-center gap-2">
               <Wallet className="h-4 w-4 text-primary" />
-              Investment Details
+              Support Details
             </h3>
             <div className="space-y-3">
-              <DetailRow label="Investment Amount" value={formatUGX(portfolio.investment_amount)} />
+              <DetailRow label="Support Amount" value={formatUGX(portfolio.investment_amount)} />
               <DetailRow label="Duration" value={`${portfolio.duration_months} months`} />
-              <DetailRow label="Monthly ROI" value={`${portfolio.roi_percentage}%`} highlight />
-              <DetailRow label="ROI Mode" value={roiModeLabel} />
+              <DetailRow label="Monthly Returns" value={`${portfolio.roi_percentage}%`} highlight />
+              <DetailRow label="Returns Mode" value={roiModeLabel} />
               <DetailRow label="Expected Monthly Return" value={formatUGX(monthlyRoi)} highlight />
             </div>
           </CardContent>
@@ -122,43 +116,15 @@ export default function InvestorPortfolioPublic() {
             <div className="space-y-3">
               <DetailRow label="Start Date" value={format(new Date(portfolio.created_at), 'dd MMM yyyy')} />
               {portfolio.next_roi_date && (
-                <DetailRow label="Next ROI Payment" value={format(new Date(portfolio.next_roi_date), 'dd MMM yyyy')} />
+                <DetailRow label="Next Returns Payment" value={format(new Date(portfolio.next_roi_date), 'dd MMM yyyy')} />
               )}
               {portfolio.maturity_date && (
                 <DetailRow label="Maturity Date" value={format(new Date(portfolio.maturity_date), 'dd MMM yyyy')} />
               )}
-              <DetailRow label="Total ROI Earned" value={formatUGX(portfolio.total_roi_earned)} highlight />
+              <DetailRow label="Total Returns Earned" value={formatUGX(portfolio.total_roi_earned)} highlight />
             </div>
           </CardContent>
         </Card>
-
-        {/* Payment Info Card */}
-        {portfolio.payment_method && (
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                ROI Payment Details
-              </h3>
-              <div className="space-y-3">
-                <DetailRow label="Payment Method" value={portfolio.payment_method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'} />
-                {portfolio.payment_method === 'mobile_money' && (
-                  <>
-                    {portfolio.mobile_network && <DetailRow label="Network" value={portfolio.mobile_network.toUpperCase()} />}
-                    {portfolio.mobile_money_number && <DetailRow label="Number" value={portfolio.mobile_money_number} />}
-                  </>
-                )}
-                {portfolio.payment_method === 'bank' && (
-                  <>
-                    {portfolio.bank_name && <DetailRow label="Bank" value={portfolio.bank_name} />}
-                    {portfolio.account_name && <DetailRow label="Account Name" value={portfolio.account_name} />}
-                    {portfolio.account_number && <DetailRow label="Account Number" value={portfolio.account_number} />}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Agent Info */}
         <Card>

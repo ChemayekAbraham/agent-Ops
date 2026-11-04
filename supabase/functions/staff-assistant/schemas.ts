@@ -43,6 +43,35 @@ export const ClientContextSchema = z
 
 export type ClientContext = z.infer<typeof ClientContextSchema>;
 
+export const MAX_ATTACHMENT_SIZE_BYTES = 10 * 1024 * 1024;
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+
+export const AttachmentInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(160),
+    mime_type: z.string().trim().min(1).max(120),
+    size_bytes: z.number().int().min(1).max(MAX_ATTACHMENT_SIZE_BYTES),
+    kind: z.enum(["pdf", "word", "spreadsheet", "image", "text"]),
+    extracted_text: z.string().max(40000).optional(),
+    image_data_url: z.string().max(4_000_000).optional(),
+    pii_warning: z.string().max(400).optional(),
+    storage_path: z.string().max(400).optional(),
+  })
+  .strict();
+
+export type AttachmentInput = z.infer<typeof AttachmentInputSchema>;
+
+export const PageContextSchema = z
+  .object({
+    route: z.string().trim().min(1).max(160),
+    title: z.string().trim().max(120).optional(),
+    filters: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+    period: z.string().trim().max(80).optional(),
+  })
+  .strict();
+
+export type PageContextInput = z.infer<typeof PageContextSchema>;
+
 /**
  * Strict request schema. `.strict()` rejects any unknown property — in particular
  * `user_id`, `staff_id`, `role`, `roles`, `persona`, `system`, `tools`, or `history`
@@ -56,6 +85,17 @@ export const RequestSchema = z.discriminatedUnion("action", [
     .strict(),
   z
     .object({
+      action: z.literal("health"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("check_model_drift"),
+      limit: z.number().int().min(1).max(200).optional(),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("message"),
       message: z
         .string()
@@ -65,6 +105,9 @@ export const RequestSchema = z.discriminatedUnion("action", [
         }),
       conversation_id: z.string().uuid().optional(),
       client_context: ClientContextSchema.optional(),
+      page_context: PageContextSchema.optional(),
+      project_id: z.string().uuid().optional(),
+      attachments: z.array(AttachmentInputSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
       stream: z.boolean().optional(),
       regenerate: z.boolean().optional(),
       research_mode: z.boolean().optional(),
@@ -191,6 +234,80 @@ export const RequestSchema = z.discriminatedUnion("action", [
       query: z.string().trim().max(160).optional(),
       category: z.string().trim().max(40).optional(),
       limit: z.number().int().min(1).max(25).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("list_projects"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("save_project"),
+      project_id: z.string().uuid().optional(),
+      name: z.string().trim().min(1).max(120),
+      instructions: z.string().trim().max(4000).optional(),
+      pinned_files: z
+        .array(
+          z.object({
+            name: z.string().trim().min(1).max(160),
+            kind: z.string().trim().max(40).optional(),
+            storage_path: z.string().trim().max(400).optional(),
+            summary: z.string().trim().max(1000).optional(),
+          }),
+        )
+        .max(10)
+        .optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("delete_project"),
+      project_id: z.string().uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("list_teaching_queue"),
+      department: z.string().trim().max(60).optional(),
+      status: z.string().trim().max(40).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("approve_teaching_entry"),
+      unanswered_id: z.string().uuid(),
+      title: z.string().trim().min(3).max(160),
+      approved_answer: z.string().trim().min(10).max(4000),
+      category: z.string().trim().max(40).optional(),
+      department: z.string().trim().max(60).optional(),
+      source_doc: z.string().trim().max(200).optional(),
+      screen_path: z.string().trim().max(120).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("my_taught_updates"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("real_use_dashboard"),
+      days: z.number().int().min(1).max(90).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("get_push_prefs"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("set_push_prefs"),
+      push_enabled: z.boolean().optional(),
+      morning_brief_push: z.boolean().optional(),
+      taught_updates_push: z.boolean().optional(),
+      soft_prompt_shown: z.boolean().optional(),
     })
     .strict(),
 ]);

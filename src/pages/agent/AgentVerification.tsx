@@ -485,13 +485,21 @@ function NationalIdStep({ v, vetting, editable, guard, act }: BodyProps) {
         <div className="space-y-2">
           {link?.status === 'active' || link?.status === 'owner_approved' ? (
             <p className="text-sm"><span className="font-mono">{link.nin_masked ?? id.nin_masked}</span> · Your parent agent's ID, approved by {parentName}</p>
-          ) : link?.status === 'awaiting_owner' && !link.code_verified_at ? (
+          ) : link?.status === 'awaiting_owner' && link.code_verified_at ? (
+            <p className="text-sm">Waiting for {parentName} to approve in their app.</p>
+          ) : link?.status === 'awaiting_owner' && link.code_sent_at ? (
+            // A request with no code sent yet (e.g. one opened elsewhere and reused) falls
+            // through to the Ask button below, which sends the code.
             <>
               <p className="text-sm">Ask {parentName} for the 6-digit code we sent them.</p>
               {editable && <CodeRow busy={v.busy === 'parent_link_confirm'} onConfirm={(c) => act(() => v.confirmParentIdCode(c), 'Code accepted')} />}
+              {editable && (
+                <Button variant="link" className="px-0 min-h-11" disabled={v.busy === 'parent_link'}
+                  onClick={() => guard(() => act(() => v.requestParentIdLink(), 'Code sent again to your parent agent'))}>
+                  <Spin on={v.busy === 'parent_link'} />Send the code again
+                </Button>
+              )}
             </>
-          ) : link?.status === 'awaiting_owner' ? (
-            <p className="text-sm">Waiting for {parentName} to approve in their app.</p>
           ) : (
             <>
               {ended && <p className="text-sm">{link?.decision_reason ?? 'This request ended.'}</p>}

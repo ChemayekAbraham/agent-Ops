@@ -44,13 +44,17 @@ import {
   computeBudgetUtilizationPct,
   filterZoeConversations,
   usePromoteZoeEvalCandidate,
+  useTeachZoeFromQueue,
   useUpdateZoeUnanswered,
   useZoeCrmDashboard,
   useZoeCrmThread,
   useZoeErrorSummary,
+  useZoeRealUseDashboard,
+  useZoeTeachingQueue,
   useZoeWeeklyLearningView,
   ZOE_CRM_REVIEWER_ROLES,
   type ZoeCrmConversationRow,
+  type ZoeDepartmentTeachingQueueItem,
   type ZoeLearningReviewQueueItem,
   type ZoeUnansweredStatus,
   type ZoeWeeklyUnansweredRow,
@@ -100,6 +104,13 @@ export function ZoeConversationsPanel() {
     null,
   );
   const [reviewNoteDraft, setReviewNoteDraft] = useState<string>('');
+  const [teachingDeptFilter, setTeachingDeptFilter] = useState<string>('all');
+  const [teachingAnswerDrafts, setTeachingAnswerDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [teachingLeadNameDraft, setTeachingLeadNameDraft] = useState<string>(
+    'Department Lead',
+  );
 
   const dashboardQuery = useZoeCrmDashboard(
     {
@@ -118,8 +129,15 @@ export function ZoeConversationsPanel() {
   );
   const errorSummaryQuery = useZoeErrorSummary(14, isAuthorizedReviewer);
   const weeklyLearningQuery = useZoeWeeklyLearningView(7, isAuthorizedReviewer);
+  const realUseQuery = useZoeRealUseDashboard(14, isAuthorizedReviewer);
+  const teachingQueueQuery = useZoeTeachingQueue(
+    teachingDeptFilter,
+    'open',
+    isAuthorizedReviewer,
+  );
   const updateUnanswered = useUpdateZoeUnanswered();
   const promoteEvalCandidate = usePromoteZoeEvalCandidate();
+  const teachFromQueue = useTeachZoeFromQueue();
 
   const data = dashboardQuery.data;
   const weeklyLearning = weeklyLearningQuery.data ?? {
@@ -300,6 +318,40 @@ export function ZoeConversationsPanel() {
         </div>
       </div>
 
+      {/* Model Drift Warning Banner (compares last 50 gateway replies against staff_assistant_config) */}
+      {realUseQuery.data?.model_drift?.drift_detected && (
+        <Card
+          data-testid="zoe-model-drift-warning-banner"
+          className="border-amber-400/70 bg-amber-50/80 dark:bg-amber-950/30"
+        >
+          <CardContent className="p-3.5 flex items-start gap-3 text-xs text-amber-950 dark:text-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">
+                  AI Gateway Model Drift Detected
+                </span>
+                <Badge variant="outline" className="text-xs border-amber-500/50">
+                  {realUseQuery.data.model_drift.mismatched_count} /{' '}
+                  {realUseQuery.data.model_drift.checked_count} recent replies
+                  mismatched
+                </Badge>
+              </div>
+              <p>
+                {realUseQuery.data.model_drift.warning_message ??
+                  `Recent Zoe replies were answered by ${realUseQuery.data.model_drift.dominant_gateway_model ?? 'an unconfigured model'} instead of staff_assistant_config (${realUseQuery.data.model_drift.configured_model_fast} / ${realUseQuery.data.model_drift.configured_model_deep}).`}
+              </p>
+              <p className="text-amber-800/90 dark:text-amber-300/90">
+                Configured fast: <code>{realUseQuery.data.model_drift.configured_model_fast}</code>{' '}
+                · Configured deep: <code>{realUseQuery.data.model_drift.configured_model_deep}</code>{' '}
+                · Observed gateway model:{' '}
+                <code>{realUseQuery.data.model_drift.dominant_gateway_model ?? 'unknown'}</code>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>
@@ -417,6 +469,18 @@ export function ZoeConversationsPanel() {
           </TabsTrigger>
           <TabsTrigger value="learning-loop" data-testid="zoe-tab-learning-loop">
             Weekly Learning &amp; Review Queue ({weeklyLearning.review_queue.length})
+          </TabsTrigger>
+          <TabsTrigger
+            value="real-use-dashboard"
+            data-testid="zoe-tab-real-use-dashboard"
+          >
+            Real-Use Dashboard
+          </TabsTrigger>
+          <TabsTrigger
+            value="teaching-queue"
+            data-testid="zoe-tab-teaching-queue"
+          >
+            Teaching Queue ({(teachingQueueQuery.data ?? []).length})
           </TabsTrigger>
         </TabsList>
 
@@ -1331,6 +1395,382 @@ export function ZoeConversationsPanel() {
                     ))}
                   </div>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 6: REAL-USE DASHBOARD & ROLE GOALS (NON-CAUSAL) */}
+        <TabsContent value="real-use-dashboard" className="space-y-4">
+          <Card data-testid="zoe-real-use-dashboard-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">
+                Real-Use Dashboard (Last 14 Days · Official Learning &amp; Message Logs)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs">
+              {/* Plain Weekly Adoption Count & 8-Week Trend Line (Prompt 3 Deliverable 2) */}
+              <div
+                data-testid="zoe-weekly-adoption-card"
+                className="rounded-xl border border-primary/25 bg-primary/5 p-3.5 space-y-3"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                      Weekly Staff Adoption (Last 7 Days)
+                    </p>
+                    <p
+                      data-testid="zoe-weekly-adoption-count"
+                      className="mt-1 text-xl font-bold text-foreground"
+                    >
+                      {realUseQuery.data?.weekly_active_staff ?? 0}{' '}
+                      <span className="text-xs font-normal text-muted-foreground">
+                        distinct staff used Zoe at least once in the last 7 days
+                      </span>
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    Pre-work baseline:{' '}
+                    {realUseQuery.data?.baseline_weekly_active_staff ?? 1} staff / week
+                  </Badge>
+                </div>
+
+                {/* Simple 8-Week Trend Line */}
+                <div data-testid="zoe-weekly-adoption-trend" className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>8-week weekly active staff trend</span>
+                    <span>
+                      {(realUseQuery.data?.weekly_active_staff ?? 0) >
+                      (realUseQuery.data?.baseline_weekly_active_staff ?? 1)
+                        ? 'Rising above pre-work baseline (1)'
+                        : 'Target: more than 1 distinct staff per week, and rising'}
+                    </span>
+                  </div>
+                  {(() => {
+                    const trend = realUseQuery.data?.weekly_adoption_trend ?? [];
+                    if (trend.length === 0) {
+                      return (
+                        <p className="text-[11px] text-muted-foreground">
+                          Weekly trend points will appear as daily logs accumulate.
+                        </p>
+                      );
+                    }
+                    const maxStaff = Math.max(
+                      2,
+                      ...trend.map((pt) => pt.distinct_staff_count),
+                    );
+                    const svgWidth = 420;
+                    const svgHeight = 52;
+                    const padX = 12;
+                    const padY = 8;
+                    const usableW = svgWidth - padX * 2;
+                    const usableH = svgHeight - padY * 2;
+                    const points = trend
+                      .map((pt, idx) => {
+                        const x =
+                          trend.length === 1
+                            ? svgWidth / 2
+                            : padX + (idx / (trend.length - 1)) * usableW;
+                        const y =
+                          padY +
+                          usableH -
+                          (pt.distinct_staff_count / maxStaff) * usableH;
+                        return `${Math.round(x)},${Math.round(y)}`;
+                      })
+                      .join(' ');
+                    return (
+                      <div className="space-y-2">
+                        <svg
+                          viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                          className="h-14 w-full overflow-visible rounded-lg border border-border/60 bg-background/80 px-2 py-1"
+                          role="img"
+                          aria-label="Weekly distinct staff using Zoe over the last 8 weeks"
+                          data-testid="zoe-weekly-adoption-trend-svg"
+                        >
+                          <polyline
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-primary"
+                            points={points}
+                          />
+                          {trend.map((pt, idx) => {
+                            const x =
+                              trend.length === 1
+                                ? svgWidth / 2
+                                : padX + (idx / (trend.length - 1)) * usableW;
+                            const y =
+                              padY +
+                              usableH -
+                              (pt.distinct_staff_count / maxStaff) * usableH;
+                            return (
+                              <circle
+                                key={pt.week_start || idx}
+                                cx={Math.round(x)}
+                                cy={Math.round(y)}
+                                r="3.5"
+                                className="fill-primary"
+                              >
+                                <title>
+                                  {pt.week_label}: {pt.distinct_staff_count} staff (
+                                  {pt.questions_count} questions)
+                                </title>
+                              </circle>
+                            );
+                          })}
+                        </svg>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {trend.slice(-4).map((pt) => (
+                            <div
+                              key={pt.week_start}
+                              className="rounded border border-border/70 bg-background px-2 py-1.5 flex items-center justify-between"
+                            >
+                              <span className="truncate text-[11px] text-muted-foreground">
+                                {pt.week_label}
+                              </span>
+                              <span className="ml-1.5 font-semibold text-foreground">
+                                {pt.distinct_staff_count} staff
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-muted-foreground">Daily / Weekly Active Staff</p>
+                  <p className="text-base font-bold text-foreground mt-1">
+                    {realUseQuery.data?.daily_active_staff ?? 0} today ·{' '}
+                    {realUseQuery.data?.weekly_active_staff ?? 0} (7d)
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-muted-foreground">Answer / Error Rate</p>
+                  <p className="text-base font-bold text-foreground mt-1">
+                    {realUseQuery.data?.answer_rate_pct ?? 0}% answered ·{' '}
+                    {realUseQuery.data?.error_rate_pct ?? 0}% error
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-muted-foreground">Thumbs-up Rate</p>
+                  <p className="text-base font-bold text-foreground mt-1">
+                    {realUseQuery.data?.thumbs_up_rate_pct ?? 0}%
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-muted-foreground">TTFB / Total Time (p50 / p95)</p>
+                  <p className="text-xs font-semibold text-foreground mt-1">
+                    TTFB: {realUseQuery.data?.median_ttfb_ms ?? 0} /{' '}
+                    {realUseQuery.data?.p95_ttfb_ms ?? 0} ms
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Total: {realUseQuery.data?.median_total_ms ?? 0} /{' '}
+                    {realUseQuery.data?.p95_total_ms ?? 0} ms
+                  </p>
+                </div>
+              </div>
+
+              {/* Questions per role */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-foreground">Questions by Role</h4>
+                {(realUseQuery.data?.questions_per_role ?? []).length === 0 ? (
+                  <p className="text-muted-foreground">No role activity recorded yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(realUseQuery.data?.questions_per_role ?? []).map((row) => (
+                      <div
+                        key={row.role_bucket}
+                        className="rounded-lg border border-border px-3 py-2 flex items-center justify-between"
+                      >
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {formatRoleLabel(row.role_bucket)}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {row.answered_count} answered · {row.error_count} errors ·{' '}
+                            {row.thumbs_up_count} up / {row.thumbs_down_count} down
+                          </p>
+                        </div>
+                        <Badge variant="secondary">{row.questions_count} asks</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Role Goals & Measures (Descriptive trend only — never causal) */}
+              {realUseQuery.data?.role_goals && (
+                <div
+                  data-testid="zoe-role-goals-section"
+                  className="space-y-2 rounded-lg border border-border bg-muted/20 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="font-semibold text-foreground">
+                      Role Goals &amp; Measures Alongside Zoe Adoption
+                    </h4>
+                    <Badge variant="outline" className="text-xs">
+                      Descriptive Trend Only · Non-Causal
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {realUseQuery.data.role_goals.disclaimer}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    {realUseQuery.data.role_goals.role_goals.map((g) => (
+                      <div
+                        key={g.role}
+                        className="rounded border border-border bg-background p-2.5 space-y-1"
+                      >
+                        <p className="font-semibold text-foreground">
+                          {formatRoleLabel(g.role)} — {g.goal_label}
+                        </p>
+                        <p className="text-muted-foreground">
+                          Official source: {g.official_source}
+                        </p>
+                        <p className="text-muted-foreground">{g.zoe_adoption_note}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB 7: DEPARTMENT TEACHING QUEUE */}
+        <TabsContent value="teaching-queue" className="space-y-4">
+          <Card data-testid="zoe-teaching-queue-card">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-sm font-semibold">
+                  Department Teaching Queue (Named Lead Approval · 90-Day Review Expiry)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={teachingLeadNameDraft}
+                    onChange={(e) => setTeachingLeadNameDraft(e.target.value)}
+                    placeholder="Approving Lead Name"
+                    className="h-8 w-44 text-xs"
+                    data-testid="zoe-teaching-lead-name-input"
+                  />
+                  <Select
+                    value={teachingDeptFilter}
+                    onValueChange={setTeachingDeptFilter}
+                  >
+                    <SelectTrigger
+                      className="h-8 w-40 text-xs"
+                      data-testid="zoe-teaching-dept-select"
+                    >
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All departments</SelectItem>
+                      <SelectItem value="Landlord Ops">Landlord Ops</SelectItem>
+                      <SelectItem value="Tenant Ops">Tenant Ops</SelectItem>
+                      <SelectItem value="Agent Ops">Agent Ops</SelectItem>
+                      <SelectItem value="Partner Ops">Partner Ops</SelectItem>
+                      <SelectItem value="Financial Ops">Financial Ops</SelectItem>
+                      <SelectItem value="HR & People">HR &amp; People</SelectItem>
+                      <SelectItem value="CRM & Support">CRM &amp; Support</SelectItem>
+                      <SelectItem value="General Operations">General Operations</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 text-xs">
+              {(teachingQueueQuery.data ?? []).length === 0 ? (
+                <p className="text-muted-foreground">
+                  No open questions waiting in the department teaching queue.
+                </p>
+              ) : (
+                (teachingQueueQuery.data ?? []).map(
+                  (item: ZoeDepartmentTeachingQueueItem) => (
+                    <div
+                      key={item.id}
+                      data-testid={`zoe-teaching-item-${item.id}`}
+                      className="rounded-lg border border-border p-3 space-y-2"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant="secondary">{item.department}</Badge>
+                          <Badge variant="outline">{item.source_kind}</Badge>
+                        </div>
+                        <span className="text-muted-foreground">
+                          {formatRelativeTime(item.created_at)}
+                        </span>
+                      </div>
+                      <p className="font-semibold text-foreground break-words">
+                        {item.question_text}
+                      </p>
+                      {item.reason_or_comment && (
+                        <p className="text-muted-foreground">
+                          Reason / feedback: {item.reason_or_comment}
+                        </p>
+                      )}
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        <Textarea
+                          rows={2}
+                          value={teachingAnswerDrafts[item.id] ?? ''}
+                          onChange={(e) =>
+                            setTeachingAnswerDrafts((prev) => ({
+                              ...prev,
+                              [item.id]: e.target.value,
+                            }))
+                          }
+                          placeholder="Write the official department-approved answer (cites process/source, expires for review in 90 days)..."
+                          className="text-xs flex-1"
+                          data-testid={`zoe-teaching-answer-input-${item.id}`}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            teachFromQueue.isPending ||
+                            !(teachingAnswerDrafts[item.id] ?? '').trim()
+                          }
+                          data-testid={`zoe-teaching-approve-btn-${item.id}`}
+                          onClick={() => {
+                            teachFromQueue.mutate(
+                              {
+                                queue_id: item.id,
+                                approved_answer: (
+                                  teachingAnswerDrafts[item.id] ?? ''
+                                ).trim(),
+                                approved_by_name:
+                                  teachingLeadNameDraft.trim() ||
+                                  'Department Lead',
+                                department: item.department,
+                              },
+                              {
+                                onSuccess: () => {
+                                  toast.success(
+                                    `Approved and published to Zoe Knowledge (${item.department})`,
+                                  );
+                                },
+                                onError: (err) => {
+                                  toast.error(
+                                    err instanceof Error
+                                      ? err.message
+                                      : 'Could not approve answer',
+                                  );
+                                },
+                              },
+                            );
+                          }}
+                        >
+                          Approve &amp; Teach Zoe
+                        </Button>
+                      </div>
+                    </div>
+                  ),
+                )
               )}
             </CardContent>
           </Card>

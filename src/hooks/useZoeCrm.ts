@@ -620,3 +620,321 @@ export function usePromoteZoeEvalCandidate() {
     },
   });
 }
+
+export interface ZoeModelDriftSummary {
+  ok: boolean;
+  source: string;
+  sample_limit: number;
+  checked_count: number;
+  mismatched_count: number;
+  drift_detected: boolean;
+  configured_model_fast: string;
+  configured_model_deep: string;
+  dominant_gateway_model: string | null;
+  observed_models: Array<{
+    gateway_model: string;
+    requested_model: string;
+    reply_count: number;
+    matches_config: boolean;
+    last_seen_at: string;
+  }>;
+  warning_message: string | null;
+}
+
+export interface ZoeWeeklyAdoptionTrendPoint {
+  week_start: string;
+  week_end: string;
+  week_label: string;
+  distinct_staff_count: number;
+  questions_count: number;
+}
+
+export interface ZoeRealUseDashboardData {
+  ok: boolean;
+  source: string;
+  days: number;
+  daily_active_staff: number;
+  weekly_active_staff: number;
+  baseline_weekly_active_staff?: number;
+  weekly_adoption_trend?: ZoeWeeklyAdoptionTrendPoint[];
+  questions_per_role: Array<{
+    role_bucket: string;
+    questions_count: number;
+    answered_count: number;
+    error_count: number;
+    thumbs_up_count: number;
+    thumbs_down_count: number;
+  }>;
+  answer_rate_pct: number;
+  error_rate_pct: number;
+  thumbs_up_rate_pct: number;
+  median_ttfb_ms: number;
+  p95_ttfb_ms: number;
+  median_total_ms: number;
+  p95_total_ms: number;
+  cost_per_day_usd: Array<{
+    day_kampala: string;
+    questions_count: number;
+    cost_usd: number;
+  }>;
+  top_unanswered_themes: Array<{
+    topic: string;
+    outcome: string;
+    count: number;
+  }>;
+  model_drift?: ZoeModelDriftSummary | null;
+  role_goals?: {
+    disclaimer: string;
+    role_goals: Array<{
+      role: string;
+      goal_label: string;
+      official_source: string;
+      zoe_adoption_note: string;
+    }>;
+  };
+  error?: string | null;
+}
+
+export function useZoeModelDriftCheck(limit = 50, enabled = true) {
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
+
+  return useQuery({
+    queryKey: ['zoe-model-drift-check', safeLimit],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeModelDriftSummary | null> => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_check_model_drift',
+        { p_limit: safeLimit },
+      );
+
+      if (error || !data || typeof data !== 'object') {
+        return null;
+      }
+
+      const payload = data as Partial<ZoeModelDriftSummary>;
+      return {
+        ok: payload.ok !== false,
+        source: payload.source ?? 'staff_assistant_check_model_drift',
+        sample_limit: Number(payload.sample_limit ?? safeLimit),
+        checked_count: Number(payload.checked_count ?? 0),
+        mismatched_count: Number(payload.mismatched_count ?? 0),
+        drift_detected: Boolean(payload.drift_detected),
+        configured_model_fast: String(payload.configured_model_fast ?? ''),
+        configured_model_deep: String(payload.configured_model_deep ?? ''),
+        dominant_gateway_model:
+          typeof payload.dominant_gateway_model === 'string'
+            ? payload.dominant_gateway_model
+            : null,
+        observed_models: Array.isArray(payload.observed_models)
+          ? payload.observed_models
+          : [],
+        warning_message:
+          typeof payload.warning_message === 'string'
+            ? payload.warning_message
+            : null,
+      };
+    },
+  });
+}
+
+export function useZoeRealUseDashboard(days = 14, enabled = true) {
+  const safeDays = Math.min(90, Math.max(1, Math.floor(days)));
+
+  return useQuery({
+    queryKey: ['zoe-real-use-dashboard', safeDays],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeRealUseDashboardData> => {
+      const supabase = await getSupabaseClient();
+      const callRpc = supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+      const [dashRes, goalsRes] = await Promise.all([
+        callRpc('staff_assistant_real_use_dashboard', { p_days: safeDays }),
+        callRpc('staff_assistant_role_goals_and_measures', { p_days: 28 }),
+      ]);
+
+      if (dashRes.error) {
+        return {
+          ok: false,
+          source: 'staff_assistant_real_use_dashboard',
+          days: safeDays,
+          daily_active_staff: 0,
+          weekly_active_staff: 0,
+          baseline_weekly_active_staff: 1,
+          weekly_adoption_trend: [],
+          questions_per_role: [],
+          answer_rate_pct: 0,
+          error_rate_pct: 0,
+          thumbs_up_rate_pct: 0,
+          median_ttfb_ms: 0,
+          p95_ttfb_ms: 0,
+          median_total_ms: 0,
+          p95_total_ms: 0,
+          cost_per_day_usd: [],
+          top_unanswered_themes: [],
+          error: dashRes.error.message,
+        };
+      }
+
+      const payload = (dashRes.data ?? {}) as Partial<ZoeRealUseDashboardData>;
+      const goalsPayload = (goalsRes.data ?? {}) as {
+        disclaimer?: string;
+        role_goals?: Array<{
+          role: string;
+          goal_label: string;
+          official_source: string;
+          zoe_adoption_note: string;
+        }>;
+      };
+
+      return {
+        ok: payload.ok !== false,
+        source: payload.source ?? 'staff_assistant_real_use_dashboard',
+        days: typeof payload.days === 'number' ? payload.days : safeDays,
+        daily_active_staff: Number(payload.daily_active_staff ?? 0),
+        weekly_active_staff: Number(payload.weekly_active_staff ?? 0),
+        baseline_weekly_active_staff: Number(payload.baseline_weekly_active_staff ?? 1),
+        weekly_adoption_trend: Array.isArray(payload.weekly_adoption_trend)
+          ? payload.weekly_adoption_trend.map((pt) => ({
+              week_start: String(pt.week_start ?? ''),
+              week_end: String(pt.week_end ?? ''),
+              week_label: String(pt.week_label ?? ''),
+              distinct_staff_count: Number(pt.distinct_staff_count ?? 0),
+              questions_count: Number(pt.questions_count ?? 0),
+            }))
+          : [],
+        questions_per_role: Array.isArray(payload.questions_per_role)
+          ? payload.questions_per_role
+          : [],
+        answer_rate_pct: Number(payload.answer_rate_pct ?? 0),
+        error_rate_pct: Number(payload.error_rate_pct ?? 0),
+        thumbs_up_rate_pct: Number(payload.thumbs_up_rate_pct ?? 0),
+        median_ttfb_ms: Number(payload.median_ttfb_ms ?? 0),
+        p95_ttfb_ms: Number(payload.p95_ttfb_ms ?? 0),
+        median_total_ms: Number(payload.median_total_ms ?? 0),
+        p95_total_ms: Number(payload.p95_total_ms ?? 0),
+        cost_per_day_usd: Array.isArray(payload.cost_per_day_usd)
+          ? payload.cost_per_day_usd
+          : [],
+        top_unanswered_themes: Array.isArray(payload.top_unanswered_themes)
+          ? payload.top_unanswered_themes
+          : [],
+        model_drift:
+          payload.model_drift && typeof payload.model_drift === 'object'
+            ? (payload.model_drift as ZoeModelDriftSummary)
+            : null,
+        role_goals: {
+          disclaimer:
+            goalsPayload.disclaimer ??
+            'Descriptive trend only — shows role goal figures alongside Zoe adoption for context, never a causal claim.',
+          role_goals: Array.isArray(goalsPayload.role_goals)
+            ? goalsPayload.role_goals
+            : [],
+        },
+        error: null,
+      };
+    },
+  });
+}
+
+export interface ZoeDepartmentTeachingQueueItem {
+  id: string;
+  department: string;
+  source_kind: string;
+  question_text: string;
+  reason_or_comment: string | null;
+  status: string;
+  approved_answer: string | null;
+  approved_by_name: string | null;
+  approved_at: string | null;
+  review_due_at: string | null;
+  knowledge_id: string | null;
+  created_at: string;
+}
+
+export function useZoeTeachingQueue(
+  department: string | null = null,
+  status = 'open',
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: ['zoe-teaching-queue', department, status],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeDepartmentTeachingQueueItem[]> => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_department_teaching_queue',
+        {
+          p_department: department && department !== 'all' ? department : null,
+          p_status: status,
+          p_limit: 50,
+        },
+      );
+
+      if (error) {
+        return [];
+      }
+
+      const payload = (data ?? {}) as {
+        items?: ZoeDepartmentTeachingQueueItem[];
+      };
+      return Array.isArray(payload.items) ? payload.items : [];
+    },
+  });
+}
+
+export function useTeachZoeFromQueue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      queue_id: string;
+      approved_answer: string;
+      approved_by_name: string;
+      title?: string;
+      department?: string;
+    }) => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_teach_from_review_queue',
+        {
+          p_unanswered_id: params.queue_id,
+          p_title: params.title ?? 'Taught Knowledge Entry',
+          p_category: 'faq',
+          p_department: params.department ?? 'general',
+          p_summary: params.approved_answer,
+          p_body: params.approved_answer,
+          p_official_source: 'Department Lead Teaching Queue',
+        },
+      );
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      const res = (data ?? {}) as { ok?: boolean; error?: string };
+      if (res.ok === false) {
+        throw new Error(res.error || 'Could not approve teaching answer.');
+      }
+      return res;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['zoe-teaching-queue'] });
+      qc.invalidateQueries({ queryKey: ['zoe-weekly-learning-view'] });
+      qc.invalidateQueries({ queryKey: ['zoe-crm-dashboard'] });
+    },
+  });
+}

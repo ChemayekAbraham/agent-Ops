@@ -1,21 +1,24 @@
 #!/usr/bin/env node
 /**
- * CI & Deploy Guard — Zoe Database Parity Guard (`npm run guard:zoe-parity`).
+ * CI & Deploy Guard — Zoe Database Parity & Reverse Drift Guard (`npm run guard:zoe-parity`).
  *
- * Prevents shipping Zoe edge-function or frontend code ahead of its database objects:
+ * Prevents shipping Zoe edge-function or frontend code ahead of its database objects,
+ * and prevents live database objects from existing without a matching committed migration:
  *   1. Maintains the canonical Zoe object manifest from `docs/zoe/parity-audit.md`
- *      (tables, columns, `zoe_ro.*` views, RPCs, and RPC arguments).
- *   2. Scans `supabase/functions/staff-assistant*`, `src/components/zoe/`,
+ *      (all 21 tables, columns, 23 views, RPCs, and RPC arguments).
+ *   2. Verifies that every migration version prefix in `supabase/migrations/` is unique
+ *      (no duplicate 14-digit timestamps).
+ *   3. Scans `supabase/functions/staff-assistant*`, `src/components/zoe/`,
  *      `src/lib/zoe/`, and `src/hooks/useZoeCrm.ts` to verify that every
  *      `staff_assistant_*` / `assistant_staff_*` / `zoe_*` table, RPC, and RPC
  *      argument used in code is registered in the parity manifest and defined
  *      in `supabase/migrations/` with explicit grants and `mfa_required_for_staff`.
- *   3. Verifies that `supabase/functions/staff-assistant/` calls the cached
+ *   4. Verifies reverse drift (`auditReverseLiveDrift`): fails if any `staff_assistant_*`
+ *      or `assistant_staff_*` object or `zoe_ro.*` view exists live without a matching
+ *      committed migration file in `supabase/migrations/`.
+ *   5. Verifies that `supabase/functions/staff-assistant/` calls the cached
  *      (60-second TTL) `staff_assistant_health` RPC on startup and reports
  *      `"zoe_database_behind"` with the missing object names when behind.
- *   4. When run with `--check-live` (or `ZOE_PARITY_CHECK_LIVE=1`), queries the
- *      linked database in read-only mode and fails with `"zoe_database_behind"`
- *      and the exact list of missing tables, columns, views, and functions.
  *
  * Usage:
  *   node scripts/guard-zoe-parity.mjs
@@ -46,9 +49,13 @@ export const REQUIRED_ZOE_TABLES = [
   'staff_assistant_glossary',
   'staff_assistant_data_catalog',
   'staff_assistant_queries',
+  'staff_assistant_research_logs',
   'staff_assistant_learning_log',
   'staff_assistant_eval_candidates',
   'staff_assistant_knowledge_base',
+  'staff_assistant_projects',
+  'staff_assistant_uploads',
+  'staff_assistant_kb_zero_hits',
 ];
 
 export const REQUIRED_ZOE_COLUMNS = {
@@ -93,6 +100,7 @@ export const REQUIRED_ZOE_COLUMNS = {
     'last_message_at',
     'updated_at',
     'rolling_summary',
+    'project_id',
   ],
   staff_assistant_messages: [
     'id',
@@ -106,7 +114,14 @@ export const REQUIRED_ZOE_COLUMNS = {
     'period_label',
     'report_payload',
     'model',
+    'requested_model',
+    'gateway_model',
+    'ttfb_ms',
     'latency_ms',
+    'error_code',
+    'cost_usd',
+    'analyst_used',
+    'research_used',
     'created_at',
     'hidden_by_user',
     'hidden_at',
@@ -137,6 +152,12 @@ export const REQUIRED_ZOE_COLUMNS = {
     'created_at',
     'error_code',
     'error_detail',
+    'routed_department',
+    'taught_knowledge_id',
+    'taught_by_name',
+    'taught_at',
+    'asker_notified_at',
+    'asker_seen_at',
   ],
   staff_assistant_notes: [
     'id',
@@ -193,6 +214,14 @@ export const REQUIRED_ZOE_COLUMNS = {
     'morning_brief_time',
     'memory_enabled',
     'dismissed_memory_prompts',
+    'web_push_enabled',
+    'web_push_muted',
+    'web_push_sent_today_count',
+    'web_push_sent_kampala_date',
+    'web_push_morning_brief_topic',
+    'web_push_taught_updates_topic',
+    'voice_disclosure_acknowledged_at',
+    'has_completed_tour',
     'updated_at',
   ],
   staff_assistant_learning_log: [
@@ -204,9 +233,15 @@ export const REQUIRED_ZOE_COLUMNS = {
     'topic',
     'tool_used',
     'outcome',
+    'requested_model',
+    'gateway_model',
+    'ttfb_ms',
     'latency_ms',
+    'error_code',
     'cost_usd',
     'model_tier',
+    'analyst_used',
+    'research_used',
     'feedback_rating',
     'feedback_theme',
     'created_at',
@@ -230,18 +265,62 @@ export const REQUIRED_ZOE_COLUMNS = {
     'slug',
     'title',
     'category',
+    'department',
     'summary',
     'body',
     'measurement_gotcha',
     'official_source',
     'screen_path',
     'keywords',
+    'synonyms',
     'review_status',
+    'created_by',
+    'approved_by',
     'reviewed_by',
+    'reviewed_by_name',
     'reviewed_at',
+    'expires_at',
+    'usage_count',
+    'last_used_at',
+    'source_unanswered_id',
     'updated_by',
     'created_at',
     'updated_at',
+  ],
+  staff_assistant_projects: [
+    'id',
+    'user_id',
+    'name',
+    'instructions',
+    'pinned_file_ids',
+    'is_archived',
+    'created_at',
+    'updated_at',
+  ],
+  staff_assistant_uploads: [
+    'id',
+    'user_id',
+    'conversation_id',
+    'project_id',
+    'storage_path',
+    'file_name',
+    'mime_type',
+    'size_bytes',
+    'extracted_summary',
+    'has_pii_warning',
+    'pii_warning_types',
+    'expires_at',
+    'created_at',
+  ],
+  staff_assistant_kb_zero_hits: [
+    'id',
+    'user_id',
+    'caller_roles',
+    'sanitized_query',
+    'routed_department',
+    'hit_count',
+    'last_seen_at',
+    'created_at',
   ],
 };
 
@@ -265,6 +344,10 @@ export const REQUIRED_ZOE_VIEWS = [
   'zoe_ro.tenants_arrears_by_city',
   'zoe_ro.landlords_registry_by_district',
   'zoe_ro.landlords_payouts_summary',
+  'zoe_ro.calling_my_space_officer_daily',
+  'zoe_ro.tenants_directory_by_stage_and_location',
+  'zoe_ro.operations_desk_turnaround_summary',
+  'zoe_ro.tenants_first_seven_days_cohort',
 ];
 
 export const REQUIRED_ZOE_RPCS = {
@@ -280,13 +363,45 @@ export const REQUIRED_ZOE_RPCS = {
   staff_assistant_sanitize_jsonb: ['p_data', 'p_allow_phones', 'p_max_rows'],
   staff_assistant_get_config: [],
   staff_assistant_health: [],
+  staff_assistant_check_model_drift: ['p_limit'],
   staff_assistant_error_summary: ['p_days'],
+  staff_assistant_real_use_dashboard: ['p_days'],
   staff_assistant_can_user_read_report: ['p_user_id', 'p_report_rpc', 'p_owner_id'],
   staff_assistant_save_draft: ['p_kind', 'p_payload', 'p_conversation_id'],
   staff_assistant_consume_draft: ['p_draft_id', 'p_kind', 'p_payload'],
   staff_assistant_check_question_rate_limit: ['p_user_id'],
   staff_assistant_check_email_budget: ['p_user_id', 'p_recipient_count'],
   staff_assistant_hide_my_history: ['p_user_id', 'p_conversation_id'],
+  // Projects & uploads
+  staff_assistant_upsert_project: ['p_project_id', 'p_name', 'p_instructions', 'p_pinned_file_ids'],
+  staff_assistant_list_projects: [],
+  staff_assistant_delete_project: ['p_project_id'],
+  staff_assistant_purge_expired_uploads: [],
+  // Teaching loop, KB, role goals & push/voice consent
+  staff_assistant_department_teaching_queue: ['p_department', 'p_status', 'p_limit'],
+  staff_assistant_teach_from_review_queue: [
+    'p_unanswered_id',
+    'p_slug',
+    'p_title',
+    'p_category',
+    'p_department',
+    'p_summary',
+    'p_body',
+    'p_measurement_gotcha',
+    'p_official_source',
+    'p_screen_path',
+    'p_keywords',
+    'p_synonyms',
+  ],
+  staff_assistant_role_goals_and_measures: ['p_days'],
+  staff_assistant_can_send_web_push: ['p_user_id', 'p_topic'],
+  staff_assistant_update_push_and_voice_prefs: [
+    'p_web_push_enabled',
+    'p_web_push_muted',
+    'p_morning_brief_topic',
+    'p_taught_updates_topic',
+    'p_acknowledge_voice_disclosure',
+  ],
   // CRM review & weekly learning
   staff_assistant_is_crm_reviewer: [],
   staff_assistant_crm_review_dashboard: [
@@ -405,6 +520,9 @@ export const REQUIRED_ZOE_RPCS = {
   assistant_staff_my_wallet: [],
   assistant_staff_my_reminders_and_schedules: ['p_include_cancelled'],
   assistant_staff_my_calls: ['p_from', 'p_to'],
+  assistant_staff_my_work_summary: ['p_from', 'p_to'],
+  assistant_staff_team_work_summary: ['p_department', 'p_from', 'p_to'],
+  assistant_staff_my_taught_updates: [],
   assistant_staff_tops_first_seven_summary: ['p_from', 'p_to', 'p_frequency'],
   assistant_staff_tops_arrears_ageing: ['p_as_at', 'p_bucket', 'p_limit', 'p_offset', 'p_dir'],
   assistant_staff_tops_landlord_not_paid: ['p_as_at', 'p_limit', 'p_offset'],
@@ -493,6 +611,31 @@ export const REQUIRED_ZOE_RPCS = {
   staff_assistant_weekly_manager_learning_view: ['p_days'],
 };
 
+/**
+ * Internal helper / trigger functions defined in Zoe migrations that are not
+ * directly invoked via `.rpc()`, kept in the known-functions set for reverse
+ * live drift checks.
+ */
+export const INTERNAL_ZOE_FUNCTIONS = [
+  'staff_assistant_touch_updated_at',
+  'staff_assistant_crm_can_review',
+  'staff_assistant_redact_text',
+  'staff_assistant_unanswered_ensure_error_code',
+  'staff_assistant_enforce_upload_limits',
+  'staff_assistant_check_web_research_budget',
+  'staff_assistant_log_web_research',
+  'staff_assistant_save_memory_note',
+  'staff_assistant_delete_note',
+  'staff_assistant_compute_draft_hash',
+  'staff_assistant_is_valid_link_path',
+  'staff_assistant_unanswered_stamp_review',
+  'staff_assistant_write_or_read_roles_list',
+  'assistant_staff_welile_glossary',
+  'assistant_staff_my_tasks_and_attendance',
+  'assistant_staff_my_work_logs',
+  'assistant_staff_my_concerns',
+];
+
 function stripComments(s) {
   return s
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -514,6 +657,73 @@ function walk(dir, out = []) {
     }
   }
   return out;
+}
+
+/**
+ * Checks that every Zoe migration file (and every new migration after 20261102130000)
+ * in `supabase/migrations/` has a unique 14-digit numeric timestamp prefix across the
+ * entire `supabase/migrations/` folder (no duplicate migration version numbers).
+ */
+export function auditDuplicateMigrationVersionPrefixes(migrationFilenames) {
+  const errs = [];
+  const byPrefix = new Map();
+  for (const fname of migrationFilenames) {
+    if (!fname.endsWith('.sql') || fname.endsWith('.rollback.sql')) continue;
+    const m = fname.match(/^(\d{14})_(.+)\.sql$/);
+    if (!m) continue;
+    const prefix = m[1];
+    const existing = byPrefix.get(prefix) ?? [];
+    existing.push(fname);
+    byPrefix.set(prefix, existing);
+  }
+  for (const [prefix, files] of byPrefix.entries()) {
+    const touchesZoeOrNew =
+      prefix > '20261102130000' || files.some((f) => f.includes('staff_assistant') || f.includes('zoe'));
+    if (files.length > 1 && touchesZoeOrNew) {
+      errs.push(
+        `Duplicate migration version prefix "${prefix}" in supabase/migrations: ${files.join(', ')}`,
+      );
+    }
+  }
+  return errs;
+}
+
+/**
+ * Reverse drift check: fails if any live `staff_assistant_*` or `assistant_staff_*`
+ * table/function or `zoe_ro.*` view exists in the database without a matching
+ * migration definition in the repository manifest.
+ */
+export function auditReverseLiveDrift(
+  liveTables,
+  liveViews,
+  liveFunctions,
+  manifestTables,
+  manifestViews,
+  manifestFunctions,
+) {
+  const errs = [];
+  for (const tbl of liveTables) {
+    if (!manifestTables.has(tbl.toLowerCase())) {
+      errs.push(
+        `zoe_live_untracked_drift: live table "public.${tbl}" has no matching definition in the Zoe migration manifest.`,
+      );
+    }
+  }
+  for (const vw of liveViews) {
+    if (!manifestViews.has(vw.toLowerCase())) {
+      errs.push(
+        `zoe_live_untracked_drift: live view "${vw}" has no matching definition in the Zoe migration manifest.`,
+      );
+    }
+  }
+  for (const fn of liveFunctions) {
+    if (!manifestFunctions.has(fn.toLowerCase())) {
+      errs.push(
+        `zoe_live_untracked_drift: live function "public.${fn}" has no matching definition in the Zoe migration manifest.`,
+      );
+    }
+  }
+  return errs;
 }
 
 /**
@@ -596,7 +806,7 @@ export function auditMigrationsCoverManifest(
       errs.push(`Missing CREATE TABLE for public.${tbl} in supabase/migrations.`);
     }
     const mfaPolicyRe = new RegExp(
-      `CREATE\\s+POLICY\\s+mfa_required_for_staff\\s+ON\\s+(?:public\\.)?${tbl}\\b`,
+      `CREATE\\s+POLICY\\s+"?mfa_required_for_staff"?\\s+ON\\s+(?:public\\.)?${tbl}\\b`,
       'i',
     );
     if (!mfaPolicyRe.test(clean)) {
@@ -652,6 +862,7 @@ export function auditMigrationsCoverManifest(
 // ============================================================================
 export function runSelfTests() {
   const tables = new Set(['staff_assistant_config']);
+  const views = new Set(['zoe_ro.finance_treasury_cash_position']);
   const rpcs = new Map([['staff_assistant_has_access', new Set()]]);
 
   const badTableErrs = auditCodeParity(
@@ -683,6 +894,26 @@ export function runSelfTests() {
   if (badParamErrs.length === 0) {
     throw new Error('Self-test failed: did not catch undeclared RPC parameter.');
   }
+
+  const dupMigrationErrs = auditDuplicateMigrationVersionPrefixes([
+    '20261030100000_tlb_tenants_multi.sql',
+    '20261030100000_staff_assistant_parity.sql',
+  ]);
+  if (dupMigrationErrs.length === 0) {
+    throw new Error('Self-test failed: did not catch duplicate migration version prefix.');
+  }
+
+  const reverseDriftErrs = auditReverseLiveDrift(
+    ['staff_assistant_config', 'staff_assistant_untracked_live_table'],
+    ['zoe_ro.finance_treasury_cash_position'],
+    ['staff_assistant_has_access', 'staff_assistant_untracked_live_fn'],
+    tables,
+    views,
+    new Set(['staff_assistant_has_access']),
+  );
+  if (reverseDriftErrs.length !== 2) {
+    throw new Error('Self-test failed: did not catch untracked live table/function reverse drift.');
+  }
 }
 
 runSelfTests();
@@ -699,13 +930,24 @@ function fail(msg) {
   errors.push(msg);
 }
 
-const manifestTables = new Set(REQUIRED_ZOE_TABLES);
+const manifestTables = new Set(REQUIRED_ZOE_TABLES.map((t) => t.toLowerCase()));
+const manifestViews = new Set(REQUIRED_ZOE_VIEWS.map((v) => v.toLowerCase()));
 const manifestRpcs = new Map(
   Object.entries(REQUIRED_ZOE_RPCS).map(([k, v]) => [
     k.toLowerCase(),
     new Set(v.map((p) => p.toLowerCase())),
   ]),
 );
+const allKnownZoeFunctions = new Set([
+  ...Object.keys(REQUIRED_ZOE_RPCS).map((k) => k.toLowerCase()),
+  ...INTERNAL_ZOE_FUNCTIONS.map((k) => k.toLowerCase()),
+]);
+
+// 0. Check for duplicate migration version prefixes across supabase/migrations/
+const allMigrationFilenames = readdirSync(MIGRATIONS_DIR).sort();
+for (const err of auditDuplicateMigrationVersionPrefixes(allMigrationFilenames)) {
+  fail(err);
+}
 
 // 1. Scan Zoe edge functions and frontend files
 const scanDirs = [
@@ -749,10 +991,9 @@ if (!/zoe_database_behind/.test(combinedEdgeCode)) {
   fail('supabase/functions/staff-assistant must report "zoe_database_behind" when database objects are missing.');
 }
 
-// 3. Verify Zoe SQL migrations define every manifest object
-const zoeMigrations = readdirSync(MIGRATIONS_DIR)
+// 3. Verify Zoe SQL migrations define every manifest object, and no Zoe migration defines an unregistered object
+const zoeMigrations = allMigrationFilenames
   .filter((f) => f.endsWith('.sql') && f.includes('staff_assistant'))
-  .sort()
   .map((f) => readFileSync(join(MIGRATIONS_DIR, f), 'utf8'))
   .join('\n');
 
@@ -770,6 +1011,7 @@ for (const err of auditMigrationsCoverManifest(
 for (const requiredRel of [
   'docs/zoe/parity-audit.md',
   'docs/zoe/deploy-order.md',
+  'docs/zoe/schema-drift-reconciliation.md',
   'supabase/tests/zoe_live_parity.sql',
 ]) {
   const abs = join(ROOT, requiredRel);
@@ -791,10 +1033,10 @@ if (
     { cwd: ROOT, encoding: 'utf8' },
   );
   const out = `${res.stdout ?? ''}\n${res.stderr ?? ''}`.trim();
-  if (res.status !== 0 || /zoe_database_behind/i.test(out)) {
-    fail(`zoe_database_behind: live database is missing required Zoe objects.\n${out}`);
+  if (res.status !== 0 || /zoe_database_behind|zoe_live_untracked_drift/i.test(out)) {
+    fail(`zoe_database_behind: live database parity or reverse drift check failed.\n${out}`);
   } else {
-    console.log('[guard:zoe-parity] live database parity ok');
+    console.log('[guard:zoe-parity] live database parity & reverse-drift check ok');
   }
 }
 
@@ -807,5 +1049,5 @@ if (errors.length > 0) {
 console.log(
   `[guard:zoe-parity] ok — ${REQUIRED_ZOE_TABLES.length} tables, ` +
     `${Object.values(REQUIRED_ZOE_COLUMNS).reduce((s, a) => s + a.length, 0)} columns, ` +
-    `${REQUIRED_ZOE_VIEWS.length} views, and ${Object.keys(REQUIRED_ZOE_RPCS).length} RPCs verified across ${scanFiles.length} code files`,
+    `${REQUIRED_ZOE_VIEWS.length} views, and ${Object.keys(REQUIRED_ZOE_RPCS).length} RPCs verified across ${scanFiles.length} code files (${allKnownZoeFunctions.size} total Zoe functions tracked)`,
 );

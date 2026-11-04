@@ -74,7 +74,7 @@ const ROLE_HIGHLIGHTS: Record<string, { title: string; subtitle: string; categor
     categories: ['partner_commission', 'agent_commission', 'pool_investment', 'wallet_withdrawal', 'deposit'],
   },
   supporter: {
-    title: 'Your investor activity',
+    title: 'Your supporter activity',
     subtitle: 'Returns, top-ups and payouts on your portfolio',
     categories: ['supporter_reward', 'pool_investment', 'deposit', 'wallet_withdrawal', 'transfer_in'],
   },
@@ -144,7 +144,7 @@ function describeSubAgentAction(opts: {
 
 const CATEGORY_META: Record<string, { label: string; Icon: React.ElementType; colorClass: string; plainExplanation: string }> = {
   referral_bonus:        { label: 'Referral Bonus',          Icon: Users,          colorClass: 'text-primary bg-primary/10', plainExplanation: 'You earned this because someone you referred joined Welile.' },
-  agent_commission:      { label: 'Commission Earned',        Icon: TrendingUp,     colorClass: 'text-success bg-success/10', plainExplanation: 'You earned 5% commission when a tenant you registered made a rent repayment.' },
+  agent_commission:      { label: 'Commission Earned',        Icon: TrendingUp,     colorClass: 'text-success bg-success/10', plainExplanation: 'You earned commission (8% of the collection, or 6% as a sub-agent) when a tenant you manage made a rent repayment.' },
   agent_commission_earned: { label: 'Cash-out Commission',     Icon: TrendingUp,     colorClass: 'text-success bg-success/10', plainExplanation: 'You earned 0.5% commission for settling a customer cash-out (Cash, Mobile Money or Bank) as a merchant agent.' },
   approval_bonus:        { label: 'Approval Bonus',           Icon: CheckCircle2,   colorClass: 'text-success bg-success/10', plainExplanation: 'You earned UGX 5,000 because a tenant you registered was approved for rent.' },
   subagent_commission:   { label: 'Sub-agent Commission',     Icon: TrendingUp,     colorClass: 'text-success bg-success/10', plainExplanation: 'You earned 2% because a sub-agent under you collected a rent repayment.' },
@@ -152,13 +152,13 @@ const CATEGORY_META: Record<string, { label: string; Icon: React.ElementType; co
   welcome_bonus:         { label: 'Welcome Bonus',            Icon: Gift,           colorClass: 'text-warning bg-warning/10', plainExplanation: 'A one-time bonus for joining the Welile platform.' },
   deposit:               { label: 'Mobile Money Deposit',     Icon: Landmark,       colorClass: 'text-primary bg-primary/10', plainExplanation: 'Money deposited into your wallet via Mobile Money.' },
   wallet_withdrawal:     { label: 'Withdrawal',               Icon: ArrowDownToLine,colorClass: 'text-destructive bg-destructive/10', plainExplanation: 'Money you withdrew from your wallet to Mobile Money or bank.' },
-  supporter_reward:      { label: 'Supporter Reward',         Icon: Coins,          colorClass: 'text-success bg-success/10', plainExplanation: 'Reward earned from your supporter investment portfolio.' },
+  supporter_reward:      { label: 'Supporter Reward',         Icon: Coins,          colorClass: 'text-success bg-success/10', plainExplanation: 'Reward earned from your supporter support portfolio.' },
   rent_repayment:        { label: 'Rent Repayment',           Icon: Banknote,       colorClass: 'text-primary bg-primary/10', plainExplanation: 'Daily rent deduction from your wallet to repay your rent advance.' },
   tenant_default_charge: { label: 'Tenant Default (Legacy)',   Icon: ArrowDownToLine,colorClass: 'text-destructive bg-destructive/10', plainExplanation: 'A historical charge from when agents were charged for tenant defaults. This policy has been discontinued.' },
   rent_auto_deduction:   { label: 'Auto Rent Deduction',      Icon: ArrowDownToLine,colorClass: 'text-destructive bg-destructive/10', plainExplanation: 'Your daily rent installment was automatically deducted from your wallet.' },
   transfer_out:          { label: 'Transfer Sent',            Icon: ArrowDownToLine,colorClass: 'text-destructive bg-destructive/10', plainExplanation: 'Money you sent to another Welile user.' },
   transfer_in:           { label: 'Transfer Received',        Icon: Landmark,       colorClass: 'text-primary bg-primary/10', plainExplanation: 'Money received from another Welile user.' },
-  pool_investment:       { label: 'Pool Investment',          Icon: ArrowDownToLine,colorClass: 'text-primary bg-primary/10', plainExplanation: 'Money moved from your wallet to the rent management pool.' },
+  pool_investment:       { label: 'Pool Support',          Icon: ArrowDownToLine,colorClass: 'text-primary bg-primary/10', plainExplanation: 'Money moved from your wallet to the rent management pool.' },
   agent_repayment:       { label: 'Advance Auto-Recovery',    Icon: ArrowDownToLine,colorClass: 'text-destructive bg-destructive/10', plainExplanation: 'You withdrew a little more than what was actually in your wallet. An auto-recovery advance was opened for that shortfall plus a 33% platform fee. It is paid back automatically from your future earnings straight to the platform — nothing is ever taken back from your wallet.' },
   agent_advance_credit:  { label: 'Advance Received',         Icon: Banknote,       colorClass: 'text-primary bg-primary/10', plainExplanation: 'An advance was added to your wallet. It will be repaid over the agreed period.' },
 };

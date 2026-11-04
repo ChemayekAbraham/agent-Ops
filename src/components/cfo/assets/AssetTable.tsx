@@ -139,7 +139,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
               <th className="hidden px-3 py-2.5 text-left font-medium md:table-cell">Category</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Serial</th>
               <th className="hidden px-3 py-2.5 text-left font-medium lg:table-cell">Custodian</th>
-              <th className="hidden px-3 py-2.5 text-left font-medium xl:table-cell">Location</th>
+              <th className="hidden px-3 py-2.5 text-right font-medium xl:table-cell">Number</th>
               <th className="px-3 py-2.5 text-left font-medium">Status</th>
               <th className="hidden px-3 py-2.5 text-right font-medium sm:table-cell">Cost</th>
               <th className="w-14 px-3 py-2.5 text-center font-medium">Actions</th>
@@ -181,7 +181,7 @@ export function AssetTable({ onOpen }: { onOpen: (id: string) => void }) {
                 <td className="hidden whitespace-nowrap px-3 py-2.5 text-muted-foreground md:table-cell">{categoryLabel(a.category)}</td>
                 <td className="hidden whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-muted-foreground lg:table-cell">{a.serial_number ?? '—'}</td>
                 <td className="hidden max-w-[12rem] truncate px-3 py-2.5 text-muted-foreground lg:table-cell">{a.custodian_display ?? '—'}</td>
-                <td className="hidden max-w-[12rem] truncate px-3 py-2.5 text-muted-foreground xl:table-cell">{a.location ?? '—'}</td>
+                <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted-foreground xl:table-cell">{a.quantity ?? a.same_item_count}</td>
                 <td className="whitespace-nowrap px-3 py-2.5">
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_TONE[a.status] ?? ''}`}>{statusLabel(a.status)}</span>
                 </td>

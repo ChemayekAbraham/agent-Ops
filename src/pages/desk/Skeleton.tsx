@@ -3,7 +3,7 @@ import { TILE } from './deskTheme';
 /** Loading placeholders. They hold the shape of the real thing, so nothing jumps when data lands. */
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`desk-shimmer rounded-lg bg-white/5 ${className}`} aria-hidden />;
+  return <div className={`desk-shimmer rounded-lg bg-[var(--desk-surface)] ${className}`} aria-hidden />;
 }
 
 export function SkeletonLead() {
@@ -36,7 +36,7 @@ export function SkeletonRows({ cols, rows = 6 }: { cols: number; rows?: number }
   return (
     <>
       {Array.from({ length: rows }, (_, r) => (
-        <tr key={r} className="border-b border-white/5 last:border-0">
+        <tr key={r} className="border-b border-[var(--desk-line-soft)] last:border-0">
           {Array.from({ length: cols }, (_, c) => (
             <td key={c} className="px-3 py-2.5">
               <Skeleton className={`h-3.5 ${c === 0 ? 'w-24' : 'w-16'}`} />

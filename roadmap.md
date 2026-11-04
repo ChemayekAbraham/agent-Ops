@@ -20,3 +20,10 @@
 - [x] Database engine applied (columns, pricing, schedules, daily split, Day-30 buffer cover, mark day, Guest Tenant, plan summary).
 - [x] Front-end hook useV360Plan.
 - [ ] Switch new Rent Plan creation to v360, agent buttons, dashboard figures, Nexa quotes, Day-30 daily job, buffer seed, ledger posting; waiting on Benjamin (see reply).
+
+# Josh sync 1d7a22a4e1
+- [x] Confirm sync to 1d7a22a4e1; no SQL re-run.
+- [x] Redeploy self-update-phone, payment-reminder, send-push-notification.
+- [x] Requisition receipt columns: pending draft updated (helper grants for authenticated, MFA policy check).
+- [ ] Apply receipt columns migration; waiting on Josh/Benjamin go-ahead.
+- [x] Publish so browsers load the login telemetry fix.

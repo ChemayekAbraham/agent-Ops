@@ -51,7 +51,7 @@ export function buildAutoSignupConfirmationBanner(result: InquirySignupResult): 
 export function buildSignupPersuasionPitch(roleOrText: string, hasPhone = false): string {
   const result = buildInquirySignupResult(roleOrText);
   const hook: Record<InquiryRole, string> = {
-    supporter: 'Explore verified houses with Tenant, Landlord and GPS details. Illustrative 15% monthly Returns: support UGX 100,000 for UGX 15,000/month, subject to approved terms.',
+    supporter: 'Explore verified houses with Tenant, Landlord and GPS details. New partners: illustrative Returns of 10% per month. Support UGX 100,000 for UGX 10,000/month, subject to approved terms. Existing portfolios keep their own rate.',
     tenant: 'Build your Rent Access Limit with on-time paid days: +UGX 10,000/day up to UGX 30,000,000. Missed days reduce it by UGX 7,000/day; eligibility and approval apply.',
     agent: 'Join as a Field Agent to help tenants, register properties and track eligible commissions and incentives on your dashboard. Approved programme conditions apply.',
     landlord: 'Register your property and explore upfront landlord rent payments through approved, funded Rent Plans.',

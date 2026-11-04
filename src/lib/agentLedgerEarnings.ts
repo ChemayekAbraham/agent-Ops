@@ -9,7 +9,7 @@ import {
  *
  * The ledger is the only live source. `agent_earnings` has not been written
  * since 2026-07-20 (rent commission since April), and `commission_accrual_ledger`
- * now only receives `event_bonus` rows — the 10% rent commission and the 2%
+ * now only receives `event_bonus` rows — the rent commission (8%, or 6% for a sub-agent; 10% before 2026-11-04) and the 2%
  * recruiter override are posted straight to the ledger. Screens that still
  * summed either legacy table showed every agent "0 commission" while the money
  * was sitting in their wallet (agent Oscar Arnold, 2026-09-24).

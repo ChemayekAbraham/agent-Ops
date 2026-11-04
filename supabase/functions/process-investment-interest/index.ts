@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
             category: 'roi_expense',
             source_table: 'investment_interest_payments',
             source_id: account.id,
-            description: `Monthly ROI expense (15%) for investment account "${account.name}"`,
+            description: `Monthly returns expense (15%) for account "${account.name}"`,
             currency: 'UGX',
             transaction_date: txDate,
           },
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
             category: 'roi_wallet_credit',
             source_table: 'investment_interest_payments',
             source_id: account.id,
-            description: `Monthly interest (15%) on investment account "${account.name}"`,
+            description: `Monthly returns (15%) on account "${account.name}"`,
             currency: 'UGX',
             transaction_date: txDate,
           },
@@ -112,8 +112,8 @@ Deno.serve(async (req) => {
 
       await supabase.from("notifications").insert({
         user_id: account.user_id,
-        title: "💰 Monthly Interest Credited!",
-        message: `Your investment account "${account.name}" earned UGX ${interestAmount.toLocaleString()} (15% of UGX ${principalAmount.toLocaleString()}). The interest has been added to your wallet!`,
+        title: "💰 Monthly Returns Credited!",
+        message: `Your account "${account.name}" earned UGX ${interestAmount.toLocaleString()} (15% of UGX ${principalAmount.toLocaleString()}). The returns have been added to your wallet!`,
         type: "success",
         metadata: {
           account_id: account.id,

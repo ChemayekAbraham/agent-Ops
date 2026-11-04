@@ -112,7 +112,7 @@ export function CFOUnfundingApprovals() {
           </CardTitle>
           <CardDescription>
             Agent requests to reverse landlord fundings older than 7 days. Approval posts the same
-            balanced ledger reversal as an in-window self-reversal (float refund + 10% commission clawback).
+            balanced ledger reversal as an in-window self-reversal (float refund + commission clawback).
           </CardDescription>
         </div>
         <Button variant="ghost" size="sm" onClick={load} disabled={loading} className="gap-1.5">

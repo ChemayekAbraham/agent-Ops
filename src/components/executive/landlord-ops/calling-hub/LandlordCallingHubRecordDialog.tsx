@@ -30,6 +30,7 @@ import {
   CONSENT_OPTIONS,
   EXPLAINED_OPTIONS,
   LANDLORD_READ_ALOUD,
+  NEW_LANDLORD_PHONE_OPENING_SCRIPT,
   QUESTION_30M_ACCESS,
   QUESTION_EXPLAINED,
   QUESTION_LANDLORD_CONSENT,
@@ -343,8 +344,17 @@ export function LandlordCallingHubRecordDialog({
                 Step 2 · Landlord Awareness & Feedback
               </div>
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 text-xs text-foreground leading-relaxed">
-                <span className="font-semibold">Read aloud: </span>
+                <span className="font-semibold">Read aloud (existing tenant Rent Plan): </span>
                 {LANDLORD_READ_ALOUD}
+              </div>
+              <div
+                data-testid="hub-record-new-landlord-pitch"
+                className="rounded-lg border border-border bg-background p-2.5 text-xs text-foreground leading-relaxed"
+              >
+                <span className="font-semibold text-primary">
+                  New landlord / empty unit opening:{' '}
+                </span>
+                {NEW_LANDLORD_PHONE_OPENING_SCRIPT.replace('[Landlord Name]', landlordName || 'Landlord')}
               </div>
             </div>
 

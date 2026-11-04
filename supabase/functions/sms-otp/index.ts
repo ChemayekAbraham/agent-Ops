@@ -47,13 +47,16 @@ async function userIdFromAuth(
   }
 }
 
+// 6-digit code from the platform's cryptographically secure generator
+// (Math.random is predictable). A draw at or above LIMIT is thrown away and
+// redrawn, so every code from 000000 to 999999 is equally likely.
 function generateOTP(): string {
-  const digits = "0123456789";
-  let otp = "";
-  for (let i = 0; i < 6; i++) {
-    otp += digits[Math.floor(Math.random() * 10)];
-  }
-  return otp;
+  const LIMIT = Math.floor(0x100000000 / 1000000) * 1000000;
+  const buf = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(buf);
+  } while (buf[0] >= LIMIT);
+  return String(buf[0] % 1000000).padStart(6, "0");
 }
 
 // Known country code prefixes (longest first for greedy matching)
@@ -618,7 +621,8 @@ Deno.serve(async (req) => {
       // callers that only ever set `purpose` are tagged for free.
       const category = String(body.category ?? purpose ?? "").trim() || "uncategorized";
       const isTenantVerify = category === "welile_homes_tenant_verify" || purpose === "welile_homes_tenant_verify";
-      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : 60 * 60 * 1000;
+      const isLandlordPortfolioVerify = category === "welile_homes_landlord_verify" || purpose === "welile_homes_landlord_verify";
+      const otpTtlMs = isTenantVerify ? 3 * 60 * 1000 : isLandlordPortfolioVerify ? 10 * 60 * 1000 : 60 * 60 * 1000;
 
       // Every limit (per phone, per account, per network) is checked and counted in ONE locked
       // database step, so simultaneous requests are serialized and cannot all slip under a cap.
@@ -643,6 +647,9 @@ Deno.serve(async (req) => {
         p_max_user_day: MAX_SENDS_PER_USER_DAY,
         p_max_ip_hour: MAX_SENDS_PER_IP_HOUR,
         p_max_ip_day: MAX_SENDS_PER_IP_DAY,
+        // Landlord portfolio verification: every send/resend issues a fresh code and the
+        // previous one stops working (one stored code per phone is overwritten).
+        p_always_new: isLandlordPortfolioVerify,
       });
       if (reserveError || !reserve) {
         console.error("[sms-otp] reserve error:", reserveError);
@@ -687,6 +694,8 @@ Deno.serve(async (req) => {
         ? `Welile: ${subjectName || "A Welile user"} wants to link their Welile account to your National ID ${ninRef || ""}. ` +
           `If you agree, share this code with them: ${otp}. You must also confirm it in the Welile app. ` +
           `If you did NOT authorise this, ignore this message.`
+        : isLandlordPortfolioVerify
+        ? `Welile Homes: your agent is registering ${Math.max(0, Math.min(500, Number(body.tenant_count) || 0)) || "your"} tenants under you for a Rent Plan. If you agree, share this code with them: ${otp}. It expires in 10 minutes.`
         : isTenantVerify
         ? `Your Welile Homes tenant verification code is: ${otp}. It expires in 3 minutes. Do not share this code.`
         : `Your Welile verification code is: ${otp}. It expires in 1 hour. Do not share this code.`;
@@ -845,6 +854,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "send_custom" || action === "custom") {
+      // Free-text SMS from the WELILE sender. verify_jwt is off for this
+      // function, so anyone could call it; only server-side callers holding the
+      // service-role key (e.g. fraud-cutoff-account) may send arbitrary text.
+      const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+      if (!bearer || bearer !== supabaseServiceKey) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const message = (body.message as string || "").trim();
       if (!message) {
         return new Response(JSON.stringify({ error: "Message required" }), {

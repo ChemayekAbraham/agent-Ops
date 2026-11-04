@@ -1917,31 +1917,178 @@ html.reduce-motion *::after {
   --desk-warn: 43 96% 56%;
   --desk-bad: 351 95% 71%;
   --desk-lavender: 253 95% 85%;
+  /* On the dark board a status colour reads the same as text and as a dot. */
+  --desk-ok-dot: var(--desk-ok);
+  --desk-warn-dot: var(--desk-warn);
+  --desk-bad-dot: var(--desk-bad);
+  --desk-live-bg: var(--desk-ok);
+  --desk-live-fg: var(--desk-ok);
+
+  /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
+     an alpha, because light does not want a translucent white — it wants a
+     solid lilac-grey line. These values are exactly the white/12, white/5,
+     white/10 and white/25 the desks used before, so dark is unchanged. */
+  --desk-line-color: rgba(255, 255, 255, 0.12);
+  --desk-line-soft: rgba(255, 255, 255, 0.06);
+  --desk-surface: rgba(255, 255, 255, 0.05);
+  --desk-surface-hover: rgba(255, 255, 255, 0.1);
+  --desk-ring: rgba(255, 255, 255, 0.25);
 
   color-scheme: dark;
   color: hsl(var(--foreground));
   background-color: #0B0718;
-  background-image:
-    radial-gradient(55rem 55rem at 0% 0%, hsl(var(--primary) / 0.18), transparent 60%),
-    radial-gradient(55rem 55rem at 100% 100%, rgba(79, 70, 229, 0.12), transparent 60%),
-    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+  /* One soft violet wash across the top, fading into the night. No grid: the
+     lines fought the glass and made every panel look boxed in. */
+  background-image: radial-gradient(120rem 48rem at 50% -16%, hsl(var(--primary) / 0.1), transparent 72%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
   background-attachment: fixed;
 }
 
-/* Glass surfaces. */
+/* ---- The same board in daylight -------------------------------------------
+   Dark above is the baseline; this is the light set, and the desks open on it.
+   DeskPage writes the decision into data-desk-theme, so there is one light
+   block here rather than one per source of truth. Two cases never reach it:
+   board mode, and any desk with the checklist flag off — both stay dark, which
+   is why production is untouched until the flag is flipped.
+   Every colour below was checked at 4.5:1 against the surface it sits on:
+   text #17142B 16:1 on the ground, muted #5B5670 6.5:1, violet 7.1:1 on white,
+   red 6.5:1, green 5.0:1, amber 7.0:1, and the LIVE pill 6.3:1.
+   --------------------------------------------------------------------------- */
+.desk-root[data-desk-theme='light'] {
+  --background: 250 38% 97%;
+  --foreground: 248 37% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 248 37% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 248 37% 12%;
+  --muted: 250 38% 94%;
+  --muted-foreground: 252 13% 39%;
+  --border: 255 29% 92%;
+  --input: 255 29% 92%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 263 70% 50%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 263 70% 50%;
+
+  /* Text weights of each status, dark enough to read as words. */
+  --desk-ok: 142 72% 29%;
+  --desk-warn: 23 83% 31%;
+  --desk-bad: 0 74% 42%;
+  --desk-lavender: 263 70% 50%;
+  /* Dot weights: brighter, for 8px circles and 2px rules. */
+  --desk-ok-dot: 142 76% 36%;
+  --desk-warn-dot: 23 83% 31%;
+  --desk-bad-dot: 0 72% 51%;
+  --desk-live-bg: 137 39% 93%;
+  --desk-live-fg: 143 64% 24%;
+
+  /* Solid lines and a faintly tinted field, so an input still reads as recessed
+     against a white card. */
+  --desk-line-color: #e7e4f0;
+  --desk-line-soft: #efedf6;
+  --desk-surface: #f7f6fb;
+  --desk-surface-hover: rgba(109, 40, 217, 0.08);
+  --desk-ring: rgba(23, 20, 43, 0.18);
+
+  color-scheme: light;
+  color: hsl(var(--foreground));
+  background-color: #f5f4fa;
+  /* No wash: on a light ground the violet gradient turned the top of the page grey. */
+  background-image: none;
+}
+
+/* Paper, not glass: a plain white card with a hairline border and the faintest
+   lift. The blur and the inset highlight only read as depth on a dark ground. */
+.desk-root[data-desk-theme='light'] .desk-panel,
+.desk-root[data-desk-theme='light'] .desk-tile {
+  background: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid #e7e4f0;
+  box-shadow: 0 1px 2px rgba(23, 20, 43, 0.04);
+}
+.desk-root[data-desk-theme='light'] .desk-thead th { background: #ffffff; }
+.desk-root[data-desk-theme='light'] .desk-row:hover { background: hsl(var(--primary) / 0.06); }
+/* The glow is a dark-board effect; in daylight it reads as a smudge. */
+.desk-root[data-desk-theme='light'] .desk-figure { text-shadow: none; }
+.desk-root[data-desk-theme='light'] .desk-shimmer {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(23, 20, 43, 0.06) 50%, transparent 100%);
+}
+
+/* The LIVE pill is the one chip with its own pair of tokens, because its light
+   form is a green wash rather than the dark board's tinted glass. */
+.desk-live-pill {
+  background: hsl(var(--desk-live-bg) / 0.15);
+  border-color: hsl(var(--desk-live-fg) / 0.4);
+  color: hsl(var(--desk-live-fg));
+}
+.desk-root[data-desk-theme='light'] .desk-live-pill {
+  background: hsl(var(--desk-live-bg));
+  border-color: hsl(var(--desk-live-fg) / 0.25);
+}
+
+/* Glass surfaces: a thinner edge and a lighter fill than the first pass, so the
+   wash shows through instead of the panel outline. */
 .desk-panel,
 .desk-tile {
-  background: rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
+  backdrop-filter: blur(24px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-.desk-panel { border-radius: 20px; }
-.desk-tile { border-radius: 14px; }
+.desk-panel { border-radius: 24px; }
+.desk-tile { border-radius: 18px; }
+.desk-panel.desk-capsule { border-radius: 16px; }
 .desk-pill { border-radius: 999px; }
+
+/* Every small label on the desks: one size, one weight of grey. */
+.desk-label {
+  font-size: 13px;
+  line-height: 1.3;
+  color: hsl(var(--foreground) / 0.7);
+}
+
+/* The river of stages. One row when the whole pipeline fits, otherwise two —
+   Submitted to Partner Ops, then COO approval to Landlord paid — and a plain
+   vertical stack on a phone. The unit is a capsule plus the connector after it,
+   so a wrapped row still ends on a length of flowing line. */
+.desk-river {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  row-gap: 16px;
+}
+.desk-river-unit {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 200px;
+  min-width: 200px;
+  /* Capped so a short second row does not end up with capsules half again as
+     wide as the row above it. The last unit carries no connector, so it is
+     capped 32px lower to land on the same capsule width. */
+  max-width: 240px;
+}
+.desk-river-unit:last-child {
+  flex-basis: 168px;
+  min-width: 168px;
+  max-width: 208px;
+}
+.desk-river-break { flex-basis: 100%; height: 0; }
+/* Nine capsules at their smallest need 1768px plus the page padding. */
+@media (min-width: 1840px) {
+  .desk-river-break { display: none; }
+}
+@media (max-width: 767.98px) {
+  .desk-river { flex-direction: column; row-gap: 0; }
+  /* Stacked, the main axis is height: the flex basis above would set a floor
+     under every capsule and leave the short ones half empty. */
+  .desk-river-unit,
+  .desk-river-unit:last-child { flex: 0 0 auto; flex-direction: column; min-width: 0; max-width: none; }
+  .desk-river-break { display: none; }
+}
 
 /* A sticky table header has to stay readable over scrolling rows. */
 .desk-thead th {
@@ -1958,7 +2105,7 @@ html.reduce-motion *::after {
 }
 
 /* Figures carry a faint violet glow; the colour stays white for contrast. */
-.desk-figure { text-shadow: 0 0 24px hsl(var(--primary) / 0.45); }
+.desk-figure { text-shadow: 0 0 16px hsl(var(--primary) / 0.22); }
 
 /* Hover lift on table rows, kept to a glow so nothing moves. */
 .desk-row:hover { background: hsl(var(--primary) / 0.1); }
@@ -1973,7 +2120,7 @@ html.reduce-motion *::after {
   100% { background-position: 160% 0; }
 }
 @keyframes desk-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--desk-bad) / 0.45); }
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--desk-bad) / 0.35); }
   50% { box-shadow: 0 0 0 7px hsl(var(--desk-bad) / 0); }
 }
 @keyframes desk-live {
@@ -1992,9 +2139,9 @@ html.reduce-motion *::after {
 .desk-live-dot { animation: desk-live 2s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .desk-particle,
   .desk-shimmer,
   .desk-bottleneck,
   .desk-live-dot { animation: none; }
-  .desk-particle { opacity: 0.85; }
+  /* The particles are the motion. Asked for less, they go rather than freeze. */
+  .desk-particle { display: none; }
 }

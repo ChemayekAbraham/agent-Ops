@@ -7,7 +7,7 @@ export const EARNINGS_JOIN_URL = 'https://welileapp.com/join';
 
 export const EARNINGS_SHARE_CAPTION = `💰 *How You Earn Money as a Welile Agent*
 
-See every way you can earn — landlord registration (your #1 priority), 10% rent commission, recruit bonuses and more.
+See every way you can earn — landlord registration (your #1 priority), 8% rent commission, recruit bonuses and more.
 
 👉 Join Welile as an Agent: ${EARNINGS_JOIN_URL}`;
 
@@ -64,7 +64,7 @@ export async function generateAgentEarningsPdf(): Promise<Blob> {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...GREY);
   doc.setFontSize(11);
-  doc.text('Earn UGX 4,000 when verified, then 10% of every rent payment forever.', MARGIN + 16, y + 64);
+  doc.text('Earn UGX 4,000 when verified, then 8% of every rent payment forever.', MARGIN + 16, y + 64);
   y += 100;
 
   // ---- Section helper ----
@@ -96,16 +96,16 @@ export async function generateAgentEarningsPdf(): Promise<Blob> {
   };
 
   // ---- Rent commission ----
-  sectionTitle('Earn 10% Every Time Your Tenant Pays Rent');
-  bullet('Agent who REGISTERED the tenant', '2%');
-  bullet('Agent MANAGING the tenant', '8%');
-  bullet('Register AND manage the same tenant — keep the full amount', '10%');
+  sectionTitle('Earn 8% Every Time Your Tenant Pays Rent');
+  bullet('Agent COLLECTING the rent', '8%');
+  bullet('Sub-agent (the agent who recruited you gets 2%)', '6%');
+  bullet('Whitelisted or elite sub-agent — keep the full amount', '8%');
   y += 8;
 
   // ---- Recruit & funders ----
   sectionTitle('Grow Your Network');
   bullet('From every tenant managed by an agent you recruited', '2%');
-  bullet('From investment by a funder you bring (1% on Angel Pool)', '2%');
+  bullet('From support by a funder you bring (1% on Angel Pool)', '2%');
   y += 8;
 
   // ---- Cash bonuses ----

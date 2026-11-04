@@ -39,6 +39,10 @@ const RENT: Col = { field: 'rent_ugx', label: 'Rent (UGX)', fmt: 'ugxfull', righ
 const DEC: Col = { field: 'decision', label: 'Decision', fmt: 'decision' };
 const st = (ord: string, field: string, f: Fmt): Ref => ({ feed: 'pipeline', field, where: ['ord', ord], fmt: f });
 const kp = (metric: string, f: Fmt): Ref => ({ feed: 'coo_kpis', field: 'value', where: ['metric', metric], fmt: f });
+/** Ontology summary is a single-row feed, so tiles and the lead read its first row. */
+const os = (field: string, f?: Fmt): Ref => ({ feed: 'onto_summary', field, fmt: f });
+/** Ontology change summary is a single-row feed, so its tiles read the first row. */
+const ocs = (field: string, f?: Fmt): Ref => ({ feed: 'onto_chg_summary', field, fmt: f });
 
 const PAYMENT_GAPS: TableSpec = {
   id: 'payment-gaps', feed: 'payment_gaps', title: 'Money out: landlord payment gaps', rowKey: 'ord',
@@ -163,6 +167,49 @@ export const DESKS: Desk[] = [
       { id: 'cc-queue', feed: 'cc_queue', title: 'Open concerns, overdue first', rowKey: 'concern', summarySum: 'days_open', columns: [{ field: 'caller', label: 'Caller' }, { field: 'subject', label: 'About' }, { field: 'title', label: 'Concern' }, { field: 'priority', label: 'Priority' }, { field: 'owner', label: 'Owner' }, { field: 'status', label: 'Status' }, { field: 'days_open', label: 'Days open', fmt: 'days', right: true }, { field: 'due', label: 'Due' }, DEC] },
     ],
   },
+  {
+    id: 'ontology', name: 'Ontology', question: 'What happened on the mapped day, how much of it says why, and what runs outside the ontology?', roles: DESK_ROLES['coo'],
+    lead: (g) => `Map of ${g(os('map_day'))} (ontology ${g(os('version'))}, built ${g(os('built_at'))} EAT). Last nightly run: ${g(os('last_night_run'))}. ${g(os('explained_share', 'pct'))} of recorded changes say why; the target is 95%.`,
+    tiles: [
+      { label: 'Audit rows with a reason', ...os('audit_share', 'pct'), sub: { label: 'Audit rows', ...os('audit_rows', 'int') } },
+      { label: 'System events with a description', ...os('events_share', 'pct'), sub: { label: 'Events', ...os('event_rows', 'int') } },
+      { label: 'Tables written', ...os('tables_written', 'int'), sub: { label: 'In the ontology', ...os('tables_registered', 'int') } },
+      { label: 'Scheduled jobs acting', ...os('jobs_active', 'int'), sub: { label: 'With a named owner', ...os('jobs_registered', 'int') } },
+      { label: 'Ontology changes to decide', ...os('open_proposals', 'int'), sub: { label: 'New last night', ...os('new_proposals', 'int') } },
+      { label: 'System changes, 7 days', ...ocs('changes_7d', 'int'), sub: { label: 'Not published', ...ocs('not_published', 'int') } },
+      { label: 'Changes that say why', ...ocs('changes_explained_share', 'pct'), sub: { label: 'Builder not recorded', ...ocs('builder_unknown', 'int') } },
+    ],
+    tables: [
+      {
+        id: 'onto-trend', feed: 'onto_trend', title: 'Last 7 days', rowKey: 'day_iso',
+        note: 'Newest first. Explained = share of recorded changes that say why. Desk actions = rent-request approvals across all desks that day.',
+        columns: [{ field: 'day_label', label: 'Day' }, { field: 'explained_share', label: 'Explained', fmt: 'pct', right: true }, { field: 'desk_actions', label: 'Desk actions', fmt: 'int', right: true }, { field: 'coo_approved', label: 'COO approved', fmt: 'int', right: true }, { field: 'funded', label: 'Funded', fmt: 'int', right: true }, { field: 'receipts_missing', label: 'Receipts missing', fmt: 'int', right: true }, { field: 'receipts_missing_ugx', label: 'Receipts missing (UGX)', fmt: 'ugx', right: true }, { field: 'funded_not_paid', label: 'Funded, not paid', fmt: 'int', right: true }, { field: 'failed_payouts', label: 'Failed payouts', fmt: 'int', right: true }, { field: 'idle_float', label: 'Idle float', fmt: 'int', right: true }],
+      },
+      {
+        id: 'onto-heartbeat', feed: 'onto_actions', title: 'Desk heartbeat on the mapped day', rowKey: 'ord',
+        note: 'Clearing: actions covered the whole queue. Moving: at least a quarter of the queue cleared that day. Slow: under a quarter (assumption until desk leads agree). Stalled: requests waiting, no action. Days to clear = requests waiting ÷ that day\'s actions. Service Centre excludes the August 2026 batch.',
+        columns: [{ field: 'action', label: 'Ontology action' }, { field: 'desk', label: 'Desk' }, { field: 'n', label: 'Actions that day', fmt: 'int', right: true }, { field: 'waiting', label: 'Waiting', fmt: 'int', right: true }, { field: 'days_to_clear', label: 'Days to clear', fmt: 'days', right: true }, DEC],
+      },
+      {
+        id: 'onto-clocks', feed: 'onto_clocks', title: 'Open money clocks', rowKey: 'ord',
+        columns: [{ field: 'clock', label: 'Clock' }, { field: 'n', label: 'Count', fmt: 'int', right: true }, { field: 'ugx', label: 'UGX', fmt: 'ugxfull', right: true }, { field: 'owner', label: 'Owner' }],
+      },
+      {
+        id: 'onto-audit', feed: 'onto_top_audit', title: 'Most frequent actions: do they say why?', rowKey: 'action_name',
+        columns: [{ field: 'action_name', label: 'Recorded action' }, { field: 'n', label: 'Times', fmt: 'int', right: true }, { field: 'reason_share', label: 'With reason', fmt: 'pct', right: true }, { field: 'ontology_action', label: 'Ontology action' }, DEC],
+      },
+      {
+        id: 'onto-drift', feed: 'onto_drift', title: 'Drift: reality outside the ontology', rowKey: 'grp_key',
+        note: 'Each group is decided at once, with one reason, by a staff account holding the COO position. Decisions are stamped with name, staff number and position.',
+        columns: [{ field: 'what', label: 'Proposal' }, { field: 'suggested', label: 'Suggested type' }, { field: 'n', label: 'Items', fmt: 'int', right: true }, { field: 'examples', label: 'Examples' }, DEC],
+      },
+      {
+        id: 'onto-changes', feed: 'onto_chg_list', title: 'System changes, last 7 days', rowKey: 'change_ref',
+        note: 'Every change to the system itself. Database changes are picked up automatically each night; app changes are recorded when made. A change without a reason shows as such.',
+        columns: [{ field: 'when_eat', label: 'When (EAT)' }, { field: 'kind_label', label: 'Type' }, { field: 'title', label: 'Change' }, { field: 'built_by', label: 'Built by' }, { field: 'approved_by', label: 'Approved by' }, { field: 'why', label: 'Why' }, { field: 'status_label', label: 'Status' }, DEC],
+      },
+    ],
+  },
 ];
 
 /** The desk a person lands on first, by their strongest role. */
@@ -185,9 +232,11 @@ export function feedsOf(desk: Desk): string[] {
   const s = new Set<string>();
   desk.tiles.forEach((t) => { s.add(t.feed); if (t.sub) s.add(t.sub.feed); });
   desk.tables.forEach((t) => s.add(t.feed));
-  if (desk.id !== 'customer-care') s.add('pipeline');
+  if (desk.id !== 'customer-care' && desk.id !== 'ontology') s.add('pipeline');
   if (['coo', 'partner-ops', 'cfo', 'command'].includes(desk.id)) s.add('coo_kpis');
   // The command centre also carries a Customer Care card.
   if (desk.id === 'command') s.add('cc_owners');
+  // The Ontology desk's day picker lists the mapped days.
+  if (desk.id === 'ontology') s.add('onto_days');
   return Array.from(s);
 }

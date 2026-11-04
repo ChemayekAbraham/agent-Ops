@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     const lines = [
       `Welile statement`,
       `Wallet UGX ${walletBalance.toLocaleString()}`,
-      `Invested UGX ${totalInvested.toLocaleString()}`,
+      `Support UGX ${totalInvested.toLocaleString()}`,
       `Returns UGX ${totalROI.toLocaleString()}`,
       `Active ${activeCount}`,
     ];

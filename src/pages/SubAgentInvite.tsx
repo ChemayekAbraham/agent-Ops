@@ -145,16 +145,16 @@ export default function SubAgentInvite() {
     {
       icon: Wallet,
       title: 'Rent collection commission',
-      rate: '8%',
-      example: 'UGX 8,000 on UGX 100,000 collected',
+      rate: '6%',
+      example: 'UGX 6,000 on UGX 100,000 collected',
       note: 'Paid instantly to your wallet',
     },
     {
       icon: TrendingUp,
-      title: 'Investment commission',
+      title: 'Support commission',
       rate: '2%',
-      example: 'UGX 2,000 on UGX 100,000 invested',
-      note: 'On every supporter investment you bring',
+      example: 'UGX 2,000 on UGX 100,000 in support',
+      note: 'On every supporter you bring',
     },
     {
       icon: Users,
@@ -173,10 +173,10 @@ export default function SubAgentInvite() {
   ];
 
   const monthlyExample = {
-    rent: { amount: 'UGX 500,000', yourCut: 'UGX 40,000' },
+    rent: { amount: 'UGX 500,000', yourCut: 'UGX 30,000' },
     recruitOverride: { amount: 'UGX 300,000', yourCut: 'UGX 6,000' },
     recruitBonus: 'UGX 20,000',
-    total: 'UGX 66,000',
+    total: 'UGX 56,000',
   };
 
   if (loading || (!user && phase === 'idle')) {

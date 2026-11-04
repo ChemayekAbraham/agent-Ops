@@ -15,6 +15,9 @@ import { SignatureRentRequestCard } from '@/components/agent/SignatureRentReques
 import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
 
 const AgentRentRequestDialog = lazyWithRetry(() => import('@/components/agent/AgentRentRequestDialog'));
+const RentRequestAssistant = lazyWithRetry(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 export default function AgentDashboardNew() {
   const { signOut, roles, switchRole } = useAuth();
@@ -62,7 +65,9 @@ export default function AgentDashboardNew() {
       </main>
       {rentRequestOpen && (
         <Suspense fallback={null}>
-          <AgentRentRequestDialog presentation="chat" open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+          {DASHBOARD_RENT_REQUEST_FLOW === 'assistant'
+            ? <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+            : <AgentRentRequestDialog presentation="chat" open={rentRequestOpen} onOpenChange={setRentRequestOpen} />}
         </Suspense>
       )}
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />

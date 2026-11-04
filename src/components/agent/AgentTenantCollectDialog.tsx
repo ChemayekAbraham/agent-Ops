@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { invalidateCreditAccessLimit, useCreditAccessLimit, formatCreditAmount } from '@/hooks/useCreditAccessLimit';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useMyCommissionRate } from '@/hooks/useMyCommissionRate';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { useOffline } from '@/contexts/OfflineContext';
 import { CommissionCelebration } from './CommissionCelebration';
@@ -111,6 +112,8 @@ export function AgentTenantCollectDialog({
   open, onOpenChange, tenant, rentRequestId, outstandingBalance, onSuccess,
 }: AgentTenantCollectDialogProps) {
   const { user } = useAuth();
+  // The agent's real share (8%, or 6% for a sub-agent) from get_my_commission_rate.
+  const commissionRate = useMyCommissionRate();
   const locGate = useRequireContactLocation(tenant?.id ?? null, 'tenant', tenant?.full_name);
   const { floatBalance, refetch: refetchBalances } = useAgentBalances(user?.id);
   const { limit: creditLimit } = useCreditAccessLimit(user?.id);
@@ -279,7 +282,12 @@ export function AgentTenantCollectDialog({
         return;
       }
       setResult(res);
-      const earnedCommission = Number(res?.commission?.credited_commission) || Math.round(amount * 0.10);
+      // The server's credited figure is authoritative; the estimate is only for
+      // an older response that does not carry it.
+      const credited = Number(res?.commission?.credited_commission);
+      const earnedCommission = Number.isFinite(credited) && res?.commission?.credited_commission != null
+        ? credited
+        : Math.round(amount * commissionRate.agentRate);
       if (earnedCommission > 0) {
         setCelebrationData({ commission: earnedCommission, amount });
         setCelebrationOpen(true);
@@ -780,8 +788,8 @@ export function AgentTenantCollectDialog({
                 <span className="font-mono">{formatUGX(outstandingBalance - amount)}</span>
               </div>
               <div className="flex justify-between text-xs border-t border-border/40 pt-2">
-                <span className="text-success font-semibold">Your commission (10%)</span>
-                <span className="font-mono font-bold text-success">+{formatUGX(Math.round(amount * 0.10))}</span>
+                <span className="text-success font-semibold">Your commission ({commissionRate.label})</span>
+                <span className="font-mono font-bold text-success">+{formatUGX(Math.round(amount * commissionRate.agentRate))}</span>
               </div>
               {(() => {
                 const CAP = 30_000_000;
@@ -980,10 +988,10 @@ export function AgentTenantCollectDialog({
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3 text-success" /> Commission Earned</span>
                     <span className="font-mono font-bold text-success">
-                      {formatUGX(result.commission?.credited_commission || Math.round(result.amount * 0.10))}
+                      {formatUGX(result.commission?.credited_commission ?? Math.round(result.amount * commissionRate.agentRate))}
                     </span>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">10% instantly credited to your Agent Wallet</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{result.commission?.rate_label || commissionRate.label} instantly credited to your Agent Wallet</p>
                 </div>
               )}
               {result.commission_balance !== undefined && (
@@ -1208,7 +1216,7 @@ export function AgentTenantCollectDialog({
                     Remaining debt: <span className="font-mono font-bold">{formatUGX(outstandingBalance - amount)}</span>
                   </p>
                   <p className="text-[10px] text-success font-semibold">
-                    Commission: +{formatUGX(Math.round(amount * 0.10))} (10%)
+                    Commission: +{formatUGX(Math.round(amount * commissionRate.agentRate))} ({commissionRate.label})
                   </p>
                 </div>
               )}

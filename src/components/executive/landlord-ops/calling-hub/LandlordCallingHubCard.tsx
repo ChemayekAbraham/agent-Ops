@@ -76,6 +76,7 @@ import {
   type LandlordHubStartedDial,
   type LandlordHubTenantPlan,
 } from '@/hooks/useLandlordCallingHub';
+import { LandlordPitchScriptBanner } from '../LandlordPitchScriptBanner';
 
 export interface LandlordCallingHubCardProps {
   open: boolean;
@@ -556,6 +557,13 @@ export function LandlordCallingHubCard({
                 </div>
               )}
             </div>
+
+            {/* New Landlord Phone Opening Script inside Card */}
+            <LandlordPitchScriptBanner
+              landlordName={displayName}
+              defaultRentUgx={detail?.rent_plan_value || row?.rent_plan_value || null}
+              compact
+            />
 
             {detailQuery.isLoading ? (
               <div className="space-y-3" data-testid="hub-card-loading">

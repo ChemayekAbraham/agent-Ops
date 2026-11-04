@@ -75,7 +75,7 @@ export function SetGoalDialog({ open, onOpenChange, goal, onSave, onDelete }: Se
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
-            {goal ? 'Edit Goal' : 'Set Investment Goal'}
+            {goal ? 'Edit Goal' : 'Set Support Goal'}
           </DialogTitle>
         </DialogHeader>
         
@@ -120,17 +120,17 @@ export function SetGoalDialog({ open, onOpenChange, goal, onSave, onDelete }: Se
             </div>
           </div>
 
-          {/* Investment Required Info */}
+          {/* Support Required Info */}
           {parseInt(targetAmount) > 0 && (
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
               <div className="flex items-center gap-2 text-sm">
                 <TrendingUp className="h-4 w-4 text-primary" />
-                <span className="text-muted-foreground">To earn this, you need to invest:</span>
+                <span className="text-muted-foreground">To earn this, you need to support:</span>
               </div>
               <p className="text-lg font-bold text-primary mt-1">
                 {formatUGX(requiredInvestment)}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">at 15% monthly ROI</p>
+              <p className="text-xs text-muted-foreground mt-0.5">at 15% monthly Returns</p>
             </div>
           )}
 

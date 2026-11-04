@@ -24,6 +24,7 @@ import { Loader2, Search, Mail, MailWarning, ShieldCheck, RefreshCw, Inbox, Eye,
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import AgreementHtmlPreview, { type AgreementPreviewData } from '@/components/partner/AgreementHtmlPreview';
 import { buildAgreementHtml, OPTION_FROM_ROI_MODE, storedOption } from '@/components/partner/agreementTemplate';
 import { buildPartnerReference } from '@/lib/partnerReference';
@@ -54,6 +55,17 @@ interface Row {
 
 type Filter = 'all' | InviteStatus;
 
+// The terms a staff member consented to in the reinvestment survey, on one line,
+// so Ops can read what they are activating without opening the portfolio.
+function wsrTerms(r: Row): string {
+  const mode =
+    r.roi_mode === 'monthly_payout' ? 'paid to wallet monthly'
+      : r.roi_mode === 'monthly_compounding' ? 'compounded monthly'
+        : r.roi_mode ? r.roi_mode.replace(/_/g, ' ')
+          : 'terms not set';
+  return `${r.roi_percentage}% a month · ${mode} · ${r.duration_months ?? '—'} months`;
+}
+
 export function InvitedPortfoliosPanel() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
@@ -66,6 +78,7 @@ export function InvitedPortfoliosPanel() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkWorking, setBulkWorking] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSelected, setBulkSelected] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
@@ -328,14 +341,32 @@ export function InvitedPortfoliosPanel() {
     }
   };
 
+  // Only reinvestments that still need activating. An already-active portfolio has
+  // nothing left to confirm, so it is neither offered nor counted anywhere below.
   const wsrRows = useMemo(
-    () => (data || []).filter(r => r.portfolio_code?.startsWith('WSR')),
+    () => (data || []).filter(r => r.portfolio_code?.startsWith('WSR') && r.status !== 'active'),
     [data],
   );
   const wsrTotal = wsrRows.reduce((sum, r) => sum + Number(r.investment_amount ?? 0), 0);
 
+  // Ticked rows, derived against wsrRows so an id that drops out of the list
+  // mid-run (because it just went active) cannot stay selected.
+  const bulkTargets = useMemo(
+    () => wsrRows.filter(r => bulkSelected.has(r.id)),
+    [wsrRows, bulkSelected],
+  );
+  const bulkTotal = bulkTargets.reduce((sum, r) => sum + Number(r.investment_amount ?? 0), 0);
+
+  const toggleBulk = (id: string) =>
+    setBulkSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const handleBulkActivate = async () => {
-    const targets = [...wsrRows];
+    const targets = [...bulkTargets];
     setBulkError(null);
     setBulkWorking(true);
     let done = 0;
@@ -448,7 +479,15 @@ export function InvitedPortfoliosPanel() {
 
       {wsrRows.length > 0 && (
         <div className="flex justify-end">
-          <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+          <Button
+            size="sm"
+            className="h-8 text-xs gap-1.5"
+            onClick={() => {
+              setBulkError(null);
+              setBulkSelected(new Set(wsrRows.map(r => r.id)));
+              setBulkOpen(true);
+            }}
+          >
             <ShieldCheck className="h-3.5 w-3.5" />
             Activate all staff reinvestments ({wsrRows.length} · {formatUGX(wsrTotal)})
           </Button>
@@ -602,7 +641,7 @@ export function InvitedPortfoliosPanel() {
                         Activate without partner details
                       </Button>
                     )}
-                    {row.portfolio_code?.startsWith('WSR') && (
+                    {row.portfolio_code?.startsWith('WSR') && row.status !== 'active' && (
                       <Button
                         size="sm"
                         className="h-8 text-xs gap-1.5"
@@ -735,6 +774,12 @@ export function InvitedPortfoliosPanel() {
                 : ''}
             </DialogDescription>
           </DialogHeader>
+          {wsrRow && (
+            <p className="text-xs">
+              <span className="font-medium">{wsrTerms(wsrRow)}</span>
+              <span className="text-muted-foreground"> · Funded from payroll — no wallet is charged.</span>
+            </p>
+          )}
           <p className="text-xs text-muted-foreground">
             Funded from payroll. No wallet is charged. The portfolio goes live and the agreement is emailed to the staff member.
           </p>
@@ -766,18 +811,51 @@ export function InvitedPortfoliosPanel() {
           <DialogHeader>
             <DialogTitle>Activate all staff reinvestments?</DialogTitle>
             <DialogDescription>
-              {wsrRows.length} portfolio{wsrRows.length === 1 ? '' : 's'} · {formatUGX(wsrTotal)}
+              {bulkTargets.length} selected of {wsrRows.length} · {formatUGX(bulkTotal)}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-muted-foreground">Tick the reinvestments to activate.</p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                disabled={bulkWorking}
+                onClick={() => setBulkSelected(new Set(wsrRows.map(r => r.id)))}
+              >
+                Select all
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                disabled={bulkWorking}
+                onClick={() => setBulkSelected(new Set())}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
           <div className="max-h-64 overflow-y-auto rounded-md border divide-y text-xs">
             {wsrRows.map(r => (
-              <div key={r.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5">
-                <div className="min-w-0">
-                  <p className="font-mono text-[11px]">{r.portfolio_code}</p>
-                  <p className="truncate text-muted-foreground">{r.partner_name}</p>
+              <label
+                key={r.id}
+                className="flex items-start justify-between gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-muted/50"
+              >
+                <Checkbox
+                  className="mt-0.5 shrink-0"
+                  checked={bulkSelected.has(r.id)}
+                  disabled={bulkWorking}
+                  onCheckedChange={() => toggleBulk(r.id)}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold">{r.partner_name}</p>
+                  <p className="font-mono text-[11px] text-muted-foreground">{r.portfolio_code}</p>
+                  <p className="text-[11px] text-muted-foreground">{wsrTerms(r)}</p>
                 </div>
                 <p className="font-semibold shrink-0">{formatUGX(r.investment_amount)}</p>
-              </div>
+              </label>
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
@@ -786,11 +864,11 @@ export function InvitedPortfoliosPanel() {
           {bulkError && <p className="text-xs text-destructive">{bulkError}{approvalError ? ` ${approvalError}` : ''}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" disabled={bulkWorking} onClick={() => { setBulkOpen(false); setBulkError(null); }}>Cancel</Button>
-            <Button size="sm" disabled={bulkWorking || wsrRows.length === 0} onClick={handleBulkActivate}>
+            <Button size="sm" disabled={bulkWorking || bulkTargets.length === 0} onClick={handleBulkActivate}>
               {bulkWorking
                 ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
                 : <ShieldCheck className="h-4 w-4 mr-1.5" />}
-              Activate all
+              Activate selected ({bulkTargets.length} · {formatUGX(bulkTotal)})
             </Button>
           </div>
         </DialogContent>

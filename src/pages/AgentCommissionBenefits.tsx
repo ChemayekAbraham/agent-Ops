@@ -25,21 +25,22 @@ const AgentCommissionBenefits = () => {
   const handleShareWhatsApp = () => {
     const shareText = `💰 *How You Earn Money as a Welile Agent*
 
-🏠 *Every Time Your Tenant Pays Rent — You Get 10%*
+🏠 *Every Time Your Tenant Pays Rent — You Get 8%*
 
 Example: If a tenant pays back UGX 100,000...
-✅ You get UGX 10,000 automatically!
+✅ You get UGX 8,000 automatically!
 
 Here's how it works:
-• The agent who REGISTERED the tenant gets *2%* (UGX 2,000)
-• The agent MANAGING the tenant gets *8%* (UGX 8,000)
-• If you registered AND manage the tenant — you keep the full *10%*!
+• The agent COLLECTING the rent gets *8%* (UGX 8,000)
+• If you are a sub-agent, you get *6%* (UGX 6,000) and the agent who recruited you gets *2%* (UGX 2,000)
+• Whitelisted and elite sub-agents keep the full *8%*!
+• If a different agent REGISTERED the tenant, that agent gets *2%* of the 8%
 
 👥 *Bonus for Recruiting Other Agents*
 If you brought another agent to Welile, you get *2%* from every tenant THEY manage. It's free money!
 
 💼 *Earn from Funders You Bring*
-Bring an investor who funds rent → earn *2%* of their investment (1% on Angel Pool)!
+Bring a supporter who funds rent → earn *2%* of their support (1% on Angel Pool)!
 
 🎁 *Extra Cash Bonuses*
 • Register a landlord (paid when verified) → *UGX 5,000*
@@ -172,7 +173,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
             <div className="rounded-2xl bg-primary text-primary-foreground p-4 text-center">
               <p className="text-sm font-semibold opacity-90">You earn when your landlord is verified</p>
               <p className="text-3xl font-extrabold mt-1">UGX 5,000</p>
-              <p className="text-sm opacity-90 mt-1">…and then 10% of every rent payment forever!</p>
+              <p className="text-sm opacity-90 mt-1">…and then 8% of every rent payment forever!</p>
             </div>
 
             <div className="space-y-2.5">
@@ -213,9 +214,9 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <p className="text-sm font-semibold text-foreground">Rent Repayment Commission</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">10%</span>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">8%</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Every time your tenant pays rent — you earn 10% automatically, forever!</p>
+                    <p className="text-sm text-muted-foreground">Every time your tenant pays rent — you earn 8% automatically, forever!</p>
                   </div>
                 </div>
 
@@ -245,10 +246,10 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <TrendingUp className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-foreground">Investment / Funder Commission</p>
+                      <p className="text-sm font-semibold text-foreground">Support / Funder Commission</p>
                       <span className="text-xs font-bold text-primary whitespace-nowrap">2%</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Bring a funder who invests — earn 2% on their investment (plus 1% on Angel Pool investments)</p>
+                    <p className="text-sm text-muted-foreground">Bring a funder who supports — earn 2% on their support (plus 1% on Angel Pool support)</p>
                   </div>
                 </div>
 
@@ -319,7 +320,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       <p className="text-base font-bold text-foreground">⭐ Register a Landlord</p>
                       <span className="text-sm font-bold text-primary whitespace-nowrap">UGX 5,000</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Your #1 priority — paid once when a NEW landlord is verified, then 10% of their rent forever</p>
+                    <p className="text-sm text-muted-foreground">Your #1 priority — paid once when a NEW landlord is verified, then 8% of their rent forever</p>
                   </div>
                 </div>
 
@@ -380,7 +381,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       <p className="text-sm font-semibold text-foreground">Invite a Funder</p>
                       <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">Referral</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Share your referral link to bring investors who fund rent — helping you and your tenants</p>
+                    <p className="text-sm text-muted-foreground">Share your referral link to bring supporters who fund rent — helping you and your tenants</p>
                   </div>
                 </div>
               </div>
@@ -391,7 +392,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
         {/* ========== COLLAPSIBLE DETAILED SECTIONS ========== */}
         <div className="space-y-3">
 
-          {/* How the 10% is Shared */}
+          {/* How the 8% is Shared */}
           <Collapsible>
             <Card>
               <CollapsibleTrigger asChild>
@@ -400,27 +401,27 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     <div className="p-1.5 rounded-lg bg-primary/10">
                       <DollarSign className="h-4 w-4 text-primary" />
                     </div>
-                    How the 10% is Shared
+                    How the 8% is Shared
                   </CardTitle>
                   <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CardHeader>
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
-                  <p>When a tenant pays back rent, <span className="font-semibold text-foreground">two agents can earn</span> from that payment:</p>
+                  <p>When a tenant pays back rent, <span className="font-semibold text-foreground">8% of the payment</span> goes to agents:</p>
 
                   <div className="space-y-3">
                     <div className="rounded-xl bg-muted/40 p-3">
-                      <p className="font-semibold text-foreground text-sm">1️⃣ The Agent Who Registered the Tenant</p>
-                      <p className="text-xs mt-1">This is the person who first brought the tenant to Welile. You get <span className="font-bold text-primary">2%</span> of every repayment — forever!</p>
+                      <p className="font-semibold text-foreground text-sm">1️⃣ The Agent Collecting the Rent</p>
+                      <p className="text-xs mt-1">This is the agent who collects from the tenant. You get <span className="font-bold text-primary">8%</span> of every repayment — forever! If a different agent registered the tenant, that agent gets <span className="font-bold text-primary">2%</span> of the 8%.</p>
                     </div>
                     <div className="rounded-xl bg-muted/40 p-3">
-                      <p className="font-semibold text-foreground text-sm">2️⃣ The Agent Managing the Tenant Now</p>
-                      <p className="text-xs mt-1">This is the agent currently assigned to the tenant. You get <span className="font-bold text-primary">8%</span> of every repayment.</p>
+                      <p className="font-semibold text-foreground text-sm">2️⃣ If You Are a Sub-Agent</p>
+                      <p className="text-xs mt-1">If another agent recruited you, you get <span className="font-bold text-primary">6%</span> of every repayment and the agent who recruited you gets <span className="font-bold text-primary">2%</span>.</p>
                     </div>
                     <div className="rounded-xl bg-primary/10 border border-primary/20 p-3">
-                      <p className="font-semibold text-foreground text-sm">⭐ If You Are Both?</p>
-                      <p className="text-xs mt-1">If you registered the tenant AND you are managing them — you keep the <span className="font-bold text-primary">full 10%</span>! That's the best position to be in.</p>
+                      <p className="font-semibold text-foreground text-sm">⭐ Whitelisted or Elite Sub-Agent?</p>
+                      <p className="text-xs mt-1">Whitelisted and elite-ranked sub-agents keep the <span className="font-bold text-primary">full 8%</span>! That's the best position to be in.</p>
                     </div>
                   </div>
                 </CardContent>
@@ -452,21 +453,21 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     </div>
                     <div className="divide-y divide-border/40">
                       <div className="flex justify-between px-3 py-2.5">
-                        <span className="text-muted-foreground">Agent who registered tenant (2%)</span>
-                        <span className="font-bold text-foreground">UGX 2,000</span>
+                        <span className="text-muted-foreground">Sub-agent collecting the rent (6%)</span>
+                        <span className="font-bold text-foreground">UGX 6,000</span>
                       </div>
                       <div className="flex justify-between px-3 py-2.5">
-                        <span className="text-muted-foreground">Agent managing tenant (8%)</span>
-                        <span className="font-bold text-foreground">UGX 8,000</span>
+                        <span className="text-muted-foreground">Agent who recruited them (2%)</span>
+                        <span className="font-bold text-foreground">UGX 2,000</span>
                       </div>
                       <div className="flex justify-between px-3 py-2.5 bg-primary/5">
                         <span className="font-semibold text-foreground">Total Earned</span>
-                        <span className="font-bold text-primary">UGX 10,000</span>
+                        <span className="font-bold text-primary">UGX 8,000</span>
                       </div>
                     </div>
                   </div>
 
-                  <p className="text-xs text-muted-foreground italic">💡 If you're both the registering agent and the manager, you take home the full UGX 10,000!</p>
+                  <p className="text-xs text-muted-foreground italic">💡 If no agent recruited you (or you are whitelisted or elite), you take home the full UGX 8,000!</p>
                 </CardContent>
               </CollapsibleContent>
             </Card>
@@ -494,10 +495,9 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     <p className="text-xs font-semibold text-foreground">📖 Example:</p>
                     <p className="text-xs">You recruited Agent Mary. Mary manages a tenant who pays UGX 100,000.</p>
                     <div className="space-y-1 mt-2">
-                      <div className="flex justify-between text-xs"><span>Agent who registered tenant</span><span className="font-medium text-foreground">UGX 2,000 (2%)</span></div>
                       <div className="flex justify-between text-xs"><span>Mary (managing agent)</span><span className="font-medium text-foreground">UGX 6,000 (6%)</span></div>
                       <div className="flex justify-between text-xs"><span>You (recruited Mary) 🎉</span><span className="font-medium text-foreground">UGX 2,000 (2%)</span></div>
-                      <div className="flex justify-between text-xs border-t border-border/40 pt-1.5 font-semibold text-foreground"><span>Total</span><span>UGX 10,000 (10%)</span></div>
+                      <div className="flex justify-between text-xs border-t border-border/40 pt-1.5 font-semibold text-foreground"><span>Total</span><span>UGX 8,000 (8%)</span></div>
                     </div>
                   </div>
 
@@ -619,7 +619,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                     </div>
                     <div className="rounded-xl bg-muted/40 p-3">
                       <p className="font-semibold text-foreground text-sm">🔗 Invite a Funder</p>
-                      <p className="text-xs mt-1">Share your referral link with potential investors. When a funder you bring invests, you earn a <span className="font-bold text-primary">2% commission</span> on their investment (and <span className="font-bold text-primary">1%</span> on Angel Pool investments) — tenants get rent, you get paid, and the funder earns returns.</p>
+                      <p className="text-xs mt-1">Share your referral link with potential supporters. When a funder you bring supports, you earn a <span className="font-bold text-primary">2% commission</span> on their support (and <span className="font-bold text-primary">1%</span> on Angel Pool support) — tenants get rent, you get paid, and the funder earns returns.</p>
                     </div>
                     <div className="rounded-xl bg-muted/40 p-3">
                       <p className="font-semibold text-foreground text-sm">📈 Collection Streaks</p>

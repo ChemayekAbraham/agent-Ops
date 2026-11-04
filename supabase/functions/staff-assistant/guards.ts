@@ -465,7 +465,7 @@ export function checkStreamedParagraph(
   return {
     ok: false,
     paragraph: UNVERIFIED_PARAGRAPH_REPLACEMENT,
-    reason: check.reason,
+    reason: (check as Extract<GuardResult, { ok: false }>).reason,
   };
 }
 
@@ -604,4 +604,117 @@ export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
 
   return { ok: true, cleaned };
 }
+
+/**
+ * Clara-style `REFUSE: <sentence>` prefix pattern for Zoe (`supabase/functions/agent-assistant/index.ts`),
+ * extended with Zoe's three internal outcome categories (`role_restricted`, `out_of_scope`, `unmatched`)
+ * so the model writes its own short, specific, kind refusal sentence in the same turn while the server
+ * records the exact internal `outcome` and `unansweredReason` values for the dashboard and review queue.
+ */
+export type ZoeRefusalKind = "role_restricted" | "out_of_scope" | "unmatched";
+
+export interface ParsedModelRefusal {
+  kind: ZoeRefusalKind;
+  sentence: string;
+  isBareCodeWord: boolean;
+}
+
+export const REFUSE_PREFIX_RE =
+  /^(?:REFUSE(?:_(?:ROLE_RESTRICTED|OUT_OF_SCOPE|UNMATCHED))?)\b[:\s-]*/i;
+
+const ROLE_RESTRICTED_PREFIX_RE = /^REFUSE_ROLE_RESTRICTED\b[:\s-]*/i;
+const OUT_OF_SCOPE_PREFIX_RE = /^REFUSE_OUT_OF_SCOPE\b[:\s-]*/i;
+const UNMATCHED_PREFIX_RE = /^REFUSE_UNMATCHED\b[:\s-]*/i;
+const GENERIC_REFUSE_PREFIX_RE = /^REFUSE\b[:\s-]*/i;
+
+const BARE_ROLE_RESTRICTED_RE = /^ROLE_RESTRICTED\b[:\s-]*/i;
+const BARE_OUT_OF_SCOPE_RE = /^OUT_OF_SCOPE\b[:\s-]*/i;
+const BARE_UNMATCHED_RE = /^UNMATCHED\b[:\s-]*/i;
+
+function inferRefusalKindFromText(sentence: string, userMessage: string): ZoeRefusalKind {
+  const combined = `${sentence} ${userMessage}`.toLowerCase();
+  if (
+    /\b(don't have that on file|do not have that on file|no live report|couldn't find a live|could not find a live|won't guess|will not guess|not tracked in|no tool for)\b/i.test(
+      sentence,
+    )
+  ) {
+    return "unmatched";
+  }
+  if (
+    /\b(role|department|only available to|permission|not in your workspace|cfo|treasury|payroll|payslip|hr|coo|ceo|partner ops|agent ops|tenant ops|landlord ops)\b/i.test(
+      combined,
+    ) &&
+    !/\b(approve|reject|disburse|delete|modify|edit|update|transfer|book|recipe|football|weather|joke)\b/i.test(
+      userMessage,
+    )
+  ) {
+    return "role_restricted";
+  }
+  return "out_of_scope";
+}
+
+export function parseModelRefusal(
+  rawText: string,
+  userMessage = "",
+): ParsedModelRefusal | null {
+  const trimmed = (rawText ?? "").trim();
+  if (!trimmed) return null;
+
+  if (ROLE_RESTRICTED_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "role_restricted",
+      sentence: trimmed.replace(ROLE_RESTRICTED_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (OUT_OF_SCOPE_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "out_of_scope",
+      sentence: trimmed.replace(OUT_OF_SCOPE_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (UNMATCHED_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "unmatched",
+      sentence: trimmed.replace(UNMATCHED_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (GENERIC_REFUSE_PREFIX_RE.test(trimmed)) {
+    const sentence = trimmed.replace(GENERIC_REFUSE_PREFIX_RE, "").trim();
+    return {
+      kind: inferRefusalKindFromText(sentence, userMessage),
+      sentence,
+      isBareCodeWord: false,
+    };
+  }
+  if (BARE_ROLE_RESTRICTED_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_ROLE_RESTRICTED_RE, "").trim();
+    return {
+      kind: "role_restricted",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+  if (BARE_OUT_OF_SCOPE_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_OUT_OF_SCOPE_RE, "").trim();
+    return {
+      kind: "out_of_scope",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+  if (BARE_UNMATCHED_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_UNMATCHED_RE, "").trim();
+    return {
+      kind: "unmatched",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+
+  return null;
+}
+
 

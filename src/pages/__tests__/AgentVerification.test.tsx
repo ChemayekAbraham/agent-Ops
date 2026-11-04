@@ -45,6 +45,38 @@ describe('Agent KYC navigation and existing actions', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
+  const parentStep = (link: Record<string, unknown>) => {
+    state.value.vetting = parseAgentVetting({ status: 'unverified', phone: { value: '+256700000001' }, email: { value: 'agent@example.com' },
+      residence: { district: 'Wakiso', village: 'Kira' }, national_id: { source: 'parent' },
+      parent_agent: { id: 'parent-1', name: 'Parent Agent', phone: '+256700000002' } });
+    state.value.parentIdLink = { found: true, has_parent: true, request_id: 'req-1', ...link };
+    state.value.requestParentIdLink = vi.fn().mockResolvedValue({ success: true });
+    state.value.confirmParentIdCode = vi.fn();
+    mount();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  };
+
+  it('sends the code for an open parent-ID request that never had one sent', () => {
+    parentStep({ status: 'awaiting_owner', code_sent_at: null, code_verified_at: null });
+    expect(screen.queryByRole('textbox', { name: '6-digit code' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask Parent Agent' }));
+    expect(state.value.requestParentIdLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for the parent code once sent, and can send it again', () => {
+    parentStep({ status: 'awaiting_owner', code_sent_at: '2026-11-04T08:00:00Z', code_verified_at: null });
+    expect(screen.getByRole('textbox', { name: '6-digit code' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send the code again' }));
+    expect(state.value.requestParentIdLink).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the parent to approve once the code is confirmed', () => {
+    parentStep({ status: 'awaiting_owner', code_sent_at: '2026-11-04T08:00:00Z', code_verified_at: '2026-11-04T08:01:00Z' });
+    expect(screen.getByText('Waiting for Parent Agent to approve in their app.')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '6-digit code' })).toBeNull();
+  });
+
   it('lets a partial ID upload missing parts without inline identifier edits', () => {
     Object.assign(state.value.vetting.national_id, { source: 'own', has_front: true, has_back: false, nin_masked: null });
     identityStep();

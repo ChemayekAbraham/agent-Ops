@@ -819,7 +819,7 @@ function CommissionBreakdown({
  * Mirrors the categories used by `process_verified_field_deposit`:
  *   • agent_float_deposit       (cash-in to agent float)
  *   • agent_float_used_for_rent (settlement against tenant repayments)
- *   • agent_commission_earned   (platform expense → agent reward, 10% of repayments)
+ *   • agent_commission_earned   (platform expense → agent reward, 8% of repayments)
  */
 function LedgerImpactPreview({
   declared,

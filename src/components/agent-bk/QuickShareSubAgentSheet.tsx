@@ -39,7 +39,7 @@ export function QuickShareSubAgentSheet({ open, onOpenChange }: QuickShareSubAge
     return `🚀 Join me on Welile as a Sub-Agent!
 
 💰 What you'll earn:
-• 8% commission on every rent collection
+• 6% commission on every rent collection
 • Build your own team & earn even more
 
 ✨ FREE to join — no fees!

@@ -366,7 +366,7 @@ export async function chatCompletion(opts: {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
-}): Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }> {
+}): Promise<{ message: ChatMessage; model: string; requestedModel: string; usage?: ChatUsage }> {
   const { apiKey, model, baseUrl } = getGatewayConfig(opts.model);
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : DEFAULT_CHAT_TEMPERATURE;
@@ -390,9 +390,10 @@ export async function chatCompletion(opts: {
   if (!msg) {
     throw new AiGatewayError("AI Gateway returned an empty response", 502, "UPSTREAM");
   }
-  const resolvedModel = (data.model as string | undefined) ?? model;
+  const resolvedModel =
+    typeof data.model === "string" && data.model.trim() ? data.model.trim() : model;
   const usage = parseGatewayUsage(data.usage, resolvedModel);
-  return { message: msg, model: resolvedModel, usage };
+  return { message: msg, model: resolvedModel, requestedModel: model, usage };
 }
 
 /**
@@ -410,7 +411,7 @@ export async function chatCompletionStream(opts: {
   maxTokens?: number;
   signal?: AbortSignal;
   onTokenDelta?: (delta: string, accumulated: string) => void;
-}): Promise<{ message: ChatMessage; model: string; usage?: ChatUsage }> {
+}): Promise<{ message: ChatMessage; model: string; requestedModel: string; usage?: ChatUsage }> {
   const { apiKey, model, baseUrl } = getGatewayConfig(opts.model);
   const temperature =
     typeof opts.temperature === "number" ? opts.temperature : DEFAULT_CHAT_TEMPERATURE;
@@ -464,6 +465,13 @@ export async function chatCompletionStream(opts: {
       );
     }
 
+    const headerModel = (
+      res.headers.get("x-model") ??
+      res.headers.get("openai-model") ??
+      res.headers.get("x-routed-model") ??
+      ""
+    ).trim();
+
     const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
     // If upstream (or a unit test mock) returned JSON instead of text/event-stream:
     if (!contentType.includes("text/event-stream") || !res.body) {
@@ -476,16 +484,19 @@ export async function chatCompletionStream(opts: {
       if (typeof msg.content === "string" && msg.content.length > 0) {
         opts.onTokenDelta?.(msg.content, msg.content);
       }
-      const resolvedModel = (data.model as string | undefined) ?? model;
+      const resolvedModel =
+        (typeof data.model === "string" && data.model.trim() ? data.model.trim() : "") ||
+        headerModel ||
+        model;
       const usage = parseGatewayUsage(data.usage, resolvedModel);
-      return { message: msg, model: resolvedModel, usage };
+      return { message: msg, model: resolvedModel, requestedModel: model, usage };
     }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let sseBuffer = "";
     let accumulatedContent = "";
-    let resolvedModel = model;
+    let resolvedModel = headerModel || model;
     let rawUsage: unknown = undefined;
     const toolCallsByIndex = new Map<
       number,
@@ -511,8 +522,8 @@ export async function chatCompletionStream(opts: {
 
         try {
           const chunk = JSON.parse(payloadStr) as Record<string, unknown>;
-          if (typeof chunk.model === "string" && chunk.model) {
-            resolvedModel = chunk.model;
+          if (typeof chunk.model === "string" && chunk.model.trim()) {
+            resolvedModel = chunk.model.trim();
           }
           if (chunk.usage) {
             rawUsage = chunk.usage;
@@ -585,7 +596,7 @@ export async function chatCompletionStream(opts: {
           resolvedModel,
         );
 
-    return { message, model: resolvedModel, usage };
+    return { message, model: resolvedModel, requestedModel: model, usage };
   } catch (err) {
     if (err instanceof AiGatewayError) throw err;
     if (opts.signal?.aborted) {

@@ -7,6 +7,13 @@ const corsHeaders = {
 };
 
 const SITE_URL = "https://welileapp.com";
+/**
+ * Public host of the share links. welileapp.com is served by Lovable, which
+ * only returns the app shell (logo preview), so links live on a subdomain that
+ * proxies this function (infra/share-host/). og:url must name that host:
+ * Facebook re-reads the page at og:url.
+ */
+const SHARE_HOST = "https://share.welileapp.com";
 const ROI_RATE = 15;
 
 const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString("en-UG")}`;
@@ -74,10 +81,14 @@ Deno.serve(async (req) => {
   const ref = params.ref ?? "";
 
   // Public, branded identity of this share (never the function URL).
-  const publicShareUrl = `${SITE_URL}/s/${code}`;
-  // Humans land back in the existing SPA, which resolves ?share=<code>,
-  // scrolls to the matching card and opens its details sheet.
-  const target = `${SITE_URL}/?share=${encodeURIComponent(code)}`;
+  const publicShareUrl = `${SHARE_HOST}/s/${code}`;
+  // Humans land back in the SPA. House links open the public support page
+  // (/support-house?s=<code>); plan links use ?share=<code>, which scrolls to
+  // the matching card and opens its details sheet.
+  const isHouseLink = link.destination_path === "/support-house" || link.target_path === "/support-house";
+  const target = isHouseLink
+    ? `${SITE_URL}/support-house?s=${encodeURIComponent(code)}`
+    : `${SITE_URL}/?share=${encodeURIComponent(code)}`;
   const fallbackPath = link?.target_path ?? "/funder-onboarding";
 
   let plan: {

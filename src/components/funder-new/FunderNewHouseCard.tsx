@@ -155,7 +155,7 @@ export function FunderNewHouseCard({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 [container-type:inline-size]">
           {coords ? (
             <Button
               variant="outline"
@@ -173,7 +173,8 @@ export function FunderNewHouseCard({
           <Button
             variant="default"
             className={cn(
-              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm transition-colors',
+              // The label scales with the card (container width), so it fits the button without touching its edges.
+              'h-11 min-w-0 flex-1 gap-1.5 rounded-lg px-3 text-[length:clamp(10px,calc(9cqw_-_6px),14px)] font-bold shadow-sm transition-colors',
               selected
                 ? 'border border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600'
                 : 'text-primary-foreground',

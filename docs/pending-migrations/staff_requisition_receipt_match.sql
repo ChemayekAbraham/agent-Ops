@@ -1,4 +1,6 @@
--- PENDING — do not apply until Benjamin approves.
+-- PENDING — do not apply until Benjamin approves and Josh has been told.
+-- Live check 2026-11-04: staff_requisitions has none of these columns, so the
+-- receipt payout hold in the edge functions is currently inactive.
 -- Draft only. Not in supabase/migrations, so it is not part of a publish.
 --
 -- What this does
@@ -187,12 +189,17 @@ BEGIN
 END;
 $function$;
 
+-- The guard trigger below is SECURITY INVOKER, so it calls this helper as the
+-- writing user. Signed-in staff insert and update requisitions directly, so
+-- authenticated must keep EXECUTE or every write fails with
+-- "permission denied for function". The helper is pure arithmetic on its
+-- arguments and reads no table, so the grant reveals nothing.
 REVOKE ALL ON FUNCTION public.staff_requisition_receipt_verdict_for(
   numeric, numeric, numeric, text, text, timestamptz, text[], timestamptz, numeric, numeric, text
-) FROM PUBLIC, anon, authenticated;
+) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.staff_requisition_receipt_verdict_for(
   numeric, numeric, numeric, text, text, timestamptz, text[], timestamptz, numeric, numeric, text
-) TO service_role;
+) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.staff_requisition_receipt_guard()
 RETURNS trigger
@@ -234,8 +241,23 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.staff_requisition_receipt_guard() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.staff_requisition_receipt_guard() TO service_role;
+REVOKE ALL ON FUNCTION public.staff_requisition_receipt_guard() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.staff_requisition_receipt_guard() TO authenticated, service_role;
+
+-- Grants and MFA. New columns inherit the table's privileges, and the live table
+-- has no column-level grants (checked 2026-11-04), so no column GRANT is needed.
+-- The staff MFA policy mfa_required_for_staff already exists on
+-- staff_requisitions and covers these columns. Recreate it only if missing.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies
+                 WHERE schemaname = 'public' AND tablename = 'staff_requisitions'
+                   AND policyname = 'mfa_required_for_staff') THEN
+    CREATE POLICY mfa_required_for_staff ON public.staff_requisitions
+      AS RESTRICTIVE FOR ALL TO authenticated
+      USING ((SELECT public.staff_mfa_ok())) WITH CHECK ((SELECT public.staff_mfa_ok()));
+  END IF;
+END $$;
 
 DROP TRIGGER IF EXISTS trg_staff_requisition_receipt_guard ON public.staff_requisitions;
 CREATE TRIGGER trg_staff_requisition_receipt_guard

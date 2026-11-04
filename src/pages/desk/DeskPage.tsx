@@ -1,19 +1,47 @@
-import { useEffect, type ReactNode } from 'react';
-import { Navigate, NavLink, useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Navigate, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Maximize2, Minimize2, Play, RefreshCw, Rows3, Square } from 'lucide-react';
+import { Maximize2, Minimize2, Moon, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
-import { useDeskFeeds, type FeedState } from './useDeskFeed';
-import { DeskTable } from './DeskTable';
+import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
+import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
 import { TileGrid } from './Tiles';
 import { SkeletonLead, SkeletonTiles } from './Skeleton';
 import { DeskPrefsProvider, KampalaClock, clockTime, useDeskPrefs } from './deskPrefs';
 import { CALM, FOCUS, statusText } from './deskTheme';
+import { deskChecklistOn } from './deskFlag';
+import { DESK_STAGE } from './reviewTypes';
+import { AMBIGUOUS_MSG, NOT_FOUND_MSG, NO_STAFF_ID, resolveShortId, useMyStaffRef } from './reviewApi';
+import { ReviewStatusProvider } from './reviewStatus';
+import { ReviewDrawer } from './ReviewDrawer';
+import { FundByScore } from './FundByScore';
+import { FunderBoard } from './FunderBoard';
+import { BudgetRoomCard } from './BudgetRoomCard';
+import { BurnChart } from './BurnChart';
+import { useDeskLive } from './deskLive';
+import { PipelineStrip } from './PipelineStrip';
+import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 
 const ROTATE_MS = 45_000;
+
+/** The one table on each desk whose rows are reviewable requests. */
+const QUEUE_TABLE: Record<string, string> = {
+  'service-centre': 'sc-queue',
+  'agent-ops': 'agent-ops-queue',
+  'tenant-ops': 'tenant-ops-queue',
+  'landlord-ops': 'landlord-ops-queue',
+  'partner-ops': 'partner-queue',
+  coo: 'coo-queue',
+};
+
+/** The desks that carry a second tab beside their queue. */
+const EXTRA_TAB: Record<string, string> = {
+  coo: 'Fund by score',
+  'partner-ops': 'Funder board — preview',
+};
 
 function ToolButton({
   onClick,
@@ -35,10 +63,35 @@ function ToolButton({
       className={`desk-pill inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium ${CALM} ${FOCUS} ${
         active
           ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-          : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
+          : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
       }`}
     >
       {children}
+    </button>
+  );
+}
+
+/**
+ * Sun or moon, whichever the next press would give you.
+ *
+ * Pressing it always lands on an explicit light or dark — once someone has
+ * chosen, the device setting stops overriding them. Board mode is always dark,
+ * so the toggle is hidden there rather than shown doing nothing.
+ */
+function ThemeToggle() {
+  const { theme, setTheme } = useDeskPrefs();
+  const next = theme === 'light' ? 'dark' : 'light';
+  const Icon = next === 'dark' ? Moon : Sun;
+  return (
+    <button
+      type="button"
+      onClick={() => setTheme(next)}
+      aria-label={`Switch to the ${next} theme`}
+      title={`Switch to the ${next} theme`}
+      className={`desk-pill inline-flex items-center gap-1.5 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1.5 text-xs font-medium ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden />
+      {next === 'dark' ? 'Dark' : 'Light'}
     </button>
   );
 }
@@ -48,9 +101,9 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
   const queryClient = useQueryClient();
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <span className="desk-pill inline-flex items-center gap-1.5 border border-[hsl(var(--desk-ok)/0.4)] bg-[hsl(var(--desk-ok)/0.12)] px-2.5 py-1">
-        <span className="desk-live-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--desk-ok))]" aria-hidden />
-        <span className="font-semibold tracking-wide text-[hsl(var(--desk-ok))]">LIVE</span>
+      <span className="desk-pill desk-live-pill inline-flex items-center gap-1.5 border px-2.5 py-1">
+        <span className="desk-live-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--desk-live-fg))]" aria-hidden />
+        <span className="font-semibold tracking-wide">LIVE</span>
       </span>
 
       <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground`} />
@@ -59,7 +112,7 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
       <button
         type="button"
         onClick={() => queryClient.invalidateQueries({ queryKey: ['desk-feed'] })}
-        className={`desk-pill inline-flex items-center gap-1.5 border border-white/12 bg-white/5 px-3 py-1.5 ${CALM} ${FOCUS} hover:bg-white/10 hover:text-foreground`}
+        className={`desk-pill inline-flex items-center gap-1.5 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1.5 ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
       >
         <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Refresh
       </button>
@@ -72,6 +125,10 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
         <Rows3 className="h-3.5 w-3.5" aria-hidden />
         {density === 'compact' ? 'Compact' : 'Comfortable'}
       </ToolButton>
+
+      {/* Offered only where the theme can actually change: board mode is always
+          dark, and so is every desk while the checklist flag is off. */}
+      {!board && deskChecklistOn() && <ThemeToggle />}
 
       <ToolButton onClick={() => setBoard(!board)} active={board} label={board ? 'Leave board mode' : 'Enter board mode'}>
         {board ? <Minimize2 className="h-3.5 w-3.5" aria-hidden /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden />}
@@ -94,7 +151,114 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
   );
 }
 
+/** Ontology only: choose which mapped day every onto_ feed shows. Stored as ?day=YYYY-MM-DD. */
+function DayPicker({ rows }: { rows: Record<string, unknown>[] }) {
+  const [params, setParams] = useSearchParams();
+  const chosen = params.get('day') ?? '';
+  const latest = rows.find((r) => r.latest === true || r.latest === 'true');
+  const latestIso = latest ? String(latest.day_iso) : '';
+  const value = chosen || latestIso;
+  const past = !!chosen && !!latestIso && chosen !== latestIso;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <label htmlFor="onto-day" className="text-muted-foreground">Day</label>
+      <select
+        id="onto-day"
+        value={value}
+        onChange={(e) => {
+          const next = new URLSearchParams(params);
+          if (!e.target.value || e.target.value === latestIso) next.delete('day');
+          else next.set('day', e.target.value);
+          setParams(next, { replace: true });
+        }}
+        className="rounded border border-border bg-background px-2 py-1 text-foreground"
+      >
+        {!value && <option value="">Latest</option>}
+        {rows.map((r) => {
+          const iso = String(r.day_iso);
+          return (
+            <option key={iso} value={iso}>
+              {iso === latestIso ? `Latest — ${String(r.day_label)}` : String(r.day_label)}
+            </option>
+          );
+        })}
+      </select>
+      {past && <span className="text-xs text-[hsl(var(--desk-lavender))]">Viewing a past day.</span>}
+    </div>
+  );
+}
+
+/**
+ * The reviewer's staff ID. Every pipeline RPC refuses a review without one, so
+ * the desk says so here rather than letting the drawer fail on submit.
+ */
+function StaffBadge() {
+  const { data, isLoading } = useMyStaffRef();
+  if (!deskChecklistOn() || isLoading) return null;
+  if (data) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Staff ID <span className="font-mono text-foreground">{data}</span>
+      </p>
+    );
+  }
+  return <p className={`text-xs ${statusText.warn}`}>{NO_STAFF_ID}</p>;
+}
+
 function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, FeedState>; board: boolean }) {
+  // The review drawer (E26), the frame and the strip. The stage is null on desks
+  // with no checklist, and the whole thing is off unless this desk is live:
+  // its `desk_live:<id>` switch is not off and VITE_DESK_CHECKLIST is not false.
+  const deskLive = useDeskLive();
+  const checklistOn = deskLive(desk.id);
+  const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
+  const [openRequest, setOpenRequest] = useState<string | null>(null);
+  const [opening, setOpening] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  // `?tab=` opens the second tab straight away, so the budget-room card can
+  // link to "Fund by score" rather than ask someone to find it.
+  const [deskParams] = useSearchParams();
+  const [tab, setTab] = useState<'queue' | 'extra'>(() =>
+    deskParams.get('tab') && deskParams.get('tab') !== 'queue' ? 'extra' : 'queue',
+  );
+
+  // Whether the CFO has set today's budget — the one thing that tells "spent
+  // out" apart from "nothing was ever budgeted".
+  const kpiRows = feeds.coo_kpis?.rows ?? [];
+  const budgetRow = kpiRows.find((r) => String(r.metric) === 'budget_today_ugx');
+  const budgetSetToday = feeds.coo_kpis?.loading
+    ? null
+    : budgetRow !== undefined && budgetRow.value !== null && budgetRow.value !== undefined;
+
+  /**
+   * The row carries an 8-character code, so the id is looked up on the press.
+   * An ambiguous code opens nothing: recording a review against the wrong
+   * tenant is worse than making someone find the request another way.
+   */
+  const openByShort = async (short: string) => {
+    if (!stage) return;
+    setOpening(short);
+    setNotes((n) => {
+      if (!(short in n)) return n;
+      const next = { ...n };
+      delete next[short];
+      return next;
+    });
+    const found = await resolveShortId(short, stage);
+    setOpening(null);
+    if (found.status === 'ok') {
+      setOpenRequest(found.id);
+      return;
+    }
+    const why =
+      found.status === 'ambiguous'
+        ? AMBIGUOUS_MSG
+        : found.status === 'not_found'
+          ? NOT_FOUND_MSG
+          : found.message;
+    setNotes((n) => ({ ...n, [short]: why }));
+  };
+
   const g: Getter = (ref) => (feeds[ref.feed]?.loading ? '—' : show(feeds[ref.feed]?.rows ?? [], ref));
   const anyLoading = Object.values(feeds).some((f) => f.loading);
   const tiles = desk.tiles.filter(
@@ -108,13 +272,27 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
 
   // The command centre owns its own strip, river and panels.
   if (desk.id === 'command') {
-    return <CommandCentre feeds={feeds} board={board} tiles={tiles} />;
+    return <CommandCentre feeds={feeds} board={board} tiles={tiles} pipelineCards={checklistOn} />;
   }
 
-  return (
-    <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+  const queueTable = QUEUE_TABLE[desk.id];
+  const review: ReviewHook | undefined = stage
+    ? {
+        shortFor: (row: Row) => (typeof row.req === 'string' && row.req ? row.req : null),
+        onOpen: openByShort,
+        opening,
+        notes,
+      }
+    : undefined;
+
+  const extraTab = checklistOn ? EXTRA_TAB[desk.id] : undefined;
+  const showQueue = !extraTab || tab === 'queue';
+
+  const intro = (
+    <>
       <div className="space-y-1.5">
         <p className="text-sm text-muted-foreground">{desk.question}</p>
+        {desk.id === 'ontology' && <DayPicker rows={feeds.onto_days?.rows ?? []} />}
         {anyLoading ? (
           <SkeletonLead />
         ) : (
@@ -130,14 +308,95 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
-      {desk.tables.map((spec) => (
-        <DeskTable
-          key={spec.id}
-          spec={spec}
-          board={board}
-          feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
-        />
+      {/* The COO reads the room before opening the queue; the CFO reads the week. */}
+      {checklistOn && desk.id === 'coo' && (
+        <BudgetRoomCard board={board} enabled budgetSetToday={budgetSetToday} />
+      )}
+      {checklistOn && desk.id === 'cfo' && <BurnChart board={board} enabled />}
+    </>
+  );
+
+  const tabs = extraTab && (
+    <div role="tablist" aria-label={`${desk.name} views`} className="flex flex-wrap gap-1.5">
+      {(['queue', 'extra'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="tab"
+          aria-selected={tab === t}
+          onClick={() => setTab(t)}
+          className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+            tab === t
+              ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+              : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+          }`}
+        >
+          {t === 'queue' ? 'Queue' : extraTab}
+        </button>
       ))}
+    </div>
+  );
+
+  const extraView = (
+    <>
+      {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
+    </>
+  );
+
+  const table = (spec: Desk['tables'][number]) => (
+    <DeskTable
+      key={spec.id}
+      spec={spec}
+      board={board}
+      feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
+      review={review && spec.id === queueTable ? review : undefined}
+    />
+  );
+
+  /* Keyed on the request: opening a second row never carries the first
+     request's ticks, note or logged call across to another tenant. */
+  const drawer = stage && openRequest && (
+    <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
+  );
+
+  // The stage desks, when live: strip → Ready for your push → Waiting on… →
+  // Done today → Classic view. Classic view keeps every table the desk had.
+  if (checklistOn && FRAMED_DESKS.has(desk.id)) {
+    const ready = desk.tables.find((t) => t.id === READY_TABLE[desk.id]);
+    return (
+      <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+        <PipelineStrip deskId={desk.id} board={board} />
+        {intro}
+
+        <section className="space-y-3" aria-labelledby="desk-ready">
+          <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+            Ready for your push
+          </h2>
+          {tabs}
+          {extraView}
+          {showQueue && ready && table(ready)}
+        </section>
+
+        <WaitingOnFold deskId={desk.id} board={board} />
+        <DoneTodayFold deskId={desk.id} board={board} />
+        <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+          {desk.tables.map(table)}
+        </Fold>
+
+        {drawer}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+      {checklistOn && <PipelineStrip deskId={desk.id} board={board} />}
+      {intro}
+      {tabs}
+      {extraView}
+      {showQueue && desk.tables.map(table)}
+      {drawer}
     </div>
   );
 }
@@ -145,13 +404,22 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
 function DeskShell() {
   const { desk: deskId } = useParams();
   const { roles } = useAuth();
-  const { board, rotate } = useDeskPrefs();
+  const { board, rotate, theme } = useDeskPrefs();
+  /**
+   * Board mode is always dark, and so is production until Mark flips the flag —
+   * with the checklist off the desks must look exactly as they do today, so the
+   * light theme never reaches welileapp.com by accident.
+   */
+  const rootTheme: 'light' | 'dark' = board || !deskChecklistOn() ? 'dark' : theme;
   const navigate = useNavigate();
 
   const mine = (roles ?? []) as unknown as string[];
   const allowed = DESKS.filter((d) => d.roles.some((r) => mine.includes(r)));
   const desk = allowed.find((d) => d.id === deskId);
-  const feeds = useDeskFeeds(desk ? feedsOf(desk) : []);
+  const [search] = useSearchParams();
+  const rawDay = search.get('day');
+  const day = desk?.id === 'ontology' && rawDay && /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : null;
+  const feeds = useDeskFeeds(desk ? feedsOf(desk) : [], day);
 
   // Board mode can walk itself through the desks for a wall display. Off unless asked for.
   const deskKey = desk?.id;
@@ -169,7 +437,7 @@ function DeskShell() {
 
   if (allowed.length === 0) {
     return (
-      <main className="desk-root min-h-screen px-4 py-16 text-center">
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
         <div className="mx-auto max-w-xl space-y-2">
           <h1 className="text-xl font-semibold text-foreground">No desk for your account yet</h1>
           <p className="text-sm text-muted-foreground">
@@ -187,8 +455,8 @@ function DeskShell() {
     .map(([k]) => k);
 
   const header = (
-    <header className={board ? 'shrink-0 space-y-2' : 'space-y-3'}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <header className={`min-w-0 ${board ? 'shrink-0 space-y-3' : 'space-y-4'}`}>
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex items-center gap-3 min-w-0">
           <WelileLogo size="sm" showText={false} linkToHome={false} variant="light" />
           <div className="min-w-0">
@@ -196,13 +464,14 @@ function DeskShell() {
               Ops Command Centre
             </h1>
             <p className={`${board ? 'text-base' : 'text-sm'} text-[hsl(var(--desk-lavender))]`}>{desk.name}</p>
+            <StaffBadge />
           </div>
         </div>
         <Toolbar updated={updated} failed={failed} board={board} />
       </div>
 
       {allowed.length > 1 && (
-        <nav aria-label="Desks" className="-mx-1 flex gap-1 overflow-x-auto border-b border-white/10 pb-px">
+        <nav aria-label="Desks" className="flex gap-1 overflow-x-auto border-b border-[var(--desk-line-color)] pb-px">
           {allowed.map((d) => (
             <NavLink
               key={d.id}
@@ -224,10 +493,11 @@ function DeskShell() {
   );
 
   if (board) {
+    // A wall display: full bleed, one screen, 32px of air all round.
     return (
-      <div className="desk-root flex h-[100dvh] flex-col gap-4 overflow-hidden p-5">
+      <div className="desk-root flex h-[100dvh] min-w-0 flex-col gap-6 overflow-hidden px-4 py-6 sm:px-8" data-desk-theme="dark">
         {header}
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 flex-1">
           <DeskView key={desk.id} desk={desk} feeds={feeds} board />
         </div>
       </div>
@@ -235,8 +505,8 @@ function DeskShell() {
   }
 
   return (
-    <div className="desk-root min-h-screen">
-      <main className="mx-auto w-full max-w-[1500px] px-3 sm:px-6 py-5 space-y-5">
+    <div className="desk-root min-h-screen" data-desk-theme={rootTheme}>
+      <main className="mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 py-6 sm:px-8">
         {header}
         <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />
       </main>
@@ -247,7 +517,9 @@ function DeskShell() {
 export default function DeskPage() {
   return (
     <DeskPrefsProvider>
-      <DeskShell />
+      <ReviewStatusProvider>
+        <DeskShell />
+      </ReviewStatusProvider>
     </DeskPrefsProvider>
   );
 }

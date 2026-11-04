@@ -129,9 +129,10 @@ When a staff member asks Zoe a question in production, the deployed `staff-assis
 | `staff_assistant_mask_phone(p_phone text, p_can_view_pii boolean)` | `assistant_staff_*` report RPCs | **yes** | `20261026000000_staff_assistant_read_tools_batch1.sql` |
 | `staff_assistant_mask_nin(p_nin text, p_can_view_pii boolean)` | `assistant_staff_*` report RPCs | **yes** | `20261026000000_staff_assistant_read_tools_batch1.sql` |
 | `staff_assistant_sanitize_jsonb(p_data jsonb, p_can_view_pii boolean, p_max_rows integer)` | `assistant_staff_*` report RPCs | **yes** | `20261026000000_staff_assistant_read_tools_batch1.sql` |
-| `staff_assistant_get_config()` | `staff-assistant/store.ts` (`loadStaffAssistantConfig`) | **no** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
-| `staff_assistant_health()` | `staff-assistant/store.ts`, `staff-assistant/index.ts`, `scripts/guard-zoe-parity.mjs` | **no** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
-| `staff_assistant_error_summary(p_days integer)` | `src/hooks/useZoeCrm.ts`, `src/components/executive/crm/ZoeConversationsPanel.tsx` | **no** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
+| `staff_assistant_get_config()` | `staff-assistant/store.ts` (`loadStaffAssistantConfig`) | **yes** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
+| `staff_assistant_health()` | `staff-assistant/store.ts`, `staff-assistant/index.ts`, `scripts/guard-zoe-parity.mjs` | **yes** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
+| `staff_assistant_check_model_drift(p_limit integer)` | `staff-assistant/store.ts`, `staff-assistant/index.ts`, `src/hooks/useZoeCrm.ts`, `src/components/zoe/ZoeHealthBanner.tsx` | **yes** | `20261104190000_staff_assistant_model_drift_check.sql` |
+| `staff_assistant_error_summary(p_days integer)` | `src/hooks/useZoeCrm.ts`, `src/components/executive/crm/ZoeConversationsPanel.tsx` | **yes** | `20261030100000_staff_assistant_parity_health_and_error_codes.sql` |
 | `staff_assistant_can_user_read_report(p_user_id uuid, p_report_rpc text)` | `staff-assistant/index.ts`, `staff-assistant-send-email/index.ts`, `staff-assistant-schedule-runner/index.ts` | **no** | `20261027100000_staff_assistant_security_hardening.sql` (extended in `20261028180000` & `20261030100000`) |
 | `staff_assistant_save_draft(p_kind text, p_payload jsonb, p_conversation_id uuid)` | `staff-assistant/index.ts`, `src/lib/zoe/zoeActions.ts`, `src/lib/zoe/zoeEmailDraft.ts` | **no** | `20261027100000_staff_assistant_security_hardening.sql` |
 | `staff_assistant_consume_draft(p_draft_id uuid, p_expected_kind text, p_expected_payload jsonb)` | `staff-assistant-send-email/index.ts`, `staff_assistant_create_reminder`, `staff_assistant_send_colleague_notification`, `staff_assistant_create_schedule`, `staff_assistant_save_idea` | **no** | `20261027100000_staff_assistant_security_hardening.sql` |
@@ -234,5 +235,11 @@ When a staff member asks Zoe a question in production, the deployed `staff-assis
 | `zoe_ro_area_allowed(p_area text)` | `zoe_ro.*` views, `assistant_staff_data_catalog` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
 | `zoe_ro_area_is_sensitive(p_area text)` | `zoe_ro_require_area` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
 | `zoe_ro_require_area(p_area text)` | `zoe_ro.*` views, `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
-| `zoe_ro_validate_query(p_sql text)` | `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
-| `staff_assistant_log_query(p_question text, p_sql text, p_executed_sql text, p_role_areas text[], p_row_count integer, p_truncated boolean, p_duration_ms integer, p_status text, p_error_message text)` | `assistant_staff_run_query` | **no** | `20261028180000_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
+| `zoe_ro_validate_query(p_sql text)` | `assistant_staff_run_query` | **yes** | `20261028180500_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` & `20261103180000_staff_assistant_consolidated_security_defences.sql` |
+| `staff_assistant_log_query(p_question text, p_sql text, p_executed_sql text, p_role_areas text[], p_row_count integer, p_truncated boolean, p_duration_ms integer, p_status text, p_error_message text)` | `assistant_staff_run_query` | **yes** | `20261028180500_staff_assistant_prompt3_analyst_lane_zoe_ro.sql` |
+
+---
+
+## 4. Consolidated Reconciliation Status (2026-11-03)
+
+All 22 `public.staff_assistant_*` tables, 23 views (`public.v_staff_assistant_crm_messages_redacted` + 22 `zoe_ro.*` views with `security_invoker = true`), and 133 RPCs are verified live in production (`43e6c2e1-18a6-4503-badb-5bb6c23491cc`) and matched 1:1 with committed migration files through `20261103180000_staff_assistant_consolidated_security_defences.sql`. See `docs/zoe/schema-drift-reconciliation.md` for the full reconciliation report.

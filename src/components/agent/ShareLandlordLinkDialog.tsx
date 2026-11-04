@@ -11,6 +11,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { createShortLink } from '@/lib/createShortLink';
+import { LANDLORD_SIGNUP_COPY } from '@/lib/landlordPitchScript';
 
 interface ShareLandlordLinkDialogProps {
   open: boolean;
@@ -40,7 +41,7 @@ export function ShareLandlordLinkDialog({ open, onOpenChange }: ShareLandlordLin
     return () => { cancelled = true; };
   }, [open, user, link]);
 
-  const shareMessage = `🏠 Guarantee your rent for 12 months with Welile! No more chasing tenants — we pay you on time every month, even if the tenant delays. Sign up here: ${link}`;
+  const shareMessage = LANDLORD_SIGNUP_COPY.shareLinkMessage(link);
 
   const handleCopy = async () => {
     if (!link) return;
@@ -96,7 +97,7 @@ export function ShareLandlordLinkDialog({ open, onOpenChange }: ShareLandlordLin
           {/* Reward info */}
           <div className="bg-gradient-to-r from-primary/10 to-success/10 rounded-lg p-3 border border-primary/20">
             <p className="text-xs text-center text-muted-foreground">
-              Landlords get <span className="font-bold text-primary">12 months guaranteed rent</span> — you get the credit!
+              Landlords get <span className="font-bold text-primary">on-time rent for 3, 6, or 12-month Rent Plans</span> — you earn commission when their tenant’s Rent Plan is verified!
             </p>
           </div>
 

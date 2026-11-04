@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAssetReferenceData, useCreateAsset, useUpdateAsset } from '@/hooks/useAssetRegister';
+import { useAssetReferenceData, useCommitAssetImport, useCreateAsset, useUpdateAsset } from '@/hooks/useAssetRegister';
+import { sha256Hex } from '@/lib/assetRegister/importParser';
 import { describeAssetRpcError, validateAssetInput } from '@/lib/assetRegister/validation';
 import {
   ASSET_CATEGORIES, ASSET_CONDITIONS, ASSET_FIELDS, ASSET_STATUSES, assetCodes,
@@ -16,6 +17,15 @@ import {
 
 type FormState = Record<AssetField, string>;
 const NONE = '__none__';
+export const MAX_ASSET_QUANTITY = 100;
+
+/** Whole number 1..MAX_ASSET_QUANTITY, otherwise null. */
+export function parseAssetQuantity(raw: string): number | null {
+  const t = raw.trim();
+  if (!/^\d+$/.test(t)) return null;
+  const n = Number(t);
+  return n >= 1 && n <= MAX_ASSET_QUANTITY ? n : null;
+}
 
 function initialState(asset?: Asset | null): FormState {
   const s = Object.fromEntries(ASSET_FIELDS.map((f) => [f, ''])) as FormState;
@@ -56,14 +66,21 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const editing = !!asset;
   const [form, setForm] = useState<FormState>(() => initialState(asset));
   const [reason, setReason] = useState('');
+  const [quantity, setQuantity] = useState('1');
   const [errors, setErrors] = useState<FieldError[]>([]);
   const ref = useAssetReferenceData(open);
   const create = useCreateAsset();
   const update = useUpdateAsset();
-  const saving = create.isPending || update.isPending;
+  const bulk = useCommitAssetImport();
+  const saving = create.isPending || update.isPending || bulk.isPending;
+  const currentCount = editing && asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 0;
+  const qty = parseAssetQuantity(quantity);
+  // The number is stored on this one asset row; it never creates extra rows.
+  const extra = 0;
+  const many = false;
 
   useEffect(() => {
-    if (open) { setForm(initialState(asset)); setReason(''); setErrors([]); }
+    if (open) { setForm(initialState(asset)); setReason(''); setQuantity(String(asset ? Math.max(1, asset.quantity ?? asset.same_item_count ?? 1) : 1)); setErrors([]); }
   }, [open, asset]);
 
   const errorFor = useMemo(() => {
@@ -75,18 +92,76 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
   const set = (f: AssetField, v: string) => setForm((s) => ({ ...s, [f]: v }));
 
   const submit = async () => {
+    if (qty === null) { setErrors([{ field: 'quantity', message: `Enter a whole number from 1 to ${MAX_ASSET_QUANTITY}.` }]); return; }
+    if (editing && extra > 0) {
+      const changes = toPayload(form, asset);
+      const check = validateAssetInput(changes, { partial: true });
+      if (check.errors.length) { setErrors(check.errors); return; }
+      const copy = validateAssetInput(toPayload({ ...form, serial_number: '' }, null), { partial: false });
+      if (copy.errors.length) { setErrors(copy.errors); return; }
+      setErrors([]);
+      try {
+        if (asset) {
+          await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: { ...check.value, quantity: qty }, reason: reason.trim() || null });
+        }
+        const rows = Array.from({ length: extra }, (_, i) => ({ ...copy.value, quantity: qty, row_ref: String(i + 1) }));
+        const seed = new TextEncoder().encode(`${crypto.randomUUID()}|${JSON.stringify(rows)}`);
+        const res = await bulk.mutateAsync({
+          fileName: `Form entry: ${copy.value.name ?? 'asset'} +${extra}`,
+          fileSha256: await sha256Hex(seed.buffer as ArrayBuffer),
+          rows,
+        });
+        if (res.status !== 'committed') {
+          setErrors(res.errors.map(({ field, message }) => ({ field, message })));
+          toast.error(res.errors[0]?.message ?? 'No extra items were added.');
+          return;
+        }
+        toast.success(`${res.inserted_count} more added — ${qty} in total`);
+        onOpenChange(false);
+      } catch (err) {
+        const { message, fieldErrors } = describeAssetRpcError(err);
+        setErrors(fieldErrors);
+        toast.error(message);
+      }
+      return;
+    }
     const payload = toPayload(form, asset);
-    if (editing && Object.keys(payload).length === 0) {
+    const qtyChanged = editing && qty !== currentCount;
+    if (editing && Object.keys(payload).length === 0 && !qtyChanged) {
       toast.info('Nothing was changed.');
       return;
     }
     const preview = validateAssetInput(payload, { partial: editing });
     if (preview.errors.length) { setErrors(preview.errors); return; }
     setErrors([]);
+    if (many) {
+      try {
+        const rows = Array.from({ length: qty }, (_, i) => ({ ...preview.value, quantity: qty, row_ref: String(i + 1) }));
+        const seed = new TextEncoder().encode(`${crypto.randomUUID()}|${JSON.stringify(rows)}`);
+        const res = await bulk.mutateAsync({
+          fileName: `Form entry: ${preview.value.name ?? 'asset'} x${qty}`,
+          fileSha256: await sha256Hex(seed.buffer as ArrayBuffer),
+          rows,
+        });
+        if (res.status !== 'committed') {
+          const first = res.errors[0];
+          setErrors(res.errors.map(({ field, message }) => ({ field, message })));
+          toast.error(first ? first.message : 'Nothing was registered.');
+          return;
+        }
+        toast.success(`${res.inserted_count} assets registered`);
+        onOpenChange(false);
+      } catch (err) {
+        const { message, fieldErrors } = describeAssetRpcError(err);
+        setErrors(fieldErrors);
+        toast.error(message);
+      }
+      return;
+    }
     try {
       const saved = editing && asset
-        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: preview.value, reason: reason.trim() || null })
-        : await create.mutateAsync(preview.value);
+        ? await update.mutateAsync({ id: asset.id, expectedUpdatedAt: asset.updated_at, changes: qtyChanged ? { ...preview.value, quantity: qty ?? currentCount } : preview.value, reason: reason.trim() || null })
+        : await create.mutateAsync({ ...preview.value, quantity: qty ?? 1 });
       toast.success(editing ? `${assetCodes(saved).primary} updated` : `${assetCodes(saved).primary} registered`);
       onSaved?.(saved);
       onOpenChange(false);
@@ -124,8 +199,16 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
           <Field id="asset-category" label="Category" required error={errorFor.get('category')}>
             <ListSelect id="asset-category" value={form.category} options={ASSET_CATEGORIES} placeholder="Choose a category" onChange={(v) => set('category', v)} />
           </Field>
-          <Field id="asset-serial" label="Serial number" error={errorFor.get('serial_number')}>
-            <Input id="asset-serial" value={form.serial_number} maxLength={120} onChange={(e) => set('serial_number', e.target.value)} />
+          {(
+            <Field id="asset-quantity" label="Number of items" required error={errorFor.get('quantity')}
+              hint={editing ? `${currentCount} recorded now. Change it to update the number on this asset.` : 'How many of this item there are. Saved on this one asset.'}>
+              <Input id="asset-quantity" type="number" inputMode="numeric" min={1} max={MAX_ASSET_QUANTITY} step={1}
+                value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+            </Field>
+          )}
+          <Field id="asset-serial" label="Serial number" error={errorFor.get('serial_number')}
+            hint={(!editing && many) ? 'Serial numbers are unique, so add them to each item after registering.' : undefined}>
+            <Input id="asset-serial" value={(!editing && many) ? '' : form.serial_number} disabled={(!editing && many)} maxLength={120} onChange={(e) => set('serial_number', e.target.value)} />
           </Field>
 
           <Field id="asset-brand" label="Brand" error={errorFor.get('brand')}>
@@ -156,9 +239,6 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
               options={(ref.data?.sites ?? []).map((s) => ({ key: s.key, label: `${s.name} (${s.tag_code})` }))}
               onChange={(v) => set('site_key', v)}
             />
-          </Field>
-          <Field id="asset-location" label="Location (room / floor)" error={errorFor.get('location')}>
-            <Input id="asset-location" placeholder="e.g. 2nd floor, finance office" value={form.location} maxLength={200} onChange={(e) => set('location', e.target.value)} />
           </Field>
 
           <Field id="asset-department" label="Department" error={errorFor.get('department_key')}>
@@ -204,7 +284,7 @@ export function AssetFormDialog({ open, onOpenChange, asset, onSaved }: {
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancel</Button>
           <Button id="asset-form-submit" type="submit" form="asset-form" disabled={saving}>
             {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-            {editing ? 'Save changes' : 'Register asset'}
+            {editing ? 'Save changes' : many ? `Register ${qty} assets` : 'Register asset'}
           </Button>
         </DialogFooter>
       </DialogContent>

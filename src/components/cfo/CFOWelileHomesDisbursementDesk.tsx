@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
 import {
   Banknote,
   CheckCircle2,
@@ -137,6 +138,7 @@ export function CFOWelileHomesDisbursementDesk() {
     .filter((r) => r.status === 'coo_approved')
     .reduce((s, r) => s + (Number(r.requested_amount) || 0), 0);
 
+  const { data: floatHistory } = useWhFloatHistory(floatRequests.map((r) => r.id));
   const filtered = floatRequests.filter((r) => {
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -401,6 +403,9 @@ export function CFOWelileHomesDisbursementDesk() {
                       </Button>
                     )}
                   </div>
+                </div>
+                <div className="mt-3">
+                  <WhFloatStageTrail status={req.status} events={floatHistory?.get(req.id)} compact />
                 </div>
               </Card>
             );

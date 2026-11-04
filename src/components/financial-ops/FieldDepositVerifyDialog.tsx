@@ -32,7 +32,7 @@ interface Props {
 }
 
 const norm = (s: string) => s.replace(/\s+/g, '').toUpperCase();
-const COMMISSION_RATE = 0.10; // mirrors process_verified_field_deposit RPC
+const COMMISSION_RATE = 0.08; // mirrors process_verified_field_deposit RPC (8% since the 8% go-live)
 
 export function FieldDepositVerifyDialog({ batch, open, onClose, onResolved }: Props) {
   const [proof, setProof] = useState('');

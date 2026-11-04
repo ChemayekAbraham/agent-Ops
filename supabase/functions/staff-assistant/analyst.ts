@@ -822,7 +822,169 @@ export const ZOE_RO_VIEWS_CATALOG: ReadonlyArray<ZoeRoViewCatalogEntry> = [
       { name: "total_payout_ugx", type: "numeric", description: "Total payout amount in UGX" },
     ],
   },
+  {
+    view_name: "zoe_ro.agent_ops_safe_daily",
+    role_area: "agents",
+    requires_aal2: false,
+    title: "Agent Ops Safe Daily Collections Summary",
+    description:
+      "Daily agent collections summary (collection_day, collections_count, distinct_agents, total_collected_ugx) with no PII.",
+    use_for: "Daily agent collection counts and totals.",
+    do_not_use_for: "Do not use for pinned expected coverage % (use agents_daily_collections_by_region).",
+    official_source: "agent_collections",
+    columns: [
+      { name: "collection_day", type: "date", description: "Kampala collection date" },
+      { name: "collections_count", type: "integer", description: "Number of collections" },
+      { name: "distinct_agents", type: "integer", description: "Number of distinct agents" },
+      { name: "total_collected_ugx", type: "numeric", description: "Total UGX collected" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.calling_center_safe_daily",
+    role_area: "calling",
+    requires_aal2: false,
+    title: "Calling Center Safe Daily Summary",
+    description:
+      "Daily Calling Center attempts and distinct callers grouped by call_day, source_center, channel, and outcome.",
+    use_for: "Daily call attempt counts by center, channel, and outcome.",
+    do_not_use_for: "Do not use for individual callee phone numbers.",
+    official_source: "cc_call_attempts",
+    columns: [
+      { name: "call_day", type: "date", description: "Kampala call date" },
+      { name: "source_center", type: "text", description: "Calling Center source" },
+      { name: "channel", type: "text", description: "Call channel" },
+      { name: "outcome", type: "text", description: "Call outcome" },
+      { name: "attempts_count", type: "integer", description: "Number of attempts" },
+      { name: "distinct_callers", type: "integer", description: "Distinct callers count" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.cfo_safe_daily_summary",
+    role_area: "finance",
+    requires_aal2: true,
+    title: "CFO Safe Daily Ledger Summary",
+    description:
+      "Daily general_ledger summary grouped by entry_day, classification, category, and direction (entries_count, total_ugx).",
+    use_for: "Analysing daily ledger volume by classification, category, and direction.",
+    do_not_use_for:
+      "Never sum this view to compute Treasury Cash Position (always use finance_treasury_cash_position or get_cfo_treasury_cash_position).",
+    official_source: "general_ledger",
+    columns: [
+      { name: "entry_day", type: "date", description: "Kampala ledger entry date" },
+      { name: "classification", type: "text", description: "Ledger classification" },
+      { name: "category", type: "text", description: "Ledger category" },
+      { name: "direction", type: "text", description: "cash_in or cash_out" },
+      { name: "entries_count", type: "integer", description: "Number of ledger entries" },
+      { name: "total_ugx", type: "numeric", description: "Total amount in UGX" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.hr_safe_department_counts",
+    role_area: "hr",
+    requires_aal2: true,
+    title: "HR Safe Department Counts",
+    description: "Department headcount summary from hr_departments, hr_positions, and hr_assignments.",
+    use_for: "Checking active staff counts by department.",
+    do_not_use_for: "Do not use for payroll UGX amounts.",
+    official_source: "hr_departments + hr_assignments",
+    columns: [
+      { name: "department_id", type: "text", description: "Department UUID" },
+      { name: "department_name", type: "text", description: "Department display name" },
+      { name: "active_staff_count", type: "integer", description: "Active staff count" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.landlord_ops_safe_summary",
+    role_area: "landlords",
+    requires_aal2: false,
+    title: "Landlord Ops Safe Summary",
+    description:
+      "Landlords grouped by verification_status, ready_to_receive, and is_occupied (landlords_count, total_houses, total_monthly_rent_ugx).",
+    use_for: "Checking landlord verification and occupancy counts.",
+    do_not_use_for: "Do not use for individual landlord phone numbers.",
+    official_source: "landlords",
+    columns: [
+      { name: "verification_status", type: "text", description: "Verification status" },
+      { name: "ready_to_receive", type: "boolean", description: "Ready to receive flag" },
+      { name: "is_occupied", type: "boolean", description: "Occupied flag" },
+      { name: "landlords_count", type: "integer", description: "Landlords count" },
+      { name: "total_houses", type: "integer", description: "Total houses count" },
+      { name: "total_monthly_rent_ugx", type: "numeric", description: "Total monthly rent in UGX" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.my_own_calls",
+    role_area: "calling",
+    requires_aal2: false,
+    title: "My Own Calling Center Attempts",
+    description:
+      "Signed-in caller's own Calling Center attempts scoped strictly to caller_id = (select auth.uid()).",
+    use_for: "Analysing the signed-in staff member's own call attempts by day, channel, and outcome.",
+    do_not_use_for: "Never returns other callers' rows.",
+    official_source: "cc_call_attempts (caller_id = auth.uid())",
+    columns: [
+      { name: "id", type: "text", description: "Call attempt ID" },
+      { name: "call_day", type: "date", description: "Kampala call date" },
+      { name: "source_center", type: "text", description: "Calling Center source" },
+      { name: "channel", type: "text", description: "Call channel" },
+      { name: "outcome", type: "text", description: "Call outcome" },
+      { name: "direction", type: "text", description: "Call direction" },
+      { name: "duration_seconds", type: "integer", description: "Call duration in seconds" },
+      { name: "attempted_at", type: "date", description: "Attempt timestamp" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.partner_ops_safe_summary",
+    role_area: "supporters",
+    requires_aal2: true,
+    title: "Partner Ops Safe Portfolio Summary",
+    description:
+      "Supporter portfolios grouped by status, duration_months, and returns_mode (portfolios_count, total_principal_ugx, total_returns_earned_ugx).",
+    use_for: "Checking Supporter portfolio counts and principal/Returns totals.",
+    do_not_use_for: "Always use Supporter and Returns terminology.",
+    official_source: "investor_portfolios",
+    columns: [
+      { name: "status", type: "text", description: "Portfolio status" },
+      { name: "duration_months", type: "integer", description: "Duration in months" },
+      { name: "returns_mode", type: "text", description: "Supporter Returns mode" },
+      { name: "portfolios_count", type: "integer", description: "Number of portfolios" },
+      { name: "total_principal_ugx", type: "numeric", description: "Total principal in UGX" },
+      { name: "total_returns_earned_ugx", type: "numeric", description: "Total Returns earned in UGX" },
+    ],
+  },
+  {
+    view_name: "zoe_ro.tenant_ops_safe_summary",
+    role_area: "tenants",
+    requires_aal2: false,
+    title: "Tenant Ops Safe Summary by Stage and City",
+    description:
+      "Rent Plans from rent_requests grouped by status, stage, and request_city (plans_count, total_rent_ugx, total_repayment_ugx, total_repaid_ugx, outstanding_ugx).",
+    use_for: "Summarising tenant Rent Plans by status, stage, and city.",
+    do_not_use_for: "Do not use for daily pinned collection coverage.",
+    official_source: "rent_requests",
+    columns: [
+      { name: "status", type: "text", description: "Rent Plan status" },
+      { name: "stage", type: "text", description: "Pipeline stage" },
+      { name: "request_city", type: "text", description: "Request city" },
+      { name: "plans_count", type: "integer", description: "Count of Rent Plans" },
+      { name: "total_rent_ugx", type: "numeric", description: "Total rent in UGX" },
+      { name: "total_repayment_ugx", type: "numeric", description: "Total repayment in UGX" },
+      { name: "total_repaid_ugx", type: "numeric", description: "Total repaid in UGX" },
+      { name: "outstanding_ugx", type: "numeric", description: "Outstanding balance in UGX" },
+    ],
+  },
 ];
+
+export const ALLOWED_ZOE_RO_VIEWS: ReadonlySet<string> = new Set(
+  ZOE_RO_VIEWS_CATALOG.map((v) => v.view_name),
+);
+
+export const ALLOWED_ZOE_RO_COLUMNS_BY_VIEW: ReadonlyMap<string, ReadonlySet<string>> = new Map(
+  ZOE_RO_VIEWS_CATALOG.map((v) => [
+    v.view_name,
+    new Set(v.columns.map((c) => c.name.toLowerCase())),
+  ]),
+);
 
 const VIEW_BY_NAME: ReadonlyMap<string, ZoeRoViewCatalogEntry> = new Map(
   ZOE_RO_VIEWS_CATALOG.map((v) => [v.view_name, v]),
@@ -874,7 +1036,8 @@ export type AnalystSqlValidationResult =
         | "forbidden_pii_column"
         | "cross_join_forbidden"
         | "non_zoe_ro_object"
-        | "unknown_zoe_ro_view";
+        | "unknown_zoe_ro_view"
+        | "unknown_zoe_ro_column";
       reason: string;
     };
 
@@ -1070,6 +1233,67 @@ export function validateAnalystSqlQuery(rawSql: string): AnalystSqlValidationRes
       code: "non_zoe_ro_object",
       reason: "Analyst query must read from at least one approved zoe_ro.<view>.",
     };
+  }
+
+  // Part C item (6) — Explicit zoe_ro view & column allow-list check:
+  // Map table aliases (`FROM zoe_ro.<view> [AS] <alias>`) and verify any qualified `<alias>.<col>`
+  // or `zoe_ro.<view>.<col>` against `ALLOWED_ZOE_RO_COLUMNS_BY_VIEW`. Also build the union of
+  // allowed columns for the referenced `viewsUsed`.
+  const aliasToView = new Map<string, string>();
+  const unionAllowedCols = new Set<string>();
+  for (const vName of viewsUsed) {
+    const shortName = vName.replace(/^zoe_ro\./, "");
+    aliasToView.set(vName, vName);
+    aliasToView.set(shortName, vName);
+    const cols = ALLOWED_ZOE_RO_COLUMNS_BY_VIEW.get(vName);
+    if (cols) {
+      for (const c of cols) unionAllowedCols.add(c);
+    }
+  }
+
+  for (const m of lower.matchAll(
+    /\b(?:from|join)\s+(zoe_ro\.[a-z0-9_]+)(?:\s+(?:as\s+)?([a-z_][a-z0-9_]*))?/g,
+  )) {
+    const viewName = m[1];
+    const alias = m[2];
+    if (
+      alias &&
+      ![
+        "where",
+        "group",
+        "order",
+        "limit",
+        "offset",
+        "having",
+        "on",
+        "inner",
+        "left",
+        "right",
+        "full",
+        "join",
+        "union",
+      ].includes(alias)
+    ) {
+      aliasToView.set(alias, viewName);
+    }
+  }
+
+  // Check qualified `alias.column` references
+  for (const m of lower.matchAll(/\b([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\b/g)) {
+    const prefix = m[1];
+    const colOrView = m[2];
+    if (prefix === "zoe_ro") continue; // `zoe_ro.<view>` already validated above
+    const mappedView = aliasToView.get(prefix);
+    if (mappedView) {
+      const allowedSet = ALLOWED_ZOE_RO_COLUMNS_BY_VIEW.get(mappedView);
+      if (allowedSet && !allowedSet.has(colOrView)) {
+        return {
+          ok: false,
+          code: "unknown_zoe_ro_column",
+          reason: `Column "${prefix}.${colOrView}" is not in the approved column allow-list for ${mappedView}.`,
+        };
+      }
+    }
   }
 
   // Validate every function call `<ident>(` against ALLOWED_ANALYST_SQL_FUNCTIONS

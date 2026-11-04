@@ -1,0 +1,179 @@
+import { useState } from 'react';
+import { CheckCircle2, Clock, Home, Loader2, RefreshCw, RotateCcw, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { formatUGX } from '@/lib/rentCalculations';
+import {
+  BOOKED_HOUSES_MIN_FUNDING,
+  fundBookedHouses,
+  releaseBookedHouse,
+  useFunderBookedHouses,
+  type FunderBooking,
+} from '@/hooks/useFunderBookedHouses';
+
+const RETURN_RATE = 0.15;
+
+function BookingRow({ booking, busy, onRelease }: { booking: FunderBooking; busy: boolean; onRelease?: () => void }) {
+  const photo = booking.image_urls?.find(Boolean);
+  const held = booking.status === 'reserved';
+  return (
+    <article className="flex items-center gap-3 py-3">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <Home className="h-6 w-6 text-primary" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="break-words font-semibold">{booking.title}</p>
+        <p className="break-words text-xs text-muted-foreground">{booking.district || 'Location on file'}</p>
+        <p className="mt-0.5 text-sm font-semibold">
+          {formatUGX(booking.monthly_rent)}{' '}
+          <span className="text-xs font-medium text-success">+{formatUGX(Math.round(Number(booking.monthly_rent || 0) * RETURN_RATE))}/mo</span>
+        </p>
+        {held ? (
+          <Badge variant="secondary" className="mt-1 gap-1 text-[11px]">
+            <Clock className="h-3 w-3" aria-hidden />
+            Held · {booking.days_left ?? 0} day{(booking.days_left ?? 0) === 1 ? '' : 's'} left
+          </Badge>
+        ) : (
+          <Badge className="mt-1 gap-1 text-[11px]">
+            <CheckCircle2 className="h-3 w-3" aria-hidden />
+            Funding submitted
+          </Badge>
+        )}
+      </div>
+      {held && onRelease ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+          disabled={busy}
+          onClick={onRelease}
+          aria-label={`Give up ${booking.title}`}
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+          Give up
+        </Button>
+      ) : null}
+    </article>
+  );
+}
+
+/**
+ * Houses this Supporter booked (7-day holds) and houses whose funding was
+ * submitted. Held houses are funded together, so a set of small rents can
+ * reach the house minimum that a single house cannot.
+ */
+export function FunderBookedHousesSection() {
+  const { query, bookings, held } = useFunderBookedHouses();
+  const [confirming, setConfirming] = useState(false);
+  const [funding, setFunding] = useState(false);
+  const [releasing, setReleasing] = useState<string | null>(null);
+
+  const submitted = bookings.filter((b) => b.status === 'funded');
+  const heldTotal = held.reduce((sum, b) => sum + Number(b.monthly_rent || 0), 0);
+  const belowMinimum = heldTotal < BOOKED_HOUSES_MIN_FUNDING;
+
+  if (query.isPending) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading your booked houses
+      </div>
+    );
+  }
+  if (query.isError) {
+    return (
+      <div className="flex items-center justify-between gap-3 py-3 text-sm">
+        <span className="text-destructive">Could not load your booked houses.</span>
+        <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+          <RefreshCw className="h-4 w-4" /> Try again
+        </Button>
+      </div>
+    );
+  }
+  if (held.length === 0 && submitted.length === 0) return null;
+
+  const fundAll = async () => {
+    setFunding(true);
+    try {
+      await fundBookedHouses(held);
+      toast.success(`Funding submitted for ${held.length} ${held.length === 1 ? 'house' : 'houses'}. It now goes for operational review.`);
+      setConfirming(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setFunding(false);
+    }
+  };
+
+  const release = async (booking: FunderBooking) => {
+    setReleasing(booking.house_id);
+    try {
+      await releaseBookedHouse(booking);
+      toast.success('House returned to the open list for other Supporters');
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setReleasing(null);
+    }
+  };
+
+  return (
+    <section aria-labelledby="booked-houses-h" className="space-y-2">
+      <div>
+        <h3 id="booked-houses-h" className="font-semibold">
+          Booked for you
+        </h3>
+        {held.length ? (
+          <p className="text-xs text-muted-foreground">
+            {held.length} held · {formatUGX(heldTotal)} to fund. Holds last 7 days, then the house goes back to the open list.
+          </p>
+        ) : null}
+      </div>
+
+      {held.length ? (
+        <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
+          {belowMinimum ? (
+            <p className="text-xs text-muted-foreground">
+              House support starts at {formatUGX(BOOKED_HOUSES_MIN_FUNDING)}. Book more houses to fund these together.
+            </p>
+          ) : confirming ? (
+            <div className="space-y-2">
+              <p className="text-sm">
+                Fund {held.length} {held.length === 1 ? 'house' : 'houses'} for {formatUGX(heldTotal)} from your support balance?
+                Est. monthly Returns {formatUGX(Math.round(heldTotal * RETURN_RATE))}.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" disabled={funding} onClick={() => setConfirming(false)}>
+                  Not yet
+                </Button>
+                <Button disabled={funding} onClick={() => void fundAll()}>
+                  {funding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wallet className="h-4 w-4" />}
+                  Confirm
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button className="w-full" onClick={() => setConfirming(true)}>
+              <Wallet className="h-4 w-4" />
+              Fund all {held.length} held · {formatUGX(heldTotal)}
+            </Button>
+          )}
+        </div>
+      ) : null}
+
+      <div className="divide-y divide-border">
+        {held.map((booking) => (
+          <BookingRow
+            key={booking.intent_id}
+            booking={booking}
+            busy={releasing === booking.house_id || funding}
+            onRelease={() => void release(booking)}
+          />
+        ))}
+        {submitted.map((booking) => (
+          <BookingRow key={booking.intent_id} booking={booking} busy={false} />
+        ))}
+      </div>
+    </section>
+  );
+}
