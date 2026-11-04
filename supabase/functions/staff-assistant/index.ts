@@ -78,7 +78,7 @@ import {
   ZoeMemorySuggestion,
   ZoeNoteRecord,
 } from "./memory.ts";
-import { formatWriteMutationRefusal, MSG } from "./messages.ts";
+import { ANALYST_OPEN_OFFER, formatWriteMutationRefusal, MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import {
   AiGatewayError,
@@ -587,6 +587,51 @@ export async function handleStaffAssistantRequest(
       const mappedCode = mapMissingFunctionToErrorCode(missingFn);
       await recordDegraded(mappedCode, `Missing database function: ${missingFn}`);
     }
+  }
+
+  if (body.action === "health") {
+    let modelDrift = health.modelDrift ?? null;
+    if (!modelDrift) {
+      try {
+        const { data: driftData } = await userClient.rpc("staff_assistant_check_model_drift", {
+          p_limit: 50,
+        });
+        if (driftData && typeof driftData === "object" && !Array.isArray(driftData)) {
+          modelDrift = driftData as Record<string, unknown>;
+        }
+      } catch {
+        // best effort
+      }
+    }
+    return json(200, {
+      ok: health.ok,
+      database_status: health.status,
+      missing_db_objects: health.missingObjects,
+      model_drift: modelDrift,
+    });
+  }
+
+  if (body.action === "check_model_drift") {
+    try {
+      const { data: driftData, error: driftErr } = await userClient.rpc(
+        "staff_assistant_check_model_drift",
+        { p_limit: body.limit ?? 50 },
+      );
+      if (!driftErr && driftData && typeof driftData === "object" && !Array.isArray(driftData)) {
+        return json(200, { ok: true, ...(driftData as Record<string, unknown>) });
+      }
+    } catch {
+      // fallback below
+    }
+    return json(200, {
+      ok: true,
+      source: "staff_assistant_check_model_drift",
+      drift_detected: false,
+      checked_count: 0,
+      mismatched_count: 0,
+      observed_models: [],
+      warning_message: null,
+    });
   }
 
   // ---- 4. Non-chat utility actions (history, conversations, new_conversation, rename, clear_history, feedback, morning_brief)
@@ -1336,6 +1381,8 @@ export async function handleStaffAssistantRequest(
       }
     : baseTier;
 
+  let lastObservedGatewayModel: string | null = null;
+
   const finish = async (
     reply: string,
     outcome: TurnOutcome,
@@ -1363,6 +1410,10 @@ export async function handleStaffAssistantRequest(
         : outcome === "answered"
         ? extractChartFromReportPayload(opts?.reportPayload ?? null)
         : null;
+    const analystToolDef = findTool("run_analyst_query");
+    const callerCanUseAnalyst = Boolean(
+      analystToolDef && canUseTool(analystToolDef, callerRoles),
+    );
     const followUpSuggestions =
       opts?.followUpSuggestions ??
       (outcome === "answered"
@@ -1372,6 +1423,8 @@ export async function handleStaffAssistantRequest(
             reportPayload: opts?.reportPayload ?? null,
             userMessage: userText,
           })
+        : outcome === "unmatched" && callerCanUseAnalyst
+        ? [`Yes — ${ANALYST_OPEN_OFFER.replace(/\s*—\s*want me to try\?$/i, "").trim()}`]
         : []);
 
     const enrichedReportPayload = opts?.reportPayload
@@ -1404,7 +1457,7 @@ export async function handleStaffAssistantRequest(
     const ttfbMs =
       firstTokenAtMs !== null ? Math.max(0, firstTokenAtMs - startedAt) : latencyMs;
     const requestedModel = selectedTier.model;
-    const gatewayModel = opts?.model ?? selectedTier.model;
+    const gatewayModel = opts?.model ?? lastObservedGatewayModel ?? selectedTier.model;
     const toolsUsedList = opts?.tools ?? [];
     const analystUsed = toolsUsedList.includes("run_analyst_query");
     const researchUsed =
@@ -1785,6 +1838,9 @@ Answer the user's question in plain text without calling any tools:
           signal: req.signal,
         });
         retryModel = retryRes.model || lastModel;
+        if (retryRes.model) {
+          lastObservedGatewayModel = retryRes.model;
+        }
         if (retryRes.usage) {
           totalQuestionCostUsd += retryRes.usage.estimatedCostUsd ?? 0;
           cachedPromptTokens += retryRes.usage.cachedTokens ?? 0;
@@ -1899,6 +1955,9 @@ Answer the user's question in plain text without calling any tools:
         firstTokenAtMs = Date.now();
       }
       lastModel = model;
+      if (model) {
+        lastObservedGatewayModel = model;
+      }
       if (usage) {
         totalQuestionCostUsd += usage.estimatedCostUsd ?? 0;
         cachedPromptTokens += usage.cachedTokens ?? 0;

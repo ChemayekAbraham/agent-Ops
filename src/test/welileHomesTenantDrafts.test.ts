@@ -24,3 +24,17 @@ describe('Welile Homes enrolment requires full tenant ID', () => {
     expect(enrollmentIdBlockers({ ...base, existingTenant: true, nin: '', hasPhoto: false, idAlreadyComplete: true })).toEqual([]);
   });
 });
+
+describe('NIN check limit', () => {
+  it('blocks enrolment with the rate-limit message', () => {
+    expect(enrollmentIdBlockers({ ...base, ninLimited: true })).toEqual(['Too many ID checks – try again later']);
+  });
+});
+
+import { draftDaysLeft } from '@/lib/welileHomesTenantDrafts';
+describe('draft deletion countdown', () => {
+  const now = new Date('2026-11-30T12:00:00Z');
+  it('shows nothing before the last 7 days', () => { expect(draftDaysLeft('2026-11-08T12:00:00Z', now)).toBeNull(); });
+  it('shows 7 days left after 23 days untouched', () => { expect(draftDaysLeft('2026-11-07T12:00:00Z', now)).toBe(7); });
+  it('shows 1 day left on the last day', () => { expect(draftDaysLeft('2026-11-01T00:00:00Z', now)).toBe(1); });
+});

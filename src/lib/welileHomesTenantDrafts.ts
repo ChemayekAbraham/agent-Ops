@@ -36,13 +36,14 @@ export interface WhTenantDraft {
 /** Pure: what still blocks enrolment (empty list = ready). */
 export function enrollmentIdBlockers(input: {
   phone: string; fullName: string; existingTenant: boolean;
-  nin: string; hasPhoto: boolean; ninInUse: boolean; idAlreadyComplete?: boolean;
+  nin: string; hasPhoto: boolean; ninInUse: boolean; ninLimited?: boolean; idAlreadyComplete?: boolean;
 }): string[] {
   const out: string[] = [];
   if (!input.phone.trim()) out.push('Tenant phone');
   if (!input.existingTenant && input.fullName.trim().length < 2) out.push('Tenant full name');
   if (input.idAlreadyComplete) return out;
   if (!isValidNin(input.nin)) out.push('Valid NIN (14 characters, starts with CM or CF)');
+  else if (input.ninLimited) out.push(NIN_RATE_LIMIT_MESSAGE);
   else if (input.ninInUse) out.push('NIN not used by another tenant');
   if (!input.hasPhoto) out.push('Passport photo');
   return out;
@@ -74,6 +75,21 @@ export async function saveTenantDraft(d: {
   return data.id as string;
 }
 
+export const DRAFT_KEEP_DAYS = 30;
+export const DRAFT_WARN_DAYS = 7;
+
+/** Days left before an untouched draft is deleted by the daily cleanup (null when not yet in the last 7 days). */
+export function draftDaysLeft(updatedAt: string, now: Date = new Date()): number | null {
+  const ageDays = (now.getTime() - new Date(updatedAt).getTime()) / 86400000;
+  const left = Math.max(1, Math.ceil(DRAFT_KEEP_DAYS - ageDays));
+  return left <= DRAFT_WARN_DAYS ? left : null;
+}
+
+/** Opening a draft resets its 30 days (server checks the owner). */
+export async function touchTenantDraft(id: string) {
+  await (supabase.rpc as any)('wh_touch_tenant_draft', { p_draft_id: id });
+}
+
 export async function deleteTenantDraft(id: string) {
   const { error } = await (supabase.from as any)('wh_tenant_drafts').delete().eq('id', id);
   if (error) throw error;
@@ -96,10 +112,13 @@ export async function uploadDraftTenantPhoto(agentId: string, key: string, file:
   return path;
 }
 
-export async function isNinInUse(nin: string, tenantId?: string | null): Promise<boolean> {
-  const { data, error } = await (supabase.rpc as any)('wh_nin_in_use', { p_nin: normalizeNin(nin), p_tenant_id: tenantId ?? null });
-  if (error) return false; // server still enforces at enrolment
-  return !!data;
+export const NIN_RATE_LIMIT_MESSAGE = 'Too many ID checks – try again later';
+
+/** Yes/no "already on file" check, limited on the server to 30 per agent per hour. */
+export async function checkNin(nin: string, tenantId?: string | null): Promise<{ inUse: boolean; limited: boolean }> {
+  const { data, error } = await (supabase.rpc as any)('wh_nin_check', { p_nin: normalizeNin(nin), p_tenant_id: tenantId ?? null });
+  if (error) return { inUse: false, limited: false }; // server still enforces at enrolment
+  return { inUse: data?.in_use === true, limited: data?.limited === true };
 }
 
 export async function enrollTenantWithIdentity(p: {
