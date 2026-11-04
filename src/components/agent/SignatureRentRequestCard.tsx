@@ -8,9 +8,11 @@ import './SignatureRentRequestCard.css';
 interface SignatureRentRequestCardProps {
   fullName?: string | null;
   onPostRequest: () => void;
+  /** Fired when a finger or pointer reaches the card, before the click lands. */
+  onIntent?: () => void;
 }
 
-export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureRentRequestCardProps) {
+export function SignatureRentRequestCard({ fullName, onPostRequest, onIntent }: SignatureRentRequestCardProps) {
   const [earningsOpen, setEarningsOpen] = useState(false);
   const firstName = fullName?.trim().split(/\s+/)[0] || 'Agent';
 
@@ -23,6 +25,9 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
           aria-label="Open rent request form"
           tabIndex={-1}
           onClick={onPostRequest}
+          onPointerEnter={onIntent}
+          onPointerDown={onIntent}
+          onTouchStart={onIntent}
         />
         <div className="signature-rent-content">
           <p className="signature-rent-greeting">

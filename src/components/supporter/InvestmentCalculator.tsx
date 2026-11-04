@@ -346,7 +346,7 @@ export function InvestmentCalculator() {
     message += `💵 Highest Earnings: ${formatUGX(bestScenario.earnings)}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `✅ *WHY SUPPORT WITH WELILE?*\n`;
-    message += `• 15% Monthly Platform Rewards\n`;
+    message += `• Partner Returns target 15%, not guaranteed\n`;
     message += `• Help tenants access rent facilitation\n`;
     message += `• Trusted agent collection network\n`;
     message += `• 90-day notice for capital withdrawal\n\n`;
@@ -387,7 +387,7 @@ export function InvestmentCalculator() {
     
     const message = `💰 *Welile Earnings Projection*\n\n` +
       `📊 Contribution: ${formatUGX(calculations.requiredContribution)}\n` +
-      `📈 Monthly Rewards: 15%\n` +
+      `📈 Partner Returns target 15%, not guaranteed\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Reinvesting Rewards: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
@@ -407,7 +407,7 @@ export function InvestmentCalculator() {
       let breakdownText = `📊 *WELILE EARNINGS PROJECTION*\n`;
       breakdownText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
       breakdownText += `💰 Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-      breakdownText += `📈 Monthly Rewards: 15%\n`;
+      breakdownText += `📈 Partner Returns target 15%, not guaranteed\n`;
       breakdownText += `⏱️ Duration: ${duration} months\n`;
       breakdownText += `🔄 Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
       breakdownText += `📋 *MONTHLY BREAKDOWN*\n`;
@@ -430,7 +430,7 @@ export function InvestmentCalculator() {
       breakdownText += `• Earn by helping tenants access rent facilitation\n`;
       breakdownText += `• Welile coordinates rent collection through our Agent Network\n`;
       breakdownText += `• Withdraw capital with 90-day notice\n\n`;
-      breakdownText += `🚀 Start earning 15% monthly rewards today!\n`;
+      breakdownText += `🚀 Partner Returns target 15%, not guaranteed.\n`;
       breakdownText += `📱 Visit Welile to become a Supporter`;
       
       const encodedMessage = encodeURIComponent(breakdownText);
@@ -454,7 +454,7 @@ export function InvestmentCalculator() {
   const handleShareEmail = () => {
     let body = `WELILE EARNINGS PROJECTION\n\n`;
     body += `Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-    body += `Monthly Rewards: 15%\n`;
+    body += `Partner Returns target 15%, not guaranteed\n`;
     body += `Duration: ${duration} months\n`;
     body += `Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
     body += `MONTHLY BREAKDOWN\n`;
@@ -472,7 +472,7 @@ export function InvestmentCalculator() {
     body += `FINAL RESULTS\n`;
     body += `Total Earnings: ${formatUGX(projections[projections.length - 1]?.totalEarnings || 0)}\n`;
     body += `Final Balance: ${formatUGX(projections[projections.length - 1]?.balance || 0)}\n\n`;
-    body += `Start earning 15% monthly rewards with Welile today!`;
+    body += `Partner Returns target 15%, not guaranteed.`;
 
     const subject = `Welile Earnings Projection – ${formatUGX(calculations.requiredContribution)} over ${duration} months`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
@@ -939,7 +939,7 @@ export function InvestmentCalculator() {
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
               <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Rewards</p>
-              <p className="font-bold text-success text-xs sm:text-sm">15%</p>
+              <p className="font-bold text-success text-xs sm:text-sm">target 15%, not guaranteed</p>
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-muted">
               <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Duration</p>

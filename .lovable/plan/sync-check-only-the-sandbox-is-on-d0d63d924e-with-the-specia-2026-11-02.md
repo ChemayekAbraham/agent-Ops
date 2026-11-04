@@ -1,0 +1,1 @@
+Sync check only: the sandbox is on d0d63d924e with the Special Advances Phases A–E files and docs present, and no local edits. No migrations will be applied, re-run or edited, and ledger_account_map, the ledger allowlist and get_statement_of_financial_position stay untouched. No further action.

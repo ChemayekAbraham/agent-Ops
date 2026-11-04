@@ -1,4 +1,4 @@
--- Read-only test for 20261103100000_payout_grade_through_yesterday.sql. Run on STAGING (never edit data). Run on a Tuesday and on a Thursday.
+-- Read-only test for 20261103100001_payout_grade_through_yesterday.sql. Run on STAGING (never edit data). Run on a Tuesday and on a Thursday.
 -- Raises an exception on failure; prints NOTICEs with what was checked.
 DO $$
 DECLARE

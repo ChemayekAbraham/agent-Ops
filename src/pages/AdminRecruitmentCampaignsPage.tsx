@@ -163,7 +163,10 @@ export default function AdminRecruitmentCampaignsPage() {
             showAgentPicker
           />
           <CreateCampaignDialog
-            onCreated={() => qc.invalidateQueries({ queryKey: ["admin-campaigns"] })}
+            onCreated={() => {
+              qc.invalidateQueries({ queryKey: ["admin-campaigns"] });
+              qc.invalidateQueries({ queryKey: ["admin-campaign-analytics"] });
+            }}
           />
         </div>
       </div>
@@ -185,17 +188,23 @@ export default function AdminRecruitmentCampaignsPage() {
         </Select>
       </div>
 
+      {(analyticsQ.isError || campaignsQ.isError) && (
+        <p className="text-sm text-destructive">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Tile label="Campaigns" value={summary.campaigns} />
-        <Tile label="Active" value={summary.active_campaigns} />
-        <Tile label="Agents" value={summary.agents} />
-        <Tile label="Links" value={summary.links} />
-        <Tile label="Clicks" value={summary.clicks} />
-        <Tile label="Unique clicks" value={summary.unique_clicks} />
-        <Tile label="Registrations" value={summary.registrations} />
-        <Tile label="Sub-agents" value={summary.sub_agents} />
-        <Tile label="Qualified" value={summary.qualified} />
-        <Tile label="Rewards qualified" value={summary.rewards_qualified} />
+        <Tile label="Campaigns" value={summary.campaigns} loading={analyticsQ.isLoading} />
+        <Tile label="Active" value={summary.active_campaigns} loading={analyticsQ.isLoading} />
+        <Tile label="Agents" value={summary.agents} loading={analyticsQ.isLoading} />
+        <Tile label="Links" value={summary.links} loading={analyticsQ.isLoading} />
+        <Tile label="Clicks" value={summary.clicks} loading={analyticsQ.isLoading} />
+        <Tile label="Unique clicks" value={summary.unique_clicks} loading={analyticsQ.isLoading} />
+        <Tile label="Registrations" value={summary.registrations} loading={analyticsQ.isLoading} />
+        <Tile label="Sub-agents" value={summary.sub_agents} loading={analyticsQ.isLoading} />
+        <Tile label="Qualified" value={summary.qualified} loading={analyticsQ.isLoading} />
+        <Tile label="Rewards qualified" value={summary.rewards_qualified} loading={analyticsQ.isLoading} />
       </div>
 
       <Card>
@@ -226,7 +235,7 @@ export default function AdminRecruitmentCampaignsPage() {
                         {c.status}
                       </Badge>
                     </td>
-                    <td className="px-3 py-2">{c.start_date}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{c.start_date}</td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
                         {c.status !== "active" && (
@@ -301,7 +310,7 @@ export default function AdminRecruitmentCampaignsPage() {
                 {(campaignsQ.data ?? []).length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-muted-foreground">
-                      No campaigns yet.
+                      {campaignsQ.isLoading ? "Loading…" : "No campaigns yet."}
                     </td>
                   </tr>
                 )}
@@ -603,13 +612,17 @@ function RecruitmentLocationsCard({
   );
 }
 
-function Tile({ label, value }: { label: string; value?: number }) {
+function Tile({ label, value, loading }: { label: string; value?: number; loading?: boolean }) {
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold text-foreground">
-        {Number(value ?? 0).toLocaleString()}
-      </div>
+      {loading ? (
+        <div className="mt-1 h-7 w-12 animate-pulse rounded bg-muted" />
+      ) : (
+        <div className="text-xl font-semibold text-foreground">
+          {Number(value ?? 0).toLocaleString()}
+        </div>
+      )}
     </div>
   );
 }

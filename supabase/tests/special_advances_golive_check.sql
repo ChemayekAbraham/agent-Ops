@@ -1,0 +1,130 @@
+-- Special Advances readiness Phase E: production go-live check. READ ONLY: one SELECT that reads catalogs, function
+-- fingerprints and Special Advances / ledger figures; it writes nothing and calls no money-moving function.
+-- Run it inside a read-only transaction (docs/special-advances/phase-e-golive.md). Every item returns ok true / false.
+-- Optional objects (Phases B, C, D, storage policies) are looked up dynamically, so the check runs whatever is applied.
+-- Expected fingerprints are those of the committed migrations on sarah-dev (2026-11-03, after 20261103170000).
+WITH fp(item, sig, md5) AS (VALUES
+  ('fn: payout, one access fee (2026-11-03)', 'public.special_advance_disburse(uuid,timestamp with time zone,jsonb)', 'c5848007e8960b5b2c1468414f08b7e5'),
+  ('fn: repayment, one access fee (2026-11-03)', 'public.special_advance_record_repayment(uuid,jsonb)', '72980eea5163e0b7de8dc4c24a0b91ed'),
+  ('fn: position, one access fee (2026-11-03)', 'public._special_advance_position(uuid)', '30aa90195e213744277d1a502fd471d2'),
+  ('fn: repayment verify, one access fee (2026-11-03)', 'public._special_advance_verify_repayments()', '55dc4aad8afe801df0e514e427af5190'),
+  ('fn: calculation engine sa-calc-2 (2026-11-03)', 'public._special_advance_schedule(numeric,numeric,text,numeric,text,date)', '96c3dd958601425c83b348e2d5e4fa42'),
+  ('fn: create, one access fee (2026-11-03)', 'public.special_advance_create(jsonb)', '33c557fe3f0c106c90d6ec7be5fa2c0d'),
+  ('fn: agreement check, one access fee (2026-11-03)', 'public._special_advance_verify_agreement()', 'e2fda1064b19bf7df0ef325d9e74f0a2'),
+  ('fn: statement JSON, one access fee (2026-11-03)', 'public._special_advance_json(uuid)', '2bd7bb27d9e06f6a9fdb250c6a0a774f'),
+  ('fn: status guard (Phase C)', 'public._special_advance_guard_update()', '111eb1a82d4c69b9b1d0809e9c16395d'),
+  ('fn: audit, one access fee (2026-11-03)', 'public._special_advance_audit()', '557a8d46434b4bf3562a2ccc0fc9a101'),
+  ('fn: proof check (Phase C)', 'public._special_advance_check_proof(uuid,text)', '42fe52ca203a12d8f54919ee282d9320'),
+  ('fn: eligibility (Phase C)', 'public._special_advance_eligibility(text,uuid,text,text,text,uuid)', 'b5f250ec93466ca074b74feab1d98432'),
+  ('fn: statement (Phase C)', 'public.special_advance_statement(uuid)', '99c56f9ef3e2242948a1bebaa01f2fb3'),
+  ('fn: reconciliation (Phase C)', 'public.special_advance_reconciliation()', '71689d0f17af58ae872c436f283eab09'),
+  ('fn: correction, one step, one access fee (2026-11-03)', 'public.special_advance_record_correction(uuid,jsonb)', 'adc9fea292474059aa12b112c9fe6def'),
+  ('fn: provision review, one step (Phase C)', 'public.special_advance_post_provision_review(jsonb)', '2670420df4127a5372a889d2f6b545b2'),
+  ('fn: write-off, one step (Phase C)', 'public.special_advance_write_off(uuid,jsonb)', 'ca55635e1179d95d265d90788182f469'),
+  ('fn: authenticator check removed (2026-11-03)', 'public._special_advance_require_mfa()', 'befb1ed9f392247206adc532fec7ba2e'),
+  ('fn: balance sheet memo (Phase D)', 'public.get_statement_of_financial_position(timestamp with time zone)', '6c6f4d3e43233ae0ca342ff26c35dc21'),
+  ('fn: ledger posting (unchanged)', 'public.create_ledger_transaction(jsonb,text,boolean)', '8e570ba579b151ac17788c0ee668a93b')
+), mig(v) AS (VALUES ('20261028150000'), ('20261028151000'), ('20261028152000'), ('20261028153000'), ('20261028153100'),
+                     ('20261102200000'), ('20261102210000'), ('20261102220000'), ('20261102230000'),
+                     ('20261103150000'), ('20261103170000')),
+a24 AS (
+  SELECT COALESCE(sum(CASE WHEN gl.direction = m.debit_when THEN gl.amount ELSE -gl.amount END), 0) AS ledger
+    FROM public.general_ledger gl
+    JOIN public.ledger_account_map m ON m.ledger_scope = gl.ledger_scope AND m.category = gl.category AND m.account_code = 'A24'
+   WHERE gl.category LIKE 'special\_advance\_%'
+), sub AS (
+  SELECT COALESCE(sum((public._special_advance_position(a.id) ->> 'outstanding')::numeric), 0) AS outstanding
+    FROM public.special_advances a
+), checks(item, ok, detail) AS (
+  SELECT 'server: Postgres version', true, to_jsonb(current_setting('server_version'))
+  UNION ALL
+  SELECT 'migrations recorded: ' || v, EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations s WHERE s.version = mig.v),
+         (SELECT to_jsonb(s.name) FROM supabase_migrations.schema_migrations s WHERE s.version = mig.v) FROM mig
+  UNION ALL
+  SELECT fp.item, p.oid IS NOT NULL AND md5(replace(p.prosrc, chr(13), '')) = fp.md5,
+         jsonb_build_object('live', CASE WHEN p.oid IS NULL THEN 'missing' ELSE md5(replace(p.prosrc, chr(13), '')) END, 'expected', fp.md5)
+    FROM fp LEFT JOIN pg_proc p ON p.oid = to_regprocedure(fp.sig)
+  UNION ALL
+  SELECT 'tables: corrections, provisions, write-offs, recoveries exist',
+         to_regclass('public.special_advance_corrections') IS NOT NULL AND to_regclass('public.special_advance_provision_reviews') IS NOT NULL
+         AND to_regclass('public.special_advance_write_offs') IS NOT NULL AND to_regclass('public.special_advance_recoveries') IS NOT NULL,
+         jsonb_build_object('corrections', to_regclass('public.special_advance_corrections') IS NOT NULL,
+                            'write_offs', to_regclass('public.special_advance_write_offs') IS NOT NULL)
+  UNION ALL
+  SELECT 'accounts: A24 and A25 exist', (SELECT count(*) FROM public.ledger_account_catalog WHERE code IN ('A24', 'A25')) = 2,
+         (SELECT jsonb_agg(code || ' ' || label ORDER BY code) FROM public.ledger_account_catalog WHERE code IN ('A20', 'A24', 'A25'))
+  UNION ALL
+  SELECT 'mapping: 12 Special Advances rows', (SELECT count(*) FROM public.ledger_account_map WHERE category LIKE 'special\_advance\_%') = 12,
+         to_jsonb((SELECT count(*) FROM public.ledger_account_map WHERE category LIKE 'special\_advance\_%'))
+  UNION ALL
+  SELECT 'allowlist: 12 Special Advances categories',
+         (SELECT count(*) FROM unnest(public.ledger_category_allowlist()) c WHERE c LIKE 'special\_advance\_%') = 12,
+         to_jsonb((SELECT count(*) FROM unnest(public.ledger_category_allowlist()) c WHERE c LIKE 'special\_advance\_%'))
+  UNION ALL
+  SELECT 'storage: two proof policies, CFO only, no authenticator requirement (decision 2026-11-03)',
+         (SELECT count(*) FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special-advance-proofs'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special_advance_cfo_ok'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) !~ 'aal') = 2
+         AND NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'storage' AND tablename = 'objects'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special-advance-proofs' AND cmd IN ('UPDATE', 'DELETE', 'ALL')),
+         (SELECT coalesce(jsonb_agg(policyname || ' ' || cmd), '[]'::jsonb) FROM pg_policies WHERE schemaname = 'storage'
+             AND (coalesce(qual, '') || ' ' || coalesce(with_check, '')) ~ 'special-advance-proofs')
+  UNION ALL
+  SELECT 'storage: proof bucket private, 10 MB, images or PDF',
+         EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'special-advance-proofs' AND NOT public AND file_size_limit = 10485760),
+         (SELECT to_jsonb(b) - 'owner' - 'owner_id' FROM storage.buckets b WHERE id = 'special-advance-proofs')
+  UNION ALL
+  SELECT 'people: enabled CFO accounts (each can act alone; Welile has one CFO, decision 2026-11-03)',
+         (SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)) = 1,
+         to_jsonb((SELECT count(DISTINCT user_id) FROM public.user_roles WHERE role = 'cfo' AND coalesce(enabled, true)))
+  UNION ALL
+  SELECT 'fees: one access fee, no registration fee on new agreements or repayment allocations (decision 2026-11-03)',
+         EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'special_advances_one_access_fee' AND convalidated)
+         AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'special_advance_allocations_one_access_fee' AND convalidated)
+         AND NOT EXISTS (SELECT 1 FROM public.special_advances WHERE calc_version <> 'sa-calc-1' AND registration_fee <> 0)
+         AND NOT EXISTS (SELECT 1 FROM public.special_advance_repayment_allocations WHERE registration_fee <> 0),
+         jsonb_build_object('legacy_sa_calc_1_agreements', (SELECT count(*) FROM public.special_advances WHERE calc_version = 'sa-calc-1'))
+  UNION ALL
+  SELECT 'authenticator: not required by Special Advances (decision 2026-11-03)',
+         to_regprocedure('public._special_advance_guard_mfa()') IS NULL
+         AND NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'special_advances_require_mfa'),
+         NULL::jsonb
+  UNION ALL
+  SELECT 'reconciliation: A24 ledger equals paid-out outstanding', (SELECT ledger FROM a24) = (SELECT outstanding FROM sub),
+         jsonb_build_object('a24_ledger', (SELECT ledger FROM a24), 'subledger', (SELECT outstanding FROM sub))
+  UNION ALL
+  SELECT 'ledger: every Special Advances group nets to zero',
+         NOT EXISTS (SELECT 1 FROM public.general_ledger gl WHERE gl.category LIKE 'special\_advance%'
+                      GROUP BY gl.transaction_group_id HAVING sum(CASE WHEN gl.direction = 'cash_in' THEN gl.amount ELSE -gl.amount END) <> 0),
+         to_jsonb((SELECT count(DISTINCT transaction_group_id) FROM public.general_ledger WHERE category LIKE 'special\_advance%'))
+  UNION ALL
+  SELECT 'workflow: one step only (no request, decision or queue function; CFO decision 2026-11-03)',
+         NOT EXISTS (SELECT 1 FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+                      AND p.proname ~ '^special_advance_(request|decide|list)_(correction|provision_review|write_off)'),
+         NULL::jsonb
+  UNION ALL
+  SELECT 'grants: no Special Advances function executable by anon',
+         NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public' AND p.proname LIKE '%special_advance%' AND has_function_privilege('anon', p.oid, 'EXECUTE')),
+         NULL::jsonb
+  UNION ALL
+  SELECT 'grants: internal helpers (_special_advance_*) closed to signed-in users',
+         NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public' AND p.proname LIKE '\_special\_advance\_%' AND has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+         (SELECT coalesce(jsonb_agg(p.proname), '[]'::jsonb) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname LIKE '\_special\_advance\_%' AND has_function_privilege('authenticated', p.oid, 'EXECUTE'))
+  UNION ALL
+  SELECT 'switch: issuance currently OFF (switching on is the last, separate step)',
+         NOT public._special_advance_issuance_enabled(),
+         (SELECT to_jsonb(s) FROM public.special_advance_settings s)
+  UNION ALL
+  SELECT 'data: advances by status', true,
+         (SELECT coalesce(jsonb_object_agg(status, n), '{}'::jsonb) FROM (SELECT status, count(*) n FROM public.special_advances GROUP BY 1) x)
+)
+SELECT jsonb_build_object(
+  'ready', bool_and(ok) FILTER (WHERE item NOT LIKE 'data:%' AND item NOT LIKE 'server:%'),
+  'failed', coalesce(jsonb_agg(item ORDER BY item) FILTER (WHERE NOT ok), '[]'::jsonb),
+  'checks', jsonb_agg(jsonb_build_object('item', item, 'ok', ok, 'detail', detail) ORDER BY item)
+) AS golive
+FROM checks;

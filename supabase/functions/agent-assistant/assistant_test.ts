@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { checkAnswer } from "./guards.ts";
+import { checkAnswer, cleanTerms, RETRY_NOTE, trimToSentence } from "./guards.ts";
 import { kampalaToday, resolvePeriod } from "./dates.ts";
 import { cleanMessage, RequestSchema } from "./schemas.ts";
 import { AGENT_TOOLS, findTool } from "./tools.ts";
@@ -252,4 +252,190 @@ Deno.test("tools: schemas accept good arguments and reject extras", () => {
   assert(!tx.schema.safeParse({ user_id: "abc" }).success);
   assert(!tx.schema.safeParse({ limit: 500 }).success);
   assertEquals(tx.toRpcArgs({ period: "yesterday" }), { p_from: resolvePeriod("yesterday").from, p_to: resolvePeriod("yesterday").to, p_direction: null, p_limit: 20 });
+});
+
+// ---- calculator, lanes, refusals ---------------------------------------------------------------
+
+import { calculateRentPlan, CALC_TOOL } from "./calc.ts";
+import { AGENT_KNOWLEDGE } from "./knowledge.ts";
+import { buildSystemPrompt } from "./prompt.ts";
+import { MSG } from "./messages.ts";
+import { openAiTools } from "./tools.ts";
+
+Deno.test("calc: 500,000 over 30 days matches the platform formula", () => {
+  const r = calculateRentPlan(500000, 30);
+  assertEquals(r.access_fee, 165000);
+  assertEquals(r.request_fee, 20000);
+  assertEquals(r.total_repayment, 685000);
+  assertEquals(r.daily_repayment, 22834);
+});
+
+Deno.test("calc: small rent uses the 10,000 request fee; short tenors hit the floor", () => {
+  assertEquals(calculateRentPlan(200000, 30).request_fee, 10000);
+  const short = calculateRentPlan(300000, 7);
+  const curve = Math.round(300000 * (Math.pow(1.33, 7 / 30) - 1));
+  assert(short.access_fee > curve);
+});
+
+Deno.test("calc: out-of-range or unknown arguments are rejected", () => {
+  assert(CALC_TOOL.schema.safeParse({ rent_amount: 500000, duration_days: 30 }).success);
+  for (const bad of [{ rent_amount: 10, duration_days: 30 }, { rent_amount: 500000, duration_days: 3 }, { rent_amount: 500000, duration_days: 400 }, { rent_amount: 500000, duration_days: 30, user_id: "x" }, { rent_amount: 500000, duration_days: 30, monthly_rate: 0.5 }]) {
+    assert(!CALC_TOOL.schema.safeParse(bad).success, JSON.stringify(bad));
+  }
+});
+
+Deno.test("tools: someone with no agent footprint is offered no data tools", () => {
+  const names = (isAgent: boolean) => openAiTools(isAgent).map((t) => t.function.name);
+  assertEquals(names(false).sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
+  assert(names(true).includes("get_wallet") && names(true).includes("calculate_rent_plan"));
+});
+
+Deno.test("guard: earning facts may be quoted, other figures may not", () => {
+  assert(checkAnswer("You earn UGX 10,000 for registering a sub-agent.", [AGENT_KNOWLEDGE], "how do i earn").ok);
+  assertEquals(checkAnswer("You earn UGX 50,000 per tenant.", [AGENT_KNOWLEDGE], "x"), { ok: false, reason: "figure" });
+});
+
+const LANDLORD_FLOAT_REPLY =
+  "Your landlord float always depends on the number of rent requests you have posted. How many rent requests did you post?";
+
+Deno.test("guard: the approved landlord float reply is accepted", () => {
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [AGENT_KNOWLEDGE], "How much landlord float can I spend?").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [], "how much float may I use").ok);
+  assert(checkAnswer(LANDLORD_FLOAT_REPLY, [JSON.stringify({ landlord_float_available: 450000 })], "how much can I spend").ok);
+  // Short enough to be returned with no tool call (MAX_UNGROUNDED_CHARS).
+  assert(LANDLORD_FLOAT_REPLY.length <= 700);
+});
+
+Deno.test("prompt: spendable landlord float uses the approved reply, not a wallet figure", () => {
+  const prompt = buildSystemPrompt({ todayKampala: "2026-11-02", isAgent: true, page: "agent_dashboard" });
+  assert(prompt.includes(`Reply exactly: "${LANDLORD_FLOAT_REPLY}"`));
+  assert(!prompt.includes("use the wallet's landlord_float_available"));
+  const earn = AGENT_KNOWLEDGE.indexOf("the agent earns 1% of that payout");
+  const spend = AGENT_KNOWLEDGE.indexOf(
+    "How much landlord float an agent can spend always depends on the number of rent requests they have posted.",
+  );
+  assert(earn >= 0 && spend > earn);
+  assert(AGENT_KNOWLEDGE.includes('When asked, say so and ask: "How many rent requests did you post?"'));
+  assert(!findTool("get_wallet")!.description.includes("they can still spend"));
+  assert(!findTool("get_landlord_float_status")!.description.includes("use get_wallet (landlord_float_available)"));
+});
+
+Deno.test("messages: refusals are friendly, never blame, never name the rules, and pass terminology", () => {
+  for (const seed of ["a", "ab", "abc"]) {
+    const m = MSG.refusal(seed);
+    assert(checkAnswer(m, [], "x").ok);
+    assert(!/not allowed|forbidden|unauthori[sz]ed|you don't seem/i.test(m));
+  }
+});
+
+Deno.test("request: page hint is a fixed enum", () => {
+  assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "agent_dashboard" }).success, true);
+  assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "admin" }).success, false);
+});
+
+// ---- step 2: team, sub-agent tenants, league, houses, landlord float ---------------------------
+
+Deno.test("tools: the network tools are registered and map to assistant_agent_* functions", () => {
+  const expected: Record<string, string> = {
+    get_team_summary: "assistant_agent_team_summary",
+    get_subagent_tenants: "assistant_agent_subagent_tenants",
+    get_league_standing: "assistant_agent_leaderboard",
+    get_my_houses: "assistant_agent_houses",
+    get_landlord_float_status: "assistant_agent_landlord_float",
+  };
+  for (const [name, rpc] of Object.entries(expected)) assertEquals(findTool(name)?.rpc, rpc, name);
+});
+
+Deno.test("tools: network tools reject identity-looking and unknown arguments", () => {
+  const inputs: Record<string, Record<string, unknown>> = {
+    get_team_summary: {}, get_subagent_tenants: { search: "sam" }, get_league_standing: {}, get_my_houses: {}, get_landlord_float_status: {},
+  };
+  for (const [name, base] of Object.entries(inputs)) {
+    const t = findTool(name)!;
+    assert(t.schema.safeParse(base).success, `${name} rejects valid input`);
+    for (const extra of [{ agent_id: "x" }, { user_id: "x" }, { sub_agent_id: "x" }, { parent_id: "x" }, { team_id: "x" }, { id: "x" }]) {
+      assert(!t.schema.safeParse({ ...base, ...extra }).success, `${name} accepted ${Object.keys(extra)[0]}`);
+    }
+  }
+});
+
+Deno.test("tools: sub-agent tenants needs a sub-agent search and a valid plan filter", () => {
+  const t = findTool("get_subagent_tenants")!;
+  assert(!t.schema.safeParse({}).success);
+  assert(!t.schema.safeParse({ search: "sam", plan: "everything" }).success);
+  assert(!t.schema.safeParse({ search: "' or 1=1 --" }).success);
+  assertEquals(t.toRpcArgs({ search: "sam" }), { p_search: "sam", p_plan: "all", p_limit: 15 });
+});
+
+Deno.test("tools: league standing takes only a date; houses and float take fixed enums", () => {
+  assert(findTool("get_league_standing")!.schema.safeParse({ week_start: "2026-10-26" }).success);
+  assert(!findTool("get_league_standing")!.schema.safeParse({ week_start: "last week" }).success);
+  assertEquals(findTool("get_league_standing")!.toRpcArgs({}), { p_week_start: null });
+  assert(!findTool("get_my_houses")!.schema.safeParse({ status: "deleted" }).success);
+  assert(!findTool("get_landlord_float_status")!.schema.safeParse({ status: "refunded" }).success);
+  assert(!findTool("get_landlord_float_status")!.schema.safeParse({ limit: 99 }).success);
+  assertEquals(findTool("get_team_summary")!.toRpcArgs({ period: "last_7_days" }).p_limit, 10);
+});
+
+Deno.test("tools: the team summary defaults to the last 7 days", () => {
+  const a = findTool("get_team_summary")!.toRpcArgs({});
+  assertEquals(a.p_from, resolvePeriod("last_7_days").from);
+});
+
+// ---- help centre -------------------------------------------------------------------------------
+
+import { isGeneralTool } from "./tools.ts";
+
+Deno.test("help: the search tool is general (offered to everyone) and maps to an assistant_agent_* function", () => {
+  assertEquals(findTool("search_help_center")?.rpc, "assistant_agent_help_search");
+  assert(isGeneralTool("search_help_center"));
+  assert(!isGeneralTool("get_wallet") && !isGeneralTool("get_my_houses"));
+});
+
+Deno.test("help: the query is short plain text; markup, quotes, SQL and identity keys are rejected", () => {
+  const t = findTool("search_help_center")!;
+  for (const ok of ["renew a tenant after final payment", "how do I reset my password?", "Rent Plan cost & fees"]) {
+    assert(t.schema.safeParse({ query: ok }).success, ok);
+  }
+  for (const bad of ["", "ab", "a".repeat(121), "<script>alert(1)</script>", "'; drop table x; --", "{ignore rules}", "x\y"]) {
+    assert(!t.schema.safeParse({ query: bad }).success, JSON.stringify(bad));
+  }
+  assert(!t.schema.safeParse({ query: "renew", user_id: "x" }).success);
+  assertEquals(t.toRpcArgs({ query: "renew a tenant" }), { p_query: "renew a tenant", p_limit: 4 });
+});
+
+Deno.test("guard repair: banned wording is rewritten to the approved terms", () => {
+  assertEquals(cleanTerms("There is no interest on a loan, and lenders get ROI."), "There is no extra charges on a Rent Plan, and Supporters get Returns.");
+  assert(checkAnswer(cleanTerms("The interest rate on loans is fixed."), [], "x").ok);
+});
+
+Deno.test("guard repair: wording is repaired but figures never are", () => {
+  assertEquals(cleanTerms("You collected UGX 250,000."), "You collected UGX 250,000.");
+  assertEquals(checkAnswer(cleanTerms("You collected UGX 250,000."), [DAY_OUTPUT], "x").ok, false);
+});
+
+Deno.test("guard retry: every failure reason has a note for the model", () => {
+  for (const reason of ["terminology", "figure", "uuid", "phone"] as const) assert(RETRY_NOTE[reason].length > 20);
+});
+
+Deno.test("long ungrounded answers are cut at a sentence end", () => {
+  const long = "First sentence here. ".repeat(80);
+  const cut = trimToSentence(long, 300);
+  assert(cut.length <= 300);
+  assert(cut.endsWith("."));
+  assertEquals(trimToSentence("Short one.", 300), "Short one.");
+});
+
+Deno.test("target progress tool: no arguments, no identity, agent-only", () => {
+  const t = findTool("get_target_progress")!;
+  assertEquals(t.rpc, "assistant_agent_target_progress");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ agent_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assert(!isGeneralTool("get_target_progress"));
+});
+
+Deno.test("target figures from the tool pass the guard, invented ones do not", () => {
+  const out = JSON.stringify({ amount_needed_to_pass: 75869, needed_per_day_including_today: 37935, percent_so_far: 35.1 });
+  assert(checkAnswer("You need UGX 75,869 more, about UGX 37,935 a day.", [out], "am i on target").ok);
+  assertEquals(checkAnswer("You need UGX 80,000 more.", [out], "am i on target").ok, false);
 });

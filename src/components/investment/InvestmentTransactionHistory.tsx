@@ -47,7 +47,7 @@ const transactionConfig: Record<TransactionType, {
 }> = {
   investment: {
     icon: Wallet,
-    label: 'Investment',
+    label: 'Support',
     color: 'text-primary',
     bgColor: 'bg-primary/10',
     isPositive: true
@@ -61,7 +61,7 @@ const transactionConfig: Record<TransactionType, {
   },
   roi_payout: {
     icon: TrendingUp,
-    label: 'ROI Payout',
+    label: 'Returns Payout',
     color: 'text-emerald-500',
     bgColor: 'bg-emerald-500/10',
     isPositive: true

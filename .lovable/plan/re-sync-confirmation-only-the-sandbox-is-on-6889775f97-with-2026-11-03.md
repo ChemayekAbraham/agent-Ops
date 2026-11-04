@@ -1,0 +1,1 @@
+Re-sync confirmation only. The sandbox is on 6889775f97 with no local changes. No edits planned. Special Advances migrations, the ledger setup and issuance stay as they are, and no authenticator prompts will be re-added.

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentDailyEligibility } from '@/lib/agentDailyEligibilityBatch';
 
 export const ACTIVE_RENT_STATUSES = [
   'pending', 'agent_verified', 'tenant_ops_approved',
@@ -243,7 +244,56 @@ export type AgentCapacity = {
   pct: number;
   tier: 'Positive' | 'Fair' | 'Bad' | 'Very Bad' | 'Starter';
   per_tenant_max: number;
+  /**
+   * Which posting rule decided `can_post_rent_today`: 'weekly' once
+   * agent_posting_rule_settings.enforce_weekly is on, else 'daily'.
+   */
+  posting_rule?: 'daily' | 'weekly';
+  /** Last completed week's result (Thu–Wed), from get_agent_weekly_posting_eligibility. */
+  weekly_posting?: WeeklyPostingResult | null;
 };
+
+/**
+ * Weekly posting rule (migration 20261023130000). The server computes it; the
+ * app only reads it. Judged on the last COMPLETED Thursday–Wednesday week:
+ *   only current plans billed  → collected ≥ 50% of their due
+ *   current + expired billed   → current ≥ 50% AND expired ≥ 20%
+ *   only expired billed        → expired ≥ 70%
+ *   nothing billed             → passes
+ * Each plan's collections are capped at that plan's due.
+ */
+export type WeeklyPostingResult = {
+  week_start: string;
+  week_end: string;
+  book: 'none' | 'in_window_only' | 'mixed' | 'all_expired';
+  in_window_due: number;
+  in_window_collected: number;
+  in_window_plans: number;
+  in_window_pct: number | null;
+  in_window_required_pct: number | null;
+  expired_due: number;
+  expired_collected: number;
+  expired_plans: number;
+  expired_pct: number | null;
+  expired_required_pct: number | null;
+  passes: boolean;
+  /** Plain-language reason when blocked (written by the server). */
+  reason: string | null;
+};
+
+/**
+ * Days from the start of the current posting-rule week (the judged week's
+ * start + 7) to today, inclusive, in Kampala time: 1 on a Thursday, 7 on a
+ * Wednesday. Clamped to 1..7.
+ */
+export function daysIntoRuleWeek(judgedWeekStart: string, now: Date = new Date()): number {
+  const [y, m, d] = judgedWeekStart.split('-').map(Number);
+  const currentStart = Date.UTC(y, (m || 1) - 1, (d || 1) + 7);
+  const kampala = new Date(now.getTime() + 3 * 3600_000);
+  const today = Date.UTC(kampala.getUTCFullYear(), kampala.getUTCMonth(), kampala.getUTCDate());
+  const days = Math.round((today - currentStart) / 86_400_000) + 1;
+  return Math.min(7, Math.max(1, days));
+}
 
 export function classifyAgent(
   active_count: number,
@@ -334,16 +384,49 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // `agent_collections`). The browser no longer slices days locally —
       // that previously failed on TZ drift and on the
       // `repayments` ↔ `agent_collections` split.
-      const { data: eligRows, error: eligErr } = await supabase.rpc(
-        'get_agent_daily_eligibility',
-        { p_agent_ids: agentIds },
-      );
+      // At most 25 ids per call. The server computes only that list; one
+      // fleet-sized call was the statement that hit the 8s timeout.
+      const { rows: eligRows, error: eligErr } = await fetchAgentDailyEligibility(agentIds);
       const eligibilityRpcSucceeded = !eligErr;
       if (eligErr) {
         // Only use client fallback target math when the server source itself
         // failed. A successful empty result is a valid zero target.
         console.error('[useAgentCapacityMap] eligibility RPC failed', eligErr);
       }
+
+      // ----- Weekly posting rule (decides posting once the server enforces it) -----
+      // `enforced` mirrors agent_posting_rule_settings.enforce_weekly, the same
+      // flag the rent_requests trigger reads, so the app and the database switch
+      // rules together.
+      const weeklyByAgent = new Map<string, WeeklyPostingResult>();
+      let weeklyEnforced = false;
+      const { data: weeklyRows, error: weeklyErr } = await (supabase.rpc as any)(
+        'get_agent_weekly_posting_eligibility',
+        { p_agent_ids: agentIds },
+      );
+      if (weeklyErr) console.error('[useAgentCapacityMap] weekly posting RPC failed', weeklyErr);
+      ((weeklyRows as any[]) || []).forEach((r: any) => {
+        if (r.enforced) weeklyEnforced = true;
+        const num = (v: unknown) => Number(v) || 0;
+        const pct = (v: unknown) => (v === null || v === undefined ? null : Number(v));
+        weeklyByAgent.set(r.agent_id, {
+          week_start: r.week_start,
+          week_end: r.week_end,
+          book: r.book,
+          in_window_due: num(r.in_window_due),
+          in_window_collected: num(r.in_window_collected),
+          in_window_plans: num(r.in_window_plans),
+          in_window_pct: pct(r.in_window_pct),
+          in_window_required_pct: pct(r.in_window_required_pct),
+          expired_due: num(r.expired_due),
+          expired_collected: num(r.expired_collected),
+          expired_plans: num(r.expired_plans),
+          expired_pct: pct(r.expired_pct),
+          expired_required_pct: pct(r.expired_required_pct),
+          passes: r.passes !== false,
+          reason: r.reason ?? null,
+        });
+      });
 
       // ----- The real 7-day bill, not today's bill multiplied by seven -----
       // `expected_daily * 7` extrapolates today across six days that already
@@ -352,10 +435,17 @@ export function useAgentCapacityMap(agentIds: string[]) {
       // dropped the agent's week. agent_expected_week sums the PINNED bill for
       // the days themselves, and returns the collections answering it from
       // `agent_collections` — the same book today/yesterday come from.
+      //
+      // Window: the posting rule's week so far (Thursday to today), so this card
+      // agrees with the Weekly Performance page. The current rule week starts
+      // 7 days after the judged week the posting RPC just returned; if that read
+      // failed, fall back to the last 7 days.
       const weekByAgent = new Map<string, { expected: number; collected: number }>();
+      const judgedStart = ((weeklyRows as any[]) || []).find((r: any) => r.week_start)?.week_start as string | undefined;
+      const ruleWeekDays = judgedStart ? daysIntoRuleWeek(judgedStart) : 7;
       const { data: weekRows, error: weekErr } = await supabase.rpc(
         'agent_expected_week',
-        { p_agent_ids: agentIds, p_days: 7 },
+        { p_agent_ids: agentIds, p_days: ruleWeekDays },
       );
       if (weekErr) console.error('[useAgentCapacityMap] weekly bill RPC failed', weekErr);
       (weekRows || []).forEach((r: any) => {
@@ -629,9 +719,14 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // An agent collecting at or above 50% (today, yesterday or blended)
         // is never held back by the 7-day tier cap.
         const above_daily_threshold = daily_pct_for_floor >= DAILY_ELIGIBILITY_THRESHOLD;
-        const per_tenant_max = unlimited_posting || above_daily_threshold
-          ? UNLIMITED_PER_TENANT_MAX
-          : base_per_tenant_max;
+        // Under the weekly rule, passing last week lifts the per-tenant cap
+        // (decided 2026-10-23); the daily threshold and the unlock no longer do.
+        const weekly_passes = weeklyByAgent.get(id)?.passes ?? true;
+        const per_tenant_max = weeklyEnforced
+          ? (weekly_passes ? UNLIMITED_PER_TENANT_MAX : base_per_tenant_max)
+          : (unlimited_posting || above_daily_threshold
+            ? UNLIMITED_PER_TENANT_MAX
+            : base_per_tenant_max);
         const headroom = Math.max(AGENT_RENT_CAP_UGX - exp.used, 0);
         const pct = Math.min(100, Math.round((exp.used / AGENT_RENT_CAP_UGX) * 100));
         // Server-side eligibility values (Africa/Kampala TZ, from
@@ -725,10 +820,17 @@ export function useAgentCapacityMap(agentIds: string[]) {
         // does. Checked here too so the app never refuses a post the database
         // would accept.
         const posting_exempt_today = exemptAgentIds.has(id);
-        const can_post_rent_today =
+        const daily_can_post =
           posting_exempt_today || unlimited_posting || !eligibilityRpcSucceeded
             ? true
             : !daily_blocked;
+        // Weekly rule, once enforced, replaces the daily rule, the staff
+        // exemption and the good-days unlock. Fails open on a failed read, like
+        // the daily check: the trigger still refuses what it should refuse.
+        const weekly_posting = weeklyByAgent.get(id) ?? null;
+        const can_post_rent_today = weeklyEnforced
+          ? (weeklyErr || !weekly_posting ? true : weekly_posting.passes)
+          : daily_can_post;
         const daily_rating = classifyDailyRating(daily_gate_count, performance_pct, 1);
         out.set(id, {
           used: exp.used,
@@ -756,10 +858,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
           performance_pct,
           daily_rating,
           eligibility_unavailable: !eligibilityRpcSucceeded,
-          posting_exempt_today,
+          posting_exempt_today: weeklyEnforced ? false : posting_exempt_today,
           can_post_rent_today,
           good_days_last_week,
-          unlimited_posting,
+          unlimited_posting: weeklyEnforced ? false : unlimited_posting,
+          posting_rule: weeklyEnforced ? 'weekly' : 'daily',
+          weekly_posting,
           is_new_agent,
           expected_daily: dailyExpected,
           daily_gate_count,

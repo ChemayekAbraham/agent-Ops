@@ -365,10 +365,6 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // e. ensure wallet exists
-      await adminClient.from('wallets')
-        .upsert({ user_id: employeeUserId, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
       // f. reference + timestamp
       const refId = crypto.randomUUID();
       const payTxDate = new Date().toISOString();

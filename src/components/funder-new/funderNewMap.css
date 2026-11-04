@@ -125,10 +125,14 @@
 .fn-map-fullscreen {
   position: fixed;
   inset: 0;
+  /* Same centred column as the partner dashboard (max-w-lg): on a wide screen the map keeps that width. */
+  width: min(100%, 32rem);
+  margin-inline: auto;
   z-index: 70;
   display: flex;
   flex-direction: column;
   background: hsl(var(--background));
+  box-shadow: 0 0 0 100vmax hsl(var(--background));
 }
 
 @media (prefers-reduced-motion: reduce) {

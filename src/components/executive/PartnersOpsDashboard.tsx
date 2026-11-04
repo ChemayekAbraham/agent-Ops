@@ -30,7 +30,7 @@ import { SelfManagedTopUpReviews } from './SelfManagedTopUpReviews';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { PartnerFinancialActivity } from './PartnerFinancialActivity';
 import { PendingFunderApprovals } from './PendingFunderApprovals';
-import { PromissoryNotesQueue } from './PromissoryNotesQueue';
+import { PromissoryNotesWorkspace } from './partner-ops/PromissoryNotesWorkspace';
 import { PartnerOpsScoreboard } from './PartnerOpsScoreboard';
 import { PromissoryNotesOverviewCard } from './partner-ops/PromissoryNotesOverviewCard';
 
@@ -55,6 +55,7 @@ import { ExpiringPortfoliosPanel } from './partner-ops/ExpiringPortfoliosPanel';
 import { NearingPayoutsPanel } from './partner-ops/NearingPayoutsPanel';
 import { PartnerOpsRentRequestQueue } from './partner-ops/PartnerOpsRentRequestQueue';
 import { PartnerProfile360 } from './partner-ops/PartnerProfile360';
+import { CompoundRequestsPanel } from './partner-ops/CompoundRequestsPanel';
 import PartnerOnboardingPanel from '@/pages/PartnerOnboarding';
 import {
   PartnerRoiProjectionChart,
@@ -324,17 +325,15 @@ export function PartnersOpsDashboard() {
       );
       case 'financial.wallets': return <PartnerFinancialActivity />;
       case 'proxy.promissory': return (
-        <div className="space-y-6">
-          <PartnerOpsScoreboard />
-          <PromissoryNotesQueue
-            initialStatusFilter={promissoryFilter.status}
-            initialSearch={promissoryFilter.search}
-            initialRange={promissoryFilter.range}
-          />
-        </div>
+        <PromissoryNotesWorkspace
+          initialStatusFilter={promissoryFilter.status}
+          initialSearch={promissoryFilter.search}
+          initialRange={promissoryFilter.range}
+        />
       );
       case 'maturity': return <MaturityRequestsQueue />;
       case 'portfolios.maturity': return <MaturityRequestsQueue />;
+      case 'portfolios.compound': return <CompoundRequestsPanel />;
       case 'approvals': return (
         <div className="space-y-6">
           <PendingFunderApprovals />

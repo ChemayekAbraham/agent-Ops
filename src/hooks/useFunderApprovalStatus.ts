@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 
 export type FunderApprovalStatus = 'approved' | 'pending' | 'rejected' | 'none';
 
@@ -35,11 +41,14 @@ export interface FunderApprovalState {
  * own pool. Self-funding is always allowed for authenticated Supporters.
  */
 export function useFunderApprovalStatus(userId: string | null | undefined): FunderApprovalState {
+  const signedIn = useAuthenticatedAudience();
   const { data, isLoading } = useQuery({
     queryKey: ['funder-approval-status', userId],
-    enabled: !!userId,
+    enabled: signedIn && !!userId,
     staleTime: 60_000,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       // Read both the RPC (status) and the profile signup_source so we can
       // decide whether verification is required for THIS user.
       const [rpcRes, profileRes] = await Promise.all([
@@ -50,7 +59,10 @@ export function useFunderApprovalStatus(userId: string | null | undefined): Fund
           .eq('id', userId as string)
           .maybeSingle(),
       ]);
-      if (rpcRes.error) throw rpcRes.error;
+      if (rpcRes.error) {
+        if (isUnauthenticatedRpcError(rpcRes.error)) throw new AuthRequiredError(rpcRes.error.message);
+        throw rpcRes.error;
+      }
       const row = Array.isArray(rpcRes.data) ? rpcRes.data[0] : rpcRes.data;
       const isSelfRegistered = profileRes.data?.signup_source === 'funder-onboarding';
       const verifiedAt = (profileRes.data as any)?.funder_verified_at as string | null | undefined;
@@ -86,14 +98,18 @@ export function useFunderApprovalStatus(userId: string | null | undefined): Fund
  * funder, claim partner commission, "Funders I manage" tab).
  */
 export function useProxyAuthority(userId: string | null | undefined) {
+  const signedIn = useAuthenticatedAudience();
   const { data, isLoading } = useQuery({
     queryKey: ['proxy-authority-status', userId],
-    enabled: !!userId,
+    enabled: signedIn && !!userId,
     staleTime: 60_000,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('get_funder_approval_status', {
         _user_id: userId as string,
       });
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
       return {

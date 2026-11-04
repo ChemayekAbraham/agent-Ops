@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -20,7 +21,8 @@ import {
  * FAIL OPEN: the modal renders only when `pso_facilitation_pending_prompt()`
  * succeeds AND returns a row. Any error, timeout or offline state leaves the
  * app fully usable. No role check is performed; the rpc alone decides who is
- * prompted.
+ * prompted. The poll waits for a signed-in session — a missing or expired
+ * user JWT is not sent.
  */
 
 const POLL_MS = 5 * 60 * 1000;
@@ -60,9 +62,11 @@ export function FacilitationApprovalGate() {
   const [rejectReason, setRejectReason] = useState('');
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
+  const ready = useAuthenticatedAudience();
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
+    if (!(await hasUsableUserSession())) { setPrompt(null); return; }
     try {
       const { data, error } = await supabase.rpc('pso_facilitation_pending_prompt');
       if (error) { setPrompt(null); return; }
@@ -81,11 +85,8 @@ export function FacilitationApprovalGate() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => { void load(); }, POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useAuthenticatedPoll(load, POLL_MS);
+  useEffect(() => { if (!ready) setPrompt(null); }, [ready]);
 
   useEffect(() => {
     setDeclining(false);

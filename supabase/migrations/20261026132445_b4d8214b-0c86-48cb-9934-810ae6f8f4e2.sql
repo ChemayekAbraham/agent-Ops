@@ -1,0 +1,1 @@
+ALTER FUNCTION public.psm_contract_term_months() SET search_path = public, pg_temp;

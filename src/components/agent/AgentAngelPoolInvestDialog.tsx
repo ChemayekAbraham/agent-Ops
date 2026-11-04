@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { Loader2, Search, User, Wallet, PiggyBank, CheckCircle, ArrowRight, Copy, UserPlus, Info } from 'lucide-react';
@@ -108,19 +109,17 @@ export function AgentAngelPoolInvestDialog({ open, onOpenChange, onSuccess }: Ag
   };
 
   const handleSearch = async () => {
-    if (searchQuery.length < 2) return;
+    if (searchQuery.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) return;
     setSearching(true);
     setHasSearched(true);
     setShowRegister(false);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%`)
-        .limit(10);
-
-      if (error) throw error;
-      setSearchResults(data || []);
+      const { rows, error } = await searchProfilesTypeahead(searchQuery, {
+        limit: 10,
+        columns: 'id, full_name, phone',
+      });
+      if (error) throw new Error(error);
+      setSearchResults(rows as { id: string; full_name: string | null; phone: string | null }[]);
     } catch (err) {
       toast.error('Search failed');
     } finally {
@@ -299,7 +298,7 @@ export function AgentAngelPoolInvestDialog({ open, onOpenChange, onSuccess }: Ag
               )}
             </div>
 
-            {/* Register New Investor button */}
+            {/* Register New Supporter button */}
             <button
               onClick={() => setShowRegister(true)}
               className="w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-[#7718D1]/40 hover:bg-[#7718D1]/5 transition-colors text-[#7718D1] text-sm font-medium"
@@ -316,7 +315,7 @@ export function AgentAngelPoolInvestDialog({ open, onOpenChange, onSuccess }: Ag
             <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 border border-blue-500/20 p-3">
               <Info className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                This creates a no-smartphone account. The investor will receive updates via USSD/SMS.
+                This creates a no-smartphone account. The supporter will receive updates via USSD/SMS.
               </p>
             </div>
 
@@ -430,7 +429,7 @@ export function AgentAngelPoolInvestDialog({ open, onOpenChange, onSuccess }: Ag
               />
               {!investmentDate && (
                 <p className="text-[11px] text-muted-foreground">
-                  Date the investor handed over the funds.
+                  Date the supporter handed over the funds.
                 </p>
               )}
             </div>

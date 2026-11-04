@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
+import { PROMISSORY_COUNT_HELP, type PromissoryQueueCounts } from '@/lib/promissoryQueueCounts';
 
 interface PendingSummaryRow {
   notes_pending: number;
@@ -18,23 +20,34 @@ const monthStart = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 };
 
-const Tile = ({ label, value, tone }: { label: string; value: string | number; tone?: 'amber' | 'red' }) => (
-  <Card className="min-w-0">
-    <CardContent className="p-3">
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">{label}</p>
-      <p
-        className={cn(
-          'text-base font-semibold truncate',
-          tone === 'red' ? 'text-destructive' : tone === 'amber' ? 'text-amber-600' : 'text-foreground',
-        )}
-      >
-        {value}
-      </p>
-    </CardContent>
-  </Card>
-);
+const Tile = ({ label, value, tone, hint }: { label: string; value: string | number; tone?: 'amber' | 'red'; hint?: string }) => {
+  const body = (
+    <Card className="min-w-0">
+      <CardContent className="p-3">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground truncate">{label}</p>
+        <p
+          className={cn(
+            'text-base font-semibold truncate',
+            tone === 'red' ? 'text-destructive' : tone === 'amber' ? 'text-amber-600' : 'text-foreground',
+          )}
+        >
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  );
+  if (!hint) return body;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button type="button" className="min-w-0 w-full text-left">{body}</button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs text-xs">{hint}</TooltipContent>
+    </Tooltip>
+  );
+};
 
-export function PartnerOpsPendingSummary() {
+export function PartnerOpsPendingSummary({ noteCounts }: { noteCounts?: PromissoryQueueCounts | null } = {}) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['partner-ops-pending-summary', monthStart()],
     queryFn: async () => {
@@ -64,7 +77,13 @@ export function PartnerOpsPendingSummary() {
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-      <Tile label="Pending" value={num(s?.notes_pending)} />
+      <Tile
+        label="Pending"
+        value={noteCounts ? noteCounts.pending : num(s?.notes_pending)}
+        hint={noteCounts
+          ? PROMISSORY_COUNT_HELP.pending
+          : 'Pending promissory notes from the monthly Partner Ops summary. On the promissory list, Pending uses the same count as the Pending filter.'}
+      />
       <Tile
         label="Oldest wait (days)"
         value={oldest}

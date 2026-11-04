@@ -78,11 +78,11 @@ export function ProxyPerformanceWhatChanged({ report }: { report: ProxyPvReport 
         kind: 'investment',
         icon: PiggyBank,
         iconClass: 'bg-primary/10 text-primary',
-        label: 'New partner investments',
+        label: 'New partner support',
         todayPv: todayRow.investment_pv,
         prevPv: prev.investment_pv,
         delta: todayRow.investment_pv - prev.investment_pv,
-        reason: describeAmount(todayRow.new_investment, prev.new_investment, 'new investment'),
+        reason: describeAmount(todayRow.new_investment, prev.new_investment, 'new support'),
       },
       {
         kind: 'topups',

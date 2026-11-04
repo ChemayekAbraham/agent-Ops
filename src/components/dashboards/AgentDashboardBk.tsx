@@ -1,3 +1,4 @@
+import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
 // This is the agent dashboard exactly as it stood at commit 16c8eb552c (12 Oct 2026, 13:30 UTC),
@@ -21,6 +22,14 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 // hidden for now (2026-10-16): the signature rent-request card is the single
 // entry point on this dashboard. Flip to true to bring them back.
 const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+/**
+ * The dashboard's "Post rent request" flow. 'assistant' is the guided chat
+ * (RentRequestAssistant), the flow for all agents since 2026-11-03. 'classic' is
+ * the old AgentRentRequestDialog chat, parked here until Pius says to delete it;
+ * switch back by setting this to 'classic'. (Renew, the tenant intake queue and
+ * the listing "swap tenant" flow still use AgentRentRequestDialog directly.)
+ */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -67,7 +76,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, Loader2 } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
@@ -94,6 +103,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
+import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
@@ -204,7 +214,24 @@ const AgentMenuDrawer = lazyNamed(() => import('@/components/agent-bk/AgentMenuD
 const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'));
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
-const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+// One shared loader so the chunk can be fetched ahead of the first tap
+// (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
+const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
+const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
+const loadRentRequestAssistant = () => import('@/components/agent/rentRequestAssistant/RentRequestAssistant');
+const RentRequestAssistant = lazy(loadRentRequestAssistant);
+
+/** Fetch the active rent-request flow ahead of time; safe to call repeatedly. */
+function preloadAgentRentRequestDialog() {
+  void (DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? loadRentRequestAssistant() : loadAgentRentRequestDialog()).catch(() => {});
+}
+
+/** Skip speculative downloads on Data Saver or very slow connections. */
+function shouldPrefetchOnIdle(): boolean {
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (conn?.saveData) return false;
+  return !(conn?.effectiveType && /(^|-)2g$/.test(conn.effectiveType));
+}
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -254,9 +281,29 @@ const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/Field
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
-function LazyModal({ when, children }: { when: unknown; children: ReactNode }) {
+function LazyModal({ when, children, fallback = null }: { when: unknown; children: ReactNode; fallback?: ReactNode }) {
   if (!when) return null;
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return <Suspense fallback={fallback}>{children}</Suspense>;
+}
+
+// Shown for the instant between the tap and the dialog's first paint when its
+// chunk is still downloading, so the tap never looks ignored.
+function RentRequestLoadingShell() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-[150] flex flex-col bg-background"
+    >
+      <div className="shrink-0 bg-primary px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-primary-foreground">
+        <p className="text-[15px] font-semibold leading-tight">Rent request</p>
+        <p className="text-[11px] text-primary-foreground/80">Getting your form ready…</p>
+      </div>
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </div>
+    </div>
+  );
 }
 
 interface AgentDashboardProps {
@@ -269,6 +316,8 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboardBk({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  // Agent Ops approval (agent vetting), never profiles.verified.
+  const agentVerifiedState = useAgentVerifiedState();
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
@@ -980,16 +1029,29 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
+  // Rent request is the dashboard's main action: fetch its dialog once the page
+  // has settled, so the first tap opens instantly instead of waiting on the download.
+  useEffect(() => {
+    if (!shouldPrefetchOnIdle()) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
+    if (typeof w.requestIdleCallback === 'function') {
+      const h = w.requestIdleCallback(preloadAgentRentRequestDialog, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(h);
+    }
+    const t = window.setTimeout(preloadAgentRentRequestDialog, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
+
   // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
-      void import('@/pages/YourProfile');
-      void import('@/pages/AgentServiceCenter');
-      void import('@/components/auth/ProxyAgentGuard');
-      void import('@/pages/agent/ProxyPerformanceDashboard');
-      void import('@/pages/AgentCommissionBenefits');
-      void import('@/pages/MerchandiseStore');
-      void import('@/pages/Settings');
+      void import('@/pages/YourProfile').catch(() => {});
+      void import('@/pages/AgentServiceCenter').catch(() => {});
+      void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+      void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+      void import('@/pages/AgentCommissionBenefits').catch(() => {});
+      void import('@/pages/MerchandiseStore').catch(() => {});
+      void import('@/pages/Settings').catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -1114,14 +1176,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       icon: ShoppingBag,
       label: 'Buy Merchandise',
       onClick: () => { hapticTap(); navigate('/merchandise'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
   ];
 
@@ -1167,6 +1229,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         )}
 
         <AgentAgreementBanner />
+        <AgentVettingBanner />
         <MissionBanner dashboardRole="agent" />
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}
@@ -1201,7 +1264,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   phone={(profile as any)?.phone}
                   email={(profile as any)?.email}
                   location={(profile as any)?.territory ?? (profile as any)?.location}
-                  verified={profile?.verified}
+                  verified={agentVerifiedState === 'verified'}
+                  agentVerifiedState={agentVerifiedState}
                   roleLabel="Welile Agent"
                   triggerSize="lg"
                   eliteTier={myEliteRank?.tier_name}
@@ -1210,7 +1274,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <h1 className="font-bold text-xl leading-tight">
                     <span className="break-words">
                       {profile?.full_name || 'Agent'}
-                      {profile?.verified && (
+                      {agentVerifiedState === 'verified' && (
                         <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
                       )}
                     </span>
@@ -1319,6 +1383,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               <SignatureRentRequestCard
                 fullName={profile?.full_name}
                 onPostRequest={() => { setRentRequestOpen(true); }}
+                onIntent={preloadAgentRentRequestDialog}
               />
               <AgentNudgePreviewButton userId={user?.id} />
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
@@ -1628,7 +1693,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               </div>
               <div className="flex-1 text-left">
                 <div className="font-bold text-sm text-foreground">Lending Agent</div>
-                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn interest</div>
+                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
                 <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2.4} />
                   Principal 100% protected by Welile
@@ -1662,14 +1727,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => { hapticTap(); setWelileHomesOpen(true); }}
-                  className="h-9 sm:h-11 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl gap-1.5"
-                >
-                  <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Welile Homes
-                </Button>
                 <Button
                   onClick={() => { hapticTap(); setRentRequestOpen(true); }}
                   className="h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
@@ -1961,7 +2018,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               navigator.share({ title: 'Back the Welile Angel Pool', text: shareText, url: investorLink }).catch(() => {});
             } else {
               await navigator.clipboard.writeText(investorLink);
-              toast.success('Angel investor signup link copied!');
+              toast.success('Angel supporter signup link copied!');
             }
           } catch (err: any) {
             const { toast } = await import('sonner');
@@ -2000,7 +2057,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly ROI! Register here: ${partnerFormLink}`;
+            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {
@@ -2055,12 +2112,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         onOpenChange={setTenantInviteOpen}
       />
       </LazyModal>
-      <LazyModal when={rentRequestOpen}>
-      <AgentRentRequestDialog 
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
+      <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        // Stays open on success: it shows "Posted" with "Post another" / "Back to dashboard".
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
+      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

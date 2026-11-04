@@ -40,7 +40,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   withdrawn: { label: 'Withdrawn', variant: 'muted', dot: 'bg-muted-foreground/40' },
 };
 
-/** Returns days until next ROI date, or null if not available */
+/** Returns days until next Returns date, or null if not available */
 function daysUntilNextRoi(nextRoiDate: string | null | undefined): number | null {
   const dateOnly = extractDateOnly(nextRoiDate);
   if (!dateOnly) return null;
@@ -63,6 +63,21 @@ function runningDurationLabel(fundedAt: string | null | undefined): string | nul
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
+/** Self-support portfolios (WSP/WSH codes) run on a 12-month contract that
+ *  keeps earning even when the underlying Rent Plan completes. Shows which
+ *  contract month the partner is in; "Contract ended" once matured. */
+function contractMonthLabel(p: PortfolioRecord): string | null {
+  const code = p.portfolio_code || '';
+  if (!code.startsWith('WSP') && !code.startsWith('WSH')) return null;
+  if (p.status === 'matured') return 'Contract ended';
+  if (!p.created_at) return null;
+  const start = new Date(p.created_at);
+  if (isNaN(start.getTime())) return null;
+  const cap = Math.max(1, Number(p.duration_months) || 12);
+  const n = Math.min(cap, Math.max(0, differenceInCalendarMonths(new Date(), start)) + 1);
+  return `Month ${n} of ${cap}`;
+}
+
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
   const days = daysUntilNextRoi(nextRoiDate);
   if (days === null) return null;
@@ -70,7 +85,7 @@ function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefi
   return (
     <span className={`text-[10px] font-semibold flex items-center gap-1 ${isUrgent ? 'text-destructive' : 'text-success'}`}>
       <Calendar className={`h-2.5 w-2.5 ${isUrgent ? 'animate-pulse' : ''}`} />
-      {days <= 0 ? 'Due today' : `${days}d to ROI`}
+      {days <= 0 ? 'Due today' : `${days}d to Returns`}
     </span>
   );
 }
@@ -78,7 +93,7 @@ function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefi
 function PortfolioRow({ p, onTap }: { p: PortfolioRecord; onTap: () => void }) {
   const roi = (Number(p.investment_amount) * Number(p.roi_percentage)) / 100;
   const cfg = statusConfig[p.status] || { label: p.status, variant: 'outline' as const, dot: 'bg-muted-foreground/40' };
-  const name = p.account_name || p.portfolio_code || 'Investment Account';
+  const name = p.account_name || p.portfolio_code || 'Support Account';
   const matDate = p.maturity_date ? new Date(p.maturity_date) : null;
   const isExpired = !!matDate && differenceInCalendarDays(matDate, new Date()) < 0 && p.status === 'active';
 
@@ -219,7 +234,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   const totalEarned = Number(portfolio.total_roi_earned);
   const totalValue = amount + totalEarned;
   const cfg = statusConfig[portfolio.status] || { label: portfolio.status, variant: 'outline' as const, dot: 'bg-muted-foreground/40' };
-  const name = portfolio.account_name || portfolio.portfolio_code || 'Investment Account';
+  const name = portfolio.account_name || portfolio.portfolio_code || 'Support Account';
   const isActive = portfolio.status === 'active';
 
   // Next ROI date urgency
@@ -316,13 +331,13 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   };
 
   const handleShare = () => {
-    const displayName = portfolio.account_name || portfolio.portfolio_code || 'Investment Account';
+    const displayName = portfolio.account_name || portfolio.portfolio_code || 'Support Account';
     const monthlyROI = Math.round(amount * (roiPct / 100));
     const message = [
-      `📊 *Investment Portfolio: ${displayName}*`,
+      `📊 *Support Portfolio: ${displayName}*`,
       ``,
       `💰 Capital: ${formatUGX(amount)}`,
-      `📈 ROI Rate: ${roiPct}% per month`,
+      `📈 Returns Rate: ${roiPct}% per month`,
       `💵 Monthly Return: ${formatUGX(monthlyROI)}`,
       `📅 Duration: ${portfolio.duration_months || '—'} months`,
       `🔄 Mode: ${portfolio.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly Payout'}`,
@@ -464,10 +479,10 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
 
           {/* Detail Rows */}
           <div className="rounded-xl border border-border/60 px-3.5">
-            <DetailRow label="ROI Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
-            <DetailRow label="Total ROI Earned" value={formatUGX(totalEarned)} icon={Wallet} />
+            <DetailRow label="Returns Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
+            <DetailRow label="Total Returns Earned" value={formatUGX(totalEarned)} icon={Wallet} />
             {portfolio.roi_mode && (
-              <DetailRow label="ROI Mode" value={portfolio.roi_mode} icon={RefreshCw} />
+              <DetailRow label="Returns Mode" value={portfolio.roi_mode} icon={RefreshCw} />
             )}
             {(() => {
               const running = runningDurationLabel(portfolio.funded_at);
@@ -479,12 +494,18 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                 />
               ) : null;
             })()}
+            {(() => {
+              const contractMonth = contractMonthLabel(portfolio);
+              return contractMonth !== null ? (
+                <DetailRow label="Contract" value={contractMonth} icon={Clock} />
+              ) : null;
+            })()}
             {portfolio.maturity_date && (
               <DetailRow label="Maturity Date" value={formatDateOnlyForDisplay(portfolio.maturity_date)} icon={Calendar} />
             )}
             {portfolio.next_roi_date && (
               <DetailRow
-                label="Next ROI Date"
+                label="Next Returns Date"
                 value={formatDateOnlyForDisplay(portfolio.next_roi_date)}
                 icon={Calendar}
                 valueClassName={roiUrgent ? 'text-destructive font-black' : 'text-success'}
@@ -727,7 +748,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                         <Wallet className="h-6 w-6 text-muted-foreground/50" />
                       </div>
 
-                      <p className="text-sm font-semibold">No investment accounts yet</p>
+                      <p className="text-sm font-semibold">No support accounts yet</p>
                       <p className="text-xs text-muted-foreground">Fund an opportunity to create your first account</p>
                     </div>
                   ) : (
@@ -761,12 +782,12 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                         <Briefcase className="h-6 w-6 text-[hsl(270,70%,50%)]/50" />
                       </div>
                       <p className="text-sm font-semibold">No angel shares yet</p>
-                      <p className="text-xs text-muted-foreground">Invest in the angel pool to own company equity</p>
+                      <p className="text-xs text-muted-foreground">Support the angel pool to own company equity</p>
                     </div>
                   ) : (
                     <>
                       <div className="p-4 rounded-2xl bg-[hsl(270,60%,97%)] dark:bg-[hsl(270,30%,15%)] border border-[hsl(270,70%,50%)]/20">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Total Angel Investment</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Total Angel Support</p>
                         <p className="text-2xl font-black">{formatAmount(angelInvested)}</p>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="text-[11px] text-[hsl(270,70%,50%)] font-semibold">{totalShares} shares</span>
@@ -842,7 +863,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
         <FundAccountDialog
           open={!!topUpTarget}
           onOpenChange={(open) => { if (!open) setTopUpTarget(null); }}
-          accountName={topUpTarget.account_name || topUpTarget.portfolio_code || 'Investment Account'}
+          accountName={topUpTarget.account_name || topUpTarget.portfolio_code || 'Support Account'}
           accountId={topUpTarget.id}
           walletBalance={wallet?.balance || 0}
           currentBalance={Number(topUpTarget.investment_amount) || 0}

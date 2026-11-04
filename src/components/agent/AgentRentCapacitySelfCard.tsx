@@ -312,7 +312,7 @@ export function AgentRentCapacitySelfCard() {
                       <div className="text-xs text-muted-foreground mt-1">{todayPct}% of daily target</div>
                     </div>
                     <div className="rounded-xl border border-border bg-background/70 p-3">
-                      <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">This week (7d) · Paid vs Expected</div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-muted-foreground">This week (since Thursday) · Paid vs Expected</div>
                       <div className={`mt-1 text-base font-extrabold tabular-nums ${weekTone}`}>
                         {formatUGX(cap.paid_last_week)}
                         <span className="text-muted-foreground font-semibold"> / {formatUGX(expectedWeek)}</span>

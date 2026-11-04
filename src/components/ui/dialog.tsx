@@ -1,3 +1,4 @@
+import { useWorkspaceSurface } from "./workspace-theme";
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
@@ -22,6 +23,7 @@ const DialogOverlay = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
+      {...useWorkspaceSurface("overlay")}
     ref={ref}
     className={cn(
       "fixed inset-0 z-[140] bg-background/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -50,6 +52,7 @@ const DialogContent = React.forwardRef<
   <DialogPortal>
     <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
+      {...useWorkspaceSurface("portal")}
       ref={ref}
       className={cn(
         "app-dialog-content fixed left-[50%] top-[50%] z-[150] grid w-full max-w-md translate-x-[-50%] translate-y-[-50%] gap-4 border border-border bg-background p-5 shadow-lg sm:rounded-xl max-h-[85vh] overflow-y-auto",

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { sortFunderHousesByCompleteness, compareFunderHousesByCompleteness } from '@/lib/funderHouseSort';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -139,6 +141,7 @@ export function SelfPortfolioFundingCard({
   feedOrder: FeedOrder;
   onFeedOrderChange: (value: FeedOrder) => void;
 }) {
+  const signedIn = useAuthenticatedAudience();
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
@@ -305,7 +308,9 @@ export function SelfPortfolioFundingCard({
   // Cached so returning to this tab paints instantly; refreshes happen silently.
   const plansQuery = useQuery({
     queryKey: ['psm-fundable-plans'],
+    enabled: signedIn,
     queryFn: async () => {
+      await requireUserSession();
       const { items, total, meta } = await fetchAllPages<FundablePlan, { available: number }>({
         pageSize: 100,
         concurrency: 8,
@@ -330,7 +335,7 @@ export function SelfPortfolioFundingCard({
       });
 
       return {
-        plans: items,
+        plans: sortFunderHousesByCompleteness(items),
         total,
         available: meta?.available ?? 0,
       };
@@ -414,7 +419,7 @@ export function SelfPortfolioFundingCard({
     const fetched = housesQuery.data?.houses ?? [];
     const seen = new Set(fetched.map((h) => h.house_id));
     const extra = Object.values(discoveredHouses).filter((h) => !seen.has(h.house_id));
-    return extra.length ? [...fetched, ...extra] : fetched;
+    return sortFunderHousesByCompleteness(extra.length ? [...fetched, ...extra] : fetched);
   }, [housesQuery.data, discoveredHouses]);
 
   // Drop picked houses that are no longer listed (already funded by someone else).
@@ -870,6 +875,8 @@ export function SelfPortfolioFundingCard({
       }
     }
     visibleHouses = [...visibleHouses].sort((a, b) => {
+      const completeness = compareFunderHousesByCompleteness(a, b);
+      if (completeness) return completeness;
       const rentA = Number(a.monthly_rent || 0);
       const rentB = Number(b.monthly_rent || 0);
       const distanceTo = (h: SupportableHouse) => {
@@ -1675,11 +1682,6 @@ export function SelfPortfolioFundingCard({
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {MONTHLY_ROI_RATE}% / month
                   </span>
-                  {plan.duration_days ? (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                      {plan.duration_days} days
-                    </span>
-                  ) : null}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (

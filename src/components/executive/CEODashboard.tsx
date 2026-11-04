@@ -14,6 +14,7 @@ import { FunderEngagementPanel } from './FunderEngagementPanel';
 import { FunderFunnelPanel } from './FunderFunnelPanel';
 import { CeoSalaryAdvanceApprovals } from './CeoSalaryAdvanceApprovals';
 import { CEOGrowthQuality } from './CEOGrowthQuality';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 
 export function CEODashboard() {
@@ -40,7 +41,7 @@ export function CEODashboard() {
   const { data: rentStats, isLoading: loadingRent } = useQuery({
     queryKey: ['exec-rent-stats'],
     queryFn: async () => {
-      const { data } = await supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, created_at').limit(200);
+      const { data } = await supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, created_at, pricing_version').limit(200);
       const rows = data || [];
       const funded = rows.filter(r => ['funded', 'disbursed', 'repaying', 'fully_repaid'].includes(r.status)).length;
       const totalFinanced = rows.reduce((s, r) => s + (r.rent_amount || 0), 0);
@@ -164,6 +165,7 @@ export function CEODashboard() {
     )},
     { key: 'rent_amount', label: 'Amount (UGX)', render: (v) => Number(v || 0).toLocaleString() },
     { key: 'amount_repaid', label: 'Repaid (UGX)', render: (v) => Number(v || 0).toLocaleString() },
+    { key: 'pricing_version', label: '360-day', render: (v, row) => v === 'v360' ? <V360PlanCaptions rentRequestId={row.id} expectV360 /> : '—' },
   ];
 
   const fmt = (n: number) => {

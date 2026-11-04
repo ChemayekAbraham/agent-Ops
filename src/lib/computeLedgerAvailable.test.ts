@@ -8,8 +8,23 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 
+const auth = vi.hoisted(() => ({
+  getSession: vi.fn(async () => ({
+    data: {
+      session: {
+        access_token: 'jwt',
+        expires_at: Math.floor(Date.now() / 1000) + 600,
+      },
+    },
+    error: null,
+  })),
+}));
+
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { rpc: vi.fn() },
+  supabase: {
+    rpc: vi.fn(),
+    auth: { getSession: () => auth.getSession() },
+  },
 }));
 
 import { supabase } from '@/integrations/supabase/client';
@@ -41,5 +56,12 @@ describe('computeLedgerAvailable', () => {
     rpcMock.mockResolvedValueOnce({ data: null, error: null });
     const result = await computeLedgerAvailable('user-1');
     expect(result.available).toBe(0);
+  });
+
+  it('throws before the RPC when there is no signed-in session', async () => {
+    rpcMock.mockClear();
+    auth.getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
+    await expect(computeLedgerAvailable('user-1')).rejects.toThrow(/Sign in again/);
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 });

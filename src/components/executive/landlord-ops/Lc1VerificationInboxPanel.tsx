@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { ReverseVerificationDialog } from './ReverseVerificationDialog';
 import { cn } from '@/lib/utils';
+import { formatOpsUgx } from '@/components/executive/landlord-ops/mobile/landlordOpsPhone';
 import {
   generateLc1VerificationReportPdf,
   lc1ReportFileName,
@@ -208,8 +209,8 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
     const charged = !!result.agent_charged && (result.charge_amount ?? 0) > 0;
     toast({
       title: decision === 'verified' ? '✅ LC1 chairperson approved' : 'Request rejected',
-      description: `${row.lc1_name || 'LC1 chairperson'} is now ${decision === 'verified' ? 'approved — it appears under LC1 Chairpersons' : 'rejected'}.`
-        + (charged ? ` UGX ${result.charge_amount!.toLocaleString()} was charged to the registering agent.` : ''),
+      description: `${row.lc1_name || 'LC1 chairperson'} is now ${decision === 'verified' ? 'approved. It appears under LC1 Chairpersons' : 'rejected'}.`
+        + (charged ? ` ${formatOpsUgx(result.charge_amount)} was charged to the registering agent.` : ''),
     });
 
     if (decision === 'rejected' && result.agent_id) {
@@ -294,7 +295,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
   const body = (
     <div className="space-y-3">
       {/* Status tabs */}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex gap-1.5 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible">
         {TABS.map(s => {
           const meta = TAB_META[s];
           const Icon = meta.icon;
@@ -302,9 +303,10 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
           return (
             <button
               key={s}
+              type="button"
               onClick={() => { setStatus(s); setPage(0); }}
               className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 h-8 rounded-full text-[11px] font-bold border transition-all',
+                'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3 text-sm font-bold transition-all md:h-8 md:px-2.5 md:text-[11px]',
                 active ? `${meta.cls} shadow-sm` : 'bg-background text-muted-foreground border-border hover:bg-muted',
               )}
             >
@@ -323,38 +325,39 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
         {status === 'agent_requested'
           ? 'Chairpersons an agent explicitly raised for verification and is still waiting on. This is the real inbox.'
           : status === 'rent_linked'
-          ? 'Chairpersons attached to a rent application still moving through approval — verifying these unblocks a tenant.'
+          ? 'Chairpersons attached to a rent application still moving through approval. Verifying these unblocks a tenant.'
           : status === 'pending'
           ? 'Every unverified chairperson in the register, including bulk field registrations nobody has requested. Large by design.'
           : `Chairpersons already ${status === 'verified' ? 'approved' : 'rejected'}.`}
       </p>
 
       {/* Search + export */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+      <div className="lo-sticky-search flex flex-col gap-2 sm:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search chairperson, phone, village, district or agent…"
-            className="h-9 text-sm pl-8 pr-8"
+            placeholder="Search chairperson, phone, village, district or agent"
+            aria-label="Search LC1 chairpersons"
+            className="h-11 pl-9 pr-12 text-sm md:h-9"
           />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2" aria-label="Clear search">
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
+            <button type="button" onClick={() => setSearch('')} className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center md:h-9 md:w-9" aria-label="Clear search">
+              <X className="h-4 w-4 text-muted-foreground" />
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:flex gap-2 shrink-0">
-          <Button size="sm" variant="outline" className="h-9 text-[11px] font-bold min-w-0" disabled={exporting} onClick={() => exportReport(status)}>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:shrink-0">
+          <Button size="sm" variant="outline" className="h-11 min-w-0 text-sm font-bold md:h-9 md:text-[11px]" disabled={exporting} onClick={() => exportReport(status)}>
             {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileDown className="h-3.5 w-3.5 mr-1 shrink-0" />}
             <span className="truncate">Export {TAB_META[status].label.toLowerCase()}</span>
           </Button>
-          <Button size="sm" variant="outline" className="h-9 text-[11px] font-bold min-w-0" disabled={exporting} onClick={() => exportReport('all')}>
+          <Button size="sm" variant="outline" className="h-11 min-w-0 text-sm font-bold md:h-9 md:text-[11px]" disabled={exporting} onClick={() => exportReport('all')}>
             <FileDown className="h-3.5 w-3.5 mr-1 shrink-0" />
             <span className="truncate">Full register</span>
           </Button>
-          <Button size="sm" variant="ghost" className="h-9 text-[11px] font-bold" onClick={() => { load(); loadCounts(); }}>
+          <Button size="sm" variant="ghost" className="col-span-2 h-11 text-sm font-bold sm:col-span-1 md:h-9 md:text-[11px]" onClick={() => { load(); loadCounts(); }}>
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -459,7 +462,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      className={cn('flex-1', decision === 'verified' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : '')}
+                      className={cn('h-11 flex-1 md:h-9', decision === 'verified' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : '')}
                       variant={decision === 'rejected' ? 'destructive' : 'default'}
                       disabled={busyId === row.lc1_id || reason.trim().length < 10}
                       onClick={() => submitDecision(row)}
@@ -467,7 +470,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                       {busyId === row.lc1_id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
                       Confirm {decision === 'verified' ? 'approval' : 'rejection'}
                     </Button>
-                    <Button size="sm" variant="ghost" className="flex-1" disabled={busyId === row.lc1_id} onClick={() => { setDecideId(null); setReason(''); }}>
+                    <Button size="sm" variant="ghost" className="h-11 flex-1 md:h-9" disabled={busyId === row.lc1_id} onClick={() => { setDecideId(null); setReason(''); }}>
                       Cancel
                     </Button>
                   </div>
@@ -476,7 +479,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                 <div className="grid grid-cols-2 gap-2">
                   <Button
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-[11px] font-bold"
+                    className="h-11 bg-emerald-600 text-sm font-bold text-white hover:bg-emerald-700 md:h-8 md:text-[11px]"
                     disabled={row.status === 'verified'}
                     onClick={() => openDecide(row, 'verified')}
                   >
@@ -485,7 +488,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 text-[11px] font-bold border-rose-500/40 text-rose-700 hover:bg-rose-50"
+                    className="h-11 border-rose-500/40 text-sm font-bold text-rose-700 hover:bg-rose-50 md:h-8 md:text-[11px]"
                     disabled={row.status === 'rejected'}
                     onClick={() => openDecide(row, 'rejected')}
                   >

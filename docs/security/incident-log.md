@@ -1,0 +1,27 @@
+# Incident log (Information and Security Policy §13)
+
+Every suspected or actual loss, theft, unauthorised access, unauthorised disclosure or alteration of personal data is recorded here and reported to the DPO immediately. There is no threshold of seriousness below which reporting is optional.
+For each entry the DPO records: containment, what data and whose, whether the Personal Data Protection Office or data subjects must be notified, and corrective action.
+**The entries below were assembled by Engineering on 2026-10-22 from the technical record for the DPO to classify. They are not conclusions that a breach occurred.**
+
+| # | Date found | What happened | Data and people affected | Contained / fixed | Evidence of misuse | DPO classification and decision |
+|---|---|---|---|---|---|---|
+| 1 | 2026-10-20 | After the move to the company-owned database on 2026-10-17, the database's default permissions gave the public `anon` role INSERT/UPDATE/DELETE rights on all 866 public tables. Row-level security stayed on for every table, which blocked writes. | Potentially any table; no evidence any was written | 2026-10-20: write rights revoked everywhere except 13 pre-login forms and logs (doc 247 step 32) | None found in the API logs reviewed | To classify |
+| 2 | 2026-10-17 to 2026-10-19 | Several staff report views and 600+ functions were callable by the public or any signed-in user, because the move re-created default privileges and some views ran with owner rights | Staff and financial reports, wallet balances, landlord directory | Closed and gated 2026-10-17 to 2026-10-20 (doc 247 steps 1 to 36); 55 deny-all policies added | Signed-in 403 errors and 401 logged-out requests only in the logs reviewed; a full access review is not available | To classify |
+| 3 | 2026-10-18 | Funder dashboard accepted an old-project session token after the move (doc 244) | Funders | Fixed (doc 244) | None recorded | To classify |
+| 4 | Found 2026-10-20 | Unencrypted database dumps, older plaintext exports (one with password hashes) and tenant archives held on the CTO laptop, partly synced to Microsoft OneDrive | Tenants, agents, landlords, staff | 32 files encrypted in place 2026-10-20; deletion and OneDrive removal outstanding (risk R1) | None known | To classify |
+| 5 | 2026-10-20 | Supabase warned of a high bounce rate on project emails. About 96 emails in a week went to a non-existent domain and a few to mistyped domains | Recipients' email addresses and message content | Send-time guard written (doc 247 step 35), awaiting deploy | n/a | To classify (likely not a personal-data breach) |
+| 6 | 2026-10-21 | CRM calls hung up because the telephony provider still sent call events to the old project, so call events (customer phone numbers and call outcomes) were delivered to the old project address | Customer phone numbers and call metadata | Callback URL changed to the new project 2026-10-21 (doc 247 step 37) | n/a; confirm what the old project still receives and delete it | To classify |
+| 7 | 2026-10-21 | SMS delivery reports from the SMS provider still point at the old project (delivery confirmations not arriving) | Phone numbers and delivery status | Not yet changed in the provider dashboard | n/a | To classify |
+| 8 | 2026-10-27 08:31 UTC and 2026-10-28 07:53, 08:16, 08:51, 09:05 UTC | Database process killed and crash-recovered or restarted five times in 26 hours (about 1 minute each; API 5xx spikes of 1,427, 1,065, 486 and 420 per 5 minutes at 08:15, 08:50, 09:00, 09:05); connections refused during recovery. Cause unconfirmed, likely memory pressure on the current compute size | Availability only; no data loss indicated (automatic recovery completed) | Compute-size decision open; support ticket to confirm cause (doc 247 step 43) | n/a | To classify (availability, not a personal-data breach) |
+
+## Notification decisions
+The Personal Data Protection Office has been / has not been notified: ______ (DPO to complete per entry).
+
+### Entry 8 update (2026-10-28 ~14:30 UTC): the restarts are continuing
+
+Four more database kills after the 09:05 UTC one: **11:25, 11:56, 13:51 and 14:26 UTC**, so eight today and nine in about 30 hours. Each shows 10-19 `the database system is not accepting connections` FATALs in a five-minute window and, in three of them, `automatic recovery` messages; API 5xx (520/521/522/525/503) follows for about a minute. Postgres logs no `terminated by signal` line, so the instance is being stopped from outside the database process, which is what an out-of-memory kill of the container looks like. Cause still unconfirmed.
+
+Evidence gathered, nothing changed: about 60 active cron jobs; at every `:15` four to six heavy jobs start together and run 26-35 s each (`repair-wallet-cache-drift`, `detect-credit-limit-drift`, `wallet-projection-drift`, `refresh-wallet-totals-cache`), `refresh-wallet-totals-cache` runs every 3 minutes (25-42 s) and `email-auto-create-deposits-24h` every 2 minutes (14-25 s). A `process-email-queue` run failed with `job startup timeout` at 13:49, just before the 13:51 restart. No single job was left unfinished at the restart times, so this is load shape, not a proven cause.
+
+Needed from Josh: open the Supabase support ticket (ask for the instance memory graph and the reason for each restart at the times above) and decide the compute upgrade. If cron load is to be reduced first, staggering the `:15` group is the lowest-risk change, but it was not made without his say-so.

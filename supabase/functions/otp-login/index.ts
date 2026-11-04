@@ -91,11 +91,12 @@ Deno.serve(async (req) => {
     // Step 1: Verify OTP from otp_verifications table
     const phoneVariants = [`0${last9}`, `256${last9}`, last9, `+256${last9}`];
     
+    // The guess is deliberately NOT part of this search: a wrong guess must still
+    // find the row so it can be counted below (see register_otp_attempt).
     const { data: otpRecord, error: otpError } = await adminClient
       .from("otp_verifications")
-      .select("*")
+      .select("id, otp_code")
       .in("phone", phoneVariants)
-      .eq("otp_code", otp)
       .eq("verified", false)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
@@ -103,34 +104,28 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (otpError || !otpRecord) {
-      // Check if expired
-      const { data: expiredRecord } = await adminClient
-        .from("otp_verifications")
-        .select("id")
-        .in("phone", phoneVariants)
-        .eq("otp_code", otp)
-        .eq("verified", false)
-        .lte("expires_at", new Date().toISOString())
-        .limit(1)
-        .maybeSingle();
-
-      if (expiredRecord) {
-        await writeAudit({ phone, outcome: "failed", stage: "otp_verify", reason: "Code expired. Please request a new one." });
-        return new Response(JSON.stringify({ error: "Code expired. Please request a new one." }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      await writeAudit({ phone, outcome: "failed", stage: "otp_verify", reason: "Invalid code." });
-      return new Response(JSON.stringify({ error: "Invalid code. Please check and try again." }), {
+      await writeAudit({ phone, outcome: "failed", stage: "otp_verify", reason: "No active code." });
+      return new Response(JSON.stringify({ error: "Code expired or not found. Please request a new one." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Check attempts
-    if (otpRecord.attempts >= 5) {
+    // Use up one attempt BEFORE comparing, atomically in the database, so a
+    // burst of parallel guesses cannot all read the same old count.
+    const { data: attemptsUsed, error: attemptError } = await adminClient
+      .rpc("register_otp_attempt", { p_otp_id: otpRecord.id });
+
+    // Fail closed: if we cannot count the guess, we do not check it.
+    if (attemptError || attemptsUsed === null) {
+      console.error("[otp-login] register_otp_attempt failed:", attemptError?.message);
+      return new Response(JSON.stringify({ error: "Could not verify code. Please try again." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (attemptsUsed > 5) {
       await writeAudit({ phone, outcome: "rejected", stage: "rate_limit", reason: "Too many attempts." });
       return new Response(JSON.stringify({ error: "Too many attempts. Please request a new code." }), {
         status: 429,
@@ -138,11 +133,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Increment attempts
-    await adminClient
-      .from("otp_verifications")
-      .update({ attempts: otpRecord.attempts + 1 })
-      .eq("id", otpRecord.id);
+    // Only now compare the guess to the stored code.
+    if (String(otpRecord.otp_code) !== String(otp)) {
+      await writeAudit({ phone, outcome: "failed", stage: "otp_verify", reason: "Invalid code." });
+      return new Response(JSON.stringify({ error: "Invalid code. Please check and try again." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Mark OTP as verified
     await adminClient

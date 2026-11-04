@@ -13,7 +13,7 @@ import { CompactAmount } from '@/components/ui/CompactAmount';
 import { AngelSharesTab } from './AngelSharesTab';
 import { downloadPortfolioPdf, sharePortfolioViaWhatsApp } from '@/lib/portfolioPdf';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { format, formatDistanceToNow, differenceInDays, isPast, addDays } from 'date-fns';
+import { format, formatDistanceToNow, differenceInDays, differenceInCalendarMonths, isPast, addDays } from 'date-fns';
 import { FundAccountDialog } from './FundAccountDialog';
 import { toast } from 'sonner';
 import { PayoutMethodDialog } from './PayoutMethodDialog';
@@ -312,6 +312,19 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                                 <span className={`inline-flex items-center gap-1 text-[9px] font-medium ${sc.cls} px-1.5 py-0.5 rounded-full`}>
                                   <span className={`h-1.5 w-1.5 rounded-full ${sc.dot}`} />{sc.label}
                                 </span>
+                                {(() => {
+                                  // Self-support portfolios (WSP/WSH) run a 12-month contract.
+                                  const code = entry.code || '';
+                                  if (!code.startsWith('WSP') && !code.startsWith('WSH')) return null;
+                                  const label = entry.status === 'matured'
+                                    ? 'Contract ended'
+                                    : `Month ${Math.min(Math.max(1, Number(entry.duration_months) || 12), Math.max(0, differenceInCalendarMonths(new Date(), investedDate)) + 1)} of ${Math.max(1, Number(entry.duration_months) || 12)}`;
+                                  return (
+                                    <span className="inline-flex items-center text-[9px] font-medium bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                                      {label}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             )}
                             {!entry.account_name && renamingId !== entry.id && (
@@ -362,7 +375,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                         {/* Tags */}
                         <div className="px-4 pb-3 flex items-center gap-1.5 flex-wrap">
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-primary/8 text-[9px] font-semibold text-primary">
-                            {entry.roi_percentage}% ROI
+                            {entry.roi_percentage}% Returns
                           </span>
                           <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-muted text-[9px] font-semibold text-muted-foreground capitalize">
                             {entry.roi_mode.replace(/_/g, ' ')}
@@ -627,7 +640,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
               <div className="rounded-xl bg-muted/50 border p-3 space-y-1">
                 <p className="text-xs text-muted-foreground font-semibold">Available Capital</p>
                 <p className="text-xl font-black text-foreground">{formatAmount(withdrawDialog.maxAmount)}</p>
-                <p className="text-[11px] text-muted-foreground">You can withdraw part or all — the rest stays invested</p>
+                <p className="text-[11px] text-muted-foreground">You can withdraw part or all — the rest keeps supporting tenants</p>
               </div>
 
               <div className="space-y-1.5">
@@ -676,7 +689,7 @@ export function InvestmentBreakdownSheet({ open, onOpenChange }: InvestmentBreak
                       </div>
                       {remaining > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Stays Invested</span>
+                          <span className="text-muted-foreground">Keeps Supporting</span>
                           <span className="font-bold text-success">{formatAmount(remaining)}</span>
                         </div>
                       )}

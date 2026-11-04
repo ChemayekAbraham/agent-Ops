@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -14,9 +15,6 @@ import {
   Area,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -27,6 +25,8 @@ import { UserCheck, UserPlus, Share2, TrendingUp, CalendarRange } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DonutChart } from '@/components/ui/donut-chart';
+import { cn } from '@/lib/utils';
 import { KPICard } from './KPICard';
 import { ExecutiveDataTable, Column } from './ExecutiveDataTable';
 
@@ -49,6 +49,19 @@ interface TrendsRPC {
   }[];
 }
 
+/** Parses 'YYYY-MM-DD' as a LOCAL date; null when empty or invalid (a cleared date input). */
+function parseLocalDate(value: string): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 'funder-onboarding' -> 'Funder onboarding'. */
+const humanize = (v: string) => {
+  const t = v.replace(/[-_]+/g, ' ').trim();
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : v;
+};
+
 function rangeBounds(preset: RangePreset, cs: string, ce: string) {
   const now = new Date();
   switch (preset) {
@@ -61,20 +74,36 @@ function rangeBounds(preset: RangePreset, cs: string, ce: string) {
     case 'last_180':
       return { start: startOfDay(subDays(now, 179)), end: endOfDay(now) };
     case 'custom':
-      return { start: startOfDay(new Date(cs)), end: endOfDay(new Date(ce)) };
+      return {
+        start: startOfDay(parseLocalDate(cs) ?? subDays(now, 29)),
+        end: endOfDay(parseLocalDate(ce) ?? now),
+      };
   }
 }
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const SOURCE_COLORS = ['hsl(var(--primary))', 'hsl(var(--muted-foreground))', 'hsl(24 95% 53%)', 'hsl(142 71% 45%)', 'hsl(262 83% 58%)'];
+// One distinct colour per source (up to 6 are returned). Referral keeps the brand purple and
+// Direct (organic) the green used for Organic elsewhere on the CMO pages.
+const SOURCE_COLORS = [
+  'hsl(var(--primary))',
+  'hsl(142 71% 45%)',
+  'hsl(24 95% 53%)',
+  'hsl(199 89% 48%)',
+  'hsl(46 96% 53%)',
+  'hsl(340 82% 52%)',
+];
 
 export function SignupTrendsView() {
   const now = new Date();
   const [preset, setPreset] = useState<RangePreset>('last_30');
   const [customStart, setCustomStart] = useState(format(subDays(now, 29), 'yyyy-MM-dd'));
   const [customEnd, setCustomEnd] = useState(format(now, 'yyyy-MM-dd'));
+  const [hoveredSource, setHoveredSource] = useState<string | null>(null);
 
   const { start, end } = rangeBounds(preset, customStart, customEnd);
+  // Changing one end past the other moves the other end too. A cleared input is ignored (it crashed the page).
+  const changeCustomStart = (v: string) => { if (!v) return; setCustomStart(v); if (v > customEnd) setCustomEnd(v); };
+  const changeCustomEnd = (v: string) => { if (!v) return; setCustomEnd(v); if (v < customStart) setCustomStart(v); };
   const spanDays = differenceInCalendarDays(end, start) + 1;
   const granularity: Granularity = spanDays <= 45 ? 'day' : spanDays <= 120 ? 'week' : 'month';
 
@@ -82,7 +111,7 @@ export function SignupTrendsView() {
   const prevEnd = new Date(start.getTime() - 1);
 
   // Single server-side aggregation RPC — no client-side row pagination.
-  const { data: trends, isLoading } = useQuery({
+  const { data: trends, isLoading, isError } = useQuery({
     queryKey: ['signup-trends-rpc', start.toISOString(), end.toISOString(), granularity],
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<TrendsRPC> => {
@@ -96,7 +125,7 @@ export function SignupTrendsView() {
     },
   });
 
-  const { data: prevCount } = useQuery({
+  const { data: prevCount, isError: prevError } = useQuery({
     queryKey: ['signup-trends-prev-total', prevStart.toISOString(), prevEnd.toISOString()],
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<number> => {
@@ -113,7 +142,8 @@ export function SignupTrendsView() {
   const referred = trends?.totals?.referred ?? 0;
   const organic = Math.max(0, totalSignups - referred);
   const referralShare = totalSignups > 0 ? Math.round((referred / totalSignups) * 100) : 0;
-  const growthPct = (prevCount || 0) > 0 ? Math.round(((totalSignups - (prevCount || 0)) / (prevCount || 0)) * 100) : 0;
+  // No trend when the previous period had no signups (nothing to compare with) or failed to load.
+  const growthPct = (prevCount || 0) > 0 ? Math.round(((totalSignups - (prevCount || 0)) / (prevCount || 0)) * 100) : null;
   const avgPerDay = spanDays > 0 ? Math.round(totalSignups / spanDays) : 0;
 
   const labelFor = (iso: string) => {
@@ -136,12 +166,18 @@ export function SignupTrendsView() {
     return counts.map((v, i) => ({ day: DOW_LABELS[i], signups: v }));
   })();
 
-  const sourceMix = (trends?.source_mix ?? []).map((s) => ({ name: s.name, value: s.value }));
+  const sourceMix = (trends?.source_mix ?? []).map((s, i) => ({
+    label: humanize(s.name),
+    value: s.value,
+    color: SOURCE_COLORS[i % SOURCE_COLORS.length],
+  }));
+  const sourceTotal = sourceMix.reduce((sum, x) => sum + x.value, 0);
+  const activeSource = sourceMix.find((x) => x.label === hoveredSource);
 
   const topDays = (trends?.top_days ?? []).map((t) => ({
     date: t.day,
     signups: t.c,
-    label: format(new Date(t.day), 'EEE, MMM d'),
+    label: format(new Date(`${String(t.day).slice(0, 10)}T00:00:00`), 'EEE, MMM d'),
   }));
 
   const recent = (trends?.recent ?? []).map((r) => ({
@@ -149,7 +185,7 @@ export function SignupTrendsView() {
     when: format(new Date(r.created_at), 'MMM d, HH:mm'),
     name: r.full_name || '—',
     phone: r.phone || '—',
-    source: r.referrer_id ? 'Referral' : r.signup_source ? r.signup_source : 'Direct',
+    source: r.referrer_id ? 'Referral' : r.signup_source ? humanize(r.signup_source) : 'Direct',
   }));
 
   const recentColumns: Column<(typeof recent)[number]>[] = [
@@ -214,6 +250,7 @@ export function SignupTrendsView() {
               key={opt.v}
               size="sm"
               variant={preset === opt.v ? 'default' : 'outline'}
+              aria-pressed={preset === opt.v}
               onClick={() => setPreset(opt.v)}
             >
               {opt.l}
@@ -224,15 +261,21 @@ export function SignupTrendsView() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">Start</Label>
-              <Input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+              <Input type="date" value={customStart} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomStart(e.target.value)} />
             </div>
             <div>
               <Label className="text-xs">End</Label>
-              <Input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+              <Input type="date" value={customEnd} max={format(now, 'yyyy-MM-dd')} onChange={(e) => changeCustomEnd(e.target.value)} />
             </div>
           </div>
         )}
       </div>
+
+      {(isError || prevError) && (
+        <p className="text-xs text-red-500">
+          Some figures could not be loaded, so zeros below may be missing data. Please refresh and try again.
+        </p>
+      )}
 
       {(trends?.totals?.excluded ?? 0) > 0 && (
         <p className="text-xs text-muted-foreground">
@@ -247,7 +290,7 @@ export function SignupTrendsView() {
           value={totalSignups.toLocaleString()}
           icon={UserPlus}
           loading={isLoading}
-          trend={prevCount !== undefined ? { value: growthPct, label: 'vs prev period' } : undefined}
+          trend={growthPct !== null ? { value: growthPct, label: 'vs prev period' } : undefined}
         />
         <KPICard
           title="Avg / day"
@@ -270,7 +313,7 @@ export function SignupTrendsView() {
           icon={UserCheck}
           color="bg-orange-500/10 text-orange-600"
           loading={isLoading}
-          subtitle={`${100 - referralShare}% share`}
+          subtitle={`${totalSignups > 0 ? 100 - referralShare : 0}% share`}
         />
       </div>
 
@@ -290,8 +333,8 @@ export function SignupTrendsView() {
                   <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
                 </linearGradient>
                 <linearGradient id="organicG" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.05} />
+                  <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
@@ -304,7 +347,7 @@ export function SignupTrendsView() {
                 stackId="1"
                 dataKey="organic"
                 name="Organic"
-                stroke="hsl(var(--muted-foreground))"
+                stroke="hsl(142 71% 45%)"
                 fill="url(#organicG)"
               />
               <Area
@@ -339,17 +382,65 @@ export function SignupTrendsView() {
           {sourceMix.length === 0 ? (
             <p className="text-xs text-muted-foreground py-12 text-center">No data.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={sourceMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={2}>
-                  {sourceMix.map((_, i) => (
-                    <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="flex flex-col items-center gap-4">
+              <DonutChart
+                data={sourceMix}
+                size={190}
+                strokeWidth={26}
+                animationDuration={1}
+                activeLabel={hoveredSource}
+                onSegmentHover={(seg) => setHoveredSource(seg?.label ?? null)}
+                centerContent={
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={activeSource?.label ?? 'total'}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.18, ease: 'circOut' }}
+                      className="flex flex-col items-center text-center"
+                    >
+                      <p className="max-w-[110px] truncate text-xs font-medium text-muted-foreground">
+                        {activeSource?.label ?? 'Signups'}
+                      </p>
+                      <p className="text-3xl font-bold tabular-nums leading-tight">
+                        {(activeSource?.value ?? sourceTotal).toLocaleString()}
+                      </p>
+                      {activeSource && sourceTotal > 0 && (
+                        <p className="text-xs font-medium text-muted-foreground">
+                          {Math.round((activeSource.value / sourceTotal) * 100)}%
+                        </p>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                }
+              />
+              <div className="w-full space-y-0.5 border-t border-border pt-3">
+                {sourceMix.map((seg, i) => (
+                  <motion.div
+                    key={seg.label}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + i * 0.07, duration: 0.3 }}
+                    className={cn(
+                      'flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-xs transition-colors',
+                      hoveredSource === seg.label && 'bg-muted',
+                    )}
+                    onMouseEnter={() => setHoveredSource(seg.label)}
+                    onMouseLeave={() => setHoveredSource(null)}
+                  >
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: seg.color }} />
+                      <span className="truncate font-medium">{seg.label}</span>
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">
+                      <span className="font-semibold text-foreground">{seg.value.toLocaleString()}</span>
+                      {sourceTotal > 0 && ` · ${Math.round((seg.value / sourceTotal) * 100)}%`}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </div>

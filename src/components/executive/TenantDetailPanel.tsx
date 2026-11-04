@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { Textarea } from '@/components/ui/textarea';
 import TenantAssignAgentDialog from '@/components/shared/TenantAssignAgentDialog';
 import TenantAssignLandlordDialog from '@/components/shared/TenantAssignLandlordDialog';
@@ -121,8 +122,8 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
     queryFn: async () => {
       const [profileRes, requestsRes, walletRes, collectionsRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, phone, city, created_at, smartphone_status, smartphone_source').eq('id', tenantId).maybeSingle(),
-        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id, house_listing_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
-        supabase.from('wallet_transactions').select('id, amount, type, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
+        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id, house_listing_id, pricing_version').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        supabase.from('wallet_transactions').select('id, amount, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
         supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').is('reversed_at', null).eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
       ]);
 
@@ -1292,6 +1293,9 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                               )}
                               {req.duration_days && <span>{req.duration_days}d</span>}
                             </div>
+                            {req.pricing_version === 'v360' && (
+                              <V360PlanCaptions rentRequestId={req.id} expectV360 />
+                            )}
                             {(() => {
                               const status = String((req as any).status || '').toLowerCase();
                               const isActive = !['completed', 'closed', 'cancelled', 'rejected', 'fully_repaid'].includes(status);

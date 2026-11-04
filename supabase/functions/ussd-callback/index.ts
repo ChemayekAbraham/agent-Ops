@@ -87,7 +87,7 @@ Deno.serve(async (req) => {
     if (level === 0) {
       if (isFunder) {
         const response = `CON Welcome to Welile, ${profile.full_name || 'Partner'}!
-1. Investment Balance
+1. Support Balance
 2. Last Return Payment
 3. Wallet Balance
 4. Request Help`
@@ -111,26 +111,26 @@ Deno.serve(async (req) => {
     // FUNDER FLOW
     // ========================
     if (isFunder) {
-      // Option 1: Investment Balance
+      // Option 1: Support Balance
       if (choice === '1') {
         const { data: portfolios } = await serviceClient
           .from('investor_portfolios')
-          .select('amount_invested, total_roi_earned, status')
-          .eq('user_id', profile.id)
+          .select('investment_amount, total_roi_earned, status')
+          .eq('investor_id', profile.id)
           .in('status', ['active', 'matured'])
 
         if (!portfolios || portfolios.length === 0) {
-          return new Response('END No active investments found. Contact your agent for more info.', {
+          return new Response('END No active support accounts found. Contact your agent for more info.', {
             headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
           })
         }
 
-        const totalInvested = portfolios.reduce((s, p) => s + (p.amount_invested || 0), 0)
-        const totalROI = portfolios.reduce((s, p) => s + (p.total_roi_earned || 0), 0)
+        const totalInvested = portfolios.reduce((s, p) => s + (Number(p.investment_amount) || 0), 0)
+        const totalROI = portfolios.reduce((s, p) => s + (Number(p.total_roi_earned) || 0), 0)
         const activeCount = portfolios.filter(p => p.status === 'active').length
 
-        return new Response(`END Investment Summary:
-Total Invested: UGX ${totalInvested.toLocaleString()}
+        return new Response(`END Support Summary:
+Total Support: UGX ${totalInvested.toLocaleString()}
 Returns Earned: UGX ${totalROI.toLocaleString()}
 Active Accounts: ${activeCount}
 Your money is safe & working!`, {
@@ -138,15 +138,18 @@ Your money is safe & working!`, {
         })
       }
 
-      // Option 2: Last ROI payment
+      // Option 2: Last return payment (wallet ledger credit)
       if (choice === '2') {
         const { data: lastROI } = await serviceClient
-          .from('supporter_roi_payments')
-          .select('amount, paid_at')
-          .eq('supporter_id', profile.id)
-          .order('paid_at', { ascending: false })
+          .from('general_ledger')
+          .select('amount, paid_at:transaction_date')
+          .eq('user_id', profile.id)
+          .eq('ledger_scope', 'wallet')
+          .eq('direction', 'cash_in')
+          .eq('category', 'roi_wallet_credit')
+          .order('transaction_date', { ascending: false })
           .limit(1)
-          .single()
+          .maybeSingle()
 
         if (!lastROI) {
           return new Response('END No return payments found yet. Returns are paid monthly. Contact your agent for details.', {
@@ -156,7 +159,7 @@ Your money is safe & working!`, {
 
         const date = new Date(lastROI.paid_at)
         return new Response(`END Last Return Payment:
-Amount: UGX ${(lastROI.amount || 0).toLocaleString()}
+Amount: UGX ${(Number(lastROI.amount) || 0).toLocaleString()}
 Date: ${date.toLocaleDateString('en-UG')}
 Returns are credited monthly.`, {
           headers: { ...corsHeaders, 'Content-Type': 'text/plain' },

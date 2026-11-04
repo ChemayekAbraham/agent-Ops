@@ -48,3 +48,6 @@ __pycache__/
 # Local auto-commit daemon script
 comm.py
 auto_commit_push.py
+
+# Test results
+test-results/

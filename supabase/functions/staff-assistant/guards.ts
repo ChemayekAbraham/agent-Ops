@@ -1,0 +1,720 @@
+// Deterministic post-generation checks on the model's answer and draft card text for Zoe (My Space Staff Assistant).
+// The model cannot talk its way past these: if a check fails, the answer or draft is discarded.
+
+const BANNED_TERMS = /\b(loans?|lenders?|roi|interest)\b/i;
+const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+// Ugandan local or international phone numbers (07xx..., +2567..., 2567...).
+// Note: masked phones like "+256 7•• ••• 123" do not match this regex because of the bullet characters.
+const PHONE_RE = /(?:\+?256|0)\s*7\d{2}[\s-]?\d{3}[\s-]?\d{3}\b/g;
+const ISO_DATE_RE = /\b\d{4}-\d{2}-\d{2}\b/g;
+// Year-month period code e.g. 2026-10
+const YEAR_MONTH_RE = /\b20[23]\d-(?:0[1-9]|1[0-2])\b/g;
+// HH:MM or HH:MM:SS time tokens e.g. 07:30, 09:00, 23:59:59
+const TIME_RE = /\b(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?\b/g;
+// Compact shorthand figures like "1.2M", "48.5M", "850K", "1.48B", "1.5k"
+const SHORTHAND_RE = /\b(\d+(?:,\d{3})*(?:\.\d+)?)\s*([kmbKMB])\b/g;
+// Percentages like "84.5%", "100%", "12%"
+const PERCENT_RE = /\b(\d+(?:\.\d+)?)\s*%/g;
+// Decimal numbers like "84.5", "1,234.56"
+const DECIMAL_RE = /\b\d{1,3}(?:,\d{3})*\.\d+|\b\d+\.\d+\b/g;
+// Integer numbers with or without commas (supports digits adjacent to underscores inside JSON keys like expiring_within_30_days)
+const INTEGER_RE = /\d{1,3}(?:,\d{3})+|\d+/g;
+
+export const SYSTEM_PROMPT_LEAK_RE =
+  /You are Zoe, Welile's read-only staff assistant|You are Zoe, the Welile My Space Staff Assistant|NON-NEGOTIABLE RULES \(enforced by server|SCOPE_CHECK_PROMPT|SUPABASE_SERVICE[_]ROLE[_]KEY|LOVABLE[_]API[_]KEY|SECURITY DEFINER|<UNTRUSTED_TOOL_DATA/i;
+
+export const DIRECT_PROMPT_INJECTION_RE =
+  /ignore (all |any )?(previous|prior) instructions|print your (full )?system prompt|reveal your (system prompt|instructions|hidden rules)|developer (?:write )?mode|system override|drop table staff_assistant|jailbreak|what is your LOVABLE[_]API[_]KEY|SUPABASE_SERVICE[_]ROLE[_]KEY|show the raw sql of/i;
+
+export const WRITE_MUTATION_INTENT_RE =
+  /\b(approve|reject|disburse|credit|debit|transfer|delete|update|modify|edit|reset|post|grant|revoke)\b.*\b(requisition|wallet|balance|float|ledger|journal|payslip|salary|advance|rent plan|landlord|payout|supporter|portfolio|returns|contract|task|ticket|role)\b/i;
+
+const POLICY_QUESTION_PREFIX_RE =
+  /^\s*(?:can\s+support\s+capacity|how\s+does|what\s+is|when\s+does|why\s+do|explain\b|where\s+do\s+i)\b/i;
+
+export function containsPromptOrSecretLeak(text: string): boolean {
+  return SYSTEM_PROMPT_LEAK_RE.test(text);
+}
+
+export function isDirectPromptInjection(text: string): boolean {
+  return DIRECT_PROMPT_INJECTION_RE.test(text);
+}
+
+export function isWriteMutationIntent(text: string): boolean {
+  if (POLICY_QUESTION_PREFIX_RE.test(text)) return false;
+  return WRITE_MUTATION_INTENT_RE.test(text);
+}
+
+function canonPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  return digits.startsWith("0") ? `256${digits.slice(1)}` : digits;
+}
+
+function phonesIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(PHONE_RE)) out.add(canonPhone(m[0]));
+  return out;
+}
+
+function isoDatesIn(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const m of text.matchAll(ISO_DATE_RE)) out.add(m[0]);
+  return out;
+}
+
+const WORD_NUMBERS: Record<string, number> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  fourteen: 14,
+  thirty: 30,
+  sixty: 60,
+  ninety: 90,
+};
+
+export interface AllowedNumbersPool {
+  exactNumbers: Set<number>;
+  rawFloats: number[];
+}
+
+/**
+ * Extracts a string Set of all numeric tokens present in `rawText` (including JSON numbers,
+ * integers with/without commas, decimals, and rounded forms) for deterministic calculator verification.
+ */
+export function extractNumbers(rawText: string): Set<string> {
+  const pool = buildAllowedNumbersPool([rawText], "");
+  const out = new Set<string>();
+  for (const n of pool.exactNumbers) {
+    out.add(String(n));
+    out.add(String(Math.round(n)));
+    out.add(String(Math.round(n * 10) / 10));
+    out.add(String(Math.round(n * 100) / 100));
+  }
+  return out;
+}
+
+/**
+ * Extract all numeric values from tool outputs and the user's message.
+ * Also includes array lengths inside JSON tool outputs so row counts are always grounded,
+ * and derives ratios/percentages when a tool returns numerator + denominator counts.
+ */
+function buildAllowedNumbersPool(toolOutputs: readonly string[], userMessage: string): AllowedNumbersPool {
+  const exactNumbers = new Set<number>([0, 1]);
+  const rawFloats: number[] = [0, 1];
+
+  const addNum = (n: number) => {
+    if (!Number.isFinite(n)) return;
+    rawFloats.push(n);
+    exactNumbers.add(n);
+    exactNumbers.add(Math.round(n));
+    exactNumbers.add(Number(n.toFixed(1)));
+    exactNumbers.add(Number(n.toFixed(2)));
+    // If n is a ratio in [0, 1], also register its percentage 0..100
+    if (n > 0 && n <= 1) {
+      const pct = n * 100;
+      rawFloats.push(pct);
+      exactNumbers.add(Math.round(pct));
+      exactNumbers.add(Number(pct.toFixed(1)));
+      exactNumbers.add(Number(pct.toFixed(2)));
+    }
+  };
+
+  const walkJson = (val: unknown) => {
+    if (typeof val === "number") {
+      addNum(val);
+      return;
+    }
+    if (typeof val === "string") {
+      for (const m of val.matchAll(DECIMAL_RE)) {
+        addNum(Number(m[0].replace(/,/g, "")));
+      }
+      for (const m of val.matchAll(INTEGER_RE)) {
+        addNum(Number(m[0].replace(/,/g, "")));
+      }
+      return;
+    }
+    if (Array.isArray(val)) {
+      addNum(val.length);
+      for (const item of val) walkJson(item);
+      return;
+    }
+    if (val && typeof val === "object") {
+      const obj = val as Record<string, unknown>;
+      if (typeof obj.expected === "number" && typeof obj.collected === "number") {
+        addNum(Math.max(0, obj.expected - obj.collected));
+      }
+      // If `obj` is a bucket map (e.g. `summary: { "1-7": { arrears_ugx, count }, ... }`),
+      // register the sum of bucket `arrears_ugx` and `count` across sibling buckets.
+      const childObjects = Object.values(obj).filter(
+        (v): v is Record<string, unknown> => Boolean(v && typeof v === "object" && !Array.isArray(v)),
+      );
+      if (childObjects.length >= 2) {
+        let sumArrears = 0;
+        let hasArrears = false;
+        let sumCount = 0;
+        let hasCount = false;
+        for (const child of childObjects) {
+          if (typeof child.arrears_ugx === "number") {
+            sumArrears += child.arrears_ugx;
+            hasArrears = true;
+          }
+          if (typeof child.count === "number") {
+            sumCount += child.count;
+            hasCount = true;
+          }
+        }
+        if (hasArrears) addNum(sumArrears);
+        if (hasCount) addNum(sumCount);
+      }
+      for (const [k, v] of Object.entries(obj)) {
+        for (const m of k.matchAll(INTEGER_RE)) {
+          addNum(Number(m[0].replace(/,/g, "")));
+        }
+        walkJson(v);
+      }
+    }
+  };
+
+  for (const raw of toolOutputs) {
+    try {
+      const parsed = JSON.parse(raw);
+      walkJson(parsed);
+    } catch {
+      // Fallback regex scan if not pure JSON
+    }
+    const scrubbed = raw.replace(UUID_RE, " ");
+    for (const m of scrubbed.matchAll(DECIMAL_RE)) {
+      addNum(Number(m[0].replace(/,/g, "")));
+    }
+    for (const m of scrubbed.matchAll(INTEGER_RE)) {
+      addNum(Number(m[0].replace(/,/g, "")));
+    }
+  }
+
+  const userScrubbed = userMessage.replace(UUID_RE, " ");
+  for (const m of userScrubbed.matchAll(SHORTHAND_RE)) {
+    const base = Number(m[1].replace(/,/g, ""));
+    const mult = m[2].toLowerCase() === "b" ? 1e9 : m[2].toLowerCase() === "m" ? 1e6 : 1e3;
+    addNum(base);
+    addNum(base * mult);
+  }
+  for (const m of userScrubbed.matchAll(DECIMAL_RE)) {
+    addNum(Number(m[0].replace(/,/g, "")));
+  }
+  for (const m of userScrubbed.matchAll(INTEGER_RE)) {
+    addNum(Number(m[0].replace(/,/g, "")));
+  }
+  for (const [word, num] of Object.entries(WORD_NUMBERS)) {
+    if (new RegExp(`\\b${word}\\b`, "i").test(userMessage)) {
+      addNum(num);
+    }
+  }
+
+  // Also allow simple pairwise ratios (a / b * 100) and differences (|a - b|) for small sets of tool figures
+  const boundedFloats = rawFloats.filter((x) => x > 0).slice(0, 60);
+  for (let i = 0; i < boundedFloats.length; i++) {
+    for (let j = 0; j < boundedFloats.length; j++) {
+      if (i === j) continue;
+      const a = boundedFloats[i];
+      const b = boundedFloats[j];
+      const diff = Math.abs(a - b);
+      exactNumbers.add(Math.round(diff));
+      exactNumbers.add(Number(diff.toFixed(1)));
+      exactNumbers.add(Number(diff.toFixed(2)));
+      if (b > 0 && a <= b) {
+        const pct = (a / b) * 100;
+        exactNumbers.add(Math.round(pct));
+        exactNumbers.add(Number(pct.toFixed(1)));
+        exactNumbers.add(Number(pct.toFixed(2)));
+      }
+      // For pure general-knowledge / maths questions (no tool outputs), allow basic pairwise arithmetic
+      // on the numbers provided in the user's question.
+      if (toolOutputs.length === 0) {
+        const sum = a + b;
+        const prod = a * b;
+        const pctOf = (a / 100) * b;
+        for (const candidate of [sum, prod, pctOf]) {
+          if (Number.isFinite(candidate)) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
+        if (b > 0) {
+          const div = a / b;
+          const pctDiff = (diff / b) * 100;
+          for (const candidate of [div, pctDiff]) {
+            exactNumbers.add(Math.round(candidate));
+            exactNumbers.add(Number(candidate.toFixed(1)));
+            exactNumbers.add(Number(candidate.toFixed(2)));
+          }
+        }
+      }
+    }
+  }
+
+  return { exactNumbers, rawFloats };
+}
+
+/**
+ * Strip structural non-data tokens from an answer or draft before scanning for numbers:
+ * - Trailing `Source: ... · Period: ...` citation line
+ * - UUIDs, ISO dates (`YYYY-MM-DD`), year-month codes (`YYYY-MM`), `HH:MM` times, phones, masked phones (`+256 7•• ••• 412`)
+ * - Reference codes like `WEL-STF-019`, `TSK-401`, `TCK-112`, `REQ-2026-214`, `A1`, `A5`, `A10`, `A21`, `A22`, `LC1`, `v2`
+ * - Markdown numbered list prefixes (`1. `, `2) `) at the start of a line
+ * - Fixed domain bucket/label ranges (`1-7`, `8-14`, `15-30`, `31-60`, `61-90`, `31_60`, `First 7 Days`, `week-1`)
+ */
+function scrubStructuralTokens(text: string): string {
+  return text
+    .replace(/\n*Source:\s*[^\n]+$/im, " ")
+    .replace(UUID_RE, " ")
+    .replace(ISO_DATE_RE, " ")
+    .replace(YEAR_MONTH_RE, " ")
+    .replace(TIME_RE, " ")
+    .replace(PHONE_RE, " ")
+    .replace(/\+?256\s*7[•*xX\d\s-]{6,14}\b/g, " ")
+    .replace(/\b[A-Z]{2,5}-[A-Z0-9-]+\b/g, " ")
+    .replace(/\b(?:A1|A5|A10|A19|A21|A22|L1|L9|X4|LC1|AAL1|AAL2|v\d+)\b/gi, " ")
+    .replace(/\b(?:1[-_]7|8[-_]14|15[-_]30|31[-_]60|61[-_]90|90_plus|30\+)\b/gi, " ")
+    .replace(/\bfirst\s+7\s+days\b/gi, " ")
+    .replace(/\b(?:week|wk)[-_\s]?\d+\b/gi, " ")
+    .replace(/\bdays?[-_\s]+-?\d+(?:\s+to\s+\d+)?\b/gi, " ")
+    .replace(/\b(?:24|48)[-_\s]?hours?\b/gi, " ")
+    .replace(/\b\d+[-_\s]?(?:mins?|minutes?)\b/gi, " ")
+    .replace(/\boption\s+[123a-c]\b/gi, " ")
+    .replace(/^\s*\d+[.)]\s+/gm, " ");
+}
+
+function matchesShorthand(base: number, unit: string, pool: AllowedNumbersPool): boolean {
+  const mult = unit === "b" ? 1e9 : unit === "m" ? 1e6 : 1e3;
+  const expanded = base * mult;
+  if (
+    pool.exactNumbers.has(expanded) ||
+    pool.exactNumbers.has(Math.round(expanded)) ||
+    pool.exactNumbers.has(base)
+  ) {
+    return true;
+  }
+  // Check if any tool figure rounds to `base` in that unit (e.g. 1,234,567 -> "1.2M" or "1.23M")
+  for (const actual of pool.rawFloats) {
+    if (actual <= 0) continue;
+    const scaled = actual / mult;
+    if (
+      Math.abs(scaled - base) <= 0.051 ||
+      Number(scaled.toFixed(1)) === Number(base.toFixed(1)) ||
+      Number(scaled.toFixed(2)) === Number(base.toFixed(2)) ||
+      Math.round(scaled) === base
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function matchesDecimalOrPercent(val: number, pool: AllowedNumbersPool): boolean {
+  if (
+    pool.exactNumbers.has(val) ||
+    pool.exactNumbers.has(Number(val.toFixed(1))) ||
+    pool.exactNumbers.has(Number(val.toFixed(2)))
+  ) {
+    return true;
+  }
+  for (const actual of pool.rawFloats) {
+    if (
+      Math.abs(actual - val) <= 0.051 ||
+      Number(actual.toFixed(1)) === Number(val.toFixed(1)) ||
+      Number(actual.toFixed(2)) === Number(val.toFixed(2))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export type GuardResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "terminology" | "prompt_leak" | "uuid" | "phone" | "date" | "figure";
+    };
+
+/**
+ * Verify that `answer`:
+ *  1. uses mandatory Welile regulatory terminology (no "loan", "lender", "ROI", "interest");
+ *  2. leaks no system prompt or secret marker;
+ *  3. leaks no UUID that wasn't in a tool output;
+ *  4. includes no unmasked phone number unless that exact phone was in a tool output;
+ *  5. invents no ISO date (`YYYY-MM-DD`) that wasn't in a tool output or the user's message;
+ *  6. invents no number — checking every count (including < 1,000), percentage, decimal, and
+ *     "1.2M"/"850K"/"1.48B"-style shorthand figure against tool outputs and the user's message.
+ */
+export function checkAnswer(
+  answer: string,
+  toolOutputs: string[],
+  userMessage: string,
+): GuardResult {
+  if (BANNED_TERMS.test(answer)) return { ok: false, reason: "terminology" };
+  if (containsPromptOrSecretLeak(answer)) return { ok: false, reason: "prompt_leak" };
+
+  const joinedTools = toolOutputs.join("\n").toLowerCase();
+
+  for (const m of answer.matchAll(UUID_RE)) {
+    if (!joinedTools.includes(m[0].toLowerCase())) return { ok: false, reason: "uuid" };
+  }
+
+  const allowedPhones = phonesIn(joinedTools);
+  for (const p of phonesIn(answer)) {
+    if (!allowedPhones.has(p)) return { ok: false, reason: "phone" };
+  }
+
+  // Strip the trailing Source · Period line before checking dates/numbers in the body
+  const bodyWithoutSourceFooter = answer.replace(/\n*Source:\s*[^\n]+$/im, " ");
+
+  const allowedDates = isoDatesIn(joinedTools);
+  for (const d of isoDatesIn(userMessage)) allowedDates.add(d);
+  for (const d of isoDatesIn(bodyWithoutSourceFooter)) {
+    if (!allowedDates.has(d)) return { ok: false, reason: "date" };
+  }
+
+  const pool = buildAllowedNumbersPool(toolOutputs, userMessage);
+  let scrubbed = scrubStructuralTokens(bodyWithoutSourceFooter);
+
+  // 1. Check compact shorthand figures ("1.2M", "850K", "1.48B")
+  for (const m of scrubbed.matchAll(SHORTHAND_RE)) {
+    const base = Number(m[1].replace(/,/g, ""));
+    const unit = m[2].toLowerCase();
+    if (!Number.isFinite(base) || !matchesShorthand(base, unit, pool)) {
+      return { ok: false, reason: "figure" };
+    }
+  }
+  scrubbed = scrubbed.replace(SHORTHAND_RE, " ");
+
+  // 2. Check percentages ("84.5%", "15%")
+  for (const m of scrubbed.matchAll(PERCENT_RE)) {
+    const pct = Number(m[1]);
+    if (!Number.isFinite(pct) || !matchesDecimalOrPercent(pct, pool)) {
+      return { ok: false, reason: "figure" };
+    }
+  }
+  scrubbed = scrubbed.replace(PERCENT_RE, " ");
+
+  // 3. Check decimal figures ("12.5", "1,234.56")
+  for (const m of scrubbed.matchAll(DECIMAL_RE)) {
+    const dec = Number(m[0].replace(/,/g, ""));
+    if (!Number.isFinite(dec) || !matchesDecimalOrPercent(dec, pool)) {
+      return { ok: false, reason: "figure" };
+    }
+  }
+  scrubbed = scrubbed.replace(DECIMAL_RE, " ");
+
+  // 4. Check all integers and counts (including < 1000)
+  for (const m of scrubbed.matchAll(INTEGER_RE)) {
+    const n = Number(m[0].replace(/,/g, ""));
+    if (!Number.isFinite(n)) continue;
+    // Allow calendar years 2020..2035 when mentioned alongside month names (e.g. "October 2026")
+    if (n >= 2020 && n <= 2035 && allowedDates.size > 0) {
+      const yearStr = String(n);
+      if ([...allowedDates].some((d) => d.startsWith(yearStr))) continue;
+    }
+    if (!pool.exactNumbers.has(n) && !pool.exactNumbers.has(Math.round(n))) {
+      return { ok: false, reason: "figure" };
+    }
+  }
+
+  return { ok: true };
+}
+
+export const UNVERIFIED_PARAGRAPH_REPLACEMENT = "I could not verify that figure";
+
+/**
+ * Deliverable (2): Runs `checkAnswer` on a single finished paragraph (`\n\n`).
+ * If the paragraph fails the figure check, replaces that paragraph with
+ * `"I could not verify that figure"` and returns the failure reason for logging.
+ */
+export function checkStreamedParagraph(
+  paragraph: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  ok: boolean;
+  paragraph: string;
+  reason?: GuardResult extends { ok: false; reason: infer R } ? R : string;
+} {
+  const trimmed = (paragraph ?? "").trim();
+  if (!trimmed) {
+    return { ok: true, paragraph };
+  }
+  // Trailing citation line ("Source: ... · Period: ...") is structural metadata
+  if (/^Source:\s*[^\n]+$/i.test(trimmed)) {
+    return { ok: true, paragraph };
+  }
+  const check = checkAnswer(paragraph, toolOutputs, userMessage);
+  if (check.ok) {
+    return { ok: true, paragraph };
+  }
+  return {
+    ok: false,
+    paragraph: UNVERIFIED_PARAGRAPH_REPLACEMENT,
+    reason: (check as Extract<GuardResult, { ok: false }>).reason,
+  };
+}
+
+/**
+ * Verifies every finished paragraph separated by `\n\n` in `fullText`.
+ * Replaces any paragraph that fails `checkAnswer` with `"I could not verify that figure"`.
+ */
+export function verifyAndSanitizeStreamedParagraphs(
+  fullText: string,
+  toolOutputs: string[],
+  userMessage: string,
+): {
+  sanitizedText: string;
+  replacedIndices: number[];
+  reasons: string[];
+} {
+  const paragraphs = (fullText ?? "").split(/\n\n+/);
+  const outParagraphs: string[] = [];
+  const replacedIndices: number[] = [];
+  const reasons: string[] = [];
+
+  for (let i = 0; i < paragraphs.length; i++) {
+    const res = checkStreamedParagraph(paragraphs[i], toolOutputs, userMessage);
+    outParagraphs.push(res.paragraph);
+    if (!res.ok) {
+      replacedIndices.push(i);
+      if (res.reason) reasons.push(res.reason);
+    }
+  }
+
+  return {
+    sanitizedText: outParagraphs.join("\n\n"),
+    replacedIndices,
+    reasons,
+  };
+}
+
+/**
+ * Run the exact same terminology, leak, UUID, phone, date, and number checks
+ * on AI-written draft card text (`subject`, `message`, `title`, `note`, `custom_message`).
+ */
+export function checkDraftCardText(
+  fields: ReadonlyArray<string | null | undefined>,
+  toolOutputs: string[],
+  userMessage: string,
+): GuardResult {
+  for (const field of fields) {
+    if (!field || !field.trim()) continue;
+    const res = checkAnswer(field, toolOutputs, userMessage);
+    if (!res.ok) return res;
+  }
+  return { ok: true };
+}
+
+export type ZoeNoteValidationResult =
+  | { ok: true; cleaned: string }
+  | {
+      ok: false;
+      reason:
+        | "empty"
+        | "too_long"
+        | "business_figure"
+        | "pii_phone"
+        | "pii_email"
+        | "pii_uuid"
+        | "pii_nin"
+        | "pii_other_person"
+        | "terminology";
+    };
+
+const EMAIL_IN_NOTE_RE = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
+const UG_NIN_RE = /\bC[MF][A-Z0-9]{12}\b/i;
+const STAFF_OR_RECORD_ID_IN_NOTE_RE = /\b(?:WEL-[A-Z0-9-]+|TSK-\d+|TCK-\d+|REQ-\d{4}-\d+|staff\s+id|national\s+id|nin\s*:)\b/i;
+const OTHER_PERSON_DETAIL_IN_NOTE_RE =
+  /\b(?:tenant|landlord|supporter|colleague|agent|customer|client|manager|caller)\s+[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?\b/;
+const GENERIC_PHONE_IN_NOTE_RE = /(?:\+?\d[\d\s()-]{7,15}\d)/;
+const UGX_AMOUNT_IN_NOTE_RE = /\b(?:UGX|USh|shillings?)\s*\d|\b\d[\d,]*\s*(?:UGX|USh|shillings?)\b/i;
+
+/**
+ * Deterministic validator for per-person `staff_assistant_notes` ("Zoe notes").
+ * Enforces Prompt 2 item (5) & Prompt 4 item (3):
+ *   - Up to 240 characters per note
+ *   - Never contains business figures (UGX amounts, percentages, shorthand 1.2M/500k, or numbers >= 100)
+ *   - Never contains personal data or IDs (phone numbers, email addresses, UUIDs, NINs, staff/record IDs)
+ *   - Never contains details about other people (named tenants, landlords, Supporters, colleagues, agents)
+ *   - Never contains banned regulatory terms (loan, lender, ROI, interest)
+ */
+export function validateZoeNoteText(rawNote: string): ZoeNoteValidationResult {
+  // deno-lint-ignore no-control-regex
+  const cleaned = (rawNote ?? "").replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length < 2) {
+    return { ok: false, reason: "empty" };
+  }
+  if (cleaned.length > 240) {
+    return { ok: false, reason: "too_long" };
+  }
+  if (BANNED_TERMS.test(cleaned) || containsPromptOrSecretLeak(cleaned)) {
+    return { ok: false, reason: "terminology" };
+  }
+  UUID_RE.lastIndex = 0;
+  if (UUID_RE.test(cleaned) || STAFF_OR_RECORD_ID_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_uuid" };
+  }
+  if (EMAIL_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_email" };
+  }
+  if (UG_NIN_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_nin" };
+  }
+  PHONE_RE.lastIndex = 0;
+  if (PHONE_RE.test(cleaned) || GENERIC_PHONE_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_phone" };
+  }
+  if (OTHER_PERSON_DETAIL_IN_NOTE_RE.test(cleaned)) {
+    return { ok: false, reason: "pii_other_person" };
+  }
+  SHORTHAND_RE.lastIndex = 0;
+  PERCENT_RE.lastIndex = 0;
+  if (
+    UGX_AMOUNT_IN_NOTE_RE.test(cleaned) ||
+    SHORTHAND_RE.test(cleaned) ||
+    PERCENT_RE.test(cleaned)
+  ) {
+    return { ok: false, reason: "business_figure" };
+  }
+
+  // Strip HH:MM clock times (e.g. "07:30") before checking for numbers >= 100
+  const withoutClock = cleaned.replace(/\b(?:[01]?\d|2[0-3]):[0-5]\d\b/g, " ");
+  INTEGER_RE.lastIndex = 0;
+  for (const m of withoutClock.matchAll(INTEGER_RE)) {
+    const n = Number(m[0].replace(/,/g, ""));
+    if (Number.isFinite(n) && Math.abs(n) >= 100) {
+      return { ok: false, reason: "business_figure" };
+    }
+  }
+
+  return { ok: true, cleaned };
+}
+
+/**
+ * Clara-style `REFUSE: <sentence>` prefix pattern for Zoe (`supabase/functions/agent-assistant/index.ts`),
+ * extended with Zoe's three internal outcome categories (`role_restricted`, `out_of_scope`, `unmatched`)
+ * so the model writes its own short, specific, kind refusal sentence in the same turn while the server
+ * records the exact internal `outcome` and `unansweredReason` values for the dashboard and review queue.
+ */
+export type ZoeRefusalKind = "role_restricted" | "out_of_scope" | "unmatched";
+
+export interface ParsedModelRefusal {
+  kind: ZoeRefusalKind;
+  sentence: string;
+  isBareCodeWord: boolean;
+}
+
+export const REFUSE_PREFIX_RE =
+  /^(?:REFUSE(?:_(?:ROLE_RESTRICTED|OUT_OF_SCOPE|UNMATCHED))?)\b[:\s-]*/i;
+
+const ROLE_RESTRICTED_PREFIX_RE = /^REFUSE_ROLE_RESTRICTED\b[:\s-]*/i;
+const OUT_OF_SCOPE_PREFIX_RE = /^REFUSE_OUT_OF_SCOPE\b[:\s-]*/i;
+const UNMATCHED_PREFIX_RE = /^REFUSE_UNMATCHED\b[:\s-]*/i;
+const GENERIC_REFUSE_PREFIX_RE = /^REFUSE\b[:\s-]*/i;
+
+const BARE_ROLE_RESTRICTED_RE = /^ROLE_RESTRICTED\b[:\s-]*/i;
+const BARE_OUT_OF_SCOPE_RE = /^OUT_OF_SCOPE\b[:\s-]*/i;
+const BARE_UNMATCHED_RE = /^UNMATCHED\b[:\s-]*/i;
+
+function inferRefusalKindFromText(sentence: string, userMessage: string): ZoeRefusalKind {
+  const combined = `${sentence} ${userMessage}`.toLowerCase();
+  if (
+    /\b(don't have that on file|do not have that on file|no live report|couldn't find a live|could not find a live|won't guess|will not guess|not tracked in|no tool for)\b/i.test(
+      sentence,
+    )
+  ) {
+    return "unmatched";
+  }
+  if (
+    /\b(role|department|only available to|permission|not in your workspace|cfo|treasury|payroll|payslip|hr|coo|ceo|partner ops|agent ops|tenant ops|landlord ops)\b/i.test(
+      combined,
+    ) &&
+    !/\b(approve|reject|disburse|delete|modify|edit|update|transfer|book|recipe|football|weather|joke)\b/i.test(
+      userMessage,
+    )
+  ) {
+    return "role_restricted";
+  }
+  return "out_of_scope";
+}
+
+export function parseModelRefusal(
+  rawText: string,
+  userMessage = "",
+): ParsedModelRefusal | null {
+  const trimmed = (rawText ?? "").trim();
+  if (!trimmed) return null;
+
+  if (ROLE_RESTRICTED_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "role_restricted",
+      sentence: trimmed.replace(ROLE_RESTRICTED_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (OUT_OF_SCOPE_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "out_of_scope",
+      sentence: trimmed.replace(OUT_OF_SCOPE_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (UNMATCHED_PREFIX_RE.test(trimmed)) {
+    return {
+      kind: "unmatched",
+      sentence: trimmed.replace(UNMATCHED_PREFIX_RE, "").trim(),
+      isBareCodeWord: false,
+    };
+  }
+  if (GENERIC_REFUSE_PREFIX_RE.test(trimmed)) {
+    const sentence = trimmed.replace(GENERIC_REFUSE_PREFIX_RE, "").trim();
+    return {
+      kind: inferRefusalKindFromText(sentence, userMessage),
+      sentence,
+      isBareCodeWord: false,
+    };
+  }
+  if (BARE_ROLE_RESTRICTED_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_ROLE_RESTRICTED_RE, "").trim();
+    return {
+      kind: "role_restricted",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+  if (BARE_OUT_OF_SCOPE_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_OUT_OF_SCOPE_RE, "").trim();
+    return {
+      kind: "out_of_scope",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+  if (BARE_UNMATCHED_RE.test(trimmed)) {
+    const sentence = trimmed.replace(BARE_UNMATCHED_RE, "").trim();
+    return {
+      kind: "unmatched",
+      sentence,
+      isBareCodeWord: sentence.length === 0,
+    };
+  }
+
+  return null;
+}
+
+

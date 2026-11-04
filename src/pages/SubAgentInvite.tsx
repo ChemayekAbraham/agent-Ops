@@ -151,10 +151,10 @@ export default function SubAgentInvite() {
     },
     {
       icon: TrendingUp,
-      title: 'Investment commission',
+      title: 'Support commission',
       rate: '2%',
-      example: 'UGX 2,000 on UGX 100,000 invested',
-      note: 'On every supporter investment you bring',
+      example: 'UGX 2,000 on UGX 100,000 in support',
+      note: 'On every supporter you bring',
     },
     {
       icon: Users,

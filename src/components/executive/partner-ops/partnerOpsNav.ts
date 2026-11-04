@@ -25,6 +25,7 @@ import {
   IdCard,
   PieChart,
   FileSignature,
+  Undo2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -38,6 +39,7 @@ export type PartnerOpsViewKey =
   | 'portfolios.renewed'
   | 'portfolios.maturity'
   | 'portfolios.topups'
+  | 'portfolios.compound'
   | 'financial.payouts'
   | 'financial.topups'
   | 'financial.withdrawals'
@@ -139,6 +141,12 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
         label: 'Redemption & Renewal',
         icon: CalendarClock,
         keywords: ['redemption', 'redeem', 'renewal', 'maturity', 'requests', 'vet', 'queue'],
+      },
+      {
+        key: 'portfolios.compound',
+        label: 'Compound Request',
+        icon: Undo2,
+        keywords: ['compound', 'reinvest', 'reverse', 'returns', 'nearing payout', 'cash'],
       },
     ],
   },

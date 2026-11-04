@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
             amount: Number(note.amount),
             direction: 'cash_in',
             category: 'partner_funding',
-            description: `Investment from promissory note: ${note.partner_name}`,
+            description: `Support from promissory note: ${note.partner_name}`,
             ledger_scope: 'platform',
             source_table: 'promissory_notes',
             source_id: note.id,

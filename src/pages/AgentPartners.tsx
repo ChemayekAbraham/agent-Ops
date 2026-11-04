@@ -240,7 +240,7 @@ export default function AgentPartners() {
     } catch {
       // fall back to long link
     }
-    const message = `🤝 Join me on Welile as a partner investor!\n\nEarn monthly returns on your investment.\n\n${url}`;
+    const message = `🤝 Join me on Welile as a partner supporter!\n\nEarn monthly returns on your support.\n\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -248,7 +248,7 @@ export default function AgentPartners() {
     { icon: Share2, label: 'Share Form', color: 'text-emerald-500', bg: 'bg-emerald-500/10', onClick: handleSharePartnerForm },
     { icon: FileText, label: 'Promissory', color: 'text-purple-500', bg: 'bg-purple-500/10', onClick: () => setPromissoryNoteOpen(true) },
     { icon: Heart, label: 'Invite', color: 'text-primary', bg: 'bg-primary/10', onClick: handleInviteFunder },
-    { icon: HandCoins, label: 'Invest', color: 'text-emerald-600', bg: 'bg-emerald-600/10', onClick: () => setInvestForPartnerOpen(true) },
+    { icon: HandCoins, label: 'Support', color: 'text-emerald-600', bg: 'bg-emerald-600/10', onClick: () => setInvestForPartnerOpen(true) },
     { icon: PiggyBank, label: 'Angel Pool', color: 'text-amber-500', bg: 'bg-amber-500/10', onClick: () => setAngelPoolOpen(true) },
     { icon: Briefcase, label: 'Notes', color: 'text-indigo-500', bg: 'bg-indigo-500/10', onClick: () => setPromissoryListOpen(true) },
   ];
@@ -482,7 +482,7 @@ export default function AgentPartners() {
                             onClick={async () => {
                               hapticTap();
                               const url = `${window.location.origin}/become-supporter?ref=${user?.id}`;
-                              const message = `🤝 Hi ${partner.name}, you've been invited to join Welile as a partner investor!\n\nActivate your account here:\n${url}`;
+                              const message = `🤝 Hi ${partner.name}, you've been invited to join Welile as a partner supporter!\n\nActivate your account here:\n${url}`;
                               if (navigator.share) {
                                 try {
                                   await navigator.share({ title: 'Partner Activation', text: message, url });

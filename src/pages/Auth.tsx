@@ -28,7 +28,7 @@ import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { postSignInPath, safeInternalPath, takeReturnPath } from '@/lib/returnPath';
+import { clearPostAuthRedirect, postSignInPath, safeInternalPath, takeReturnPath } from '@/lib/returnPath';
 import { supabase } from '@/integrations/supabase/client';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
@@ -149,7 +149,7 @@ export default function Auth() {
   const stageText = loginStageLabel[loginStage] ?? 'Signing in…';
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
+  const { user, session, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
   const [resetMethod, setResetMethod] = useState<"sms" | "email">("sms");
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
 
@@ -201,6 +201,7 @@ export default function Auth() {
       // An explicit ?redirect= (in-app paths only) wins.
       const redirectParam = safeInternalPath(searchParams.get('redirect'));
       if (redirectParam) {
+        clearPostAuthRedirect(); // an OAuth stash of the same link is no longer needed
         navigate(postSignInPath(user.id, redirectParam), { replace: true });
         return;
       }
@@ -471,6 +472,11 @@ export default function Auth() {
       >
 
         <div className="screen-top-header">
+          {/* Only signed-in users get the assistant launcher here; a visitor
+              with no session never sees it and never opens the chat. */}
+          {session && (
+            <Button variant="outline" className="order-last ml-auto rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button>
+          )}
           <button
             type="button"
             className="btn-circle-nav"
@@ -989,7 +995,7 @@ export default function Auth() {
                     {resetStep === 'phone' ? (<><Key className="h-4 w-4 text-primary" /> Reset Your Password</>) : resetStep === 'otp' ? (<><Smartphone className="h-4 w-4 text-primary" /> Enter SMS Code</>) : (<><Lock className="h-4 w-4 text-primary" /> Create New Password</>)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
+                    {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `If an account exists for ${resetPhone || 'that number'}, a 6-digit code is on its way.` : 'Choose a strong password you\'ll remember'}
                   </p>
                 </div>
 
@@ -1079,7 +1085,7 @@ export default function Auth() {
                   className="w-full text-sm text-muted-foreground hover:text-primary text-center flex items-center justify-center gap-1 py-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  {resetStep !== 'phone' ? 'Go Back' : 'Back to Sign In'}
+                  {resetStep === 'otp' ? 'Wrong number? Go back' : resetStep !== 'phone' ? 'Go Back' : 'Back to Sign In'}
                 </button>
               </div>
             )}

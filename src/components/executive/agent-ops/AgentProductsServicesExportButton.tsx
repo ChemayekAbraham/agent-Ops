@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { toast } from 'sonner';
 import { FileText, Loader2, CalendarIcon, ChevronDown } from 'lucide-react';
@@ -73,62 +73,54 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
   const rangeDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
   const isRange = mode === 'range' || rangeDays > 1;
 
-  const reportQuery = useQuery({
-    queryKey: ['agent-products-services-report', dayKey, endDateKey],
-    queryFn: async (): Promise<ApsReport> => {
-      const { data, error } = await supabase.rpc('get_agent_products_services_report' as any, {
-        p_date: endDateKey,
-        p_from: dayKey,
-      });
+  const queryClient = useQueryClient();
+
+  const prevFrom = useMemo(() => subDays(startDate, rangeDays), [startDate, rangeDays]);
+  const prevTo = useMemo(() => subDays(startDate, 1), [startDate]);
+  const prevFromKey = toDateKey(prevFrom);
+  const prevToKey = toDateKey(prevTo);
+
+  // The report RPCs are heavy (get_agent_products_services_report takes 15-20s), so they run
+  // only when the user exports, not on page load. Cached for 5 minutes per period.
+  const fetchCached = <T,>(queryKey: unknown[], queryFn: () => Promise<T>) =>
+    queryClient.fetchQuery({ queryKey, queryFn, staleTime: 5 * 60_000 });
+
+  const fetchReport = (from: string, to: string, key: string) =>
+    fetchCached([key, from, to], async (): Promise<ApsReport> => {
+      const { data, error } = await supabase.rpc('get_agent_products_services_report' as any, { p_date: to, p_from: from });
       if (error) throw error;
       return data as unknown as ApsReport;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+    });
 
-  const rawReport = reportQuery.data;
-
-  /** Fetch canonical schedule expectations from command center RPC (which derives from v_rent_plan_schedule). */
-  const commandCenterQuery = useQuery({
-    queryKey: ['agent-collections-command-center-aps', startOfDay(startDate).toISOString(), endOfDay(endDate).toISOString()],
-    queryFn: async () => {
+  /** Canonical schedule expectations from the command center RPC (derived from v_rent_plan_schedule). */
+  const fetchCommandCenter = (from: Date, to: Date, key: string) =>
+    fetchCached([key, startOfDay(from).toISOString(), endOfDay(to).toISOString()], async () => {
       const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
-        p_start: startOfDay(startDate).toISOString(),
-        p_end: endOfDay(endDate).toISOString(),
+        p_start: startOfDay(from).toISOString(),
+        p_end: endOfDay(to).toISOString(),
         p_bucket: 'day',
       });
       if (error) throw error;
       return data as any;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+    });
 
-  const commissionQuery = useQuery({
-    queryKey: ['agent-commission-earned', dayKey, endDateKey],
-    queryFn: async (): Promise<Record<string, number>> => {
-      const { data, error } = await supabase.rpc('get_agent_commission_earned' as any, {
-        p_from: dayKey,
-        p_to: endDateKey,
-      });
+  const fetchCommission = () =>
+    fetchCached(['agent-commission-earned', dayKey, endDateKey], async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase.rpc('get_agent_commission_earned' as any, { p_from: dayKey, p_to: endDateKey });
       if (error) throw error;
       const map: Record<string, number> = {};
       for (const row of (data as any[]) || []) map[row.agent_id] = Number(row.commission_earned) || 0;
       return map;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
+    });
 
-  const report = useMemo(() => {
-    if (!rawReport) return rawReport;
-    const map = commissionQuery.data;
-    const cc = commandCenterQuery.data;
+  const fetchCumulative = () =>
+    fetchCached(['agent-products-cumulative', endDateKey], async (): Promise<ApsCumulative> => {
+      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: endDateKey });
+      if (error) throw error;
+      return data as unknown as ApsCumulative;
+    });
 
+  const buildReport = (rawReport: ApsReport, map: Record<string, number>, cc: any): ApsReport => {
     let rent = rawReport.rent;
     let rent_rows = rawReport.rent_rows || [];
 
@@ -172,62 +164,10 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         commission_balance: Number(map?.[(r as any).agent_id] ?? 0),
       })),
     };
-  }, [rawReport, commissionQuery.data, commandCenterQuery.data, rangeDays]);
+  };
 
-  const cumulativeQuery = useQuery({
-    queryKey: ['agent-products-cumulative', endDateKey],
-    queryFn: async (): Promise<ApsCumulative> => {
-      const { data, error } = await supabase.rpc('get_agent_products_cumulative' as any, { p_date: endDateKey });
-      if (error) throw error;
-      return data as unknown as ApsCumulative;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
-
-  const cumulative = cumulativeQuery.data ?? null;
-
-  const prevFrom = useMemo(() => subDays(startDate, rangeDays), [startDate, rangeDays]);
-  const prevTo = useMemo(() => subDays(startDate, 1), [startDate]);
-  const prevFromKey = toDateKey(prevFrom);
-  const prevToKey = toDateKey(prevTo);
-
-  const prevQuery = useQuery({
-    queryKey: ['agent-products-services-report-prev', prevFromKey, prevToKey],
-    queryFn: async (): Promise<ApsReport> => {
-      const { data, error } = await supabase.rpc('get_agent_products_services_report' as any, {
-        p_date: prevToKey,
-        p_from: prevFromKey,
-      });
-      if (error) throw error;
-      return data as unknown as ApsReport;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
-
-  const prevCommandCenterQuery = useQuery({
-    queryKey: ['agent-collections-command-center-aps-prev', startOfDay(prevFrom).toISOString(), endOfDay(prevTo).toISOString()],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_agent_collections_command_center', {
-        p_start: startOfDay(prevFrom).toISOString(),
-        p_end: endOfDay(prevTo).toISOString(),
-        p_bucket: 'day',
-      });
-      if (error) throw error;
-      return data as any;
-    },
-    placeholderData: keepPreviousData,
-    staleTime: 5 * 60_000,
-    refetchOnWindowFocus: false,
-  });
-
-  const prevReport = useMemo(() => {
-    const rawPrev = prevQuery.data;
+  const buildPrevReport = (rawPrev: ApsReport | null, prevCc: any): ApsReport | null => {
     if (!rawPrev) return null;
-    const prevCc = prevCommandCenterQuery.data;
     if (!prevCc?.totals || Number(prevCc.totals.expected_due) === undefined) return rawPrev;
 
     const expectedDue = Number(prevCc.totals.expected_due) || 0;
@@ -243,17 +183,25 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         expected_days: rangeDays,
       },
     };
-  }, [prevQuery.data, prevCommandCenterQuery.data, rangeDays]);
+  };
 
-  const handlePdf = () => {
-    if (!report) return;
+  const handlePdf = async () => {
     setExporting(true);
     try {
+      const [rawReport, commission, cc, cumulative, rawPrev, prevCc] = await Promise.all([
+        fetchReport(dayKey, endDateKey, 'agent-products-services-report'),
+        fetchCommission().catch(() => ({} as Record<string, number>)),
+        fetchCommandCenter(startDate, endDate, 'agent-collections-command-center-aps').catch(() => null),
+        fetchCumulative().catch(() => null),
+        fetchReport(prevFromKey, prevToKey, 'agent-products-services-report-prev').catch(() => null),
+        fetchCommandCenter(prevFrom, prevTo, 'agent-collections-command-center-aps-prev').catch(() => null),
+      ]);
+      if (!rawReport) throw new Error('No report data for this period');
       const blob = generateAgentProductsServicesPdf({
-        report,
+        report: buildReport(rawReport, commission, cc),
         actor: actorName || 'Agent Ops user',
         cumulative,
-        prev: prevReport,
+        prev: buildPrevReport(rawPrev, prevCc),
       });
       downloadBlob(blob, isRange ? `agent-products-services-${dayKey}_to_${endDateKey}.pdf` : `agent-products-services-${dayKey}.pdf`);
       toast.success(isRange ? 'Cumulative report downloaded' : 'Daily report downloaded');
@@ -435,7 +383,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
           <Button
             size="sm"
             className="h-9 text-xs font-semibold flex-1 justify-center"
-            disabled={!report || exporting}
+            disabled={exporting}
             onClick={handlePdf}
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1.5" />}
@@ -470,7 +418,7 @@ export function AgentProductsServicesExportButton({ className }: { className?: s
         <Button
           size="sm"
           className="h-8 text-[11px]"
-          disabled={!report || exporting}
+          disabled={exporting}
           onClick={handlePdf}
         >
           {exporting ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 mr-1" />}

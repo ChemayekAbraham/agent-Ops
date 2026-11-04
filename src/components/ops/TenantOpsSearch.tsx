@@ -1,25 +1,24 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Search, ChevronRight } from 'lucide-react';
 
 export function TenantOpsSearch({ onOpenBehavior }: { onOpenBehavior: (tenantId: string) => void }) {
   const [q, setQ] = useState('');
-  const term = q.trim();
+  const term = useDebouncedValue(q.trim(), 300);
   const { data, isLoading } = useQuery({
-    enabled: term.length >= 2,
+    enabled: term.length >= PROFILE_TYPEAHEAD_MIN_CHARS,
     queryKey: ['ops-search', term],
     queryFn: async () => {
-      const like = `%${term}%`;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone, city, national_id')
-        .or(`full_name.ilike.${like},phone.ilike.${like},national_id.ilike.${like}`)
-        .limit(25);
-      if (error) throw error;
-      return data ?? [];
+      const { rows, error } = await searchProfilesTypeahead(term, {
+        limit: 25,
+        columns: 'id, full_name, phone, city, national_id',
+      });
+      if (error) throw new Error(error);
+      return rows;
     },
     staleTime: 30_000,
   });
@@ -37,8 +36,8 @@ export function TenantOpsSearch({ onOpenBehavior }: { onOpenBehavior: (tenantId:
         />
       </div>
 
-      {term.length < 2 ? (
-        <p className="text-sm text-muted-foreground">Type at least 2 characters to look up a tenant.</p>
+      {term.length < PROFILE_TYPEAHEAD_MIN_CHARS ? (
+        <p className="text-sm text-muted-foreground">Type at least 3 characters to look up a tenant.</p>
       ) : isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : !data || data.length === 0 ? (

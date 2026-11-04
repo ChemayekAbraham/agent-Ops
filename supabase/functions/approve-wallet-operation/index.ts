@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from '../_shared/cfoApprovalGate.ts';
+import { reserveReturnCycle, walletRecoveryAmount } from '../_shared/returnCycleGuard.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -208,56 +209,64 @@ Deno.serve(async (req) => {
           console.log(`[approve-wallet-op] Managed proxy ROI: crediting proxy agent ${ledgerUserId} for partner ${op.user_id} on op ${op.id}`);
         }
 
-        // ── ROI CYCLE IDEMPOTENCY GUARD ───────────────────────────────────
-        // A portfolio may only receive its ROI ONCE per payout cycle. The cycle
-        // is identified by the portfolio's current `next_roi_date` (which only
-        // advances after an ROI approval), so two accidental double-submissions
-        // — or a repeated execution — resolve to the SAME idempotency key and
-        // the second one is refused instead of crediting the wallet twice.
+        // ── RETURN CYCLE GUARD (migration 20261024140000_return_cycle_guard) ──
+        // One Return per portfolio per cycle, where the cycle is the calendar
+        // month of the scheduled Return date. The database reserved the cycle
+        // when this payout was requested; here we fetch that reservation (or
+        // create it for a request queued before the guard) and post ONLY under
+        // the key it returns. The ledger refuses any portfolio Return credit
+        // without a valid reservation key, and a correction_key no longer
+        // bypasses anything (it needs a CFO-authorised override). Anything
+        // unexpected fails closed: nothing is posted, the request stays put.
         let roiCycleKey: string | null = null;
+        let advanceNextRoiDate = true;
+        if (isRoiWalletPayout && !(op.source_table === 'investor_portfolios' && op.source_id)) {
+          // A Partner Return (roi_payout or supporter_platform_rewards) that names no portfolio cannot be checked
+          // against its cycle: never pay it. Rent-facilitation rewards are credited by process-supporter-roi, not here.
+          failedResults.push({
+            id: op.id,
+            error: 'This Return request names no portfolio, so its cycle cannot be checked. Nothing was paid; request it from the Partners page.',
+          });
+          continue;
+        }
         if (isRoiWalletPayout && op.source_table === 'investor_portfolios' && op.source_id) {
-          const { data: cyclePf } = await adminClient
-            .from('investor_portfolios')
-            .select('next_roi_date')
-            .eq('id', op.source_id)
-            .maybeSingle();
-          const cycleAnchor = (op.metadata?.cycle_anchor as string | null)
-            || (cyclePf?.next_roi_date as string | null)
-            || new Date().toISOString().slice(0, 10);
-          const correctionKey = typeof op.metadata?.correction_key === 'string'
-            ? op.metadata.correction_key.trim()
-            : '';
-          roiCycleKey = correctionKey
-            ? `roi-cycle-correction-${correctionKey}`
-            : `roi-cycle-${op.source_id}-${cycleAnchor}`;
-
-          const { data: alreadyCredited } = await adminClient
-            .from('general_ledger')
-            .select('id')
-            .eq('idempotency_key', roiCycleKey)
-            .limit(1);
-
-          if (alreadyCredited && alreadyCredited.length > 0) {
-            console.warn(`[approve-wallet-op] DUPLICATE ROI blocked for portfolio ${op.source_id} cycle ${cycleAnchor} (op ${op.id})`);
-            await adminClient
-              .from('pending_wallet_operations')
-              .update({
-                status: 'rejected',
-                metadata: {
-                  ...(op.metadata || {}),
-                  duplicate_roi_blocked: true,
-                  duplicate_cycle: cycleAnchor,
-                  duplicate_idempotency_key: roiCycleKey,
-                  rejected_reason: 'Portfolio already received its ROI for this payout cycle',
-                  rejected_at: new Date().toISOString(),
-                },
-              })
-              .eq('id', op.id);
+          const decision = await reserveReturnCycle(adminClient, op.id);
+          if (decision.action === 'fail_closed') {
+            console.error(`[approve-wallet-op] Return cycle check failed closed for op ${op.id}: ${decision.message}`);
+            failedResults.push({ id: op.id, error: `${decision.message}. Nothing was paid; try again later.` });
+            continue;
+          }
+          if (decision.action === 'blocked') {
+            console.warn(`[approve-wallet-op] Return blocked for portfolio ${op.source_id} (op ${op.id}): ${decision.message}`);
+            if (decision.duplicate) {
+              await adminClient
+                .from('pending_wallet_operations')
+                .update({
+                  status: 'rejected',
+                  metadata: {
+                    ...(op.metadata || {}),
+                    duplicate_roi_blocked: true,
+                    duplicate_return_reason: decision.message,
+                    rejected_reason: 'Portfolio already received its Return for this cycle',
+                    rejected_at: new Date().toISOString(),
+                  },
+                })
+                .eq('id', op.id);
+            }
+            failedResults.push({ id: op.id, error: decision.message });
+            continue;
+          }
+          if (decision.action === 'already_posted') {
+            console.warn(`[approve-wallet-op] Return already posted for op ${op.id} (key ${decision.ledgerKey}); not paying again`);
             failedResults.push({
               id: op.id,
-              error: `Duplicate ROI payout blocked — this portfolio was already credited for its ${cycleAnchor} cycle.`,
+              error: 'This Return is already in the ledger for this cycle. Nothing was paid again; check the request status.',
             });
             continue;
+          }
+          if (decision.action === 'post') {
+            roiCycleKey = decision.ledgerKey;
+            advanceNextRoiDate = decision.reservation.advance_next_roi_date !== false;
           }
         }
 
@@ -294,8 +303,10 @@ Deno.serve(async (req) => {
 
         // Snapshot the recipient wallet BEFORE the ledger insert so we can
         // verify the credit actually landed in a bucket after the trigger fires.
+        // A portfolio Return takes no snapshot: post_return_payout requires its wallet leg to name the Withdrawable
+        // bucket, so the ledger itself guarantees where it lands, and no snapshot-based "recovery" runs for it.
         let walletBefore: { withdrawable_balance: number; float_balance: number; advance_balance: number; balance: number } | null = null;
-        if (scopeForCategory === 'wallet') {
+        if (scopeForCategory === 'wallet' && !roiCycleKey) {
           const { data: walletSnap } = await adminClient
             .from('wallets')
             .select('withdrawable_balance, float_balance, advance_balance, balance')
@@ -305,9 +316,7 @@ Deno.serve(async (req) => {
         }
 
         // Insert into general_ledger via RPC
-        const ledgerPostStart = Date.now();
-        const { data: rpcTxGroupId, error: ledgerErr } = await adminClient.rpc('create_ledger_transaction', {
-          entries: [
+        const ledgerEntries = [
             {
               user_id: ledgerUserId,
               amount: op.amount,
@@ -352,50 +361,43 @@ Deno.serve(async (req) => {
               currency: 'UGX',
               transaction_date: new Date().toISOString(),
             },
-          ],
-          idempotency_key: roiCycleKey ?? undefined,
-        });
+          ];
+
+        // A portfolio Return is posted by ONE database call that, in one transaction and under a lock on this
+        // request: refuses a request that is no longer awaiting approval, checks the cycle's cap, posts the ledger
+        // entries under the reservation key, marks the request approved and moves next_roi_date. It reports whether
+        // THIS call posted. A second approval of the same request (double click, overlapping batch) waits, then
+        // gets inserted=false and stops here — before wallet recovery, advance recovery or any other money step.
+        let ledgerErr: { message?: string } | null = null;
+        if (roiCycleKey) {
+          const { data: posted, error: postErr } = await adminClient.rpc('post_return_payout', {
+            p_operation_id: op.id,
+            p_entries: ledgerEntries,
+            p_ledger_key: roiCycleKey,
+            p_amount: op.amount,
+            p_reviewed_by: userId,
+            p_payment_method: payment_method || null,
+            p_payment_reference: payment_reference || null,
+          });
+          ledgerErr = postErr;
+          if (!postErr && (posted as { inserted?: boolean } | null)?.inserted !== true) {
+            console.warn(`[approve-wallet-op] Return for op ${op.id} not posted by this call: ${JSON.stringify(posted)}`);
+            failedResults.push({
+              id: op.id,
+              error: 'This Return was already paid or is no longer awaiting approval. Nothing was paid again.',
+            });
+            continue;
+          }
+          // The database call already moved next_roi_date when it should.
+          advanceNextRoiDate = false;
+        } else {
+          ({ error: ledgerErr } = await adminClient.rpc('create_ledger_transaction', { entries: ledgerEntries }));
+        }
 
         if (ledgerErr) {
           console.error(`[approve-wallet-op] Ledger insert failed for ${op.id}:`, ledgerErr);
           failedResults.push({ id: op.id, error: ledgerErr.message || 'Ledger insert failed' });
           continue;
-        }
-
-        // RACE-SAFE ROI IDEMPOTENCY: create_ledger_transaction returns the
-        // pre-existing group (posting NOTHING) when the cycle key was already
-        // used. If that row predates this invocation, a concurrent/earlier
-        // approval already credited this cycle — bail out BEFORE the wallet
-        // delta-recovery below, which would otherwise re-credit the wallet.
-        if (roiCycleKey) {
-          const { data: keyRows } = await adminClient
-            .from('general_ledger')
-            .select('created_at')
-            .eq('idempotency_key', roiCycleKey)
-            .order('created_at', { ascending: true })
-            .limit(1);
-          const firstAt = keyRows?.[0]?.created_at ? new Date(keyRows[0].created_at).getTime() : null;
-          if (firstAt !== null && firstAt < ledgerPostStart - 1500) {
-            console.warn(`[approve-wallet-op] DUPLICATE ROI blocked (idempotent hit) for op ${op.id} key ${roiCycleKey}`);
-            await adminClient
-              .from('pending_wallet_operations')
-              .update({
-                status: 'rejected',
-                metadata: {
-                  ...(op.metadata || {}),
-                  duplicate_roi_blocked: true,
-                  duplicate_idempotency_key: roiCycleKey,
-                  rejected_reason: 'Portfolio already received its ROI for this payout cycle (concurrent)',
-                  rejected_at: new Date().toISOString(),
-                },
-              })
-              .eq('id', op.id);
-            failedResults.push({
-              id: op.id,
-              error: 'Duplicate ROI payout blocked — this portfolio was already credited for this payout cycle.',
-            });
-            continue;
-          }
         }
 
         // HARD-FAIL SAFETY: For wallet-scope credits, verify the bucket actually
@@ -413,7 +415,8 @@ Deno.serve(async (req) => {
           const afterTotal = (walletAfter?.withdrawable_balance || 0) + (walletAfter?.float_balance || 0) + (walletAfter?.advance_balance || 0);
           const delta = afterTotal - beforeTotal;
           // Allow a small tolerance for concurrent operations on busy wallets.
-          if (delta < op.amount - 1) {
+          const recoverAmount = walletRecoveryAmount({ portfolioReturn: !!roiCycleKey, delta, amount: op.amount });
+          if (recoverAmount > 0) {
             console.error(`[approve-wallet-op] WALLET ROUTING FAILURE for op ${op.id}: ledger credited ${op.amount} but wallet only moved by ${delta}. Forcing recovery via apply_wallet_movement.`);
             // Recover via the sole authorized writer
             const { error: recoveryErr } = await adminClient.rpc('apply_wallet_movement', {
@@ -421,7 +424,7 @@ Deno.serve(async (req) => {
               p_category: op.category === 'supporter_platform_rewards' || op.category === 'roi_payout' ? 'roi_wallet_credit'
                 : op.category === 'agent_commission_payout' ? 'agent_commission_earned'
                 : op.category,
-              p_amount: op.amount - delta,
+              p_amount: recoverAmount,
               p_direction: 'cash_in',
             });
             if (recoveryErr) {
@@ -454,7 +457,32 @@ Deno.serve(async (req) => {
           }
         }
 
-        if ((op.category === 'roi_payout' || op.category === 'supporter_platform_rewards') && op.source_table === 'investor_portfolios' && op.source_id) {
+        // ── SMARTPHONE REPAYMENT FROM RETURNS ──
+        // If Agent Ops set this partner to repay their Welile Smartphone from Returns, take the pledged part of
+        // this Returns payment and post it against the phone plan (outstanding, amount recovered, due balance).
+        // Partner Ops sees the same figure beforehand (get_partner_ops_returns_arrears). Only when the credit
+        // landed in the partner's own wallet: a managed-proxy or alternate-wallet credit is not theirs to deduct
+        // from. Idempotent per request, and capped at the Returns, the phone balance and the wallet.
+        if (op.category === 'roi_payout' && op.direction === 'cash_in' && op.source_table === 'investor_portfolios'
+            && ledgerUserId === op.user_id) {
+          try {
+            const { data: phone, error: phoneErr } = await adminClient.rpc('apply_smartphone_roi_pledge', {
+              p_user_id: op.user_id,
+              p_roi_amount: op.amount,
+              p_reference: `roi-op-${op.id}`,
+            });
+            if (phoneErr) {
+              console.error(`[approve-wallet-op] Smartphone repayment from Returns failed for op ${op.id}:`, phoneErr);
+            } else if ((phone as any)?.applied > 0) {
+              console.log(`[approve-wallet-op] Smartphone repayment of ${(phone as any).applied} taken from Returns for ${op.user_id}`);
+            }
+          } catch (phoneErr) {
+            console.error(`[approve-wallet-op] Smartphone repayment from Returns threw for op ${op.id}:`, phoneErr);
+          }
+        }
+
+        // A catch-up Return for an older cycle must not move the schedule past the current cycle.
+        if (advanceNextRoiDate && (op.category === 'roi_payout' || op.category === 'supporter_platform_rewards') && op.source_table === 'investor_portfolios' && op.source_id) {
           try {
             // Get current next_roi_date to advance from it (not from today)
             const { data: portfolio } = await adminClient
@@ -659,7 +687,7 @@ Deno.serve(async (req) => {
                     agent_id: portfolioData.agent_id,
                     amount: commissionAmount,
                     earning_type: "investment_commission",
-                    description: `2% investment commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
+                    description: `2% support commission on UGX ${op.amount.toLocaleString()} activation (${portfolioData.portfolio_code || ''})`,
                     source_user_id: portfolioInvestorId,
                     rent_request_id: null,
                   });
@@ -674,7 +702,7 @@ Deno.serve(async (req) => {
                         amount: commissionAmount,
                         category: 'agent_commission_earned',
                         ledger_scope: 'platform',
-                        description: `Platform pays 2% commission on investment activation ${portfolioData.portfolio_code || ''}`,
+                        description: `Platform pays 2% commission on portfolio activation ${portfolioData.portfolio_code || ''}`,
                         currency: 'UGX',
                         source_table: 'agent_earnings',
                         source_id: op.source_id,
@@ -686,7 +714,7 @@ Deno.serve(async (req) => {
                         direction: 'cash_in',
                         category: 'agent_commission_earned',
                         ledger_scope: 'wallet',
-                        description: `2% commission on investment activation ${portfolioData.portfolio_code || ''}`,
+                        description: `2% commission on portfolio activation ${portfolioData.portfolio_code || ''}`,
                         currency: 'UGX',
                         source_table: 'agent_earnings',
                         source_id: op.source_id,
@@ -716,7 +744,7 @@ Deno.serve(async (req) => {
                 direction: 'cash_out',
                 category: 'partner_funding',
                 ledger_scope: 'wallet',
-                description: `Capital invested into portfolio ${portfolioData?.portfolio_code || ''}. Ref: ${op.reference_id}`,
+                description: `Capital moved into portfolio ${portfolioData?.portfolio_code || ''}. Ref: ${op.reference_id}`,
                 source_table: 'investor_portfolios',
                 source_id: op.source_id,
                 linked_party: 'Rent Management Pool',
@@ -729,7 +757,7 @@ Deno.serve(async (req) => {
                 amount: op.amount,
                 category: 'partner_funding',
                 ledger_scope: 'platform',
-                description: `Platform receives investment capital`,
+                description: `Platform receives support capital`,
                 source_table: 'investor_portfolios',
                 source_id: op.source_id,
                 currency: 'UGX',
@@ -937,8 +965,8 @@ Deno.serve(async (req) => {
           // Notify the FUNDER (investor)
           await adminClient.from("notifications").insert({
             user_id: portfolioInvestorId,
-            title: "Investment Activated ✅",
-            message: `Your UGX ${op.amount.toLocaleString()} investment has been approved and is now active. Monthly rewards will begin within 30 days.`,
+            title: "Support Activated ✅",
+            message: `Your UGX ${op.amount.toLocaleString()} support has been approved and your portfolio is now active. Monthly rewards will begin within 30 days.`,
             type: "success",
             metadata: { operation_id: op.id, amount: op.amount, direction: op.direction },
           });
@@ -947,8 +975,8 @@ Deno.serve(async (req) => {
           if (op.user_id !== portfolioInvestorId) {
             await adminClient.from("notifications").insert({
               user_id: op.user_id,
-              title: "Partner Investment Approved ✅",
-              message: `UGX ${op.amount.toLocaleString()} investment you facilitated has been approved and activated.`,
+              title: "Partner Support Approved ✅",
+              message: `The UGX ${op.amount.toLocaleString()} partner support you facilitated has been approved and activated.`,
               type: "success",
               metadata: { operation_id: op.id, amount: op.amount },
             });
@@ -1023,7 +1051,7 @@ Deno.serve(async (req) => {
                   direction: 'cash_in',
                   category: 'system_balance_correction',
                   ledger_scope: 'wallet',
-                  description: `Investment rejected — funds restored. Reason: ${rejection_reason}`,
+                  description: `Partner support rejected — funds restored. Reason: ${rejection_reason}`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1034,7 +1062,7 @@ Deno.serve(async (req) => {
                   amount: portfolio.investment_amount,
                   category: 'system_balance_correction',
                   ledger_scope: 'platform',
-                  description: `Platform returns rejected investment capital`,
+                  description: `Platform returns rejected support capital`,
                   source_table: 'investor_portfolios',
                   source_id: op.source_id,
                   currency: 'UGX',
@@ -1052,8 +1080,8 @@ Deno.serve(async (req) => {
               // Notify agent of refund
               await adminClient.from("notifications").insert({
                 user_id: portfolio.agent_id,
-                title: "💰 Investment Refunded",
-                message: `Your proxy investment of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
+                title: "💰 Support Refunded",
+                message: `Your proxy support of UGX ${portfolio.investment_amount.toLocaleString()} was rejected. Funds have been restored to your wallet. Reason: ${rejection_reason}`,
                 type: "warning",
                 metadata: { operation_id: op.id, amount: portfolio.investment_amount, reason: rejection_reason },
               });

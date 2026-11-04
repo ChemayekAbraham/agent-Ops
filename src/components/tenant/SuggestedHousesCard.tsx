@@ -36,10 +36,10 @@ interface SuggestedHouse {
 async function fetchSuggestions(userId: string): Promise<SuggestedHouse[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client = supabase as any;
-  const { data: lastRequest } = await client
+  const { data: lastRequest } = await supabase
     .from('rent_requests')
     .select('rent_amount')
-    .eq('user_id', userId)
+    .eq('tenant_id', userId)
     .order('created_at', { ascending: false })
     .limit(1);
 

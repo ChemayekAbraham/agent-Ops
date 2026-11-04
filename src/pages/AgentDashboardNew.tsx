@@ -1,4 +1,5 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { Suspense, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
@@ -13,7 +14,10 @@ import { BadgeCheck } from 'lucide-react';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
 
-const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+const AgentRentRequestDialog = lazyWithRetry(() => import('@/components/agent/AgentRentRequestDialog'));
+const RentRequestAssistant = lazyWithRetry(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 export default function AgentDashboardNew() {
   const { signOut, roles, switchRole } = useAuth();
@@ -61,7 +65,9 @@ export default function AgentDashboardNew() {
       </main>
       {rentRequestOpen && (
         <Suspense fallback={null}>
-          <AgentRentRequestDialog open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+          {DASHBOARD_RENT_REQUEST_FLOW === 'assistant'
+            ? <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+            : <AgentRentRequestDialog presentation="chat" open={rentRequestOpen} onOpenChange={setRentRequestOpen} />}
         </Suspense>
       )}
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />

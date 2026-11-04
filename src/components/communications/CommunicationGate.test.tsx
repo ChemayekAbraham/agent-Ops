@@ -7,7 +7,7 @@ const state = vi.hoisted(() => ({
  rows: [{ id:'virtual',series_id:'virtual',version:1,title:'Agent notice',body:'Virtual message',communication_type:'important',link_path:null,starts_at:'2026-01-01T00:00:00Z',expires_at:'2099-01-01T00:00:00Z',acknowledged_at:null }],
  read:vi.fn(), ack:vi.fn(), refetch:vi.fn(),
 }));
-vi.mock('@/hooks/useAuth',()=>({useAuth:()=>({user:{id:'virtual-user'},role:'agent',roles:['agent'],loading:false,rolesResolved:true})}));
+vi.mock('@/hooks/useAuth',()=>({useAuth:()=>({user:{id:'virtual-user'},role:'agent',roles:['agent'],enabledRoles:['agent'],loading:false,rolesResolved:true})}));
 vi.mock('@/hooks/useCrmCommunications',()=>({
  useCommunicationInbox:()=>({data:state.rows,refetch:state.refetch,isLoading:false,error:null}),
  readCommunication:state.read,

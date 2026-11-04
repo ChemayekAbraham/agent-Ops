@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -208,11 +209,13 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
         }).abortSignal(ctrl.signal);
         if (ctrl.signal.aborted) return;
         if (error) {
-          // Fallback if the RPC is unavailable in this environment.
+          // One indexed column if the RPC is missing. Never OR name and phone.
+          const clause = profileTypeaheadFilter(q);
+          if (!clause) { setUsers([]); return; }
           const { data: fb } = await supabase
             .from('profiles')
             .select('id, full_name, phone')
-            .or(`full_name.ilike.${q}%,phone.ilike.%${q}%`)
+            .ilike(clause.column, clause.pattern)
             .limit(5);
           setUsers((fb || []) as UserResult[]);
         } else {

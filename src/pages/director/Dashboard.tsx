@@ -19,6 +19,7 @@ import {
   Loader2, CheckCircle2, XCircle, Clock, HelpCircle, FileText, Building2,
   ArrowLeft, ChevronRight, ShieldCheck, User, Calendar,
 } from 'lucide-react';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 type Status = 'pending' | 'approved' | 'rejected' | 'more_info';
 
@@ -172,6 +173,7 @@ export default function DirectorDashboardPage() {
 
       <div className="flex-1 overflow-y-auto overscroll-contain">
         <div className="max-w-5xl mx-auto p-4 pb-24">
+          <V360StaffPricingBanner />
           {selected ? (
             <RequisitionDetail
               req={selected}

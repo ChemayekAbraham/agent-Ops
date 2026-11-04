@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
+import { isUuid } from '@/lib/isUuid';
 
 export interface AgentLedgerEntry {
   id: string;
@@ -57,7 +58,7 @@ export async function fetchAgentWalletData(agentId: string): Promise<AgentWallet
   const entries: AgentLedgerEntry[] = ((ledgerRes.data || []) as AgentLedgerEntry[]).filter(isCustomerWalletLedgerEntryVisible);
 
   // Resolve tenant names from linked_party UUIDs
-  const tenantIds = [...new Set(entries.map(e => e.linked_party).filter(Boolean))] as string[];
+  const tenantIds = [...new Set(entries.map(e => e.linked_party).filter(isUuid))] as string[];
   const tenantNameMap: Record<string, string> = {};
   const tenantBalanceMap: Record<string, number> = {};
   if (tenantIds.length > 0) {

@@ -16,7 +16,8 @@ const badgeVariants = cva(
         warning: "border-warning/20 bg-warning/10 text-warning",
         outline: "text-foreground border-border/60 bg-transparent",
         primary: "border-transparent bg-primary text-white",
-        muted: "border-transparent bg-muted text-muted-foreground"
+        muted: "border-transparent bg-muted text-muted-foreground",
+        soft: "border-primary/20 bg-primary/10 text-primary"
       },
       size: {
         sm: "px-2 py-0 text-[10px] rounded-md",
@@ -36,7 +37,7 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, Varian
 const Badge = React.forwardRef<HTMLDivElement, BadgeProps>(
   ({ className, variant, size, ...props }, ref) => {
     return (
-      <div className={cn(badgeVariants({ variant, size }), className)} ref={ref} {...props} />
+      <div data-finops-part="badge" className={cn(badgeVariants({ variant, size }), className)} ref={ref} {...props} />
     );
   }
 );

@@ -13,6 +13,9 @@ import type {
   ReturnToCooResult,
   SetBudgetResult,
 } from '@/lib/landlordFloatBudget';
+import { cooDecide, mergeApproveResults, type AskReason, type CooDecideOutcome } from '@/lib/cooDecide';
+
+export type CooApprovalDecision = CooApprovalResult & { decide: CooDecideOutcome };
 
 /**
  * Landlord float budget cap — data layer for the COO and CFO dashboards.
@@ -117,13 +120,20 @@ export function useLandlordFloatBudgetActions() {
     onSuccess: res => settle(qc, res?.status, false),
   });
 
-  /** COO: forward requests to the CFO inside the budget. One call for one or many; over-cap ones stay put. */
+  /**
+   * COO: forward requests to the CFO inside the budget. One call for one or many; over-cap ones stay put.
+   * Goes through `coo_decide_rent_requests`, which records whether the COO followed the system; when it
+   * answers REASON_REQUIRED, `askReason` asks the COO why and the call is repeated with the code.
+   */
   const approveAtCoo = useMutation({
-    mutationFn: (input: { requestIds: string[]; comment?: string }) =>
-      call<CooApprovalResult>('coo_approve_rent_requests', {
-        p_request_ids: input.requestIds,
-        p_comment: input.comment?.trim() || null,
-      }),
+    mutationFn: async (input: { requestIds: string[]; comment?: string; askReason?: AskReason }): Promise<CooApprovalDecision> => {
+      const outcome = await cooDecide(
+        rpc as never,
+        { ids: input.requestIds, decision: 'approve', reasonText: input.comment?.trim() || null },
+        input.askReason,
+      );
+      return { ...mergeApproveResults(outcome.response), decide: outcome };
+    },
     onSuccess: res => settle(qc, res?.status, (res?.approved?.length ?? 0) > 0),
   });
 

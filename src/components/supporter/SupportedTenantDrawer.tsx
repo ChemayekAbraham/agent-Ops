@@ -160,7 +160,6 @@ export function SupportedTenantDrawer({ tenant, open, onOpenChange }: Props) {
           <Row icon={<MapPin className="h-4 w-4" />} label="Tenant address" value={tenant.tenant_address || tenant.city || 'Not provided'} />
           <Row icon={<User className="h-4 w-4" />} label="Field agent" value={tenant.agent_name || 'Not assigned'} />
           <Row icon={<CalendarDays className="h-4 w-4" />} label="Supported since" value={fmtDate(fundedOn)} />
-          <Row icon={<CalendarDays className="h-4 w-4" />} label="Plan length" value={tenant.duration_days ? `${tenant.duration_days} days` : '—'} />
           <Row icon={<CalendarDays className="h-4 w-4" />} label="Expected end" value={fmtDate(endDate)} />
           <Row icon={<Landmark className="h-4 w-4" />} label="Funding mode" value={tenant.funding_mode === 'self_managed' ? 'Self managed' : 'Managed by Welile'} />
         </div>

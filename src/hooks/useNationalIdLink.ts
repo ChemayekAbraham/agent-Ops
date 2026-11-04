@@ -13,6 +13,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 /** How often the asker's screen re-checks whether the holder has answered. */
@@ -169,12 +175,16 @@ export function useNationalIdLinkOtp() {
 /** Requests waiting for THIS account, because it holds the National ID. */
 export function useNationalIdLinkRequestsForHolder() {
   const { user } = useAuth();
+  const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['national-id-link-holder', user?.id],
-    enabled: !!user?.id,
-    refetchInterval: LINK_POLL_INTERVAL_MS,
+    enabled: signedIn,
+    refetchInterval: signedIn ? LINK_POLL_INTERVAL_MS : false,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async (): Promise<HolderLinkRequest[]> => {
+      await requireUserSession();
       const { data, error } = await rpc('national_id_link_holder_requests');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw new Error(error.message);
       return Array.isArray(data) ? data as HolderLinkRequest[] : [];
     },

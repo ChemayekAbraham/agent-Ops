@@ -15,7 +15,7 @@ export default function PartnersTerms() {
 
         <h1 className="text-2xl font-bold mb-2">Partner & Funder Terms of Service</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          These terms apply exclusively to Welile Partners and Funders (Tenant Supporters / Investors). For general platform terms, see <a href="/terms" className="text-primary underline">Terms & Conditions</a>.
+          These terms apply exclusively to Welile Partners and Funders (Tenant Supporters). For general platform terms, see <a href="/terms" className="text-primary underline">Terms & Conditions</a>.
         </p>
 
         <div className="prose prose-sm dark:prose-invert space-y-6">
@@ -34,7 +34,7 @@ export default function PartnersTerms() {
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold">3. Returns (ROI)</h2>
+            <h2 className="text-lg font-semibold">3. Returns</h2>
             <p className="text-muted-foreground leading-relaxed">
               Returns are paid as a flat monthly rate disclosed at portfolio creation. Returns accrue daily and are settled to your withdrawable wallet on the agreed payout day each cycle, or compounded into your portfolio if the Compounding mode is selected. Returns are not guaranteed and are contingent on tenant repayment performance.
             </p>
@@ -43,7 +43,7 @@ export default function PartnersTerms() {
           <section>
             <h2 className="text-lg font-semibold">4. Withdrawals & Notice Period</h2>
             <p className="text-muted-foreground leading-relaxed">
-              Withdrawal of principal requires a mandatory <strong>90-day notice period</strong>, during which ROI accrual is paused on the noticed amount. Wallet (ROI) withdrawals are processed within 24 business hours, subject to Financial Operations verification. Withdrawals below UGX 500 are not processed.
+              Withdrawal of principal requires a mandatory <strong>90-day notice period</strong>, during which Returns accrual is paused on the noticed amount. Wallet (Returns) withdrawals are processed within 24 business hours, subject to Financial Operations verification. Withdrawals below UGX 500 are not processed.
             </p>
           </section>
 

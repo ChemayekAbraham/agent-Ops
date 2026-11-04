@@ -24,6 +24,7 @@ import { generateAdvanceStatementPdf, type AdvanceStatementRow } from '@/lib/adv
 import { downloadXlsx } from '@/lib/xlsxExport';
 import { cn } from '@/lib/utils';
 import { VoluntaryRepayAdvanceDialog } from './VoluntaryRepayAdvanceDialog';
+import { AdvanceDeductionsList } from './AdvanceDeductionsList';
 
 const STATUS_META: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive'; icon: any }> = {
   active: { label: 'Active', variant: 'default', icon: Clock },
@@ -49,7 +50,7 @@ export function AgentMyAdvancesCard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_advances')
-        .select('id, principal, outstanding_balance, arrears_balance, status, issued_at, expires_at, created_at, cycle_days, access_fee, prepaid_installments_remaining, deduction_paused, pause_reason')
+        .select('id, principal, outstanding_balance, arrears_balance, status, issued_at, expires_at, created_at, cycle_days, access_fee, installment_amount, prepaid_installments_remaining, deduction_paused, pause_reason')
         .eq('agent_id', user!.id)
         // Cancelled advances are closed by the CFO and no longer owed; without
         // this they fell through to the 'Active' badge with a 0 balance.
@@ -87,7 +88,9 @@ export function AgentMyAdvancesCard() {
       const daysLeft = Math.max(0, differenceInDays(new Date(adv.expires_at), new Date()));
       const interest = Math.max(0, Number(adv.outstanding_balance) - Number(adv.principal));
       const dailyDeduction = adv.status !== 'completed'
-        ? (daysLeft > 0 ? Math.round(Number(adv.outstanding_balance) / daysLeft) : Number(adv.outstanding_balance))
+        ? (Number(adv.installment_amount) > 0
+          ? Number(adv.installment_amount)
+          : (daysLeft > 0 ? Math.round(Number(adv.outstanding_balance) / daysLeft) : Number(adv.outstanding_balance)))
         : 0;
       return {
         principal: Number(adv.principal || 0),
@@ -249,7 +252,9 @@ export function AgentMyAdvancesCard() {
               const daysLeft = Math.max(0, differenceInDays(new Date(adv.expires_at), new Date()));
               const interest = Math.max(0, Number(adv.outstanding_balance) - Number(adv.principal));
               const dailyDeduction = adv.status !== 'completed'
-                ? (daysLeft > 0 ? Math.round(Number(adv.outstanding_balance) / daysLeft) : Number(adv.outstanding_balance))
+                ? (Number(adv.installment_amount) > 0
+                  ? Number(adv.installment_amount)
+                  : (daysLeft > 0 ? Math.round(Number(adv.outstanding_balance) / daysLeft) : Number(adv.outstanding_balance)))
                 : 0;
               return (
                 <div key={adv.id} className="rounded-xl bg-muted/40 p-3 space-y-2">
@@ -304,9 +309,10 @@ export function AgentMyAdvancesCard() {
                       className="w-full h-8 gap-1.5 text-xs"
                       onClick={() => setPayAheadFor(adv)}
                     >
-                      <Zap className="h-3.5 w-3.5" /> Pay ahead
+                      <Zap className="h-3.5 w-3.5" /> Pay now
                     </Button>
                   )}
+                  <AdvanceDeductionsList advanceId={adv.id} />
                 </div>
               );
             })}

@@ -16,12 +16,13 @@ import {
 import { toast } from 'sonner';
 import {
   Loader2, Plus, Clock, CheckCircle2, XCircle, HelpCircle, Building2, Wallet, Paperclip, Upload, X, FileText,
-  Landmark, MapPin,
+  Landmark, MapPin, Receipt, ClipboardCheck,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { staffLoanSchedule, MONTH_WORDS } from '@/lib/staffLoanSchedule';
 import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
 import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
+import { ReceiptMatchNotice } from '@/components/requisitions/ReceiptMatchNotice';
 
 type RequestKind = 'requisition' | 'staff_loan' | 'facilitation';
 
@@ -76,6 +77,15 @@ interface Requisition {
   credited_at: string | null;
   created_at: string;
   attachment_urls: string[] | null;
+  receipt_match_status?: string | null;
+  requisition_receipt_paths?: string[] | null;
+  receipt_ocr_amount?: number | null;
+  receipt_ocr_confidence?: string | null;
+  receipt_ocr_error?: string | null;
+  receipt_ocr_at?: string | null;
+  receipt_gap_cleared_at?: string | null;
+  receipt_gap_cleared_typed_amount?: number | null;
+  receipt_gap_cleared_ocr_amount?: number | null;
   request_kind: RequestKind | null;
   loan_months: number | null;
   loan_monthly_rate: number | null;
@@ -153,6 +163,22 @@ function StatusPill({ row }: { row: Requisition }) {
   );
 }
 
+/**
+ * The category that marks a request as a refund: money the person paid themselves and wants back. The receipt attached with the
+ * request is the proof, so the server skips the usage report for it (is_refund_requisition) and will not approve one with no receipt.
+ */
+export const REFUND_CATEGORY = 'Refund request';
+const isRefundCategory = (c: string | null | undefined) => (c ?? '').trim().toLowerCase() === REFUND_CATEGORY.toLowerCase();
+
+interface DueReport {
+  requisition_id: string;
+  requisition_code: string;
+  title: string;
+  approved_amount: number | null;
+  amount: number;
+  grace_ends_at: string | null;
+}
+
 const EMPTY_FORM = {
   title: '',
   amount: '',
@@ -175,6 +201,8 @@ const MyRequisitions = () => {
   const [viewingPath, setViewingPath] = useState<string | null>(null);
   const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
   const [kind, setKind] = useState<RequestKind>('requisition');
+  const [isRefund, setIsRefund] = useState(false);
+  const [dueReports, setDueReports] = useState<DueReport[]>([]);
   const [months, setMonths] = useState(3);
   const [scheduleAccepted, setScheduleAccepted] = useState(false);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
@@ -220,6 +248,9 @@ const MyRequisitions = () => {
         setUsageReports({});
       }
     }
+    // Usage reports still owed (the server decides which: approved, past the grace period, no report yet, and never a refund).
+    const { data: due } = await (supabase.rpc as any)('get_my_usage_report_notices');
+    setDueReports((due || []) as DueReport[]);
     if (!routeRes.error && routeRes.data) {
       const r = Array.isArray(routeRes.data) ? routeRes.data[0] : routeRes.data;
       setRoute(r as unknown as RouteInfo);
@@ -233,10 +264,17 @@ const MyRequisitions = () => {
   const fetchLoans = useCallback(async () => {
     const { data: elig } = await supabase.rpc('my_staff_loan_eligibility');
     setLoanInfo((elig ?? null) as unknown as LoanEligibility | null);
-    const { data: loanRows } = await supabase
-      .from('staff_loans')
-      .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
-      .order('created_at', { ascending: false });
+    // Only the person's own loans: the COO, CFO, CEO, Financial Ops and HR roles are allowed to read every staff loan, so the
+    // list must be narrowed here or they see everyone's under "Your loans".
+    const { data: userRes } = await supabase.auth.getUser();
+    const loanUid = userRes.user?.id;
+    const { data: loanRows } = loanUid
+      ? await supabase
+        .from('staff_loans')
+        .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
+        .eq('user_id', loanUid)
+        .order('created_at', { ascending: false })
+      : { data: [] };
     const list = (loanRows || []) as unknown as StaffLoan[];
     setLoans(list);
     if (list.length) {
@@ -304,6 +342,7 @@ const MyRequisitions = () => {
 
   const startNew = (nextKind: RequestKind = 'requisition') => {
     setResubmitId(null);
+    setIsRefund(false);
     setKind(nextKind);
     setMonths(3);
     setScheduleAccepted(false);
@@ -312,8 +351,20 @@ const MyRequisitions = () => {
     setOpen(true);
   };
 
+  const startRefund = () => {
+    setResubmitId(null);
+    setIsRefund(true);
+    setKind('requisition');
+    setMonths(3);
+    setScheduleAccepted(false);
+    setForm({ ...EMPTY_FORM, category: REFUND_CATEGORY });
+    setSelectedFiles([]);
+    setOpen(true);
+  };
+
   const startResubmit = (row: Requisition) => {
     setResubmitId(row.id);
+    setIsRefund(isRefundCategory(row.category));
     setKind(row.request_kind === 'staff_loan' ? 'staff_loan' : 'requisition');
     setMonths(row.loan_months ?? 3);
     setScheduleAccepted(false);
@@ -351,7 +402,8 @@ const MyRequisitions = () => {
     const amount = Number(form.amount);
     if (!form.title.trim()) return toast.error('Enter a short title');
     if (!Number.isFinite(amount) || amount <= 0) return toast.error('Enter a valid amount');
-    if (form.reason.trim().length < 10) return toast.error('Explain the request in at least 10 characters');
+    if (form.reason.trim().length < 10) return toast.error(isRefund ? 'Explain what you paid for and why it should be refunded (at least 10 characters)' : 'Explain the request in at least 10 characters');
+    if (isRefund && !resubmitId && selectedFiles.length === 0) return toast.error('Attach the receipt or proof of what you paid. A refund cannot be approved without it.');
 
     setSubmitting(true);
     const { data, error } = await invokeEdgeFunction<{ ok: boolean; requisition?: { id: string } }>('staff-requisition-submit', {
@@ -359,13 +411,13 @@ const MyRequisitions = () => {
         ...(resubmitId ? { requisition_id: resubmitId } : {}),
         title: form.title.trim(),
         amount,
-        category: form.category.trim() || null,
+        category: isRefund ? REFUND_CATEGORY : (form.category.trim() || null),
         needed_by: form.needed_by || null,
         reason: form.reason.trim(),
         request_kind: kind,
         ...(kind === 'staff_loan' ? { loan_months: months } : {}),
       },
-      errorTitle: kind === 'staff_loan' ? 'Could not submit your loan request' : 'Could not submit your requisition',
+      errorTitle: kind === 'staff_loan' ? 'Could not submit your loan request' : isRefund ? 'Could not submit your refund request' : 'Could not submit your requisition',
     });
 
     if (!error) {
@@ -375,17 +427,21 @@ const MyRequisitions = () => {
           const formData = new FormData();
           formData.append('requisition_id', targetId);
           formData.append('file', file);
-          await invokeEdgeFunction('staff-requisition-add-attachment', {
+          const { data: attached, error: attachErr } = await invokeEdgeFunction<{ payout_frozen?: boolean; message?: string }>('staff-requisition-add-attachment', {
             body: formData,
             errorTitle: `Could not attach ${file.name}`,
             silent: true,
           });
+          if (!attachErr && attached?.payout_frozen && attached.message) {
+            toast.warning('Receipt does not match the amount you typed', { description: attached.message });
+          }
         }
       }
 
       toast.success(
         resubmitId
           ? 'Request resubmitted'
+          : isRefund ? 'Refund request submitted for review'
           : kind === 'staff_loan' ? 'Loan request submitted for review' : 'Requisition submitted for review',
       );
       setOpen(false);
@@ -403,13 +459,16 @@ const MyRequisitions = () => {
     const form = new FormData();
     form.append('requisition_id', row.id);
     form.append('file', file);
-    const { error } = await invokeEdgeFunction('staff-requisition-add-attachment', {
+    const { data, error } = await invokeEdgeFunction<{ payout_frozen?: boolean; message?: string }>('staff-requisition-add-attachment', {
       body: form,
       errorTitle: 'Could not attach receipt',
     });
     setUploadingId(null);
     if (!error) {
       toast.success('Receipt attached');
+      if (data?.payout_frozen && data.message) {
+        toast.warning('Receipt does not match the amount you typed', { description: data.message });
+      }
       await fetchRows();
     }
   };
@@ -450,6 +509,11 @@ const MyRequisitions = () => {
                     <Plus className="mr-2 h-4 w-4" /> New requisition
                   </Button>
                 </DialogTrigger>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={startRefund}>
+                    <Receipt className="mr-2 h-4 w-4" /> Ask for a refund
+                  </Button>
+                </DialogTrigger>
                 {loanInfo?.eligible && (
                   <DialogTrigger asChild>
                     <Button variant="outline" onClick={() => startNew('staff_loan')}>
@@ -468,17 +532,20 @@ const MyRequisitions = () => {
                   <DialogTitle>
                     {resubmitId
                       ? 'Update and resubmit'
+                      : isRefund ? 'Ask for a refund'
                       : kind === 'staff_loan' ? 'Request a loan' : 'New requisition'}
                   </DialogTitle>
                   <DialogDescription>
-                    {kind === 'staff_loan'
+                    {isRefund
+                      ? 'For money you paid yourself. Attach the receipt: it is your proof, so no usage report is asked for afterwards.'
+                      : kind === 'staff_loan'
                       ? 'Reviewed by HR, then the Chief Executive Officer. The Chief Finance Officer releases the money to your wallet.'
                       : 'Approvers see your department budget alongside the request.'}
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="req-title">What is it for</Label>
+                    <Label htmlFor="req-title">{isRefund ? 'What did you pay for' : 'What is it for'}</Label>
                     <Input
                       id="req-title"
                       value={form.title}
@@ -488,7 +555,7 @@ const MyRequisitions = () => {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="req-amount">Amount (UGX)</Label>
+                      <Label htmlFor="req-amount">{isRefund ? 'Amount you paid (UGX)' : 'Amount (UGX)'}</Label>
                       <Input
                         id="req-amount"
                         inputMode="numeric"
@@ -497,6 +564,7 @@ const MyRequisitions = () => {
                         placeholder="250000"
                       />
                     </div>
+                    {!isRefund && (
                     <div className="space-y-2">
                       <Label htmlFor="req-needed">Needed by (optional)</Label>
                       <Input
@@ -506,6 +574,7 @@ const MyRequisitions = () => {
                         onChange={(e) => setForm((f) => ({ ...f, needed_by: e.target.value }))}
                       />
                     </div>
+                    )}
                   </div>
                   {kind === 'staff_loan' && (
                     <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
@@ -571,6 +640,7 @@ const MyRequisitions = () => {
                       </label>
                     </div>
                   )}
+                  {!isRefund && (
                   <div className="space-y-2">
                     <Label htmlFor="req-category">Category (optional)</Label>
                     <Input
@@ -580,8 +650,9 @@ const MyRequisitions = () => {
                       placeholder="Operations, marketing, travel…"
                     />
                   </div>
+                  )}
                   <div className="space-y-2">
-                    <Label htmlFor="req-reason">Why do you need it</Label>
+                    <Label htmlFor="req-reason">{isRefund ? 'Why should it be refunded' : 'Why do you need it'}</Label>
                     <Textarea
                       id="req-reason"
                       rows={3}
@@ -593,9 +664,12 @@ const MyRequisitions = () => {
                   {/* Optional File Attachments */}
                   <div className="space-y-2">
                     <Label className="flex items-center justify-between text-xs sm:text-sm">
-                      <span>Attachments / Receipts <span className="text-xs text-muted-foreground font-normal">(optional)</span></span>
+                      <span>{isRefund ? 'Receipts / proof of payment' : 'Attachments / Receipts'} <span className="text-xs text-muted-foreground font-normal">{isRefund ? '(required)' : '(optional)'}</span></span>
                       <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
                     </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      A receipt is read and compared with the amount you type. You can still submit. If the figures differ, payout waits until they match or the CFO clears the gap.
+                    </p>
                     <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
                       <label className="cursor-pointer flex flex-col items-center justify-center gap-1">
                         <Upload className="h-4 w-4 text-muted-foreground" />
@@ -645,13 +719,38 @@ const MyRequisitions = () => {
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
                   <Button onClick={() => void submit()} disabled={submitting || (kind === 'staff_loan' && !scheduleAccepted)}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {resubmitId ? 'Resubmit' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
+                    {resubmitId ? 'Resubmit' : isRefund ? 'Submit refund request' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </Card>
+
+        {dueReports.length > 0 && (
+          <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <ClipboardCheck className="h-4 w-4 text-amber-600" />
+                  {dueReports.length === 1 ? '1 usage report due' : `${dueReports.length} usage reports due`}
+                </p>
+                <ul className="text-xs text-muted-foreground">
+                  {dueReports.map((d) => (
+                    <li key={d.requisition_id}>
+                      <span className="font-mono">{d.requisition_code}</span> {d.title} • {formatUGX(Number(d.approved_amount ?? d.amount))}
+                      {d.grace_ends_at ? ` • due ${fmtDate(d.grace_ends_at)}` : ''}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-muted-foreground">Refund requests never need one: the receipt you attach is the proof.</p>
+              </div>
+              <Button onClick={() => window.dispatchEvent(new CustomEvent('welile:open-usage-report'))}>
+                <FileText className="mr-2 h-4 w-4" /> Write report
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {loans.length > 0 && (
           <Card className="rounded-2xl p-4">
@@ -748,6 +847,11 @@ const MyRequisitions = () => {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-xs text-muted-foreground">{row.requisition_code}</span>
                       <StatusPill row={row} />
+                      {isRefundCategory(row.category) && (
+                        <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
+                          <Receipt className="mr-1 h-3 w-3" /> Refund
+                        </Badge>
+                      )}
                       {row.request_kind === 'staff_loan' && (
                         <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                           <Landmark className="mr-1 h-3 w-3" />
@@ -814,6 +918,8 @@ const MyRequisitions = () => {
                     )}
                   </div>
                 )}
+
+                <ReceiptMatchNotice row={row} className="mt-3" />
 
                 {(row.attachment_urls?.length ?? 0) > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">

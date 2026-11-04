@@ -9,6 +9,7 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 import AiIdButton from '@/components/ai-id/AiIdButton';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { useMerchantPayoutFloat } from '@/hooks/useMerchantFloat';
+import { AgentAccessLimitCampaignCard } from '@/components/agent/AgentAccessLimitCampaignCard';
 import { AgentRiskExposureCard } from '@/components/agent/AgentRiskExposureCard';
 import TenantLocationCorrectionPopup from '@/components/agent/TenantLocationCorrectionPopup';
 import { AgentCompanyDebtCard } from '@/components/agent/AgentCompanyDebtCard';
@@ -79,6 +80,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
+import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
@@ -127,7 +129,6 @@ import { useAgentHasRepayingTenant } from '@/hooks/useAgentHasRepayingTenant';
 import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
-import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -187,6 +188,9 @@ const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
 const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+const RentRequestAssistant = lazy(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
+/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -252,6 +256,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
+  // Agent Ops approval (agent vetting), not the older profiles.verified flag.
+  const agentVerifiedState = useAgentVerifiedState();
+  const agentVerified = agentVerifiedState === 'verified';
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
@@ -964,13 +971,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
-      void import('@/pages/YourProfile');
-      void import('@/pages/AgentServiceCenter');
-      void import('@/components/auth/ProxyAgentGuard');
-      void import('@/pages/agent/ProxyPerformanceDashboard');
-      void import('@/pages/AgentCommissionBenefits');
-      void import('@/pages/MerchandiseStore');
-      void import('@/pages/Settings');
+      void import('@/pages/YourProfile').catch(() => {});
+      void import('@/pages/AgentServiceCenter').catch(() => {});
+      void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+      void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+      void import('@/pages/AgentCommissionBenefits').catch(() => {});
+      void import('@/pages/MerchandiseStore').catch(() => {});
+      void import('@/pages/Settings').catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -1095,14 +1102,14 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       icon: ShoppingBag,
       label: 'Buy Merchandise',
       onClick: () => { hapticTap(); navigate('/merchandise'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
   ];
 
@@ -1149,6 +1156,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
         <AgentAgreementBanner />
         <MissionBanner dashboardRole="agent" />
+        {activeTab === 'home' && <AgentAccessLimitCampaignCard />}
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}
 
@@ -1182,7 +1190,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   phone={(profile as any)?.phone}
                   email={(profile as any)?.email}
                   location={(profile as any)?.territory ?? (profile as any)?.location}
-                  verified={profile?.verified}
+                  verified={agentVerified}
+                  agentVerifiedState={agentVerifiedState}
                   roleLabel="Welile Agent"
                   triggerSize="lg"
                   eliteTier={myEliteRank?.tier_name}
@@ -1191,7 +1200,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <h1 className="font-bold text-xl leading-tight">
                     <span className="break-words">
                       {profile?.full_name || 'Agent'}
-                      {profile?.verified && (
+                      {agentVerified && (
                         <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
                       )}
                     </span>
@@ -1612,7 +1621,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </div>
               <div className="flex-1 text-left">
                 <div className="font-bold text-sm text-foreground">Lending Agent</div>
-                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn interest</div>
+                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
                 <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2.4} />
                   Principal 100% protected by Welile
@@ -1656,14 +1665,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => { hapticTap(); setWelileHomesOpen(true); }}
-                  className="h-9 sm:h-11 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl gap-1.5"
-                >
-                  <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Welile Homes
-                </Button>
                 <Button
                   onClick={() => { hapticTap(); setRentRequestOpen(true); }}
                   className="h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
@@ -1854,7 +1855,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
-      <AgentAssistant />
 
       <LazyModal when={nationalIdGroupOpen}>
       <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />
@@ -1963,7 +1963,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               navigator.share({ title: 'Back the Welile Angel Pool', text: shareText, url: investorLink }).catch(() => {});
             } else {
               await navigator.clipboard.writeText(investorLink);
-              toast.success('Angel investor signup link copied!');
+              toast.success('Angel supporter signup link copied!');
             }
           } catch (err: any) {
             const { toast } = await import('sonner');
@@ -2002,7 +2002,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly ROI! Register here: ${partnerFormLink}`;
+            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {
@@ -2058,11 +2058,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       />
       </LazyModal>
       <LazyModal when={rentRequestOpen}>
-      <AgentRentRequestDialog 
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
+      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

@@ -1,0 +1,4 @@
+-- Rollback for 20261031120000_staff_assistant_prompt1_reliability_and_real_use_dashboard.sql
+DROP FUNCTION IF EXISTS public.staff_assistant_real_use_dashboard(integer);
+DROP TRIGGER IF EXISTS trg_staff_assistant_unanswered_ensure_error_code ON public.staff_assistant_unanswered;
+DROP FUNCTION IF EXISTS public.staff_assistant_unanswered_ensure_error_code();

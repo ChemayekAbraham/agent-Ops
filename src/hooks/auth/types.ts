@@ -7,6 +7,12 @@ export interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   roles: AppRole[];
+  /**
+   * Roles with `user_roles.enabled = true`. Unlike `roles`, this never
+   * includes the synthetic `agent` inserted so the agent dashboard stays
+   * reachable. RPCs that call `_has_enabled_role` must use this list.
+   */
+  enabledRoles: AppRole[];
   loading: boolean;
   /** True once the role list reflects a definitive database answer. */
   rolesResolved: boolean;

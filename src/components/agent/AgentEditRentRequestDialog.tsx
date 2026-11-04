@@ -20,6 +20,7 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { useAuth } from '@/hooks/useAuth';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 import { RESUBMIT_CAP, resubmitAttemptsLeft } from '@/lib/rentRequestReopen';
+import { withoutRejectedLandlordNumber } from '@/lib/rejectedLandlordNumber';
 
 const HOUSE_CATEGORIES = [
   { value: 'single-room', label: 'Single Room' },
@@ -531,7 +532,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         }
       }
 
-      const patch: Record<string, unknown> = {
+      const patch: Record<string, unknown> = withoutRejectedLandlordNumber({
         rent_amount: rentNum,
         duration_days: durNum,
         number_of_payments: Number(numberOfPayments) || 4,
@@ -545,7 +546,7 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
         landlord_phone: nextPhone,
         landlord_address: nextAddress,
         ...evidencePatch,
-      };
+      });
       // Only send tenant fields the agent actually changed, so nothing else on
       // the tenant record is touched.
       if (tenantOriginal) {
@@ -774,7 +775,8 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
                 <div className="space-y-1.5">
                   <Label htmlFor="ll-phone">Phone</Label>
                   <Input id="ll-phone" inputMode="tel" value={landlordPhone}
-                    onChange={(e) => setLandlordPhone(e.target.value)} />
+                    readOnly aria-readonly="true" />
+                  <p className="text-[10px] text-muted-foreground">Only Landlord Ops can change this number after rejection.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="ll-addr">Property address</Label>

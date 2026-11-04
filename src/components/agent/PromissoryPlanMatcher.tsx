@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -71,6 +72,7 @@ export function PromissoryPlanMatcher({
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [sortMode, setSortMode] = useState<'houses' | 'plans'>('houses');
+  const signedIn = useAuthenticatedAudience();
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search), 350);
@@ -79,7 +81,9 @@ export function PromissoryPlanMatcher({
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['promissory-fundable-plans', debounced],
+    enabled: signedIn,
     queryFn: async (): Promise<PlansPayload> => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_promissory_fundable_plans', {
         p_limit: 60,
         p_offset: 0,
@@ -98,7 +102,9 @@ export function PromissoryPlanMatcher({
 
   const { data: housesData, isLoading: housesLoading } = useQuery({
     queryKey: ['promissory-fundable-houses', debounced],
+    enabled: signedIn,
     queryFn: async (): Promise<HousesPayload> => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
         p_limit: 60,

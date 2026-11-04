@@ -364,16 +364,7 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Create wallet
-          const { error: walletErr } = await adminClient.from("wallets").upsert({
-            user_id: userId,
-            balance: 0,
-          }, { onConflict: 'user_id' });
-          if (walletErr) {
-            pushImportError(errors, partner.partner_name, walletErr, "Could not prepare this partner's wallet record. Please try again.");
-            continue;
-          }
-
+          // Signup trigger inserts wallets_physical. public.wallets is a read-only view.
           partnersCreated++;
           credentials.push({ partner: partner.partner_name.trim(), temp_password: tempPassword });
         }

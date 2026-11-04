@@ -444,6 +444,9 @@ Deno.serve(async (req) => {
       preferred_language,
       tenant_no_smartphone: smartphone === "NO",
       registration_type: "normal",
+      // The tenant is applying for themselves: the agent posting rule doesn't apply even though
+      // the referring agent is attached (migration 20261023150000; honoured on service-key inserts only).
+      tenant_self_applied: true,
       // Present at INSERT so the tenant-photo trigger is satisfied.
       tenant_photo_url: tenantPhotoUrl,
     };

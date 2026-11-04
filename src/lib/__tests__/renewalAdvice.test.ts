@@ -97,6 +97,9 @@ describe('renewalErrorMessage', () => {
     expect(renewalErrorMessage('RENEWAL_OTP_REQUIRED: the tenant must confirm')).toMatch(/code sent to their phone/);
     expect(renewalErrorMessage('NOT_YOUR_REQUEST: this tenant is handled by another agent')).toMatch(/another agent/);
     expect(renewalErrorMessage('DAILY_ELIGIBILITY_BLOCKED')).toMatch(/50%/);
+    expect(renewalErrorMessage(new Error('WEEKLY_ELIGIBILITY_BLOCKED: Last week (15 Oct to 21 Oct) you collected 9.2% of what your current Rent Plans were due (UGX 22,000 of UGX 237,419). You need 50%.')))
+      .toBe('Last week (15 Oct to 21 Oct) you collected 9.2% of what your current Rent Plans were due (UGX 22,000 of UGX 237,419). You need 50%.');
+    expect(renewalErrorMessage('WEEKLY_ELIGIBILITY_BLOCKED:')).toMatch(/last week/);
   });
   it('keeps the code function\'s own plain sentences and never returns an empty line', () => {
     expect(renewalErrorMessage(new Error('Wrong code. Check with the tenant and try again.'))).toBe('Wrong code. Check with the tenant and try again.');

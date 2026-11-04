@@ -1,6 +1,9 @@
 # Component decisions
+- Agent "Post a rent request" (dashboard card, Add Tenant, menu, and the Post button on Agent Tenants) opens `AgentRentRequestDialog` with `presentation="chat"`. The chat asks the live Path C questions one at a time and still calls the same submit, validation, photo, GPS, landlord, LC1, and register-tenant path. Other callers keep the classic dialog. Chat text size defaults to Large, with Medium and Small, stored per agent in localStorage (`welile.rent-request-chat.text-size`). The scale styles only the chat presentation.
+- Partner Ops promissory Pending and Approved figures, including the summary tile beside the list, use `countPromissoryQueue` on the shared promissory report. Approve & Pay still opens the existing confirmation and does not pay by itself. Delete stays in a separate danger zone and still requires a reason.
+- CFO Money Out Corrections (`PaidByCategory`) shows Benjamin's verified payroll-loyalty caption under the Corrections tile and as its tooltip. The caption does not recompute the tile total.
 
-- Agent Ops opens on 14 business-area entry panels, while all legacy views remain reachable through the collapsible desktop sections menu or mobile sections menu, so reorganizing the landing view never removes management data.
+- Agent Ops opens on 17 business-area entry panels, while all legacy views remain reachable through the collapsible desktop sections menu or mobile sections menu, so reorganizing the landing view never removes management data.
 - CFO bulk rent payments use a local selection-only review screen and revalidate every selected request before the existing payment function is called, so opening bulk review can never move money or change workflow state.
 
 - Agent elite ranks (top 4: diamond/platinum/gold/silver) live only in `agent_elite_ranks`, fully rebuilt nightly by `refresh_agent_elite_ranks()`, so an agent who drops out reverts to normal on the next refresh; the Service Centre skip for rank 1 is checked in `route_rent_request_service_center`.

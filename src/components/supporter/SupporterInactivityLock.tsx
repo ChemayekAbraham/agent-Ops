@@ -54,7 +54,7 @@ export function SupporterInactivityLock({
       animate={{ opacity: 1 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-3xl backdrop-saturate-150"
     >
-      <div className="flex flex-col items-center gap-5 px-6 py-10 max-w-sm w-full text-center">
+      <div className="flex flex-col items-center gap-5 px-6 py-10 max-w-sm w-full text-center rounded-3xl border border-border/30 bg-card/30 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl ring-1 ring-inset ring-foreground/5">
         {/* Avatar */}
         <UserAvatar avatarUrl={avatarUrl} fullName={fullName} size="lg" />
 

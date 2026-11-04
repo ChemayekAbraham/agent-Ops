@@ -1,0 +1,229 @@
+# Special Advances Phase 4: CFO decisions
+
+Status as at 2026-11-02: Phases 1-3 (applied 2026-10-27) and Phase 4
+(`supabase/migrations/20261028153000_special_advances_payout_repayment.sql`, payout, repayment and reconciliation) are
+applied to production. Phase 4 was applied on 2026-11-02 with CFO approval, by CLI in a single transaction, and recorded
+in `supabase_migrations.schema_migrations` with the file's sha256 (`11bacfe87a1a1afd`); the migration file's own header
+still reads "NOT APPLIED" and is left unchanged so that it matches the recorded hash. Issuance is still switched off and
+production holds no advances, repayments or Special Advances ledger rows. The proof-file storage policies
+(`20261028153100`) are **not applied** yet (project owner, Supabase dashboard). Every item below describes what the
+Phase 4 code does; none of these policies has been changed to anything the CFO has not decided.
+
+Read-only check after the apply (2026-11-02): A24 and the six `ledger_account_map` rows exist; the category allowlist
+grew from 178 to 184 with its `search_path` setting kept; the two new tables have RLS, the staff-MFA policy and
+read-only access for `authenticated` (none for `anon`); the four public functions are executable by `authenticated`
+only and the internal helpers are closed; the private `special-advance-proofs` bucket exists.
+
+| # | Decision | Phase 4 code today | Status |
+|---|---|---|---|
+| D1 | External payout evidence | Method + reference **and an archived proof file** required; posted from A1 | **Decided 2026-10-27: proof required** |
+| D2 | Repayment evidence | Method + reference **and an archived proof file** required; posted to A1 | **Decided 2026-10-27: proof required** |
+| D3 | Fee recognition timing | Access and registration fees are revenue (R1) at payout | **Decided 2026-11-02: at payout** |
+| D4 | One person approves and pays out | Any enabled CFO may approve and pay out the same advance (not their own) | **Decided 2026-11-02: same CFO may do both** |
+| D5 | Staff MFA for money-moving actions | Approval, payout and repayment need an authenticator-verified session (aal2) | **Decided 2026-10-27: accepted** |
+| D6 | Balance-sheet heading for A24 | Reported under "Other Assets" | **Implemented, open to change** |
+
+Later decisions (D7 impairment rates, 2026-11-02; D14 proof files need aal2, 2026-11-02, withdrawn 2026-11-03) and the readiness work are in
+`docs/special-advances/phase-a-readiness.md`.
+
+Already decided by the CFO (2026-10-27) and implemented: payout to a Welile borrower goes to their withdrawable wallet;
+an external borrower is paid off-platform; repayments are recorded by the CFO only (no wallet sweeps); no late fee;
+an overpayment is refused; early settlement pays the full agreed total. Account A24 (not A20, which production already
+uses for agent advance registration fees) is the Special Advances receivable.
+
+## D1. Evidence for an external payout
+
+**Today.** `special_advance_disburse` for an external borrower requires a method (`mobile_money` or `bank_transfer`)
+and a transaction reference of 3-100 characters. It posts DR A24 / CR A1 straight away. No provider receipt, statement
+or Receipt Archive check is required, and the reference is not checked against any provider record.
+
+**Risk.** Company cash (A1) is recorded as paid out on the CFO's word. A mistyped or false reference is not detected.
+This differs from the receipt-based rule the CFO set for landlord payouts (a payout counts as paid only when an
+archived receipt proves it).
+
+**Options.**
+1. Keep as is: the CFO's recorded reference is the evidence (fastest; relies on CFO controls).
+2. Require an archived proof (receipt / statement upload) before the payout can be recorded; reject without it.
+3. Record the payout as "paid, unverified" and treat it as verified only once a receipt is archived and matched, as
+   the landlord payout rule does.
+
+**Decision (CFO, 2026-10-27): require an archived proof (option 2).** See "Proof files: what is implemented" below.
+
+## D2. Evidence for a repayment
+
+**Today.** `special_advance_record_repayment` requires a method (`mobile_money` or `bank_transfer`, no cash), a
+reference that has never been used before for that method, a received date between payout and today, and an amount no
+more than what is outstanding. It posts DR A1 / CR A24 straight away. No provider statement or receipt is checked.
+
+**Risk.** Cash is recognised in A1 on the CFO's word; a repayment recorded in error reduces the receivable and inflates
+cash until reversed (reversal needs approved reversing entries; repayment records are append-only).
+
+**Options.** As for D1: keep; require an archived proof; or record as unverified until matched.
+
+**Decision (CFO, 2026-10-27): require an archived proof (option 2).** See "Proof files: what is implemented" below.
+
+### Proof files: what is implemented (Phase 4 migration, applied 2026-11-02)
+
+- Private bucket `special-advance-proofs` (10 MB; JPEG, PNG, WebP or PDF), created by the Phase 4 migration.
+- A proof sits at `advances/<advance id>/<uuid>.<ext>`. `_special_advance_check_proof` refuses a missing proof
+  (`PROOF_REQUIRED`), a path outside that advance's folder or of another type (`PROOF_PATH_INVALID`), a file that is not
+  in the bucket (`PROOF_NOT_FOUND`) and a file already attached to a payout or repayment (`PROOF_ALREADY_USED`).
+- External payout: `special_advance_disburse` requires the proof and records it in `special_advances.payout_proof_path`
+  (written once, never changed; one proof per payout). A wallet payout is internal and refuses a proof.
+- Repayment: `special_advance_record_repayment` requires the proof and records it in
+  `special_advance_repayments.proof_path` (unique; repayments are append-only); the statement lists it.
+- Every check runs before anything is posted, so a refused payout or repayment writes nothing.
+- Storage policies (CFO-only read and upload, staff MFA; no update or delete): separate migration
+  `20261028153100_special_advances_proof_storage_policies`. Only the owner of `storage.objects` can create them, so,
+  like the asset register's, it must be applied by the project owner (Supabase dashboard); its preflight refuses the
+  CLI's postgres login.
+- App: `uploadSpecialAdvanceProof` (hook) uploads a file and returns its path; the payout and repayment calls accept
+  `proof_path`; the screens explain each refusal.
+
+### Proof files: still to do before Phase 4 is used
+
+1. UI (Gemini): a file-upload control on the payout (external borrowers) and repayment forms that calls
+   `uploadSpecialAdvanceProof` and sends the path; show the proof link on the detail sheet. Until then the server
+   refuses external payouts and repayments from the screens (`PROOF_REQUIRED`).
+2. Project owner applies `20261028153100` (storage policies) in the Supabase dashboard. Phase 4 is applied, so this
+   is now the next database step; until it is applied, nobody can upload or read a proof file in the bucket.
+3. Not included: automatic reading of the proof (transaction ID / amount match) as the Receipt Archive does for
+   landlord payouts. The proof is archived and attached, and the CFO's reference is recorded, but nothing checks that
+   the file shows that reference and amount. The machine check (`payout_proof_ocr_log`) is keyed to withdrawal
+   requests, so adding it means a separate log and edge-function work: a later decision (option 3).
+
+## D3. When fees are recognised
+
+**Today.** At payout the whole access fee and registration fee are recognised: DR A24 / CR R1 for each fee, in the
+same ledger group as the payout. Repayments then only reduce A24. This mirrors how the existing advance products
+recognise fees.
+
+**Risk.** Revenue for the whole term is booked on day one. If a borrower defaults, revenue is overstated until a
+write-off, and the receivable includes fees not yet earned.
+
+**Options.**
+1. Keep (consistent with existing advances).
+2. Recognise the access fee over the term (deferred income released per instalment); registration fee at payout.
+3. Recognise fees only as cash is received.
+
+**Recommendation.** Confirm option 1 for consistency now, with option 2 considered for all advance products together.
+
+**Decision (CFO, 2026-11-02): option 1, fees recognised at payout (as implemented).**
+
+## D4. One person approves and pays out
+
+**Today.** Approval (`special_advance_approve`, Phase 3) and payout (`special_advance_disburse`, Phase 4) are separate
+steps, but the same enabled CFO may do both. Only a self-advance (a CFO paying themselves) is blocked. This follows the
+CFO's "sole authority" decision; there are 4 enabled CFO accounts in production.
+
+**Risk.** No second pair of eyes: one compromised or mistaken CFO account can approve and pay out an advance alone.
+
+**Options.**
+1. Keep: CFO sole authority.
+2. Maker-checker: the CFO who approves cannot pay out the same advance (a second CFO pays out).
+3. Maker-checker above a principal threshold only.
+
+**Recommendation.** Option 2 or 3 if more than one person holds the CFO role in practice; otherwise D5 (MFA) is the
+main safeguard.
+
+**Decision (CFO, 2026-11-02): option 1, the same CFO may approve and pay out (as implemented); a CFO still cannot
+advance to themselves.** D5 (authenticator-verified session) is the safeguard.
+
+## D5. Staff MFA for money-moving actions (DECIDED 2026-10-27: accepted; WITHDRAWN 2026-11-03, see the last amendment)
+
+**Finding (read-only, 2026-10-27).** Production `staff_mfa_config.mode` is `shadow`, so `staff_mfa_ok()` passes for
+everyone and every Special Advances action works with a password-only session. **No user in production, including
+the 4 CFOs, has a verified authenticator factor.** The app already supports enrolment and verification
+(`src/hooks/useAuthenticatorMfa.ts`: enroll, challengeAndVerify, getAuthenticatorAssuranceLevel).
+
+**Decision (CFO, 2026-10-27): accepted; in the Phase 4 migration, applied 2026-11-02.** Approval, payout and repayment recording require the
+session's JWT `aal` to be `aal2` (verified with the authenticator app), independent of the global mode:
+- `_special_advance_require_mfa()` raises `MFA_REQUIRED` (42501) for a signed-in caller without `aal2`;
+- `special_advance_disburse` and `special_advance_record_repayment` call it first, before anything is posted;
+- a trigger on `special_advances` calls it on the transitions to `approved` and `disbursed`, so the Phase 3
+  approval function is guarded without being replaced;
+- reject, cancel, quote, list, statement and reconciliation are unchanged; the CFO-only rule and every other check
+  stay; the global `staff_mfa_config` is not touched;
+- the screen shows "Verify with your authenticator app first…" for `MFA_REQUIRED`.
+
+Tests: `src/test/specialAdvancePayout.test.ts`, describe "Staff MFA for money-moving actions".
+
+**Consequence.** Phase 4 is applied, so no CFO can approve, pay out or record a repayment until they enrol an
+authenticator and verify in the session. Issuance is off in any case. The step-up prompt in the Special Advances
+screens (calling the existing MFA hook) is UI work still to do.
+
+**Before issuance is switched on:** each CFO who will approve, pay out or record repayments enrols an authenticator app
+(none had as at 2026-10-27; not re-checked), and the Special Advances screens get the step-up prompt (UI). The global
+`staff_mfa_config` mode is not changed by this decision.
+
+## D6. Balance-sheet heading for A24
+
+**Today (implemented locally).** `src/components/cfo/balanceSheetClassification.ts` maps A24 to **Other Assets**.
+Borrowers can be tenants, agents, other Welile users or external individuals and companies, so none of the
+counterparty headings ("Receivables from Tenant / Agent / Landlord / Partner Products and Services") fits every
+balance, and without a mapping A24 would show as "Unclassified — flagged for review". The drill-down still names the
+account. A20-A23 keep their headings. Tests: `src/test/balanceSheetClassification.test.ts`.
+
+**Alternative.** A dedicated "Special Advances Receivable" heading: a change to the statement's layout (presentation,
+CFO / UI decision).
+
+## Amendment 2026-11-03: one CFO, one step
+
+CFO decision: Welile has one CFO, who gives Special Advances without the CEO's or anyone else's approval and does every
+step. Issuance already worked this way (Phases 1-4, live): only the CFO records, approves and pays out, and the same CFO
+may do all of it. For the parts not yet in production the CFO decided ONE approval step:
+
+- Corrections (Phase B, D11b), provision reviews and write-offs (Phase C, D9) are posted by the CFO in a single
+  authorised action. There is no pending state, queue, approval, rejection or withdrawal, and no second CFO. The
+  unapplied migrations `20261102210000` and `20261102220000` were rewritten accordingly (an earlier same-day draft that
+  let the CFO approve their own pending request was replaced before anything was applied).
+- Unchanged: CFO-only (CEO, super admin, admin and other roles cannot act), an authenticator-verified session (aal2)
+  on every posting, the reason and proof file rules, idempotency (a retry never posts twice), the append-only records
+  and audit events, the ledger postings and accounts (A24, A25, X4, R1, A1), and the rule that the CFO cannot give an
+  advance to themselves (`SELF_ADVANCE`, confirmed by the CFO on 2026-11-03).
+- Protection that replaces the old review step: the server recomputes under lock when posting and refuses (posting
+  nothing) if the figure the CFO saw has moved — `expected_total_delta` for a provision review, `expected_gross_amount`
+  for a write-off.
+- Control note: one person both makes and authorises these entries; the compensating controls were the authenticator,
+  the reason and proof file, the stale-figure check and the audit trail.
+
+## Amendment 2026-11-03 (later the same day): no authenticator in Special Advances
+
+CFO decision: the authenticator app (MFA / TOTP, an `aal2` session) is no longer required anywhere in Special Advances.
+D5 (2026-10-27) and D14 (2026-11-02) are withdrawn. An enabled CFO completes approval, payout, repayment, correction,
+provision review, write-off and recovery with a normal signed-in session.
+
+- Server: migration `20261103150000_special_advances_remove_mfa.sql` (not applied) drops the approval / payout trigger
+  `special_advances_require_mfa` and makes `_special_advance_require_mfa()` refuse nothing; the seven applied functions
+  that call it are not rewritten. Rollback restores the Phase 4 check exactly. The unapplied proof storage policies
+  (`20261028153100`) no longer require `aal2`.
+- Screens: the Special Advances step-up dialog and every "verify with your authenticator" prompt are removed.
+- Kept: enabled-CFO role on every function (CEO, super admin and others cannot act), the self-advance rule, the issuance
+  switch, reasons and proof files (private bucket, short-lived links, used once), idempotency, locking, append-only
+  records and audit events, ledger postings and accounts.
+- Not changed (Welile-wide, outside Special Advances): `staff_mfa_config` (mode `shadow`), the `staff_mfa_ok()` policy
+  on every table, the staff sign-in authenticator screens and Settings card, and the project's TOTP setting.
+- Control note: a CFO account is now protected by its password only; with one CFO doing every step, the remaining
+  controls are the role, the reason and proof file, the stale-figure check and the audit trail.
+
+## Amendment 2026-11-03 (later the same day): one Access fee, no Registration fee
+
+CFO decision: the rate-based fee and the fixed UGX 10,000 (principal up to 200,000) / UGX 20,000 (above) are recognised
+as the **Access fee** only. Special Advances have no Registration fee in new advances, repayment allocations, ledger
+descriptions, reports or exports. Amounts are unchanged: what a borrower owes, the instalments, the due dates and the
+principal in each instalment are identical.
+
+- Server: migration `20261103170000_special_advances_single_access_fee.sql` (not applied; rollback in
+  `supabase/rollbacks/`). Calculation version `sa-calc-2` (access fee = rate part + fixed part); repayments allocate
+  each instalment's whole fee part as access fee, then principal; payout and payout reversal post one access fee pair
+  (DR A24 / CR R1 and back); the statement, position and new audit events report one access fee. Constraints: a
+  `sa-calc-2` agreement and every repayment allocation hold registration fee 0.
+- Ledger and accounts: categories, mappings, A1, A24 and R1 unchanged. No reclassification journal: both fees were
+  always posted to `special_advance_fee_revenue` (R1) against `special_advance_receivable` (A24).
+- Historical reporting reclassification (SA-000001, made under `sa-calc-1`): stored as access fee 700 + registration
+  fee 10,000; reported as one access fee of 10,700 (instalments 1-3: 4,386 / 4,386 / 1,928). Its stored agreement,
+  instalments, audit events and its six payout ledger rows stay as recorded; two of those rows are described
+  "registration fee" / "registration fee receivable" (UGX 10,000 each, R1 / A24) and cannot be reworded without
+  editing the append-only ledger. This amendment is the record that they are part of the Access fee.
+- Wording: the agreement a borrower accepts should describe one access fee that includes the fixed amount.
+

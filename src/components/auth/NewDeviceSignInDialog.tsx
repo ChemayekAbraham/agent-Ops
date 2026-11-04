@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import { Loader2, ShieldAlert, Clock, MapPin, Globe } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useNewDeviceSignIns } from '@/hooks/useNewDeviceSignIns';
@@ -46,23 +39,29 @@ export default function NewDeviceSignInDialog() {
   };
 
   return (
-    <AlertDialog open onOpenChange={() => { /* an answer is required */ }}>
-      <AlertDialogContent
-        className="w-[calc(100vw-1.5rem)] max-w-md gap-0 overflow-hidden rounded-2xl p-0"
-        onEscapeKeyDown={(e) => e.preventDefault()}
+    // Plain portal (not Radix): other app dialogs opened alongside used to
+    // claim the top layer and swallow taps on these buttons.
+    createPortal(
+    <div className="pointer-events-auto fixed inset-0 z-[2147483000] flex items-center justify-center bg-background/80 p-3 backdrop-blur-sm" role="presentation">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="new-device-title"
+        aria-describedby="new-device-desc"
+        className="pointer-events-auto w-[calc(100vw-1.5rem)] max-w-md overflow-hidden rounded-2xl border border-border bg-background shadow-lg"
       >
         <div className="border-b border-primary/15 bg-primary/10 px-5 pb-4 pt-5">
-          <AlertDialogHeader className="space-y-2 text-left">
+          <div className="space-y-2 text-left">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                 <ShieldAlert className="h-5 w-5" aria-hidden="true" />
               </div>
-              <AlertDialogTitle className="text-base leading-tight sm:text-lg">New sign-in to your account</AlertDialogTitle>
+              <h2 id="new-device-title" className="font-semibold text-base leading-tight sm:text-lg">New sign-in to your account</h2>
             </div>
-            <AlertDialogDescription className="text-sm">
+            <p id="new-device-desc" className="text-sm text-muted-foreground">
               Your account was signed in to on a device it hasn't used before. Do you know this device?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+            </p>
+          </div>
         </div>
 
         <div className="space-y-3 px-5 py-4">
@@ -96,17 +95,19 @@ export default function NewDeviceSignInDialog() {
           ) : null}
         </div>
 
-        <AlertDialogFooter className="flex-col gap-2 border-t border-border px-5 py-4 sm:flex-col sm:space-x-0">
-          <Button className="w-full" onClick={() => answer(true)} disabled={busy !== null}>
+        <div className="flex flex-col gap-2 border-t border-border px-5 py-4">
+          <Button type="button" className="w-full touch-manipulation" onClick={() => answer(true)} disabled={busy !== null}>
             {busy === 'trust' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             I know this device
           </Button>
-          <Button variant="destructive" className="w-full" onClick={() => answer(false)} disabled={busy !== null}>
+          <Button type="button" variant="destructive" className="w-full touch-manipulation" onClick={() => answer(false)} disabled={busy !== null}>
             {busy === 'reject' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             I don't know this device
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </div>
+      </div>
+    </div>,
+    document.body,
+    )
   );
 }

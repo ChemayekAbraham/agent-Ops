@@ -72,13 +72,20 @@ Deno.serve(async (req) => {
 
   try {
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
-    if (!token) return json({ error: "Not signed in" }, 401);
-    const { data: userData, error: userErr } = await admin.auth.getUser(token);
-    const user = userData?.user;
-    if (userErr || !user) return json({ error: "Not signed in" }, 401);
-
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "check");
+    // Background "check" calls from an ended session are expected, not
+    // failures: answer 200 with a marker so the browser refreshes once or
+    // stops quietly. Request/verify still refuse with 401.
+    const notSignedIn = () =>
+      action === "check"
+        ? json({ error: "Not signed in", signed_out: true }, 200)
+        : json({ error: "Not signed in" }, 401);
+    if (!token) return notSignedIn();
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const user = userData?.user;
+    if (userErr || !user) return notSignedIn();
+
     const deviceFp = String(body?.device_fp ?? "").trim();
     if (!FP_RE.test(deviceFp)) return json(NOT_REQUIRED);
 

@@ -10,6 +10,8 @@ import "../_shared/smsFooterInterceptor.ts";
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isPhoneBlocked } from "../_shared/smsExceptions.ts";
+import { appendRentAccessCampaign } from '../_shared/tenantTemplates.ts';
+import { logSmsDelivery } from '../_shared/smsDeliveryLog.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -220,6 +222,7 @@ Deno.serve(async (req) => {
       message = parts.join(" ");
     }
 
+    message = appendRentAccessCampaign(message);
     // Honour CTO-managed SMS exceptions for this message type.
     const blocked = await isPhoneBlocked(adminClient, tenant_phone, "rent_access");
     const result = blocked ? { ok: false, provider: null } : await sendSMS(tenant_phone, message);
@@ -230,11 +233,15 @@ Deno.serve(async (req) => {
     // tenant_id was passed), leaving Yoola spend reporting blind to every
     // rent-access-limit SMS sent from here.
     try {
-      await adminClient.from("sms_delivery_log").insert({
+      await logSmsDelivery({ from: () => ({ insert: async (rows: unknown) => {
+        const { error } = await adminClient.from('sms_delivery_log').insert(rows as Record<string, unknown>);
+        return { error };
+      } }) }, {
         recipient_phone: tenant_phone,
         recipient_user_id: tenant_id ?? null,
         recipient_name: tenant_name ?? null,
         message,
+        attempts: [],
         status: ok ? "sent" : "failed",
         provider: result.provider ?? (blocked ? "none" : "none"),
         error: blocked ? "blocked_by_sms_exception" : (ok ? null : "all_providers_failed"),

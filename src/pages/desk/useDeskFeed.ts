@@ -1,0 +1,91 @@
+import { useQueries, useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
+export type Row = Record<string, unknown>;
+export type FeedState = { rows: Row[]; loading: boolean; error: string | null; updatedAt: number };
+
+type RpcFn = (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+// desk_feed is not in the generated Supabase types until they are regenerated after the migration.
+const rpc = supabase.rpc.bind(supabase) as unknown as RpcFn;
+
+/** Ontology feeds (except the day list itself) can be pinned to one mapped day. */
+const dayFor = (feed: string, day?: string | null) =>
+  feed.startsWith('onto_') && feed !== 'onto_days' && day ? day : null;
+
+async function loadFeed(feed: string, day?: string | null): Promise<Row[]> {
+  // Ontology feeds come from their own RPC; every other feed stays on desk_feed.
+  const d = dayFor(feed, day);
+  const args = d ? { p_feed: feed, p_day: d } : { p_feed: feed };
+  // Ontology change feeds come from their own RPC; the rest of the ontology stays on ontology_feed.
+  const { data, error } = feed.startsWith('onto_chg_')
+    ? await rpc('ontology_changes_feed', args)
+    : feed.startsWith('onto_')
+      ? await rpc('ontology_feed', args)
+      : await rpc('desk_feed', { p_feed: feed });
+  if (error) throw new Error(error.message);
+  return Array.isArray(data) ? (data as Row[]) : [];
+}
+
+/** One row per pipeline stage, with the throughput figures the flow is drawn from. */
+export type StageRow = Row & {
+  ord: string;
+  stage: string;
+  desk: string;
+  waiting: number;
+  waiting_ugx: number;
+  done_24h: number;
+  done_7d: number;
+  per_day_7d: number;
+  days_to_clear: number | null;
+  rejected_7d: number;
+};
+
+/**
+ * The stage flow behind the command centre. The key starts with 'desk-feed' so
+ * "Refresh now" — which invalidates that prefix — reloads this too.
+ */
+export function useStageFlow(): FeedState {
+  const r = useQuery({
+    queryKey: ['desk-feed', 'stage_flow'],
+    queryFn: async (): Promise<Row[]> => {
+      const { data, error } = await rpc('desk_stage_flow', {});
+      if (error) throw new Error(error.message);
+      return Array.isArray(data) ? (data as Row[]) : [];
+    },
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    retry: 1,
+  });
+  return {
+    rows: (r.data as Row[] | undefined) ?? [],
+    loading: r.isLoading,
+    error: r.error ? (r.error as Error).message : null,
+    updatedAt: r.dataUpdatedAt,
+  };
+}
+
+/** Loads every feed a desk needs and refreshes each one every minute while the desk is open. */
+export function useDeskFeeds(feeds: string[], day?: string | null): Record<string, FeedState> {
+  const results = useQueries({
+    queries: feeds.map((feed) => ({
+      queryKey: dayFor(feed, day) ? ['desk-feed', feed, dayFor(feed, day)] : ['desk-feed', feed],
+      queryFn: () => loadFeed(feed, day),
+      refetchInterval: 60_000,
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+      retry: 1,
+    })),
+  });
+  const out: Record<string, FeedState> = {};
+  feeds.forEach((feed, i) => {
+    const r = results[i];
+    out[feed] = {
+      rows: (r.data as Row[] | undefined) ?? [],
+      loading: r.isLoading,
+      error: r.error ? (r.error as Error).message : null,
+      updatedAt: r.dataUpdatedAt,
+    };
+  });
+  return out;
+}

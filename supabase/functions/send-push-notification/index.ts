@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { sendPushToSubscription, type PushPayload } from "../_shared/webPushSend.ts";
+import { selectInChunks } from "../_shared/inChunks.ts";
 
 // VAPID encryption/JWT signing moved to ../_shared/webPushSend.ts (Stage 6),
 // so the Stage 6 channel router and this broadcast entrypoint share exactly
@@ -38,12 +39,15 @@ serve(async (req) => {
     }
 
     // Fetch push subscriptions
-    let query = supabase.from('push_subscriptions').select('*');
+    let result: { data: any[] | null; error: unknown };
 
     if (all) {
       // Get all subscriptions
+      result = await supabase.from('push_subscriptions').select('*');
     } else if (userIds && userIds.length > 0) {
-      query = query.in('user_id', userIds);
+      // Chunked: a long in(...) list makes the request URL too long ("Invalid URL").
+      result = await selectInChunks(userIds, (chunk) =>
+        supabase.from('push_subscriptions').select('*').in('user_id', chunk));
     } else {
       return new Response(
         JSON.stringify({ error: "Must specify userIds or all=true" }),
@@ -51,7 +55,7 @@ serve(async (req) => {
       );
     }
 
-    const { data: subscriptions, error } = await query;
+    const { data: subscriptions, error } = result;
 
     if (error) {
       console.error('Error fetching subscriptions:', error);

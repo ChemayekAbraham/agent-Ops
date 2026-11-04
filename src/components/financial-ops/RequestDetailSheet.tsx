@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import { hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -68,9 +69,12 @@ export function RequestDetailSheet({ open, onOpenChange, userId, requestType, re
     setLoading(true);
 
     const fetchAll = async () => {
+      const sessionOk = await hasUsableUserSession();
       const [profileRes, walletRes, rolesRes, txRes, depositRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, phone, avatar_url, created_at, last_active_at, city, country').eq('id', userId).single(),
-        supabase.rpc('get_user_wallet_view', { p_user_id: userId }),
+        sessionOk
+          ? supabase.rpc('get_user_wallet_view', { p_user_id: userId })
+          : Promise.resolve({ data: null, error: null }),
         supabase.from('user_roles').select('role').eq('user_id', userId),
         supabase.from('general_ledger')
           .select('id, amount, direction, category, description, transaction_date')

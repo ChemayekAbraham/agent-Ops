@@ -40,11 +40,18 @@ beforeEach(() => {
 });
 
 describe('rent desk order helpers', () => {
-  it('the default sort is best payers first, and the toggle cycles through all three', () => {
-    expect(DEFAULT_RENT_DESK_SORT).toBe('best_payers');
+  it('the default sort is agent collection % first, and the toggle cycles through all four', () => {
+    expect(DEFAULT_RENT_DESK_SORT).toBe('agent_week');
+    expect(nextRentDeskSort('agent_week')).toBe('best_payers');
     expect(nextRentDeskSort('best_payers')).toBe('newest');
     expect(nextRentDeskSort('newest')).toBe('oldest');
-    expect(nextRentDeskSort('oldest')).toBe('best_payers');
+    expect(nextRentDeskSort('oldest')).toBe('agent_week');
+  });
+
+  it('asks the server for best payers when the desk sort is agent collection % (the % is arranged on the desk)', async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+    await fetchRentDeskOrder(['a'], 'agent_week');
+    expect(rpcMock).toHaveBeenCalledWith('rent_request_desk_order', expect.objectContaining({ p_sort: 'best_payers' }));
   });
 
   it('puts rows in the server rank, and unranked rows after the ranked ones in their own order', () => {

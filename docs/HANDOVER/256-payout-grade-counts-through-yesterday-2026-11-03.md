@@ -1,7 +1,7 @@
 # 256 - Landlord payouts are graded through yesterday, never today (2026-11-03)
 
 **Status: APPLIED TO PRODUCTION 2026-11-03 (Tuesday), Tuesday test passed. Thursday test (2026-11-05) still to run.**
-Migration `20261103100000_payout_grade_through_yesterday.sql`; rollback `supabase/rollbacks/20261103100000_payout_grade_through_yesterday.rollback.sql`; test `supabase/tests/payout_grade_through_yesterday.sql`.
+Migration `20261103100001_payout_grade_through_yesterday.sql`; rollback `supabase/rollbacks/20261103100001_payout_grade_through_yesterday.rollback.sql`; test `supabase/tests/payout_grade_through_yesterday.sql`.
 
 ## The rule (Africa/Kampala; the rule week runs Thursday to Wednesday)
 | Payout day | Graded on |
