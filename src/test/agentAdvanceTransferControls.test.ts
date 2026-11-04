@@ -375,7 +375,7 @@ describe('1-2. accounting-only transfers: no payout, no duplicate receivable', (
   it('ROI-recovered replacement and partnership (another account) need the right details', async () => {
     const a = await issue(db, AG2, 250000, 'Advance to move to Returns recovery');
     await expect(as(db, CFO, () => db.query(`select public.cfo_transfer_agent_advance($1, 'new_advance', 'Recover through the partner Returns', 'xfer-roi-0001', p_new_recovery_source => 'roi')`, [a.advance])))
-      .rejects.toThrow(/ROI recovery needs a percentage/);
+      .rejects.toThrow(/Recovery from Returns needs a percentage/);
     await expect(as(db, CFO, () => db.query(`select public.cfo_transfer_agent_advance($1, 'new_advance', 'Move to the partnership account', 'xfer-ptn-0001', p_new_agent_id => $2)`, [a.advance, AG1])))
       .rejects.toThrow(/cross-account reason/);
     const t = await cfo<{ to_advance_id: string }>(db, `public.cfo_transfer_agent_advance($1, 'new_advance', 'Move to the partnership account', 'xfer-ptn-0002',
@@ -528,6 +528,25 @@ describe('7. cancelling needs a destination or an approved write-off', () => {
     expect((await advRow(db, a.advance)).pre_cancel_outstanding).toBe(String(out));
     const paid = await rows<{ s: string }>(db, `select prosrc s from pg_proc where proname in ('get_cfo_paid_by_category_totals', 'get_cfo_paid_by_category_page')`);
     for (const p of paid) expect(p.s).toContain(`<> 'adv_writeoff:'`);
+  });
+  it('never writes off more than was approved; a new request for the current balance supersedes the stale one', async () => {
+    const a = await issue(db, AG2, 150000, 'Advance whose balance grows after approval');
+    const req = await cfo<{ request_id: string; amount: string }>(db, `public.request_agent_advance_write_off($1, 'Agent left the network and cannot be traced')`, [a.advance]);
+    await expect(as(db, CFO, () => db.query(`select public.request_agent_advance_write_off($1, 'Same request submitted a second time')`, [a.advance])))
+      .rejects.toThrow(/ADVANCE_DUPLICATE_SUBMISSION/);
+    await as(db, MGR, () => db.query(`select public.decide_agent_advance_write_off($1, true, 'Approved after review')`, [req.request_id]));
+    // the balance grows after approval (e.g. a penalty); the approval does not stretch to cover it
+    await db.query(`update agent_advances set outstanding_balance = outstanding_balance + 5000 where id = $1`, [a.advance]);
+    const before = await rows<{ n: string }>(db, `select count(*) n from general_ledger`);
+    await expect(as(db, CFO, () => db.query(`select public.cancel_agent_advance($1, false, 'Write off with the old approval')`, [a.advance])))
+      .rejects.toThrow(/ADVANCE_WRITE_OFF_EXCEEDS_APPROVAL/);
+    expect((await rows<{ n: string }>(db, `select count(*) n from general_ledger`))[0].n).toBe(before[0].n);
+    const req2 = await cfo<{ request_id: string; amount: string }>(db, `public.request_agent_advance_write_off($1, 'Agent left; write off the current balance')`, [a.advance]);
+    expect(num(req2.amount)).toBe(num(req.amount) + 5000);
+    const st = await rows<{ status: string }>(db, `select status from agent_advance_write_off_requests where advance_id = $1 order by requested_at, status desc`, [a.advance]);
+    expect(st.map((s) => s.status).sort()).toEqual(['requested', 'superseded']);
+    await expect(as(db, MGR, () => db.query(`select public.decide_agent_advance_write_off($1, true, 'Late approval of the old one')`, [req.request_id])))
+      .rejects.toThrow(/already superseded/);
   });
 });
 

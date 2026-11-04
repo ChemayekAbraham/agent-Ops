@@ -99,7 +99,7 @@ CREATE TABLE public.agent_advance_write_off_requests (
   advance_id uuid NOT NULL REFERENCES public.agent_advances(id),
   amount numeric NOT NULL CHECK (amount > 0),
   reason text NOT NULL CHECK (length(btrim(reason)) >= 20),
-  status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'rejected', 'used')),
+  status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'rejected', 'used', 'superseded')),
   requested_by uuid NOT NULL,
   requested_at timestamptz NOT NULL DEFAULT now(),
   decided_by uuid,
@@ -304,7 +304,7 @@ BEGIN
   END IF;
   IF length(btrim(COALESCE(p_reason, ''))) < 15 THEN RAISE EXCEPTION 'A transfer reason of at least 15 characters is required'; END IF;
   IF p_destination NOT IN ('new_advance', 'existing_advance') THEN
-    RAISE EXCEPTION 'Destination must be new_advance (replacement, ROI or partnership advance) or existing_advance';
+    RAISE EXCEPTION 'Destination must be new_advance (replacement, Returns-recovered or partnership advance) or existing_advance';
   END IF;
 
   SELECT * INTO f FROM public.agent_advances WHERE id = p_from_advance FOR UPDATE;
@@ -329,7 +329,7 @@ BEGIN
     v_src := COALESCE(p_new_recovery_source, f.recovery_source, 'wallet_daily');
     IF v_src NOT IN ('wallet_daily', 'roi') THEN RAISE EXCEPTION 'Recovery source must be wallet_daily or roi'; END IF;
     v_roi := CASE WHEN v_src = 'roi' THEN p_new_roi_percent ELSE 0 END;
-    IF v_src = 'roi' AND (v_roi IS NULL OR v_roi <= 0 OR v_roi > 100) THEN RAISE EXCEPTION 'ROI recovery needs a percentage between 0 and 100'; END IF;
+    IF v_src = 'roi' AND (v_roi IS NULL OR v_roi <= 0 OR v_roi > 100) THEN RAISE EXCEPTION 'Recovery from Returns needs a percentage between 0 and 100'; END IF;
     v_cycle := COALESCE(p_new_cycle_days, f.cycle_days, 30);
     IF v_cycle <= 0 THEN RAISE EXCEPTION 'Cycle days must be greater than zero'; END IF;
     v_inst := CASE COALESCE(f.repayment_frequency, 'daily') WHEN 'weekly' THEN GREATEST(1, ceil(v_cycle / 7.0)) WHEN 'biweekly' THEN GREATEST(1, ceil(v_cycle / 14.0))
@@ -412,6 +412,13 @@ BEGIN
   SELECT * INTO a FROM public.agent_advances WHERE id = p_advance_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Advance not found'; END IF;
   IF a.status NOT IN ('active', 'overdue') OR COALESCE(a.outstanding_balance, 0) <= 0 THEN RAISE EXCEPTION 'Only an open advance with a balance can be written off'; END IF;
+  -- an open request for a different amount (the balance moved since) is superseded by this one; the same amount is a duplicate
+  IF EXISTS (SELECT 1 FROM public.agent_advance_write_off_requests WHERE advance_id = a.id AND status IN ('requested', 'approved')
+              AND abs(amount - a.outstanding_balance) < 1) THEN
+    RAISE EXCEPTION 'ADVANCE_DUPLICATE_SUBMISSION: a write-off of this balance is already open for this advance';
+  END IF;
+  UPDATE public.agent_advance_write_off_requests SET status = 'superseded'
+   WHERE advance_id = a.id AND status IN ('requested', 'approved');
   INSERT INTO public.agent_advance_write_off_requests (advance_id, amount, reason, requested_by)
   VALUES (a.id, a.outstanding_balance, btrim(p_reason), v_actor) RETURNING id INTO v_id;
   INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
@@ -457,6 +464,11 @@ BEGIN
   SELECT * INTO a FROM public.agent_advances WHERE id = r.advance_id;
   v_book := public._agent_advance_book_balance(a.id);
   v_a10 := GREATEST((v_book->>'a10')::numeric, 0); v_a11 := GREATEST((v_book->>'a11')::numeric, 0); v_a20 := GREATEST((v_book->>'a20')::numeric, 0);
+  -- never write off more than was approved (a balance or book that grew after approval needs a new request)
+  IF v_a10 + v_a11 + v_a20 > r.amount + 1 THEN
+    RAISE EXCEPTION 'ADVANCE_WRITE_OFF_EXCEEDS_APPROVAL: the books carry UGX % on this advance but only UGX % was approved for write-off. Request a new write-off for the current balance.',
+      to_char(v_a10 + v_a11 + v_a20, 'FM999,999,999,990'), to_char(r.amount, 'FM999,999,999,990') USING ERRCODE = 'check_violation';
+  END IF;
   v_desc := 'Approved write-off of advance ' || left(a.id::text, 8) || ': ' || r.reason;
   IF v_a10 + v_a11 + v_a20 > 0 THEN
     v_entries := jsonb_build_array(jsonb_build_object('user_id', a.agent_id, 'ledger_scope', 'platform', 'direction', 'cash_out', 'amount', v_a10 + v_a11 + v_a20,
@@ -701,8 +713,12 @@ BEGIN
     SELECT * INTO v_wo FROM public.agent_advance_write_off_requests
      WHERE advance_id = p_advance_id AND status = 'approved' FOR UPDATE;
     IF NOT FOUND THEN
-      RAISE EXCEPTION 'ADVANCE_CANCEL_NEEDS_DESTINATION: UGX % is still owed on this advance. Move it with Transfer (replacement, existing, ROI or partnership advance), keep it to recover from the wallet, or request a write-off and have it approved by another CFO or the CEO before cancelling.',
+      RAISE EXCEPTION 'ADVANCE_CANCEL_NEEDS_DESTINATION: UGX % is still owed on this advance. Move it with Transfer (replacement, existing, Returns-recovered or partnership advance), keep it to recover from the wallet, or request a write-off and have it approved by another CFO or the CEO before cancelling.',
         to_char(v_adv.outstanding_balance, 'FM999,999,999,990') USING ERRCODE = 'check_violation';
+    END IF;
+    IF v_adv.outstanding_balance > v_wo.amount + 1 THEN
+      RAISE EXCEPTION 'ADVANCE_WRITE_OFF_EXCEEDS_APPROVAL: UGX % is now owed but only UGX % was approved for write-off. Request a new write-off for the current balance.',
+        to_char(v_adv.outstanding_balance, 'FM999,999,999,990'), to_char(v_wo.amount, 'FM999,999,999,990') USING ERRCODE = 'check_violation';
     END IF;
     v_group := public._agent_advance_post_write_off(v_wo.id, v_caller);
     v_mode := 'write_off_approved';
