@@ -63,4 +63,4 @@
 - Lunch allowance reclasses are append-only pairs logged once in `cfo_lunch_reclass_log`; Money Out counts the reclass, not the original, to avoid double counting.
 - CFO Money Out/Money In read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for`; the client never recomputes or re-labels, so each report has one server definition.
 - Welile Homes landlord ownership is server-decided (`get_my_welile_homes_landlords`, enroll/float RPCs check `registered_by`).
-- Welile Homes historical (off-app) float disbursements live only in append-only `wh_historical_disbursements` via `wh_hist_*` RPCs (Agent Ops write/reverse; COO/CFO read) and `src/lib/welileHomesHistorical.ts`; they never touch ledger, wallets, float, limits or plan funding, and are always shown separately from system-recorded payouts.
+- Welile Homes off-app payouts: append-only `wh_historical_disbursements` via `wh_hist_*` RPCs only; never ledger/wallet/float/funding, always shown apart from system payouts.
