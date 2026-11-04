@@ -37334,6 +37334,146 @@ export type Database = {
         }
         Relationships: []
       }
+      nexa_portfolio_access_audit: {
+        Row: {
+          challenge_id: string | null
+          code_hash: string | null
+          created_at: string
+          detail: string | null
+          event: string
+          id: number
+          ip_hash: string | null
+          portfolio_id: string | null
+        }
+        Insert: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Update: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Relationships: []
+      }
+      nexa_portfolio_otp_challenges: {
+        Row: {
+          attempts: number
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip_hash: string | null
+          locked_until: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Insert: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Update: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash?: string
+          portfolio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      nexa_portfolio_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          portfolio_id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          portfolio_id: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          portfolio_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -88808,6 +88948,42 @@ export type Database = {
         Returns: Json
       }
       neexabot_profile_id: { Args: never; Returns: string }
+      nexa_get_my_portfolios: {
+        Args: never
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_get_portfolio_by_id: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_portfolio_otp_target: {
+        Args: { p_portfolio_code: string }
+        Returns: {
+          investor_id: string
+          phone: string
+          portfolio_id: string
+        }[]
+      }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_email_for_match: { Args: { p_email: string }; Returns: string }
