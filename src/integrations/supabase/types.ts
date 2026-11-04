@@ -41251,8 +41251,11 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_reason: string | null
+          device_fp: string | null
+          device_trusted: boolean | null
           id: string
           ownership_code_confirmed_at: string | null
+          pin_verified: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -41267,8 +41270,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -41283,8 +41289,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason?: string
           requested_name?: string
           requested_number?: string
@@ -63229,6 +63238,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_withdrawal_pins: {
+        Row: {
+          created_at: string
+          failed_attempts: number
+          locked_until: string | null
+          number_change_hold_until: string | null
+          pin_hash: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       v360_buffer_pool: {
         Row: {
           amount: number
@@ -67312,6 +67351,164 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      withdrawal_pin_challenges: {
+        Row: {
+          attempts: number
+          channel: string
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          reset_id: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          reset_id: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          reset_id?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_pin_challenges_reset_id_fkey"
+            columns: ["reset_id"]
+            isOneToOne: false
+            referencedRelation: "withdrawal_pin_resets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_pin_config: {
+        Row: {
+          challenge_max_attempts: number
+          challenge_ttl_minutes: number
+          enforce_mode: string
+          id: boolean
+          lockout_minutes: number
+          max_codes_per_hour: number
+          max_failed_attempts: number
+          number_change_hold_hours: number
+          proof_ttl_seconds: number
+          reset_cooloff_hours: number
+          updated_at: string
+        }
+        Insert: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_proofs: {
+        Row: {
+          created_at: string
+          device_fp: string | null
+          device_trusted: boolean | null
+          expires_at: string
+          id: string
+          purpose: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at: string
+          id?: string
+          purpose: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at?: string
+          id?: string
+          purpose?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_resets: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          release_at: string
+          requested_at: string
+          required_factors: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at?: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       withdrawal_release_events: {
         Row: {
@@ -77160,6 +77357,10 @@ export type Database = {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
       }
+      cancel_withdrawal_pin_reset: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       capture_db_stat_hourly: { Args: never; Returns: Json }
       capture_location_by_token: {
         Args: {
@@ -78573,6 +78774,10 @@ export type Database = {
           label: string
           link_id: string
         }[]
+      }
+      consume_withdrawal_pin_proof: {
+        Args: { p_purpose: string; p_user: string }
+        Returns: Json
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
       coo_approve_bike_lease: {
@@ -87958,6 +88163,7 @@ export type Database = {
       }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
       my_staff_mfa_status: { Args: never; Returns: Json }
+      my_withdrawal_pin_status: { Args: never; Returns: Json }
       national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
@@ -90084,6 +90290,37 @@ export type Database = {
       pin_agent_expected_day_for_plan: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      pin_challenge_check: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_reset_id: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_challenge_issue: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_reset_begin: {
+        Args: { p_email_usable: boolean; p_user: string }
+        Returns: Json
+      }
+      pin_reset_complete: {
+        Args: {
+          p_email_code_hash: string
+          p_new_pin: string
+          p_sms_code_hash: string
+          p_user: string
+        }
+        Returns: Json
       }
       pin_tenant_ops_weekly_metrics: {
         Args: { p_anchor?: string }
@@ -92841,6 +93078,10 @@ export type Database = {
       }
       set_withdrawal_account: {
         Args: { p_name: string; p_number: string; p_provider: string }
+        Returns: Json
+      }
+      set_withdrawal_pin: {
+        Args: { p_current_pin?: string; p_new_pin: string }
         Returns: Json
       }
       settle_merchant_out_of_pocket: {
@@ -96195,6 +96436,10 @@ export type Database = {
         }
         Returns: Json
       }
+      verify_withdrawal_pin: {
+        Args: { p_device_fp?: string; p_pin: string; p_purpose: string }
+        Returns: Json
+      }
       voice_autocall_add_people: {
         Args: { p_campaign_id: string; p_person_ids: string[] }
         Returns: number
@@ -96931,6 +97176,11 @@ export type Database = {
         Args: { p_withdrawal_id: string }
         Returns: Json
       }
+      withdrawal_pin_check: {
+        Args: { p_pin: string; p_user: string }
+        Returns: Json
+      }
+      withdrawal_pin_format_ok: { Args: { p: string }; Returns: boolean }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json
