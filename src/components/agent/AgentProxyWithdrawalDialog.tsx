@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2, ArrowDownToLine, AlertCircle, Smartphone, Landmark, Banknote, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentPayoutRoutes } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -114,80 +115,42 @@ export function AgentProxyWithdrawalDialog({
     (async () => {
       setLoadingRoutes(true);
       try {
-        const [savedRes, portfoliosRes] = await Promise.all([
-          supabase
-            .from('saved_payout_methods' as never)
-            .select('*')
-            .eq('user_id', funderId)
-            .order('is_default', { ascending: false })
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('investor_portfolios')
-            .select('id, portfolio_code, account_name, status, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number')
-            .eq('investor_id', funderId)
-            .in('status', ['active', 'pending', 'pending_approval', 'matured'])
-            .not('payment_method', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(50),
-        ]);
+        const routeRows = await fetchAgentPayoutRoutes(funderId);
         if (cancelled) return;
 
         const list: PayoutRoute[] = [];
-        for (const s of ((savedRes.data ?? []) as any[])) {
-          list.push({
-            key: `saved:${s.id}`,
-            source: 'saved',
-            label: s.nickname || (s.payout_mode === 'mobile_money' ? `${s.momo_provider} MoMo` : s.payout_mode === 'bank_transfer' ? (s.bank_name || 'Bank') : 'Cash'),
-            sublabel: s.payout_mode === 'mobile_money'
-              ? `${s.momo_number ?? '—'} · ${s.momo_name ?? ''}`.trim()
-              : s.payout_mode === 'bank_transfer'
-                ? `${s.bank_account_number ?? '—'} · ${s.bank_account_name ?? ''}`.trim()
-                : 'Cash pickup',
-            is_default: !!s.is_default,
-            payout_mode: s.payout_mode,
-            momo_provider: s.momo_provider,
-            momo_number: s.momo_number,
-            momo_name: s.momo_name,
-            bank_name: s.bank_name,
-            bank_account_name: s.bank_account_name,
-            bank_account_number: s.bank_account_number,
-          });
-        }
-        for (const p of ((portfoliosRes.data ?? []) as any[])) {
-          list.push({
-            key: `portfolio:${p.id}`,
-            source: 'portfolio',
-            label: p.portfolio_code || p.account_name || `Portfolio ${p.id.slice(0, 6)}`,
-            sublabel: p.payment_method === 'mobile_money'
-              ? `${p.mobile_network ?? 'MoMo'} · ${p.mobile_money_number ?? '—'}`
-              : p.payment_method === 'bank_transfer'
-                ? `${p.bank_name ?? 'Bank'} · ${p.account_number ?? '—'}`
-                : 'Cash pickup',
-            is_default: false,
-            payout_mode: p.payment_method,
-            momo_provider: p.mobile_network,
-            momo_number: p.mobile_money_number,
-            momo_name: p.account_name,
-            bank_name: p.bank_name,
-            bank_account_name: p.bank_account_name,
-            bank_account_number: p.account_number,
-            portfolio_id: p.id,
-            portfolio_code: p.portfolio_code,
-          });
-        }
-
-        // Extra payout numbers saved by Partner Ops for each portfolio.
-        const pfIds = ((portfoliosRes.data ?? []) as any[]).map(p => p.id);
         const extraMap: Record<string, ExtraDest[]> = {};
-        if (pfIds.length) {
-          const { data: ex } = await supabase
-            .from('portfolio_payout_destinations' as never)
-            .select('id, portfolio_id, payout_method, mobile_network, mobile_money_number, recipient_name, bank_name, account_number')
-            .in('portfolio_id', pfIds)
-            .order('created_at', { ascending: true });
-          for (const e of ((ex ?? []) as any[])) {
-            (extraMap[e.portfolio_id] ||= []).push(e);
+        for (const row of routeRows) {
+          if (row.route_key.startsWith('extra:') && row.portfolio_id) {
+            (extraMap[row.portfolio_id] ||= []).push({
+              id: row.route_key.slice('extra:'.length),
+              portfolio_id: row.portfolio_id,
+              payout_method: row.payout_mode === 'bank_transfer' ? 'bank_transfer' : 'mobile_money',
+              mobile_network: null,
+              mobile_money_number: null,
+              recipient_name: row.label,
+              bank_name: null,
+              account_number: null,
+            });
+            continue;
           }
+          const payoutMode: PayoutMode = row.payout_mode === 'bank_transfer' ? 'bank_transfer' : row.payout_mode === 'cash' ? 'cash' : 'mobile_money';
+          list.push({
+            key: row.route_key,
+            source: row.route_key.startsWith('saved:') ? 'saved' : 'portfolio',
+            label: row.label,
+            sublabel: 'Payout details on file',
+            is_default: false,
+            payout_mode: payoutMode,
+            momo_provider: null,
+            momo_number: null,
+            momo_name: null,
+            bank_name: null,
+            bank_account_name: null,
+            bank_account_number: null,
+            portfolio_id: row.portfolio_id || undefined,
+            portfolio_code: undefined,
+          });
         }
         if (cancelled) return;
         setExtras(extraMap);
@@ -217,9 +180,7 @@ export function AgentProxyWithdrawalDialog({
     { key: 'primary', label: selectedRoute.sublabel },
     ...routeExtras.map(e => ({
       key: e.id,
-      label: e.payout_method === 'mobile_money'
-        ? `${e.mobile_network ?? 'MoMo'} · ${e.mobile_money_number ?? '—'} · ${e.recipient_name}`
-        : `${e.bank_name ?? 'Bank'} · ${e.account_number ?? '—'} · ${e.recipient_name}`,
+      label: e.recipient_name || 'Extra payout on file',
     })),
   ] : [];
   const usedSplits = splitLines.filter(l => (splits[l.key] || 0) > 0);
@@ -288,19 +249,14 @@ export function AgentProxyWithdrawalDialog({
         // (trg_set_withdrawal_intent_key). A portfolio route pins the key to that
         // portfolio's current payout cycle, so a re-tap of the SAME cycle is
         // refused forever while next cycle's genuine payout passes through.
-        payout_route_ref: route.source === 'portfolio'
-          ? `portfolio:${route.portfolio_id}`
-          : `saved:${route.key.slice('saved:'.length)}`,
-        // Pre-populate the payout route the partner has on file so Financial Ops
-        // does not need to re-key MoMo / bank details. This pulls from the
-        // selected saved method or per-portfolio route.
-        payout_method: route.payout_mode,
-        mobile_money_provider: route.payout_mode === 'mobile_money' ? route.momo_provider : null,
-        mobile_money_number: route.payout_mode === 'mobile_money' ? route.momo_number : null,
-        mobile_money_name: route.payout_mode === 'mobile_money' ? route.momo_name : null,
-        bank_name: route.payout_mode === 'bank_transfer' ? route.bank_name : null,
-        bank_account_name: route.payout_mode === 'bank_transfer' ? route.bank_account_name : null,
-        bank_account_number: route.payout_mode === 'bank_transfer' ? route.bank_account_number : null,
+        payout_route_ref: route.key,
+        payout_method: route.payout_mode || 'mobile_money',
+        mobile_money_provider: null,
+        mobile_money_number: null,
+        mobile_money_name: null,
+        bank_name: null,
+        bank_account_name: null,
+        bank_account_number: null,
       } as any);
       if (error) {
         // 23505 = unique_violation. Either the idempotency key collided
@@ -314,13 +270,8 @@ export function AgentProxyWithdrawalDialog({
           // already-submitted request. The row IS the claim — nothing
           // financial has happened yet — so treat it as success. Pressing
           // send twice must be harmless, not merely a nicer error.
-          const { data: existingSame } = await supabase
-            .from('withdrawal_requests')
-            .select('id')
-            .eq('user_id', funderId)
-            .eq('client_request_id', clientRequestId)
-            .maybeSingle();
-          if (existingSame?.id) {
+          const { data: existingSameId } = await supabase.rpc('agent_proxy_withdrawal_id_for_client_request' as never, { p_client_request_id: clientRequestId } as never);
+          if (existingSameId) {
             toast.success('Withdrawal request submitted', {
               description: `${formatUGX(amount)} withdrawal for ${funderName} is pending Financial Ops approval`,
             });
@@ -364,22 +315,14 @@ export function AgentProxyWithdrawalDialog({
       }
 
       // Get the newly created withdrawal request ID for audit
-      const { data: newRow } = await supabase
-        .from('withdrawal_requests')
-        .select('id')
-        .eq('user_id', funderId)
-        .eq('initiated_by', user.id)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      const { data: newRowId } = await supabase.rpc('agent_proxy_withdrawal_id_for_client_request' as never, { p_client_request_id: clientRequestId } as never);
 
       // Audit log
       await supabase.from('audit_logs').insert({
         user_id: user.id,
         action_type: 'proxy_withdrawal_request',
         table_name: 'withdrawal_requests',
-        record_id: newRow?.id || funderId,
+        record_id: (newRowId as string | null) || funderId,
         metadata: {
           funder_id: funderId,
           funder_name: funderName,

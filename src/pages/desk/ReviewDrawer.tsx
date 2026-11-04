@@ -9,6 +9,7 @@ import { CallLog } from './CallLog';
 import { isRecordOnly, needsNote, runMove } from './deskActions';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
+import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
 import {
   lcLetterUrl,
   readableError,
@@ -104,7 +105,7 @@ function Photos({ urls }: { urls: string[] }) {
           href={u}
           target="_blank"
           rel="noopener noreferrer"
-          className={`block overflow-hidden rounded-lg border border-white/12 ${FOCUS}`}
+          className={`block overflow-hidden rounded-lg border border-[var(--desk-line-color)] ${FOCUS}`}
           aria-label={`House photo ${i + 1} of ${urls.length}`}
         >
           <img src={u} alt="" loading="lazy" className="h-20 w-28 object-cover" />
@@ -134,7 +135,7 @@ function CheckRow({
   const numeric = kind === 'number' || kind === 'amount';
 
   return (
-    <li className="space-y-2 border-b border-white/8 py-3 last:border-0">
+    <li className="space-y-2 border-b border-[var(--desk-line-color)] py-3 last:border-0">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm font-medium text-foreground">
@@ -168,7 +169,7 @@ function CheckRow({
                 aria-pressed={on}
                 onClick={() => onResult(r)}
                 className={`desk-pill border px-3 py-1 text-xs ${CALM} ${FOCUS} ${
-                  on ? statusGlass[RESULT_TONE[r]] : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
+                  on ? statusGlass[RESULT_TONE[r]] : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
                 }`}
               >
                 {RESULT_LABEL[r]}
@@ -198,7 +199,7 @@ function CheckRow({
               if (!numeric) return onValue(raw);
               onValue(raw === '' ? null : Number(raw));
             }}
-            className={`desk-pill h-9 w-full max-w-sm border border-white/12 bg-white/5 px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
+            className={`desk-pill h-9 w-full max-w-sm border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
           />
         </label>
       )}
@@ -232,6 +233,11 @@ export function ReviewDrawer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
+  // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
+  const [waitMode, setWaitMode] = useState(false);
+  const waitDesk = waitDeskForStage(stage);
+  const waitList = useWaitingList(waitDesk);
+  const canWait = !!waitDesk && !waitList.missing;
 
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
@@ -375,8 +381,8 @@ export function ReviewDrawer({
       <button type="button" aria-label="Close the review" onClick={onClose} className="absolute inset-0 bg-black/60" />
       {stage === 'coo' && cooReason.picker}
 
-      <div className="desk-root relative flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-white/10 shadow-2xl">
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+      <div className="desk-root relative flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-[var(--desk-line-color)] shadow-2xl">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--desk-line-color)] px-5 py-4">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-lg font-semibold text-foreground">
               {STAGE_NAME[stage]} review · {req?.tenant?.name ?? 'Request'}
@@ -391,7 +397,7 @@ export function ReviewDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className={`desk-pill border border-white/12 bg-white/5 p-2 ${CALM} ${FOCUS} hover:bg-white/10`}
+            className={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-2 ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)]`}
           >
             <X className="h-4 w-4" aria-hidden />
           </button>
@@ -526,12 +532,15 @@ export function ReviewDrawer({
                         type="button"
                         aria-pressed={on}
                         disabled={off}
-                        onClick={() => setDecision(d)}
+                        onClick={() => {
+                          setDecision(d);
+                          setWaitMode(false);
+                        }}
                         title={off ? `Log an answered ${callDesk} call first.` : DECISION_HELP[d]}
                         className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
                           on
                             ? statusGlass.ok
-                            : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
+                            : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
                         } disabled:cursor-not-allowed disabled:opacity-40`}
                       >
                         {DECISION_LABEL[d]}
@@ -539,7 +548,41 @@ export function ReviewDrawer({
                       </button>
                     );
                   })}
+                  {canWait && (
+                    <button
+                      type="button"
+                      aria-pressed={waitMode}
+                      onClick={() => {
+                        setWaitMode(true);
+                        setDecision(null);
+                      }}
+                      title="Keep the request at this desk while someone else acts."
+                      className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                        waitMode
+                          ? statusGlass.warn
+                          : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+                      }`}
+                    >
+                      Wait on…
+                    </button>
+                  )}
                 </div>
+                {waitMode && waitDesk && (
+                  <>
+                    <WaitOnForm
+                      requestId={requestId}
+                      desk={waitDesk}
+                      deskTag={DESK_TAG[stage]}
+                      onDone={(message) => {
+                        setOutcome(message);
+                        window.setTimeout(onClose, 1200);
+                      }}
+                    />
+                    {outcome && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
+                  </>
+                )}
+                {!waitMode && (
+                <>
                 {decision && DECISION_HELP[decision] && (
                   <p className="text-xs text-muted-foreground">{DECISION_HELP[decision]}</p>
                 )}
@@ -559,7 +602,7 @@ export function ReviewDrawer({
                               aria-pressed={on}
                               onClick={() => setTargetAgentId(a.agent_id)}
                               className={`w-full rounded-xl border px-3 py-2 text-left ${CALM} ${FOCUS} ${
-                                on ? statusGlass.ok : 'border-white/12 bg-white/5 hover:bg-white/10'
+                                on ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] hover:bg-[var(--desk-surface-hover)]'
                               }`}
                             >
                               <span className="text-sm font-medium text-foreground">{a.agent_name ?? 'Agent'}</span>
@@ -585,7 +628,7 @@ export function ReviewDrawer({
                     <select
                       value={proxyAgentId ?? ''}
                       onChange={(e) => setProxyAgentId(e.target.value || null)}
-                      className={`desk-pill h-9 w-full max-w-sm border border-white/12 bg-white/5 px-3 text-sm text-foreground ${FOCUS}`}
+                      className={`desk-pill h-9 w-full max-w-sm border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground ${FOCUS}`}
                     >
                       <option value="">Choose a verified proxy partner…</option>
                       {(proxies.data ?? []).map((p) => (
@@ -605,7 +648,7 @@ export function ReviewDrawer({
                     <select
                       value={reasonCode}
                       onChange={(e) => setReasonCode(e.target.value)}
-                      className={`desk-pill h-9 w-full max-w-md border border-white/12 bg-white/5 px-3 text-sm text-foreground ${FOCUS}`}
+                      className={`desk-pill h-9 w-full max-w-md border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground ${FOCUS}`}
                     >
                       <option value="">Choose a reason code…</option>
                       {reasonList.map((r) => (
@@ -626,7 +669,7 @@ export function ReviewDrawer({
                     onChange={(e) => setNote(e.target.value)}
                     rows={3}
                     placeholder="What you saw, in plain words. The agent reads this when a request is sent back."
-                    className={`w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
+                    className={`w-full rounded-xl border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
                   />
                 </label>
 
@@ -648,7 +691,7 @@ export function ReviewDrawer({
                     className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
                       decision && !blockedReason && !busy && !recordedButStuck
                         ? statusGlass.ok
-                        : 'border-white/12 bg-white/5 text-muted-foreground'
+                        : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
                     } disabled:cursor-not-allowed`}
                   >
                     {busy ? 'Saving…' : 'Record the review and act'}
@@ -665,6 +708,8 @@ export function ReviewDrawer({
                     </button>
                   )}
                 </div>
+                </>
+                )}
               </section>
 
               {/* ── What the desks before this one decided ── */}

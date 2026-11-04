@@ -2,7 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch } from '../_shared/nexaSignup.ts';
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
-import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
+import { buildNexaSystemPrompt, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
+import { recordAccessAlert } from '../_shared/nexaAccess.ts';
 import { verifyMetaSignature } from './security.ts';
 import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
@@ -46,6 +47,7 @@ Deno.serve(async req => {
         let answer:string;
         const guide = buildNexaPublicGuideReply(text);
         if(isRestrictedInternalStaffQuery(text)) {
+          await recordAccessAlert(admin,{userId:null,phone:`+${msg.from}`,channel:'whatsapp',roles:[],attemptedResource:'internal_staff_query',userMessage:text,reason:'Non-staff caller asked for internal staff-only information'});
           answer=buildInternalStaffRefusalReply();
         } else if(guide) {
           answer=guide;
@@ -57,7 +59,7 @@ Deno.serve(async req => {
         } else {
           const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
-          answer=await buildWhatsAppAiReply(aiKey,NEXA_SALES_PROMPT+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
+          answer=await buildWhatsAppAiReply(aiKey,buildNexaSystemPrompt([], false)+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
         }
         if (!isRestrictedInternalStaffQuery(text) && !isFinancialAccessQuery(text)) {
           const lead = extractInquiryLeadDetails(text, {leadPhone:msg.from});

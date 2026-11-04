@@ -679,7 +679,7 @@ function RentPaymentGuideContent() {
       <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2">Paying Rent for a Tenant</p>
       <StepItem num="1"><p className="font-medium">Search Tenant</p><p className="text-muted-foreground">Search by name or phone number.</p></StepItem>
       <StepItem num="2"><p className="font-medium">Enter Amount</p><p className="text-muted-foreground">See outstanding balance and your wallet balance.</p></StepItem>
-      <StepItem num="3"><p className="font-medium">Instant Processing</p><p className="text-muted-foreground">Money deducted from your wallet. You earn 5% commission.</p></StepItem>
+      <StepItem num="3"><p className="font-medium">Instant Processing</p><p className="text-muted-foreground">Money deducted from your wallet. You earn 8% commission.</p></StepItem>
       <StepItem num="✓" color="success"><p className="font-medium text-success">Receivables Updated</p><p className="text-muted-foreground">Statement updates immediately.</p></StepItem>
       <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 space-y-1.5 mt-2">
         <div className="flex items-center gap-2">
@@ -704,7 +704,7 @@ function TenantVerifyGuideContent() {
       <StepItem num="3"><p className="font-medium flex items-center gap-1"><Droplets className="h-3 w-3" /> Verify Water Meter</p><p className="text-muted-foreground">Check NWSC water meter.</p></StepItem>
       <StepItem num="4"><p className="font-medium flex items-center gap-1"><Phone className="h-3 w-3" /> Confirm MM Details</p><p className="text-muted-foreground">Verify MM name matches phone.</p></StepItem>
       <StepItem num="5"><p className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> Capture GPS</p><p className="text-muted-foreground">Pin the tenant's residence location.</p></StepItem>
-      <StepItem num="✓" color="success"><p className="font-medium text-success">Tap "Verify"</p><p className="text-muted-foreground">Earn <strong>UGX 10,000</strong> + <strong>5%</strong> ongoing commission!</p></StepItem>
+      <StepItem num="✓" color="success"><p className="font-medium text-success">Tap "Verify"</p><p className="text-muted-foreground">Earn <strong>UGX 10,000</strong> + <strong>8%</strong> ongoing commission!</p></StepItem>
     </>
   );
 }

@@ -67,7 +67,7 @@ export function SignatureRentRequestCard({ fullName, onPostRequest, onIntent }: 
             {[
               { Icon: Wallet, amount: formatUGX(5000), description: 'For an eligible posted rent request' },
               { Icon: Percent, amount: '1%', description: 'Of a qualifying landlord payout' },
-              { Icon: CalendarCheck2, amount: '10%', description: 'On qualifying rent repayments' },
+              { Icon: CalendarCheck2, amount: '8%', description: 'On qualifying rent repayments' },
             ].map(({ Icon, amount, description }, index) => (
               <div key={amount} className="signature-earnings-row">
                 <span className="signature-earnings-icon" aria-hidden="true">

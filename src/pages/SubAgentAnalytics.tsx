@@ -372,7 +372,7 @@ export default function SubAgentAnalytics() {
     return () => { cancelled = true; };
   }, [selectedHouse?.tenant_id]);
 
-  // Load per-transaction recruiter splits (8% sub-agent vs 2% recruiter) for the open sub-agent
+  // Load per-transaction recruiter splits (6% sub-agent vs 2% recruiter; 8%/2% before the 8% go-live) for the open sub-agent
   useEffect(() => {
     if (!selectedSubAgent) {
       setRecruiterSplits([]);
@@ -1837,7 +1837,7 @@ export default function SubAgentAnalytics() {
                 </span>
               </div>
 
-              {/* Recruiter-split breakdown (8% sub-agent vs 2% recruiter) */}
+              {/* Recruiter-split breakdown (6% sub-agent vs 2% recruiter; older rows 8%/2%) */}
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -1845,7 +1845,7 @@ export default function SubAgentAnalytics() {
                     Recruiter Split Breakdown
                   </CardTitle>
                   <p className="text-[11px] text-muted-foreground">
-                    Sub-agent keeps 8% · you earn 2% on each rent allocation
+                    Sub-agent keeps 6% · you earn 2% on each rent allocation
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -1868,7 +1868,7 @@ export default function SubAgentAnalytics() {
                           </p>
                         </div>
                         <div className="bg-primary/10 rounded-lg p-2 text-center border border-primary/20">
-                          <p className="text-[10px] text-muted-foreground">Sub-agent 8%</p>
+                          <p className="text-[10px] text-muted-foreground">Sub-agent share</p>
                           <p className="text-xs font-bold text-primary">
                             {formatUGX(recruiterSplits.reduce((s, r) => s + Number(r.subagent_share), 0))}
                           </p>
@@ -1899,7 +1899,7 @@ export default function SubAgentAnalytics() {
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="flex-1 bg-primary/10 rounded-md px-2 py-1 text-center">
-                                <span className="text-[10px] text-muted-foreground">8% </span>
+                                <span className="text-[10px] text-muted-foreground">{Number(r.amount) > 0 ? `${Math.round((Number(r.subagent_share) / Number(r.amount)) * 100)}% ` : ''}</span>
                                 <span className="text-xs font-semibold text-primary">
                                   {formatUGX(Number(r.subagent_share))}
                                 </span>

@@ -568,3 +568,29 @@ The advisor (lint 0010) flags the view as security definer and suggests `securit
 **Fixed (the real gap):** `authenticated` held INSERT, UPDATE, DELETE, TRUNCATE on the view (Supabase default privileges; the migration only added SELECT). The view is auto-updatable and runs as its owner, so a reviewer could have edited or deleted other staff's assistant messages through it, although the table grants `authenticated` no write. Migration `20261030130000_staff_assistant_crm_view_select_only.sql` reduces `authenticated` to SELECT (anon already had none); applied by hand and checked.
 
 **Same pattern, found and NOT changed (needs a per-view look):** nine more definer views in `public` still give `authenticated` insert/update/delete: `agent_advance_requests_privileged`, `manager_profiles`, `v_agent_landlord_float_reconciliation`, `v_lc1_verification_inbox`, `v_tenant_call_summary`, `v_tenant_daily_eligibility`, `v_tenant_location_pivot`, `v_tenant_ops_tenant_base`, `vw_agent_ops_directory`. Most are joins or aggregates and not writable, but `manager_profiles` and `agent_advance_requests_privileged` may be simple enough to update. Of 113 views, 80 are definer; none of those is readable by `anon`.
+
+## Step 61: `integer out of range` on `login_phase_events` (179 in a 1,000-row log export, 10-29 13:39 to 10-30 09:10 UTC)
+
+Every one is the `login_phase_events` insert (`ms_since_start` is an integer column; values such as 2,268,257,739 and 8,127,316,338 ms are days). Cause: `loginTelemetry.ts` anchors `ms_since_start` to the oldest event in a ring left in localStorage from an earlier visit, so a returning browser reports a timing of days and PostgREST refuses the whole batch (the cast happens before any trigger, so the database cannot clamp it). The fix from step 47 was only on the dev branch because Lovable had rewritten the file. It is now applied on top of Lovable's version: a ring older than one hour is dropped on load, and `ms_since_start` is capped at 2,147,483,647. Browsers keep sending the old values until they load the published bundle.
+
+**Also in that export, not changed:** a database restart at 10-30 08:13:23 UTC (19 refused connections in about 2 s, the tenth since 10-28; the postgres log search does not show the startup lines); `column ip.pending_topups does not exist` from a hand-run SQL select on `investor_portfolios` (not application code); 26 `Ledger group ... is unbalanced (net=2000)` refusals at commit between 10-29 15:08 and 15:18 UTC (the balance guard working; the posting that leaves 2,000 unbalanced is not identified yet).
+
+## Step 62 (2026-10-30): normalize_email_for_match closed to signed-in users
+
+**Found by the 10-30 rescan (08:00 to 12:00 UTC):** 69 `permission denied for function normalize_email_for_match`, last at 11:11. `profiles_email_match_idx` is an expression index on `normalize_email_for_match(email)`, so any write to `profiles` by a signed-in user runs that function as the user, and it was closed by default (step 23). Same cause as step 55 (`person_name_key`).
+
+**Fix (applied to production by hand, file is the record):** `20261030140000_grant_execute_normalize_email_for_match.sql` grants execute to `authenticated` and `anon`. The function is a pure immutable string helper with no table access. Verified with a rolled-back `update profiles set email = email` as `authenticated`: it passes. A check of every index that depends on a `public` function found no other one closed to `authenticated`.
+
+**Rescan items not changed:** permission denied for functions/tables by signed-out callers (`hr_birthday_pending`, `empty_house_opportunity_summary`, `crm_communication_inbox`, `partner_supported_house_returns`, `get_funder_nudge_stats`, `staff_permissions`) are covered by earlier signed-out handling and still to be confirmed per caller; `canceling statement due to user request` (192) is the browser aborting requests.
+
+## Step 63: rescan 11-04 (24 h, nothing changed in production)
+
+**Statement timeouts, 1,215:** 983 were `get_agent_ops_overview` between 11-03 06:00 and 06:30 UTC, next to timeouts on the cron calls `refresh_wallet_totals_cache` and `auto_create_deposits_from_gmail` (06:04-06:05). Timed as a super_admin in a rolled-back block: 7 days 0.35 s, 30 days 0.76 s. So the function is fine and the window was a database stall; no change made.
+
+**Restarts:** 11-03 08:00 and 10:02 UTC (14 and 20 refused connections). Added with the earlier ones to `docs/security/incident-log.md` entry 8.
+
+**Permission denied, left as is:** `my_staff_mfa_status`, `has_active_smartphone_plan`, `get_my_overdue_vetting`, `hr_birthday_pending`, `get_funder_nudge_stats`, `staff_permissions`, and the `phone_collection_prompt_events` insert and `profiles.last_active_at` update. `authenticated` holds execute or the table privilege on every one (checked), `anon` does not, so these are signed-out or expired sessions firing calls; fix is in the client, not the database.
+
+**Found, owner is Lovable:** `column staff_requisitions.requisition_receipt_paths does not exist` (7). Lovable's receipt-matching feature (commit `a160fc67a0`, 10-30, `requisitionReceiptRead.ts`, `StaffRequisitionQueue.tsx`) reads and writes `requisition_receipt_paths`, `receipt_match_status` and `receipt_ocr_*`, but no migration on `lovable` creates them and the live table has no receipt column. The code swallows the 42703 error, so the "hold payout until the receipt matches" check is silently off. Needs Lovable's migration, not a fix from here.
+
+**Guards working, not defects:** `Financial Ops only.` (100), `Not authorised to view receivables` (87), float access switched off by management (57), `pso_non_officer_*` (28 each), `NOTE_ALREADY_APPROVED`, `uq_sms_delivery_log_idempotency_key`, `unique_subagent`. **Client bugs, unchanged:** `invalid column for filter user_id` (133), uuid `"Rent Management Pool"` (86), `"tenant"` (47), `"null"` (32), `"Partner"` (24).

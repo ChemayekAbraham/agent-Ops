@@ -7,6 +7,7 @@ import { generateWelileAiId, getRiskTierLabel } from '@/lib/welileAiId';
 import { formatUGX, calculateRequestFee } from '@/lib/rentCalculations';
 import { getEffectiveRentRequestAmounts } from '@/lib/rentRequestAmounts';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -416,11 +417,14 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .select('balance')
           .eq('user_id', tenantId)
           .maybeSingle(),
-        supabase
-          .from('investor_portfolios')
-          .select('investment_amount')
-          .eq('investor_id', tenantId)
-          .in('status', ['active', 'pending', 'pending_approval']),
+        fetchAgentOnboardedPortfolios()
+          .then(cards => ({
+            data: cards
+              .filter(c => c.investor_id === tenantId && ['active', 'pending', 'pending_approval'].includes(String(c.status)))
+              .map(c => ({ investment_amount: Number(c.investment_amount) || 0 })),
+            error: null,
+          }))
+          .catch(error => ({ data: [], error })),
         supabase
           .from('general_ledger')
           .select('amount, direction')
@@ -1627,7 +1631,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   <p className="text-sm font-bold text-warning">This rent cycle was rejected</p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     The tenant still owes <strong className="font-mono">{formatUGX(summary.currentOutstanding)}</strong>.
-                    Reopen the cycle to collect from your float and earn 10% commission.
+                    Reopen the cycle to collect from your float and earn 8% commission.
                   </p>
                   <Button
                     onClick={handleReopenRejectedCycle}
@@ -1870,7 +1874,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 <div>
                   <p className="text-base font-bold text-success">Pay from Wallet Float</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">10% commission</strong> instantly.
+                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">8% commission</strong> instantly.
                   </p>
                 </div>
               </div>

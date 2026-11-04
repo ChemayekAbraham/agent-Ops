@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { exportAdvanceStatements, exportConsolidatedPayments } from '@/lib/agentAdvancePdfExport';
 import { downloadAdvancesExcel, downloadAdvancesPdf } from '@/lib/advancesListExport';
 import { FileSpreadsheet } from 'lucide-react';
@@ -29,6 +29,9 @@ import { EditAdvanceTermsDialog } from '@/components/advances/EditAdvanceTermsDi
 import { DailyRecoveryRateCard } from '@/components/cfo/DailyRecoveryRateCard';
 import { AdvanceWalletReconciliationDialog } from '@/components/cfo/AdvanceWalletReconciliationDialog';
 import { useAdvanceReconciliationSummary } from '@/hooks/useAdvanceWalletReconciliation';
+import { AdvanceWriteOffApprovals } from '@/components/cfo/AdvanceWriteOffApprovals';
+import { AdvanceExceptionsPanel } from '@/components/cfo/AdvanceExceptionsPanel';
+import { advanceControlCode, advanceControlMessage } from '@/lib/advanceControls';
 import { differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -242,10 +245,13 @@ export function CFOAdvancesManager() {
 
       const succeeded = ids.length - failures.length;
       if (succeeded > 0) toast.success(`${succeeded} advance(s) cancelled`);
-      if (failures.length > 0) {
-        toast.error(
-          `${failures.length} could not be cancelled: ${failures[0].message}`,
-        );
+      const owed = failures.filter((f) => advanceControlCode(f.message) === 'needs_destination').length;
+      if (owed > 0) {
+        toast.error(`${owed} still have a balance owed. Close each one with Transfer, keep for recoup, or an approved write-off.`);
+      }
+      const other = failures.filter((f) => advanceControlCode(f.message) !== 'needs_destination');
+      if (other.length > 0) {
+        toast.error(`${other.length} could not be cancelled: ${advanceControlMessage(other[0].message)}`);
       }
 
       if (succeeded > 0) {
@@ -394,6 +400,12 @@ export function CFOAdvancesManager() {
       {/* Daily Recovery Rate (CFO-adjustable) */}
       <DailyRecoveryRateCard />
 
+      {/* Write-off approvals (second person) and reconciliation exceptions */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <AdvanceWriteOffApprovals />
+        <AdvanceExceptionsPanel />
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <Tabs value={filter} onValueChange={(v) => { setFilter(v as any); setSelectedIds(new Set()); }}>
@@ -449,7 +461,7 @@ export function CFOAdvancesManager() {
               </Button>
             )}
             <Button variant="destructive" size="sm" className="gap-1" onClick={() => setDeleteDialogOpen(true)}>
-              <Trash2 className="h-4 w-4" /> Delete ({selectedIds.size})
+              <Ban className="h-4 w-4" /> Cancel selected ({selectedIds.size})
             </Button>
           </div>
         </div>
@@ -647,8 +659,9 @@ export function CFOAdvancesManager() {
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel {selectedIds.size} advance(s)?</AlertDialogTitle>
             <AlertDialogDescription>
-              Each advance is cancelled as a write-off: the outstanding balance is set to zero
-              and the pre-cancellation balance is retained on the record. This cannot be undone.
+              Only advances with nothing owed, or with an approved write-off, are cancelled here.
+              An advance that still has a balance must be closed on its own, by Transfer, keep for
+              recoup, or an approved write-off. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-2">

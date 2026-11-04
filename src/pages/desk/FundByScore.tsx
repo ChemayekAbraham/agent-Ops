@@ -190,7 +190,7 @@ export function FundByScore({ board }: { board: boolean }) {
       )}
 
       {rows.length > 0 && (
-        <div className="max-h-[32rem] overflow-auto rounded-xl border border-white/10">
+        <div className="max-h-[32rem] overflow-auto rounded-xl border border-[var(--desk-line-color)]">
           <table className="w-full border-collapse text-sm tabular-nums">
             <thead className="desk-thead">
               <tr>
@@ -199,7 +199,7 @@ export function FundByScore({ board }: { board: boolean }) {
                     <th
                       key={h || `pick-${i}`}
                       scope="col"
-                      className={`sticky top-0 z-10 border-b border-white/12 px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${
+                      className={`sticky top-0 z-10 border-b border-[var(--desk-line-color)] px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${
                         i >= 4 && i <= 8 ? 'text-right' : 'text-left'
                       }`}
                     >
@@ -214,7 +214,7 @@ export function FundByScore({ board }: { board: boolean }) {
                 const on = !!picked[r.rent_request_id];
                 const rec = r.recommendation ?? '—';
                 return (
-                  <tr key={r.rent_request_id} className={`desk-row border-b border-white/5 last:border-0 ${CALM}`}>
+                  <tr key={r.rent_request_id} className={`desk-row border-b border-[var(--desk-line-soft)] last:border-0 ${CALM}`}>
                     <td className="px-3 py-2 align-top">
                       <input
                         type="checkbox"
@@ -268,7 +268,7 @@ export function FundByScore({ board }: { board: boolean }) {
             <select
               value={reasonCode}
               onChange={(e) => setReasonCode(e.target.value)}
-              className={`desk-pill h-9 w-full border border-white/12 bg-white/5 px-3 text-sm text-foreground ${FOCUS}`}
+              className={`desk-pill h-9 w-full border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground ${FOCUS}`}
             >
               <option value="">Choose a reason code…</option>
               {(reasons.data ?? []).map((r) => (
@@ -283,7 +283,7 @@ export function FundByScore({ board }: { board: boolean }) {
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className={`desk-pill h-9 w-full border border-white/12 bg-white/5 px-3 text-sm text-foreground ${FOCUS}`}
+              className={`desk-pill h-9 w-full border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground ${FOCUS}`}
             />
           </label>
         </div>
@@ -302,7 +302,7 @@ export function FundByScore({ board }: { board: boolean }) {
         disabled={!!blocked || busy}
         onClick={fundSelected}
         className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-          !blocked && !busy ? statusGlass.ok : 'border-white/12 bg-white/5 text-muted-foreground'
+          !blocked && !busy ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
         } disabled:cursor-not-allowed`}
       >
         {busy ? 'Funding…' : `Fund selected (${fmt('int', selected.length)})`}

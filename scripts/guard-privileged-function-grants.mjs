@@ -107,6 +107,12 @@ const PROTECTED = [
     baselineFile: '20261024170000_rent_reward_atomic_post.sql',
     why: 'posts a rent-facilitation reward (wallet credit or portfolio reinvestment) with no caller check of its own; service role only',
   },
+  {
+    name: 'recompute_wallet_buckets',
+    baseline: '20261104160000',
+    baselineFile: '20261104160000_merchandise_phase3b_controls.sql',
+    why: 'rewrites any user\'s wallet bucket fields from the ledger and folds advance_credit (a memo of what an agent owes) into withdrawable; service role only (coo-create-portfolio)',
+  },
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];

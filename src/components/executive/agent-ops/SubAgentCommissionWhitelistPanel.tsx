@@ -80,7 +80,7 @@ export function SubAgentCommissionWhitelistPanel() {
             Sub-Agent Full Commission Whitelist
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Whitelisted sub-agents keep the full 10% rent-repayment commission and their own house-listing
+            Whitelisted sub-agents keep the full 8% rent-repayment commission and their own house-listing
             bonuses — no override share is deducted for the parent agent.
           </p>
         </CardHeader>
@@ -96,7 +96,7 @@ export function SubAgentCommissionWhitelistPanel() {
             </div>
             <div className="rounded-xl border bg-muted/30 p-3">
               <div className="text-xs text-muted-foreground">Standard split</div>
-              <div className="text-xl font-bold">8% / 2%</div>
+              <div className="text-xl font-bold">6% / 2%</div>
             </div>
           </div>
 
@@ -140,9 +140,9 @@ export function SubAgentCommissionWhitelistPanel() {
                   <div className="flex items-center gap-2">
                     <span className="truncate font-semibold">{r.sub_agent_name}</span>
                     {r.whitelisted ? (
-                      <Badge className="bg-emerald-600 hover:bg-emerald-600">Full 10%</Badge>
+                      <Badge className="bg-emerald-600 hover:bg-emerald-600">Full 8%</Badge>
                     ) : (
-                      <Badge variant="secondary">8% + 2% parent</Badge>
+                      <Badge variant="secondary">6% + 2% parent</Badge>
                     )}
                   </div>
                   <div className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -181,8 +181,8 @@ export function SubAgentCommissionWhitelistPanel() {
             </DialogTitle>
             <DialogDescription>
               {target?.next
-                ? `${target?.row.sub_agent_name} will earn the full 10% on every rent repayment they collect. ${target?.row.parent_agent_name} stops earning the 2% override.`
-                : `${target?.row.sub_agent_name} returns to the 8% share and ${target?.row.parent_agent_name} resumes the 2% override.`}
+                ? `${target?.row.sub_agent_name} will earn the full 8% on every rent repayment they collect. ${target?.row.parent_agent_name} stops earning the 2% override.`
+                : `${target?.row.sub_agent_name} returns to the 6% share and ${target?.row.parent_agent_name} resumes the 2% override.`}
             </DialogDescription>
           </DialogHeader>
           <Textarea

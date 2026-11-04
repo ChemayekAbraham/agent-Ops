@@ -616,3 +616,107 @@ export function getRoleGalleryQuestions(roles: readonly string[] = []): ZoeSugge
   }
   return unique;
 }
+
+/**
+ * Prompt 3 Deliverable (1) — Two-line note to managers pointing their teams at Zoe.
+ */
+export const ZOE_MANAGER_ADOPTION_NOTE_LINES: readonly [string, string] = [
+  'For managers and team leads: point your team to Ask Zoe in My Space for instant read-only department reports, plain-English explanations, and call or email drafts.',
+  'Every figure comes straight from a live role-checked report and Zoe never changes business data — check weekly team adoption anytime in the Zoe Real-Use Dashboard.',
+];
+
+const MANAGER_OR_LEAD_ROLES = new Set([
+  'manager',
+  'coo',
+  'cfo',
+  'ceo',
+  'cto',
+  'hr',
+  'crm',
+  'super_admin',
+  'tenant_ops',
+  'landlord_ops',
+  'agent_ops',
+  'partner_ops',
+  'financial_ops',
+]);
+
+export function isZoeManagerOrLeadRole(roles: readonly string[] = []): boolean {
+  return roles.some((r) => MANAGER_OR_LEAD_ROLES.has(r.toLowerCase().trim()));
+}
+
+/**
+ * Prompt 3 Deliverable (1) — 10 example questions shown directly on Zoe's empty-chat
+ * screen, pulled from what people actually ask Clara (`assistant_messages` where
+ * `persona = 'agent'`) and what Zoe's own `staff_assistant_unanswered` log showed
+ * staff wanted answered.
+ */
+export const ZOE_EMPTY_CHAT_EXAMPLE_QUESTIONS: readonly ZoeSuggestion[] = [
+  {
+    id: 'clara-wallet-balance',
+    label: 'What is my personal wallet balance in My Space?',
+    prompt: 'What is my personal wallet balance in My Space?',
+    category: 'my_space',
+  },
+  {
+    id: 'clara-advances-requisitions',
+    label: 'Do I have any salary advances or pending requisitions?',
+    prompt: 'Do I have any salary advances or pending requisitions in My Space?',
+    category: 'my_space',
+  },
+  {
+    id: 'unanswered-explain-receivables',
+    label: 'Explain what receivables mean in Welile in plain English',
+    prompt: 'Explain what receivables mean in Welile in plain, simple English.',
+    category: 'my_space',
+  },
+  {
+    id: 'unanswered-where-to-call-tenants',
+    label: 'If I want to call tenants or landlords, where do I go?',
+    prompt: 'If I want to call tenants or landlords in Welile, which screen do I open?',
+    category: 'my_space',
+  },
+  {
+    id: 'unanswered-find-tenants-list',
+    label: 'How do I find the tenants list and check who is behind?',
+    prompt: 'How do I find the tenants list and check which Rent Plans are behind?',
+    category: 'tenant_ops',
+  },
+  {
+    id: 'unanswered-first-seven-days',
+    label: 'How are newly funded Rent Plans performing in the First 7 Days report?',
+    prompt: 'How are newly funded Rent Plans performing in the First 7 Days report?',
+    category: 'tenant_ops',
+  },
+  {
+    id: 'unanswered-arrears-ageing',
+    label: 'Show the Tenant Ops arrears ageing summary as of today',
+    prompt: 'Show the Tenant Ops arrears ageing summary as of today.',
+    category: 'tenant_ops',
+  },
+  {
+    id: 'unanswered-calling-report',
+    label: 'Show the Staff Calling and Pipeline Feedback report for the last 7 days',
+    prompt: 'Show the Staff Calling and Pipeline Feedback report for the last 7 days.',
+    category: 'hr',
+  },
+  {
+    id: 'unanswered-receivables-payables',
+    label: 'Show company Receivables, Payables, and the weekly Payables forecast',
+    prompt: 'Show company Receivables, Payables, and the weekly Payables forecast.',
+    category: 'finance',
+  },
+  {
+    id: 'clara-my-work-coaching',
+    label: 'How is my work this week compared to my 4-week average?',
+    prompt: 'How is my work this week compared to my 4-week average?',
+    category: 'my_space',
+  },
+];
+
+export function getEmptyChatExampleQuestions(
+  _roles: readonly string[] = [],
+  limit = 10,
+): ZoeSuggestion[] {
+  return ZOE_EMPTY_CHAT_EXAMPLE_QUESTIONS.slice(0, Math.min(Math.max(limit, 8), 10));
+}
