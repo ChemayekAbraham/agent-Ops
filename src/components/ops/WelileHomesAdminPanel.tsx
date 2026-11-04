@@ -526,6 +526,29 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const activeRows = useMemo(() => rows.filter((r) => r.subscription_status !== 'cancelled'), [rows]);
   const declinedTenantsCount = useMemo(() => rows.filter((r) => r.subscription_status === 'cancelled').length, [rows]);
 
+  // Server decides which declined applications must be kept (money linked); we only display it.
+  const [declinedKept, setDeclinedKept] = useState<Record<string, string>>({});
+  const declinedIdsKey = useMemo(
+    () => rows.filter((r) => r.subscription_status === 'cancelled').map((r) => r.id).sort().join(','),
+    [rows]
+  );
+  useEffect(() => {
+    if (!declinedIdsKey) { setDeclinedKept({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase.rpc as any)('wh_declined_delete_check', {
+        p_subscription_ids: declinedIdsKey.split(','),
+      });
+      if (cancelled || error) return;
+      const map: Record<string, string> = {};
+      ((data ?? []) as { subscription_id: string; reason: string | null }[]).forEach((r) => {
+        if (r.reason) map[r.subscription_id] = r.reason;
+      });
+      setDeclinedKept(map);
+    })();
+    return () => { cancelled = true; };
+  }, [declinedIdsKey]);
+
   const buildLandlordBreakdown = (source: Row[]): LandlordBreakdownItem[] => {
     const map = new Map<string, LandlordBreakdownItem>();
     source.forEach((r) => {
@@ -2330,7 +2353,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
           {/* RENT FLOAT APPLICATIONS CARDS */}
           <div className="space-y-3">
               {appStatusFilter === 'declined' && applicationsByLandlord.length > 0 && (() => {
-                const allDeclined = applicationsByLandlord.flatMap((g) => g.tenants);
+                const allDeclined = applicationsByLandlord.flatMap((g) => g.tenants).filter((t) => !declinedKept[t.id]);
+                if (allDeclined.length === 0) return null;
                 const allSel = allDeclined.every((t) => selectedAppTenantIds.has(t.id));
                 return (
                   <label className="flex items-center gap-2 px-1 text-xs font-medium text-foreground cursor-pointer select-none">
@@ -2426,7 +2450,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                               variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setDeclinedDeleteIds(group.tenants.map((t) => t.id));
+                                setDeclinedDeleteIds(group.tenants.filter((t) => !declinedKept[t.id]).map((t) => t.id));
                               }}
                               disabled={deletingDeclined}
                               className="h-8 px-2.5 sm:px-3 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold gap-1.5 shadow-xs cursor-pointer"
@@ -2598,6 +2622,19 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                     const canDecline = !['declined', 'repaying', 'funded', 'approved_unconfirmed'].includes(pStatus.stage);
 
                                     if (appStatusFilter === 'declined') {
+                                      const keptReason = declinedKept[t.id];
+                                      if (keptReason) {
+                                        return (
+                                          <Badge
+                                            variant="outline"
+                                            className="h-8 px-2.5 text-[11px] border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/10 gap-1 font-medium select-none"
+                                            title="Kept because money is linked to it"
+                                          >
+                                            <Lock className="h-3 w-3" />
+                                            <span>Kept · {keptReason}</span>
+                                          </Badge>
+                                        );
+                                      }
                                       return (
                                         <Button
                                           variant="outline"

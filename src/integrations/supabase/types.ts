@@ -74832,6 +74832,7 @@ export type Database = {
         }[]
       }
       _wh_archive_viewer: { Args: never; Returns: boolean }
+      _wh_declined_block_reason: { Args: { p_id: string }; Returns: string }
       _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
       _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
       _wh_hist_can_read: { Args: never; Returns: boolean }
@@ -97577,6 +97578,13 @@ export type Database = {
         Returns: Json
       }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_declined_delete_check: {
+        Args: { p_subscription_ids: string[] }
+        Returns: {
+          reason: string
+          subscription_id: string
+        }[]
+      }
       wh_delete_declined_applications: {
         Args: { p_subscription_ids: string[] }
         Returns: Json
