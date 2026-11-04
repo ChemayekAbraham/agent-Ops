@@ -38472,6 +38472,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_system_changes: {
+        Row: {
+          approved_by: string | null
+          areas: string[]
+          built_by: string | null
+          change_ref: string
+          channel: string | null
+          evidence: Json
+          explained: boolean | null
+          happened_at: string
+          id: number
+          kind: string
+          published_at: string | null
+          published_by: string | null
+          recorded_at: string
+          recorded_by: string
+          requested_by: string | null
+          status: string
+          title: string
+          why: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at: string
+          id?: never
+          kind: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title: string
+          why?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref?: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at?: string
+          id?: never
+          kind?: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title?: string
+          why?: string | null
+        }
+        Relationships: []
+      }
       ops_tutorial_claim_lines: {
         Row: {
           amount: number
@@ -88350,9 +88413,14 @@ export type Database = {
         Returns: string
       }
       ontology_can_read: { Args: never; Returns: boolean }
+      ontology_changes_feed: {
+        Args: { p_day?: string; p_feed: string }
+        Returns: Json
+      }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
