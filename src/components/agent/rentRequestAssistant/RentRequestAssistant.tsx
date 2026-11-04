@@ -11,7 +11,7 @@
  * queue and the listing "swap tenant" flow still open AgentRentRequestDialog.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, FilePlus2, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAssistantSpeech } from './useAssistantSpeech';
@@ -1266,7 +1266,7 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
       className={cn('flex shrink-0 items-center justify-center rounded-full text-white', size === 'lg' ? 'h-9 w-9' : 'h-7 w-7')}
       style={{ background: 'linear-gradient(137deg, hsl(271 85% 62%), hsl(271 81% 48%) 54%, hsl(258 72% 34%))' }}
     >
-      <Sparkles className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+      <FilePlus2 className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
     </span>
   );
 }
