@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import MaintenanceToggleCard from '@/components/cto/MaintenanceToggleCard';
 import WalletOpsMaintenanceCard from '@/components/cto/WalletOpsMaintenanceCard';
 import LandlordPayoutBlockExemptions from '@/components/cto/LandlordPayoutBlockExemptions';
+import PayrollLoyaltyBonusCard from '@/components/cto/PayrollLoyaltyBonusCard';
 
 /**
  * CTO Platform Controls
@@ -191,6 +192,7 @@ export function PlatformControlsPanel() {
 
       <WalletOpsMaintenanceCard />
       <MaintenanceToggleCard />
+      <PayrollLoyaltyBonusCard />
       {renderGroup('Automation engines', 'Turn scheduled money movements on or off.', AUTOMATION_CONTROLS)}
       {renderGroup('Emergency halts', 'Immediately stop credit or withdrawals during an incident.', HALT_CONTROLS)}
       {renderGroup('Payout queue & UI overrides', 'Re-enable payout buttons (Claim / Withdraw) and choose whether Proxy Agent withdrawals hold the merchant queue.', UI_OVERRIDE_CONTROLS)}
