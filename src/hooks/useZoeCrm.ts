@@ -621,6 +621,26 @@ export function usePromoteZoeEvalCandidate() {
   });
 }
 
+export interface ZoeModelDriftSummary {
+  ok: boolean;
+  source: string;
+  sample_limit: number;
+  checked_count: number;
+  mismatched_count: number;
+  drift_detected: boolean;
+  configured_model_fast: string;
+  configured_model_deep: string;
+  dominant_gateway_model: string | null;
+  observed_models: Array<{
+    gateway_model: string;
+    requested_model: string;
+    reply_count: number;
+    matches_config: boolean;
+    last_seen_at: string;
+  }>;
+  warning_message: string | null;
+}
+
 export interface ZoeRealUseDashboardData {
   ok: boolean;
   source: string;
@@ -652,6 +672,7 @@ export interface ZoeRealUseDashboardData {
     outcome: string;
     count: number;
   }>;
+  model_drift?: ZoeModelDriftSummary | null;
   role_goals?: {
     disclaimer: string;
     role_goals: Array<{
@@ -662,6 +683,53 @@ export interface ZoeRealUseDashboardData {
     }>;
   };
   error?: string | null;
+}
+
+export function useZoeModelDriftCheck(limit = 50, enabled = true) {
+  const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
+
+  return useQuery({
+    queryKey: ['zoe-model-drift-check', safeLimit],
+    enabled,
+    staleTime: 30_000,
+    queryFn: async (): Promise<ZoeModelDriftSummary | null> => {
+      const supabase = await getSupabaseClient();
+      const { data, error } = await (supabase.rpc as unknown as (
+        fn: string,
+        args: Record<string, unknown>,
+      ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+        'staff_assistant_check_model_drift',
+        { p_limit: safeLimit },
+      );
+
+      if (error || !data || typeof data !== 'object') {
+        return null;
+      }
+
+      const payload = data as Partial<ZoeModelDriftSummary>;
+      return {
+        ok: payload.ok !== false,
+        source: payload.source ?? 'staff_assistant_check_model_drift',
+        sample_limit: Number(payload.sample_limit ?? safeLimit),
+        checked_count: Number(payload.checked_count ?? 0),
+        mismatched_count: Number(payload.mismatched_count ?? 0),
+        drift_detected: Boolean(payload.drift_detected),
+        configured_model_fast: String(payload.configured_model_fast ?? ''),
+        configured_model_deep: String(payload.configured_model_deep ?? ''),
+        dominant_gateway_model:
+          typeof payload.dominant_gateway_model === 'string'
+            ? payload.dominant_gateway_model
+            : null,
+        observed_models: Array.isArray(payload.observed_models)
+          ? payload.observed_models
+          : [],
+        warning_message:
+          typeof payload.warning_message === 'string'
+            ? payload.warning_message
+            : null,
+      };
+    },
+  });
 }
 
 export function useZoeRealUseDashboard(days = 14, enabled = true) {
@@ -737,6 +805,10 @@ export function useZoeRealUseDashboard(days = 14, enabled = true) {
         top_unanswered_themes: Array.isArray(payload.top_unanswered_themes)
           ? payload.top_unanswered_themes
           : [],
+        model_drift:
+          payload.model_drift && typeof payload.model_drift === 'object'
+            ? (payload.model_drift as ZoeModelDriftSummary)
+            : null,
         role_goals: {
           disclaimer:
             goalsPayload.disclaimer ??

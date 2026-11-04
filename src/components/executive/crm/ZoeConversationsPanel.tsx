@@ -318,6 +318,40 @@ export function ZoeConversationsPanel() {
         </div>
       </div>
 
+      {/* Model Drift Warning Banner (compares last 50 gateway replies against staff_assistant_config) */}
+      {realUseQuery.data?.model_drift?.drift_detected && (
+        <Card
+          data-testid="zoe-model-drift-warning-banner"
+          className="border-amber-400/70 bg-amber-50/80 dark:bg-amber-950/30"
+        >
+          <CardContent className="p-3.5 flex items-start gap-3 text-xs text-amber-950 dark:text-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">
+                  AI Gateway Model Drift Detected
+                </span>
+                <Badge variant="outline" className="text-xs border-amber-500/50">
+                  {realUseQuery.data.model_drift.mismatched_count} /{' '}
+                  {realUseQuery.data.model_drift.checked_count} recent replies
+                  mismatched
+                </Badge>
+              </div>
+              <p>
+                {realUseQuery.data.model_drift.warning_message ??
+                  `Recent Zoe replies were answered by ${realUseQuery.data.model_drift.dominant_gateway_model ?? 'an unconfigured model'} instead of staff_assistant_config (${realUseQuery.data.model_drift.configured_model_fast} / ${realUseQuery.data.model_drift.configured_model_deep}).`}
+              </p>
+              <p className="text-amber-800/90 dark:text-amber-300/90">
+                Configured fast: <code>{realUseQuery.data.model_drift.configured_model_fast}</code>{' '}
+                · Configured deep: <code>{realUseQuery.data.model_drift.configured_model_deep}</code>{' '}
+                · Observed gateway model:{' '}
+                <code>{realUseQuery.data.model_drift.dominant_gateway_model ?? 'unknown'}</code>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card>

@@ -78,7 +78,7 @@ import {
   ZoeMemorySuggestion,
   ZoeNoteRecord,
 } from "./memory.ts";
-import { formatWriteMutationRefusal, MSG } from "./messages.ts";
+import { ANALYST_OPEN_OFFER, formatWriteMutationRefusal, MSG } from "./messages.ts";
 import { buildMorningBriefForCaller } from "./morningBrief.ts";
 import {
   AiGatewayError,
@@ -1410,6 +1410,10 @@ export async function handleStaffAssistantRequest(
         : outcome === "answered"
         ? extractChartFromReportPayload(opts?.reportPayload ?? null)
         : null;
+    const analystToolDef = findTool("run_analyst_query");
+    const callerCanUseAnalyst = Boolean(
+      analystToolDef && canUseTool(analystToolDef, callerRoles),
+    );
     const followUpSuggestions =
       opts?.followUpSuggestions ??
       (outcome === "answered"
@@ -1419,6 +1423,8 @@ export async function handleStaffAssistantRequest(
             reportPayload: opts?.reportPayload ?? null,
             userMessage: userText,
           })
+        : outcome === "unmatched" && callerCanUseAnalyst
+        ? [`Yes — ${ANALYST_OPEN_OFFER.replace(/\s*—\s*want me to try\?$/i, "").trim()}`]
         : []);
 
     const enrichedReportPayload = opts?.reportPayload
