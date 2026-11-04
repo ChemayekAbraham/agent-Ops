@@ -1,0 +1,3 @@
+-- Rollback for 20261104233000_staff_assistant_weekly_adoption_trend.sql
+-- Restores public.staff_assistant_real_use_dashboard(integer) to its 20261104190000 definition.
+-- See supabase/migrations/20261104190000_staff_assistant_model_drift_check.sql.

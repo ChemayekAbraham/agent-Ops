@@ -641,12 +641,22 @@ export interface ZoeModelDriftSummary {
   warning_message: string | null;
 }
 
+export interface ZoeWeeklyAdoptionTrendPoint {
+  week_start: string;
+  week_end: string;
+  week_label: string;
+  distinct_staff_count: number;
+  questions_count: number;
+}
+
 export interface ZoeRealUseDashboardData {
   ok: boolean;
   source: string;
   days: number;
   daily_active_staff: number;
   weekly_active_staff: number;
+  baseline_weekly_active_staff?: number;
+  weekly_adoption_trend?: ZoeWeeklyAdoptionTrendPoint[];
   questions_per_role: Array<{
     role_bucket: string;
     questions_count: number;
@@ -758,6 +768,8 @@ export function useZoeRealUseDashboard(days = 14, enabled = true) {
           days: safeDays,
           daily_active_staff: 0,
           weekly_active_staff: 0,
+          baseline_weekly_active_staff: 1,
+          weekly_adoption_trend: [],
           questions_per_role: [],
           answer_rate_pct: 0,
           error_rate_pct: 0,
@@ -789,6 +801,16 @@ export function useZoeRealUseDashboard(days = 14, enabled = true) {
         days: typeof payload.days === 'number' ? payload.days : safeDays,
         daily_active_staff: Number(payload.daily_active_staff ?? 0),
         weekly_active_staff: Number(payload.weekly_active_staff ?? 0),
+        baseline_weekly_active_staff: Number(payload.baseline_weekly_active_staff ?? 1),
+        weekly_adoption_trend: Array.isArray(payload.weekly_adoption_trend)
+          ? payload.weekly_adoption_trend.map((pt) => ({
+              week_start: String(pt.week_start ?? ''),
+              week_end: String(pt.week_end ?? ''),
+              week_label: String(pt.week_label ?? ''),
+              distinct_staff_count: Number(pt.distinct_staff_count ?? 0),
+              questions_count: Number(pt.questions_count ?? 0),
+            }))
+          : [],
         questions_per_role: Array.isArray(payload.questions_per_role)
           ? payload.questions_per_role
           : [],
