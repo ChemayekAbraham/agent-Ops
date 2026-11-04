@@ -582,3 +582,15 @@ Every one is the `login_phase_events` insert (`ms_since_start` is an integer col
 **Fix (applied to production by hand, file is the record):** `20261030140000_grant_execute_normalize_email_for_match.sql` grants execute to `authenticated` and `anon`. The function is a pure immutable string helper with no table access. Verified with a rolled-back `update profiles set email = email` as `authenticated`: it passes. A check of every index that depends on a `public` function found no other one closed to `authenticated`.
 
 **Rescan items not changed:** permission denied for functions/tables by signed-out callers (`hr_birthday_pending`, `empty_house_opportunity_summary`, `crm_communication_inbox`, `partner_supported_house_returns`, `get_funder_nudge_stats`, `staff_permissions`) are covered by earlier signed-out handling and still to be confirmed per caller; `canceling statement due to user request` (192) is the browser aborting requests.
+
+## Step 63: rescan 11-04 (24 h, nothing changed in production)
+
+**Statement timeouts, 1,215:** 983 were `get_agent_ops_overview` between 11-03 06:00 and 06:30 UTC, next to timeouts on the cron calls `refresh_wallet_totals_cache` and `auto_create_deposits_from_gmail` (06:04-06:05). Timed as a super_admin in a rolled-back block: 7 days 0.35 s, 30 days 0.76 s. So the function is fine and the window was a database stall; no change made.
+
+**Restarts:** 11-03 08:00 and 10:02 UTC (14 and 20 refused connections). Added with the earlier ones to `docs/security/incident-log.md` entry 8.
+
+**Permission denied, left as is:** `my_staff_mfa_status`, `has_active_smartphone_plan`, `get_my_overdue_vetting`, `hr_birthday_pending`, `get_funder_nudge_stats`, `staff_permissions`, and the `phone_collection_prompt_events` insert and `profiles.last_active_at` update. `authenticated` holds execute or the table privilege on every one (checked), `anon` does not, so these are signed-out or expired sessions firing calls; fix is in the client, not the database.
+
+**Found, owner is Lovable:** `column staff_requisitions.requisition_receipt_paths does not exist` (7). Lovable's receipt-matching feature (commit `a160fc67a0`, 10-30, `requisitionReceiptRead.ts`, `StaffRequisitionQueue.tsx`) reads and writes `requisition_receipt_paths`, `receipt_match_status` and `receipt_ocr_*`, but no migration on `lovable` creates them and the live table has no receipt column. The code swallows the 42703 error, so the "hold payout until the receipt matches" check is silently off. Needs Lovable's migration, not a fix from here.
+
+**Guards working, not defects:** `Financial Ops only.` (100), `Not authorised to view receivables` (87), float access switched off by management (57), `pso_non_officer_*` (28 each), `NOTE_ALREADY_APPROVED`, `uq_sms_delivery_log_idempotency_key`, `unique_subagent`. **Client bugs, unchanged:** `invalid column for filter user_id` (133), uuid `"Rent Management Pool"` (86), `"tenant"` (47), `"null"` (32), `"Partner"` (24).
