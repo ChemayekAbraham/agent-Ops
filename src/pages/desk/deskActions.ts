@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { rpc } from './reviewApi';
 import { STAGE_STATUS, type Decision, type Stage } from './reviewTypes';
+import { cooDecide, cooDecisionSummary, mergeApproveResults, type AskReason } from '@/lib/cooDecide';
 
 /**
  * The second call.
@@ -51,6 +52,12 @@ export type MoveInput = {
   note: string;
   targetAgentId?: string | null;
   proxyAgentId?: string | null;
+  /** COO only: the reason code already chosen for going against the system, if any. */
+  reasonCode?: string | null;
+  /** COO only: asks the COO why when the server answers REASON_REQUIRED. */
+  askReason?: AskReason;
+  /** COO only: turns a reason code into its meaning for the summary line. */
+  reasonMeaning?: (code: string | null) => string | null;
 };
 
 /** True when this decision only records a review — nothing moves. */
@@ -116,15 +123,33 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
 
   // ── COO. ──
   if (stage === 'coo' && decision === 'fund') {
-    const { data, error } = await rpc('coo_approve_rent_requests', { p_request_ids: [requestId], p_comment: note || null });
-    if (error) return fail(error.message);
-    const res = data as { approved?: unknown[]; skipped?: { message?: string }[] } | null;
-    if ((res?.approved?.length ?? 0) > 0) return done('Approved and sent to the CFO for funding.');
-    return fail(res?.skipped?.[0]?.message || 'The COO approval did not go through — check the float budget room.');
+    try {
+      const o = await cooDecide(
+        rpc as never,
+        { ids: [requestId], decision: 'approve', reasonCode: input.reasonCode, reasonText: note || null },
+        input.askReason,
+      );
+      const res = mergeApproveResults(o.response);
+      const summary = cooDecisionSummary(o.response, input.reasonMeaning?.(o.reasonCode) ?? o.reasonCode);
+      if (res.approved.length > 0) return done(`Approved and sent to the CFO for funding. ${summary}.`);
+      return fail(res.skipped[0]?.message || 'The COO approval did not go through — check the float budget room.');
+    } catch (e) {
+      return fail((e as Error).message);
+    }
   }
   if (stage === 'coo' && decision === 'send_back') {
-    const { error } = await rpc('coo_return_rent_request', { p_request_id: requestId, p_reason: note });
-    return error ? fail(error.message) : done('Returned for correction.');
+    try {
+      const o = await cooDecide(
+        rpc as never,
+        { ids: [requestId], decision: 'return', reasonCode: input.reasonCode, reasonText: note },
+        input.askReason,
+      );
+      const item = o.response.items[0];
+      if (item && !item.ok) return fail(item.error || 'Not returned.');
+      return done(`Returned for correction. ${cooDecisionSummary(o.response, input.reasonMeaning?.(o.reasonCode) ?? o.reasonCode)}.`);
+    } catch (e) {
+      return fail((e as Error).message);
+    }
   }
 
   // ── The middle desks: pass forwards, send back and reject both return the
