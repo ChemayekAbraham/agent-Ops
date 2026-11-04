@@ -1,18 +1,17 @@
 /**
- * Welile share host (Vercel Edge Function), served at https://share.welileapp.com.
+ * Welile share host (Cloudflare Pages Functions), served at https://share.welileapp.com.
  *
  *   /s/<code>  rent plans and empty houses  -> og-plan
  *   /m/<code>  merchandise                  -> og-merchandise
  *
- * welileapp.com itself is hosted by Lovable (DNS at name.com), so the Cloudflare
- * Worker in infra/share-proxy/ can never run on it. This host does the same job
- * on a subdomain: it fetches the Supabase Open Graph function server-to-server
- * and re-serves the body as real HTML. Supabase forces function responses to
- * text/plain with a sandbox CSP, which crawlers will not read as a page, so a
- * plain rewrite is not enough.
+ * welileapp.com is hosted by Lovable, which only ever returns the app shell
+ * (Welile logo preview), and its DNS is at name.com, so the Worker route in
+ * infra/share-proxy/ can never run there. A Pages project accepts a plain CNAME
+ * from name.com (like help.welileapp.com), so this host does the same job on a
+ * subdomain: it fetches the Supabase Open Graph function server-to-server and
+ * re-serves the body as real HTML. Supabase forces function responses to
+ * text/plain with a sandbox CSP, which crawlers do not read as a page.
  */
-export const config = { runtime: 'edge' };
-
 const FUNCTIONS = 'https://byrzshwlentqvktcksem.supabase.co/functions/v1';
 const SITE = 'https://welileapp.com';
 const CODE = /^[A-Za-z0-9_-]{4,64}$/;
@@ -24,24 +23,19 @@ function text(body, status, extra = {}) {
   });
 }
 
-export default async function handler(request) {
+/** @param {Request} request @param {'s' | 'm'} kind @param {string} code */
+export async function proxyShare(request, kind, code) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return text('Method not allowed', 405, { Allow: 'GET, HEAD' });
   }
+  if (!CODE.test(code || '')) return text('Short link not found', 404);
 
-  const url = new URL(request.url);
-  const kind = url.searchParams.get('kind');
-  const code = url.searchParams.get('code') || '';
-  const src = url.searchParams.get('src');
-  if ((kind !== 's' && kind !== 'm') || !CODE.test(code)) return text('Short link not found', 404);
-
-  let upstreamUrl;
-  if (kind === 'm') {
-    upstreamUrl = new URL(`${FUNCTIONS}/og-merchandise`);
-    upstreamUrl.searchParams.set('code', code.toLowerCase());
-  } else {
-    upstreamUrl = new URL(`${FUNCTIONS}/og-plan/${encodeURIComponent(code)}`);
-  }
+  const src = new URL(request.url).searchParams.get('src');
+  const upstreamUrl =
+    kind === 'm'
+      ? new URL(`${FUNCTIONS}/og-merchandise`)
+      : new URL(`${FUNCTIONS}/og-plan/${encodeURIComponent(code)}`);
+  if (kind === 'm') upstreamUrl.searchParams.set('code', code.toLowerCase());
   if (src) upstreamUrl.searchParams.set('src', src.slice(0, 50));
 
   let upstream;
@@ -62,8 +56,10 @@ export default async function handler(request) {
   // Pass redirects through, but only ever to our own site.
   if (upstream.status >= 300 && upstream.status < 400) {
     const loc = upstream.headers.get('location') || '';
-    const safe = loc.startsWith(SITE) ? loc : SITE;
-    return new Response(null, { status: 302, headers: { Location: safe, 'Cache-Control': 'no-store' } });
+    return new Response(null, {
+      status: 302,
+      headers: { Location: loc.startsWith(SITE) ? loc : SITE, 'Cache-Control': 'no-store' },
+    });
   }
 
   const body = await upstream.text();
