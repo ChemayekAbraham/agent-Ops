@@ -9,6 +9,7 @@ import { CallLog } from './CallLog';
 import { isRecordOnly, needsNote, runMove } from './deskActions';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
+import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
 import {
   lcLetterUrl,
   readableError,
@@ -232,6 +233,11 @@ export function ReviewDrawer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
+  // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
+  const [waitMode, setWaitMode] = useState(false);
+  const waitDesk = waitDeskForStage(stage);
+  const waitList = useWaitingList(waitDesk);
+  const canWait = !!waitDesk && !waitList.missing;
 
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
@@ -526,7 +532,10 @@ export function ReviewDrawer({
                         type="button"
                         aria-pressed={on}
                         disabled={off}
-                        onClick={() => setDecision(d)}
+                        onClick={() => {
+                          setDecision(d);
+                          setWaitMode(false);
+                        }}
                         title={off ? `Log an answered ${callDesk} call first.` : DECISION_HELP[d]}
                         className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
                           on
@@ -539,7 +548,41 @@ export function ReviewDrawer({
                       </button>
                     );
                   })}
+                  {canWait && (
+                    <button
+                      type="button"
+                      aria-pressed={waitMode}
+                      onClick={() => {
+                        setWaitMode(true);
+                        setDecision(null);
+                      }}
+                      title="Keep the request at this desk while someone else acts."
+                      className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                        waitMode
+                          ? statusGlass.warn
+                          : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+                      }`}
+                    >
+                      Wait on…
+                    </button>
+                  )}
                 </div>
+                {waitMode && waitDesk && (
+                  <>
+                    <WaitOnForm
+                      requestId={requestId}
+                      desk={waitDesk}
+                      deskTag={DESK_TAG[stage]}
+                      onDone={(message) => {
+                        setOutcome(message);
+                        window.setTimeout(onClose, 1200);
+                      }}
+                    />
+                    {outcome && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
+                  </>
+                )}
+                {!waitMode && (
+                <>
                 {decision && DECISION_HELP[decision] && (
                   <p className="text-xs text-muted-foreground">{DECISION_HELP[decision]}</p>
                 )}
@@ -665,6 +708,8 @@ export function ReviewDrawer({
                     </button>
                   )}
                 </div>
+                </>
+                )}
               </section>
 
               {/* ── What the desks before this one decided ── */}

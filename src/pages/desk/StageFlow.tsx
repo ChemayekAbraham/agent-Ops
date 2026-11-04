@@ -28,13 +28,13 @@ function stageRoute(row: Row): string | null {
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
-const rate = (v: unknown): string => {
+export const rate = (v: unknown): string => {
   const n = num(v);
   return n === null ? '—' : n.toFixed(1);
 };
 
 /** Days to clear drives the colour. Thresholds are assumptions until the desk leads agree them. */
-function stageStatus(row: Row): Status {
+export function stageStatus(row: Row): Status {
   if ((num(row.waiting) ?? 0) === 0) return 'ok';
   const d = num(row.days_to_clear);
   if (d === null) return 'bad';
@@ -51,6 +51,13 @@ export function ordered(rows: Row[]): Row[] {
     if (na !== null && nb !== null) return na - nb;
     return String(a.ord ?? '').localeCompare(String(b.ord ?? ''));
   });
+}
+
+/** Days to clear as the river prints it: a figure, "Not clearing" when work waits and nothing moves, or a dash. */
+export function clearText(row: Row | undefined): string {
+  if (!row) return '—';
+  const waiting = num(row.waiting) ?? 0;
+  return num(row.days_to_clear) === null ? (waiting > 0 ? 'Not clearing' : '—') : rate(row.days_to_clear);
 }
 
 /** The stage that would take longest to clear. Nothing clearing at all outranks a slow queue. */
@@ -133,7 +140,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: s
  * No comparison point yet is its own state: no arrow, and a tooltip saying so,
  * rather than a misleading "no change".
  */
-function Trend({ t, board }: { t: StageTrend | undefined; board: boolean }) {
+export function Trend({ t, board }: { t: StageTrend | undefined; board: boolean }) {
   const size = board ? 'text-sm' : 'text-xs';
 
   if (!t || t.arrow === 'none' || t.change === null || t.change === undefined) {
@@ -212,7 +219,7 @@ function Capsule({ row, isNeck, board, trend }: { row: Row; isNeck: boolean; boa
             <Metric label="Cleared today" value={fmt('int', row.done_24h ?? 0)} />
             <Metric
               label="Days to clear"
-              value={num(row.days_to_clear) === null ? (waiting > 0 ? 'Not clearing' : '—') : rate(row.days_to_clear)}
+              value={clearText(row)}
               tone={statusText[state]}
             />
           </div>

@@ -41,7 +41,8 @@ export function BudgetRoomCard({
 
   return (
     <section
-      className={`${PANEL} space-y-2 p-4 sm:p-5 ${noBudget ? `border-2 ${statusEdge.bad}` : ''}`}
+      id="budget-room"
+      className={`${PANEL} scroll-mt-4 space-y-2 p-4 sm:p-5 ${noBudget ? `border-2 ${statusEdge.bad}` : ''}`}
       aria-label="Budget room"
     >
       <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>Budget room</h2>

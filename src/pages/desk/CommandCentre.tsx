@@ -12,6 +12,7 @@ import { MorningBrief } from './MorningBrief';
 import { BudgetRoomCard } from './BudgetRoomCard';
 import { useMorningBrief } from './deskBriefApi';
 import type { Blocked } from './Tiles';
+import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
 
 /** The tile that carries today's money blocker. Matched by label, as the grid is. */
 const BUDGET_TILE = 'Daily float budget';
@@ -276,17 +277,23 @@ export function CommandCentre({
   const strip = tiles.slice(0, 6);
   const stripLoading = Boolean(feeds.coo_kpis?.loading);
 
-  const balance = stripLoading ? (
-    <SkeletonTiles count={6} board={board} />
-  ) : (
-    <TileGrid
-      tiles={strip}
-      feeds={feeds}
-      board={board}
-      columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
-      blocked={blocked}
-    />
+  // The money blocker sits on the budget tile; the money line links here.
+  const balance = (
+    <div id="money-blocker" className="scroll-mt-4">
+      {stripLoading ? (
+        <SkeletonTiles count={6} board={board} />
+      ) : (
+        <TileGrid
+          tiles={strip}
+          feeds={feeds}
+          board={board}
+          columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+          blocked={blocked}
+        />
+      )}
+    </div>
   );
+  const moneyLine = pipelineCards ? <MoneyLine kpis={feeds.coo_kpis} gaps={gaps} board={board} /> : null;
 
   if (board) {
     // One screen, no scrolling: strip, then the river, then the panels. Each
@@ -301,6 +308,7 @@ export function CommandCentre({
             <BudgetRoomCard board enabled budgetSetToday={budgetSetToday} />
           </div>
         )}
+        {moneyLine && <div className="shrink-0">{moneyLine}</div>}
         <div className="shrink-0">{balance}</div>
         <div className="shrink-0">
           <StageFlow feed={flow} board trends={pipelineCards} />
@@ -330,6 +338,7 @@ export function CommandCentre({
           <BudgetRoomCard board={false} enabled budgetSetToday={budgetSetToday} />
         </div>
       )}
+      {moneyLine}
       {balance}
       <StageFlow feed={flow} board={false} trends={pipelineCards} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -343,6 +352,7 @@ export function CommandCentre({
             <WentAgainstTheSystem board={false} enabled />
           </div>
           <WhyRequestsBounce board={false} enabled />
+          <CommandAdditionCards board={false} gaps={gaps} enabled />
         </>
       )}
     </div>

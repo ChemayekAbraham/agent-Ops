@@ -21,6 +21,9 @@ import { FundByScore } from './FundByScore';
 import { FunderBoard } from './FunderBoard';
 import { BudgetRoomCard } from './BudgetRoomCard';
 import { BurnChart } from './BurnChart';
+import { useDeskLive } from './deskLive';
+import { PipelineStrip } from './PipelineStrip';
+import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 
 const ROTATE_MS = 45_000;
 
@@ -203,9 +206,11 @@ function StaffBadge() {
 }
 
 function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, FeedState>; board: boolean }) {
-  // The review drawer (E26). The stage is null on desks with no checklist, and
-  // the whole thing is off unless the flag says this host may have it.
-  const checklistOn = deskChecklistOn();
+  // The review drawer (E26), the frame and the strip. The stage is null on desks
+  // with no checklist, and the whole thing is off unless this desk is live:
+  // its `desk_live:<id>` switch is not off and VITE_DESK_CHECKLIST is not false.
+  const deskLive = useDeskLive();
+  const checklistOn = deskLive(desk.id);
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -283,8 +288,8 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   const extraTab = checklistOn ? EXTRA_TAB[desk.id] : undefined;
   const showQueue = !extraTab || tab === 'queue';
 
-  return (
-    <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+  const intro = (
+    <>
       <div className="space-y-1.5">
         <p className="text-sm text-muted-foreground">{desk.question}</p>
         {desk.id === 'ontology' && <DayPicker rows={feeds.onto_days?.rows ?? []} />}
@@ -308,47 +313,90 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <BudgetRoomCard board={board} enabled budgetSetToday={budgetSetToday} />
       )}
       {checklistOn && desk.id === 'cfo' && <BurnChart board={board} enabled />}
+    </>
+  );
 
-      {extraTab && (
-        <div role="tablist" aria-label={`${desk.name} views`} className="flex flex-wrap gap-1.5">
-          {(['queue', 'extra'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
-                tab === t
-                  ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-                  : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
-              }`}
-            >
-              {t === 'queue' ? 'Queue' : extraTab}
-            </button>
-          ))}
-        </div>
-      )}
+  const tabs = extraTab && (
+    <div role="tablist" aria-label={`${desk.name} views`} className="flex flex-wrap gap-1.5">
+      {(['queue', 'extra'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          role="tab"
+          aria-selected={tab === t}
+          onClick={() => setTab(t)}
+          className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+            tab === t
+              ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+              : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+          }`}
+        >
+          {t === 'queue' ? 'Queue' : extraTab}
+        </button>
+      ))}
+    </div>
+  );
 
+  const extraView = (
+    <>
       {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
+    </>
+  );
 
-      {showQueue &&
-        desk.tables.map((spec) => (
-          <DeskTable
-            key={spec.id}
-            spec={spec}
-            board={board}
-            feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
-            review={review && spec.id === queueTable ? review : undefined}
-          />
-        ))}
+  const table = (spec: Desk['tables'][number]) => (
+    <DeskTable
+      key={spec.id}
+      spec={spec}
+      board={board}
+      feed={feeds[spec.feed] ?? { rows: [], loading: true, error: null, updatedAt: 0 }}
+      review={review && spec.id === queueTable ? review : undefined}
+    />
+  );
 
-      {/* Keyed on the request: opening a second row never carries the first
-          request's ticks, note or logged call across to another tenant. */}
-      {stage && openRequest && (
-        <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
-      )}
+  /* Keyed on the request: opening a second row never carries the first
+     request's ticks, note or logged call across to another tenant. */
+  const drawer = stage && openRequest && (
+    <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
+  );
+
+  // The stage desks, when live: strip → Ready for your push → Waiting on… →
+  // Done today → Classic view. Classic view keeps every table the desk had.
+  if (checklistOn && FRAMED_DESKS.has(desk.id)) {
+    const ready = desk.tables.find((t) => t.id === READY_TABLE[desk.id]);
+    return (
+      <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+        <PipelineStrip deskId={desk.id} board={board} />
+        {intro}
+
+        <section className="space-y-3" aria-labelledby="desk-ready">
+          <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+            Ready for your push
+          </h2>
+          {tabs}
+          {extraView}
+          {showQueue && ready && table(ready)}
+        </section>
+
+        <WaitingOnFold deskId={desk.id} board={board} />
+        <DoneTodayFold deskId={desk.id} board={board} />
+        <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+          {desk.tables.map(table)}
+        </Fold>
+
+        {drawer}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+      {checklistOn && <PipelineStrip deskId={desk.id} board={board} />}
+      {intro}
+      {tabs}
+      {extraView}
+      {showQueue && desk.tables.map(table)}
+      {drawer}
     </div>
   );
 }
