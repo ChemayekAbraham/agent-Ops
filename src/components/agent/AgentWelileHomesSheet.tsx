@@ -507,13 +507,22 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   // Main lifecycle tab: enrolled (ready to request float), in_progress (read-only under review), active (funded/repaying)
   const [mainTab, setMainTab] = useState<'enrolled' | 'in_progress' | 'active'>('enrolled');
 
+  // Tenants still missing a NIN/passport photo (presentation only; the server enforces the float rule).
+  const [missingIdOnly, setMissingIdOnly] = useState(false);
+  const missingIdCount = useMemo(
+    () => subs.filter((s) => s.subscription_status !== 'cancelled' && !isIdComplete(identities.get(s.tenant_id))).length,
+    [subs, identities],
+  );
+  useEffect(() => { if (missingIdCount === 0) setMissingIdOnly(false); }, [missingIdCount]);
+
   const enrolledSubs = useMemo(() => {
     return visibleSubs.filter((s) => {
+      if (missingIdOnly && (s.subscription_status === 'cancelled' || isIdComplete(identities.get(s.tenant_id)))) return false;
       if (s.subscription_status === 'cancelled') return true;
       const fp = getSubscriptionPipeline(s);
       return !fp.isPending && !fp.canCollect;
     });
-  }, [visibleSubs, getSubscriptionPipeline]);
+  }, [visibleSubs, getSubscriptionPipeline, missingIdOnly, identities]);
 
   const inProgressSubs = useMemo(() => {
     return visibleSubs.filter((s) => {
@@ -858,6 +867,24 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
             placeholder="Search by landlord, tenant or phone number"
             className="h-9 !pl-9 text-sm rounded-xl mb-0"
           />
+        </div>
+      )}
+
+      {missingIdCount > 0 && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+          <div className="flex items-start gap-2 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <p>
+              <span className="font-semibold">New rule:</span> every tenant needs a NIN and passport photo before you can request float.{' '}
+              {missingIdCount} of your tenants {missingIdCount === 1 ? 'is' : 'are'} missing an ID.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant={missingIdOnly ? 'outline' : 'default'} className="h-8"
+              onClick={() => { setMainTab('enrolled'); setMissingIdOnly((v) => !v); }}>
+              {missingIdOnly ? 'Show all tenants' : 'Add missing IDs'}
+            </Button>
+          </div>
         </div>
       )}
 
