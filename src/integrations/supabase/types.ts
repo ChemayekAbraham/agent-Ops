@@ -66993,6 +66993,42 @@ export type Database = {
           },
         ]
       }
+      wh_declined_deletion_log: {
+        Row: {
+          agent_id: string | null
+          deleted_at: string
+          deleted_by: string
+          deleted_items: Json
+          id: string
+          landlord_name: string | null
+          monthly_rent: number | null
+          subscription_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by?: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       wh_float_request_events: {
         Row: {
           action: string
@@ -97541,6 +97577,10 @@ export type Database = {
         Returns: Json
       }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_delete_declined_applications: {
+        Args: { p_subscription_ids: string[] }
+        Returns: Json
+      }
       wh_enroll_tenant_with_identity: {
         Args: {
           p_agent_id: string
