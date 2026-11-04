@@ -465,7 +465,7 @@ export function MerchandiseManager() {
         <KPICard title="Total Invested" value={formatUGX(totals.totalInvested)} icon={Wallet} loading={loadingPurchases} color="bg-blue-500/10 text-blue-600" />
         <KPICard title="Total Revenue" value={formatUGX(totals.totalRevenue)} icon={Coins} loading={loadingSales} color="bg-green-500/10 text-green-600" subtitle={`Issued orders only${totals.awaitingCount > 0 ? ` · ${formatUGX(totals.awaitingRevenue)} awaiting approval not included (${totals.awaitingCount} orders)` : ''}`} />
         <KPICard title="Gross Profit" value={formatUGX(totals.grossProfit)} icon={TrendingUp} loading={loadingSales} color={totals.grossProfit >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'} subtitle={totals.missingCostSales > 0 ? `${totals.missingCostSales} sale${totals.missingCostSales === 1 ? '' : 's'} have no unit cost recorded, so profit is overstated` : undefined} />
-        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales || loadingRecon} color="bg-amber-500/10 text-amber-600" subtitle={`Balance sheet (A12 + A13) · ${receivables.length} client${receivables.length === 1 ? '' : 's'} owing${totals.awaitingOutstanding > 0 ? ` · ${formatUGX(totals.awaitingOutstanding)} more on plans (future charges, not yet due)` : ''}`} />
+        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales || loadingRecon || !recon} color="bg-amber-500/10 text-amber-600" subtitle={`Balance sheet (A12 + A13) · ${receivables.length} client${receivables.length === 1 ? '' : 's'} owing${totals.awaitingOutstanding > 0 ? ` · ${formatUGX(totals.awaitingOutstanding)} more on plans (future charges, not yet due)` : ''}`} />
       </div>
 
       {/* Inventory KPIs */}
@@ -485,7 +485,7 @@ export function MerchandiseManager() {
       {/* Cost of goods sold callout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <KPICard title="Cost of Merchandise Sold" value={formatUGX(totals.cogs)} icon={Receipt} loading={loadingSales} color="bg-orange-500/10 text-orange-600" />
-        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} loading={loadingSales || loadingRecon} color="bg-amber-500/10 text-amber-600" subtitle="As on the balance sheet (A12 + A13)" />
+        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} loading={loadingSales || loadingRecon || !recon} color="bg-amber-500/10 text-amber-600" subtitle="As on the balance sheet (A12 + A13)" />
       </div>
 
       {/* Wallet-recovery KPIs */}
