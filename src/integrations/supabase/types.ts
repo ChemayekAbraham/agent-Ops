@@ -38337,6 +38337,123 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_event_objects: {
+        Row: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Insert: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Update: {
+          event_id?: number
+          object_id?: string
+          object_type?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ops_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_stage_events_v"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_kind: string
+          actor_ref: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          changed: Json
+          channel: string | null
+          correlation_id: string | null
+          explained: boolean
+          followed: boolean | null
+          from_state: string | null
+          id: number
+          object_id: string
+          object_type: string
+          occurred_at: string
+          op: string
+          reason_code: string | null
+          reason_text: string | null
+          recommended: string | null
+          rule_id: string | null
+          rule_inputs: Json | null
+          to_state: string | null
+          txid: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_kind: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id: string
+          object_type: string
+          occurred_at?: string
+          op: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_kind?: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id?: string
+          object_type?: string
+          occurred_at?: string
+          op?: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
+        }
+        Relationships: []
+      }
       ops_inbox_events: {
         Row: {
           bucket: string
@@ -38469,6 +38586,69 @@ export type Database = {
           scope?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_system_changes: {
+        Row: {
+          approved_by: string | null
+          areas: string[]
+          built_by: string | null
+          change_ref: string
+          channel: string | null
+          evidence: Json
+          explained: boolean | null
+          happened_at: string
+          id: number
+          kind: string
+          published_at: string | null
+          published_by: string | null
+          recorded_at: string
+          recorded_by: string
+          requested_by: string | null
+          status: string
+          title: string
+          why: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at: string
+          id?: never
+          kind: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title: string
+          why?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref?: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at?: string
+          id?: never
+          kind?: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title?: string
+          why?: string | null
         }
         Relationships: []
       }
@@ -41251,8 +41431,11 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_reason: string | null
+          device_fp: string | null
+          device_trusted: boolean | null
           id: string
           ownership_code_confirmed_at: string | null
+          pin_verified: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -41267,8 +41450,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -41283,8 +41469,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason?: string
           requested_name?: string
           requested_number?: string
@@ -63229,6 +63418,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_withdrawal_pins: {
+        Row: {
+          created_at: string
+          failed_attempts: number
+          locked_until: string | null
+          number_change_hold_until: string | null
+          pin_hash: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       v360_buffer_pool: {
         Row: {
           amount: number
@@ -66696,6 +66915,50 @@ export type Database = {
           },
         ]
       }
+      wh_float_request_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          float_request_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          stage: string | null
+          to_status: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_float_request_events_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wh_historical_disbursements: {
         Row: {
           agent_id: string | null
@@ -66800,6 +67063,126 @@ export type Database = {
           total_monthly_rent?: number
           verified_at?: string
           verified_by?: string
+        }
+        Relationships: []
+      }
+      wh_nin_check_log: {
+        Row: {
+          agent_id: string
+          checked_at: string
+          id: number
+          result: string
+          source: string
+        }
+        Insert: {
+          agent_id: string
+          checked_at?: string
+          id?: number
+          result: string
+          source: string
+        }
+        Update: {
+          agent_id?: string
+          checked_at?: string
+          id?: number
+          result?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_draft_cleanup_log: {
+        Row: {
+          drafts_deleted: number
+          id: number
+          photos_deleted: number
+          photos_failed: number
+          reminders_sent: number
+          run_at: string
+          run_date: string
+        }
+        Insert: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Update: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_drafts: {
+        Row: {
+          agent_id: string
+          created_at: string
+          form: Json
+          id: string
+          landlord_id: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
+          landlord_snapshot: Json
+          photo_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_identity: {
+        Row: {
+          created_at: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          nin?: string
+          photo_path?: string
+          recorded_by?: string
+          tenant_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -67241,6 +67624,164 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      withdrawal_pin_challenges: {
+        Row: {
+          attempts: number
+          channel: string
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          reset_id: string
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          reset_id: string
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          reset_id?: string
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_pin_challenges_reset_id_fkey"
+            columns: ["reset_id"]
+            isOneToOne: false
+            referencedRelation: "withdrawal_pin_resets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_pin_config: {
+        Row: {
+          challenge_max_attempts: number
+          challenge_ttl_minutes: number
+          enforce_mode: string
+          id: boolean
+          lockout_minutes: number
+          max_codes_per_hour: number
+          max_failed_attempts: number
+          number_change_hold_hours: number
+          proof_ttl_seconds: number
+          reset_cooloff_hours: number
+          updated_at: string
+        }
+        Insert: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_proofs: {
+        Row: {
+          created_at: string
+          device_fp: string | null
+          device_trusted: boolean | null
+          expires_at: string
+          id: string
+          purpose: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at: string
+          id?: string
+          purpose: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at?: string
+          id?: string
+          purpose?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_resets: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          release_at: string
+          requested_at: string
+          required_factors: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at?: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       withdrawal_release_events: {
         Row: {
@@ -69327,6 +69868,48 @@ export type Database = {
           stored_total_repayment: number | null
           tenant_id: string | null
           total_drift_ugx: number | null
+        }
+        Relationships: []
+      }
+      rent_request_stage_events_v: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          actor_kind: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          from_state: string | null
+          id: number | null
+          occurred_at: string | null
+          reason: string | null
+          rent_request_id: string | null
+          to_state: string | null
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
         }
         Relationships: []
       }
@@ -73501,6 +74084,10 @@ export type Database = {
         Args: { p_amount: number; p_on: string; p_plan_id: string }
         Returns: Json
       }
+      _merch_order_marked_issued: {
+        Args: { p_channel: string; p_status: string }
+        Returns: boolean
+      }
       _merch_post_derecognition: {
         Args: {
           p_actor: string
@@ -73528,6 +74115,7 @@ export type Database = {
         Returns: Json
       }
       _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
+      _merch_stock_on_issue: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_queue: {
         Args: { p_origin: string; p_sale: string }
         Returns: string
@@ -74082,8 +74670,15 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
       _wh_hist_can_read: { Args: never; Returns: boolean }
       _wh_hist_can_write: { Args: never; Returns: boolean }
+      _wh_is_tenant_agent: {
+        Args: { p_tenant: string; p_uid: string }
+        Returns: boolean
+      }
+      _wh_nin_checks_last_hour: { Args: { p_agent: string }; Returns: number }
       _wh_owns_landlord_key: {
         Args: { p_agent: string; p_key: string }
         Returns: boolean
@@ -74097,6 +74692,7 @@ export type Database = {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
       }
+      _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -77077,6 +77673,10 @@ export type Database = {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
       }
+      cancel_withdrawal_pin_reset: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
       capture_db_stat_hourly: { Args: never; Returns: Json }
       capture_location_by_token: {
         Args: {
@@ -78490,6 +79090,10 @@ export type Database = {
           label: string
           link_id: string
         }[]
+      }
+      consume_withdrawal_pin_proof: {
+        Args: { p_purpose: string; p_user: string }
+        Returns: Json
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
       coo_approve_bike_lease: {
@@ -83229,6 +83833,10 @@ export type Database = {
       }
       get_map_query_metrics: { Args: { p_hours?: number }; Returns: Json }
       get_maps_browser_key: { Args: never; Returns: string }
+      get_merchandise_receivables_reconciliation: {
+        Args: { p_with_balance_sheet?: boolean }
+        Returns: Json
+      }
       get_merchandise_share_code: {
         Args: { p_catalog_id: string }
         Returns: string
@@ -87871,6 +88479,7 @@ export type Database = {
       }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
       my_staff_mfa_status: { Args: never; Returns: Json }
+      my_withdrawal_pin_status: { Args: never; Returns: Json }
       national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
@@ -88018,9 +88627,14 @@ export type Database = {
         Returns: string
       }
       ontology_can_read: { Args: never; Returns: boolean }
+      ontology_changes_feed: {
+        Args: { p_day?: string; p_feed: string }
+        Returns: Json
+      }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
@@ -88667,6 +89281,7 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_set_context: { Args: { p: Json }; Returns: undefined }
       ops_set_rent_plan_frequency: {
         Args: {
           p_frequency: string
@@ -89997,6 +90612,37 @@ export type Database = {
       pin_agent_expected_day_for_plan: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      pin_challenge_check: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_reset_id: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_challenge_issue: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_reset_begin: {
+        Args: { p_email_usable: boolean; p_user: string }
+        Returns: Json
+      }
+      pin_reset_complete: {
+        Args: {
+          p_email_code_hash: string
+          p_new_pin: string
+          p_sms_code_hash: string
+          p_user: string
+        }
+        Returns: Json
       }
       pin_tenant_ops_weekly_metrics: {
         Args: { p_anchor?: string }
@@ -92756,6 +93402,10 @@ export type Database = {
         Args: { p_name: string; p_number: string; p_provider: string }
         Returns: Json
       }
+      set_withdrawal_pin: {
+        Args: { p_current_pin?: string; p_new_pin: string }
+        Returns: Json
+      }
       settle_merchant_out_of_pocket: {
         Args: { p_advance_ids: string[]; p_note?: string }
         Returns: Json
@@ -93024,6 +93674,10 @@ export type Database = {
       }
       staff_assistant_check_email_budget: {
         Args: { p_recipient_count?: number; p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_check_model_drift: {
+        Args: { p_limit?: number }
         Returns: Json
       }
       staff_assistant_check_owner_access: {
@@ -96108,6 +96762,10 @@ export type Database = {
         }
         Returns: Json
       }
+      verify_withdrawal_pin: {
+        Args: { p_device_fp?: string; p_pin: string; p_purpose: string }
+        Returns: Json
+      }
       voice_autocall_add_people: {
         Args: { p_campaign_id: string; p_person_ids: string[] }
         Returns: number
@@ -96717,6 +97375,24 @@ export type Database = {
       }
       welile_transfer_items: { Args: never; Returns: string[] }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_enroll_tenant_with_identity: {
+        Args: {
+          p_agent_id: string
+          p_draft_id?: string
+          p_has_smartphone: boolean
+          p_landlord_id: string
+          p_landlord_name: string
+          p_landlord_phone: string
+          p_landlord_uses_wallet: boolean
+          p_monthly_rent: number
+          p_nin: string
+          p_notes: string
+          p_payout_day: number
+          p_photo_path: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       wh_float_advance: {
         Args: {
           p_action: string
@@ -96725,6 +97401,47 @@ export type Database = {
           p_request_id: string
         }
         Returns: Json
+      }
+      wh_float_request_history: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          action: string
+          actor_id: string
+          actor_name: string
+          created_at: string
+          float_request_id: string
+          from_status: string
+          note: string
+          stage: string
+          to_status: string
+        }[]
+      }
+      wh_float_request_tenant_ids: {
+        Args: { p_request_id: string }
+        Returns: {
+          nin: string
+          photo_path: string
+          subscription_id: string
+          tenant_id: string
+          tenant_name: string
+        }[]
+      }
+      wh_float_review_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          created_at: string
+          expected_recipient_phone: string
+          id: string
+          reason: string
+          rejection_reason: string
+          requested_amount: number
+          status: string
+          tenant_count: number
+          updated_at: string
+        }[]
       }
       wh_hist_overview: {
         Args: {
@@ -96771,6 +97488,27 @@ export type Database = {
           verified_at: string
         }[]
       }
+      wh_nin_check: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: Json
+      }
+      wh_nin_check_activity: {
+        Args: { p_hours?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          blocked: number
+          checks: number
+          enrol_duplicates: number
+          in_use: number
+          last_check: string
+        }[]
+      }
+      wh_nin_in_use: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: boolean
+      }
       wh_portfolio_verify_landlord: {
         Args: { p_code: string; p_landlord_phone: string }
         Returns: Json
@@ -96782,6 +97520,15 @@ export type Database = {
           p_subscription_ids: string[]
         }
         Returns: Json
+      }
+      wh_set_tenant_identity: {
+        Args: { p_nin: string; p_photo_path: string; p_tenant_id: string }
+        Returns: Json
+      }
+      wh_tenant_drafts_cleanup: { Args: never; Returns: Json }
+      wh_touch_tenant_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
       }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }
@@ -96799,6 +97546,11 @@ export type Database = {
         Args: { p_withdrawal_id: string }
         Returns: Json
       }
+      withdrawal_pin_check: {
+        Args: { p_pin: string; p_user: string }
+        Returns: Json
+      }
+      withdrawal_pin_format_ok: { Args: { p: string }; Returns: boolean }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json

@@ -363,6 +363,7 @@ export const REQUIRED_ZOE_RPCS = {
   staff_assistant_sanitize_jsonb: ['p_data', 'p_allow_phones', 'p_max_rows'],
   staff_assistant_get_config: [],
   staff_assistant_health: [],
+  staff_assistant_check_model_drift: ['p_limit'],
   staff_assistant_error_summary: ['p_days'],
   staff_assistant_real_use_dashboard: ['p_days'],
   staff_assistant_can_user_read_report: ['p_user_id', 'p_report_rpc', 'p_owner_id'],

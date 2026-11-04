@@ -213,9 +213,9 @@ export function isConversationalPromptAllowedWithoutTool(
   if (
     cleanedReply &&
     cleanedReply.length >= 12 &&
-    cleanedReply.toUpperCase() !== "UNMATCHED" &&
-    cleanedReply.toUpperCase() !== "OUT_OF_SCOPE" &&
-    cleanedReply.toUpperCase() !== "ROLE_RESTRICTED"
+    !/^(?:REFUSE(?:_(?:ROLE_RESTRICTED|OUT_OF_SCOPE|UNMATCHED))?\b|UNMATCHED$|OUT_OF_SCOPE$|ROLE_RESTRICTED$)/i.test(
+      cleanedReply,
+    )
   ) {
     return true;
   }

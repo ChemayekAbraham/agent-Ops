@@ -38,6 +38,8 @@
     "src/lib/zoe/__tests__/zoeRealHandler.test.ts",
     "src/lib/zoe/__tests__/zoeAnalystLane.test.ts",
     "src/lib/zoe/__tests__/zoeParityAndResilience.test.ts",
-    "src/lib/zoe/__tests__/zoeConsultantAndEval.test.ts"
+    "src/lib/zoe/__tests__/zoeConsultantAndEval.test.ts",
+    "src/lib/zoe/__tests__/zoeVoiceAndFace15Conversations.test.ts",
+    "src/lib/zoe/__tests__/zoeConsolidatedCapabilities.test.ts"
   ]
 }

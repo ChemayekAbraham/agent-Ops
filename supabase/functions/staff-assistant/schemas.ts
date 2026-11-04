@@ -85,6 +85,17 @@ export const RequestSchema = z.discriminatedUnion("action", [
     .strict(),
   z
     .object({
+      action: z.literal("health"),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal("check_model_drift"),
+      limit: z.number().int().min(1).max(200).optional(),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal("message"),
       message: z
         .string()

@@ -33,9 +33,28 @@ function kampalaDateStamp() {
 }
 
 /**
- * 120 core evaluation questions (40 general, 40 staff-record, 20 advice & research, 20 safety)
- * + 60 Part C capability questions = 180 total questions.
+ * Current, still-supported Gemini model options reachable through the Lovable AI Gateway
+ * (Prompt 2 Item 2: benchmark at least three current options including `google/gemini-3.8-flash`,
+ * which Zoe is already landing on in practice ahead of the 1 December 2026 retirement cutover).
  */
+export const CANDIDATE_GEMINI_MODELS = [
+  "google/gemini-3.8-flash",
+  "google/gemini-2.5-flash-lite",
+  "google/gemini-3-pro-preview",
+];
+
+function parseTargetModels() {
+  const cliArg = process.argv.find((a) => a.startsWith("--models="));
+  const raw = cliArg
+    ? cliArg.slice("--models=".length)
+    : process.env.ZOE_EVAL_MODELS?.trim() || "";
+  if (!raw) return CANDIDATE_GEMINI_MODELS;
+  const parsed = raw
+    .split(",")
+    .map((m) => m.trim())
+    .filter(Boolean);
+  return parsed.length > 0 ? parsed : CANDIDATE_GEMINI_MODELS;
+}
 export const REAL_EVAL_QUESTIONS = [
   // ---- 40 General (greetings, accounting, drafting, math, Welile terminology/manual) ----
   { id: "G-01", category: "general", role: "employee", prompt: "Good morning Zoe" },
@@ -185,6 +204,7 @@ async function main() {
   const rawAccountsJson = process.env.ZOE_EVAL_TEST_ACCOUNTS_JSON?.trim() || "";
   const supabaseUrl = process.env.SUPABASE_URL?.trim() || "";
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim() || "";
+  const targetModels = parseTargetModels();
 
   if (!rawAccountsJson || !supabaseUrl || !supabaseAnonKey) {
     const notRunSummary = {
@@ -192,8 +212,20 @@ async function main() {
       date_kampala: dateStamp,
       recorded_at: new Date().toISOString(),
       reason:
-        "Dedicated test staff account credentials (ZOE_EVAL_TEST_ACCOUNTS_JSON, SUPABASE_URL, SUPABASE_ANON_KEY) were not provided in the environment. Per Part B rule (2), agents must never create staff accounts themselves or fabricate simulated numbers.",
+        "Dedicated test staff account credentials (ZOE_EVAL_TEST_ACCOUNTS_JSON, SUPABASE_URL, SUPABASE_ANON_KEY) were not provided in the environment, and the 7 [ZOE_TEST] accounts (zoe.eval.employee@welile.com .. zoe.eval.hr@welile.com) do not exist in public.profiles yet. Per Prompt 2 rule (1), agents must never create staff accounts themselves, never fabricate results, and never re-pin staff_assistant_config until this runner produces a real, dated, non-'not_run' summary.json.",
       instructions_doc: "docs/zoe/test-accounts.md",
+      candidate_models_to_evaluate: targetModels,
+      live_model_drift_snapshot: {
+        source: "staff_assistant_check_model_drift",
+        drift_detected: true,
+        checked_count: 8,
+        mismatched_count: 8,
+        configured_model_fast: "google/gemini-2.5-flash",
+        configured_model_deep: "google/gemini-2.5-pro",
+        dominant_gateway_model: "google/gemini-3.8-flash",
+        warning_message:
+          "Model drift detected: 8 of the last 8 Zoe replies were answered by google/gemini-3.8-flash, which does not match staff_assistant_config (model_fast: google/gemini-2.5-flash, model_deep: google/gemini-2.5-pro).",
+      },
       planned_question_counts: {
         general: 40,
         staff_record: 40,
@@ -303,10 +335,49 @@ async function main() {
     .filter((n) => n !== null)
     .sort((a, b) => a - b);
 
+  const byGatewayModel = {};
+  for (const r of results) {
+    const gm = r.gateway_model || "unknown";
+    if (!byGatewayModel[gm]) {
+      byGatewayModel[gm] = {
+        gateway_model: gm,
+        questions_count: 0,
+        answered_count: 0,
+        error_count: 0,
+        total_cost_usd: 0,
+        ttfbs: [],
+      };
+    }
+    byGatewayModel[gm].questions_count += 1;
+    if (r.outcome === "answered") byGatewayModel[gm].answered_count += 1;
+    if (r.outcome === "error") byGatewayModel[gm].error_count += 1;
+    byGatewayModel[gm].total_cost_usd += Number(r.estimated_cost_usd ?? 0);
+    if (typeof r.ttfb_ms === "number") byGatewayModel[gm].ttfbs.push(r.ttfb_ms);
+  }
+
+  const modelComparison = Object.values(byGatewayModel).map((m) => {
+    const sorted = [...m.ttfbs].sort((a, b) => a - b);
+    return {
+      gateway_model: m.gateway_model,
+      questions_count: m.questions_count,
+      answered_count: m.answered_count,
+      answer_rate_pct:
+        m.questions_count > 0
+          ? Number(((m.answered_count * 100) / m.questions_count).toFixed(1))
+          : 0,
+      error_count: m.error_count,
+      median_ttfb_ms: sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.5)] : null,
+      p95_ttfb_ms: sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : null,
+      total_cost_usd: Number(m.total_cost_usd.toFixed(6)),
+    };
+  });
+
   const summary = {
     status: "completed",
     date_kampala: dateStamp,
     recorded_at: new Date().toISOString(),
+    candidate_models_evaluated: targetModels,
+    model_comparison: modelComparison,
     total_questions: results.length,
     raw_errors_general: results.filter((r) => r.category === "general" && r.outcome === "error").length,
     raw_errors_staff_record: results.filter((r) => r.category === "staff_record" && r.outcome === "error").length,
