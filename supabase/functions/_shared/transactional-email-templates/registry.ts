@@ -39,6 +39,7 @@ import { template as cashDepositCodeTemplate } from './cash-deposit-code.tsx'
 import { template as cashDepositWalletConfirmationTemplate } from './cash-deposit-wallet-confirmation.tsx'
 import { template as twoFactorCodeTemplate } from './two-factor-code.tsx'
 import { template as emailVerificationCodeTemplate } from './email-verification-code.tsx'
+import { template as phoneChangeCodeTemplate } from './phone-change-code.tsx'
 import { template as newDeviceSignInTemplate } from './new-device-sign-in.tsx'
 import { template as passwordChangeTipTemplate } from './password-change-tip.tsx'
 import { template as smsFailureAlertTemplate } from './sms-failure-alert.tsx'
@@ -121,6 +122,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'cash-deposit-wallet-confirmation': cashDepositWalletConfirmationTemplate,
   'two-factor-code': twoFactorCodeTemplate,
   'email-verification-code': emailVerificationCodeTemplate,
+  'phone-change-code': phoneChangeCodeTemplate,
   'new-device-sign-in': newDeviceSignInTemplate,
   'password-change-tip': passwordChangeTipTemplate,
   'sms-failure-alert': smsFailureAlertTemplate,
