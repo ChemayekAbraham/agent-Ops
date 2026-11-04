@@ -1946,10 +1946,11 @@ html.reduce-motion *::after {
 }
 
 /* ---- The same board in daylight -------------------------------------------
-   Dark above is the baseline; this is the light set. DeskPage resolves the
-   device setting and the viewer's toggle into data-desk-theme, so there is one
-   light block here rather than one per source of truth, and board mode simply
-   hard-codes data-desk-theme="dark".
+   Dark above is the baseline; this is the light set, and the desks open on it.
+   DeskPage writes the decision into data-desk-theme, so there is one light
+   block here rather than one per source of truth. Two cases never reach it:
+   board mode, and any desk with the checklist flag off — both stay dark, which
+   is why production is untouched until the flag is flipped.
    Every colour below was checked at 4.5:1 against the surface it sits on:
    text #17142B 16:1 on the ground, muted #5B5670 6.5:1, violet 7.1:1 on white,
    red 6.5:1, green 5.0:1, amber 7.0:1, and the LIVE pill 6.3:1.

@@ -76,13 +76,13 @@ function ToolButton({
  * so the toggle is hidden there rather than shown doing nothing.
  */
 function ThemeToggle() {
-  const { theme, setThemeChoice } = useDeskPrefs();
+  const { theme, setTheme } = useDeskPrefs();
   const next = theme === 'light' ? 'dark' : 'light';
   const Icon = next === 'dark' ? Moon : Sun;
   return (
     <button
       type="button"
-      onClick={() => setThemeChoice(next)}
+      onClick={() => setTheme(next)}
       aria-label={`Switch to the ${next} theme`}
       title={`Switch to the ${next} theme`}
       className={`desk-pill inline-flex items-center gap-1.5 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1.5 text-xs font-medium ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
@@ -123,8 +123,9 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
         {density === 'compact' ? 'Compact' : 'Comfortable'}
       </ToolButton>
 
-      {/* Board mode is always dark, so the toggle would be a lie there. */}
-      {!board && <ThemeToggle />}
+      {/* Offered only where the theme can actually change: board mode is always
+          dark, and so is every desk while the checklist flag is off. */}
+      {!board && deskChecklistOn() && <ThemeToggle />}
 
       <ToolButton onClick={() => setBoard(!board)} active={board} label={board ? 'Leave board mode' : 'Enter board mode'}>
         {board ? <Minimize2 className="h-3.5 w-3.5" aria-hidden /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden />}
@@ -356,6 +357,12 @@ function DeskShell() {
   const { desk: deskId } = useParams();
   const { roles } = useAuth();
   const { board, rotate, theme } = useDeskPrefs();
+  /**
+   * Board mode is always dark, and so is production until Mark flips the flag —
+   * with the checklist off the desks must look exactly as they do today, so the
+   * light theme never reaches welileapp.com by accident.
+   */
+  const rootTheme: 'light' | 'dark' = board || !deskChecklistOn() ? 'dark' : theme;
   const navigate = useNavigate();
 
   const mine = (roles ?? []) as unknown as string[];
@@ -382,7 +389,7 @@ function DeskShell() {
 
   if (allowed.length === 0) {
     return (
-      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={theme}>
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
         <div className="mx-auto max-w-xl space-y-2">
           <h1 className="text-xl font-semibold text-foreground">No desk for your account yet</h1>
           <p className="text-sm text-muted-foreground">
@@ -450,7 +457,7 @@ function DeskShell() {
   }
 
   return (
-    <div className="desk-root min-h-screen" data-desk-theme={theme}>
+    <div className="desk-root min-h-screen" data-desk-theme={rootTheme}>
       <main className="mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 py-6 sm:px-8">
         {header}
         <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />

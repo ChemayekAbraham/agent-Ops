@@ -3,16 +3,15 @@ import { useSearchParams } from 'react-router-dom';
 
 export type Density = 'compact' | 'comfortable';
 
-/** What the viewer chose. 'system' follows the device; the other two override it. */
-export type ThemeChoice = 'system' | 'light' | 'dark';
-/** What that resolves to once the device setting is read. */
+/**
+ * The desks open light and stay light until someone says otherwise.
+ *
+ * The device setting is deliberately not consulted: the desks are a shared
+ * screen as often as a personal one, and a board that changed colour because
+ * of whose laptop it was on would be harder to talk about, not easier.
+ */
 export type Theme = 'light' | 'dark';
-
-/** The device's own setting, read at call time so a test can run without matchMedia. */
-function deviceTheme(): Theme {
-  if (typeof window === 'undefined' || !window.matchMedia) return 'dark';
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
+export const DEFAULT_THEME: Theme = 'light';
 
 type Prefs = {
   /** Board mode: a dark, large-type wall display. Driven by ?board=1 so a screen can be bookmarked straight into it. */
@@ -23,11 +22,12 @@ type Prefs = {
   /** Auto-rotation through the desks. Off by default; only offered in board mode. */
   rotate: boolean;
   setRotate: (on: boolean) => void;
-  /** The viewer's choice, which may be "follow the device". */
-  themeChoice: ThemeChoice;
-  setThemeChoice: (t: ThemeChoice) => void;
-  /** The choice resolved against the device. Board mode ignores this and stays dark. */
+  /**
+   * The viewer's theme. Board mode and a desk with the checklist flag off both
+   * ignore it and stay dark — see DeskPage, which owns that decision.
+   */
   theme: Theme;
+  setTheme: (t: Theme) => void;
 };
 
 const Ctx = createContext<Prefs | null>(null);
@@ -74,32 +74,19 @@ export function DeskPrefsProvider({ children }: { children: ReactNode }) {
     store('desk-rotate', on ? 'on' : 'off');
   }, []);
 
-  const [themeChoice, setThemeChoiceState] = useState<ThemeChoice>(() =>
-    readStored('desk-theme', 'system', ['system', 'light', 'dark'] as const),
+  // A saved choice beats the default; anything else falls back to light.
+  const [theme, setThemeState] = useState<Theme>(() =>
+    readStored('desk-theme', DEFAULT_THEME, ['light', 'dark'] as const),
   );
-  const [device, setDevice] = useState<Theme>(deviceTheme);
 
-  // Follow the device while the choice is 'system' — someone switching their
-  // laptop to night mode should not have to reload the desk.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => setDevice(mq.matches ? 'light' : 'dark');
-    onChange();
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  const setThemeChoice = useCallback((t: ThemeChoice) => {
-    setThemeChoiceState(t);
+  const setTheme = useCallback((t: Theme) => {
+    setThemeState(t);
     store('desk-theme', t);
   }, []);
 
-  const theme: Theme = themeChoice === 'system' ? device : themeChoice;
-
   const value = useMemo<Prefs>(
-    () => ({ board, setBoard, density, setDensity, rotate, setRotate, themeChoice, setThemeChoice, theme }),
-    [board, setBoard, density, setDensity, rotate, setRotate, themeChoice, setThemeChoice, theme],
+    () => ({ board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme }),
+    [board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
