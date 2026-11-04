@@ -1,0 +1,654 @@
+part,rule,agent,advance,status,issued,debit,credit,amount,note
+B,B2,Esther Bukenya,47537467-a0a2-4c14-bc51-dcb9877b2f21,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,23407.0,fee left out of the 22 Sep opening
+B,B4,Esther Bukenya,47537467-a0a2-4c14-bc51-dcb9877b2f21,overdue,2026-07-31,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8243.0,legacy overdue penalty unpaid (CFO decision)
+A,A1,SHARIFU KALULE,b94abec1-37b7-4eb0-8af5-200373aa140b,cancelled,2026-09-02,E3 receivable_restatement_equity,A11 agent_access_fee_receivable_opening,650219.0,22 Sep opening fee on a closed advance
+A,A3,SHARIFU KALULE,b94abec1-37b7-4eb0-8af5-200373aa140b,cancelled,2026-09-02,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,2148000.0,A10 above the principal still unpaid (22 Sep opening double count)
+A,A4,SHARIFU KALULE,b94abec1-37b7-4eb0-8af5-200373aa140b,cancelled,2026-09-02,X4 platform_loss_writeoff (or transfer: CFO decision),A10 agent_advance_writeoff,1204223.04,"cancelled 'WE ARE CHANGING TO HIS PARTNERSHIP ACCOUNT' mode write_off; principal unpaid 1,204,223"
+B,B2,Iwumbwe Abdul mutwalib,2b6e7851-253e-4f22-8e6e-99bb305dd449,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,Iwumbwe Abdul mutwalib,2b6e7851-253e-4f22-8e6e-99bb305dd449,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,JANEHEPHZIBAR GIMONO,a782fb38-5366-423b-b642-2f94e055311c,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,63082.0,access fee booked in A10
+B,B2,Kisakye Sharon,27a01984-92c5-40e3-a0c6-a01b8f92fefb,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9448.0,fee left out of the 22 Sep opening
+B,B4,Kisakye Sharon,27a01984-92c5-40e3-a0c6-a01b8f92fefb,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11494.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Bella Owembabazi,b6a441dc-7094-4daf-ac76-4758f15e83cb,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,8188.0,fee left out of the 22 Sep opening
+B,B4,Bella Owembabazi,b6a441dc-7094-4daf-ac76-4758f15e83cb,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,12399.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kariisa Brian,0fd8990f-02a3-4254-9a46-319d537ab3cd,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,45818.0,fee left out of the 22 Sep opening
+B,B4,Kariisa Brian,0fd8990f-02a3-4254-9a46-319d537ab3cd,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,16143.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,kaye sam,e7f56122-481f-4cae-86c1-f5e28d97741a,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,6721.0,access fee booked in A10
+B,B2,kaye sam,e7f56122-481f-4cae-86c1-f5e28d97741a,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7814.0,fee left out of the 22 Sep opening
+B,B1,Mpata Ben,7de8c62a-6f9e-45d0-8835-bf364c979f29,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,8431.0,access fee booked in A10
+B,B2,Mpata Ben,7de8c62a-6f9e-45d0-8835-bf364c979f29,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,28530.0,fee left out of the 22 Sep opening
+B,B2,Kigongo Shafiq,443f41f3-a6c2-40f8-8d08-80ebf836b15d,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6817.0,fee left out of the 22 Sep opening
+B,B4,Kigongo Shafiq,443f41f3-a6c2-40f8-8d08-80ebf836b15d,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2401.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Walukaga Fik,a314f18c-6356-4c3e-a0f2-70601f3e0622,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,57811.0,fee left out of the 22 Sep opening
+B,B4,Walukaga Fik,a314f18c-6356-4c3e-a0f2-70601f3e0622,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18885.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kazibwe Paul,30373eb5-961d-45a3-b9f5-889c21b231e7,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13835.0,fee left out of the 22 Sep opening
+B,B4,Kazibwe Paul,30373eb5-961d-45a3-b9f5-889c21b231e7,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4889.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mirembe Sharon,eed760bc-1751-4933-8768-11afb235cb5c,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16217.0,fee left out of the 22 Sep opening
+B,B4,Mirembe Sharon,eed760bc-1751-4933-8768-11afb235cb5c,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5713.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,DERRICK LUTAMAGUZI,51191a61-3d8a-4dec-bc9b-96c9e4eff1b7,completed,2026-08-18,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,1709.0,collected more than principal: fees / penalties credited to A10
+B,B2,Denis Okello,e568bb58-01fd-4997-a54c-07b5bc787e76,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12728.0,fee left out of the 22 Sep opening
+B,B4,Denis Okello,e568bb58-01fd-4997-a54c-07b5bc787e76,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4233.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kato laban,6adda35f-f4d0-4b77-a3e1-2c4ffb61d733,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14607.0,fee left out of the 22 Sep opening
+B,B4,kato laban,6adda35f-f4d0-4b77-a3e1-2c4ffb61d733,overdue,2026-08-13,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4013.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,acali richard,61211b19-9b44-441f-84d9-aad3fa852826,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,31225.0,fee left out of the 22 Sep opening
+B,B4,acali richard,61211b19-9b44-441f-84d9-aad3fa852826,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10999.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,lule samdon,e75cfa3b-4a7e-4572-a6f5-8440b4a71bf5,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16027.0,fee left out of the 22 Sep opening
+B,B4,lule samdon,e75cfa3b-4a7e-4572-a6f5-8440b4a71bf5,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5646.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mugenyi Paul,d54706b6-d3c8-4fc6-99ad-2203efd89378,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,2544.0,access fee booked in A10
+B,B2,Mugenyi Paul,d54706b6-d3c8-4fc6-99ad-2203efd89378,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6795.0,fee left out of the 22 Sep opening
+B,B2,Katamba John,86830526-abb5-4f81-8870-91c0a39768cf,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5840.0,fee left out of the 22 Sep opening
+B,B4,Katamba John,86830526-abb5-4f81-8870-91c0a39768cf,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2055.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,dan putini,d2182666-015b-4af7-b6c9-684dad684064,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,45338.0,access fee booked in A10
+B,B2,dan putini,d2182666-015b-4af7-b6c9-684dad684064,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2331.0,fee left out of the 22 Sep opening
+B,B2,KISAKYE RECHEAL,858cd6be-4da5-44c8-bdb2-2944b5fad5aa,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,1326.0,fee left out of the 22 Sep opening
+B,B4,KISAKYE RECHEAL,858cd6be-4da5-44c8-bdb2-2944b5fad5aa,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5054.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kakaire Said,110b3ad2-a71b-4c76-a8be-7b6b068cbac5,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17294.0,fee left out of the 22 Sep opening
+B,B4,Kakaire Said,110b3ad2-a71b-4c76-a8be-7b6b068cbac5,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3836.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KAlENZI BRIAN,926bd794-aedf-4195-b3de-cd4c3d33c042,overdue,2026-07-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,41332.0,fee left out of the 22 Sep opening
+B,B4,KAlENZI BRIAN,926bd794-aedf-4195-b3de-cd4c3d33c042,overdue,2026-07-13,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10274.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,barisaramu norah,0b567610-aeba-49bc-9576-677c680f253a,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21693.0,fee left out of the 22 Sep opening
+B,B4,barisaramu norah,0b567610-aeba-49bc-9576-677c680f253a,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5387.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Arinda Herod,aa171c67-f5d8-4e7e-b58e-419e9e1156d8,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9891.0,fee left out of the 22 Sep opening
+B,B4,Arinda Herod,aa171c67-f5d8-4e7e-b58e-419e9e1156d8,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3485.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Joshua Kisakye,3060c502-0d2e-4bd8-8541-75d01a2f963b,overdue,2026-07-16,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,62116.0,fee left out of the 22 Sep opening
+B,B4,Joshua Kisakye,3060c502-0d2e-4bd8-8541-75d01a2f963b,overdue,2026-07-16,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,13782.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,dikusoka Dennis,e73aac6a-d87c-4ddb-b04e-4c25407f5552,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,32337.0,access fee booked in A10
+B,B2,dikusoka Dennis,e73aac6a-d87c-4ddb-b04e-4c25407f5552,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,1095.0,fee left out of the 22 Sep opening
+B,B2,Menya Karim,c7ff7792-d224-4e4e-a794-d7e5855786b1,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,36668.0,fee left out of the 22 Sep opening
+B,B4,Menya Karim,c7ff7792-d224-4e4e-a794-d7e5855786b1,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9127.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kadunga Musa,2aeaea08-bdea-4740-83f4-692709a65446,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10279.0,fee left out of the 22 Sep opening
+B,B4,Kadunga Musa,2aeaea08-bdea-4740-83f4-692709a65446,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3620.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,mwesigwa allan,7ff9e2b7-352c-4b8a-b21d-187645969184,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7033.0,fee left out of the 22 Sep opening
+B,B4,mwesigwa allan,7ff9e2b7-352c-4b8a-b21d-187645969184,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1748.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Abbaasi Edson,7b75daee-c659-420d-8e52-18957c73b0be,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,152.0,fee left out of the 22 Sep opening
+B,B4,Abbaasi Edson,7b75daee-c659-420d-8e52-18957c73b0be,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,450.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Paul Junior,58424b5d-6ae4-4d8f-8eb0-f88b37ee80b0,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12505.0,access fee booked in A10
+B,B2,Paul Junior,58424b5d-6ae4-4d8f-8eb0-f88b37ee80b0,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12695.0,fee left out of the 22 Sep opening
+B,B2,Sakamata Denis,c80b1905-7285-45e8-aab4-b9f892214d03,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,52172.0,fee left out of the 22 Sep opening
+B,B4,Sakamata Denis,c80b1905-7285-45e8-aab4-b9f892214d03,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15697.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Denis Waiswa,f0c6b35e-93cf-4bb5-ac3a-251a2801b02d,active,2026-08-08,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,30790.0,access fee booked in A10
+A,A5,kirunda Ivan,a2f68769-4fc0-4ddb-8842-2160ef15e1f7,completed,2026-07-20,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,4310.0,collected more than principal: fees / penalties credited to A10
+B,B1,Lukwago Godfrey,838b676d-d41d-4c12-b9ce-fedab66ae0f0,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,15724.0,access fee booked in A10
+B,B2,Lukwago Godfrey,838b676d-d41d-4c12-b9ce-fedab66ae0f0,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2944.0,fee left out of the 22 Sep opening
+B,B2,Prince Sanishi,13f118d9-08d7-4c1a-a357-caef01f0e2ac,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10400.0,fee left out of the 22 Sep opening
+B,B4,Prince Sanishi,13f118d9-08d7-4c1a-a357-caef01f0e2ac,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3667.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mutaki Baraka Gabriel,b0e658df-b96c-498b-8b93-2bbc8dca7fdf,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12365.0,access fee booked in A10
+B,B2,Mutaki Baraka Gabriel,b0e658df-b96c-498b-8b93-2bbc8dca7fdf,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,26542.0,fee left out of the 22 Sep opening
+B,B2,John Telly,1d049e33-b7fa-40b3-ba97-855c2ebd3c35,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6280.0,fee left out of the 22 Sep opening
+B,B4,John Telly,1d049e33-b7fa-40b3-ba97-855c2ebd3c35,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1562.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Musubo Ali,d1823dfe-17b2-4df3-afa7-84b13935044b,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17294.0,fee left out of the 22 Sep opening
+B,B4,Musubo Ali,d1823dfe-17b2-4df3-afa7-84b13935044b,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3836.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Musa Kadunga,63ffb8a0-9313-4aa4-9b5e-f12f17cbd297,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5781.0,fee left out of the 22 Sep opening
+B,B4,Musa Kadunga,63ffb8a0-9313-4aa4-9b5e-f12f17cbd297,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,164.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ssekyanzi Ronald,e903d70d-bcc1-4932-822e-dffa7440d2c3,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14430.0,fee left out of the 22 Sep opening
+B,B4,Ssekyanzi Ronald,e903d70d-bcc1-4932-822e-dffa7440d2c3,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5086.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,kamulinde cosea Enoch,be9e0a44-050c-4e9c-8661-79bcbcaef956,active,2026-08-18,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,43531.0,access fee booked in A10
+B,B2,zaake dan,67d4dc9e-3938-4c54-8c40-fcaf43d9680b,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,23185.0,fee left out of the 22 Sep opening
+B,B4,zaake dan,67d4dc9e-3938-4c54-8c40-fcaf43d9680b,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8165.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Lubega Akram,09da2a32-959a-4568-862b-17175ec0e910,active,2026-08-18,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,60365.0,access fee booked in A10
+B,B2,MERESI ASIIMWE,84e820a3-c6b2-49f8-9358-e6170b5eb033,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12926.0,fee left out of the 22 Sep opening
+B,B4,MERESI ASIIMWE,84e820a3-c6b2-49f8-9358-e6170b5eb033,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1101.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kalemeera Eric,44a033f9-be02-41e6-90ea-153d56f4c475,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9567.0,fee left out of the 22 Sep opening
+B,B4,Kalemeera Eric,44a033f9-be02-41e6-90ea-153d56f4c475,overdue,2026-07-23,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3371.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Isabirye atimu,f4fc6ce2-66d5-4993-b2cc-f942ee533bb3,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,31315.0,access fee booked in A10
+B,B2,Isabirye atimu,f4fc6ce2-66d5-4993-b2cc-f942ee533bb3,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,524.0,fee left out of the 22 Sep opening
+B,B2,Babirye Jannat,69bc47fd-da73-4003-a0c5-700c11cc2812,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53383.0,fee left out of the 22 Sep opening
+B,B4,Babirye Jannat,69bc47fd-da73-4003-a0c5-700c11cc2812,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17438.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kiwa maryin,23767100-04d4-4868-88d7-a8d62a1febc1,overdue,2026-07-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10306.0,fee left out of the 22 Sep opening
+B,B4,Kiwa maryin,23767100-04d4-4868-88d7-a8d62a1febc1,overdue,2026-07-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,16920.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Acca Miles,109b7de3-2847-428d-8533-a5544f3ab5d2,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10365.0,fee left out of the 22 Sep opening
+B,B4,Acca Miles,109b7de3-2847-428d-8533-a5544f3ab5d2,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2849.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nitah Shanitah,0c5443d2-5169-4f35-ba89-1bf241a51055,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14196.0,fee left out of the 22 Sep opening
+B,B4,Nitah Shanitah,0c5443d2-5169-4f35-ba89-1bf241a51055,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5001.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Opio Jun,b116c4c5-7a02-4a5e-b2df-aaa9c0a01f53,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18484.0,fee left out of the 22 Sep opening
+B,B4,Opio Jun,b116c4c5-7a02-4a5e-b2df-aaa9c0a01f53,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4593.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kisaka Junior,f0187980-9085-4582-9a07-210618547e7d,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,52152.0,fee left out of the 22 Sep opening
+B,B4,Kisaka Junior,f0187980-9085-4582-9a07-210618547e7d,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17037.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Lubogo Tom,69c0564f-59dc-4e9f-a3fa-dbf9717f1163,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,16469.0,access fee booked in A10
+B,B2,Lubogo Tom,69c0564f-59dc-4e9f-a3fa-dbf9717f1163,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3085.0,fee left out of the 22 Sep opening
+B,B2,KITATA GILBERT,7c7dd8f9-8c7b-4e61-9c72-cb36fce1d6a7,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,KITATA GILBERT,7c7dd8f9-8c7b-4e61-9c72-cb36fce1d6a7,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Fimha Kiza,61f000c8-f625-443a-a705-de753ce7efb4,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5603.0,fee left out of the 22 Sep opening
+B,B4,Fimha Kiza,61f000c8-f625-443a-a705-de753ce7efb4,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1832.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,"annah kenga,i",3d6c4dcb-8ebc-4174-89b9-c2b7c5848e17,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,64822.0,fee left out of the 22 Sep opening
+B,B4,"annah kenga,i",3d6c4dcb-8ebc-4174-89b9-c2b7c5848e17,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,22832.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,NSAADHA FAHADI,5d163028-81b2-4594-a082-ac93a343beeb,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16302.0,fee left out of the 22 Sep opening
+B,B4,NSAADHA FAHADI,5d163028-81b2-4594-a082-ac93a343beeb,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,931.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Nalutaaya Shamira,854ff7fc-0eb8-45dc-892b-a9b16967e28c,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12493.0,access fee booked in A10
+B,B2,Nalutaaya Shamira,854ff7fc-0eb8-45dc-892b-a9b16967e28c,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2077.0,fee left out of the 22 Sep opening
+B,B1,Atella Sharon,56ca68df-c0f7-4399-8843-55e6b500fc07,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,30005.0,access fee booked in A10
+B,B2,Atella Sharon,56ca68df-c0f7-4399-8843-55e6b500fc07,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,69180.0,fee left out of the 22 Sep opening
+B,B1,kwagala aishata,25586c17-4791-48e0-a2eb-60c4fbee9431,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,16880.0,access fee booked in A10
+B,B2,kwagala aishata,25586c17-4791-48e0-a2eb-60c4fbee9431,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3165.0,fee left out of the 22 Sep opening
+B,B2,Vonte Davis,aa0efe31-75c9-432e-9825-f4d42d64ef7b,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13255.0,fee left out of the 22 Sep opening
+B,B4,Vonte Davis,aa0efe31-75c9-432e-9825-f4d42d64ef7b,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4330.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Sadu lukuma,9fe2c85c-c6d7-452a-bdb5-e1848dc2cdbc,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,38240.0,fee left out of the 22 Sep opening
+B,B4,Sadu lukuma,9fe2c85c-c6d7-452a-bdb5-e1848dc2cdbc,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5379.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,HENRY KASAJJA,38f60d56-7629-41eb-8728-9bf0c4cff87d,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,15912.0,fee left out of the 22 Sep opening
+B,B4,HENRY KASAJJA,38f60d56-7629-41eb-8728-9bf0c4cff87d,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5605.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Benja Ben,2407f0e4-dc5a-446b-bef3-55862215f527,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,32767.0,fee left out of the 22 Sep opening
+B,B4,Benja Ben,2407f0e4-dc5a-446b-bef3-55862215f527,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9857.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,FRABIA AINEMBABAZI,ddbcf7f9-d042-4c2c-a50d-ed8fe2556105,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12751.0,fee left out of the 22 Sep opening
+B,B4,FRABIA AINEMBABAZI,ddbcf7f9-d042-4c2c-a50d-ed8fe2556105,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4509.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Naigaga Ziria,a262bafb-3851-4104-bb2a-e51b12fc2e89,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20327.0,fee left out of the 22 Sep opening
+B,B4,Naigaga Ziria,a262bafb-3851-4104-bb2a-e51b12fc2e89,overdue,2026-07-28,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,583.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Lubega,abcf3a8f-6f3c-4ad6-9a8d-15da7419721b,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,54371.0,fee left out of the 22 Sep opening
+B,B4,Lubega,abcf3a8f-6f3c-4ad6-9a8d-15da7419721b,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17762.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kanuna alex,57530a30-dc05-4e90-a9cc-87c8927d61a9,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,30607.0,fee left out of the 22 Sep opening
+B,B4,kanuna alex,57530a30-dc05-4e90-a9cc-87c8927d61a9,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7604.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,MATOVU ROGERS,47b042d2-0580-41c3-96fd-8b9648aaff88,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,6293.0,access fee booked in A10
+B,B2,MATOVU ROGERS,47b042d2-0580-41c3-96fd-8b9648aaff88,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9388.0,fee left out of the 22 Sep opening
+B,B1,Muwanguzi Bob,0c23df30-b18b-441d-9fd7-005c5a55610f,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,7511.0,access fee booked in A10
+B,B2,Muwanguzi Bob,0c23df30-b18b-441d-9fd7-005c5a55610f,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,25423.0,fee left out of the 22 Sep opening
+B,B1,maasa mubakal,12f0f159-6a3f-46f0-9872-2953658bb757,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,11932.0,access fee booked in A10
+B,B5,maasa mubakal,12f0f159-6a3f-46f0-9872-2953658bb757,overdue,2026-07-27,(review),(review),-81636.0,"not explained by fees, registration (A20) or penalties"
+B,B2,busobozi nex,03bf4457-7779-441a-8e48-fe4378507650,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5391.0,fee left out of the 22 Sep opening
+B,B4,busobozi nex,03bf4457-7779-441a-8e48-fe4378507650,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,22710.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Rehemah Gift,b5cb59ba-0e77-403f-99c1-5fbfb1aaf79f,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13630.0,fee left out of the 22 Sep opening
+B,B4,Rehemah Gift,b5cb59ba-0e77-403f-99c1-5fbfb1aaf79f,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3389.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,opunu Derrick,06425c3a-8e2d-48e7-8f30-205277131e3c,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14791.0,fee left out of the 22 Sep opening
+B,B4,opunu Derrick,06425c3a-8e2d-48e7-8f30-205277131e3c,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3282.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,juliet Namono,3e808ed4-d84c-4577-bcac-1ad20b1181fc,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,11040.0,fee left out of the 22 Sep opening
+B,B4,juliet Namono,3e808ed4-d84c-4577-bcac-1ad20b1181fc,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18689.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ssekatawa John,20bc9540-edc4-4b91-bb50-5c038e695212,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,27533.0,fee left out of the 22 Sep opening
+B,B4,Ssekatawa John,20bc9540-edc4-4b91-bb50-5c038e695212,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9716.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Doreen nakato,6fe3c2fb-eca6-40bc-806e-4a847725dbe2,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5292.0,fee left out of the 22 Sep opening
+B,B4,Doreen nakato,6fe3c2fb-eca6-40bc-806e-4a847725dbe2,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8693.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Jeneasi tibakanya,3a999e0f-7e66-4521-b417-f0d0d3ae765d,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,61204.0,fee left out of the 22 Sep opening
+B,B4,Jeneasi tibakanya,3a999e0f-7e66-4521-b417-f0d0d3ae765d,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,21559.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Kizza peri,a0e91e65-dbd0-41ed-b7ee-311d419bf1ed,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,17588.0,access fee booked in A10
+B,B2,Kizza peri,a0e91e65-dbd0-41ed-b7ee-311d419bf1ed,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3293.0,fee left out of the 22 Sep opening
+B,B2,Namu Dafine,c1adb0c2-dbb2-429f-b492-8945a0e1590e,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3327.0,fee left out of the 22 Sep opening
+B,B4,Namu Dafine,c1adb0c2-dbb2-429f-b492-8945a0e1590e,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,14012.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,katete mugangi,50f84b2a-73a8-4098-b7f3-be0a4b4a065c,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,52565.0,fee left out of the 22 Sep opening
+B,B4,katete mugangi,50f84b2a-73a8-4098-b7f3-be0a4b4a065c,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18516.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kayongo James,6d342dd9-c7bd-49cc-af3a-4587734daa85,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13279.0,fee left out of the 22 Sep opening
+B,B4,Kayongo James,6d342dd9-c7bd-49cc-af3a-4587734daa85,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3823.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Wasswa ray,72e2c6ee-fd1d-4382-bb97-575065bb349f,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,32019.0,fee left out of the 22 Sep opening
+B,B4,Wasswa ray,72e2c6ee-fd1d-4382-bb97-575065bb349f,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10383.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,ngobi umar,070193fa-9af8-43ae-95f2-2db38c18a0e5,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21839.0,fee left out of the 22 Sep opening
+B,B4,ngobi umar,070193fa-9af8-43ae-95f2-2db38c18a0e5,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7693.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,David Amanya,b244736f-9a88-471f-ab53-82bf367a9126,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,44775.0,access fee booked in A10
+B,B2,David Amanya,b244736f-9a88-471f-ab53-82bf367a9126,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2302.0,fee left out of the 22 Sep opening
+B,B2,Nasibu Kadunga,2c58cc81-0a9f-4a7d-86c1-85400a3d12da,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6419.0,fee left out of the 22 Sep opening
+B,B4,Nasibu Kadunga,2c58cc81-0a9f-4a7d-86c1-85400a3d12da,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2095.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,IAN MUHWEZI,acacba51-9d06-4d94-9d5d-f72c3ecc5eb7,active,2026-11-03,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,53102.92,access fee booked in A10
+B,B2,Simpo wa Shami,39262ee7-87a7-4a8d-b4e5-bc74a61ae473,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5781.0,fee left out of the 22 Sep opening
+B,B4,Simpo wa Shami,39262ee7-87a7-4a8d-b4e5-bc74a61ae473,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,164.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nakiganda kean,6871089c-e628-45d0-a4cf-9c8464a9e582,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20695.0,fee left out of the 22 Sep opening
+B,B4,Nakiganda kean,6871089c-e628-45d0-a4cf-9c8464a9e582,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4936.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Sarah wange,ae913d3c-f67c-4ead-ac45-ab17d23a47f1,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,19201.0,fee left out of the 22 Sep opening
+B,B4,Sarah wange,ae913d3c-f67c-4ead-ac45-ab17d23a47f1,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6763.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KATO SANDA,b3de0117-e6a2-41d9-b2e1-dbe360af5a21,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22278.0,fee left out of the 22 Sep opening
+B,B4,KATO SANDA,b3de0117-e6a2-41d9-b2e1-dbe360af5a21,overdue,2026-07-20,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,42020.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Musayi Trevis,a38e0d7b-4673-4f41-94ad-2219945da446,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22471.0,fee left out of the 22 Sep opening
+B,B4,Musayi Trevis,a38e0d7b-4673-4f41-94ad-2219945da446,overdue,2026-07-31,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7916.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kats Vincent,5da8c1b3-47ec-4ac0-ad4f-40daece15ea0,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,15989.0,fee left out of the 22 Sep opening
+B,B4,Kats Vincent,5da8c1b3-47ec-4ac0-ad4f-40daece15ea0,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1809.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Jackson Kirabo,60193637-1033-4838-aa5c-93f9cfb5df55,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,37108.0,fee left out of the 22 Sep opening
+B,B4,Jackson Kirabo,60193637-1033-4838-aa5c-93f9cfb5df55,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,47196.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kadunga Malufu,a8653457-24dd-4692-9b15-4d6d6080ce0d,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16202.0,fee left out of the 22 Sep opening
+B,B4,Kadunga Malufu,a8653457-24dd-4692-9b15-4d6d6080ce0d,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5706.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nyombi shabil,19ca3798-ae12-4cc9-a077-ea97c36e289b,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,Nyombi shabil,19ca3798-ae12-4cc9-a077-ea97c36e289b,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mumbya Nelson,dd6dc0bd-c039-47d9-a215-17e468ed0172,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18801.0,fee left out of the 22 Sep opening
+B,B4,Mumbya Nelson,dd6dc0bd-c039-47d9-a215-17e468ed0172,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6625.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Dr Enotunchi,24c75306-f40b-4285-82a7-5af5234e4c48,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7846.0,fee left out of the 22 Sep opening
+B,B4,Dr Enotunchi,24c75306-f40b-4285-82a7-5af5234e4c48,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10828.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kayesu Shinah,390a59cd-923c-4b4f-aeab-6b55a55c5988,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13009.0,fee left out of the 22 Sep opening
+B,B4,Kayesu Shinah,390a59cd-923c-4b4f-aeab-6b55a55c5988,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4358.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nakayemba Aisha,b32b2264-2b75-4fb5-af0f-f624fe87f7ec,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13009.0,fee left out of the 22 Sep opening
+B,B4,Nakayemba Aisha,b32b2264-2b75-4fb5-af0f-f624fe87f7ec,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4358.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Muwanguzi Eliphazi,eaebb574-87d8-412b-bcf9-d9e6d646efc4,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,121348.0,access fee booked in A10
+B,B2,Muwanguzi Eliphazi,eaebb574-87d8-412b-bcf9-d9e6d646efc4,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,28005.0,fee left out of the 22 Sep opening
+B,B2,babay dianh,cbe57f50-977b-41b3-b677-3c0d62e849b9,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,25651.0,fee left out of the 22 Sep opening
+B,B4,babay dianh,cbe57f50-977b-41b3-b677-3c0d62e849b9,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,40792.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,TEZIKUBA FAHADI,37e6aebf-53cf-4dfa-b34c-ff56be4031e3,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9263.0,fee left out of the 22 Sep opening
+B,B4,TEZIKUBA FAHADI,37e6aebf-53cf-4dfa-b34c-ff56be4031e3,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3026.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mirembe shanat,121e8034-60fa-49ee-9ed5-c759de013075,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20104.0,fee left out of the 22 Sep opening
+B,B4,Mirembe shanat,121e8034-60fa-49ee-9ed5-c759de013075,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,574.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kibalama Bashir,38e84f96-bdc1-45ca-b735-2cea58092d57,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,90746.0,fee left out of the 22 Sep opening
+B,B4,Kibalama Bashir,38e84f96-bdc1-45ca-b735-2cea58092d57,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15615.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,walyomu Reagan,73b175d5-de50-4d2b-bee3-ad09c8e841c9,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,17437.0,access fee booked in A10
+B,B2,walyomu Reagan,73b175d5-de50-4d2b-bee3-ad09c8e841c9,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3266.0,fee left out of the 22 Sep opening
+B,B2,Kaweesi Isaac,454685de-fc35-42eb-890e-dbd6475a1ace,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14119.0,fee left out of the 22 Sep opening
+B,B4,Kaweesi Isaac,454685de-fc35-42eb-890e-dbd6475a1ace,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4974.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Tangs Songs,bd5ef3cf-6cab-4a7d-bc35-ae49966b4b16,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12632.0,fee left out of the 22 Sep opening
+B,B4,Tangs Songs,bd5ef3cf-6cab-4a7d-bc35-ae49966b4b16,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,364.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mwijukye Edson,a095606c-147a-4ea1-82e4-7fbc25121df6,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,18724.0,access fee booked in A10
+B,B2,Mwijukye Edson,a095606c-147a-4ea1-82e4-7fbc25121df6,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,1298.0,fee left out of the 22 Sep opening
+B,B2,Keith Otalemwa,0e6de24f-4d21-46b3-a47e-77e03349535a,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13009.0,fee left out of the 22 Sep opening
+B,B4,Keith Otalemwa,0e6de24f-4d21-46b3-a47e-77e03349535a,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4358.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,IAN MUHWEZI,5a1a60b0-1f00-44e0-b953-f4f442fab2cd,cancelled,2026-08-10,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,131727.0,collected more than principal: fees / penalties credited to A10
+B,B2,Katekyeza Sam,273e12ce-da62-49e5-88d4-e1884cee08eb,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,Katekyeza Sam,273e12ce-da62-49e5-88d4-e1884cee08eb,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kats Kato,100510ca-fb60-45c2-b4ee-150fddaf7361,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,87765.0,fee left out of the 22 Sep opening
+B,B4,Kats Kato,100510ca-fb60-45c2-b4ee-150fddaf7361,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,132900.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,BadBoi Arafa,3c770fa4-9342-4e62-a4f9-b0b377a6525b,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10522.0,fee left out of the 22 Sep opening
+B,B4,BadBoi Arafa,3c770fa4-9342-4e62-a4f9-b0b377a6525b,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1478.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ssekamatte Jamil,a02c3375-489c-4c12-98d4-46bc543911ca,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16064.0,fee left out of the 22 Sep opening
+B,B4,Ssekamatte Jamil,a02c3375-489c-4c12-98d4-46bc543911ca,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5248.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Tusiime beteth,bb9e4dd6-851c-484d-b299-2f79878857a5,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10209.0,fee left out of the 22 Sep opening
+B,B4,Tusiime beteth,bb9e4dd6-851c-484d-b299-2f79878857a5,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1991.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Yazeed Kc,05ca5c21-473e-47ee-a796-8a942af0b79d,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,47227.0,access fee booked in A10
+B,B2,Yazeed Kc,05ca5c21-473e-47ee-a796-8a942af0b79d,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,46869.0,fee left out of the 22 Sep opening
+B,B2,Bwire Musah,6eed6150-4136-4273-8cc3-092f181da787,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5593.0,fee left out of the 22 Sep opening
+B,B4,Bwire Musah,6eed6150-4136-4273-8cc3-092f181da787,overdue,2026-08-13,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10170.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Jjuko Abdul,3a972146-3740-40ff-8aa1-615815288ce7,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12057.0,fee left out of the 22 Sep opening
+B,B4,Jjuko Abdul,3a972146-3740-40ff-8aa1-615815288ce7,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1473.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ntende Shakul,6efb5e64-e83c-46e8-92dd-e95c12367faa,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,44705.0,fee left out of the 22 Sep opening
+B,B4,Ntende Shakul,6efb5e64-e83c-46e8-92dd-e95c12367faa,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6434.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Opio Gerald,bb1dfbbb-bf12-42d2-b438-474d801f2437,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14430.0,fee left out of the 22 Sep opening
+B,B4,Opio Gerald,bb1dfbbb-bf12-42d2-b438-474d801f2437,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5086.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Musasizi Abraham,2cd6a66c-2465-4dd7-94be-ae7898904973,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16262.0,fee left out of the 22 Sep opening
+B,B4,Musasizi Abraham,2cd6a66c-2465-4dd7-94be-ae7898904973,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5734.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,maliza Balungi,bbbc806b-2694-42ce-af48-844d9cbc1a4b,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,90288.0,fee left out of the 22 Sep opening
+B,B4,maliza Balungi,bbbc806b-2694-42ce-af48-844d9cbc1a4b,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,31804.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Bluestaff kenny,7d405a2b-434a-4e10-ab23-c7e12f576710,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7238.0,fee left out of the 22 Sep opening
+B,B4,Bluestaff kenny,7d405a2b-434a-4e10-ab23-c7e12f576710,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2366.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Muhammad Rwasul,c3d6c1ce-dca0-4818-a42b-80fdb2aca41d,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13013.0,fee left out of the 22 Sep opening
+B,B4,Muhammad Rwasul,c3d6c1ce-dca0-4818-a42b-80fdb2aca41d,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1473.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Muyomba Peter,44df86eb-8c86-4202-8ab0-05a425e8335f,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,109572.0,fee left out of the 22 Sep opening
+B,B4,Muyomba Peter,44df86eb-8c86-4202-8ab0-05a425e8335f,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,42424.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mayanja Sulaiman,978a9e12-9764-4b9d-b854-28c1ac47c4cd,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,396437.0,fee left out of the 22 Sep opening
+B,B4,Mayanja Sulaiman,978a9e12-9764-4b9d-b854-28c1ac47c4cd,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,359694.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,WINFRED ASIIMWE,63f051b0-2db2-4998-b6f4-fe260cb7d9c0,active,2026-09-08,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,275000.0,access fee booked in A10
+B,B2,King Rogets,8b0c4875-e714-4a08-a8c5-f881615bd523,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,64957.0,fee left out of the 22 Sep opening
+B,B4,King Rogets,8b0c4875-e714-4a08-a8c5-f881615bd523,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,22880.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,PACIFICAL DARUMARK,a2465adb-021c-4cdd-b5ec-9ded304a93dd,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17964.0,fee left out of the 22 Sep opening
+B,B4,PACIFICAL DARUMARK,a2465adb-021c-4cdd-b5ec-9ded304a93dd,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5868.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,suliaman tenywa,ddf30d22-4ed6-48c1-9c45-c2d828dec563,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,30943.0,fee left out of the 22 Sep opening
+B,B4,suliaman tenywa,ddf30d22-4ed6-48c1-9c45-c2d828dec563,overdue,2026-07-23,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9309.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nanyombi Shakirah,6a051358-6ad4-4566-9d63-d87e4b273928,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14271.0,fee left out of the 22 Sep opening
+B,B4,Nanyombi Shakirah,6a051358-6ad4-4566-9d63-d87e4b273928,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5026.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,GLM ACCA Miles,b4f14647-9b6b-401a-90a8-16571281b93e,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6480.0,fee left out of the 22 Sep opening
+B,B4,GLM ACCA Miles,b4f14647-9b6b-401a-90a8-16571281b93e,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2281.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mukose Ukasha,2b265257-51cd-4424-9b05-35ae5177dddd,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18801.0,fee left out of the 22 Sep opening
+B,B4,Mukose Ukasha,2b265257-51cd-4424-9b05-35ae5177dddd,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6625.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,John Roberts,d3a0ea36-549d-41de-9a36-6d3e7b2dfecb,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12143.0,access fee booked in A10
+B,B2,John Roberts,d3a0ea36-549d-41de-9a36-6d3e7b2dfecb,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7298.0,fee left out of the 22 Sep opening
+B,B2,DONGO SAMSON,01906a51-167c-43c1-8c83-2fa97f726a70,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10275.0,fee left out of the 22 Sep opening
+B,B4,DONGO SAMSON,01906a51-167c-43c1-8c83-2fa97f726a70,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3093.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,LUBGO BRIAN,2d0412e6-8336-462f-8c08-bc645389296f,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,19071.0,fee left out of the 22 Sep opening
+B,B4,LUBGO BRIAN,2d0412e6-8336-462f-8c08-bc645389296f,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,27303.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kakaire Umar,4a5694c0-6114-4483-9184-14945845c9a0,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17294.0,fee left out of the 22 Sep opening
+B,B4,Kakaire Umar,4a5694c0-6114-4483-9184-14945845c9a0,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3836.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,waiswa Kenneth,c539c923-0b2f-410b-82b8-8865ad702b82,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5530.0,fee left out of the 22 Sep opening
+B,B4,waiswa Kenneth,c539c923-0b2f-410b-82b8-8865ad702b82,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7401.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KAANYI SHAMIM,de0bf85e-e616-4b40-8550-86cb0bd170c0,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,11311.0,fee left out of the 22 Sep opening
+B,B4,KAANYI SHAMIM,de0bf85e-e616-4b40-8550-86cb0bd170c0,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3982.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Zamba Kinene,febd7a3f-a4a8-4caf-a6c5-8ed87eb8138c,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53383.0,fee left out of the 22 Sep opening
+B,B4,Zamba Kinene,febd7a3f-a4a8-4caf-a6c5-8ed87eb8138c,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17438.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mugezi Arafati,383ed9ec-5475-46ce-b628-85d9d4d94670,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21898.0,fee left out of the 22 Sep opening
+B,B4,Mugezi Arafati,383ed9ec-5475-46ce-b628-85d9d4d94670,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4860.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Naigaga Fiona,b52f6b3f-26a1-4005-80f7-9b37676a9b75,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18614.0,fee left out of the 22 Sep opening
+B,B4,Naigaga Fiona,b52f6b3f-26a1-4005-80f7-9b37676a9b75,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1585.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,IAN MUHWEZI,ba37593d-8b29-482b-b305-f98210864616,completed,2026-09-07,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,2182785.0,collected more than principal: fees / penalties credited to A10
+B,B2,lutaya John,5a075637-69df-4e86-b4d6-11b5ee59581d,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,11045.0,fee left out of the 22 Sep opening
+B,B4,lutaya John,5a075637-69df-4e86-b4d6-11b5ee59581d,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1555.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Timmothy Tim,fb101109-0d86-4e92-8c0a-8062c4324f55,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12753.0,fee left out of the 22 Sep opening
+B,B4,Timmothy Tim,fb101109-0d86-4e92-8c0a-8062c4324f55,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,729.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Reagan Blaise,b287e887-5530-4433-acc3-13dc9db56093,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12742.0,fee left out of the 22 Sep opening
+B,B4,Reagan Blaise,b287e887-5530-4433-acc3-13dc9db56093,overdue,2026-07-28,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,53664.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KASUMBA DAVID,337d2b15-6bcd-4385-af97-620bcf16006c,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13210.0,fee left out of the 22 Sep opening
+B,B4,KASUMBA DAVID,337d2b15-6bcd-4385-af97-620bcf16006c,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2221.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,borungi katu,bc22629f-960b-4b3b-9a2e-81647e780c5d,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,29215.0,fee left out of the 22 Sep opening
+B,B4,borungi katu,bc22629f-960b-4b3b-9a2e-81647e780c5d,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4908.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,karungi joan,8bb5dd52-af1b-40b2-8752-58f5b2c40f07,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10211.0,fee left out of the 22 Sep opening
+B,B4,karungi joan,8bb5dd52-af1b-40b2-8752-58f5b2c40f07,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15174.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Barasa Muzamiru,b0e349f9-c572-4860-afa9-7f4798a73c33,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,33455.0,access fee booked in A10
+B,B2,Barasa Muzamiru,b0e349f9-c572-4860-afa9-7f4798a73c33,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20100.0,fee left out of the 22 Sep opening
+B,B2,kintu mathur,5e43c4ae-7ca0-43c2-b969-afa714671c49,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,36850.0,fee left out of the 22 Sep opening
+B,B4,kintu mathur,5e43c4ae-7ca0-43c2-b969-afa714671c49,overdue,2026-07-23,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,12983.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Faridah Namutebe,a051c80a-e351-4e3e-8b3b-6e2564787ab5,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,61649.0,fee left out of the 22 Sep opening
+B,B4,Faridah Namutebe,a051c80a-e351-4e3e-8b3b-6e2564787ab5,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18547.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kirunda mubaraka,f77ffdfb-0eb7-4a9e-8935-33ca89c6b2c5,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,36945.0,fee left out of the 22 Sep opening
+B,B4,kirunda mubaraka,f77ffdfb-0eb7-4a9e-8935-33ca89c6b2c5,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9188.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,nangobi fazira,372522e4-9887-4358-a329-4109222c7924,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,17185.0,access fee booked in A10
+B,B2,nangobi fazira,372522e4-9887-4358-a329-4109222c7924,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,34375.0,fee left out of the 22 Sep opening
+B,B1,Walyomu inve,1360a010-a98f-4df2-846e-ce8f79820c79,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,17725.0,access fee booked in A10
+B,B2,Walyomu inve,1360a010-a98f-4df2-846e-ce8f79820c79,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2588.0,fee left out of the 22 Sep opening
+B,B2,kakaire farid,5e95c015-356f-4a24-b202-7fb9ef4a918b,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17964.0,fee left out of the 22 Sep opening
+B,B4,kakaire farid,5e95c015-356f-4a24-b202-7fb9ef4a918b,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5868.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mwanjje Sabula,86b08a56-4d71-4930-8277-a970d00bd58f,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16808.0,fee left out of the 22 Sep opening
+B,B4,Mwanjje Sabula,86b08a56-4d71-4930-8277-a970d00bd58f,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2363.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Henry Ssekandi,cf94d6b4-ceff-46c1-aec1-c7d56ff62044,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,45001.0,access fee booked in A10
+B,B2,Henry Ssekandi,cf94d6b4-ceff-46c1-aec1-c7d56ff62044,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3123.0,fee left out of the 22 Sep opening
+B,B2,Kateregga Mike,94be1779-0240-4969-bb1b-8784bc5f9158,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,57442.0,fee left out of the 22 Sep opening
+B,B4,Kateregga Mike,94be1779-0240-4969-bb1b-8784bc5f9158,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18765.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Wandusu Moses,fb275058-e821-4d65-b31f-13a96fcc3a8d,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12023.0,access fee booked in A10
+B,B2,Wandusu Moses,fb275058-e821-4d65-b31f-13a96fcc3a8d,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,8553.0,fee left out of the 22 Sep opening
+B,B2,nakilasi nyoko,acc12f4b-0304-41e4-96c7-582fc2c4e7e2,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,31225.0,fee left out of the 22 Sep opening
+B,B4,nakilasi nyoko,acc12f4b-0304-41e4-96c7-582fc2c4e7e2,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10999.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Isaac Isa,78171828-3dab-41c4-bc9b-c67f34df2137,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,14605.0,access fee booked in A10
+B,B2,Isaac Isa,78171828-3dab-41c4-bc9b-c67f34df2137,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,49438.0,fee left out of the 22 Sep opening
+B,B2,DONGO WILLISON,452275b6-1be3-457f-b169-7c8e02afaaa8,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,23407.0,fee left out of the 22 Sep opening
+B,B4,DONGO WILLISON,452275b6-1be3-457f-b169-7c8e02afaaa8,overdue,2026-07-28,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7040.0,legacy overdue penalty unpaid (CFO decision)
+B,B3,Epaphradito Lugayavu,bbb820d7-2ae8-4b1e-80ca-68a48a76e2db,overdue,2026-07-29,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,1027150.0,fee in the A10 opening and in A11
+B,B1,Mike Kasule,62a38dfe-a737-410f-b427-6191d6cb4ea0,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,16973.0,access fee booked in A10
+B,B2,Mike Kasule,62a38dfe-a737-410f-b427-6191d6cb4ea0,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10197.0,fee left out of the 22 Sep opening
+A,A5,SSENKUNGU ASAPH,9f354684-e7b0-422a-8a86-27100fe569a3,completed,2026-07-24,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,6070.0,collected more than principal: fees / penalties credited to A10
+A,A2,KALULE SHARIF,288cbab8-0c82-4ac6-9632-11c44e724ef4,cancelled,2026-10-27,R agent_advance_fee_revenue (reversal),A11 agent_advance_access_fee_charged,420000.0,fee charged at issue; advance cancelled
+A,A4,KALULE SHARIF,288cbab8-0c82-4ac6-9632-11c44e724ef4,cancelled,2026-10-27,X4 platform_loss_writeoff (or transfer: CFO decision),A10 agent_advance_writeoff,1500000.0,"cancelled 'Topped up to active advance' mode write_off; principal unpaid 1,500,000"
+B,B2,kamya daniel,c48a64ea-a95c-4261-a51d-4bf44e33228d,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16217.0,fee left out of the 22 Sep opening
+B,B4,kamya daniel,c48a64ea-a95c-4261-a51d-4bf44e33228d,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5298.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Muga Stivo,37723868-e583-49a1-ac12-a563a47af141,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,54384.0,fee left out of the 22 Sep opening
+B,B4,Muga Stivo,37723868-e583-49a1-ac12-a563a47af141,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,19157.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,tonney,1beba409-13e9-49b0-bec5-d0c5fd23f5cc,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,32097.0,fee left out of the 22 Sep opening
+B,B4,tonney,1beba409-13e9-49b0-bec5-d0c5fd23f5cc,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10484.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Gilbert Nowamanya,470126d7-d418-4b9a-8d95-fcc2e7ea999d,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,4009.0,fee left out of the 22 Sep opening
+B,B4,Gilbert Nowamanya,470126d7-d418-4b9a-8d95-fcc2e7ea999d,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,14446.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Tongo Paul,a66eaf9e-27e6-4b5f-8fb1-44670e9a58f1,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13382.0,fee left out of the 22 Sep opening
+B,B4,Tongo Paul,a66eaf9e-27e6-4b5f-8fb1-44670e9a58f1,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4713.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,collins kulunku,31d63347-0fda-465d-9c3c-5593b00e19e5,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12495.0,fee left out of the 22 Sep opening
+B,B4,collins kulunku,31d63347-0fda-465d-9c3c-5593b00e19e5,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15885.0,legacy overdue penalty unpaid (CFO decision)
+A,A3,PRISCILLA LOLEM,d1ec4c4c-8e00-4d38-bcbf-3a010aecbcf2,cancelled,2026-07-22,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,345541.0,A10 above the principal still unpaid (22 Sep opening double count)
+A,A4,PRISCILLA LOLEM,d1ec4c4c-8e00-4d38-bcbf-3a010aecbcf2,cancelled,2026-07-22,X4 platform_loss_writeoff (or transfer: CFO decision),A10 agent_advance_writeoff,1030.0,"cancelled 'WE ARE CHANGING THE TERMS' mode write_off; principal unpaid 1,030"
+B,B2,MAKUMBI FAROUK,b6ab8559-13d3-47cc-a19e-9b2e819c2a27,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9559.0,fee left out of the 22 Sep opening
+B,B4,MAKUMBI FAROUK,b6ab8559-13d3-47cc-a19e-9b2e819c2a27,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3366.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mugisa Calvin,267531a9-d85a-4732-980f-fc10ca1dacce,overdue,2026-09-07,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,1858.0,access fee booked in A10
+B,B2,Mugisa Calvin,267531a9-d85a-4732-980f-fc10ca1dacce,overdue,2026-09-07,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18974.0,fee left out of the 22 Sep opening
+B,B2,TAREMWA TALENT,9628fb0e-66fe-462b-a04b-9ee6451dc921,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16059.0,fee left out of the 22 Sep opening
+B,B4,TAREMWA TALENT,9628fb0e-66fe-462b-a04b-9ee6451dc921,overdue,2026-07-23,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,915.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,sseruma vianti,83ba6050-0d05-4b57-9a71-62720e13c47a,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20883.0,fee left out of the 22 Sep opening
+B,B4,sseruma vianti,83ba6050-0d05-4b57-9a71-62720e13c47a,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4072.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mirembe Joan,4051e911-f0e0-4d07-b5ce-02ccbd594a2e,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53383.0,fee left out of the 22 Sep opening
+B,B4,Mirembe Joan,4051e911-f0e0-4d07-b5ce-02ccbd594a2e,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17438.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mukisa sanon,1b686a81-8bb0-4ffe-a4d9-7e6745419c3c,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21132.0,fee left out of the 22 Sep opening
+B,B4,Mukisa sanon,1b686a81-8bb0-4ffe-a4d9-7e6745419c3c,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6358.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,SHAFEEQ SSENABULYA,3a25cd33-3acb-4648-954a-d292f2fcd567,active,2026-10-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,83216.26,access fee booked in A10
+B,B2,makweta john,83769947-d99b-41c0-b682-1dd72f3a44ec,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3219.0,fee left out of the 22 Sep opening
+B,B4,makweta john,83769947-d99b-41c0-b682-1dd72f3a44ec,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5985.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kasiba musa,19e2b3bc-31e0-40e7-8860-dba97ac33cb6,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14444.0,fee left out of the 22 Sep opening
+B,B4,kasiba musa,19e2b3bc-31e0-40e7-8860-dba97ac33cb6,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5086.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mr MATOVU STEPHEN ROGERS,8d759289-c186-448d-9c98-206f32d6e992,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,14522.0,access fee booked in A10
+B,B2,Mr MATOVU STEPHEN ROGERS,8d759289-c186-448d-9c98-206f32d6e992,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2415.0,fee left out of the 22 Sep opening
+B,B2,Shamirah Nassolo,66cd6a41-fa5a-43b4-bd68-53d06f25129a,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13210.0,fee left out of the 22 Sep opening
+B,B4,Shamirah Nassolo,66cd6a41-fa5a-43b4-bd68-53d06f25129a,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2221.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,lubogo brian,1a21ccde-d0b7-4759-96aa-6662ebcae669,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,50948.0,fee left out of the 22 Sep opening
+B,B4,lubogo brian,1a21ccde-d0b7-4759-96aa-6662ebcae669,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18460.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Achan Marry,ad8d910b-c734-42f7-a275-461b219fd462,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,48274.0,fee left out of the 22 Sep opening
+B,B4,Achan Marry,ad8d910b-c734-42f7-a275-461b219fd462,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2755.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,mary kyarikunda,fbd9da1b-634f-4443-a7a6-1853f0acf93d,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10611.0,fee left out of the 22 Sep opening
+B,B4,mary kyarikunda,fbd9da1b-634f-4443-a7a6-1853f0acf93d,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15771.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ssemakula David,46acb731-121c-4473-8a98-e639ccda49ad,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13533.0,fee left out of the 22 Sep opening
+B,B4,Ssemakula David,46acb731-121c-4473-8a98-e639ccda49ad,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4596.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,FRED MUWANGUZI,1ad14342-f8d5-43d8-9ff1-dc5b86c784c7,overdue,2026-09-23,A11 agent_advance_access_fee_charged,R agent_advance_fee_revenue,105000.0,fee never charged at issue
+B,B5,FRED MUWANGUZI,1ad14342-f8d5-43d8-9ff1-dc5b86c784c7,overdue,2026-09-23,(review),(review),11012.0,"not explained by fees, registration (A20) or penalties"
+B,B2,Sekabira Aufu,5894bd79-fbac-42a8-9910-142e3a0c1ce8,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,32635.0,fee left out of the 22 Sep opening
+B,B4,Sekabira Aufu,5894bd79-fbac-42a8-9910-142e3a0c1ce8,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,24631.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Havi Bob Hope,7c7eea6f-c74c-4d2f-b227-81025b8f423d,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,59970.0,access fee booked in A10
+B,B2,Havi Bob Hope,7c7eea6f-c74c-4d2f-b227-81025b8f423d,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18026.0,fee left out of the 22 Sep opening
+B,B2,mukisa Samuel,5b8c1223-b857-4c35-9083-d86627865960,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17794.0,fee left out of the 22 Sep opening
+B,B4,mukisa Samuel,5b8c1223-b857-4c35-9083-d86627865960,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5353.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,masa,ca1b3050-fdcc-4464-a286-5c3298270f02,overdue,2026-07-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17830.0,fee left out of the 22 Sep opening
+B,B4,masa,ca1b3050-fdcc-4464-a286-5c3298270f02,overdue,2026-07-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,21678.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Derrick kibuuka ,0c04f5a7-6198-462c-8809-9572f1dae844,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,8596.0,access fee booked in A10
+B,B2,Derrick kibuuka ,0c04f5a7-6198-462c-8809-9572f1dae844,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,26817.0,fee left out of the 22 Sep opening
+B,B2,solomon ray,dee062b8-7ae8-4d98-a086-d0674be3257a,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21900.0,fee left out of the 22 Sep opening
+B,B4,solomon ray,dee062b8-7ae8-4d98-a086-d0674be3257a,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6015.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Wakaima Akiramu,a9416cd3-78fa-4a22-8c8a-b03ed0001c56,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,15845.0,fee left out of the 22 Sep opening
+B,B4,Wakaima Akiramu,a9416cd3-78fa-4a22-8c8a-b03ed0001c56,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4767.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kim Sematu,ca3ff2c8-ad8f-41a6-8b7c-9349f0ed1a15,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,54345.0,fee left out of the 22 Sep opening
+B,B4,Kim Sematu,ca3ff2c8-ad8f-41a6-8b7c-9349f0ed1a15,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,19142.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Waizoba Eddy,23e7aaa8-7537-49ea-985e-2516b8b6201b,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,3135.0,access fee booked in A10
+B,B2,Waizoba Eddy,23e7aaa8-7537-49ea-985e-2516b8b6201b,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7224.0,fee left out of the 22 Sep opening
+B,B2,Tamale Swaib,06a1df62-82ee-4814-962c-d26f25aa4b7f,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12437.0,fee left out of the 22 Sep opening
+B,B4,Tamale Swaib,06a1df62-82ee-4814-962c-d26f25aa4b7f,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2539.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Makaire ausi,f3df83c2-5ed5-4879-8216-1490de8f6819,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16491.0,fee left out of the 22 Sep opening
+B,B4,Makaire ausi,f3df83c2-5ed5-4879-8216-1490de8f6819,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1404.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Eyangu Malachi,07f76e80-4480-477c-83d1-e5920a57ed17,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17928.0,fee left out of the 22 Sep opening
+B,B4,Eyangu Malachi,07f76e80-4480-477c-83d1-e5920a57ed17,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3981.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Daphine Salon,ba729e33-2b18-4c13-b3d1-3bb3fe5a9ec1,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53383.0,fee left out of the 22 Sep opening
+B,B4,Daphine Salon,ba729e33-2b18-4c13-b3d1-3bb3fe5a9ec1,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17438.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Sserugo Shafick,bb5ebcb7-6e8f-443f-914e-6305ee314040,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,19121.0,fee left out of the 22 Sep opening
+B,B4,Sserugo Shafick,bb5ebcb7-6e8f-443f-914e-6305ee314040,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6734.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Renic Paul,bc5208bd-b06b-43b5-934a-965b28bc42e9,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13630.0,fee left out of the 22 Sep opening
+B,B4,Renic Paul,bc5208bd-b06b-43b5-934a-965b28bc42e9,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3389.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,kalidi mwima,3696304b-41c4-4604-962c-8b9d1b16a846,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,45331.0,access fee booked in A10
+B,B2,kalidi mwima,3696304b-41c4-4604-962c-8b9d1b16a846,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,1535.0,fee left out of the 22 Sep opening
+B,B1,Waiswa Eric,7f956ca4-4c0f-4864-a371-8d33e09b5fa8,overdue,2026-09-07,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,162.0,access fee booked in A10
+B,B2,Waiswa Eric,7f956ca4-4c0f-4864-a371-8d33e09b5fa8,overdue,2026-09-07,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6846.0,fee left out of the 22 Sep opening
+B,B1,Watsala Enock,67b4449b-7560-4e40-91d5-4b2f55bfa557,overdue,2026-07-16,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,423296.0,access fee booked in A10
+B,B2,Watsala Enock,67b4449b-7560-4e40-91d5-4b2f55bfa557,overdue,2026-07-16,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,266711.0,fee left out of the 22 Sep opening
+B,B1,Shifurah Nakalema,68d4d57d-430d-47c6-961d-70cd0ebbf65c,overdue,2026-07-14,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,56636.0,access fee booked in A10
+B,B2,Shifurah Nakalema,68d4d57d-430d-47c6-961d-70cd0ebbf65c,overdue,2026-07-14,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,27672.0,fee left out of the 22 Sep opening
+B,B2,bulubi john,52af4d78-e77f-4ee1-a1d9-765d2d8a05aa,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10034.0,fee left out of the 22 Sep opening
+B,B4,bulubi john,52af4d78-e77f-4ee1-a1d9-765d2d8a05aa,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1956.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,WAMBULA AVIN,fd86d9c4-e5f3-4291-9ac2-78732601de54,completed,2026-07-20,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,30377.0,collected more than principal: fees / penalties credited to A10
+B,B1,alituga kidaze,bb6f55bb-6789-40d9-856b-6cd988be0c97,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,174430.0,access fee booked in A10
+B,B2,alituga kidaze,bb6f55bb-6789-40d9-856b-6cd988be0c97,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12104.0,fee left out of the 22 Sep opening
+B,B2,SCOFIELD BEN,6c7f0690-9da3-4e81-ae25-3dfc6adf5944,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21447.0,fee left out of the 22 Sep opening
+B,B4,SCOFIELD BEN,6c7f0690-9da3-4e81-ae25-3dfc6adf5944,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7558.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Luzonde Charles,326cf052-639c-4400-b182-8be6cf39ce7b,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12886.0,fee left out of the 22 Sep opening
+B,B4,Luzonde Charles,326cf052-639c-4400-b182-8be6cf39ce7b,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3985.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,alanda Musenze,ec0220df-cd70-4e9f-985b-803cfbed60bd,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16217.0,fee left out of the 22 Sep opening
+B,B4,alanda Musenze,ec0220df-cd70-4e9f-985b-803cfbed60bd,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5713.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nagawa Joan,6d4aeb25-df42-4b1a-b673-f3befaf9854a,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9172.0,fee left out of the 22 Sep opening
+B,B4,Nagawa Joan,6d4aeb25-df42-4b1a-b673-f3befaf9854a,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2757.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Lebbo Innocent,39028395-ee9e-4ca6-98cf-0fc0a9d55bc6,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7022.0,fee left out of the 22 Sep opening
+B,B4,Lebbo Innocent,39028395-ee9e-4ca6-98cf-0fc0a9d55bc6,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2473.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Namazzi ketrina,fd998a85-3954-4847-bb4d-4015d0c669bf,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,54086.0,fee left out of the 22 Sep opening
+B,B4,Namazzi ketrina,fd998a85-3954-4847-bb4d-4015d0c669bf,overdue,2026-07-31,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17668.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kiloka Ashal,8b4e1f59-827b-4ef2-8250-6be854b45acd,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,52378.0,fee left out of the 22 Sep opening
+B,B4,Kiloka Ashal,8b4e1f59-827b-4ef2-8250-6be854b45acd,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,14391.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kalenzi waiswa,2c32b6d5-1e1f-454e-806b-c0d04666a5da,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14887.0,fee left out of the 22 Sep opening
+B,B4,kalenzi waiswa,2c32b6d5-1e1f-454e-806b-c0d04666a5da,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1268.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kawambo twaha,f7267bf9-1d87-41e0-be65-d82436847567,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20104.0,fee left out of the 22 Sep opening
+B,B4,kawambo twaha,f7267bf9-1d87-41e0-be65-d82436847567,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1145.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,mukana dami,4eeb8220-dccc-43f3-86c6-9f421a0e124b,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,23401.0,fee left out of the 22 Sep opening
+B,B4,mukana dami,4eeb8220-dccc-43f3-86c6-9f421a0e124b,overdue,2026-07-28,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8245.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Lugendo Nicholas,d8dc75d9-2023-4f7d-a01f-326bcb604682,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,31210.0,fee left out of the 22 Sep opening
+B,B4,Lugendo Nicholas,d8dc75d9-2023-4f7d-a01f-326bcb604682,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10194.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Hashim Kaggwa,f62be5d0-f3f8-4949-97f3-5b784da98b36,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14025.0,fee left out of the 22 Sep opening
+B,B4,Hashim Kaggwa,f62be5d0-f3f8-4949-97f3-5b784da98b36,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4584.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Naigaga Brendah,d75f475e-2187-4623-ba71-16065011c508,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,Naigaga Brendah,d75f475e-2187-4623-ba71-16065011c508,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Nakagolo rose,0ef49421-81ec-4f10-b36a-af0153c87b03,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,23779.0,access fee booked in A10
+B,B2,Nakagolo rose,0ef49421-81ec-4f10-b36a-af0153c87b03,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,80463.0,fee left out of the 22 Sep opening
+B,B2,kadunga Agent Line,16a58688-e287-402b-9af9-e84e91b1cdd4,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6006.0,fee left out of the 22 Sep opening
+B,B4,kadunga Agent Line,16a58688-e287-402b-9af9-e84e91b1cdd4,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1491.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Namukose daphine,a0134d24-89bc-426e-b5f9-a8a0bc7f00a4,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,18003.0,access fee booked in A10
+B,B2,Namukose daphine,a0134d24-89bc-426e-b5f9-a8a0bc7f00a4,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2994.0,fee left out of the 22 Sep opening
+B,B2,pralius julius,7759a2a1-8d68-414d-ada6-cba07c17a809,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21487.0,fee left out of the 22 Sep opening
+B,B4,pralius julius,7759a2a1-8d68-414d-ada6-cba07c17a809,overdue,2026-07-31,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2428.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Blessings ERIVIS,6ce9db4c-7056-4049-b849-e81f21b2290f,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17130.0,fee left out of the 22 Sep opening
+B,B4,Blessings ERIVIS,6ce9db4c-7056-4049-b849-e81f21b2290f,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3341.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,busingye byayenag,adf66892-4ffb-4dc7-975d-52f1776869ec,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,95008.0,access fee booked in A10
+B,B2,busingye byayenag,adf66892-4ffb-4dc7-975d-52f1776869ec,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10140.0,fee left out of the 22 Sep opening
+B,B2,Zilton Kayemba,6f722412-a35c-47cd-95e2-310215ede863,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53383.0,fee left out of the 22 Sep opening
+B,B4,Zilton Kayemba,6f722412-a35c-47cd-95e2-310215ede863,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17438.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Joseph Balanba,f8860314-dc94-427c-87e4-85c9e833f6a0,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18940.0,fee left out of the 22 Sep opening
+B,B4,Joseph Balanba,f8860314-dc94-427c-87e4-85c9e833f6a0,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6670.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nannono Rehemah,0782354d-158f-47a0-bc69-cf0d3f9e8524,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13576.0,fee left out of the 22 Sep opening
+B,B4,Nannono Rehemah,0782354d-158f-47a0-bc69-cf0d3f9e8524,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4782.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,King Tech,4f73f4a8-4bf8-4ff2-85b9-761b66b68610,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13797.0,fee left out of the 22 Sep opening
+B,B4,King Tech,4f73f4a8-4bf8-4ff2-85b9-761b66b68610,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3062.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Kato Paul,e505384b-2f37-49ef-b8ff-9c619cab8308,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,17274.0,access fee booked in A10
+B,B2,Kato Paul,e505384b-2f37-49ef-b8ff-9c619cab8308,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9500.0,fee left out of the 22 Sep opening
+B,B2,Atyamisa Timothy,547ba96f-09f7-4fd0-9c1f-33d8b91714b1,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18806.0,fee left out of the 22 Sep opening
+B,B4,Atyamisa Timothy,547ba96f-09f7-4fd0-9c1f-33d8b91714b1,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3159.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,katumba Enock,7a4e4824-902a-451d-9018-f1499dfe8432,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,1.0,access fee booked in A10
+B,B2,katumba Enock,7a4e4824-902a-451d-9018-f1499dfe8432,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,47495.0,fee left out of the 22 Sep opening
+B,B2,Namakula Aisha,cab9adeb-4bbe-442c-a6aa-93bce8fcd21a,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,Namakula Aisha,cab9adeb-4bbe-442c-a6aa-93bce8fcd21a,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7935.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kirabo Josephine,5377d41f-3ad5-4d4d-9cc1-40da520bbbfd,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5343.0,fee left out of the 22 Sep opening
+B,B4,kirabo Josephine,5377d41f-3ad5-4d4d-9cc1-40da520bbbfd,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9048.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kwagala Bressing,96365aa0-141c-4143-bd0d-e2d2266b215b,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,11311.0,fee left out of the 22 Sep opening
+B,B4,kwagala Bressing,96365aa0-141c-4143-bd0d-e2d2266b215b,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3982.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Nakiyimba serenah,91e3ddb5-ffb3-40b1-9133-78efbea83d39,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,45001.0,access fee booked in A10
+B,B2,Nakiyimba serenah,91e3ddb5-ffb3-40b1-9133-78efbea83d39,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3123.0,fee left out of the 22 Sep opening
+B,B2,Joyce Karim,d856c839-2f21-4937-af5a-b3cd2f69b6be,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,52878.0,fee left out of the 22 Sep opening
+B,B4,Joyce Karim,d856c839-2f21-4937-af5a-b3cd2f69b6be,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15907.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Forest Brian,d83d6e3b-755a-4259-98b3-f7b907b4462b,overdue,2026-07-14,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,135590.0,fee left out of the 22 Sep opening
+B,B4,Forest Brian,d83d6e3b-755a-4259-98b3-f7b907b4462b,overdue,2026-07-14,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,89205.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kalanzi Abraham,9dcc2aca-b0dd-49a9-be4a-696cb88d9b61,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3042.0,fee left out of the 22 Sep opening
+B,B4,Kalanzi Abraham,9dcc2aca-b0dd-49a9-be4a-696cb88d9b61,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11241.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Yudaya Nakaketo,78dfad5c-f900-4aa3-ba5f-d76989e5b42e,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13395.0,fee left out of the 22 Sep opening
+B,B4,Yudaya Nakaketo,78dfad5c-f900-4aa3-ba5f-d76989e5b42e,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4028.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,marvin logan,82fdd26b-bc42-4d88-a1ee-4fd65f17cf70,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16860.0,fee left out of the 22 Sep opening
+B,B4,marvin logan,82fdd26b-bc42-4d88-a1ee-4fd65f17cf70,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5942.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nakabira Josephine,fc515632-555b-4a81-b86d-fa13aec20c07,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17458.0,fee left out of the 22 Sep opening
+B,B4,Nakabira Josephine,fc515632-555b-4a81-b86d-fa13aec20c07,overdue,2026-07-20,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,501.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,coret,a7c5725f-0f48-4b57-90bb-93b68d077ee4,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,30528.0,access fee booked in A10
+B,B2,coret,a7c5725f-0f48-4b57-90bb-93b68d077ee4,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,82848.0,fee left out of the 22 Sep opening
+B,B2,Winnie Sarah,264ce5f0-fd1f-45ef-bccc-dfc633917f3a,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12632.0,fee left out of the 22 Sep opening
+B,B4,Winnie Sarah,264ce5f0-fd1f-45ef-bccc-dfc633917f3a,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,364.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Simpo Tower,f10d692f-ba1e-4a1e-bc8d-d5712f46534c,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,4308.0,fee left out of the 22 Sep opening
+B,B4,Simpo Tower,f10d692f-ba1e-4a1e-bc8d-d5712f46534c,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1184.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Busobobuzi kyaterekera,50d4ac2e-c8ad-4ed6-8599-9fc42c1c5259,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21726.0,fee left out of the 22 Sep opening
+B,B4,Busobobuzi kyaterekera,50d4ac2e-c8ad-4ed6-8599-9fc42c1c5259,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7653.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Musiige Joseph,8cab5c75-ff47-4716-bb2b-5e75996a9300,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,43825.0,access fee booked in A10
+B,B2,Musiige Joseph,8cab5c75-ff47-4716-bb2b-5e75996a9300,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,4677.0,fee left out of the 22 Sep opening
+B,B2,Mac Davies,d70a3c31-7b48-4ac3-9981-0a29a74c5ea4,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10524.0,fee left out of the 22 Sep opening
+B,B4,Mac Davies,d70a3c31-7b48-4ac3-9981-0a29a74c5ea4,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3705.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Lubega Sergio Swaib,716ff062-b632-4d2f-8fbb-af0e0820330b,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53347.0,fee left out of the 22 Sep opening
+B,B4,Lubega Sergio Swaib,716ff062-b632-4d2f-8fbb-af0e0820330b,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11838.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,mwesigwa john,dc9c5849-a537-4825-a539-b99332d04e15,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,6624.0,access fee booked in A10
+B,B2,mwesigwa john,dc9c5849-a537-4825-a539-b99332d04e15,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,8804.0,fee left out of the 22 Sep opening
+B,B2,Akampurira Onesmus,ba7d6847-f1b9-46f4-bd31-ec3854df9fc8,overdue,2026-09-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,180450.0,fee left out of the 22 Sep opening
+B,B4,Akampurira Onesmus,ba7d6847-f1b9-46f4-bd31-ec3854df9fc8,overdue,2026-09-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,77618.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Sajja Johnson,4912c850-fafd-45ce-86fa-b3db066089c9,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,12529.0,access fee booked in A10
+B,B2,Sajja Johnson,4912c850-fafd-45ce-86fa-b3db066089c9,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2346.0,fee left out of the 22 Sep opening
+B,B2,mudebera swabiru,4812fb1d-df05-4da8-8aa3-cfc30bdfe877,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14900.0,fee left out of the 22 Sep opening
+B,B4,mudebera swabiru,4812fb1d-df05-4da8-8aa3-cfc30bdfe877,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3703.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KACHWA DEO,9c9991fe-8c95-453e-91ee-e9613a98b9dc,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22177.0,fee left out of the 22 Sep opening
+B,B4,KACHWA DEO,9c9991fe-8c95-453e-91ee-e9613a98b9dc,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5516.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nkwanga Rawaha,8b1fb3f2-dc02-4ac7-8594-1995dd57a770,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10850.0,fee left out of the 22 Sep opening
+B,B4,Nkwanga Rawaha,8b1fb3f2-dc02-4ac7-8594-1995dd57a770,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2694.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mbago Ben,fec994d9-89bd-4df3-a038-a5b091c65821,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,4684.0,fee left out of the 22 Sep opening
+B,B4,Mbago Ben,fec994d9-89bd-4df3-a038-a5b091c65821,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4911.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Sekitolako Ibra,d65e3543-7e7e-40d5-bf29-0cc3e203893d,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,49487.0,fee left out of the 22 Sep opening
+B,B4,Sekitolako Ibra,d65e3543-7e7e-40d5-bf29-0cc3e203893d,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6960.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,Mugisha Magezi EMMANUEL,bc28ad1c-6ffc-4f8d-a5d4-524bc56ff3d2,active,2026-10-26,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,43881.5,access fee booked in A10
+B,B2,Ahumuza David,beb25f45-6557-44ab-af9c-2bff0749c1b4,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,51079.0,fee left out of the 22 Sep opening
+B,B4,Ahumuza David,beb25f45-6557-44ab-af9c-2bff0749c1b4,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,16685.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,tunakoza jalia,912c0a35-d318-441d-ae19-034c4b70e8f3,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,59348.0,fee left out of the 22 Sep opening
+B,B4,tunakoza jalia,912c0a35-d318-441d-ae19-034c4b70e8f3,overdue,2026-07-20,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,17853.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Simon Tiko,20beb1d0-983f-49d5-92bc-80674c3071c3,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13653.0,fee left out of the 22 Sep opening
+B,B4,Simon Tiko,20beb1d0-983f-49d5-92bc-80674c3071c3,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4807.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Akenna Tito,80a5b789-9010-411d-a74f-8a57b2f68ed5,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,51847.0,fee left out of the 22 Sep opening
+B,B4,Akenna Tito,80a5b789-9010-411d-a74f-8a57b2f68ed5,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,10114.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,juliet mary,68e382b6-c102-4e80-8bcd-ce125ac621db,overdue,2026-08-06,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,113960.0,access fee booked in A10
+B,B2,LUBOGO RAYMON,6e6966d2-d9ab-4804-91cc-1b92b067a09f,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17333.0,fee left out of the 22 Sep opening
+B,B4,LUBOGO RAYMON,6e6966d2-d9ab-4804-91cc-1b92b067a09f,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6104.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,malik ali,5a6691cd-ca29-4e4d-85f8-e25775f205ee,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,53067.0,fee left out of the 22 Sep opening
+B,B4,malik ali,5a6691cd-ca29-4e4d-85f8-e25775f205ee,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18692.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,SHARIFU KALULE,cef95679-bd3b-4b4a-88a0-bae32e39a1c5,cancelled,2026-08-14,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,269650.8,collected more than principal: fees / penalties credited to A10
+B,B1,MUGERWA frank,15a83b88-20df-4bc2-a911-5c32db1f2af4,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,346008.0,access fee booked in A10
+B,B2,MUGERWA frank,15a83b88-20df-4bc2-a911-5c32db1f2af4,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,95739.0,fee left out of the 22 Sep opening
+B,B1,scott wonder,4ada50a2-e1b5-4f03-af68-f5ee2dc2bd08,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,13138.0,access fee booked in A10
+B,B2,scott wonder,4ada50a2-e1b5-4f03-af68-f5ee2dc2bd08,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,912.0,fee left out of the 22 Sep opening
+A,A3,GRACE PAUL OCHIENG,5e1a0ab5-3769-412e-8045-20d597431ae6,completed,2026-04-08,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,1000.0,A10 above the principal still unpaid (22 Sep opening double count)
+A,A1,Yaseen Kc💎,9ef03c86-ec7a-4730-b32c-d86092feb81a,cancelled,2026-09-14,E3 receivable_restatement_equity,A11 agent_access_fee_receivable_opening,1753771.0,22 Sep opening fee on a closed advance
+A,A3,Yaseen Kc💎,9ef03c86-ec7a-4730-b32c-d86092feb81a,cancelled,2026-09-14,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,6932401.04,A10 above the principal still unpaid (22 Sep opening double count)
+A,A4,Yaseen Kc💎,9ef03c86-ec7a-4730-b32c-d86092feb81a,cancelled,2026-09-14,X4 platform_loss_writeoff (or transfer: CFO decision),A10 agent_advance_writeoff,6181667.06,"cancelled 'GOING TO CREATE A NEW ONE' mode write_off; principal unpaid 6,181,667"
+B,B2,Desire Muhooza,a4e3458b-209b-44be-b8b5-fcfaba9168f8,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,54890.0,fee left out of the 22 Sep opening
+B,B4,Desire Muhooza,a4e3458b-209b-44be-b8b5-fcfaba9168f8,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,19336.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Bahat mugisha,51fd1ada-09f6-4220-8120-0306e2823e8d,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6219.0,fee left out of the 22 Sep opening
+B,B4,Bahat mugisha,51fd1ada-09f6-4220-8120-0306e2823e8d,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9565.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mugisha Ian,9f5fa548-e007-4894-a4e0-c8402f2cc34d,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,16372.0,fee left out of the 22 Sep opening
+B,B4,Mugisha Ian,9f5fa548-e007-4894-a4e0-c8402f2cc34d,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5767.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,MICHAEL OKWAKOL,a923093c-14b0-440f-9a1d-4cb930761b7b,active,2026-10-08,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,20032.0,access fee booked in A10
+B,B2,Ndoboli Kenedy,725a0866-3617-4590-a975-aa17921fc8c2,overdue,2026-07-20,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,18232.0,fee left out of the 22 Sep opening
+B,B4,Ndoboli Kenedy,725a0866-3617-4590-a975-aa17921fc8c2,overdue,2026-07-20,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5484.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kirunda Ivan,af6618c7-4a75-48eb-af8f-4f8ebc7b073c,overdue,2026-09-24,A11 agent_advance_access_fee_charged,R agent_advance_fee_revenue,636333.0,fee never charged at issue
+B,B4,kirunda Ivan,af6618c7-4a75-48eb-af8f-4f8ebc7b073c,overdue,2026-09-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5498.0,legacy overdue penalty unpaid (CFO decision)
+B,B5,kirunda Ivan,af6618c7-4a75-48eb-af8f-4f8ebc7b073c,overdue,2026-09-24,(review),(review),223667.0,"not explained by fees, registration (A20) or penalties"
+B,B2,Simpo Login mtn,b7384c81-279b-44da-97f8-fbf29395b9f2,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6480.0,fee left out of the 22 Sep opening
+B,B4,Simpo Login mtn,b7384c81-279b-44da-97f8-fbf29395b9f2,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2281.0,legacy overdue penalty unpaid (CFO decision)
+A,A3,Martin lukwago,d2a3bbc1-9775-4ad3-a0a1-1accb83a4762,cancelled,2026-08-02,E3 receivable_restatement_equity,A10 agent_advance_receivable_opening,307647.0,A10 above the principal still unpaid (22 Sep opening double count)
+A,A4,Martin lukwago,d2a3bbc1-9775-4ad3-a0a1-1accb83a4762,cancelled,2026-08-02,X4 platform_loss_writeoff (or transfer: CFO decision),A10 agent_advance_writeoff,462154.54,"cancelled 'TRANSFER IT TO ROI TERMS' mode write_off; principal unpaid 462,155"
+B,B2,Mwenzi Adam,08abf40a-3e75-46e8-9222-6549fa4e0e13,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,45340.0,fee left out of the 22 Sep opening
+B,B4,Mwenzi Adam,08abf40a-3e75-46e8-9222-6549fa4e0e13,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,16428.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Yaseen Kc💎,7612edc4-0e2e-48f0-9510-e0ffc427d4da,active,2026-09-25,A11 agent_advance_access_fee_charged,R agent_advance_fee_revenue,2295000.0,fee never charged at issue
+B,B5,Yaseen Kc💎,7612edc4-0e2e-48f0-9510-e0ffc427d4da,active,2026-09-25,(review),(review),20000.0,"not explained by fees, registration (A20) or penalties"
+B,B2,tomas riga,af6dbe29-7346-4d67-9cc0-8c8da6ee986c,overdue,2026-08-06,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,31189.0,fee left out of the 22 Sep opening
+B,B4,tomas riga,af6dbe29-7346-4d67-9cc0-8c8da6ee986c,overdue,2026-08-06,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8573.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Zaina Nankwanga,533bd63f-4a5e-4e49-94b2-e2bc3faebb54,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14159.0,fee left out of the 22 Sep opening
+B,B4,Zaina Nankwanga,533bd63f-4a5e-4e49-94b2-e2bc3faebb54,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4628.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mubiru traver Dassan,ddfb0a76-33b8-406c-b3cc-3604fa6270cc,overdue,2026-07-12,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,11081.0,fee left out of the 22 Sep opening
+B,B4,Mubiru traver Dassan,ddfb0a76-33b8-406c-b3cc-3604fa6270cc,overdue,2026-07-12,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3048.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,kamba faimah,106e0fb0-9c6b-4645-9a01-fae05e453efe,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,16391.0,access fee booked in A10
+B,B2,kamba faimah,106e0fb0-9c6b-4645-9a01-fae05e453efe,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,2728.0,fee left out of the 22 Sep opening
+B,B2,muhoozi isma,a444ef86-5ef5-4fa0-9614-cb22d1c50dcd,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21487.0,fee left out of the 22 Sep opening
+B,B4,muhoozi isma,a444ef86-5ef5-4fa0-9614-cb22d1c50dcd,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4766.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,FRANK SSEVUME,7971369e-c299-457c-afdd-815ad6c5819e,overdue,2026-07-12,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13804.0,fee left out of the 22 Sep opening
+B,B4,FRANK SSEVUME,7971369e-c299-457c-afdd-815ad6c5819e,overdue,2026-07-12,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7163.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Isabirye saidi,44920137-e881-41cc-b85b-b855d01ab9ff,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5208.0,fee left out of the 22 Sep opening
+B,B4,Isabirye saidi,44920137-e881-41cc-b85b-b855d01ab9ff,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,20905.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Margret Nakyanzi,cedbf5c2-503e-469e-bdb9-7fa79dabd90f,overdue,2026-08-13,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,24987.0,fee left out of the 22 Sep opening
+B,B4,Margret Nakyanzi,cedbf5c2-503e-469e-bdb9-7fa79dabd90f,overdue,2026-08-13,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6335.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,TUGUME MATHIAS,c0beb6f6-edcf-49b9-97f9-4461432d94aa,overdue,2026-07-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,94206.0,fee left out of the 22 Sep opening
+B,B4,TUGUME MATHIAS,c0beb6f6-edcf-49b9-97f9-4461432d94aa,overdue,2026-07-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,28342.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,MICHAEL OKWAKOL,8977ca67-a3f4-41cd-ae32-df3999290b25,overdue,2026-07-14,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,49643.0,fee left out of the 22 Sep opening
+B,B4,MICHAEL OKWAKOL,8977ca67-a3f4-41cd-ae32-df3999290b25,overdue,2026-07-14,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,80512.0,legacy overdue penalty unpaid (CFO decision)
+B,B5,MICHAEL OKWAKOL,8977ca67-a3f4-41cd-ae32-df3999290b25,overdue,2026-07-14,(review),(review),86241.0,"not explained by fees, registration (A20) or penalties"
+B,B2,slvia bea,1042f5f1-8a61-4bd6-b2ab-3a541f773af8,overdue,2026-08-05,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9995.0,fee left out of the 22 Sep opening
+B,B4,slvia bea,1042f5f1-8a61-4bd6-b2ab-3a541f773af8,overdue,2026-08-05,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,15900.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,james jojn,2fbfda9b-255e-408d-949c-2b7287008682,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10712.0,fee left out of the 22 Sep opening
+B,B4,james jojn,2fbfda9b-255e-408d-949c-2b7287008682,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,16483.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Fikgaza Fikgaza,432d74fe-96a6-4ccc-993a-767618ccc889,overdue,2026-07-28,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9766.0,fee left out of the 22 Sep opening
+B,B4,Fikgaza Fikgaza,432d74fe-96a6-4ccc-993a-767618ccc889,overdue,2026-07-28,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,831.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,katumwa ammah,287f8a22-2901-47e9-b888-1aee77e31a49,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,51860.0,fee left out of the 22 Sep opening
+B,B4,katumwa ammah,287f8a22-2901-47e9-b888-1aee77e31a49,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11507.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Vikash Benjamin,37d50ceb-08ce-4b5b-94cf-837e2b8b783d,overdue,2026-07-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17699.0,fee left out of the 22 Sep opening
+B,B4,Vikash Benjamin,37d50ceb-08ce-4b5b-94cf-837e2b8b783d,overdue,2026-07-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5324.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,wango joseph,3c15ad20-3f63-4d21-bcc5-e07e3ac442dd,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,7082.0,fee left out of the 22 Sep opening
+B,B4,wango joseph,3c15ad20-3f63-4d21-bcc5-e07e3ac442dd,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11988.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nekesa suzan,dca8fd34-d996-407c-b956-9416bbc578a6,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14285.0,fee left out of the 22 Sep opening
+B,B4,Nekesa suzan,dca8fd34-d996-407c-b956-9416bbc578a6,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5118.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,byamukama john,00fd7686-15a3-457a-8b3d-be38ba3591de,overdue,2026-08-01,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,24345.0,fee left out of the 22 Sep opening
+B,B4,byamukama john,00fd7686-15a3-457a-8b3d-be38ba3591de,overdue,2026-08-01,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,36176.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,DATEOFEXPIR UKASHA,5bbc314c-aae6-422a-a84f-18e7fc74e94b,overdue,2026-07-31,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22533.0,fee left out of the 22 Sep opening
+B,B4,DATEOFEXPIR UKASHA,5bbc314c-aae6-422a-a84f-18e7fc74e94b,overdue,2026-07-31,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,5597.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Acca Miles,f6a5f083-b3b8-44b2-b140-e37e81e47f05,overdue,2026-07-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,33025.0,fee left out of the 22 Sep opening
+B,B4,Acca Miles,f6a5f083-b3b8-44b2-b140-e37e81e47f05,overdue,2026-07-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,11632.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mukisa Martins,c566dee2-ef59-4963-91ac-d876391f7260,overdue,2026-08-21,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,41663.0,fee left out of the 22 Sep opening
+B,B4,Mukisa Martins,c566dee2-ef59-4963-91ac-d876391f7260,overdue,2026-08-21,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3552.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kasim Kadunga,276fbec9-e839-44b0-ba60-41235d9180e7,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6419.0,fee left out of the 22 Sep opening
+B,B4,Kasim Kadunga,276fbec9-e839-44b0-ba60-41235d9180e7,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2095.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Oscar Obua,f7ec9ed0-738e-4e68-a1a6-1a86ffca5518,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,12516.0,fee left out of the 22 Sep opening
+B,B4,Oscar Obua,f7ec9ed0-738e-4e68-a1a6-1a86ffca5518,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4532.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mutumba Samuel,df655936-d29d-49c7-836f-157800df02ad,overdue,2026-08-04,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20487.0,fee left out of the 22 Sep opening
+B,B4,Mutumba Samuel,df655936-d29d-49c7-836f-157800df02ad,overdue,2026-08-04,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3997.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Gwakibe Shakiru,f469e277-27ac-447f-9e61-3ba613db3214,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,17130.0,fee left out of the 22 Sep opening
+B,B4,Gwakibe Shakiru,f469e277-27ac-447f-9e61-3ba613db3214,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3341.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Trevor Jordan,af4e371f-b3c0-41a2-a798-9eaf3ab6a46f,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13247.0,fee left out of the 22 Sep opening
+B,B4,Trevor Jordan,af4e371f-b3c0-41a2-a798-9eaf3ab6a46f,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2227.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Cathy Naki,55f45f44-0a49-468d-aee7-056b2d23f1b0,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,57811.0,fee left out of the 22 Sep opening
+B,B4,Cathy Naki,55f45f44-0a49-468d-aee7-056b2d23f1b0,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,18885.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mukama Dan,5b563103-f404-4b89-a366-3cd51d0d68bf,overdue,2026-07-22,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,74296.0,fee left out of the 22 Sep opening
+B,B4,Mukama Dan,5b563103-f404-4b89-a366-3cd51d0d68bf,overdue,2026-07-22,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,26918.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KANUNA KEITH,1704d45c-76f4-4cc6-b498-664b2b792013,overdue,2026-07-29,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,20483.0,fee left out of the 22 Sep opening
+B,B4,KANUNA KEITH,1704d45c-76f4-4cc6-b498-664b2b792013,overdue,2026-07-29,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,7216.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Kasibante Rogers,f7e20d49-e5c1-4520-b592-3e582b38004a,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,14159.0,fee left out of the 22 Sep opening
+B,B4,Kasibante Rogers,f7e20d49-e5c1-4520-b592-3e582b38004a,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4990.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,mukisa sharifu,5405b826-2caa-4d33-a2b2-9ec799effb68,overdue,2026-08-03,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,21900.0,fee left out of the 22 Sep opening
+B,B4,mukisa sharifu,5405b826-2caa-4d33-a2b2-9ec799effb68,overdue,2026-08-03,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,6015.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Saudah Annet,d623fe50-f83d-456c-87ac-33fe25d32a08,overdue,2026-08-24,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,55583.0,fee left out of the 22 Sep opening
+B,B4,Saudah Annet,d623fe50-f83d-456c-87ac-33fe25d32a08,overdue,2026-08-24,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,12332.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,topesta turumya,cee98baa-16de-4405-a644-0fbd70c39c81,overdue,2026-08-08,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,5870.0,fee left out of the 22 Sep opening
+B,B4,topesta turumya,cee98baa-16de-4405-a644-0fbd70c39c81,overdue,2026-08-08,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2067.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,kanuna kennedy,fb2c13ec-da83-4fbc-980e-cf0793004919,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10423.0,fee left out of the 22 Sep opening
+B,B4,kanuna kennedy,fb2c13ec-da83-4fbc-980e-cf0793004919,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3134.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Aryan Nana,4f636f64-b55f-419e-9ab9-e6cc4174b180,overdue,2026-07-30,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9425.0,fee left out of the 22 Sep opening
+B,B4,Aryan Nana,4f636f64-b55f-419e-9ab9-e6cc4174b180,overdue,2026-07-30,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3322.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,KAlENZI BRIAN,bb134cf0-7e9f-45bd-97b0-1191b92793bd,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,3828.0,fee left out of the 22 Sep opening
+B,B4,KAlENZI BRIAN,bb134cf0-7e9f-45bd-97b0-1191b92793bd,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,1353.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Mugerwa Moshin,ddf424f7-b994-405a-b013-52724e31261f,overdue,2026-07-27,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,6398.0,fee left out of the 22 Sep opening
+B,B4,Mugerwa Moshin,ddf424f7-b994-405a-b013-52724e31261f,overdue,2026-07-27,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2258.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ssempijja Yasin,8afcfb17-ca28-4091-92c6-d2bf8e02d48d,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,25732.0,fee left out of the 22 Sep opening
+B,B4,Ssempijja Yasin,8afcfb17-ca28-4091-92c6-d2bf8e02d48d,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,9066.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,farzi buyenzi,2c962218-79e0-4101-a6ed-131d646ead0a,overdue,2026-08-02,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,10226.0,fee left out of the 22 Sep opening
+B,B4,farzi buyenzi,2c962218-79e0-4101-a6ed-131d646ead0a,overdue,2026-08-02,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,2809.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Nteemu Aloyizi,f762de1f-602b-4070-8018-f15b5c391b89,overdue,2026-08-18,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13853.0,fee left out of the 22 Sep opening
+B,B4,Nteemu Aloyizi,f762de1f-602b-4070-8018-f15b5c391b89,overdue,2026-08-18,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,3443.0,legacy overdue penalty unpaid (CFO decision)
+B,B1,GVEN AKANDWANAHO,d0c44c3c-05b6-4994-acde-ade82e467c6c,active,2026-10-16,A11 agent_access_fee_receivable_opening,A10 agent_advance_receivable_opening,111886.0,access fee booked in A10
+B,B2,Akalya'maggwa josh,bee55942-8a78-41e6-826b-c92746cdaa6f,overdue,2026-07-12,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,9639.0,fee left out of the 22 Sep opening
+B,B4,Akalya'maggwa josh,bee55942-8a78-41e6-826b-c92746cdaa6f,overdue,2026-07-12,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,40600.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Labibah Nalukenge,c011c801-e95f-49f5-942d-678f48042765,overdue,2026-08-19,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,13533.0,fee left out of the 22 Sep opening
+B,B4,Labibah Nalukenge,c011c801-e95f-49f5-942d-678f48042765,overdue,2026-08-19,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,4596.0,legacy overdue penalty unpaid (CFO decision)
+B,B2,Ivan Sempara,ff04743d-46d6-40fc-b756-3986be8bf037,overdue,2026-07-23,A11 agent_access_fee_receivable_opening,E3 receivable_restatement_equity,22705.0,fee left out of the 22 Sep opening
+B,B4,Ivan Sempara,ff04743d-46d6-40fc-b756-3986be8bf037,overdue,2026-07-23,A10 agent_advance_penalty_accrued,L8 agent_advance_penalty_unearned,8001.0,legacy overdue penalty unpaid (CFO decision)
+A,A5,GVEN AKANDWANAHO,8d946d66-2637-470b-a175-a7cc29748b68,completed,2026-08-04,A10 agent_advance_repayment (reclass),R agent_advance_fee_revenue,57570.0,collected more than principal: fees / penalties credited to A10
