@@ -97201,6 +97201,10 @@ export type Database = {
           verified_at: string
         }[]
       }
+      wh_nin_in_use: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: boolean
+      }
       wh_portfolio_verify_landlord: {
         Args: { p_code: string; p_landlord_phone: string }
         Returns: Json

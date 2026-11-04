@@ -31,7 +31,11 @@ import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat
 import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '@/lib/welileHomesLandlordVerify';
 import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordPortfolioAction';
 import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
-import { fetchTenantIdentities, isIdComplete, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
+import { fetchTenantIdentities, isIdComplete, isValidNin, normalizeNin, tenantPhotoUrl, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
+import {
+  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, isNinInUse,
+  saveTenantDraft, uploadDraftTenantPhoto, type WhTenantDraft,
+} from '@/lib/welileHomesTenantDrafts';
 import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
 import {
   resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, fetchWhFloatLinkIds,
@@ -279,6 +283,10 @@ interface AgentWelileHomesSheetProps {
   isPage?: boolean;
 }
 
+function draftLandlordKey(name?: string | null, phone?: string | null): string {
+  return landlordPhoneKey(phone ?? '') ?? `name:${(name ?? '').trim().toLowerCase()}`;
+}
+
 export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = false }: AgentWelileHomesSheetProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -294,11 +302,42 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
   >(undefined);
   const [enrollOpen, setEnrollOpen] = useState(false);
   const [enrollInitialMode, setEnrollInitialMode] = useState<'choose' | 'register'>('choose');
+  // Register Tenant drafts: owner-only, never enrolled, never in totals or float requests.
+  const [drafts, setDrafts] = useState<WhTenantDraft[]>([]);
+  const [resumeDraft, setResumeDraft] = useState<WhTenantDraft | null>(null);
+  const [deleteDraftFor, setDeleteDraftFor] = useState<WhTenantDraft | null>(null);
+  const loadDrafts = useCallback(async () => {
+    if (!user?.id) return;
+    try { setDrafts(await fetchMyTenantDrafts(user.id)); } catch { /* keep current */ }
+  }, [user?.id]);
+  useEffect(() => { loadDrafts(); }, [loadDrafts]);
 
   const handleOpenEnroll = (mode: 'choose' | 'register' = 'choose') => {
+    setResumeDraft(null);
     setEnrollInitialMode(mode);
     setEnrollOpen(true);
   };
+  const continueDraft = (d: WhTenantDraft) => {
+    setResumeDraft(d);
+    setEnrollOpen(true);
+  };
+  const renderDraftRow = (d: WhTenantDraft) => (
+    <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">{d.form?.newName || d.form?.existingTenantName || d.form?.phone || 'Unnamed tenant'}</p>
+        <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0 font-normal border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          Draft – incomplete
+        </Badge>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button type="button" size="sm" className="h-8 text-xs" onClick={() => continueDraft(d)}>Continue</Button>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"
+          aria-label="Delete draft" onClick={() => setDeleteDraftFor(d)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
   const [allocFor, setAllocFor] = useState<WHSubscription | null>(null);
   const [editFor, setEditFor] = useState<WHSubscription | null>(null);
   const [deleteFor, setDeleteFor] = useState<WHSubscription | null>(null);
@@ -976,6 +1015,25 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
         </Tabs>
       </div>
 
+      {mainTab === 'enrolled' && (() => {
+        const shownInGroups = displayedSubs.length > 0 && !loading;
+        const groupKeys = new Set(shownInGroups ? landlordGroups.map((g) => draftLandlordKey(g.name, g.phone)) : []);
+        const loose = drafts.filter((d) => !groupKeys.has(draftLandlordKey(d.landlord_name, d.landlord_phone)));
+        if (loose.length === 0) return null;
+        return (
+          <div className="space-y-2 mb-3">
+            {loose.map((d) => (
+              <div key={d.id} className="rounded-xl border bg-card p-2">
+                <p className="px-1 pb-1.5 text-xs font-semibold flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5 text-primary" /> {d.landlord_name || 'Landlord'}
+                  {d.landlord_phone && <span className="font-normal text-muted-foreground">({d.landlord_phone})</span>}
+                </p>
+                {renderDraftRow(d)}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : subs.length === 0 ? (
@@ -1214,6 +1272,13 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
                       onVerified={() => { }} onRequestFloat={() => { }} />
                   </div>
                 )}
+
+                {/* Drafts for this landlord: not enrolled, never in totals or float requests */}
+                {mainTab === 'enrolled' && (() => {
+                  const mine = drafts.filter((d) => draftLandlordKey(d.landlord_name, d.landlord_phone) === draftLandlordKey(group.name, group.phone));
+                  if (mine.length === 0) return null;
+                  return <div className="p-2 space-y-2 border-b bg-background/50">{mine.map((d) => renderDraftRow(d))}</div>;
+                })()}
 
                 {/* Tenants under this landlord */}
                 {!isCollapsed && (
@@ -1547,11 +1612,37 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       <EnrollDialog
         open={enrollOpen}
         initialMode={enrollInitialMode}
-        onOpenChange={setEnrollOpen}
+        resumeDraft={resumeDraft}
+        onOpenChange={(o) => { setEnrollOpen(o); if (!o) setResumeDraft(null); }}
         agentId={user?.id}
-        onDone={load}
-        onTenantEnrolled={(sub) => setIdFor({ tenantId: sub.tenant_id, name: sub.tenant_name })}
+        onDone={() => { load(); loadDrafts(); refreshIdentities(); }}
       />
+      <AlertDialog open={!!deleteDraftFor} onOpenChange={(o) => { if (!o) setDeleteDraftFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The partly filled registration will be removed. No tenant is enrolled from a draft.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const d = deleteDraftFor;
+                setDeleteDraftFor(null);
+                if (!d) return;
+                try { await deleteTenantDraft(d.id); toast({ title: 'Draft deleted' }); }
+                catch (e: any) { toast({ title: 'Could not delete draft', description: e?.message, variant: 'destructive' }); }
+                loadDrafts();
+              }}
+            >
+              Delete draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <RequestFloatDialog
         open={requestFloatOpen}
         onClose={() => setRequestFloatOpen(false)}
@@ -1912,6 +2003,20 @@ interface LandlordRecord {
   registeredBy?: string;
 }
 
+function LandlordAvatar({ src, name, className }: { src?: string | null; name: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const usable = !!src && !failed && /^(https?:|data:image\/|blob:)/.test(src);
+  const initials = (name || '').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'LL';
+  return usable ? (
+    <img src={src!} alt={name} onError={() => setFailed(true)}
+      className={cn('shrink-0 rounded-full object-cover border border-primary/30 shadow-xs', className)} />
+  ) : (
+    <div aria-hidden className={cn('shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs', className)}>
+      {initials}
+    </div>
+  );
+}
+
 function EnrollDialog({
   open,
   onOpenChange,
@@ -1919,6 +2024,7 @@ function EnrollDialog({
   onDone,
   onTenantEnrolled,
   initialMode = 'choose',
+  resumeDraft = null,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -1926,6 +2032,7 @@ function EnrollDialog({
   onDone: () => void;
   onTenantEnrolled?: (sub: WHSubscription) => void;
   initialMode?: 'choose' | 'register';
+  resumeDraft?: WhTenantDraft | null;
 }) {
   const { toast } = useToast();
 
@@ -1984,13 +2091,131 @@ function EnrollDialog({
   const [landlordUsesWallet, setLandlordUsesWallet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Initialize or reset step and mode on open
+  // Tenant ID (required in this form) and server-saved draft
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
+  const [idPhotoPath, setIdPhotoPath] = useState<string | null>(null);
+  const [idPreview, setIdPreview] = useState<string | null>(null);
+  const [ninInUse, setNinInUse] = useState(false);
+  const [existingIdComplete, setExistingIdComplete] = useState(false);
+  const idCamRef = useRef<HTMLInputElement>(null);
+  const idGalRef = useRef<HTMLInputElement>(null);
+
+  const pickIdPhoto = (f?: File | null) => {
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { toast({ title: 'Choose a photo', variant: 'destructive' }); return; }
+    setIdPhotoFile(f);
+    setIdPreview(URL.createObjectURL(f));
+  };
+
+  const ensureIdPhotoUploaded = async (): Promise<string | null> => {
+    if (!agentId) return null;
+    if (idPhotoFile) {
+      const path = await uploadDraftTenantPhoto(agentId, draftId ?? crypto.randomUUID(), idPhotoFile);
+      setIdPhotoFile(null);
+      setIdPhotoPath(path);
+      return path;
+    }
+    return idPhotoPath;
+  };
+
+  const enrollBlockers = enrollmentIdBlockers({
+    phone, fullName: newName, existingTenant: !!tenant, nin: newNationalId,
+    hasPhoto: !!idPhotoFile || !!idPhotoPath, ninInUse, idAlreadyComplete: !!tenant && existingIdComplete,
+  });
+
+  // Existing tenant found by phone: is their ID already on file?
   useEffect(() => {
-    if (open) {
+    if (!tenant?.id) { setExistingIdComplete(false); return; }
+    let live = true;
+    fetchTenantIdentities([tenant.id])
+      .then((m) => {
+        if (!live) return;
+        const id = m.get(tenant.id);
+        setExistingIdComplete(isIdComplete(id));
+        if (id?.nin && !newNationalId) setNewNationalId(id.nin);
+      })
+      .catch(() => live && setExistingIdComplete(false));
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenant?.id]);
+
+  // NIN uniqueness pre-check (server enforces again at enrolment)
+  useEffect(() => {
+    if (!isValidNin(newNationalId)) return;
+    let live = true;
+    const t = setTimeout(() => {
+      isNinInUse(newNationalId, tenant?.id).then((used) => live && setNinInUse(used));
+    }, 400);
+    return () => { live = false; clearTimeout(t); };
+  }, [newNationalId, tenant?.id]);
+
+  const saveDraft = async () => {
+    if (!agentId) return;
+    if (!landlordName.trim()) { toast({ title: 'Choose a landlord first', variant: 'destructive' }); return; }
+    setSavingDraft(true);
+    try {
+      const photoPath = await ensureIdPhotoUploaded();
+      const id = await saveTenantDraft({
+        id: draftId, agentId, landlordId: selectedLandlordRecord?.id ?? null,
+        landlordName, landlordPhone,
+        landlordSnapshot: (selectedLandlordRecord ?? { name: landlordName, phone: landlordPhone }) as unknown as Record<string, unknown>,
+        form: {
+          phone, newName, nin: newNationalId, rent, payoutDay, hasPhone, landlordUsesWallet,
+          existingTenantId: tenant?.id ?? null, existingTenantName: tenant?.full_name ?? null,
+        },
+        photoPath,
+      });
+      setDraftId(id);
+      toast({ title: 'Draft saved', description: `Shown on ${landlordName}'s portfolio as "Draft – incomplete".` });
+      reset();
+      onOpenChange(false);
+      onDone();
+    } catch (e: any) {
+      toast({ title: 'Could not save draft', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Initialize or reset step and mode on open (a resumed draft opens on the tenant step)
+  useEffect(() => {
+    if (open && !resumeDraft) {
       setStep('landlord');
       setLandlordMode(initialMode === 'register' ? 'register' : (landlords.length === 0 ? 'register' : 'choose'));
     }
-  }, [open, initialMode, landlords.length]);
+  }, [open, initialMode, landlords.length, resumeDraft]);
+
+  useEffect(() => {
+    if (!open || !resumeDraft) return;
+    const f = resumeDraft.form || {};
+    const snap = (resumeDraft.landlord_snapshot || {}) as Partial<LandlordRecord>;
+    setSelectedLandlordRecord({
+      ...snap,
+      id: resumeDraft.landlord_id ?? snap.id,
+      name: resumeDraft.landlord_name || snap.name || '',
+      phone: resumeDraft.landlord_phone || snap.phone || '',
+      count: snap.count ?? 0,
+    } as LandlordRecord);
+    setLandlordName(resumeDraft.landlord_name || snap.name || '');
+    setLandlordPhone(resumeDraft.landlord_phone || snap.phone || '');
+    setPhone(f.phone ?? '');
+    setNewName(f.newName ?? '');
+    setNewNationalId(f.nin ?? '');
+    setRent(f.rent ?? '');
+    setPayoutDay(f.payoutDay ?? '5');
+    setHasPhone(f.hasPhone ?? true);
+    setLandlordUsesWallet(f.landlordUsesWallet ?? false);
+    setTenant(f.existingTenantId ? { id: f.existingTenantId, full_name: f.existingTenantName ?? '', phone: f.phone ?? '' } : null);
+    setSearched(!!f.phone);
+    setDraftId(resumeDraft.id);
+    setIdPhotoFile(null);
+    setIdPhotoPath(resumeDraft.photo_path);
+    setIdPreview(null);
+    if (resumeDraft.photo_path) tenantPhotoUrl(resumeDraft.photo_path).then(setIdPreview);
+    setStep('tenant');
+  }, [open, resumeDraft]);
 
   // Load existing landlords EXCLUSIVELY for THIS AGENT (never other people's landlords)
   useEffect(() => {
@@ -2172,6 +2397,12 @@ function EnrollDialog({
     setTenant(null);
     setNewName('');
     setNewNationalId('');
+    setDraftId(null);
+    setIdPhotoFile(null);
+    setIdPhotoPath(null);
+    setIdPreview(null);
+    setNinInUse(false);
+    setExistingIdComplete(false);
     setRent('');
     setPayoutDay('5');
     setHasPhone(true);
@@ -2732,9 +2963,14 @@ function EnrollDialog({
     }
     const coreError = validateEnrollmentCore({ rent, payoutDay, hasSmartphone: hasPhone });
     if (coreError) { toast({ title: coreError, variant: 'destructive' }); return; }
-    if (!tenant) {
-      if (!phone.trim()) { toast({ title: 'Enter the tenant phone', variant: 'destructive' }); return; }
-      if (newName.trim().length < 2) { toast({ title: 'Enter the tenant full name', variant: 'destructive' }); return; }
+    if (enrollBlockers.length > 0) {
+      toast({ title: 'Complete the tenant details', description: `Still needed: ${enrollBlockers.join(', ')}.`, variant: 'destructive' });
+      return;
+    }
+    if (!existingIdComplete && await isNinInUse(newNationalId, tenant?.id)) {
+      setNinInUse(true);
+      toast({ title: 'This NIN is already recorded for another tenant', variant: 'destructive' });
+      return;
     }
     await finalizeEnroll();
   };
@@ -2809,17 +3045,22 @@ function EnrollDialog({
         if (!tenantId) throw new Error('Could not create tenant account');
       }
 
-      const { data, error } = await supabase.rpc('enroll_welile_home_tenant', {
-        p_tenant_id: tenantId,
-        p_agent_id: agentId,
-        p_monthly_rent: rentNum,
-        p_payout_day: parseInt(payoutDay) || 5,
-        p_has_smartphone: hasPhone,
-        p_landlord_uses_wallet: landlordUsesWallet,
-        p_landlord_id: selectedLandlordRecord?.id || null,
-        p_landlord_name: landlordName || null,
-        p_landlord_phone: landlordPhone || null,
-        p_notes: JSON.stringify({
+      // NIN + passport photo are recorded and the tenant enrolled in one server step.
+      const photoPath = existingIdComplete ? null : await ensureIdPhotoUploaded();
+      const { data, error } = await enrollTenantWithIdentity({
+        tenantId,
+        agentId,
+        monthlyRent: rentNum,
+        payoutDay: parseInt(payoutDay) || 5,
+        hasSmartphone: hasPhone,
+        landlordUsesWallet,
+        landlordId: selectedLandlordRecord?.id || null,
+        landlordName: landlordName || null,
+        landlordPhone: landlordPhone || null,
+        nin: existingIdComplete ? null : newNationalId,
+        photoPath,
+        draftId,
+        notes: JSON.stringify({
           welile_homes: true,
           landlord_name: landlordName,
           landlord_phone: landlordPhone,
@@ -3038,17 +3279,8 @@ function EnrollDialog({
                           }`}
                         >
                           <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
-                            {l.passportUrl ? (
-                              <img
-                                src={l.passportUrl}
-                                alt={l.name}
-                                className="h-8 w-8 sm:h-9 sm:w-9 rounded-full object-cover border border-primary/30 shrink-0 shadow-xs"
-                              />
-                            ) : (
-                              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0 font-semibold text-xs">
-                                {l.name.slice(0, 2).toUpperCase()}
-                              </div>
-                            )}
+                            <LandlordAvatar src={l.passportUrl} name={l.name} className="h-8 w-8 sm:h-9 sm:w-9" />
+
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold text-foreground truncate flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm">
                                 <span className="truncate">{l.name}</span>
@@ -3562,17 +3794,8 @@ function EnrollDialog({
             {/* Selected Landlord Summary Banner */}
             <div className="flex items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                {selectedLandlordRecord?.passportUrl ? (
-                  <img
-                    src={selectedLandlordRecord.passportUrl}
-                    alt={landlordName}
-                    className="h-10 w-10 shrink-0 rounded-full object-cover border border-primary/40 shadow-xs"
-                  />
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                )}
+                <LandlordAvatar src={selectedLandlordRecord?.passportUrl} name={landlordName} className="h-10 w-10" />
+
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase font-semibold text-primary tracking-wider flex items-center gap-1.5">
                     <span>Landlord</span>
@@ -3638,26 +3861,58 @@ function EnrollDialog({
               ) : null}
             </div>
 
-            {!tenant && (
+            {(!tenant || !existingIdComplete) && (
               <div className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-3.5">
-                <p className="text-xs font-semibold text-foreground">New tenant details</p>
+                <p className="text-xs font-semibold text-foreground">
+                  {tenant ? 'Tenant ID needed before enrolling' : 'New tenant details'}
+                </p>
+                {!tenant && (
+                  <div>
+                    <Label className="text-xs font-medium">Tenant full name *</Label>
+                    <Input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                )}
                 <div>
-                  <Label className="text-xs font-medium">Tenant full name *</Label>
-                  <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium">National ID (optional)</Label>
+                  <Label className="text-xs font-medium">National ID number (NIN) *</Label>
                   <Input
                     value={newNationalId}
-                    onChange={(e) => setNewNationalId(e.target.value)}
-                    placeholder="CM..."
-                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+                    maxLength={14}
+                    autoCapitalize="characters"
+                    onChange={(e) => { setNewNationalId(normalizeNin(e.target.value).slice(0, 14)); setNinInUse(false); }}
+                    placeholder="CM0000000000AB"
+                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl font-mono"
                   />
+                  {newNationalId && !isValidNin(newNationalId) && (
+                    <p className="mt-1 text-[11px] text-destructive">14 characters, starting with CM or CF.</p>
+                  )}
+                  {ninInUse && (
+                    <p className="mt-1 text-[11px] text-destructive">This NIN is already recorded for another tenant.</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Passport photo *</Label>
+                  <div className="mt-1 flex items-center gap-3">
+                    {idPreview ? (
+                      <img src={idPreview} alt="Tenant passport photo" className="h-20 w-16 rounded-lg border object-cover" />
+                    ) : (
+                      <div className="flex h-20 w-16 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">No photo</div>
+                    )}
+                    <div className="flex flex-col gap-1.5">
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => idCamRef.current?.click()}>
+                        <Camera className="mr-1 h-3.5 w-3.5" /> Take photo
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => idGalRef.current?.click()}>
+                        <ImageIcon className="mr-1 h-3.5 w-3.5" /> From gallery
+                      </Button>
+                    </div>
+                  </div>
+                  <input ref={idCamRef} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => { pickIdPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+                  <input ref={idGalRef} type="file" accept="image/*" className="hidden" onChange={(e) => { pickIdPhoto(e.target.files?.[0]); e.target.value = ''; }} />
                 </div>
               </div>
             )}
@@ -3736,6 +3991,11 @@ function EnrollDialog({
               <Switch checked={landlordUsesWallet} onCheckedChange={setLandlordUsesWallet} />
             </div>
 
+            {enrollBlockers.length > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Still needed to enrol: {enrollBlockers.join(', ')}.
+              </p>
+            )}
             <div className="pt-2 flex gap-2">
               <Button
                 type="button"
@@ -3746,8 +4006,18 @@ function EnrollDialog({
                 <ArrowLeft className="h-4 w-4" /> Back
               </Button>
               <Button
+                type="button"
+                variant="outline"
+                onClick={saveDraft}
+                disabled={savingDraft || submitting}
+                className="gap-1.5 h-11 px-3 text-xs shrink-0 rounded-xl"
+              >
+                {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save as draft
+              </Button>
+              <Button
                 onClick={submit}
-                disabled={submitting || (!tenant && newName.trim().length < 2) || !phone.trim() || !rent.trim()}
+                disabled={submitting || savingDraft || enrollBlockers.length > 0 || !rent.trim()}
                 className="flex-1 min-w-0 gap-2 h-11 text-xs sm:text-sm font-semibold rounded-xl"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <UserCheck className="h-4 w-4 shrink-0" />}
