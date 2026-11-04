@@ -21,6 +21,18 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
+    // Owner switch (CTO > Platform Controls). Only ON posts the bonus; OFF, missing or unreadable posts nothing.
+    const { data: sw, error: swErr } = await admin
+      .from("treasury_controls")
+      .select("enabled")
+      .eq("control_key", "payroll_loyalty_bonus_enabled")
+      .maybeSingle();
+    if (swErr || !sw || sw.enabled !== true) {
+      const paused = { applied: 0, skipped: 0, totalGrowth: 0, paused: true, errors: swErr ? [{ id: "switch", error: swErr.message }] : [], ranAt: new Date().toISOString() };
+      console.log("[apply-payroll-growth] paused by the owner switch:", JSON.stringify(paused));
+      return new Response(JSON.stringify(paused), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Find a real platform user to own the cash_out leg if env not set:
     // pick any CFO if the placeholder is used.
     let platformUserId = PLATFORM_USER_ID;
