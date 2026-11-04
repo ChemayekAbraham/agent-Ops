@@ -1834,6 +1834,7 @@ Transaction Groups: 297,457
           <div class="detail-card danger">
             <div class="detail-card-title" style="color: #f43f5e;">Traps Already Paid For in Real Money</div>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
+              <li><strong>Trap 45: a function called from an RLS policy must stay executable by <code>authenticated</code> (doc 257):</strong> policies run as the signed-in user, so closing <code>_wh_is_tenant_agent</code> made every <code>storage.objects</code> upload (including payout proof) fail with <em>permission denied for function</em>. Granted EXECUTE 11-04. Check <code>pg_policies</code> (including <code>storage.objects</code>) before closing a helper.</li>
               <li><strong>Trap 1: Never force "WELILE" sender ID on SMS:</strong> Unregistered carrier trap; OTPs silently drop.</li>
               <li><strong>Trap 2: Deposit approval race:</strong> Two tabs approving the same deposit double-credit without the advisory lock.</li>
               <li><strong>Trap 3: Agent advance sweep schedule:</strong> Runs at 16:50 UTC, not every 15 minutes.</li>
