@@ -1,4 +1,4 @@
--- Read-only dry run of 20261104190000_spiro_bike_release_a13_corrections against production (qro_file.sh). Writes
+-- Read-only dry run of 20261104210000_spiro_bike_release_a13_corrections against production (qro_file.sh). Writes
 -- nothing. Per bike: the release, the opening and J7, recoveries, the plan split, the order's current X1 / E3 / A13 (as the
 -- balance sheet resolves them), whether anything already recognises the release, and the expected position after.
 with f(sale, plan, who) as (values

@@ -1,4 +1,4 @@
--- Rollback of 20261104200000_merchandise_release_recognition_controls: the three payout functions as in production on
+-- Rollback of 20261104220000_merchandise_release_recognition_controls: the three payout functions as in production on
 -- 2026-11-04 (verbatim) and the helper dropped. Entries posted meanwhile stay.
 SET lock_timeout = '5s';
 CREATE OR REPLACE FUNCTION public.cfo_disburse_smartphone_order(p_sale_id uuid, p_amount numeric DEFAULT NULL::numeric, p_note text DEFAULT NULL::text)

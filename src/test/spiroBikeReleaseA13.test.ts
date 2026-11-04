@@ -1,8 +1,8 @@
 // @vitest-environment node
 /**
  * Spiro motorcycle releases in A13 and the merchandise release recognition controls (CFO rule 2026-11-04):
- *   supabase/migrations/20261104190000_spiro_bike_release_a13_corrections.sql (ALPHA SSEMA a544f375, PIUS MATA a3228b88)
- *   supabase/migrations/20261104200000_merchandise_release_recognition_controls.sql
+ *   supabase/migrations/20261104210000_spiro_bike_release_a13_corrections.sql (ALPHA SSEMA a544f375, PIUS MATA a3228b88)
+ *   supabase/migrations/20261104220000_merchandise_release_recognition_controls.sql
  *
  * Runs on PGlite with production's code verbatim over the merchandise replica (fixtures as merchandisePhase3.test.ts) with
  * production's merchandise migrations applied in order (20261104090000, 20261104100000, 20261104150000, 20261104170000) and
@@ -27,10 +27,10 @@ const ONEOFF = read('supabase/migrations/20261104090000_merchandise_a12_a13_corr
 const CONTROLS = read('supabase/migrations/20261104100000_merchandise_receivable_controls.sql');
 const PHASE3 = read('supabase/migrations/20261104150000_merchandise_phase3_stock_phone_pledge.sql');
 const ONISSUE = read('supabase/migrations/20261104170000_merchandise_stock_recognise_on_issue.sql');
-const FIX_BIKES = read('supabase/migrations/20261104190000_spiro_bike_release_a13_corrections.sql');
-const ROLLBACK1 = read('supabase/rollbacks/20261104190000_spiro_bike_release_a13_corrections.rollback.sql');
-const CONTROLS2 = read('supabase/migrations/20261104200000_merchandise_release_recognition_controls.sql');
-const ROLLBACK2 = read('supabase/rollbacks/20261104200000_merchandise_release_recognition_controls.rollback.sql');
+const FIX_BIKES = read('supabase/migrations/20261104210000_spiro_bike_release_a13_corrections.sql');
+const ROLLBACK1 = read('supabase/rollbacks/20261104210000_spiro_bike_release_a13_corrections.rollback.sql');
+const CONTROLS2 = read('supabase/migrations/20261104220000_merchandise_release_recognition_controls.sql');
+const ROLLBACK2 = read('supabase/rollbacks/20261104220000_merchandise_release_recognition_controls.rollback.sql');
 const PROD3B = read('scripts/fixtures/merch-phase3b-prod-2026-11-04.sql');
 const PROD = read('scripts/fixtures/merch-a12a13-prod-2026-11-04.sql');
 const PROD2 = read('scripts/fixtures/merch-controls-prod-2026-11-04.sql');

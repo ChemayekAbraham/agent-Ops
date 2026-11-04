@@ -14,7 +14,7 @@
 --      database, on top of each function's one-reference-per-order guard.
 --   3. The account follows the product (_merch_release_receivable_category): motorcycle -> bike_recovery_repayment (A13),
 --      anything else -> smartphone_advance_receivable (A12), whichever payout route is used.
--- Rollback: supabase/rollbacks/20261104200000_merchandise_release_recognition_controls.rollback.sql (production definitions).
+-- Rollback: supabase/rollbacks/20261104220000_merchandise_release_recognition_controls.rollback.sql (production definitions).
 -- Tests: src/test/spiroBikeReleaseA13.test.ts. TRANSACTION: run as ONE transaction.
 
 SET lock_timeout = '5s';

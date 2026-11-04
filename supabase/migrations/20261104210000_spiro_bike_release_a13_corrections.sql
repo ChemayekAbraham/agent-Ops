@@ -17,7 +17,7 @@
 --      only how future collections are split between A13 (principal) and R1 (charges) changes, so A13 clears exactly
 --      when the plan is paid. Without it 210,000 of A13 would never clear.
 -- Keys: spiro_release_a13_20261104:<sale>:RECOGNISE / :OPENING. Not repeatable (the preflight refuses a second run).
--- Rollback: supabase/rollbacks/20261104190000_spiro_bike_release_a13_corrections.rollback.sql (plan split only; the
+-- Rollback: supabase/rollbacks/20261104210000_spiro_bike_release_a13_corrections.rollback.sql (plan split only; the
 -- entries stay - append-only - and are reversed only by new entries).
 -- Tests: src/test/spiroBikeReleaseA13.test.ts. Dry run: supabase/tests/spiro_bike_release_a13_dryrun.sql.
 -- TRANSACTION: run as ONE transaction.
