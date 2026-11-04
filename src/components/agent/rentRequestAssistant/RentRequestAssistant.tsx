@@ -836,7 +836,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </button>
         <Avatar size="lg" />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-bold leading-tight">Welile Assistant</p>
+          <p className="font-display text-base font-bold leading-tight">Post Rent Request</p>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
             {result ? 'Request posted' : 'Posting a Rent Plan with you'}
