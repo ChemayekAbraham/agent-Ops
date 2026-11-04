@@ -79127,6 +79127,16 @@ export type Database = {
         }
         Returns: Json
       }
+      coo_decide_rent_requests: {
+        Args: {
+          p_decision: string
+          p_reason_code?: string
+          p_reason_text?: string
+          p_request_ids: string[]
+        }
+        Returns: Json
+      }
+      coo_reason_codes: { Args: never; Returns: Json }
       coo_request_landlord_float_misc: {
         Args: { p_items: Json }
         Returns: Json
