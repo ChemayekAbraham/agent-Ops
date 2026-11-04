@@ -13,6 +13,7 @@ import { useTutorialAccess } from '@/ops-tutorials/useTutorialAccess';
 import { canAccessHrStaffReports, isCallingTeamStaff } from '@/hooks/useStaffCallingReport';
 import { useZoeAccess } from '@/components/zoe/useZoeAssistant';
 import { ZoeFloatingLauncher } from '@/components/zoe/ZoeFloatingLauncher';
+import { MeetTheNewZoeBanner } from '@/components/zoe/MeetTheNewZoeBanner';
 
 const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
 const SIDEBAR_MIN = 200;
@@ -305,7 +306,14 @@ const PersonalLayout = ({ children, title, backTo, backLabel }: PersonalLayoutPr
                 <h1 className="text-lg font-bold tracking-tight sm:text-2xl">{title}</h1>
               </div>
             )}
-            <div className="space-y-4">{children}</div>
+            <div className="space-y-4">
+              <MeetTheNewZoeBanner
+                userId={user?.id}
+                roles={roles}
+                enabled={zoeAccess === true}
+              />
+              {children}
+            </div>
           </div>
         </main>
       </div>

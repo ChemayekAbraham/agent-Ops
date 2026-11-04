@@ -48,6 +48,9 @@ export function calculateRequestFee(rentAmount: number): number {
  * tenor) plus the 15% partner reward. This mirrors compute_rent_repayment() in
  * the database exactly; the database is authoritative and enforces it via
  * trg_enforce_rent_request_formula. Keep the two in step.
+ *
+ * The agent commission dropped to 8% at go-live, but the tenant's price did
+ * not change: this floor (and its /0.90) is deliberately left as it was.
  */
 export function calculateAccessFeeFloor(rentAmount: number, durationDays: number): number {
   const requestFee = calculateRequestFee(rentAmount);
@@ -86,11 +89,27 @@ export function calculateInstalment(totalRepayment: number, durationDays: number
   return { amount, count };
 }
 
-// Commission engine constants
-export const COMMISSION_RATE = 0.10;       // Total commission: 10% of repayment
-export const SOURCE_RATE = 0.02;           // Source (onboarding) agent: 2%
-export const MANAGER_RATE = 0.08;          // Tenant manager: 8%
-export const RECRUITER_RATE = 0.02;        // Recruiter override: 2% (manager drops to 6%)
+// Commission engine constants.
+//
+// Rent-collection commission is 8% of every collection on every Rent Plan
+// (10% until the 8% go-live). The server is authoritative:
+// `get_agent_commission_rate(p_agent_id)` / `get_my_commission_rate()` return
+// the rate that is actually paid, and `useMyCommissionRate` reads it. These
+// constants are display fallbacks and must stay in step with that function.
+//
+//   Agent with no parent ............ 8%
+//   Sub-agent with a verified parent  6% to the sub-agent + 2% to the parent
+//   Whitelisted / elite sub-agent ... the full 8%, parent gets nothing
+//
+// The tenant's price does not change (see calculateAccessFeeFloor above).
+export const AGENT_COMMISSION_RATE = 0.08;     // Total agent commission: 8% of each collection
+export const SUBAGENT_COMMISSION_RATE = 0.06;  // Sub-agent's share when a verified parent exists
+export const PARENT_OVERRIDE_RATE = 0.02;      // Parent (recruiter) override on a sub-agent's collection
+
+export const COMMISSION_RATE = AGENT_COMMISSION_RATE;   // Total commission: 8% of repayment
+export const SOURCE_RATE = 0.02;                        // Source (onboarding) agent: 2%
+export const MANAGER_RATE = SUBAGENT_COMMISSION_RATE;   // Tenant manager: 6%
+export const RECRUITER_RATE = PARENT_OVERRIDE_RATE;     // Recruiter override: 2% (sub-agent keeps 6%)
 
 // Event-based fixed bonuses (UGX).
 //
@@ -139,7 +158,7 @@ export const LANDLORD_PAYOUT_COMMISSION_RATE = 0.01;
 export type CommissionEventType = keyof typeof EVENT_BONUSES;
 
 /**
- * Calculate total agent commission from repayment (10%)
+ * Calculate total agent commission from repayment (8%)
  */
 export function calculateAgentCommission(repaidAmount: number): number {
   return Math.round(repaidAmount * COMMISSION_RATE);

@@ -196,43 +196,49 @@ Deno.serve(async (req) => {
 
     // Try the Treasury waterfall first; fall back to legacy repayment so a
     // missing funding-side L7 credit never blocks the tenant's payment.
+    // Commission budget the fee split booked for this cash (10% of the plan's fees);
+    // agents are paid 8%, so the unpaid part is released to Platform Fee below.
+    let commissionBudget: number | null = null;
     try {
-      const { error: waterfallErr } = await supabase.rpc("record_rent_request_repayment_v2", {
+      const { data: waterfallData, error: waterfallErr } = await supabase.rpc("record_rent_request_repayment_v2", {
         p_tenant_id: rr.tenant_id,
         p_amount: totalCollected,
         p_source_table: "manual_collect_rent",
         p_source_id: crypto.randomUUID(),
       });
       if (waterfallErr) throw waterfallErr;
+      const wf = (waterfallData as { waterfall?: { status?: string; agent_commission_accounting?: number | string } } | null)?.waterfall;
+      if (wf?.status === "posted" && wf.agent_commission_accounting != null) {
+        commissionBudget = Number(wf.agent_commission_accounting);
+      }
       console.log('[manual-collect-rent] Treasury waterfall recorded for rent request', rent_request_id);
     } catch (waterfallErr: any) {
       console.error('[manual-collect-rent] Treasury waterfall failed, falling back to legacy repayment:', waterfallErr?.message || waterfallErr);
       await supabase.rpc("record_rent_request_repayment", { p_tenant_id: rr.tenant_id, p_amount: totalCollected });
     }
 
-    const commission = Math.round(totalCollected * 0.10);
-    if (commission > 0 && rr.agent_id) {
-      const commissionTxDate = new Date().toISOString();
-      const { error: commErr } = await supabase.rpc('create_ledger_transaction', {
-        entries: [
-          {
-            user_id: rr.agent_id, ledger_scope: 'wallet', direction: 'cash_in',
-            amount: commission, category: 'agent_commission_earned',
-            source_table: 'rent_requests', source_id: rr.id,
-            description: `10% commission on manual rent collection for ${tenantName}`,
-            currency: 'UGX', transaction_date: commissionTxDate,
-          },
-          {
-            user_id: rr.agent_id, ledger_scope: 'platform', direction: 'cash_out',
-            amount: commission, category: 'agent_commission_earned',
-            source_table: 'rent_requests', source_id: rr.id,
-            description: `Commission expense: manual collection for ${tenantName}`,
-            currency: 'UGX', transaction_date: commissionTxDate,
-          },
-        ],
-        idempotency_key: `manual-collect-commission-${rr.id}-${commissionTxDate}`,
+    // Commission at the shared rate (8% of the collection; a sub-agent keeps 6% and the
+    // parent gets 2%), posted server-side by credit_collection_commission.
+    let commission = 0;
+    let commissionRateLabel: string | null = null;
+    if (rr.agent_id) {
+      const { data: commData, error: commErr } = await supabase.rpc('credit_collection_commission', {
+        p_agent_id: rr.agent_id,
+        p_amount: totalCollected,
+        p_source_table: 'rent_requests',
+        p_source_id: rr.id,
+        p_context: `manual rent collection for ${tenantName}`,
+        p_idempotency_key: `manual-collect-commission-${rr.id}-${new Date().toISOString()}`,
+        p_commission_budget: commissionBudget,
       });
-      if (commErr) console.error("[manual-collect-rent] Commission ledger error:", commErr);
+      if (commErr) {
+        console.error("[manual-collect-rent] Commission ledger error:", commErr);
+      } else {
+        // The collecting agent's own share (a sub-agent's parent override is not theirs).
+        const cd = commData as { agent_commission?: number | string; rate_label?: string } | null;
+        commission = Number(cd?.agent_commission ?? 0);
+        commissionRateLabel = cd?.rate_label ?? null;
+      }
     }
 
     const remainingBalance = outstanding - totalCollected;
@@ -261,7 +267,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       success: true, total_collected: totalCollected, tenant_deducted: tenantDeducted,
       agent_deducted: agentDeducted, remaining_shortfall: shortfall, tenant_name: tenantName,
-      commission_paid: commission, requested_amount: requestedAmount,
+      commission_paid: commission, commission_rate_label: commissionRateLabel, requested_amount: requestedAmount,
       is_partial: isPartial || (totalCollected < requestedAmount), remaining_balance: remainingBalance,
     }), { status: 200, headers: corsContentType });
 

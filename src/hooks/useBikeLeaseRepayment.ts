@@ -24,6 +24,10 @@ export interface BikeLeaseDeduction {
   amount: number;
   outstanding_after: number;
   created_at: string;
+  collection_mode?: string | null;
+  trigger_category?: string | null;
+  trigger_amount?: number | null;
+  reference?: string | null;
 }
 
 /**
@@ -62,7 +66,7 @@ export function useBikeLeaseRepayment(userId?: string, saleId?: string) {
     queryFn: async () => {
       const { data, error } = await db
         .from('merchandise_recovery_deductions')
-        .select('id, plan_id, amount, outstanding_after, created_at')
+        .select('id, plan_id, amount, outstanding_after, created_at, collection_mode, trigger_category, trigger_amount, reference')
         .eq('plan_id', planId)
         .order('created_at', { ascending: false })
         .limit(120);

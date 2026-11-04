@@ -277,7 +277,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     [floatLinks, collectedSubIds, collectionsUnknown],
   );
   const [selectedAppTenantIds, setSelectedAppTenantIds] = useState<Set<string>>(new Set());
-  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined'>('all');
+  const [appStatusFilter, setAppStatusFilter] = useState<'all' | 'declined' | 'repaying'>('all');
   const [expandedAppLandlords, setExpandedAppLandlords] = useState<Record<string, boolean>>({});
   const [expandedEnrolledLandlords, setExpandedEnrolledLandlords] = useState<Record<string, boolean>>({});
 
@@ -300,6 +300,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const [verifySub, setVerifySub] = useState<Row | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [deleteSub, setDeleteSub] = useState<Row | null>(null);
+  const [declinedDeleteIds, setDeclinedDeleteIds] = useState<string[] | null>(null);
+  const [deletingDeclined, setDeletingDeclined] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [previewLandlord, setPreviewLandlord] = useState<LandlordBreakdownItem | null>(null);
 
@@ -524,6 +526,30 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
   const activeRows = useMemo(() => rows.filter((r) => r.subscription_status !== 'cancelled'), [rows]);
   const declinedTenantsCount = useMemo(() => rows.filter((r) => r.subscription_status === 'cancelled').length, [rows]);
 
+  // Server decides which declined applications must be kept (money linked); we only display it.
+  const [declinedKept, setDeclinedKept] = useState<Record<string, string>>({});
+  const declinedIdsKey = useMemo(
+    () => rows.filter((r) => r.subscription_status === 'cancelled').map((r) => r.id).sort().join(','),
+    [rows]
+  );
+  useEffect(() => {
+    if (!declinedIdsKey) { setDeclinedKept({}); return; }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await (supabase.rpc as any)('wh_declined_delete_check', {
+        p_subscription_ids: declinedIdsKey.split(','),
+      });
+      if (cancelled || error) return;
+      const map: Record<string, string> = {};
+      ((data ?? []) as { subscription_id: string; reason: string | null }[]).forEach((r) => {
+        if (r.reason) map[r.subscription_id] = r.reason;
+      });
+      setDeclinedKept(map);
+    })();
+    return () => { cancelled = true; };
+  }, [declinedIdsKey]);
+  const repayingCount = Object.keys(declinedKept).length;
+
   const buildLandlordBreakdown = (source: Row[]): LandlordBreakdownItem[] => {
     const map = new Map<string, LandlordBreakdownItem>();
     source.forEach((r) => {
@@ -678,10 +704,14 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       }
 
       // Filter active vs declined
+      const isCancelled = r.subscription_status === 'cancelled';
+      const hasMoney = isCancelled && !!declinedKept[r.id];
       if (appStatusFilter === 'declined') {
-        if (r.subscription_status !== 'cancelled') return;
+        if (!isCancelled || hasMoney) return;
+      } else if (appStatusFilter === 'repaying') {
+        if (!hasMoney) return;
       } else {
-        if (r.subscription_status === 'cancelled') return;
+        if (isCancelled) return;
       }
 
       const name = (r.landlord_name || 'Unassigned Landlord').trim();
@@ -708,7 +738,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
     });
 
     return Array.from(map.values()).sort((a, b) => b.totalFloat - a.totalFloat);
-  }, [rows, appSearch, appStatusFilter]);
+  }, [rows, appSearch, appStatusFilter, declinedKept]);
 
   const selectedAppTenants = useMemo(() => {
     return rows.filter((r) => selectedAppTenantIds.has(r.id));
@@ -1009,6 +1039,65 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       setDeclining(false);
     }
   };
+
+  const confirmDeleteDeclined = async () => {
+    if (!declinedDeleteIds || declinedDeleteIds.length === 0) return;
+    setDeletingDeclined(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('wh_delete_declined_applications', {
+        p_subscription_ids: declinedDeleteIds,
+      });
+      if (error) throw error;
+      const res = (data ?? {}) as {
+        deleted?: { id: string }[];
+        skipped?: { id: string; reason: string }[];
+        photo_paths?: string[];
+      };
+      const deleted = res.deleted ?? [];
+      const skipped = res.skipped ?? [];
+      if (res.photo_paths?.length) {
+        const { error: rmErr } = await supabase.storage.from('wh-tenant-id-photos').remove(res.photo_paths);
+        if (rmErr) console.warn('ID photo removal warning:', rmErr);
+      }
+      const removedIds = new Set(deleted.map((d) => d.id));
+      setRows((prev) => prev.filter((r) => !removedIds.has(r.id)));
+      setSelectedAppTenantIds((prev) => {
+        const next = new Set(prev);
+        removedIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (deleted.length) toast.success(`Deleted ${deleted.length} declined application(s)`);
+      if (skipped.length) {
+        const nameOf = (id: string) => rows.find((r) => r.id === id)?.tenant_name || 'Application';
+        toast.warning(`Skipped ${skipped.length} application(s)`, {
+          description: (
+            <div className="space-y-1.5 text-xs">
+              {Object.entries(
+                skipped.reduce<Record<string, string[]>>((acc, s) => {
+                  (acc[s.reason] ||= []).push(nameOf(s.id));
+                  return acc;
+                }, {})
+              ).map(([reason, names]) => (
+                <div key={reason}>
+                  <p className="font-semibold">{reason} ({names.length})</p>
+                  <p className="text-muted-foreground">{names.join(', ')}</p>
+                </div>
+              ))}
+            </div>
+          ),
+          duration: 15000,
+        });
+      }
+      setDeclinedDeleteIds(null);
+      await load();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? String(err);
+      toast.error('Could not delete: ' + msg);
+    } finally {
+      setDeletingDeclined(false);
+    }
+  };
+
 
   useEffect(() => {
     if (!historySub) {
@@ -1988,7 +2077,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                 >
                   All Applications ({activeRows.length})
                 </button>
-                {declinedTenantsCount > 0 && (
+                {declinedTenantsCount - repayingCount > 0 && (
                   <button
                     type="button"
                     onClick={() => setAppStatusFilter('declined')}
@@ -2000,7 +2089,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     )}
                   >
                     <XCircle className="h-3 w-3" />
-                    Declined ({declinedTenantsCount})
+                    Declined ({declinedTenantsCount - repayingCount})
+                  </button>
+                )}
+                {repayingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAppStatusFilter('repaying')}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 shrink-0",
+                      appStatusFilter === 'repaying'
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                    )}
+                  >
+                    <Banknote className="h-3 w-3" />
+                    Repaying ({repayingCount})
                   </button>
                 )}
               </div>
@@ -2028,7 +2132,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
           </div>
 
           {/* FLOAT REQUESTS AWAITING AGENT OPS */}
-          {floatRequests.some((f) => f.status === 'pending') && (
+          {appStatusFilter !== 'declined' && floatRequests.some((f) => f.status === 'pending') && (
             <Card className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-3 sm:p-4 space-y-2.5">
               <div className="flex items-center gap-2 flex-wrap">
                 <Banknote className="h-4 w-4 text-amber-600" />
@@ -2268,7 +2372,25 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
 
           {/* RENT FLOAT APPLICATIONS CARDS */}
           <div className="space-y-3">
-
+              {appStatusFilter === 'declined' && applicationsByLandlord.length > 0 && (() => {
+                const allDeclined = applicationsByLandlord.flatMap((g) => g.tenants).filter((t) => !declinedKept[t.id]);
+                if (allDeclined.length === 0) return null;
+                const allSel = allDeclined.every((t) => selectedAppTenantIds.has(t.id));
+                return (
+                  <label className="flex items-center gap-2 px-1 text-xs font-medium text-foreground cursor-pointer select-none">
+                    <Checkbox
+                      checked={allSel}
+                      onCheckedChange={() => {
+                        const next = new Set(selectedAppTenantIds);
+                        allDeclined.forEach((t) => (allSel ? next.delete(t.id) : next.add(t.id)));
+                        setSelectedAppTenantIds(next);
+                      }}
+                      className="h-4 w-4 rounded"
+                    />
+                    Select all declined ({allDeclined.length})
+                  </label>
+                );
+              })()}
               {applicationsByLandlord.length === 0 ? (
                 <Card className="rounded-2xl p-8 text-center border-dashed border-border/60">
                   <p className="text-sm font-semibold text-foreground">No applications match your filter</p>
@@ -2342,6 +2464,22 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                             {formatUGX(group.totalFloat)}
                           </Badge>
 
+                          {appStatusFilter === 'repaying' ? null : appStatusFilter === 'declined' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeclinedDeleteIds(group.tenants.filter((t) => !declinedKept[t.id]).map((t) => t.id));
+                              }}
+                              disabled={deletingDeclined}
+                              className="h-8 px-2.5 sm:px-3 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive font-semibold gap-1.5 shadow-xs cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>Delete</span>
+                            </Button>
+                          ) : (
+                          <>
                           <Button
                             size="sm"
                             onClick={(e) => {
@@ -2373,6 +2511,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                             <XCircle className="h-3.5 w-3.5" />
                             <span>Decline</span>
                           </Button>
+                          </>
+                          )}
 
                           <div className="text-muted-foreground">
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -2501,6 +2641,33 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                                     // it is withheld once money is attached or the plan is already declined.
                                     const canDecline = !['declined', 'repaying', 'funded', 'approved_unconfirmed'].includes(pStatus.stage);
 
+                                    if (appStatusFilter === 'declined' || appStatusFilter === 'repaying') {
+                                      const keptReason = declinedKept[t.id];
+                                      if (keptReason) {
+                                        return (
+                                          <Badge
+                                            variant="outline"
+                                            className="h-8 px-2.5 text-[11px] border-amber-500/40 text-amber-700 dark:text-amber-400 bg-amber-500/10 gap-1 font-medium select-none"
+                                            title="Kept because money is linked to it"
+                                          >
+                                            <Lock className="h-3 w-3" />
+                                            <span>Kept · {keptReason}</span>
+                                          </Badge>
+                                        );
+                                      }
+                                      return (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => setDeclinedDeleteIds([t.id])}
+                                          disabled={deletingDeclined}
+                                          className="h-8 px-2.5 text-xs rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 gap-1 cursor-pointer font-semibold"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                          <span>Delete</span>
+                                        </Button>
+                                      );
+                                    }
                                     return (
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         {canDecline && (
@@ -2585,6 +2752,19 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     <Download className="h-3.5 w-3.5" />
                     <span>Export Selected</span>
                   </Button>
+                  {appStatusFilter === 'repaying' ? null : appStatusFilter === 'declined' ? (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeclinedDeleteIds(Array.from(selectedAppTenantIds))}
+                      disabled={deletingDeclined}
+                      className="h-9 px-3.5 text-xs font-bold gap-1.5 cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Selected ({selectedAppTenantIds.size})</span>
+                    </Button>
+                  ) : (
+                  <>
                   <Button
                     variant="outline"
                     size="sm"
@@ -2608,6 +2788,8 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
                     )}
                     <span>Approve Selected & Forward to Tenant Ops</span>
                   </Button>
+                  </>
+                  )}
                 </div>
               </div>
             </div>
@@ -3965,6 +4147,25 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
             >
               {verifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
               <span>Mark as Verified</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Declined tab: permanent delete confirmation */}
+      <Dialog open={declinedDeleteIds !== null} onOpenChange={(open) => { if (!open && !deletingDeclined) setDeclinedDeleteIds(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete declined applications</DialogTitle>
+            <DialogDescription>
+              Permanently delete {declinedDeleteIds?.length ?? 0} declined applications? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" disabled={deletingDeclined} onClick={() => setDeclinedDeleteIds(null)}>Cancel</Button>
+            <Button variant="destructive" disabled={deletingDeclined} onClick={confirmDeleteDeclined} className="gap-1.5">
+              {deletingDeclined ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

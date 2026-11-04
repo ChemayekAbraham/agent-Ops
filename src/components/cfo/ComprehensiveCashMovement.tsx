@@ -421,7 +421,7 @@ const WALLET_IMPACT: Record<string, WalletImpact> = {
     summary: 'Tenant rent collected by an agent. Platform recognizes revenue; agent commission posts separately.',
     moves: [
       { bucket: 'float_balance', party: 'Collecting agent', direction: '↑', note: 'Company money; not withdrawable' },
-      { bucket: 'withdrawable_balance', party: 'Agent (10% commission, separate txn)', direction: '↑' },
+      { bucket: 'withdrawable_balance', party: 'Agent (8% commission, separate txn)', direction: '↑' },
     ],
     unchanged: ['advance_balance'],
   },

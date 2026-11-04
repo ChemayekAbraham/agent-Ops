@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
-import { FileText, TrendingUp, Users, Phone, Mail, Calendar, ChevronRight, Loader2, Wallet } from 'lucide-react';
+import { FileText, TrendingUp, Users, Calendar, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -27,11 +27,7 @@ export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('promissory_notes')
-        .select('*')
-        .eq('agent_id', user.id)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('agent_own_promissory_notes' as never);
       if (error) throw error;
       return data || [];
     },
@@ -153,33 +149,17 @@ export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
                       <div className="rounded-lg bg-emerald-50 p-2.5 space-y-1">
                         <div className="font-semibold text-emerald-800 text-xs">💰 Partner Earns</div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Monthly ROI (15%)</span>
-                          <span className="font-bold text-emerald-700">{formatUGX(note.amount * 0.15)}</span>
+                          <span className="text-muted-foreground">Illustrative new-partner rate 10%</span>
+                          <span className="font-bold text-emerald-700">{formatUGX(note.amount * 0.1)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Annual ROI</span>
-                          <span className="font-bold text-emerald-700">{formatUGX(note.amount * 0.15 * 12)}</span>
+                          <span className="text-muted-foreground">12-month illustration</span>
+                          <span className="font-bold text-emerald-700">{formatUGX(note.amount * 0.1 * 12)}</span>
                         </div>
                       </div>
 
                       {/* Contact info */}
-                      <div className="flex flex-wrap gap-3 text-muted-foreground">
-                        {note.whatsapp_number && (
-                          <a href={`https://wa.me/${note.whatsapp_number.replace(/\D/g, '')}`} className="flex items-center gap-1 hover:text-emerald-600" onClick={e => e.stopPropagation()}>
-                            <Phone className="h-3 w-3" /> WhatsApp
-                          </a>
-                        )}
-                        {note.phone_number && (
-                          <a href={`tel:${note.phone_number}`} className="flex items-center gap-1 hover:text-primary" onClick={e => e.stopPropagation()}>
-                            <Phone className="h-3 w-3" /> Call
-                          </a>
-                        )}
-                        {note.email && (
-                          <a href={`mailto:${note.email}`} className="flex items-center gap-1 hover:text-primary" onClick={e => e.stopPropagation()}>
-                            <Mail className="h-3 w-3" /> Email
-                          </a>
-                        )}
-                      </div>
+                      <p className="text-muted-foreground">Contact details stay on the partner's own account.</p>
 
                       {note.deduction_day && (
                         <div className="flex items-center gap-1 text-muted-foreground">

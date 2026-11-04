@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Mail, Zap, Wallet, CheckCircle2, History } from 'lucide-react';
+import { Mail, Zap, Wallet, CheckCircle2, History, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   deriveWalletStatus,
   fmtUgx,
@@ -11,6 +15,7 @@ import {
   type WalletStatusInput,
   type WalletStatusTone,
 } from '@/lib/emailTransactionsLogic';
+import { Pager } from './FinopsKit';
 
 const PAGE_SIZE = 25;
 
@@ -66,14 +71,14 @@ function when(iso: string | null | undefined) {
   if (Number.isNaN(d.getTime())) return '—';
   const time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   return d.toDateString() === new Date().toDateString()
-    ? time
-    : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} ${time}`;
+    ? `Today, ${time}`
+    : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${time}`;
 }
 
-function directionPill(r: GmailTx): { label: string; tone: WalletStatusTone } {
-  if (r.direction === 'in') return { label: 'Money in', tone: 'green' };
-  if (r.direction === 'out' || r.direction === 'charge') return { label: 'Money out', tone: 'blue' };
-  return { label: 'Fee', tone: 'grey' };
+function directionLabel(r: GmailTx): string {
+  if (r.direction === 'in') return 'Money in';
+  if (r.direction === 'out' || r.direction === 'charge') return 'Money out';
+  return 'Fee';
 }
 
 function senderOf(r: GmailTx) {
@@ -81,22 +86,43 @@ function senderOf(r: GmailTx) {
 }
 
 /**
- * Table + detail-panel layout for the Email Transactions panel. Purely a view:
- * every action is handed back to the panel, which opens its existing
- * confirmation / history surfaces, so no money moves from here.
+ * What can be done with a row. Same eligibility the row swipe actions use, so
+ * this view can never offer something the rest of the panel would not.
+ */
+function eligibilityFor(
+  r: GmailTx,
+  input: WalletStatusInput,
+  status: { label: string } | null,
+) {
+  const label = status?.label ?? '';
+  const isIn = r.direction === 'in';
+  const isOut = r.direction === 'out' || r.direction === 'charge';
+  const settled = label === 'Credited' || label === 'Partially credited';
+  return {
+    canSend: isIn && !isWelileOutboundEcho(r) && label === 'Awaiting routing',
+    canCharge: isOut && Number(r.amount ?? 0) > 0 && label === 'Not charged yet',
+    canResolve: isIn && !input.manualMark && !settled && !isWelileOutboundEcho(r) && !isUnparsedRow(r),
+  };
+}
+
+/**
+ * Table layout for the Email Transactions panel (cards on a phone). Purely a
+ * view: every action is handed back to the panel, which opens its existing
+ * confirmation or history surface, so no money moves from here. The full
+ * email, its timeline and every action open in a side drawer.
  */
 export function EmailTransactionsTableView({
   rows, selectedIds, setSelectedIds, routingHistory, creditedDeposits, manualMarks, ledgerCredits,
   justRoutedIds, onSendToWallet, onChargeWallet, onMarkResolved, onViewHistory,
 }: EmailTransactionsTableViewProps) {
-  const [page, setPage] = useState(1);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
+  const safePage = Math.min(page, totalPages - 1);
   useEffect(() => { if (page !== safePage) setPage(safePage); }, [page, safePage]);
   const pageRows = useMemo(
-    () => rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    () => rows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE),
     [rows, safePage],
   );
 
@@ -109,7 +135,7 @@ export function EmailTransactionsTableView({
   });
   const statusOf = (r: GmailTx) => deriveWalletStatus(r, inputFor(r));
 
-  const active = pageRows.find((r) => r.id === activeId) ?? rows.find((r) => r.id === activeId) ?? pageRows[0] ?? null;
+  const detailRow = detailId ? rows.find((r) => r.id === detailId) ?? null : null;
 
   const allOnPageSelected = pageRows.length > 0 && pageRows.every((r) => selectedIds.has(r.id));
   const toggleOne = (id: string, on: boolean) => {
@@ -131,139 +157,180 @@ export function EmailTransactionsTableView({
     );
   }
 
-  const readPill = (r: GmailTx) =>
-    isUnparsedRow(r)
-      ? <Pill tone="red">Could not read</Pill>
-      : <Pill tone="green">Read OK</Pill>;
+  /** The one button shown on a row, and the menu behind the ⋯ button. */
+  const renderActions = (r: GmailTx) => {
+    const input = inputFor(r);
+    const status = statusOf(r);
+    const { canSend, canCharge, canResolve } = eligibilityFor(r, input, status);
+    return (
+      <div className="flex items-center gap-1.5">
+        {canSend ? (
+          <Button size="sm" className="min-h-[36px] gap-1.5" onClick={() => onSendToWallet(r)}>
+            <Zap className="h-3.5 w-3.5" aria-hidden="true" /> Route
+          </Button>
+        ) : canCharge ? (
+          <Button size="sm" className="min-h-[36px] gap-1.5" onClick={() => onChargeWallet(r)}>
+            <Wallet className="h-3.5 w-3.5" aria-hidden="true" /> Charge
+          </Button>
+        ) : (
+          <Button size="sm" variant="outline" className="min-h-[36px] gap-1.5" onClick={() => setDetailId(r.id)}>
+            <Eye className="h-3.5 w-3.5" aria-hidden="true" /> View
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="icon" variant="ghost" className="h-9 w-9" aria-label={`More actions for ${senderOf(r)}`}>
+              <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onSelect={() => setDetailId(r.id)}>
+              <Eye className="mr-2 h-4 w-4" aria-hidden="true" /> View details
+            </DropdownMenuItem>
+            {(canSend || canCharge || canResolve) && <DropdownMenuSeparator />}
+            {canSend && (
+              <DropdownMenuItem onSelect={() => onSendToWallet(r)}>
+                <Zap className="mr-2 h-4 w-4" aria-hidden="true" /> Send to wallet
+              </DropdownMenuItem>
+            )}
+            {canCharge && (
+              <DropdownMenuItem onSelect={() => onChargeWallet(r)}>
+                <Wallet className="mr-2 h-4 w-4" aria-hidden="true" /> Charge wallet
+              </DropdownMenuItem>
+            )}
+            {canResolve && (
+              <DropdownMenuItem onSelect={() => onMarkResolved(r)}>
+                <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" /> Mark resolved
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onViewHistory(r)}>
+              <History className="mr-2 h-4 w-4" aria-hidden="true" /> View history
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    );
+  };
+
+  const statusPill = (r: GmailTx) => {
+    if (isUnparsedRow(r)) return <Pill tone="red">Could not read</Pill>;
+    const status = statusOf(r);
+    return status ? <Pill tone={status.tone}>{status.label}</Pill> : <span className="text-muted-foreground">—</span>;
+  };
 
   return (
-    <div className="flex flex-wrap items-start gap-4 p-3 sm:p-4">
-      <div className="min-w-0 flex-[999_1_640px] overflow-hidden rounded-2xl border bg-card">
-        {/* Desktop / tablet table */}
+    <div className="p-3 sm:p-4">
+      <div className="overflow-hidden rounded-2xl border bg-card">
+        {/* Tablet and desktop: a table */}
         <div className="hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[780px] border-collapse text-sm">
+          <table className="w-full min-w-[860px] border-collapse text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="w-10 px-4 py-3 font-semibold">
+              <tr className="text-left text-xs font-semibold text-muted-foreground">
+                <th className="w-10 px-4 py-3">
                   <Checkbox
                     checked={allOnPageSelected}
                     onCheckedChange={(v) => toggleAllOnPage(v === true)}
                     aria-label="Select all rows on this page"
                   />
                 </th>
-                <th className="px-2 py-3 font-semibold">Received</th>
-                <th className="px-2 py-3 font-semibold">Sender</th>
-                <th className="px-2 py-3 text-right font-semibold">Amount</th>
-                <th className="px-2 py-3 font-semibold">Type</th>
-                <th className="px-2 py-3 font-semibold">Transaction ID</th>
-                <th className="px-2 py-3 font-semibold">Email read</th>
-                <th className="px-4 py-3 font-semibold">Wallet status</th>
+                <th className="px-2 py-3">From</th>
+                <th className="px-2 py-3">Subject</th>
+                <th className="px-2 py-3 text-right">Amount (UGX)</th>
+                <th className="px-2 py-3">Reference</th>
+                <th className="px-2 py-3">Received</th>
+                <th className="px-2 py-3">Status</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {pageRows.map((r) => {
-                const dir = directionPill(r);
-                const status = statusOf(r);
-                const isActive = active?.id === r.id;
-                return (
-                  <tr
-                    key={r.id}
-                    onClick={() => setActiveId(r.id)}
-                    aria-selected={isActive}
-                    className={`cursor-pointer border-t transition-colors hover:bg-muted/50 ${
-                      isActive ? 'bg-primary/5 shadow-[inset_3px_0_0_hsl(var(--primary))]' : ''
-                    }`}
-                  >
-                    <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selectedIds.has(r.id)}
-                        onCheckedChange={(v) => toggleOne(r.id, v === true)}
-                        aria-label={`Select email from ${senderOf(r)}`}
-                      />
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-3.5 text-muted-foreground">{when(r.internal_date)}</td>
-                    <td className="max-w-[220px] px-2 py-3.5">
-                      <button
-                        type="button"
-                        onClick={() => setActiveId(r.id)}
-                        className="block max-w-full truncate text-left font-semibold hover:underline"
-                      >
-                        {senderOf(r)}
-                      </button>
-                      {r.counterparty && r.counterparty !== senderOf(r) && (
-                        <div className="truncate text-xs text-muted-foreground">{r.counterparty}</div>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-3.5 text-right font-bold tabular-nums">{fmtUgx(r.amount)}</td>
-                    <td className="px-2 py-3.5"><Pill tone={dir.tone}>{dir.label}</Pill></td>
-                    <td className="px-2 py-3.5 font-mono text-xs">{r.transaction_id || '—'}</td>
-                    <td className="px-2 py-3.5">{readPill(r)}</td>
-                    <td className="px-4 py-3.5">
-                      {status ? <Pill tone={status.tone}>{status.label}</Pill> : <span className="text-muted-foreground">—</span>}
-                    </td>
-                  </tr>
-                );
-              })}
+              {pageRows.map((r) => (
+                <tr key={r.id} className="border-t align-middle hover:bg-muted/30">
+                  <td className="px-4 py-3">
+                    <Checkbox
+                      checked={selectedIds.has(r.id)}
+                      onCheckedChange={(v) => toggleOne(r.id, v === true)}
+                      aria-label={`Select email from ${senderOf(r)}`}
+                    />
+                  </td>
+                  <td className="max-w-[200px] px-2 py-3">
+                    <button
+                      type="button"
+                      onClick={() => setDetailId(r.id)}
+                      className="block max-w-full truncate text-left font-semibold hover:underline"
+                    >
+                      {senderOf(r)}
+                    </button>
+                    <div className="text-xs text-muted-foreground">{directionLabel(r)}</div>
+                  </td>
+                  <td className="max-w-[240px] truncate px-2 py-3 text-muted-foreground" title={r.subject ?? undefined}>
+                    {r.subject || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-2 py-3 text-right font-bold tabular-nums">
+                    {r.amount == null ? '—' : Math.round(r.amount).toLocaleString()}
+                  </td>
+                  <td className="px-2 py-3 font-mono text-xs">{r.transaction_id || '—'}</td>
+                  <td className="whitespace-nowrap px-2 py-3 text-muted-foreground">{when(r.internal_date)}</td>
+                  <td className="px-2 py-3">{statusPill(r)}</td>
+                  <td className="px-4 py-3">{renderActions(r)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
 
         {/* Phone: one card per email */}
         <div className="space-y-3 p-3 md:hidden">
-          {pageRows.map((r) => {
-            const dir = directionPill(r);
-            const status = statusOf(r);
-            const isActive = active?.id === r.id;
-            return (
-              <div
-                key={r.id}
-                className={`space-y-2.5 rounded-2xl border p-3.5 ${isActive ? 'border-primary/50 bg-primary/5' : 'bg-card'}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <button type="button" onClick={() => setActiveId(r.id)} className="min-w-0 text-left">
-                    <div className="text-lg font-bold tabular-nums">{fmtUgx(r.amount)}</div>
-                    <div className="truncate text-sm text-muted-foreground">{senderOf(r)} · {when(r.internal_date)}</div>
-                  </button>
-                  <Checkbox
-                    checked={selectedIds.has(r.id)}
-                    onCheckedChange={(v) => toggleOne(r.id, v === true)}
-                    aria-label={`Select email from ${senderOf(r)}`}
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Pill tone={dir.tone}>{dir.label}</Pill>
-                  {readPill(r)}
-                  {status && <Pill tone={status.tone}>{status.label}</Pill>}
-                </div>
-                {r.transaction_id && <div className="font-mono text-xs text-muted-foreground">{r.transaction_id}</div>}
+          {pageRows.map((r) => (
+            <div key={r.id} className="space-y-2.5 rounded-2xl border bg-card p-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <button type="button" onClick={() => setDetailId(r.id)} className="min-w-0 text-left">
+                  <div className="text-lg font-bold tabular-nums">{fmtUgx(r.amount)}</div>
+                  <div className="truncate text-sm text-muted-foreground">{senderOf(r)} · {when(r.internal_date)}</div>
+                </button>
+                <Checkbox
+                  checked={selectedIds.has(r.id)}
+                  onCheckedChange={(v) => toggleOne(r.id, v === true)}
+                  aria-label={`Select email from ${senderOf(r)}`}
+                />
               </div>
-            );
-          })}
+              {r.subject && <p className="truncate text-xs text-muted-foreground">{r.subject}</p>}
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone={r.direction === 'in' ? 'green' : r.direction === 'out' || r.direction === 'charge' ? 'blue' : 'grey'}>
+                  {directionLabel(r)}
+                </Pill>
+                {statusPill(r)}
+                {r.transaction_id && <span className="font-mono text-xs text-muted-foreground">{r.transaction_id}</span>}
+              </div>
+              {renderActions(r)}
+            </div>
+          ))}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
-          <span>
-            Showing {((safePage - 1) * PAGE_SIZE + 1).toLocaleString()}–
-            {Math.min(safePage * PAGE_SIZE, rows.length).toLocaleString()} of {rows.length.toLocaleString()} emails
-          </span>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>Previous</Button>
-            <Button size="sm" variant="outline" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>Next</Button>
-          </div>
+        <div className="border-t px-4 py-3">
+          <Pager page={safePage} pageSize={PAGE_SIZE} total={rows.length} onPage={setPage} noun="emails" />
         </div>
       </div>
 
-      {active && (
-        <DetailPanel
-          row={active}
-          input={inputFor(active)}
-          status={statusOf(active)}
-          onSendToWallet={onSendToWallet}
-          onChargeWallet={onChargeWallet}
-          onMarkResolved={onMarkResolved}
-          onViewHistory={onViewHistory}
-        />
-      )}
+      <Sheet open={!!detailRow} onOpenChange={(open) => { if (!open) setDetailId(null); }}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader className="text-left">
+            <SheetTitle>Email details</SheetTitle>
+            <SheetDescription>What was read from this email and what has happened to the money.</SheetDescription>
+          </SheetHeader>
+          {detailRow && (
+            <DetailPanel
+              row={detailRow}
+              input={inputFor(detailRow)}
+              status={statusOf(detailRow)}
+              onSendToWallet={(r) => { setDetailId(null); onSendToWallet(r); }}
+              onChargeWallet={(r) => { setDetailId(null); onChargeWallet(r); }}
+              onMarkResolved={(r) => { setDetailId(null); onMarkResolved(r); }}
+              onViewHistory={(r) => { setDetailId(null); onViewHistory(r); }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -279,17 +346,9 @@ function DetailPanel({
   onMarkResolved: (row: GmailTx) => void;
   onViewHistory: (row: GmailTx) => void;
 }) {
-  const dir = directionPill(row);
   const label = status?.label ?? '';
   const isIn = row.direction === 'in';
-  const isOut = row.direction === 'out' || row.direction === 'charge';
-  const settled = label === 'Credited' || label === 'Partially credited';
-
-  // Same eligibility the row swipe actions use, so this panel can never offer
-  // something the rest of the panel would not.
-  const canSend = isIn && !isWelileOutboundEcho(row) && label === 'Awaiting routing';
-  const canCharge = isOut && Number(row.amount ?? 0) > 0 && label === 'Not charged yet';
-  const canResolve = isIn && !input.manualMark && !settled && !isWelileOutboundEcho(row) && !isUnparsedRow(row);
+  const { canSend, canCharge, canResolve } = eligibilityFor(row, input, status);
 
   const matchedWallet =
     input.history.find((h) => h.target_user_name)?.target_user_name
@@ -333,15 +392,11 @@ function DetailPanel({
   }, [row, input, status, label, isIn]);
 
   return (
-    <aside
-      aria-label="Selected email details"
-      className="flex min-w-[300px] max-w-[420px] flex-[1_1_340px] flex-col gap-4 rounded-2xl border bg-card p-5"
-    >
+    <div className="mt-5 flex flex-col gap-5" aria-label="Selected email details">
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-1">
-          <div className="text-xs text-muted-foreground">Selected email</div>
           <div className="text-2xl font-bold tracking-tight tabular-nums">{fmtUgx(row.amount)}</div>
-          <div className="text-xs text-muted-foreground">{dir.label} · {when(row.internal_date)}</div>
+          <div className="text-xs text-muted-foreground">{directionLabel(row)} · {when(row.internal_date)}</div>
         </div>
         {status && <Pill tone={status.tone}>{status.label}</Pill>}
       </div>
@@ -389,6 +444,6 @@ function DetailPanel({
           <History className="mr-1.5 h-4 w-4" aria-hidden="true" /> View history
         </Button>
       </div>
-    </aside>
+    </div>
   );
 }

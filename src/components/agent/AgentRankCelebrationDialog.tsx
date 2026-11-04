@@ -21,7 +21,7 @@ type Perk = { icon: typeof Zap; text: string };
 const SHARED: Perk[] = [
   { icon: Users, text: "UGX 5,000 when a sub-agent's tenant gets their first funded Rent Plan" },
   { icon: UserPlus, text: 'UGX 200 when someone your invitee invites is verified' },
-  { icon: Percent, text: 'Keep your full 10% commission as a sub-agent' },
+  { icon: Percent, text: 'Keep your full 8% commission as a sub-agent' },
   { icon: BadgeCheck, text: 'Rank badge on your profile picture' },
 ];
 const EARLY: Perk = { icon: FlaskConical, text: 'First access to new features' };

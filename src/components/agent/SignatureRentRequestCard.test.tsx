@@ -32,7 +32,7 @@ describe('SignatureRentRequestCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /How do I earn/ }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText('1%')).toBeInTheDocument();
-    expect(screen.getByText('10%')).toBeInTheDocument();
+    expect(screen.getByText('8%')).toBeInTheDocument();
     expect(screen.getByText(/not a verified maximum or a guarantee/)).toBeInTheDocument();
   });
 });

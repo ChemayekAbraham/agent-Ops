@@ -9145,6 +9145,54 @@ export type Database = {
           },
         ]
       }
+      bike_lease_value_corrections: {
+        Row: {
+          amount_already_paid: number
+          corrected_at: string
+          corrected_by: string
+          id: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding: number | null
+          old_total_repayable: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Insert: {
+          amount_already_paid: number
+          corrected_at?: string
+          corrected_by: string
+          id?: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Update: {
+          amount_already_paid?: number
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          lease_id?: string
+          new_outstanding?: number
+          new_total_repayable?: number
+          new_value?: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value?: number
+          reason?: string
+          sale_id?: string
+        }
+        Relationships: []
+      }
       blocked_signup_ips: {
         Row: {
           blocked_by: string | null
@@ -34780,35 +34828,50 @@ export type Database = {
       merchandise_recovery_deductions: {
         Row: {
           amount: number
+          collection_mode: string | null
           created_at: string
           customer_id: string
           id: string
           item_name: string | null
           outstanding_after: number
           plan_id: string
+          reference: string | null
           transaction_ref: string | null
+          trigger_amount: number | null
+          trigger_category: string | null
+          trigger_ledger_id: string | null
           withdrawable_before: number
         }
         Insert: {
           amount: number
+          collection_mode?: string | null
           created_at?: string
           customer_id: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Update: {
           amount?: number
+          collection_mode?: string | null
           created_at?: string
           customer_id?: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id?: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Relationships: [
@@ -34840,6 +34903,9 @@ export type Database = {
           fee_recovered: number
           fee_total: number | null
           id: string
+          instant_sweep_set_at: string | null
+          instant_sweep_set_by: string | null
+          instant_wallet_sweep: boolean
           is_bike_lease: boolean
           item_name: string
           last_attempt_on: string | null
@@ -34883,6 +34949,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name: string
           last_attempt_on?: string | null
@@ -34926,6 +34995,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name?: string
           last_attempt_on?: string | null
@@ -37261,6 +37333,146 @@ export type Database = {
           received_at?: string
         }
         Relationships: []
+      }
+      nexa_portfolio_access_audit: {
+        Row: {
+          challenge_id: string | null
+          code_hash: string | null
+          created_at: string
+          detail: string | null
+          event: string
+          id: number
+          ip_hash: string | null
+          portfolio_id: string | null
+        }
+        Insert: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Update: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Relationships: []
+      }
+      nexa_portfolio_otp_challenges: {
+        Row: {
+          attempts: number
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip_hash: string | null
+          locked_until: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Insert: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Update: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash?: string
+          portfolio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      nexa_portfolio_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          portfolio_id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          portfolio_id: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          portfolio_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
       }
       nfc_cards: {
         Row: {
@@ -65977,6 +66189,8 @@ export type Database = {
       welile_homes_subscriptions: {
         Row: {
           agent_id: string | null
+          archive_reason: string | null
+          archived_at: string | null
           created_at: string
           email_statements_enabled: boolean | null
           enrolled_by: string | null
@@ -66007,6 +66221,8 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
@@ -66037,6 +66253,8 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
@@ -66915,6 +67133,42 @@ export type Database = {
           },
         ]
       }
+      wh_declined_deletion_log: {
+        Row: {
+          agent_id: string | null
+          deleted_at: string
+          deleted_by: string
+          deleted_items: Json
+          id: string
+          landlord_name: string | null
+          monthly_rent: number | null
+          subscription_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by?: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       wh_float_request_events: {
         Row: {
           action: string
@@ -66958,6 +67212,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wh_fresh_start: {
+        Row: {
+          archived_at: string
+          cutoff: string
+          id: boolean
+          note: string
+        }
+        Insert: {
+          archived_at?: string
+          cutoff: string
+          id?: boolean
+          note: string
+        }
+        Update: {
+          archived_at?: string
+          cutoff?: string
+          id?: boolean
+          note?: string
+        }
+        Relationships: []
       }
       wh_historical_disbursements: {
         Row: {
@@ -67027,6 +67302,7 @@ export type Database = {
       wh_landlord_portfolio_verifications: {
         Row: {
           agent_id: string
+          archived_at: string | null
           created_at: string
           id: string
           landlord_name: string | null
@@ -67040,6 +67316,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           created_at?: string
           id?: string
           landlord_name?: string | null
@@ -67053,6 +67330,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           created_at?: string
           id?: string
           landlord_name?: string | null
@@ -67069,6 +67347,7 @@ export type Database = {
       wh_nin_check_log: {
         Row: {
           agent_id: string
+          archived_at: string | null
           checked_at: string
           id: number
           result: string
@@ -67076,6 +67355,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           checked_at?: string
           id?: number
           result: string
@@ -67083,6 +67363,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           checked_at?: string
           id?: number
           result?: string
@@ -67123,6 +67404,7 @@ export type Database = {
       wh_tenant_drafts: {
         Row: {
           agent_id: string
+          archived_at: string | null
           created_at: string
           form: Json
           id: string
@@ -67135,6 +67417,7 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          archived_at?: string | null
           created_at?: string
           form?: Json
           id?: string
@@ -67147,6 +67430,7 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          archived_at?: string | null
           created_at?: string
           form?: Json
           id?: string
@@ -67634,7 +67918,8 @@ export type Database = {
           destination_masked: string | null
           expires_at: string
           id: string
-          reset_id: string
+          purpose: string
+          reset_id: string | null
           user_id: string
           verified_at: string | null
         }
@@ -67646,7 +67931,8 @@ export type Database = {
           destination_masked?: string | null
           expires_at: string
           id?: string
-          reset_id: string
+          purpose?: string
+          reset_id?: string | null
           user_id: string
           verified_at?: string | null
         }
@@ -67658,7 +67944,8 @@ export type Database = {
           destination_masked?: string | null
           expires_at?: string
           id?: string
-          reset_id?: string
+          purpose?: string
+          reset_id?: string | null
           user_id?: string
           verified_at?: string | null
         }
@@ -73755,6 +74042,15 @@ export type Database = {
         Args: { p_agent: string }
         Returns: boolean
       }
+      _bike_instant_sweep: {
+        Args: {
+          p_agent: string
+          p_trigger_amount: number
+          p_trigger_cat: string
+          p_trigger_id: string
+        }
+        Returns: number
+      }
       _bike_priority_remaining: {
         Args: { p_agent: string; p_day: string }
         Returns: number
@@ -73771,6 +74067,7 @@ export type Database = {
           surplus: number
         }[]
       }
+      _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -74114,6 +74411,10 @@ export type Database = {
         Args: { p_bike: boolean; p_plans: string[]; p_sale: string }
         Returns: Json
       }
+      _merch_release_receivable_category: {
+        Args: { p_item_name: string }
+        Returns: string
+      }
       _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_on_issue: { Args: { p_sale: string }; Returns: undefined }
       _merch_stock_queue: {
@@ -74218,6 +74519,18 @@ export type Database = {
         Returns: Json
       }
       _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
+      _release_unpaid_commission_budget: {
+        Args: {
+          p_budget: number
+          p_idempotency_key: string
+          p_offset_category: string
+          p_paid: number
+          p_reference_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       _renewal_advice_core: {
         Args: {
           p_as_at: string
@@ -74670,6 +74983,8 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_archive_viewer: { Args: never; Returns: boolean }
+      _wh_declined_block_reason: { Args: { p_id: string }; Returns: string }
       _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
       _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
       _wh_hist_can_read: { Args: never; Returns: boolean }
@@ -74692,6 +75007,7 @@ export type Database = {
         Args: { p_agent: string; p_landlord_id: string; p_phone: string }
         Returns: string
       }
+      _wh_sub_archived: { Args: { p_sub: string }; Returns: boolean }
       _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -78266,6 +78582,10 @@ export type Database = {
         Returns: Json
       }
       cfo_corr_5300000_preflight: { Args: never; Returns: Json }
+      cfo_correct_bike_lease_value: {
+        Args: { p_lease_id: string; p_new_value: number; p_reason: string }
+        Returns: Json
+      }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
@@ -78600,6 +78920,10 @@ export type Database = {
       }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
+        Returns: Json
+      }
+      cfo_set_bike_instant_sweep: {
+        Args: { p_enabled: boolean; p_plan_id: string; p_reason: string }
         Returns: Json
       }
       cfo_set_landlord_float_budget: {
@@ -79396,6 +79720,19 @@ export type Database = {
       credit_agent_tid_backed_float: {
         Args: { p_agent_id: string; p_delta: number }
         Returns: undefined
+      }
+      credit_collection_commission: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_commission_budget?: number
+          p_context: string
+          p_idempotency_key: string
+          p_offset_category?: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
       }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
@@ -88611,6 +88948,42 @@ export type Database = {
         Returns: Json
       }
       neexabot_profile_id: { Args: never; Returns: string }
+      nexa_get_my_portfolios: {
+        Args: never
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_get_portfolio_by_id: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_portfolio_otp_target: {
+        Args: { p_portfolio_code: string }
+        Returns: {
+          investor_id: string
+          phone: string
+          portfolio_id: string
+        }[]
+      }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
       normalize_email_for_match: { Args: { p_email: string }; Returns: string }
@@ -90635,6 +91008,23 @@ export type Database = {
       pin_challenge_issue: {
         Args: {
           p_channel: string
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_complete: {
+        Args: {
+          p_current_pin: string
+          p_email_code_hash: string
+          p_new_pin: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_issue: {
+        Args: {
           p_code_hash: string
           p_destination_masked?: string
           p_user: string
@@ -97384,7 +97774,22 @@ export type Database = {
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      wh_archive_declined_subscription: {
+        Args: { p_reason?: string; p_subscription_id: string }
+        Returns: Json
+      }
       wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_declined_delete_check: {
+        Args: { p_subscription_ids: string[] }
+        Returns: {
+          reason: string
+          subscription_id: string
+        }[]
+      }
+      wh_delete_declined_applications: {
+        Args: { p_subscription_ids: string[] }
+        Returns: Json
+      }
       wh_enroll_tenant_with_identity: {
         Args: {
           p_agent_id: string
