@@ -1,6 +1,6 @@
 import { useEffect, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
-import { ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
@@ -53,9 +53,11 @@ import { WithdrawalRequestsManager } from '@/components/manager/WithdrawalReques
 import { GeneralLedger } from '@/components/manager/GeneralLedger';
 import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
 import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts';
-import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
-import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
-import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
+
+
+import CfoLandlordPayoutFloatPanel from '@/components/cfo/CfoLandlordPayoutFloatPanel';
+import CfoTenantBalanceChangesPage from '@/components/cfo/CfoTenantBalanceChangesPage';
+import CfoGeneralPayoutActivityPage from '@/components/cfo/CfoGeneralPayoutActivityPage';
 import { WithdrawalHistoryStatement } from '@/components/financial-ops/WithdrawalHistoryStatement';
 import { StaleWithdrawalHoldsPanel } from '@/components/cfo/StaleWithdrawalHoldsPanel';
 import { PayoutReconciliationQueue } from '@/components/financial-ops/PayoutReconciliationQueue';
@@ -116,7 +118,6 @@ import { FinanceMonitoringHealthPanel } from '@/components/cfo/FinanceMonitoring
 import { CFOUnfundingApprovals } from '@/components/cfo/CFOUnfundingApprovals';
 import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
 import { LandlordFloatIdleQueue } from '@/components/shared/LandlordFloatIdleQueue';
-import { CFOTenantBalanceApprovals } from '@/components/cfo/CFOTenantBalanceApprovals';
 import { SmsDeliveryLogPanel } from '@/components/cfo/SmsDeliveryLogPanel';
 import { SmsFailureAlertsPanel } from '@/components/cfo/SmsFailureAlertsPanel';
 import { AlreadyFundedLandlordsPanel } from '@/components/cfo/AlreadyFundedLandlordsPanel';
@@ -246,7 +247,29 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
-            <RecentApprovalsByCategory />
+            {/* Quick jump to General Payout Activity */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
+                  <ClipboardCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">General Payout Activity &amp; Approvals</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    View all past disbursements, approvals, category breakdowns, and export PDF statements.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                onClick={() => setActiveTab('general-payout-activity')}
+              >
+                Open Activity Desk
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
 
             {/* ── Security assurance card ── */}
             <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
@@ -271,6 +294,9 @@ export default function CFODashboardPage() {
             </div>
           </div>
         );
+
+      case 'general-payout-activity':
+        return <CfoGeneralPayoutActivityPage />;
 
       case 'standing-orders':
         return (
@@ -409,24 +435,9 @@ export default function CFODashboardPage() {
           </div>
         );
       case 'landlord-payout-float':
-        return (
-          <div className="space-y-4">
-            <div>
-              <h1 className="text-xl font-bold">🏠 Landlord Payout Float</h1>
-              <p className="text-sm text-muted-foreground">
-                Fund agents' Landlord Payout Float from COO-approved rent requests.
-                Each disbursement earmarks money for a specific tenant's landlord —
-                the agent then pays the landlord via MoMo (gated by landlord OTP and Financial Ops sign-off).
-              </p>
-            </div>
-            <CFOTenantBalanceApprovals />
-            <LandlordFloatIdleQueue />
-            <CFOAllocationReturnApprovals />
-            <PromissoryBookingsPanel />
-            <BatchPayoutProcessor />
-            <LandlordFloatAllocationsPanel />
-          </div>
-        );
+        return <CfoLandlordPayoutFloatPanel />;
+      case 'tenant-balance-changes':
+        return <CfoTenantBalanceChangesPage />;
       case 'welile-homes-payouts':
         return (
           <div className="space-y-4">

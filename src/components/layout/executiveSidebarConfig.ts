@@ -6,7 +6,7 @@ import {
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
   Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
-  Sparkles,
+  Sparkles, ScrollText, ClipboardCheck,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -129,6 +129,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll History & Advances', icon: History, id: 'cfo-payroll-history', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
+        { label: 'General Payout Activity', icon: ClipboardCheck, id: 'general-payout-activity' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
@@ -171,6 +172,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       { label: 'Rent Payouts', icon: Banknote, id: 'rent-payouts' },
         { label: 'Approved Rent Requests', icon: ClipboardList, id: 'approved-rent-payouts' },
         { label: 'Landlord Payout Float', icon: Home, id: 'landlord-payout-float' },
+        { label: 'Tenant Balance Changes', icon: ScrollText, id: 'tenant-balance-changes', access: CFO_ACCESS },
         { label: 'Welile Homes Float Payouts', icon: Home, id: 'welile-homes-payouts' },
         { label: 'Welile Signages', icon: Megaphone, id: 'signages' },
         { label: 'Landlord Float Budget', icon: Gauge, id: 'landlord-float-budget' },
