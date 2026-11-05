@@ -137,7 +137,13 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
         onClick={openCard}
         onPointerEnter={preloadOnboarding}
         onTouchStart={preloadOnboarding}
-        className="relative w-full rounded-2xl border-2 border-primary/40 bg-primary p-5 sm:p-6 text-left flex flex-col shadow-lg active:scale-[0.99] transition-all touch-manipulation overflow-hidden min-h-[175px] sm:min-h-[195px]"
+        style={{
+          // Same gradient as the landlord dashboard's "Register your house here" card.
+          background: 'linear-gradient(135deg, #8b28f7 0%, #6d1bbd 50%, #4c1285 100%)',
+          backgroundColor: '#7214c9',
+          WebkitTapHighlightColor: 'transparent',
+        }}
+        className="agent-post-rent-request-card [container-type:inline-size] relative w-full rounded-2xl border-2 border-primary/40 bg-primary p-5 sm:p-6 text-left flex flex-col shadow-lg active:scale-[0.99] transition-all touch-manipulation overflow-hidden min-h-[175px] sm:min-h-[195px]"
       >
         {/* The house, very faint, behind the text */}
         <FadedHouseIllustration opacity={0.2} />
@@ -146,10 +152,10 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
             <div className="p-2.5 sm:p-3 rounded-xl bg-primary-foreground/20 text-primary-foreground w-fit shadow-xs">
               <HandCoins className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
-            <p className="font-extrabold text-[22px] sm:text-[30px] lg:text-[34px] leading-tight text-primary-foreground tracking-tight text-center">
-              <span className="block">Request</span>
-              <span className="block">rent</span>
-              <span className="block">here</span>
+            <p className="flex flex-col items-center gap-[2.4cqw] text-center select-none">
+              <span className="text-[length:clamp(20px,6.6cqw,34px)] font-extrabold uppercase tracking-tight leading-none text-white/85">Request</span>
+              <span className="text-[length:clamp(30px,10.4cqw,54px)] font-black uppercase tracking-tighter leading-none text-white drop-shadow-md">rent</span>
+              <span className="text-[length:clamp(30px,10.4cqw,54px)] font-black uppercase tracking-tighter leading-none text-white drop-shadow-md">here</span>
             </p>
           </div>
 
@@ -171,8 +177,8 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
                 <p className="text-xs font-semibold text-primary-foreground/90 underline">Track progress</p>
               </>
             ) : (
-              <p className="text-sm sm:text-base text-primary-foreground/90 leading-snug sm:leading-relaxed font-medium line-clamp-2 lg:line-clamp-3 break-words">
-                Request rent · agent verifies your house
+              <p className="text-right text-sm sm:text-base text-green-300 leading-snug sm:leading-relaxed font-semibold line-clamp-2 lg:line-clamp-3 break-words">
+                Access rent of up to UGX 30,000,000
               </p>
             )}
             {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
