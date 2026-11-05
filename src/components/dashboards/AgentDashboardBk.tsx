@@ -181,7 +181,6 @@ import { RecentAutoCharges } from '@/components/wallet/RecentAutoCharges';
 import { StuckDepositsRepairPanel } from '@/components/wallet/StuckDepositsRepairPanel';
 import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentRequestsList';
 
-import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
@@ -1829,7 +1828,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
-                { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
               ].map((a) => (
                 <button
                   key={a.label}
@@ -1844,7 +1842,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </button>
               ))}
             </div>
-            <ShareRentRecorderCard />
           </div>
         )}
 
