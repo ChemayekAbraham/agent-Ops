@@ -235,7 +235,7 @@ export function SelfPortfolioPlanDetailSheet({
           positioning (Tailwind orders `relative` after `fixed`) and drop the
           panel into normal flow below the viewport — the sheet would open as a
           blank, washed-out screen. Children position against this fixed box. */}
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-none p-0">
+      <SheetContent side="bottom" className="plan-detail-sheet max-h-[92vh] overflow-y-auto rounded-t-none p-0">
 
         <SheetHeader className="sr-only">
           <SheetTitle>Rent plan details</SheetTitle>
