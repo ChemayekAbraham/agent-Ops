@@ -74861,6 +74861,7 @@ export type Database = {
       }
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
+      _cfo_meter: { Args: never; Returns: Json }
       _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
       _cfo_paid_lunch_correction_ok: {
         Args: { p_amount: number; p_group: string; p_id: string; p_ts: string }
@@ -79295,10 +79296,12 @@ export type Database = {
         Returns: Json
       }
       cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_budget_meter: { Args: never; Returns: Json }
       cfo_cancel_bike_lease: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
+      cfo_check_selection: { Args: { p_ids: string[] }; Returns: Json }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
@@ -82371,6 +82374,7 @@ export type Database = {
           village: string
         }[]
       }
+      funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funding_commission_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
