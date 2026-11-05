@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle2, Clock, Home, Loader2, RefreshCw, RotateCcw, Wallet } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Ban, CheckCircle2, Clock, Home, Loader2, RefreshCw, RotateCcw, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,36 +17,48 @@ const RETURN_RATE = 0.15;
 
 function BookingRow({ booking, busy, onRelease }: { booking: FunderBooking; busy: boolean; onRelease?: () => void }) {
   const photo = booking.image_urls?.find(Boolean);
-  const held = booking.status === 'reserved';
+  const held = booking.status === 'reserved' && !booking.taken;
+  const taken = booking.status === 'reserved' && booking.taken;
   return (
     <article className="flex items-center gap-3 py-3">
-      <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
-        {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <Home className="h-6 w-6 text-primary" />}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="break-words font-semibold">{booking.title}</p>
-        <p className="break-words text-xs text-muted-foreground">{booking.district || 'Location on file'}</p>
-        <p className="mt-0.5 text-sm font-semibold">
-          {formatUGX(booking.monthly_rent)}{' '}
-          <span className="text-xs font-medium text-success">+{formatUGX(Math.round(Number(booking.monthly_rent || 0) * RETURN_RATE))}/mo</span>
-        </p>
-        {held ? (
-          <Badge variant="secondary" className="mt-1 gap-1 text-[11px]">
-            <Clock className="h-3 w-3" aria-hidden />
-            Held · {booking.days_left ?? 0} day{(booking.days_left ?? 0) === 1 ? '' : 's'} left
-          </Badge>
-        ) : (
-          <Badge className="mt-1 gap-1 text-[11px]">
-            <CheckCircle2 className="h-3 w-3" aria-hidden />
-            Funding submitted
-          </Badge>
-        )}
-      </div>
+      <Link
+        to={`/house/${booking.house_id}`}
+        aria-label={`Open details for ${booking.title}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10">
+          {photo ? <img src={photo} alt="" className="h-full w-full object-cover" /> : <Home className="h-6 w-6 text-primary" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="break-words font-semibold">{booking.title}</p>
+          <p className="break-words text-xs text-muted-foreground">{booking.district || 'Location on file'}</p>
+          <p className="mt-0.5 text-sm font-semibold">
+            {formatUGX(booking.monthly_rent)}{' '}
+            <span className="text-xs font-medium text-success">+{formatUGX(Math.round(Number(booking.monthly_rent || 0) * RETURN_RATE))}/mo</span>
+          </p>
+          {taken ? (
+            <Badge variant="outline" className="mt-1 gap-1 border-destructive/40 text-[11px] text-destructive">
+              <Ban className="h-3 w-3" aria-hidden />
+              Taken — no longer available
+            </Badge>
+          ) : held ? (
+            <Badge variant="secondary" className="mt-1 gap-1 text-[11px]">
+              <Clock className="h-3 w-3" aria-hidden />
+              Held · {booking.days_left ?? 0} day{(booking.days_left ?? 0) === 1 ? '' : 's'} left
+            </Badge>
+          ) : (
+            <Badge className="mt-1 gap-1 text-[11px]">
+              <CheckCircle2 className="h-3 w-3" aria-hidden />
+              Funding submitted
+            </Badge>
+          )}
+        </div>
+      </Link>
       {held && onRelease ? (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="shrink-0 text-muted-foreground hover:text-destructive"
+          className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
           disabled={busy}
           onClick={onRelease}
           aria-label={`Give up ${booking.title}`}
@@ -61,7 +74,8 @@ function BookingRow({ booking, busy, onRelease }: { booking: FunderBooking; busy
 /**
  * Houses this Supporter booked (7-day holds) and houses whose funding was
  * submitted. Held houses are funded together, so a set of small rents can
- * reach the house minimum that a single house cannot.
+ * reach the house minimum that a single house cannot. The fund action sits
+ * below the list so the supporter reads what they hold before funding it.
  */
 export function FunderBookedHousesSection() {
   const { query, bookings, held } = useFunderBookedHouses();
@@ -70,6 +84,7 @@ export function FunderBookedHousesSection() {
   const [releasing, setReleasing] = useState<string | null>(null);
 
   const submitted = bookings.filter((b) => b.status === 'funded');
+  const takenBookings = bookings.filter((b) => b.status === 'reserved' && b.taken);
   const heldTotal = held.reduce((sum, b) => sum + Number(b.monthly_rent || 0), 0);
   const belowMinimum = heldTotal < BOOKED_HOUSES_MIN_FUNDING;
 
@@ -90,7 +105,7 @@ export function FunderBookedHousesSection() {
       </div>
     );
   }
-  if (held.length === 0 && submitted.length === 0) return null;
+  if (held.length === 0 && submitted.length === 0 && takenBookings.length === 0) return null;
 
   const fundAll = async () => {
     setFunding(true);
@@ -130,6 +145,23 @@ export function FunderBookedHousesSection() {
         ) : null}
       </div>
 
+      <div className="divide-y divide-border">
+        {held.map((booking) => (
+          <BookingRow
+            key={booking.intent_id}
+            booking={booking}
+            busy={releasing === booking.house_id || funding}
+            onRelease={() => void release(booking)}
+          />
+        ))}
+        {submitted.map((booking) => (
+          <BookingRow key={booking.intent_id} booking={booking} busy={false} />
+        ))}
+        {takenBookings.map((booking) => (
+          <BookingRow key={booking.intent_id} booking={booking} busy={false} />
+        ))}
+      </div>
+
       {held.length ? (
         <div className="space-y-2 rounded-xl border bg-muted/30 p-3">
           {belowMinimum ? (
@@ -160,20 +192,6 @@ export function FunderBookedHousesSection() {
           )}
         </div>
       ) : null}
-
-      <div className="divide-y divide-border">
-        {held.map((booking) => (
-          <BookingRow
-            key={booking.intent_id}
-            booking={booking}
-            busy={releasing === booking.house_id || funding}
-            onRelease={() => void release(booking)}
-          />
-        ))}
-        {submitted.map((booking) => (
-          <BookingRow key={booking.intent_id} booking={booking} busy={false} />
-        ))}
-      </div>
     </section>
   );
 }

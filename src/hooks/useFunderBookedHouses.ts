@@ -20,6 +20,8 @@ export interface FunderBooking {
   release_reason: string | null;
   funded_at: string | null;
   days_left: number | null;
+  /** True when the house was taken over (tenant placed, delisted or claimed by another Supporter) and can no longer be funded. */
+  taken: boolean;
   created_at: string;
 }
 
@@ -54,7 +56,7 @@ export function useFunderBookedHouses(enabled = true) {
   }, [client]);
 
   const bookings = query.data ?? [];
-  const held = bookings.filter((b) => b.status === 'reserved');
+  const held = bookings.filter((b) => b.status === 'reserved' && !b.taken);
   return { query, bookings, held, heldCount: held.length };
 }
 
