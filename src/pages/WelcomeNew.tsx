@@ -198,7 +198,7 @@ export default function WelcomeNew() {
               <p className={s.subtitle}>Where homes meet opportunity.</p>
               <Dots count={4} active={0} />
               <button type="button" className={s.primary} onClick={() => go(1)}>Get Started <ArrowRight size={18} aria-hidden /></button>
-              <button type="button" className={s.textLink} onClick={() => navigate(SIGN_IN)}>Sign in</button>
+              <button type="button" className={s.textLink} onClick={() => navigate(SIGN_IN)}>Sign in / Login</button>
             </div>
             <Footer />
           </div>
