@@ -38290,6 +38290,45 @@ export type Database = {
           },
         ]
       }
+      ontology_boards: {
+        Row: {
+          actions: string[]
+          data_rpc: string | null
+          name: string
+          notes: string | null
+          ord: number
+          owner_roles: string[]
+          purpose: string
+          route: string | null
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          actions?: string[]
+          data_rpc?: string | null
+          name: string
+          notes?: string | null
+          ord: number
+          owner_roles?: string[]
+          purpose: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          actions?: string[]
+          data_rpc?: string | null
+          name?: string
+          notes?: string | null
+          ord?: number
+          owner_roles?: string[]
+          purpose?: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       ontology_capture: {
         Row: {
           enabled: boolean
@@ -38397,6 +38436,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_doc_snapshots: {
+        Row: {
+          added: Json
+          doc: string
+          id: number
+          inventory: Json
+          retired: Json
+          taken_at: string
+          version: string | null
+        }
+        Insert: {
+          added?: Json
+          doc: string
+          id?: number
+          inventory: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Update: {
+          added?: Json
+          doc?: string
+          id?: number
+          inventory?: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      ontology_link_types: {
+        Row: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version: string | null
+          status: string
+          to_object: string
+          via: string
+        }
+        Insert: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version?: string | null
+          status?: string
+          to_object: string
+          via: string
+        }
+        Update: {
+          from_object?: string
+          meaning?: string
+          name?: string
+          since_version?: string | null
+          status?: string
+          to_object?: string
+          via?: string
+        }
+        Relationships: []
+      }
       ontology_meta: {
         Row: {
           key: string
@@ -38462,6 +38561,51 @@ export type Database = {
           desks?: string[] | null
           meaning?: string
           requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_rules: {
+        Row: {
+          action: string | null
+          automation: string
+          basis: string
+          board: string
+          condition: string
+          decision: string
+          notes: string | null
+          owner: string | null
+          reason_code: string | null
+          rule_id: string
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board: string
+          condition: string
+          decision: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id: string
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board?: string
+          condition?: string
+          decision?: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id?: string
+          since_version?: string | null
           status?: string
         }
         Relationships: []
@@ -75175,6 +75319,9 @@ export type Database = {
         Args: { p_origin: string; p_sale: string }
         Returns: string
       }
+      _ontology_board_stage: { Args: { p_board: string }; Returns: string }
+      _ontology_document_text: { Args: never; Returns: string }
+      _ontology_inventory: { Args: never; Returns: Json }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -89833,9 +89980,13 @@ export type Database = {
         Args: { p_day?: string; p_feed: string }
         Returns: Json
       }
+      ontology_desk_view: { Args: { p_days?: number }; Returns: Json }
+      ontology_doc_snapshot: { Args: never; Returns: number }
+      ontology_document: { Args: never; Returns: string }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_rules_for_desk: { Args: { p_desk: string }; Returns: Json }
       ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
