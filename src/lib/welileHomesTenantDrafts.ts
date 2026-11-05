@@ -104,6 +104,9 @@ export async function uploadDraftTenantPhoto(agentId: string, key: string, file:
     blob = out.file;
     ext = (out.file.type.split('/')[1] || ext).toLowerCase();
   } catch { /* keep original */ }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(agentId)) {
+    throw new Error('Your agent account could not be identified. Please sign in again.');
+  }
   const path = `${agentId}/drafts/${key}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(WH_TENANT_ID_BUCKET).upload(path, blob, {
     contentType: blob.type || 'image/jpeg', upsert: false,
