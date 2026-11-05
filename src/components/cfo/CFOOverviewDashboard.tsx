@@ -164,8 +164,8 @@ export function CFOOverviewDashboard({
       a.click();
       URL.revokeObjectURL(url);
       toast.success(`Exported ${data.length} commission records`);
-    } catch (e: any) {
-      toast.error(e.message || 'Export failed');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setExportingCommissions(false);
     }
@@ -214,7 +214,8 @@ export function CFOOverviewDashboard({
 
   /* ── presentation-only derivations (no new data sources) ── */
   const firstName = (() => {
-    const raw = (user?.user_metadata as any)?.full_name || user?.email || '';
+    const meta = user?.user_metadata as Record<string, unknown> | undefined;
+    const raw = (meta?.full_name as string | undefined) || user?.email || '';
     const first = String(raw).split(/[\s@.]+/)[0] || '';
     return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there';
   })();
@@ -261,22 +262,29 @@ export function CFOOverviewDashboard({
       </div>}
 
       {cashPositionOnly && (
-        <div className="cash-position-heading flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="cash-position-heading flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-border/60 pb-5">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary">Finance command centre</p>
-            <h1 className="text-3xl font-bold tracking-normal">Cash Position</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{greeting}, CFO. Live liquidity, obligations and cash movement.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Treasury &amp; Liquidity Command Centre
+              </p>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Cash Position</h1>
+            <p className="mt-1 text-xs text-muted-foreground max-w-xl leading-relaxed">
+              Real-time available float, verified bank balances, obligations, and liquidity velocity.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium shadow-sm">
-              <CalendarDays className="h-4 w-4 text-primary" />
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <div className="flex h-9 items-center gap-2 rounded-lg border border-border/80 bg-card px-3 text-xs font-medium shadow-2xs">
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
               {monthRangeLabel}
             </div>
-            <Button variant="outline" size="sm" className="h-10 rounded-md" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
-              <RefreshCw className={refreshingCashPosition ? 'animate-spin' : ''} />
+            <Button variant="outline" size="sm" className="h-9 rounded-lg gap-1.5 text-xs font-medium border-border/80 shadow-2xs hover:bg-muted/80" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingCashPosition ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <p className="w-full text-right text-[10px] text-muted-foreground">Last updated: {actualUpdatedAt ? new Date(actualUpdatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' EAT' : '—'}</p>
+            <p className="w-full text-right text-[11px] text-muted-foreground/80 tabular-nums">Last updated: {actualUpdatedAt ? new Date(actualUpdatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' EAT' : '—'}</p>
           </div>
         </div>
       )}

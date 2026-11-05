@@ -1811,38 +1811,39 @@ html.reduce-motion *::after {
   --success: 151 67% 52%; --primary: 260 90% 73%;
   --info: 215 95% 65%; --warning: 39 95% 62%;
 }
-.cash-position-heading { margin-bottom: 20px; }
-.cash-position-heading > div:first-child > p:first-child { letter-spacing: 0; }
-.cash-position-heading h1 { font-size: 28px; line-height: 34px; }
+.cash-position-heading { margin-bottom: 24px; }
+.cash-position-heading > div:first-child > p:first-child { letter-spacing: 0.05em; }
+.cash-position-heading h1 { font-size: 26px; line-height: 32px; font-weight: 700; }
 .cash-position-heading h1 + p { font-size: 12px; }
-.cash-position-page > .space-y-6 > * + * { margin-top: 14px; }
-.cash-position-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.cash-position-kpis > div { border-radius: 8px; box-shadow: var(--cash-panel-shadow); }
+.cash-position-page > .space-y-6 > * + * { margin-top: 18px; }
+.cash-position-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cash-position-kpis > div { border-radius: 12px; border: 1px solid hsl(var(--border) / 0.8); background: hsl(var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); transition: all 0.2s; }
+.cash-position-kpis > div:hover { border-color: hsl(var(--border)); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06); }
 .cash-position-kpis > div > button,
-.cash-position-kpis > div > div { padding: 14px; }
-.cash-position-kpis > div > button { border-radius: 8px; }
+.cash-position-kpis > div > div { padding: 16px; }
+.cash-position-kpis > div > button { border-radius: 12px; }
 .cash-position-kpis > div > button > div:first-child > div,
-.cash-position-kpis > div > div > button > div:first-child > div { width: 32px; height: 32px; }
+.cash-position-kpis > div > div > button > div:first-child > div { width: 32px; height: 32px; border-radius: 8px; }
 .cash-position-kpis > div > button > p:nth-of-type(2),
-.cash-position-kpis > div > div > button > p:nth-of-type(2) { font-size: 15px; white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
+.cash-position-kpis > div > div > button > p:nth-of-type(2) { font-size: 16px; white-space: normal; overflow-wrap: anywhere; line-height: 22px; font-weight: 700; }
 .cash-position-kpis svg[viewBox="0 0 80 32"] { width: 58px; height: 24px; }
 .cash-position-kpis > div > button > div:has(svg[viewBox="0 0 80 32"]) { gap: 4px; }
 .cash-position-kpis > div > button > div > p { font-size: 10px; }
-.cash-panel, .cash-insights-layout .rounded-md { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; box-shadow: var(--cash-panel-shadow); }
-.cash-panel { padding: 14px; min-width: 0; }
-.cash-insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.cash-panel, .cash-insights-layout .rounded-md { background: hsl(var(--card)); border: 1px solid hsl(var(--border) / 0.8); border-radius: 12px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); }
+.cash-panel { padding: 16px; min-width: 0; }
+.cash-insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .cash-analysis-primary, .cash-analysis-secondary { display: contents; }
 .cash-flow-chart { grid-row: 1; }
-.cash-breakdowns { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.cash-breakdowns { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .cash-account-table { grid-row: 3; }
 .cash-key-insights { grid-row: 4; }
 .cash-quick-actions { grid-row: 5; }
 .cash-analysis-heading { margin-top: 10px; }
-.cash-insights-layout .cash-quick-actions > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cash-insights-layout .cash-quick-actions > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cash-quick-actions button { margin: 0; justify-content: flex-start; }
 .cash-quick-actions button > span:nth-child(2) > span:last-child,
 .cash-quick-actions button > svg:last-child { display: none; }
-.cash-quick-actions button > span:nth-child(2) > span:first-child { font-size: 10px; }
+.cash-quick-actions button > span:nth-child(2) > span:first-child { font-size: 11px; }
 .cash-key-insights button > span:nth-child(2) > span:last-child { white-space: normal; font-size: 10px; }
 .cash-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; }
 .cash-dot-primary { background: hsl(var(--primary)); }
@@ -1859,8 +1860,8 @@ html.reduce-motion *::after {
   .cash-insights-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
   .cash-flow-chart { grid-column: 1 / -1; grid-row: 1; }
   .cash-breakdowns { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cash-account-table { grid-column: 1 / 9; grid-row: 3; }
-  .cash-key-insights { grid-column: 9 / 13; grid-row: 3; }
+  .cash-account-table { grid-column: 1 / 8; grid-row: 3; }
+  .cash-key-insights { grid-column: 8 / 13; grid-row: 3; }
   .cash-quick-actions { grid-column: 1 / -1; grid-row: 4; }
   .cash-quick-actions > div > div:last-child { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cash-decision-brief, .cash-analysis-heading { grid-column: 1 / -1; }

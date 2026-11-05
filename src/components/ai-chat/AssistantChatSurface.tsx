@@ -114,7 +114,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
   };
 
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden bg-background p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(720px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl border border-border'}`}>
+    <SheetContent side={isMobile ? 'bottom' : 'right'} style={isMobile ? undefined : { left: 'auto', top: 'auto', right: '1rem', bottom: '1.5rem', width: 'min(420px, calc(100vw - 2rem))', maxWidth: 'min(420px, calc(100vw - 2rem))', height: 'min(720px, calc(100dvh - 3rem))' }} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden bg-background p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(720px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl border border-border'}`}>
       <SheetHeader className="flex flex-row items-center gap-2 space-y-0 border-b border-border px-3 py-2.5 text-left [&>button:first-child]:hidden">
         {showHistory ? <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Back to chat" onClick={() => setShowHistory(false)}><ArrowLeft /></Button> : <Avatar size="h-8 w-8" />}
         <div className="min-w-0 flex-1 leading-tight">

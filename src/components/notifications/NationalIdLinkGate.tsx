@@ -4,6 +4,11 @@
  * Someone else photographed a National ID that this account holds. Only the
  * holder can allow it, so this dialog cannot be closed until it is answered.
  * The holder is shown the ID number and nothing else.
+ *
+ * It only opens once the asker has entered the code sent to the holder, when
+ * Allow works. Opened earlier it left Refuse as the only usable button on a
+ * dialog that cannot be closed, and holders who agreed refused by mistake (all
+ * 25 refusals in the 30 days to 2026-11-05 came before the code was entered).
  */
 import { useState } from 'react';
 import { Loader2, ShieldAlert } from 'lucide-react';
@@ -27,7 +32,7 @@ export default function NationalIdLinkGate() {
   const [note, setNote] = useState('');
   const [confirming, setConfirming] = useState<'approve' | 'reject' | null>(null);
 
-  const row = requests.data?.[0];
+  const row = requests.data?.find((r) => !!r.code_verified_at);
   if (!row) return null;
 
   const answer = async (approve: boolean) => {
@@ -40,8 +45,6 @@ export default function NationalIdLinkGate() {
       toast.error(e instanceof Error ? e.message : 'Could not send your answer.');
     }
   };
-
-  const codeEntered = !!row.code_verified_at;
 
   return (
     <Dialog open>
@@ -77,21 +80,6 @@ export default function NationalIdLinkGate() {
             {new Date(row.expires_at as string).toLocaleDateString('en-GB', { dateStyle: 'medium' })}.
           </p>
 
-          {!codeEntered && (
-            <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-700">
-              You can only allow this once the person has entered the code we sent to your number.
-              Share the code only if you agree.
-            </p>
-          )}
-
-          <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="If you are refusing, you can say why (optional)."
-            className="text-sm"
-            rows={2}
-          />
-
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
@@ -104,7 +92,7 @@ export default function NationalIdLinkGate() {
             <Button
               className="h-11"
               onClick={() => setConfirming('approve')}
-              disabled={decide.isPending || !codeEntered}
+              disabled={decide.isPending}
             >
               {decide.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Yes, I allow it
@@ -124,6 +112,16 @@ export default function NationalIdLinkGate() {
                   : 'The account will not be added to your National ID.'}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {confirming === 'reject' && (
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Why are you refusing? (optional)"
+                aria-label="Why are you refusing? (optional)"
+                className="text-sm"
+                rows={2}
+              />
+            )}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={decide.isPending}>Go back</AlertDialogCancel>
               <AlertDialogAction
