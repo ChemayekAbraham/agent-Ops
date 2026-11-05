@@ -67537,6 +67537,224 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_signage_status_events: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          note: string | null
+          signage_id: string
+          to_status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          signage_id: string
+          to_status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          signage_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_signage_status_events_signage_id_fkey"
+            columns: ["signage_id"]
+            isOneToOne: false
+            referencedRelation: "welile_signages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_signages: {
+        Row: {
+          accessibility_notes: string | null
+          activated_at: string | null
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          agent_reward_disbursed_at: string | null
+          agent_reward_disbursed_by: string | null
+          agent_reward_status: string
+          agent_reward_tx_ref: string | null
+          business_category: string | null
+          consenting_relation: string
+          county_name: string | null
+          created_at: string
+          district_name: string
+          foot_traffic: string
+          gps_accuracy_meters: number
+          gps_captured_at: string
+          gps_latitude: number
+          gps_longitude: number
+          id: string
+          installation_photos: Json
+          installed_at: string | null
+          installer_name: string | null
+          nearby_landmarks: string | null
+          operating_hours: string | null
+          owner_alt_phone: string | null
+          owner_full_name: string
+          owner_payment_method: string
+          owner_payment_name: string
+          owner_payment_number: string
+          owner_phone: string
+          owner_rent_disbursed_at: string | null
+          owner_rent_disbursed_by: string | null
+          owner_rent_status: string
+          owner_rent_tx_ref: string | null
+          parish_name: string | null
+          permission_confirmed: boolean
+          photos: Json
+          plot_or_landmark: string | null
+          property_name: string
+          property_type: string
+          proposed_dimensions: string | null
+          proposed_surface: string | null
+          reference_no: string | null
+          rejection_reason: string | null
+          removal_effective_at: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          road_visibility: string | null
+          status: string
+          sub_county_name: string | null
+          updated_at: string
+          verification_notes: string | null
+          verified_at: string | null
+          verified_by: string | null
+          village_name: string
+        }
+        Insert: {
+          accessibility_notes?: string | null
+          activated_at?: string | null
+          agent_id: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          agent_reward_disbursed_at?: string | null
+          agent_reward_disbursed_by?: string | null
+          agent_reward_status?: string
+          agent_reward_tx_ref?: string | null
+          business_category?: string | null
+          consenting_relation: string
+          county_name?: string | null
+          created_at?: string
+          district_name: string
+          foot_traffic?: string
+          gps_accuracy_meters: number
+          gps_captured_at?: string
+          gps_latitude: number
+          gps_longitude: number
+          id?: string
+          installation_photos?: Json
+          installed_at?: string | null
+          installer_name?: string | null
+          nearby_landmarks?: string | null
+          operating_hours?: string | null
+          owner_alt_phone?: string | null
+          owner_full_name: string
+          owner_payment_method?: string
+          owner_payment_name: string
+          owner_payment_number: string
+          owner_phone: string
+          owner_rent_disbursed_at?: string | null
+          owner_rent_disbursed_by?: string | null
+          owner_rent_status?: string
+          owner_rent_tx_ref?: string | null
+          parish_name?: string | null
+          permission_confirmed?: boolean
+          photos?: Json
+          plot_or_landmark?: string | null
+          property_name: string
+          property_type: string
+          proposed_dimensions?: string | null
+          proposed_surface?: string | null
+          reference_no?: string | null
+          rejection_reason?: string | null
+          removal_effective_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          road_visibility?: string | null
+          status?: string
+          sub_county_name?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          village_name: string
+        }
+        Update: {
+          accessibility_notes?: string | null
+          activated_at?: string | null
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          agent_reward_disbursed_at?: string | null
+          agent_reward_disbursed_by?: string | null
+          agent_reward_status?: string
+          agent_reward_tx_ref?: string | null
+          business_category?: string | null
+          consenting_relation?: string
+          county_name?: string | null
+          created_at?: string
+          district_name?: string
+          foot_traffic?: string
+          gps_accuracy_meters?: number
+          gps_captured_at?: string
+          gps_latitude?: number
+          gps_longitude?: number
+          id?: string
+          installation_photos?: Json
+          installed_at?: string | null
+          installer_name?: string | null
+          nearby_landmarks?: string | null
+          operating_hours?: string | null
+          owner_alt_phone?: string | null
+          owner_full_name?: string
+          owner_payment_method?: string
+          owner_payment_name?: string
+          owner_payment_number?: string
+          owner_phone?: string
+          owner_rent_disbursed_at?: string | null
+          owner_rent_disbursed_by?: string | null
+          owner_rent_status?: string
+          owner_rent_tx_ref?: string | null
+          parish_name?: string | null
+          permission_confirmed?: boolean
+          photos?: Json
+          plot_or_landmark?: string | null
+          property_name?: string
+          property_type?: string
+          proposed_dimensions?: string | null
+          proposed_surface?: string | null
+          reference_no?: string | null
+          rejection_reason?: string | null
+          removal_effective_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          road_visibility?: string | null
+          status?: string
+          sub_county_name?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          village_name?: string
+        }
+        Relationships: []
+      }
       welile_trust_score_cache: {
         Row: {
           agent_earned_vouch_ugx: number
@@ -98460,6 +98678,7 @@ export type Database = {
       }
       welile_schools_agent_ok: { Args: never; Returns: boolean }
       welile_schools_ops_ok: { Args: never; Returns: boolean }
+      welile_signages_ops_ok: { Args: never; Returns: boolean }
       welile_telecom_sending_charge: {
         Args: { p_amount: number }
         Returns: number
