@@ -1,4 +1,5 @@
 import type { KeyboardEvent } from 'react';
+import { FadedHouseIllustration } from '@/components/common/FadedHouseIllustration';
 import { ArrowUpRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
@@ -37,6 +38,8 @@ export function FunderNewHero({
     <div aria-hidden className="pointer-events-none absolute inset-0 opacity-70">
       <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-foreground/10 blur-2xl" />
       <div className="absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-foreground/[0.07] blur-2xl" />
+      {/* The house, very faint, behind the text */}
+      <FadedHouseIllustration opacity={0.22} />
     </div>
   );
 
