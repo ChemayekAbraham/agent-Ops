@@ -33,10 +33,12 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
   const greetedRef = useRef(false);
 
   useEffect(() => {
-    const show = () => setOpen(true);
+    // The chat holds personal account history, so a page with no active
+    // session cannot open it — not even from a stray launcher button.
+    const show = () => { if (user) setOpen(true); };
     window.addEventListener('open-welile-assistant', show);
     return () => window.removeEventListener('open-welile-assistant', show);
-  }, []);
+  }, [user]);
 
   // One hello per page load: it appears beside the launcher, then fades away
   // on its own. It is never re-shown after a route change or a modal closing.
