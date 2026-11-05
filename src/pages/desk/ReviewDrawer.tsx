@@ -10,6 +10,7 @@ import { isRecordOnly, needsNote, runMove } from './deskActions';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
+import { DeskCallButton, RequestCallHistory } from './deskCall';
 import {
   lcLetterUrl,
   readableError,
@@ -211,10 +212,13 @@ export function ReviewDrawer({
   stage,
   requestId,
   onClose,
+  initial,
 }: {
   stage: Stage;
   requestId: string;
   onClose: () => void;
+  /** Opened from the board's ⋯ menu: start on this decision, or on "Wait on…". */
+  initial?: Decision | 'wait';
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -223,7 +227,9 @@ export function ReviewDrawer({
   const reasons = useReasonCodes();
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
-  const [decision, setDecision] = useState<Decision | null>(null);
+  const [decision, setDecision] = useState<Decision | null>(() =>
+    initial && initial !== 'wait' && STAGE_DECISIONS[stage].includes(initial) ? initial : null,
+  );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
   const [note, setNote] = useState('');
@@ -234,7 +240,9 @@ export function ReviewDrawer({
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
-  const [waitMode, setWaitMode] = useState(false);
+  const [waitMode, setWaitMode] = useState(initial === 'wait');
+  // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
+  const [liveAnswered, setLiveAnswered] = useState(false);
   const waitDesk = waitDeskForStage(stage);
   const waitList = useWaitingList(waitDesk);
   const canWait = !!waitDesk && !waitList.missing;
@@ -430,6 +438,14 @@ export function ReviewDrawer({
                   </Fact>
                   <Fact label="Tenant">
                     {req.tenant?.name ?? '—'}
+                    {stage === 'tenant_ops' && (
+                      <span className="ml-1.5 align-middle">
+                        <DeskCallButton
+                          target={{ requestId, desk: stage, subject: 'tenant', calleeId: req.tenant?.id ?? null, name: req.tenant?.name ?? null, phone: req.tenant?.phone ?? null }}
+                          onEnded={(ok) => ok && setLiveAnswered(true)}
+                        />
+                      </span>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {req.tenant?.phone ?? 'no number'}
                       {req.tenant?.occupation ? ` · ${req.tenant.occupation}` : ''}
@@ -437,10 +453,23 @@ export function ReviewDrawer({
                   </Fact>
                   <Fact label="Agent">
                     {req.agent?.name ?? '—'}
+                    <span className="ml-1.5 align-middle">
+                      <DeskCallButton
+                        target={{ requestId, desk: stage, subject: 'agent', calleeId: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                      />
+                    </span>
                     <div className="text-xs text-muted-foreground">{req.agent?.phone ?? 'no number'}</div>
                   </Fact>
                   <Fact label="Landlord">
                     {req.landlord?.name ?? '—'}
+                    {stage === 'landlord_ops' && (
+                      <span className="ml-1.5 align-middle">
+                        <DeskCallButton
+                          target={{ requestId, desk: stage, subject: 'landlord', calleeId: null, name: req.landlord?.name ?? null, phone: req.landlord?.phone ?? null }}
+                          onEnded={(ok) => ok && setLiveAnswered(true)}
+                        />
+                      </span>
+                    )}
                     <div className="text-xs text-muted-foreground">{req.landlord?.phone ?? 'no number'}</div>
                     <span className={`desk-pill mt-1 inline-block border px-2 py-0.5 text-xs ${req.landlord?.verified ? statusGlass.ok : statusGlass.warn}`}>
                       {req.landlord?.verified ? 'Verified' : 'Not verified'}
@@ -482,8 +511,11 @@ export function ReviewDrawer({
                   subjectUserId={callDesk === 'tenant' ? req.tenant?.id : null}
                   defaultPhone={callDesk === 'tenant' ? (req.tenant?.phone ?? null) : (req.landlord?.phone ?? null)}
                   onLogged={(answered) => setCallAnswered((prev) => prev || answered)}
+                  answeredHint={liveAnswered}
                 />
               )}
+
+              <RequestCallHistory requestId={requestId} />
 
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>

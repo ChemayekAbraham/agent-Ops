@@ -24,8 +24,13 @@ import { BurnChart } from './BurnChart';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
+import { ReadyBoard } from './ReadyBoard';
+import type { Decision } from './reviewTypes';
 
 const ROTATE_MS = 45_000;
+
+/** Desks whose "Ready for your push" is the board (pipeline_desk_board). Their queue table stays in Classic view. */
+const BOARD_DESKS = new Set(['agent-ops']);
 
 /** The one table on each desk whose rows are reviewable requests. */
 const QUEUE_TABLE: Record<string, string> = {
@@ -213,6 +218,8 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   const checklistOn = deskLive(desk.id);
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
+  // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
+  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | undefined>(undefined);
   const [opening, setOpening] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   // `?tab=` opens the second tab straight away, so the budget-room card can
@@ -247,6 +254,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     const found = await resolveShortId(short, stage);
     setOpening(null);
     if (found.status === 'ok') {
+      setOpenInitial(undefined);
       setOpenRequest(found.id);
       return;
     }
@@ -357,7 +365,13 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   /* Keyed on the request: opening a second row never carries the first
      request's ticks, note or logged call across to another tenant. */
   const drawer = stage && openRequest && (
-    <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
+    <ReviewDrawer
+      key={`${openRequest}:${openInitial ?? ''}`}
+      stage={stage}
+      requestId={openRequest}
+      initial={openInitial}
+      onClose={() => setOpenRequest(null)}
+    />
   );
 
   // The stage desks, when live: strip → Ready for your push → Waiting on… →
@@ -375,7 +389,18 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
           </h2>
           {tabs}
           {extraView}
-          {showQueue && ready && table(ready)}
+          {showQueue && stage && BOARD_DESKS.has(desk.id) ? (
+            <ReadyBoard
+              stage={stage}
+              board={board}
+              onOpen={(id, initial) => {
+                setOpenInitial(initial);
+                setOpenRequest(id);
+              }}
+            />
+          ) : (
+            showQueue && ready && table(ready)
+          )}
         </section>
 
         <WaitingOnFold deskId={desk.id} board={board} />
