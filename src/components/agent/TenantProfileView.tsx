@@ -1647,19 +1647,19 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-success/80 font-semibold">Paid</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-success mt-0.5 tabular-nums">
                   {formatUGX(summary.activeRequest.amount_repaid)}
                 </p>
               </div>
-              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-destructive/80 font-semibold">Remaining</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-destructive mt-0.5 tabular-nums">
                   {formatUGX(summary.currentOutstanding)}
                 </p>
               </div>
-              <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-primary/80 font-semibold">Target</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-primary mt-0.5 tabular-nums">
                   {formatUGX(summary.activeRequest.total_repayment)}
