@@ -34,6 +34,7 @@ import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
 import SmsOtpCostsPanel from '@/components/cfo/SmsOtpCostsPanel';
 import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
 import { CashflowForecastGraphs } from '@/components/cfo/CashflowForecastGraphs';
+import { PartnerReceiptsPanel } from '@/components/shared/PartnerReceiptsPanel';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
 import { FinancialStatementsPanel } from '@/components/manager/FinancialStatementsPanel';
@@ -370,6 +371,8 @@ export default function CFODashboardPage() {
         return <CfoPayrollPanel />;
       case 'cfo-pay-advances':
         return <AdvancesPanel />;
+      case 'partner-receipts':
+        return <PartnerReceiptsPanel />;
       case 'cfo-pay-approvals':
         return <ApprovalsInbox />;
       case 'delivery-pipeline':

@@ -161,6 +161,7 @@ const MerchantClaimsLog = lz(() => import('./MerchantClaimsLog'), 'MerchantClaim
 const CashoutAgentManager = lz(() => import('@/components/cfo/CashoutAgentManager'), 'CashoutAgentManager');
 const MerchantFloatRequestsPanel = lz(() => import('@/components/cfo/MerchantFloatRequestsPanel'), 'MerchantFloatRequestsPanel');
 const MerchantFloatRequisitionPanel = lz(() => import('./MerchantFloatRequisitionPanel'), 'MerchantFloatRequisitionPanel');
+const PartnerReceiptsPanel = lz(() => import('@/components/shared/PartnerReceiptsPanel'), 'PartnerReceiptsPanel');
 const ReceiptArchivePanel = lz(() => import('@/components/shared/ReceiptArchivePanel'), 'ReceiptArchivePanel');
 const EarningsExplainer = lz(() => import('@/components/shared/EarningsExplainer'), 'EarningsExplainer');
 const DepositBridgeHealthPanel = lz(() => import('@/components/bridge/DepositBridgeHealthPanel'), 'DepositBridgeHealthPanel');
@@ -201,7 +202,7 @@ type Tool =
   | 'topup_audit'
   | 'float_to_withdrawable' | 'momo_sms_template' | 'cash_codes' | 'user_statements'
   | 'withdrawal_notif_log' | 'cashout_settlement' | 'merchant_claims' | 'sms_delivery_log'
-  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'merchant_float_allocation' | 'receipt_archive'
+  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'merchant_float_allocation' | 'receipt_archive' | 'partner_receipts'
   | 'employee_requisition_links' | 'employee_requisition_queue'
   | 'bridge_health' | 'manual_float_credit'
   | 'earnings_explainer'
@@ -231,6 +232,7 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'earnings_explainer', label: 'How Did They Earn?', desc: 'Plain-English breakdown of every UGX that landed in a user\u2019s wallet — grouped by source (commissions, deposits, ROI, payroll, corrections) with counts and samples.', icon: Sparkles },
   { kind: 'tool', id: 'bridge_health', label: 'Deposit Bridge Health', desc: 'Reliability of the queue between Financial Ops and the wallet ledger — pending, retries, DLQ, gap alerts', icon: Activity },
   { kind: 'tool', id: 'manual_float_credit', label: 'Manual Float Credit', desc: 'Credit an agent\u2019s float wallet from a MoMo SMS — TID, amount, date/time & depositor. TID is locked so late feeds cannot double-credit.', icon: Wallet },
+  { kind: 'tool', id: 'partner_receipts', label: 'Partner Receipts', desc: 'Issue and look up numbered digital receipts for money partners hand in; corrections go to the CFO', icon: Receipt },
   { kind: 'tool', id: 'receipt_archive', label: 'Receipt Archive', desc: 'Permanent record of every payout receipt — searchable, one URL per receipt', icon: Archive },
   { kind: 'tool', id: 'merchant_agents', label: 'Merchant Agents', desc: 'Manage cash-out (merchant) agents — same module as the CFO Dashboard', icon: Store },
   { kind: 'tool', id: 'merchant_float', label: 'Merchant Float', desc: 'Fund or reject merchant agent operational float requests', icon: HandCoins },
@@ -591,6 +593,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'cashout_settlement' && <CashoutSettlementTimeline />}
         {activeTool === 'merchant_claims' && <MerchantClaimsLog />}
         {activeTool === 'merchant_agents' && <CashoutAgentManager />}
+        {activeTool === 'partner_receipts' && <PartnerReceiptsPanel />}
         {activeTool === 'receipt_archive' && <ReceiptArchivePanel />}
         {activeTool === 'merchant_float' && (
           <div className="space-y-5">

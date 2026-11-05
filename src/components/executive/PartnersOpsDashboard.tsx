@@ -8,6 +8,7 @@ import { format, addMonths } from 'date-fns';
 
 import { ROIPaymentHistory } from './ROIPaymentHistory';
 import { PartnerCapitalFlow } from './PartnerCapitalFlow';
+import { PartnerReceiptsPanel } from '@/components/shared/PartnerReceiptsPanel';
 import { PartnerOpsBrief } from './PartnerOpsBrief';
 import { PartnerOpsReportExportButton } from './PartnerOpsReportExportButton';
 import COOPartnersPage from '@/components/coo/COOPartnersPage';
@@ -303,6 +304,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
       case 'financial.capital': return <PartnerCapitalFlow />;
+      case 'financial.receipts': return <PartnerReceiptsPanel />;
       case 'financial.payouts': return (
         <div className="space-y-3">
           <div className="flex justify-end">

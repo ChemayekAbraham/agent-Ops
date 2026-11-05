@@ -43,6 +43,7 @@ export type PartnerOpsViewKey =
   | 'financial.withdrawals'
   | 'financial.wallets'
   | 'financial.capital'
+  | 'financial.receipts'
   | 'nearing.overview'
   | 'nearing.followup'
   | 'proxy.overview'
@@ -153,6 +154,7 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'financial.withdrawals', label: 'Withdrawals', icon: ArrowDownToLine, keywords: ['cash out', 'payout requests'] },
       { key: 'financial.wallets', label: 'Wallet Balances', icon: PiggyBank, keywords: ['wallet', 'balance', 'activity'] },
       { key: 'financial.capital', label: 'Capital Flow', icon: DollarSign, keywords: ['liquidity', 'projections', 'charts'] },
+      { key: 'financial.receipts', label: 'Receipts', icon: FileText, keywords: ['receipt', 'proof of payment', 'acknowledgement'] },
     ],
   },
   {
