@@ -37660,6 +37660,45 @@ export type Database = {
         }
         Relationships: []
       }
+      nexa_access_alerts: {
+        Row: {
+          attempted_resource: string
+          channel: string
+          created_at: string
+          id: string
+          notified_founder: boolean
+          phone: string | null
+          reason: string
+          roles: string[]
+          user_id: string | null
+          user_message: string | null
+        }
+        Insert: {
+          attempted_resource: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Update: {
+          attempted_resource?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason?: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Relationships: []
+      }
       nexa_portfolio_access_audit: {
         Row: {
           challenge_id: string | null
@@ -76384,6 +76423,23 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_onboarded_portfolios: {
+        Args: never
+        Returns: {
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          investor_id: string
+          maturity_date: string
+          next_roi_date: string
+          partner_name: string
+          portfolio_code_masked: string
+          portfolio_id: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
       agent_ops_approve_merchandise_order: {
         Args: { p_sale_id: string }
         Returns: string
@@ -76827,6 +76883,29 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_own_promissory_notes: {
+        Args: never
+        Returns: {
+          amount: number
+          contribution_type: string
+          created_at: string
+          deduction_day: number
+          id: string
+          next_deduction_date: string
+          partner_name: string
+          status: string
+          total_collected: number
+        }[]
+      }
+      agent_partner_payout_routes: {
+        Args: { p_partner_id: string }
+        Returns: {
+          label: string
+          payout_mode: string
+          portfolio_id: string
+          route_key: string
+        }[]
+      }
       agent_pay_merchandise_plan: {
         Args: { p_amount: number; p_plan_id: string }
         Returns: Json
@@ -76871,6 +76950,28 @@ export type Database = {
         Returns: Json
       }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
+      agent_proxy_withdrawal_id_for_client_request: {
+        Args: { p_client_request_id: string }
+        Returns: string
+      }
+      agent_proxy_withdrawal_summaries: {
+        Args: never
+        Returns: {
+          agent_id: string
+          amount: number
+          created_at: string
+          id: string
+          linked_party: string
+          payout_method: string
+          processed_at: string
+          proxy_partner_id: string
+          reason: string
+          rejection_reason: string
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       agent_purchase_merchandise: {
         Args: {
           p_catalog_id: string
@@ -85918,6 +86019,22 @@ export type Database = {
           verified: boolean
         }[]
       }
+      get_portfolio_by_activation_token: {
+        Args: { p_token: string }
+        Returns: {
+          agent_name: string
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
       get_promissory_ops_report: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -91379,6 +91496,7 @@ export type Database = {
         Returns: Json
       }
       partner_ops_watch: { Args: never; Returns: Json }
+      partner_record_staff_ok: { Args: never; Returns: boolean }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
         Returns: Json
