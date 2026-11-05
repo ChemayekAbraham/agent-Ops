@@ -1,7 +1,8 @@
 # 260 — Proxy agent could not see her partner withdrawals or approved ROI payouts (2026-11-05)
 
-**Applied to production 2026-11-05 (two migrations), verified as Kabahuma Lillian.** Read this before touching
-`agent_proxy_withdrawal_summaries`, `agent_onboarded_portfolios`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
+**Applied to production 2026-11-05 (three migrations), verified as Kabahuma Lillian; dialog fix pushed to `lovable` (`9af0a3be2d`).**
+Read this before touching `agent_proxy_withdrawal_summaries`, `agent_onboarded_portfolios`, `agent_partner_payout_routes`,
+`WithdrawRequestDialog.tsx`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
 
 ## What was reported
 
@@ -41,6 +42,40 @@ is in `critical_function_baselines` (checked 2026-11-05), so no re-baseline.
 
 Verified as Lillian: 1,315 rows, 1,281 with a real portfolio, 0 unnamed, and 77 of 77 approved ROI rows now map to a partner (before: 0 of 77).
 
+## Root cause 3 — the payout-route lookup hid portfolio routes from proxy agents
+
+Reported: when Lillian withdraws for a partner the destination used to be filled in (by Partner Ops, from the partner's portfolio) so she typed
+nothing; now it was missing. Her history confirms it: from 19 May to 4 Nov she paid partners on every working day (typically 20-40 a day, 75-143 on
+Mondays), every row carried a destination, and since about 7 Aug every row carried a `portfolio:` route reference. On 4 Nov she paid 34 partners, all
+through a portfolio route.
+
+`agent_partner_payout_routes(p_partner_id)` (migration 20261104244000) authorised the caller by `agent_id` OR an active assignment, but its portfolio
+and extra branches then also required `investor_portfolios.agent_id = caller`. Lillian is `agent_id` on 2 portfolios and the assigned proxy of 836
+partners, so 764 partners with portfolio details showed her no route. Only the partner's saved methods came through: 9 of the 34 partners she paid on
+4 Nov showed a route and 25 (all bank transfer) showed "No payment details on file". Over her whole history 255 of 775 partners showed a route.
+The insert trigger `copy_proxy_payout_on_file` already accepted `agent_id` or an active assignment, so only the route list was wrong.
+
+**Fix:** `supabase/migrations/20261105140000_agent_partner_payout_routes_follow_assignment.sql` (rollback: same name ending `.rollback.sql`). The
+portfolio and extra branches now match on the partner (`investor_id`) after the `allowed` check, and the assignment path needs
+`approval_status = 'approved'`. Same columns, generic labels, no payout numbers. Not on `critical_function_baselines` (checked 2026-11-05); none of
+Lillian's active assignments were unapproved.
+
+Verified as Lillian after applying: 34 of 34 partners paid on 4 Nov get a route (was 9); 746 of the 775 partners she has ever paid get a route (was
+255). The other 29 were not itemised; most are probably no longer her active, approved assignments, which is correct. 4 partners have no payout details
+anywhere.
+
+## Root cause 4 — the withdraw dialog prefilled the agent's own MoMo number
+
+`WithdrawRequestDialog.tsx` loaded the signed-in user's saved MoMo number whenever `prefillPayout` was empty. Since `264d3a09f4` the proxy flow passes
+`payoutOnFile` instead, so the guard missed it and Lillian's own number (`+256706662454`) showed as the payout number. No stored withdrawal carried it:
+none of her proxy rows in the last 10 days, and none of her partners' portfolios, held her number, because the trigger copies the partner's
+destination.
+
+**Fix (code, no migration):** commit `9af0a3be2d` on `dev/proxy-withdraw-no-own-number`, fast-forwarded onto `origin/lovable` on 2026-11-05 after
+checking Lovable's agent was idle (`agentFinished: true`). In proxy mode (`linkedParty` or `payoutOnFile`) the dialog clears the number and never reads
+the agent's profile. Lovable confirmed it is on `9af0a3be2d` and will not touch the change. `tsc` and `guard:all` could not be run (tsc runs out of
+memory locally; the worktree had no `node_modules`) and the live screen was not tested.
+
 ## What the 68 ROI payouts are (do not confuse with withdrawals)
 
 The General Payout Activity table on the CFO page lists `pending_wallet_operations` rows with `category = 'roi_payout'`, `operation_type = 'roi_wallet_credit'`.
@@ -50,7 +85,9 @@ shown by the "ready" section of `ProxyPartnerFunds`, which is why root cause 2 h
 
 ## Open items
 
-- **The 11-04 partner-scope migration is live but unrecorded.** The trigger `trg_00_proxy_copy_payout_on_file`, `copy_proxy_payout_on_file`,
+- **Who applied the 11-04 partner-scope migration: Lovable.** Its commit `e651c1c927` (11-05 09:02 UTC) is "Record PR 62 migrations applied (nexa access
+  alerts, partner portfolio read scope)". `schema_migrations` still has no row for it, nor for this doc's three migrations (20261105113000,
+  20261105130000, 20261105140000), which were applied from the SQL tool; anything that reconciles by that table will see them as unapplied. The trigger `trg_00_proxy_copy_payout_on_file`, `copy_proxy_payout_on_file`,
   `agent_own_promissory_notes`, `partner_record_staff_ok`, the restrictive payout-destination policy and the dropped agent/proxy/anon read policies are in
   production. `schema_migrations` has no row. Find out who applied it and how. Its risks (silent null payout destination when `payout_route_ref` is missing
   or fails the ownership check; the restrictive policy applying to every authenticated role outside its hard-coded list; other screens still reading the
@@ -58,8 +95,11 @@ shown by the "ready" section of `ProxyPartnerFunds`, which is why root cause 2 h
 - **Settlement filter.** `ProxyPartnerFunds` also drops payouts already settled by a delivered withdrawal. If the screen shows fewer than 77, that is the
   likely reason. It was not checked in the live UI.
 - **500-row cap** on `agent_proxy_withdrawal_summaries()`: Lillian has 3,573 and sees the latest 500.
+- **Partner data for Partner Ops:** 10 saved payout methods of her partners hold Lillian's own number (those partners would be paid to her), and 170 of
+  her partners' portfolios have no payout details.
+- **Migrations are not on `lovable` yet.** The three migrations and this doc are on `dev/financial-ops`; only the dialog fix is on `lovable`.
 - **Duplicate doc numbers** exist in this folder (256, 257 and 259 each appear twice). This doc takes 260.
 
 ## Not touched
 
-Frontend code, grants on tables, the trigger, and the live policies were not changed by this work.
+Table grants, the `copy_proxy_payout_on_file` trigger, the live policies and `ProxyPartnerFunds.tsx` were not changed by this work.
