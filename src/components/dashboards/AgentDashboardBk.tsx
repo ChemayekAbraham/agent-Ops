@@ -1830,7 +1830,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
                 { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
-                { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
                   key={a.label}
