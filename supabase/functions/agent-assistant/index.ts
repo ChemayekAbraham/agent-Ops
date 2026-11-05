@@ -148,7 +148,7 @@ async function runTurn(
   let retried = false;
   let firstFailure: string | undefined;
   // A partner never sees reversals or corrections, so the assistant must not talk about them either.
-  const guardOpts = { hideAdminTrail: persona === "partner" };
+  const guardOpts = { hideAdminTrail: persona === "partner", noSignatureClaims: persona === "partner" };
 
   for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
     const reply = await callModel({ messages, tools: openAiTools(persona) });
@@ -185,6 +185,9 @@ async function runTurn(
       // A partner asking about reversals or corrections gets a fixed, kind answer: nothing is confirmed or denied.
       if (!verdict.ok && verdict.reason === "admin_trail") {
         return { reply: MSG.partnerDeflect, outcome: "answered", toolsCalled, model, guardReason: "admin_trail" };
+      }
+      if (!verdict.ok && verdict.reason === "signature_claim") {
+        return { reply: MSG.partnerContractFallback, outcome: "answered", toolsCalled, model, guardReason: "signature_claim" };
       }
       // Wording is safe to repair; a figure, id or phone number that could not be verified is not.
       if (!verdict.ok && verdict.reason === "terminology") {

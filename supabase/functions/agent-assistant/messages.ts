@@ -28,6 +28,9 @@ export const MSG = {
   /** A partner asking about reversals or corrections: nothing is confirmed or denied. */
   partnerDeflect:
     "I can show you your top-ups, renewals, Returns and wallet activity exactly as they appear on your account 📋 If something doesn't look right to you, I can pass it to the support team so they can take a closer look.",
+  /** Last resort if the model keeps telling a partner they did not sign. */
+  partnerContractFallback:
+    "Here's what I can see on your account 📄 the Welile partner terms you accepted and the terms of each of your portfolios. If you expect a separate signed copy of an agreement, I can pass that to the support team so they can check for you.",
   unmatched:
     "I didn't quite catch that one 🤔 Could you say it a different way? For example: “How much did I collect today?” or “How do I earn more?”",
   wantsHuman: "I can pass this conversation to the support team so they can follow up with you.",

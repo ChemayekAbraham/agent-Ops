@@ -577,3 +577,41 @@ Deno.test("agent wallet list: the model is told it is not a full ledger and must
   const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
   assert(p.includes("customer-facing entries only") && /Do not mention or speculate about corrections, reversals or adjustments/.test(p));
 });
+
+Deno.test("partner contract: one tool, no arguments, agent persona cannot call it", () => {
+  const t = findTool("get_partner_contract")!;
+  assertEquals(t.rpc, "assistant_partner_contract");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ partner_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assert(toolAllowedFor("partner", "get_partner_contract") && !toolAllowedFor("agent", "get_partner_contract"));
+  assert(/Never say or imply the partner did not sign/.test(t.description));
+  assert(!/AGREEMENT \(status/.test(findTool("get_partner_overview")!.description));
+});
+
+Deno.test("partner contract: telling a partner they did not sign fails the guard, honest wording passes", () => {
+  const opts = { noSignatureClaims: true };
+  for (const bad of [
+    "It looks like you haven't signed a formal partnership agreement document yet.",
+    "You have not signed any contract.",
+    "You didn't sign anything.",
+    "Your agreement is unsigned.",
+    "You never signed a contract with us.",
+    "The agreement has not been signed.",
+  ]) assertEquals(checkAnswer(bad, [], "x", opts), { ok: false, reason: "signature_claim" }, bad);
+  for (const good of [
+    "You accepted the Welile partner terms online (v1.0) on 2026-09-15, and your portfolio terms are listed below.",
+    "Your agreement is waiting for Welile's countersignature.",
+    "I can't find an agreement on the account yet.",
+    "There is no separate signed partnership document on your account, but you accepted the terms online.",
+  ]) assert(checkAnswer(good, [], "x", opts).ok, good);
+  // the agent persona is untouched
+  assert(checkAnswer("You haven't signed that tenant's form yet.", [], "x").ok);
+  assert(RETRY_NOTE.signature_claim.includes("get_partner_contract"));
+  assert(!/\b(loan|lender|ROI|interest)\b/i.test(MSG.partnerContractFallback));
+});
+
+Deno.test("partner prompt: contract rule covers every state and forbids 'didn't sign'", () => {
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  for (const s of ["signed_agreement", "agreement_awaiting_welile_countersignature", "accepted_terms_online", "none_on_record"]) assert(p.includes(s), s);
+  assert(p.includes("a missing document is not a missing contract"));
+});

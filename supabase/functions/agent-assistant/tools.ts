@@ -461,12 +461,25 @@ export const PARTNER_TOOLS: ToolDef[] = [
     description:
       "The partner's own summary: name, partner_since, portfolio counts (active, compounding, monthly payout, locked, redeemed, pending) and active_principal, " +
       "Returns earned in total and this month, the last Returns credited to their wallet, wallet (withdrawable_balance, locked_balance, float_available_for_topups), " +
-      "the next Returns payout and next maturity, houses supported, their partnership AGREEMENT (status, agreement_date, countersigned_on, partnership_amount, payout_mode, " +
-      "return_option as written, managed_by_company, payout_destination with a masked number) and the agreement acceptance version and date. Start here for 'tell me about my account', " +
-      "'my contract', 'my wallet', 'my total Returns'. return_option is a letter from the agreement: quote it, do not explain what it means.",
+      "the next Returns payout and next maturity, houses supported, and contract_state (a plain state only). Start here for 'tell me about my account', " +
+      "'my wallet', 'my total Returns'. For ANY question about their contract, agreement, terms or signing, call get_partner_contract instead: this tool has no contract details.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_partner_overview",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_partner_contract",
+    description:
+      "The partner's CONTRACT details, gathered from every place they live: state (signed_agreement, agreement_awaiting_welile_countersignature, accepted_terms_online, none_on_record); " +
+      "the partnership_agreement if there is one (status, agreement_date, partner_signed, countersigned_on, signed_copy_on_file, partnership_amount, payout_mode, return_option as written, managed_by_company, " +
+      "payout_destination with a masked number); accepted_terms (the Welile partner terms they accepted online: version, first and latest date, times accepted); and portfolio_terms (every portfolio's " +
+      "code, status, started_on, current_value, rate_percent, duration_months, mode, maturity_date). Use for 'my contract', 'my agreement', 'what did I sign', 'my terms'. " +
+      "A missing partnership_agreement does NOT mean they have no contract: most partners accepted the Welile terms online, and their portfolio terms are the terms in force. " +
+      "Never say or imply the partner did not sign. return_option is a letter from the agreement: quote it, do not explain what it means.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_partner_contract",
     toRpcArgs: () => ({}),
   },
   {
