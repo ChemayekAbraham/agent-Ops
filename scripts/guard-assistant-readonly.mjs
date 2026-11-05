@@ -10,8 +10,9 @@
  *   1. The service-role key appears ONLY in store.ts (the CRM conversation log).
  *   2. No write verbs (.insert/.update/.upsert/.delete) outside store.ts, and store.ts only
  *      writes assistant_* tables.
- *   3. Every tool RPC in tools.ts is an `assistant_agent_*` function, and no tool declares a
- *      user / agent / tenant / account id parameter.
+ *   3. Every tool RPC in tools.ts is an `assistant_agent_*` (agent persona), `assistant_partner_*`
+ *      (partner persona) or help-search function, and no tool declares a user / agent / tenant /
+ *      account id parameter.
  *   4. Raw SQL execution is never used (no .sql(, no exec_sql / run_sql style RPCs).
  *   5. Every `assistant_*` function in the migrations is STABLE (or the gate helpers), is
  *      SECURITY DEFINER with a pinned search_path, has no identity parameter, and revokes
@@ -94,7 +95,7 @@ if (!existsSync(FN_DIR)) {
     // Any .rpc("name") outside the registry must be the gate.
     if (!file.endsWith('tools.ts')) {
       for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
-        if (!['assistant_is_agent', 'assistant_has_access'].includes(m[1])) fail(`${rel}: .rpc("${m[1]}") — only the assistant_is_agent / assistant_has_access gates may be called directly; tool RPCs live in tools.ts.`);
+        if (!['assistant_is_agent', 'assistant_is_partner', 'assistant_has_access'].includes(m[1])) fail(`${rel}: .rpc("${m[1]}") — only the assistant_is_agent / assistant_is_partner / assistant_has_access gates may be called directly; tool RPCs live in tools.ts.`);
       }
     }
   }
@@ -107,7 +108,7 @@ if (!existsSync(FN_DIR)) {
     seen.toolRpcs = rpcs.length;
     if (!rpcs.length) fail('supabase/functions/agent-assistant/tools.ts: no tool RPCs found — the registry looks broken.');
     for (const rpc of rpcs) {
-      if (!/^assistant_agent_[a-z_]+$/.test(rpc)) fail(`tools.ts: tool RPC "${rpc}" must be an assistant_agent_* function.`);
+      if (!/^assistant_(agent|partner)_[a-z_]+$/.test(rpc)) fail(`tools.ts: tool RPC "${rpc}" must be an assistant_agent_* or assistant_partner_* function.`);
     }
     const identity = /(["'`])(?:p_)?(?:user|agent|tenant|account|owner)_?id\1\s*:/i;
     if (identity.test(tools)) fail('tools.ts: a tool declares a user/agent/tenant id parameter. Identity must come from auth.uid(), never from the model.');
@@ -117,32 +118,49 @@ if (!existsSync(FN_DIR)) {
 // ---------------------------------------------------------------- migrations
 if (existsSync(MIGRATIONS_DIR)) {
   const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
-  const GATE_HELPERS = new Set(['assistant_is_agent', 'assistant_require_agent']);
+  const GATE_HELPERS = new Set(['assistant_is_agent', 'assistant_require_agent', 'assistant_is_partner', 'assistant_require_partner']);
   const defined = new Map(); // name -> { file, def }
 
   // Columns that must never leave the database through the assistant: credentials, login and
   // activity data, avatars and photos, government ids, payout destinations, device data, GPS,
   // funder identities, and staff notes/comments/reasons. The assistant sends tool output to a
   // third-party model, so the whitelist is the control; this keeps a later edit from widening it.
-  const FORBIDDEN_COLUMNS = new RegExp(
-    '\\b(' + [
-      'national_id\\w*', 'avatar\\w*', 'last_active\\w*', 'last_login\\w*', 'last_sign_in\\w*', 'dashboard_\\w+',
-      'password\\w*', 'must_change_password', 'signup_device\\w*', 'device_fp', 'ops_note', 'mobile_money\\w*',
-      'account_number', 'bank_\\w+', 'supporter_id', 'funder\\w*', 'residence_l(?:at|ng)', 'latitude', 'longitude',
-      'selfie\\w*', 'id_image_hash', 'nin_photo\\w*', 'approval_comment', 'tenant_ops_comment', 'landlord_ops_comment',
-      'agent_ops_comment', 'service_center_comment', 'rejected_reason', 'frozen_reason', 'deletion_reason',
-      'payout_transaction_reference', 'fund_recipient\\w*', 'verification_pin\\w*', 'momo_\\w+', 'partial_reason',
-      'caretaker\\w*', 'routing_preferences',
-    ].join('|') + ')\\b',
-    'i',
-  );
+  const COMMON_FORBIDDEN = [
+    'national_id\\w*', 'avatar\\w*', 'last_active\\w*', 'last_login\\w*', 'last_sign_in\\w*', 'dashboard_\\w+',
+    'password\\w*', 'must_change_password', 'signup_device\\w*', 'device_fp', 'ops_note',
+    'residence_l(?:at|ng)', 'latitude', 'longitude',
+    'selfie\\w*', 'id_image_hash', 'nin_photo\\w*', 'approval_comment', 'tenant_ops_comment', 'landlord_ops_comment',
+    'agent_ops_comment', 'service_center_comment', 'rejected_reason', 'frozen_reason', 'deletion_reason',
+    'payout_transaction_reference', 'fund_recipient\\w*', 'verification_pin\\w*', 'partial_reason',
+    'caretaker\\w*', 'routing_preferences',
+  ];
+  // Partner persona only: credentials, receipts, staff-written reasons and request metadata never leave.
+  const PARTNER_ONLY_FORBIDDEN = [
+    'portfolio_pin', 'activation_token', 'return_fields_edit_token', 'receipt_file_url', 'receipt_token',
+    'cfo_rejection_reason', 'processing_note', 'review_notes', 'rejection_reason', 'lock_reason', 'release_reason',
+    'payout_proof\\w*', 'payout_code', 'request_ip_address', 'request_user_agent', 'kin_name', 'kin_contact',
+  ];
+  // Payout destinations, funder identities: forbidden for the agent persona. The partner persona
+  // may read its OWN payout destination, but only through assistant_mask_tail() (last 3 digits).
+  const AGENT_ONLY_FORBIDDEN = ['mobile_money\\w*', 'account_number', 'bank_\\w+', 'supporter_id', 'funder\\w*', 'momo_\\w+'];
+  const toRegex = (list) => new RegExp('\\b(' + list.join('|') + ')\\b', 'i');
+  const FORBIDDEN_COLUMNS = toRegex([...COMMON_FORBIDDEN, ...AGENT_ONLY_FORBIDDEN]);
+  const FORBIDDEN_COLUMNS_PARTNER = toRegex([...COMMON_FORBIDDEN, ...PARTNER_ONLY_FORBIDDEN]);
+  const PAYOUT_NUMBER_COLUMNS = /\b(?:mobile_money_number|account_number|bank_account_number|momo_number)\b/gi;
+  const MASKED_PAYOUT_NUMBER = /assistant_mask_tail\(\s*(?:[a-z_]+\.)?(?:mobile_money_number|account_number|bank_account_number|momo_number)\s*\)/gi;
   const FORBIDDEN_FIELD_NOTES = /\b[a-z0-9_]+\.notes\b/i;
 
   for (const file of files) {
     const body = stripComments(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
     for (const m of body.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\([\s\S]*?\bas\s+(\$[a-z_]*\$)([\s\S]*?)\2/gi)) {
-      const hit = m[3].match(FORBIDDEN_COLUMNS) || m[3].match(FORBIDDEN_FIELD_NOTES);
+      const isPartnerFn = m[1].startsWith('assistant_partner_');
+      const hit = m[3].match(isPartnerFn ? FORBIDDEN_COLUMNS_PARTNER : FORBIDDEN_COLUMNS) || m[3].match(FORBIDDEN_FIELD_NOTES);
       if (hit) fail(`${file}: ${m[1]}() references "${hit[0]}", a field that must never leave the database through the assistant (it is sent to a third-party model).`);
+      if (isPartnerFn) {
+        // A full payout number may only ever appear as the argument of assistant_mask_tail().
+        const bare = m[3].replace(MASKED_PAYOUT_NUMBER, ' ').match(PAYOUT_NUMBER_COLUMNS);
+        if (bare) fail(`${file}: ${m[1]}() uses "${bare[0]}" outside assistant_mask_tail(); partners only ever see the last three digits of a payout number.`);
+      }
     }
     const re = /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\(([\s\S]*?)\)\s*returns\s+[\s\S]*?\bas\s+\$[a-z_]*\$/gi;
     for (const m of body.matchAll(re)) {
