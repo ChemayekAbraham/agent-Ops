@@ -1,13 +1,39 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Utensils, RefreshCw, Download, MoreVertical, Undo2 } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Loader2, Utensils, RefreshCw, Download, MoreHorizontal, Undo2,
+  Search, X, Users, Calendar, Wallet, CheckCircle2, ChevronLeft, ChevronRight,
+} from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
@@ -33,6 +59,9 @@ export function LunchAllowanceTracker() {
   const [reversing, setReversing] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [viewTab, setViewTab] = useState<'all' | 'staff'>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['cfo-lunch-allowance'],
@@ -141,6 +170,13 @@ export function LunchAllowanceTracker() {
 
   const fmtDate = (s: string) => new Date(s).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' });
 
+  // Pagination for all payments
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginatedRows = useMemo(() => filtered.slice(startIndex, endIndex), [filtered, startIndex, endIndex]);
+
   const downloadPdf = () => {
     const doc = new jsPDF();
     const n = (id: string | null) => (id ? data?.names[id] ?? 'Unknown' : 'System');
@@ -166,106 +202,391 @@ export function LunchAllowanceTracker() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Utensils className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-semibold">Lunch Allowance</h2>
+    <div className="space-y-5">
+      {/* Header Banner */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/60 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Utensils className="h-4 w-4" />
+            </span>
+            <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-foreground">
+              Lunch Allowance
+            </h1>
+            <Badge variant="outline" className="text-[10px] font-semibold uppercase tracking-wider bg-muted/60 text-muted-foreground border-border/80">
+              Operations
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground max-w-2xl leading-relaxed">
+            Track and reconcile staff meal allowance distributions, disbursements, and company recoveries.
+          </p>
         </div>
-        <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={downloadPdf} disabled={isLoading || filtered.length === 0}>
-          <Download className="h-4 w-4 mr-1" /> Download PDF
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
-        </Button>
+
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadPdf}
+            disabled={isLoading || filtered.length === 0}
+            className="h-8 gap-1.5 rounded-lg text-xs font-medium border-border/80 hover:bg-muted/80 shadow-2xs"
+          >
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Download PDF</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="h-8 gap-1.5 rounded-lg text-xs font-medium border-border/80 hover:bg-muted/80 shadow-2xs"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Total (filtered)</p><p className="text-xl font-bold">{formatUGX(total)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">This month</p><p className="text-xl font-bold">{formatUGX(thisMonth)}</p></CardContent></Card>
-        <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Staff paid · payments</p><p className="text-xl font-bold">{perStaff.length} · {filtered.length}</p></CardContent></Card>
-      </div>
+      {/* KPI Metric Strip */}
+      <section aria-label="Lunch Allowance summary" className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div className="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-2xs transition-all hover:border-border">
+          <div className="mb-2.5 flex items-center justify-between gap-1.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Wallet className="h-4 w-4" />
+            </div>
+            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-primary/10 text-primary">
+              Net Disbursed
+            </span>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+            Total Distributed
+          </p>
+          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(total)}>
+            {formatUGX(total)}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground/85 truncate">
+            {filtered.length} total transaction{filtered.length === 1 ? '' : 's'} recorded
+          </p>
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Input placeholder="Search staff name" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-56" />
-        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" aria-label="To" />
-        {(to || search) && <Button variant="ghost" size="sm" onClick={() => { setTo(''); setSearch(''); }}>Clear</Button>}
-      </div>
+        <div className="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-2xs transition-all hover:border-emerald-500/40">
+          <div className="mb-2.5 flex items-center justify-between gap-1.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              Active Month
+            </span>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+            This Month
+          </p>
+          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(thisMonth)}>
+            {formatUGX(thisMonth)}
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground/85 truncate">
+            Disbursed in {new Date().toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+          </p>
+        </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-      ) : (
-        <>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">By staff member</CardTitle></CardHeader>
-            <CardContent className="divide-y divide-border">
-              {perStaff.length === 0 && <p className="text-sm text-muted-foreground py-3">No lunch allowance payments found.</p>}
-              {perStaff.map(([id, s]) => (
-                <div key={id} className="flex items-center justify-between py-2 gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{data?.names[id] ?? 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">{s.count} payment{s.count === 1 ? '' : 's'} · last {fmtDate(s.last)}</p>
+        <div className="min-w-0 rounded-xl border border-border/80 bg-card p-4 shadow-2xs transition-all hover:border-blue-500/40">
+          <div className="mb-2.5 flex items-center justify-between gap-1.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <Users className="h-4 w-4" />
+            </div>
+            <span className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              Recipients
+            </span>
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+            Staff Members
+          </p>
+          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate">
+            {perStaff.length} recipients
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground/85 truncate">
+            Avg {perStaff.length ? formatUGX(Math.round(total / perStaff.length)) : 'UGX 0'} per staff member
+          </p>
+        </div>
+      </section>
+
+      {/* Main Ledger Card */}
+      <Card className="rounded-xl border border-border/80 bg-card shadow-2xs overflow-hidden">
+        {/* Controls Toolbar */}
+        <div className="p-3.5 sm:p-4 border-b border-border/60 bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <Tabs value={viewTab} onValueChange={(v) => { setViewTab(v as any); setPage(1); }}>
+            <TabsList className="h-8 bg-muted/70 p-1">
+              <TabsTrigger value="all" className="text-xs px-3">
+                All Transactions ({filtered.length})
+              </TabsTrigger>
+              <TabsTrigger value="staff" className="text-xs px-3">
+                By Staff Member ({perStaff.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-60">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search staff name…"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="h-8 pl-8 pr-7 text-xs bg-background"
+                aria-label="Search staff name"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-muted-foreground font-medium whitespace-nowrap">Up to:</span>
+              <Input
+                type="date"
+                value={to}
+                onChange={(e) => { setTo(e.target.value); setPage(1); }}
+                className="h-8 w-36 text-xs bg-background"
+                aria-label="Filter up to date"
+              />
+            </div>
+
+            {(to || search) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { setTo(''); setSearch(''); setPage(1); }}
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Content View */}
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span className="text-xs font-medium">Loading lunch allowance ledger…</span>
+            </div>
+          ) : viewTab === 'staff' ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/30 hover:bg-muted/30 text-[11px] text-muted-foreground uppercase tracking-wider">
+                    <TableHead className="py-2.5 px-4 font-semibold">Staff Member</TableHead>
+                    <TableHead className="py-2.5 px-4 text-center font-semibold">Disbursements</TableHead>
+                    <TableHead className="py-2.5 px-4 font-semibold">Last Received</TableHead>
+                    <TableHead className="py-2.5 px-4 text-right font-semibold">Total Disbursed (UGX)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {perStaff.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-12 text-xs text-muted-foreground">
+                        No lunch allowance payments match the filters.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    perStaff.map(([id, s]) => (
+                      <TableRow key={id} className="hover:bg-muted/40 transition-colors">
+                        <TableCell className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                              {(data?.names[id] ?? 'U').charAt(0).toUpperCase()}
+                            </span>
+                            <span className="font-medium text-xs text-foreground">
+                              {data?.names[id] ?? 'Unknown staff'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3 px-4 text-center tabular-nums text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-[10px] font-medium">
+                            {s.count} payment{s.count === 1 ? '' : 's'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-3 px-4 text-xs text-muted-foreground tabular-nums">
+                          {fmtDate(s.last)}
+                        </TableCell>
+                        <TableCell className="py-3 px-4 text-right tabular-nums text-xs font-bold text-foreground">
+                          {formatUGX(s.total)}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30 hover:bg-muted/30 text-[11px] text-muted-foreground uppercase tracking-wider">
+                      <TableHead className="py-2.5 px-4 font-semibold">Date</TableHead>
+                      <TableHead className="py-2.5 px-4 font-semibold">Staff Recipient</TableHead>
+                      <TableHead className="py-2.5 px-4 font-semibold">Disbursed By</TableHead>
+                      <TableHead className="py-2.5 px-4 font-semibold">Reference</TableHead>
+                      <TableHead className="py-2.5 px-4 text-right font-semibold">Amount (UGX)</TableHead>
+                      <TableHead className="py-2.5 px-4 text-center font-semibold">Status</TableHead>
+                      <TableHead className="py-2.5 px-3 text-right font-semibold w-12"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedRows.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-12 text-xs text-muted-foreground">
+                          No lunch allowance disbursements found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedRows.map((r) => {
+                        const isRev = r.operation === 'debit';
+                        const hasBeenRev = reversedIds.has(r.id);
+                        return (
+                          <TableRow key={r.id} className="hover:bg-muted/40 transition-colors">
+                            <TableCell className="py-3 px-4 text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                              {fmtDate(r.created_at)}
+                            </TableCell>
+                            <TableCell className="py-3 px-4">
+                              <span className="font-semibold text-xs text-foreground">
+                                {data?.names[r.target_user_id] ?? 'Unknown'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-xs text-muted-foreground">
+                              {r.created_by ? data?.names[r.created_by] ?? 'Unknown' : 'System Automated'}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-xs font-mono text-muted-foreground">
+                              {r.reference_id || '—'}
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-right tabular-nums text-xs font-bold whitespace-nowrap">
+                              <span className={isRev ? 'text-destructive' : 'text-foreground'}>
+                                {formatUGX(signed(r))}
+                              </span>
+                            </TableCell>
+                            <TableCell className="py-3 px-4 text-center whitespace-nowrap">
+                              {isRev ? (
+                                <Badge variant="destructive" className="text-[10px] font-medium">
+                                  Reversed
+                                </Badge>
+                              ) : hasBeenRev ? (
+                                <Badge variant="secondary" className="text-[10px] font-medium">
+                                  Returned
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-medium border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
+                                  Paid
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-3 px-3 text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                    aria-label="Actions"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem
+                                    disabled={isRev || hasBeenRev}
+                                    onClick={() => { setReversing(r); setReason(''); }}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Undo2 className="h-3.5 w-3.5 mr-2" /> Reverse to company
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination Footer */}
+              {filtered.length > 0 && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-border/60 bg-muted/10">
+                  <div className="text-xs text-muted-foreground tabular-nums">
+                    Showing <strong className="text-foreground">{startIndex + 1}–{endIndex}</strong> of <strong className="text-foreground">{filtered.length}</strong> payments
                   </div>
-                  <p className="text-sm font-semibold shrink-0">{formatUGX(s.total)}</p>
+                  <div className="flex items-center gap-1 self-end sm:self-auto">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground px-2">
+                      Page <strong className="text-foreground">{safePage}</strong> of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={safePage >= totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm">All payments</CardTitle></CardHeader>
-            <CardContent className="divide-y divide-border">
-              {filtered.map((r) => (
-                <div key={r.id} className="flex items-start justify-between py-2 gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{data?.names[r.target_user_id] ?? 'Unknown'}</p>
-                    <p className="text-xs text-muted-foreground">{fmtDate(r.created_at)} · {r.reference_id} · sent by {r.created_by ? data?.names[r.created_by] ?? 'Unknown' : 'System'}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-semibold">{formatUGX(signed(r))}</p>
-                    {r.operation === 'debit' && <Badge variant="destructive" className="text-[10px]">Reversed</Badge>}
-                    {r.operation !== 'debit' && reversedIds.has(r.id) && <Badge variant="secondary" className="text-[10px]">Returned</Badge>}
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label="Actions"><MoreVertical className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        disabled={r.operation === 'debit' || reversedIds.has(r.id)}
-                        onClick={() => { setReversing(r); setReason(''); }}
-                        className="text-destructive"
-                      >
-                        <Undo2 className="h-4 w-4 mr-2" /> Reverse to company
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </>
-      )}
-
+      {/* Reversal Confirmation Modal */}
       <AlertDialog open={!!reversing} onOpenChange={(o) => { if (!o && !busy) setReversing(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reverse lunch allowance?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {reversing && <>{formatUGX(Number(reversing.amount))} will be taken back from {data?.names[reversing.target_user_id] ?? 'this staff member'}'s wallet and returned to the company.</>}
+            <AlertDialogTitle className="text-base font-bold">
+              Reverse lunch allowance disbursement?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs leading-relaxed">
+              {reversing && (
+                <>
+                  <strong className="text-foreground">{formatUGX(Number(reversing.amount))}</strong> will be deducted from{' '}
+                  <strong className="text-foreground">{data?.names[reversing.target_user_id] ?? 'this staff member'}</strong>&apos;s wallet and returned to the company treasury pool.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <Textarea placeholder="Reason (at least 10 characters)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <div className="space-y-1.5 pt-1">
+            <label className="text-xs font-medium text-muted-foreground">Reason for Reversal (min 10 characters)</label>
+            <Textarea
+              placeholder="e.g. Inadvertent duplicate meal allowance disbursement"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="text-xs min-h-[70px]"
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy} className="h-8 text-xs">Cancel</AlertDialogCancel>
             <AlertDialogAction
               disabled={busy || reason.trim().length < 10}
               onClick={(e) => { e.preventDefault(); submitReversal(); }}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="h-8 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reverse'}
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+              Confirm Reversal
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
