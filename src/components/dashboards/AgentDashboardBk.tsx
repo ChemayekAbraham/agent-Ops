@@ -1747,7 +1747,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
-                "rounded-2xl bg-muted/50 px-4",
+                "rounded-2xl border border-border/60 bg-card px-4",
                 submissionsExpanded && "pb-3"
               )}
             >
@@ -1763,17 +1763,17 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   {!submissionsExpanded && (
                     <div className="flex items-center gap-1">
                       {submittedCount > 0 && (
-                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-amber-600 text-[11px] font-semibold flex items-center justify-center">
                           {submittedCount}
                         </span>
                       )}
                       {approvedCount > 0 && (
-                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-emerald-600 text-[11px] font-semibold flex items-center justify-center">
                           {approvedCount}
                         </span>
                       )}
                       {rejectedCount > 0 && (
-                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-destructive text-[11px] font-semibold flex items-center justify-center">
                           {rejectedCount}
                         </span>
                       )}

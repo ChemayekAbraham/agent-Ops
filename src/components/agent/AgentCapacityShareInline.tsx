@@ -184,13 +184,13 @@ export function AgentCapacityShareInline() {
             <button
               type="button"
               onClick={() => hapticTap()}
-              className="flex h-12 w-full items-center gap-3 rounded-2xl bg-emerald-500/10 px-3 text-left text-sm font-semibold text-emerald-700 transition active:scale-[0.99] hover:bg-emerald-500/15 dark:text-emerald-400"
+              className="flex h-12 w-full items-center gap-3 rounded-2xl border border-border/60 bg-card px-3 text-left text-sm font-medium text-foreground transition active:scale-[0.99] hover:bg-muted/40"
             >
-              <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-emerald-500/15">
+              <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-muted text-muted-foreground">
                 {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
               </span>
               <span className="min-w-0 flex-1 truncate">Download report</span>
-              <ChevronDown className="h-4 w-4 flex-none" />
+              <ChevronDown className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
@@ -219,13 +219,13 @@ export function AgentCapacityShareInline() {
         <button
           type="button"
           onClick={() => { hapticTap(); downloadLandlordAgreementTemplate(); }}
-          className="flex h-12 w-full items-center gap-3 rounded-2xl bg-primary/10 px-3 text-left text-sm font-semibold text-primary transition active:scale-[0.99] hover:bg-primary/15"
+          className="flex h-12 w-full items-center gap-3 rounded-2xl border border-border/60 bg-card px-3 text-left text-sm font-medium text-foreground transition active:scale-[0.99] hover:bg-muted/40"
         >
-          <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary/15">
+          <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-muted text-muted-foreground">
             <FileText className="h-4 w-4" />
           </span>
           <span className="min-w-0 flex-1 truncate">Download Landlord Agreement</span>
-          <ChevronRight className="h-4 w-4 flex-none" />
+          <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
         </button>
       </div>
 
