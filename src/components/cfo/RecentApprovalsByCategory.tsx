@@ -719,4 +719,3 @@ export function RecentApprovalsByCategory({ showCardWrapper = true }: { showCard
     </Card>
   );
 }
-}
