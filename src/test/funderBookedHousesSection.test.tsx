@@ -3,7 +3,26 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-const { heldBookings } = vi.hoisted(() => ({
+const { heldBookings, takenBooking } = vi.hoisted(() => ({
+  takenBooking: {
+    intent_id: 'intent-3',
+    note_id: 'note-3',
+    house_id: 'house-3',
+    title: 'Double room at Mukono',
+    district: 'Mukono',
+    image_urls: [],
+    verified: true,
+    monthly_rent: 40000,
+    status: 'reserved',
+    promised_funding_date: null,
+    reserved_until: '2026-11-10T00:00:00Z',
+    released_at: null,
+    release_reason: null,
+    funded_at: null,
+    days_left: 5,
+    taken: true,
+    created_at: '2026-11-05T00:00:00Z',
+  },
   heldBookings: [
     {
       intent_id: 'intent-1',
@@ -50,7 +69,7 @@ vi.mock('@/hooks/useFunderBookedHouses', async (importOriginal) => {
     ...actual,
     useFunderBookedHouses: () => ({
       query: { isPending: false, isError: false, refetch: vi.fn() },
-      bookings: heldBookings,
+      bookings: [...heldBookings, takenBooking],
       held: heldBookings,
       heldCount: heldBookings.length,
     }),
@@ -96,5 +115,14 @@ describe('Booked for you section', () => {
     const giveUp = screen.getByRole('button', { name: 'Give up Bedsitter at Kira' });
     expect(giveUp.className).toContain('text-destructive');
     expect(giveUp.className).toContain('border-destructive');
+  });
+
+  it('marks a taken house as Taken with no way to fund or give it up', () => {
+    mount();
+    const row = screen.getByRole('link', { name: 'Open details for Double room at Mukono' });
+    expect(row.textContent).toContain('Taken');
+    expect(screen.queryByRole('button', { name: 'Give up Double room at Mukono' })).toBeNull();
+    // The fund-all total counts only the two still-held houses (2 × 30,000), not the taken one.
+    expect(screen.getByRole('button', { name: /Fund all 2 held/ }).textContent).toContain('60,000');
   });
 });

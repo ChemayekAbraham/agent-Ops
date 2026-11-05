@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Clock, Home, Loader2, RefreshCw, RotateCcw, Wallet } from 'lucide-react';
+import { Ban, CheckCircle2, Clock, Home, Loader2, RefreshCw, RotateCcw, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,8 @@ const RETURN_RATE = 0.15;
 
 function BookingRow({ booking, busy, onRelease }: { booking: FunderBooking; busy: boolean; onRelease?: () => void }) {
   const photo = booking.image_urls?.find(Boolean);
-  const held = booking.status === 'reserved';
+  const held = booking.status === 'reserved' && !booking.taken;
+  const taken = booking.status === 'reserved' && booking.taken;
   return (
     <article className="flex items-center gap-3 py-3">
       <Link
@@ -35,7 +36,12 @@ function BookingRow({ booking, busy, onRelease }: { booking: FunderBooking; busy
             {formatUGX(booking.monthly_rent)}{' '}
             <span className="text-xs font-medium text-success">+{formatUGX(Math.round(Number(booking.monthly_rent || 0) * RETURN_RATE))}/mo</span>
           </p>
-          {held ? (
+          {taken ? (
+            <Badge variant="outline" className="mt-1 gap-1 border-destructive/40 text-[11px] text-destructive">
+              <Ban className="h-3 w-3" aria-hidden />
+              Taken — no longer available
+            </Badge>
+          ) : held ? (
             <Badge variant="secondary" className="mt-1 gap-1 text-[11px]">
               <Clock className="h-3 w-3" aria-hidden />
               Held · {booking.days_left ?? 0} day{(booking.days_left ?? 0) === 1 ? '' : 's'} left
@@ -78,6 +84,7 @@ export function FunderBookedHousesSection() {
   const [releasing, setReleasing] = useState<string | null>(null);
 
   const submitted = bookings.filter((b) => b.status === 'funded');
+  const takenBookings = bookings.filter((b) => b.status === 'reserved' && b.taken);
   const heldTotal = held.reduce((sum, b) => sum + Number(b.monthly_rent || 0), 0);
   const belowMinimum = heldTotal < BOOKED_HOUSES_MIN_FUNDING;
 
@@ -98,7 +105,7 @@ export function FunderBookedHousesSection() {
       </div>
     );
   }
-  if (held.length === 0 && submitted.length === 0) return null;
+  if (held.length === 0 && submitted.length === 0 && takenBookings.length === 0) return null;
 
   const fundAll = async () => {
     setFunding(true);
@@ -148,6 +155,9 @@ export function FunderBookedHousesSection() {
           />
         ))}
         {submitted.map((booking) => (
+          <BookingRow key={booking.intent_id} booking={booking} busy={false} />
+        ))}
+        {takenBookings.map((booking) => (
           <BookingRow key={booking.intent_id} booking={booking} busy={false} />
         ))}
       </div>
