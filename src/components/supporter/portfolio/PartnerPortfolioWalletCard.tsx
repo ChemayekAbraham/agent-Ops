@@ -26,6 +26,24 @@ const CHAR_STAGGER = 0.018;
 const isSafeMode = () =>
   typeof document !== 'undefined' && document.documentElement.classList.contains('android-compositor-safe');
 
+// Fine flowing lines in two bands, like the engraved waves on a gold card. Drawn once, scaled to the card.
+const WAVE_UPPER = Array.from({ length: 9 }, (_, i) => `M ${160 + i * 7} -10 C ${215 + i * 5} 72, ${310 - i * 4} 38, 432 ${64 + i * 6}`);
+const WAVE_LOWER = Array.from({ length: 9 }, (_, i) => `M -10 ${214 + i * 6} C 118 ${172 + i * 4}, 252 ${252 - i * 3}, 432 ${188 + i * 7}`);
+
+function GoldWaves() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 420 265" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" fill="none">
+      {/* two soft satin sweeps */}
+      <path d="M0 196 C 120 150, 262 252, 420 170 L420 265 L0 265 Z" fill="rgba(255,244,214,0.10)" />
+      <path d="M150 0 C 220 80, 330 30, 420 90 L420 0 Z" fill="rgba(255,244,214,0.10)" />
+      <g stroke="rgba(255,246,222,0.55)" strokeWidth="0.8" strokeLinecap="round">
+        {WAVE_UPPER.map((d) => <path key={d} d={d} />)}
+        {WAVE_LOWER.map((d) => <path key={d} d={d} />)}
+      </g>
+    </svg>
+  );
+}
+
 /** EMV chip, contact grid and all. */
 function EmvChip() {
   const gradientId = useId();
@@ -39,13 +57,13 @@ function EmvChip() {
     >
       <defs>
         <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f4f5f7" />
-          <stop offset="45%" stopColor="#b7bdc6" />
-          <stop offset="100%" stopColor="#7d848e" />
+          <stop offset="0%" stopColor="#f7e8b0" />
+          <stop offset="45%" stopColor="#dbb54c" />
+          <stop offset="100%" stopColor="#a47a1c" />
         </linearGradient>
       </defs>
-      <rect x="0.5" y="0.5" width="33" height="25" rx="4.5" fill={`url(#${gradientId})`} stroke="rgba(0,0,0,0.22)" />
-      <g stroke="rgba(0,0,0,0.3)" strokeWidth="1">
+      <rect x="0.5" y="0.5" width="33" height="25" rx="4.5" fill={`url(#${gradientId})`} stroke="rgba(70,45,5,0.35)" />
+      <g stroke="rgba(70,45,5,0.45)" strokeWidth="1">
         <path d="M0 8.5H11" /><path d="M0 17.5H11" /><path d="M23 8.5H34" /><path d="M23 17.5H34" />
         <path d="M11 3.5V22.5" /><path d="M23 3.5V22.5" /><path d="M11 13H23" />
       </g>
@@ -63,7 +81,7 @@ function ContactlessGlyph() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeWidth="1.7"
-      className="shrink-0 text-[#2a1c04]/60"
+      className="shrink-0 text-black/70"
       style={{ width: 'clamp(13px, 4.2cqw, 20px)', height: 'clamp(13px, 4.2cqw, 20px)' }}
     >
       <path d="M5.5 9.4a5.4 5.4 0 0 1 0 5.2" />
@@ -262,7 +280,7 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
         style={{
-          backgroundImage: 'linear-gradient(145deg, #f6e4a6 0%, #e6c35c 30%, #c99a2e 62%, #9a6f17 100%)',
+          backgroundImage: 'radial-gradient(90% 80% at 92% 55%, rgba(244,184,128,0.65), transparent 62%), linear-gradient(135deg, #b8913e 0%, #d4ae58 38%, #e1bd74 62%, #c79a45 100%)',
           boxShadow:
             '0 2px 4px rgba(0,0,0,0.10), 0 14px 28px -10px rgba(120,80,10,0.50), 0 34px 60px -24px rgba(120,80,10,0.42)',
           containerType: 'inline-size',
@@ -273,6 +291,8 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
       >
         {/* soft light across the top, like the glossy lip of a card */}
         <span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, transparent 34%)' }} />
+        {/* engraved wave lines */}
+        <GoldWaves />
         {/* printed grain */}
         <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ backgroundImage: NOISE_BACKGROUND }} />
         {/* highlight that follows the pointer */}
@@ -292,27 +312,30 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
 
         {/* CONTENT */}
         <div
-          className="relative z-10 flex h-full w-full select-none flex-col justify-between text-[#2a1c04]"
-          style={{ padding: 'clamp(14px, 5.2cqw, 24px) clamp(16px, 5.6cqw, 26px)' }}
+          className="relative z-10 flex h-full w-full select-none flex-col justify-between text-black"
+          style={{ textShadow: '0 1px 0 rgba(255, 244, 214, 0.55)', padding: 'clamp(14px, 5.2cqw, 24px) clamp(16px, 5.6cqw, 26px)' }}
         >
-          {/* chip and contactless on the left, the brand on the right */}
+          {/* the brand and the card type, then the chip */}
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5" aria-hidden="true">
-              <EmvChip />
-              <ContactlessGlyph />
-            </div>
             <img
               src={welileLogo}
               alt="Welile"
-              className="block w-auto object-contain brightness-0 opacity-75"
+              className="block w-auto object-contain brightness-0"
               style={{ height: 'clamp(16px, 4.6cqw, 26px)' }}
             />
+            <span className="whitespace-nowrap font-medium uppercase tracking-[0.14em] text-black/90" style={{ fontSize: 'clamp(10px, 3.1cqw, 15px)' }}>
+              Partner card
+            </span>
+          </div>
+          <div className="flex items-center gap-2.5" aria-hidden="true">
+            <EmvChip />
+            <ContactlessGlyph />
           </div>
 
           {/* the amount */}
           <div className="flex min-w-0 flex-col">
             <div className="flex items-center gap-1.5" style={{ marginBottom: 'min(0.8cqw, 5px)' }}>
-              <span className="whitespace-nowrap font-medium uppercase tracking-wider text-[#2a1c04]/70" style={{ fontSize: 'clamp(8px, 2.3cqw, 12px)' }}>
+              <span className="whitespace-nowrap font-medium uppercase tracking-wider text-black/70" style={{ fontSize: 'clamp(8px, 2.3cqw, 12px)' }}>
                 Active rent principal
               </span>
               <button
@@ -320,7 +343,7 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
                 onClick={() => setShowAmount((s) => !s)}
                 aria-label={showAmount ? 'Hide amount' : 'Show amount'}
                 aria-pressed={showAmount}
-                className="shrink-0 rounded p-0.5 text-[#2a1c04]/70 transition hover:bg-white/10 hover:text-[#2a1c04]"
+                className="shrink-0 rounded p-0.5 text-black/70 transition hover:bg-black/10 hover:text-black"
               >
                 {showAmount ? (
                   <Eye style={{ width: 'clamp(12px, 3.2cqw, 18px)', height: 'clamp(12px, 3.2cqw, 18px)' }} />
@@ -330,7 +353,7 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
               </button>
             </div>
             <div
-              className="whitespace-nowrap font-semibold leading-none tracking-tight text-[#2a1c04] tabular-nums"
+              className="whitespace-nowrap font-semibold leading-none tracking-tight text-black tabular-nums"
               style={{
                 fontSize: 'clamp(22px, 8.4cqw, 40px)',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Segoe UI", Roboto, sans-serif',
@@ -341,25 +364,25 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
           </div>
 
           {/* the member ID, printed where a card number would be */}
-          <div className="whitespace-nowrap font-medium tabular-nums text-[#2a1c04]/85" style={{ fontSize: 'clamp(12px, 4cqw, 19px)', letterSpacing: '0.16em' }}>
+          <div className="whitespace-nowrap font-medium tabular-nums text-black/85" style={{ fontSize: 'clamp(12px, 4cqw, 19px)', letterSpacing: '0.16em' }}>
             {aiId || '—'}
           </div>
 
           {/* holder and the next payout, like holder and valid thru */}
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <span className="block uppercase tracking-[0.14em] text-[#2a1c04]/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
+              <span className="block uppercase tracking-[0.14em] text-black/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
                 Partner name
               </span>
-              <span className="block truncate font-medium uppercase tracking-[0.05em] text-[#2a1c04]/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
+              <span className="block truncate font-medium uppercase tracking-[0.05em] text-black/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
                 {name || '—'}
               </span>
             </div>
             <div className="shrink-0 text-right">
-              <span className="block uppercase tracking-[0.14em] text-[#2a1c04]/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
+              <span className="block uppercase tracking-[0.14em] text-black/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
                 Next payout
               </span>
-              <span className="block font-medium tabular-nums tracking-[0.05em] text-[#2a1c04]/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
+              <span className="block font-medium tabular-nums tracking-[0.05em] text-black/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
                 {payoutLabel}
               </span>
             </div>
