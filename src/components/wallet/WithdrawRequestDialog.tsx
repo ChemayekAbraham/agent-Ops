@@ -374,6 +374,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       // sourced from the portfolio's saved payment route), don't overwrite
       // them with the agent's own saved MoMo number.
       if (prefillPayout) return;
+      // Proxy withdrawal: the destination belongs to the partner and the server copies it
+      // (payoutOnFile), or no route exists. Never fall back to the agent's own saved number.
+      if (linkedParty || payoutOnFile) { setMomoNumber(""); return; }
       setFetchingProfile(true);
       try {
         const { data: profile } = await supabase
@@ -393,7 +396,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       }
     };
     fetchSavedNumber();
-  }, [user, open, prefillPayout]);
+  }, [user, open, prefillPayout, linkedParty, payoutOnFile]);
 
   const isPayoutValid = () => {
     if (payoutOnFile) return true;
