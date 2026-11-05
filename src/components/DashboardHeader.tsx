@@ -56,7 +56,7 @@ interface DashboardHeaderProps {
 const roleConfigMap: Record<string, { label: string; emoji: string; icon: React.ReactNode }> = {
   tenant: { label: 'Tenant', emoji: '🏠', icon: <Home className="h-4 w-4" /> },
   agent: { label: 'Agent', emoji: '👥', icon: <Users className="h-4 w-4" /> },
-  supporter: { label: 'Funder', emoji: '💰', icon: <Wallet className="h-4 w-4" /> },
+  supporter: { label: 'Partner', emoji: '💰', icon: <Wallet className="h-4 w-4" /> },
   landlord: { label: 'Landlord', emoji: '🏢', icon: <Building2 className="h-4 w-4" /> },
   manager: { label: 'Admin', emoji: '🛡️', icon: <Shield className="h-4 w-4" /> },
   ceo: { label: 'CEO', emoji: '👔', icon: <Shield className="h-4 w-4" /> },

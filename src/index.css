@@ -1472,6 +1472,9 @@ html.lite-mode .agent-dashboard-main {
   /* Floating pill nav: 64px bar + 10px bottom inset = 74px of occupied space. */
   --fab-bottom: calc(74px + env(safe-area-inset-bottom, 0px) + 12px);
   --fab-bottom-stacked: calc(74px + env(safe-area-inset-bottom, 0px) + 76px);
+  /* Just above the floating role nav, at every width (the nav is on every dashboard,
+     so this one is not reset on desktop like --fab-bottom). */
+  --fab-above-nav: calc(74px + env(safe-area-inset-bottom, 0px) + 12px);
 }
 @media (min-width: 768px) {
   /* Desktop has no bottom role switcher — anchor FABs to a small inset only. */

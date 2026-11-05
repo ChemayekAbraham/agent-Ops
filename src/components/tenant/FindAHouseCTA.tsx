@@ -54,7 +54,7 @@ export function FindAHouseCTA({ onClick }: FindAHouseCTAProps) {
       <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
         <div className="space-y-2 lg:space-y-3">
           <div className="relative w-fit">
-            <div className="p-1.5 lg:p-2.5 rounded-lg bg-emerald-600 dark:bg-emerald-500 shadow-xs">
+            <div className="p-1.5 lg:p-2.5 rounded-lg bg-sky-500 dark:bg-sky-400 shadow-xs">
               <Home className="h-[18px] w-[18px] lg:h-7 lg:w-7 text-white" />
             </div>
             {newCount > 0 && (

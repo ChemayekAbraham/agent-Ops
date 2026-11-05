@@ -556,96 +556,247 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const queueTotalRevenue = useMemo(() => filteredItems.reduce((s, i) => s + i.access_fee + i.request_fee, 0), [filteredItems]);
   const queueTotalRepaymentExpected = useMemo(() => filteredItems.reduce((s, i) => s + i.total_repayment, 0), [filteredItems]);
 
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = 15;
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(visibleItems.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const pageItems = visibleItems.slice(pageStart, pageStart + PAGE_SIZE);
+
+  const getPageNumbers = () => {
+    if (pageCount <= 7) return Array.from({ length: pageCount }, (_, i) => i + 1);
+    if (safePage <= 4) return [1, 2, 3, 4, 5, '...', pageCount];
+    if (safePage >= pageCount - 3) return [1, '...', pageCount - 4, pageCount - 3, pageCount - 2, pageCount - 1, pageCount];
+    return [1, '...', safePage - 1, safePage, safePage + 1, '...', pageCount];
+  };
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setAgentFilter('all');
+    setCountryFilter('all');
+    setDateFilter('all');
+    clearLocation();
+    setSelected(new Set());
+    setPage(1);
+  };
+
   const exportCsv = () => {
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const head = ['#', 'Tenant', 'Property', 'Landlord', 'Agent', 'Location', 'Payout Amount (UGX)', 'Status', 'Approved'];
-    const rows = visibleItems.map((i, n) => [n + 1, i.tenant_name, [i.loc_village || i.loc_parish, i.loc_house_category].filter(Boolean).join(' · '), i.landlord_name, i.agent_name, [i.request_city, i.request_country].filter(Boolean).join(', '), Math.round(i.rent_amount), i.partner_reserved_stage ? PARTNER_RESERVED_LABEL[i.partner_reserved_stage] : i.payout_target === 'landlord_wallet' ? 'Landlord Wallet' : 'Agent Float', format(new Date(i.created_at), 'dd MMM yyyy')]);
+    const rows = visibleItems.map((i, n) => [
+      n + 1,
+      i.tenant_name,
+      [i.loc_village || i.loc_parish, i.loc_house_category].filter(Boolean).join(' · '),
+      i.landlord_name,
+      i.agent_name,
+      [i.request_city, i.request_country].filter(Boolean).join(', '),
+      Math.round(i.rent_amount),
+      i.partner_reserved_stage
+        ? PARTNER_RESERVED_LABEL[i.partner_reserved_stage]
+        : i.payout_target === 'landlord_wallet'
+        ? 'Landlord Wallet'
+        : 'Agent Float',
+      format(new Date(i.created_at), 'dd MMM yyyy'),
+    ]);
     const csv = [head, ...rows].map(r => r.map(esc).join(',')).join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-    const a = document.createElement('a'); a.href = url; a.download = `rent-disbursement-${format(new Date(), 'yyyy-MM-dd')}.csv`; a.click(); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rent-disbursement-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const dateFilterLabel: Record<string, string> = { all: 'All time', '7d': 'Last 7 days', '30d': 'Last 30 days' };
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
+    <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm bg-card">
       <CardHeader className="pb-0 space-y-0 p-0">
-        {landlordFloatOver.any && <div className="p-4"><LandlordFloatExcessBanner daily={landlordFloatOver.daily} weekly={landlordFloatOver.weekly} /></div>}
-        <div className="px-5 pt-5 pb-4 space-y-4">
-          <div>
-            <h2 className="text-xl font-bold">Rent Disbursement</h2>
-            <p className="text-sm text-muted-foreground">Review approved rent requests, select tenants and fund payouts by location, agent and landlord.</p>
+        {landlordFloatOver.any && (
+          <div className="p-4 bg-muted/20 border-b border-border/60">
+            <LandlordFloatExcessBanner daily={landlordFloatOver.daily} weekly={landlordFloatOver.weekly} />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        )}
+
+        {/* Executive Header */}
+        <div className="px-6 pt-6 pb-5 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-primary/5 text-primary shadow-sm ring-1 ring-primary/25">
+                <Banknote className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-2xl font-bold tracking-tight text-foreground">Rent Disbursement</h2>
+                  <Badge variant="outline" className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border-primary/20">
+                    CFO Execution Desk
+                  </Badge>
+                  {locationScoped && (
+                    <Badge variant="secondary" className="text-[11px] font-medium px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {locationScopeLabel}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Review COO-approved rent requests, select tenants, and disburse payouts into landlord wallets or agent float.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted"
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
+                  toast.success('Queue refreshed');
+                }}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted"
+                disabled={visibleItems.length === 0}
+                onClick={exportCsv}
+              >
+                <Download className="h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* KPI Strip */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
             {[
-              { icon: Users, label: 'Total Tenants', value: String(filteredItems.length), hint: 'Showing in list', tone: 'bg-primary/10 text-primary' },
-              { icon: Banknote, label: 'Total Payout Amount', value: fmt(queueTotalRent), hint: 'Rent out for this list', tone: 'bg-success/15 text-success' },
-              { icon: TrendingUp, label: 'Fees', value: fmt(queueTotalRevenue), hint: `Repayment ${fmt(queueTotalRepaymentExpected)}`, tone: 'bg-warning/15 text-warning' },
-              { icon: CheckCircle2, label: 'Selected for Disbursement', value: String(selectedVisibleCount), hint: selected.size > 0 ? fmt(totalRent) : 'Ready for disbursement', tone: 'bg-success/15 text-success' },
+              {
+                icon: Users,
+                label: 'Total Tenants',
+                value: String(filteredItems.length),
+                hint: visibleItems.length === filteredItems.length ? 'Showing all in view' : `Showing ${visibleItems.length} of ${filteredItems.length}`,
+                badge: `${visibleGroups.length} Agents`,
+                tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20',
+              },
+              {
+                icon: Banknote,
+                label: 'Total Payout Amount',
+                value: fmt(queueTotalRent),
+                hint: 'Rent principal for this queue',
+                badge: 'Principal',
+                tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20',
+              },
+              {
+                icon: TrendingUp,
+                label: 'Platform Fees',
+                value: fmt(queueTotalRevenue),
+                hint: `Repayment expected: ${fmt(queueTotalRepaymentExpected)}`,
+                badge: 'Revenue',
+                tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/20',
+              },
+              {
+                icon: CheckCircle2,
+                label: 'Selected for Disbursement',
+                value: `${selectedVisibleCount} / ${selectableItems.length}`,
+                hint: selected.size > 0 ? fmt(totalRent) : 'Tick tenants to batch fund',
+                badge: selected.size > 0 ? `${selected.size} active` : 'Ready',
+                tone: selected.size > 0 ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'bg-muted text-muted-foreground ring-1 ring-border/50',
+              },
             ].map((t) => (
-              <div key={t.label} className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4">
-                <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', t.tone)}><t.icon className="h-5 w-5" /></span>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">{t.label}</p>
-                  <p className="text-lg font-bold truncate">{t.value}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{t.hint}</p>
+              <div
+                key={t.label}
+                className="relative overflow-hidden flex flex-col justify-between rounded-2xl border border-border/70 bg-gradient-to-br from-card via-card to-card/60 p-4 shadow-xs hover:shadow-sm transition-all duration-200"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs', t.tone)}>
+                    <t.icon className="h-5 w-5" />
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-semibold px-2 py-0.5 rounded-full border-border/60">
+                    {t.badge}
+                  </Badge>
+                </div>
+                <div className="mt-3 min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground truncate">{t.label}</p>
+                  <p className="text-xl sm:text-2xl font-bold tracking-tight text-foreground truncate mt-0.5">{t.value}</p>
+                  <p className="text-[11px] text-muted-foreground truncate mt-1">{t.hint}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Filter band */}
-        <div className="border-y border-border/70 bg-muted/20 px-5 py-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-3 items-center">
+        {/* Filter Toolbar */}
+        <div className="border-y border-border/70 bg-muted/20 px-6 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-center">
+            {/* Search */}
             <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setSelected(new Set()); }}
+                onChange={(e) => { setSearch(e.target.value); setSelected(new Set()); setPage(1); }}
                 placeholder="Search tenant, landlord, agent…"
-                className="h-11 rounded-xl text-sm pl-9 bg-background border-border/70"
+                className="h-10 rounded-xl text-sm pl-9 pr-8 bg-background border-border/70 shadow-xs focus-visible:ring-primary/20"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); setPage(1); }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                >
+                  ✕
+                </button>
+              )}
             </div>
+
+            {/* District Filter */}
             <Select
-                value={districtFilter}
-                onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); }}
-              >
-                <SelectTrigger className="h-11 rounded-xl text-sm w-full bg-background border-border/70">
-                  <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="All districts" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[320px]">
-                  <SelectItem value="all">All districts ({items.length})</SelectItem>
-                  {districtOptions.map(o => (
-                    <SelectItem key={o.name} value={o.name}>
-                      <span className="truncate">{o.name} · {o.count}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+              value={districtFilter}
+              onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-background border-border/70 shadow-xs">
+                <MapPin className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+                <SelectValue placeholder="All districts" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[320px]">
+                <SelectItem value="all">All districts ({items.length})</SelectItem>
+                {districtOptions.map(o => (
+                  <SelectItem key={o.name} value={o.name}>
+                    <span className="truncate">{o.name} · {o.count}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); }}>
-                <SelectTrigger className="h-11 rounded-xl text-sm w-full bg-background border-border/70">
-                  <SelectValue placeholder="All municipalities/towns" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[320px]">
-                  <SelectItem value="all">All municipalities/towns</SelectItem>
-                  {cityOptions.map(o => (
-                    <SelectItem key={o.name} value={o.name}>
-                      <span className="truncate">{o.name} · {o.count}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+
+            {/* Municipality/Town Filter */}
+            <Select
+              value={cityFilter}
+              onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-background border-border/70 shadow-xs">
+                <SelectValue placeholder="All municipalities/towns" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[320px]">
+                <SelectItem value="all">All municipalities/towns</SelectItem>
+                {cityOptions.map(o => (
+                  <SelectItem key={o.name} value={o.name}>
+                    <span className="truncate">{o.name} · {o.count}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Select value={agentFilter} onValueChange={setAgentFilter}>
-              <SelectTrigger className="h-11 rounded-xl text-sm w-full bg-background border-border/70">
-                <Users className="h-4 w-4 mr-2 text-muted-foreground" />
+
+            {/* Agent Filter */}
+            <Select
+              value={agentFilter}
+              onValueChange={(v) => { setAgentFilter(v); setPage(1); }}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-background border-border/70 shadow-xs">
+                <Users className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
                 <SelectValue placeholder="Filter by agent" />
               </SelectTrigger>
               <SelectContent className="max-h-[320px]">
@@ -662,185 +813,250 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 })}
               </SelectContent>
             </Select>
+
+            {/* Optional Category Pickers */}
             {!locationProvisionsOnly && (
-            <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); }}>
-              <SelectTrigger className="h-11 rounded-xl text-sm w-full bg-background border-border/70">
-                <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                <SelectValue placeholder="Category type" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[320px]">
-                {CAT_FIELD_KEYS.map(k => (
-                  <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={catField}
+                onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); setPage(1); }}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-background border-border/70 shadow-xs">
+                  <SelectValue placeholder="Category type" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  {CAT_FIELD_KEYS.map(k => (
+                    <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
+
             {!locationProvisionsOnly && (
-            <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); }}>
-              <SelectTrigger className="h-11 rounded-xl text-sm w-full bg-background border-border/70">
-                <SelectValue placeholder={CAT_FIELD_LABELS[catField]} />
-              </SelectTrigger>
-              <SelectContent className="max-h-[320px]">
-                <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
-                {catOptions.map(o => (
-                  <SelectItem key={o.name} value={o.name}>
-                    <span className="truncate">{o.name} · {o.count}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <Select
+                value={catValue}
+                onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}
+              >
+                <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-background border-border/70 shadow-xs">
+                  <SelectValue placeholder={CAT_FIELD_LABELS[catField]} />
+                </SelectTrigger>
+                <SelectContent className="max-h-[320px]">
+                  <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
+                  {catOptions.map(o => (
+                    <SelectItem key={o.name} value={o.name}>
+                      <span className="truncate">{o.name} · {o.count}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
+
+            {/* Reset Filters button */}
             <Button
               type="button"
               variant="outline"
-              className="h-11 rounded-xl text-sm gap-2 text-primary border-border/70"
-              onClick={() => { setSearch(''); setAgentFilter('all'); setCountryFilter('all'); setDateFilter('all'); clearLocation(); setSelected(new Set()); }}
+              className="h-10 rounded-xl text-sm gap-2 border-border/70 shadow-xs hover:bg-muted"
+              onClick={handleResetFilters}
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4 text-muted-foreground" />
               Reset Filters
             </Button>
-            {(agentFilter !== 'all' || locationScoped) && (
+          </div>
+
+          {(agentFilter !== 'all' || locationScoped || catValue !== 'all' || search) && (
+            <div className="flex items-center gap-2 pt-3 flex-wrap text-xs">
+              <span className="text-muted-foreground font-medium">Active filters:</span>
+              {search && (
+                <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                  Search: "{search}"
+                </Badge>
+              )}
+              {districtFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                  District: {districtFilter}
+                </Badge>
+              )}
+              {cityFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                  Town: {cityFilter}
+                </Badge>
+              )}
+              {agentFilter !== 'all' && (
+                <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                  Agent: {grouped.find(g => g.agent_id === agentFilter)?.agent_name || agentFilter}
+                </Badge>
+              )}
+              {catValue !== 'all' && (
+                <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                  {CAT_FIELD_LABELS[catField]}: {catValue}
+                </Badge>
+              )}
               <button
                 type="button"
-                className="text-xs font-medium text-primary hover:underline justify-self-start sm:col-span-2 lg:col-span-3 xl:col-span-7"
-                onClick={() => { setAgentFilter('all'); clearLocation(); }}
+                className="text-xs font-medium text-primary hover:underline ml-1"
+                onClick={handleResetFilters}
               >
-                Clear agent &amp; location
+                Clear all filters
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4 p-5">
-        {/* Location scope chip — the same table below is simply filtered. */}
-        {locationScoped && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="text-[11px] rounded-full px-2.5 py-0.5 bg-primary/10 text-primary border-primary/30">
-              <MapPin className="h-3 w-3 mr-1" />
-              {locationScopeLabel}
-            </Badge>
-            <button
-              type="button"
-              className="text-xs font-medium text-primary hover:underline"
-              onClick={clearLocation}
-            >
-              Show whole queue
-            </button>
-          </div>
-        )}
-        <div className="border-b border-border/70 px-5 py-3">
+
+      <CardContent className="space-y-4 p-6">
+        {/* Rent Desk Controls & Suggestions */}
+        <div className="rounded-xl border border-border/70 bg-card p-4 space-y-3">
           <RentDeskControls
             filters={deskUrl.filters}
-            onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); }}
-            onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); }}
+            onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); setPage(1); }}
+            onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); setPage(1); }}
             sort={deskUrl.sort}
-            onSortChange={(v) => deskUrl.setSort(v as RentDeskSort)}
+            onSortChange={(v) => { deskUrl.setSort(v as RentDeskSort); setPage(1); }}
             sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
             matchCount={deskOrder.data?.matchCount}
             totalCount={deskOrder.data?.totalCount}
             error={deskOrder.isError}
           />
           <AboveSuggestionToggle
-            className="mt-2"
+            className="pt-1"
             on={aboveOnly}
-            onChange={(on) => { setAboveOnly(on); setSelected(new Set()); }}
+            onChange={(on) => { setAboveOnly(on); setSelected(new Set()); setPage(1); }}
             count={items.filter((i) => i.renewal_above_suggestion).length}
           />
         </div>
+
         {showLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-muted-foreground">Loading rent disbursement queue…</p>
+          </div>
         ) : filteredItems.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-emerald-500" />
-            <p className="font-medium">No Pending Rent Payouts</p>
-            <p className="text-xs">
+          <div className="text-center py-16 px-4 rounded-xl border border-dashed border-border/70 bg-muted/10">
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500 opacity-90" />
+            <p className="text-base font-semibold text-foreground">No Pending Rent Payouts</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
               {dateFilter !== 'all'
-                ? `No requests match ${dateFilterLabel[dateFilter]}. `
-                : 'All approved rent requests have been disbursed'}
-              {dateFilter !== 'all' && (
-                <button type="button" className="text-primary hover:underline" onClick={() => setDateFilter('all')}>
-                  Show all
-                </button>
-              )}
+                ? `No requests match ${dateFilterLabel[dateFilter]}.`
+                : 'All approved rent requests have been disbursed to agent float or landlord wallets.'}
             </p>
+            {(dateFilter !== 'all' || agentFilter !== 'all' || locationScoped || search) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 rounded-xl text-xs gap-1.5"
+                onClick={handleResetFilters}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Reset all filters
+              </Button>
+            )}
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {/* Revenue summary — only while no tenants are ticked for payment */}
             {locationScoped && selected.size === 0 && (
-              <div className="rounded-lg border-2 border-emerald-200 bg-emerald-50 dark:bg-emerald-950/20 p-3 space-y-2">
-                <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                  <TrendingUp className="h-3.5 w-3.5" />
-                  Revenue from this disbursement
-                  {locationScoped && (
-                    <span className="ml-2 text-[10px] font-normal text-emerald-600/80">
-                      · Scoped by location
+              <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                    <TrendingUp className="h-4 w-4" />
+                    Revenue from this disbursement
+                    <span className="ml-1 text-[11px] font-normal text-emerald-600/80 dark:text-emerald-400/80">
+                      · Scoped by location ({locationScopeLabel})
                     </span>
-                  )}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
-                  <div className="rounded-md bg-background/60 py-2">
-                    <p className="text-[10px] text-muted-foreground">Rent Out</p>
-                    <p className="font-bold text-sm text-orange-600">{fmt(selected.size > 0 ? totalRent : queueTotalRent)}</p>
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                  <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+                    <p className="text-[11px] font-medium text-muted-foreground">Rent Out (Principal)</p>
+                    <p className="font-bold text-base text-orange-600 dark:text-orange-400 mt-0.5">
+                      {fmt(selected.size > 0 ? totalRent : queueTotalRent)}
+                    </p>
                   </div>
-                  <div className="rounded-md bg-background/60 py-2">
-                    <p className="text-[10px] text-muted-foreground">We Earn (Fees)</p>
-                    <p className="font-bold text-sm text-emerald-600">{fmt(selected.size > 0 ? totalRevenue : queueTotalRevenue)}</p>
+                  <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+                    <p className="text-[11px] font-medium text-muted-foreground">Platform Earnings (Fees)</p>
+                    <p className="font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">
+                      {fmt(selected.size > 0 ? totalRevenue : queueTotalRevenue)}
+                    </p>
                   </div>
-                  <div className="rounded-md bg-background/60 py-2">
-                    <p className="text-[10px] text-muted-foreground">Total Repayment</p>
-                    <p className="font-bold text-sm text-primary">{fmt(selected.size > 0 ? totalRepaymentExpected : queueTotalRepaymentExpected)}</p>
+                  <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+                    <p className="text-[11px] font-medium text-muted-foreground">Total Repayment Expected</p>
+                    <p className="font-bold text-base text-primary mt-0.5">
+                      {fmt(selected.size > 0 ? totalRepaymentExpected : queueTotalRepaymentExpected)}
+                    </p>
                   </div>
                 </div>
                 <TreasuryImpactBanner payoutAmount={selected.size > 0 ? totalRent : queueTotalRent} />
               </div>
-
             )}
 
-            {/* Grouped list (by agent) */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-base font-bold">{visibleItems.length} tenant{visibleItems.length === 1 ? '' : 's'}</span>
-                <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] text-muted-foreground">
-                  {visibleItems.length === filteredItems.length ? `Showing all ${visibleItems.length}` : `Showing ${visibleItems.length} of ${filteredItems.length}`} · {visibleGroups.length} agent{visibleGroups.length === 1 ? '' : 's'}
+            {/* Table Toolbar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span className="text-base font-bold text-foreground">
+                  {visibleItems.length} tenant{visibleItems.length === 1 ? '' : 's'} awaiting payout
+                </span>
+                <span className="rounded-full bg-muted/80 px-2.5 py-0.5 text-xs text-muted-foreground border border-border/50">
+                  {visibleItems.length === filteredItems.length
+                    ? `Showing all ${visibleItems.length}`
+                    : `Showing ${visibleItems.length} of ${filteredItems.length}`} · {visibleGroups.length} agent{visibleGroups.length === 1 ? '' : 's'}
                 </span>
               </div>
+
               <div className="flex items-center gap-2 flex-wrap">
+                {selectedVisibleCount > 0 ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-9 rounded-xl gap-2 font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90"
+                    onClick={() => setBulkReviewOpen(true)}
+                  >
+                    <Banknote className="h-4 w-4" />
+                    Review &amp; Pay {selectedVisibleCount} Selected ({fmt(totalRent)})
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-xl gap-2 font-medium border-border/70 shadow-xs hover:bg-muted"
+                    disabled={selectableItems.length === 0}
+                    onClick={selectAllForPayment}
+                  >
+                    <Banknote className="h-4 w-4 text-primary" />
+                    Select All for Disbursement
+                  </Button>
+                )}
+
                 <Button
                   type="button"
+                  variant="outline"
                   size="sm"
-                  className="h-9 rounded-lg gap-2"
-                  disabled={selectableItems.length === 0}
-                  onClick={selectAllForPayment}
+                  className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted"
+                  disabled={visibleItems.length === 0}
+                  onClick={exportCsv}
                 >
-                  <Banknote className="h-4 w-4" />
-                  {selectedVisibleCount > 0
-                    ? `${selectedVisibleCount} Tenant${selectedVisibleCount === 1 ? '' : 's'} Selected — Review Payment`
-                    : 'Select All for Disbursement'}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button type="button" variant="outline" size="sm" className="h-9 rounded-lg gap-2" disabled={visibleItems.length === 0} onClick={exportCsv}>
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4 text-muted-foreground" />
                   Export
                 </Button>
+
                 <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filter
-                    {(agentFilter !== 'all' || countryFilter !== 'all' || dateFilter !== 'all' || districtFilter !== 'all' || cityFilter !== 'all' || catValue !== 'all') && (
-                      <Badge className="h-5 min-w-5 px-1.5 text-[10px] bg-primary text-primary-foreground border-0">
-                        {[agentFilter !== 'all', countryFilter !== 'all', dateFilter !== 'all', districtFilter !== 'all', cityFilter !== 'all', catValue !== 'all'].filter(Boolean).length}
-                      </Badge>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-72 space-y-3 p-3">
-                  <div className="space-y-1.5">
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted">
+                      <Filter className="h-4 w-4 text-muted-foreground" />
+                      Filter
+                      {(agentFilter !== 'all' || countryFilter !== 'all' || dateFilter !== 'all' || districtFilter !== 'all' || cityFilter !== 'all' || catValue !== 'all') && (
+                        <Badge className="h-5 min-w-5 px-1.5 text-[10px] bg-primary text-primary-foreground border-0 rounded-full">
+                          {[agentFilter !== 'all', countryFilter !== 'all', dateFilter !== 'all', districtFilter !== 'all', cityFilter !== 'all', catValue !== 'all'].filter(Boolean).length}
+                        </Badge>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 space-y-3 p-4 rounded-xl shadow-lg border-border/80">
+                    <div className="space-y-1.5">
                       <p className="text-xs font-semibold text-muted-foreground">District</p>
                       <Select
                         value={districtFilter}
-                        onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); }}
+                        onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
                       >
                         <SelectTrigger className="h-9 rounded-lg text-sm">
                           <SelectValue placeholder="All districts" />
@@ -854,10 +1070,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                           ))}
                         </SelectContent>
                       </Select>
-                  </div>
-                  <div className="space-y-1.5">
+                    </div>
+
+                    <div className="space-y-1.5">
                       <p className="text-xs font-semibold text-muted-foreground">Municipality / Town</p>
-                      <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); }}>
+                      <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}>
                         <SelectTrigger className="h-9 rounded-lg text-sm">
                           <SelectValue placeholder="All municipalities/towns" />
                         </SelectTrigger>
@@ -870,121 +1087,143 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                           ))}
                         </SelectContent>
                       </Select>
-                  </div>
-                  {!locationProvisionsOnly && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">Category type</p>
-                    <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); }}>
-                      <SelectTrigger className="h-9 rounded-lg text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[280px]">
-                        {CAT_FIELD_KEYS.map(k => (
-                          <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  )}
-                  {!locationProvisionsOnly && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">{CAT_FIELD_LABELS[catField]}</p>
-                    <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); }}>
-                      <SelectTrigger className="h-9 rounded-lg text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[280px]">
-                        <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
-                        {catOptions.map(o => (
-                          <SelectItem key={o.name} value={o.name}>
-                            <span className="truncate">{o.name} · {o.count}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  )}
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">Agent</p>
-                    <Select value={agentFilter} onValueChange={setAgentFilter}>
-                      <SelectTrigger className="h-9 rounded-lg text-sm">
-                        <SelectValue placeholder="Filter by agent" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[280px]">
-                        <SelectItem value="all">All agents ({grouped.length})</SelectItem>
-                        {grouped.map(g => (
-                          <SelectItem key={g.agent_id} value={g.agent_id}>
-                            <span className="truncate">{g.agent_name} · {g.rows.length}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {!locationProvisionsOnly && (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-semibold text-muted-foreground">Country</p>
-                    <Select value={countryFilter} onValueChange={setCountryFilter}>
-                      <SelectTrigger className="h-9 rounded-lg text-sm">
-                        <SelectValue placeholder="All countries" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[280px]">
-                        <SelectItem value="all">All countries</SelectItem>
-                        {countryStats.map(c => (
-                          <SelectItem key={c.country} value={c.country}>
-                            <span className="truncate">{c.country} · {c.count}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  )}
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-primary hover:underline"
-                    onClick={() => { setAgentFilter('all'); setDateFilter('all'); clearLocation(); }}
-                  >
-                    Clear all filters
-                  </button>
-                </PopoverContent>
+                    </div>
+
+                    {!locationProvisionsOnly && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">Category type</p>
+                        <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); setPage(1); }}>
+                          <SelectTrigger className="h-9 rounded-lg text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[280px]">
+                            {CAT_FIELD_KEYS.map(k => (
+                              <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {!locationProvisionsOnly && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">{CAT_FIELD_LABELS[catField]}</p>
+                        <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}>
+                          <SelectTrigger className="h-9 rounded-lg text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[280px]">
+                            <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
+                            {catOptions.map(o => (
+                              <SelectItem key={o.name} value={o.name}>
+                                <span className="truncate">{o.name} · {o.count}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-semibold text-muted-foreground">Agent</p>
+                      <Select value={agentFilter} onValueChange={(v) => { setAgentFilter(v); setPage(1); }}>
+                        <SelectTrigger className="h-9 rounded-lg text-sm">
+                          <SelectValue placeholder="Filter by agent" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[280px]">
+                          <SelectItem value="all">All agents ({grouped.length})</SelectItem>
+                          {grouped.map(g => (
+                            <SelectItem key={g.agent_id} value={g.agent_id}>
+                              <span className="truncate">{g.agent_name} · {g.rows.length}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {!locationProvisionsOnly && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">Country</p>
+                        <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setPage(1); }}>
+                          <SelectTrigger className="h-9 rounded-lg text-sm">
+                            <SelectValue placeholder="All countries" />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-[280px]">
+                            <SelectItem value="all">All countries</SelectItem>
+                            {countryStats.map(c => (
+                              <SelectItem key={c.country} value={c.country}>
+                                <span className="truncate">{c.country} · {c.count}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-primary hover:underline block pt-1"
+                      onClick={handleResetFilters}
+                    >
+                      Clear all filters
+                    </button>
+                  </PopoverContent>
                 </Popover>
               </div>
             </div>
-            <div className="overflow-hidden">
+
+            {/* Table Container */}
+            <div className="rounded-xl border border-border/70 bg-card overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm min-w-[64rem]">
+                <table className="w-full text-sm min-w-[68rem]">
                   <thead>
-                    <tr className="border-b border-border/50 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <th className="w-10 px-3 py-3 text-center font-semibold">
+                    <tr className="border-b border-border/60 bg-muted/40 text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                      <th className="w-12 px-3.5 py-3.5 text-center">
                         <Checkbox
                           aria-label="Select all on this page"
                           checked={pageItems.length > 0 && pageItems.filter(i => !i.partner_reserved_stage).every(i => selected.has(i.id))}
-                          onCheckedChange={(v) => setSelected(prev => { const n = new Set(prev); pageItems.forEach(i => { if (i.partner_reserved_stage) return; if (v) n.add(i.id); else n.delete(i.id); }); return n; })}
+                          onCheckedChange={(v) =>
+                            setSelected(prev => {
+                              const n = new Set(prev);
+                              pageItems.forEach(i => {
+                                if (i.partner_reserved_stage) return;
+                                if (v) n.add(i.id);
+                                else n.delete(i.id);
+                              });
+                              return n;
+                            })
+                          }
                         />
                       </th>
-                      <th className="w-10 px-3 py-3 text-center font-semibold">#</th>
-                      <th className="px-3 py-3 text-left font-semibold">Tenant</th>
-                      <th className="px-3 py-3 text-left font-semibold">Property</th>
-                      <th className="px-3 py-3 text-left font-semibold">Landlord</th>
-                      <th className="px-3 py-3 text-left font-semibold">Agent</th>
-                      <th className="px-3 py-3 text-left font-semibold">Location</th>
-                      <th className="px-3 py-3 text-left font-semibold">Payout Amount</th>
-                      <th className="px-3 py-3 text-left font-semibold">Status</th>
-                      <th className="px-3 py-3 text-left font-semibold">Approved</th>
-                      <th className="px-3 py-3 text-center font-semibold">Actions</th>
+                      <th className="w-10 px-3 py-3.5 text-center">#</th>
+                      <th className="px-4 py-3.5 text-left">Tenant</th>
+                      <th className="px-3 py-3.5 text-left">Property</th>
+                      <th className="px-3 py-3.5 text-left">Landlord</th>
+                      <th className="px-3 py-3.5 text-left">Agent</th>
+                      <th className="px-3 py-3.5 text-left">Location</th>
+                      <th className="px-4 py-3.5 text-right">Payout Amount</th>
+                      <th className="px-3 py-3.5 text-center">Channel</th>
+                      <th className="px-3 py-3.5 text-left">Approved</th>
+                      <th className="w-16 px-3 py-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-border/50">
                     {visibleItems.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
-                          No tenants match the current filters.{' '}
-                          <button
-                            type="button"
-                            className="text-primary hover:underline"
-                            onClick={() => { setAgentFilter('all'); setDateFilter('all'); clearLocation(); }}
-                          >
-                            Clear all filters
-                          </button>
+                        <td colSpan={11} className="text-center py-12 text-sm text-muted-foreground">
+                          <div className="max-w-sm mx-auto flex flex-col items-center">
+                            <CheckCircle2 className="h-10 w-10 text-emerald-500 mb-2 opacity-80" />
+                            <p className="font-semibold text-foreground">No rent payouts match your filters</p>
+                            <p className="text-xs text-muted-foreground mt-1">Try resetting your search query, location, or agent filters.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="mt-3.5 rounded-lg text-xs"
+                              onClick={handleResetFilters}
+                            >
+                              Clear all filters
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -995,98 +1234,149 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                       const propertyLabel = [item.loc_village || item.loc_parish, item.loc_house_category].filter(Boolean).join(' · ');
                       const rowNumber = pageStart + index + 1;
                       return (
-                        <Fragment key={item.id}>
-                          <tr
-                            onClick={() => setReviewTarget(item)}
-                            className={cn(
-                              'border-b border-border/50 last:border-0 cursor-pointer transition-colors',
-                              isSel ? 'bg-primary/[0.07]' : 'hover:bg-muted/40'
+                        <tr
+                          key={item.id}
+                          onClick={() => setReviewTarget(item)}
+                          className={cn(
+                            'cursor-pointer transition-colors',
+                            isSel ? 'bg-primary/[0.05] hover:bg-primary/[0.08]' : 'hover:bg-muted/40'
+                          )}
+                        >
+                          <td className="px-3.5 py-3.5 align-middle text-center" onClick={e => e.stopPropagation()}>
+                            <Checkbox
+                              aria-label={`Select ${item.tenant_name}`}
+                              disabled={!!reserved}
+                              checked={isSel}
+                              onCheckedChange={() => toggle(item.id)}
+                            />
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-center text-xs font-mono text-muted-foreground">{rowNumber}</td>
+                          <td className="px-4 py-3.5 align-middle">
+                            <p className="font-semibold text-foreground truncate max-w-[13rem]">{item.tenant_name}</p>
+                            <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                              <PaymentLabelChip label={(item as RentDeskScoreFields).payment_label} score={(item as RentDeskScoreFields).payment_score} reason={(item as RentDeskScoreFields).payment_reason} showReason={false} />
+                              <RenewalListTags request={{ ...item, duration_days: item.duration_days ?? 0 }} />
+                            </div>
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-xs text-muted-foreground max-w-[9rem]">
+                            <span className="line-clamp-2">{propertyLabel || '—'}</span>
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-xs font-medium text-foreground max-w-[8rem] truncate">
+                            {item.landlord_name}
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-xs max-w-[11rem]">
+                            <span className="font-medium text-foreground block truncate">{item.agent_name}</span>
+                            <div className="mt-0.5">{weekChip(item)}</div>
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-xs text-muted-foreground max-w-[9rem] truncate">
+                            {locationLabel || '—'}
+                          </td>
+                          <td className="px-4 py-3.5 align-middle text-right font-bold text-foreground whitespace-nowrap">
+                            {fmt(item.rent_amount)}
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-center whitespace-nowrap">
+                            {reserved ? (
+                              <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30 font-medium">
+                                {PARTNER_RESERVED_LABEL[reserved]}
+                              </Badge>
+                            ) : item.payout_target === 'landlord_wallet' ? (
+                              <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium inline-flex items-center gap-1">
+                                <Wallet className="h-3 w-3" />Landlord Wallet
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-medium inline-flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" />Agent Float
+                              </Badge>
                             )}
-                          >
-                            <td className="px-3 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
-                              <Checkbox
-                                aria-label={`Select ${item.tenant_name}`}
-                                disabled={!!reserved}
-                                checked={isSel}
-                                onCheckedChange={() => toggle(item.id)}
-                              />
-                            </td>
-                            <td className="px-3 py-3 align-middle text-center font-medium">{rowNumber}</td>
-                            <td className="px-3 py-3 align-middle">
-                              <p className="font-semibold truncate max-w-[12rem]">{item.tenant_name}</p>
-                              <div className="mt-0.5 flex items-center gap-1">
-                                <PaymentLabelChip label={(item as RentDeskScoreFields).payment_label} score={(item as RentDeskScoreFields).payment_score} reason={(item as RentDeskScoreFields).payment_reason} showReason={false} />
-                                <RenewalListTags request={{ ...item, duration_days: item.duration_days ?? 0 }} />
-                              </div>
-                            </td>
-                            <td className="px-3 py-3 align-middle text-xs text-primary max-w-[9rem]">{propertyLabel || '—'}</td>
-                            <td className="px-3 py-3 align-middle text-xs font-semibold text-primary max-w-[8rem]">{item.landlord_name}</td>
-                            <td className="px-3 py-3 align-middle text-xs max-w-[11rem]">
-                              <span className="block">{item.agent_name}</span>
-                              {weekChip(item)}
-                            </td>
-                            <td className="px-3 py-3 align-middle text-xs max-w-[9rem]">{locationLabel || '—'}</td>
-                            <td className="px-3 py-3 align-middle font-semibold whitespace-nowrap">{fmt(item.rent_amount)}</td>
-                            <td className="px-3 py-3 align-middle whitespace-nowrap">
-                              {reserved ? (
-                                <Badge className="text-[10px] px-2 py-0.5 rounded-md bg-accent text-accent-foreground border-0">{PARTNER_RESERVED_LABEL[reserved]}</Badge>
-                              ) : item.payout_target === 'landlord_wallet' ? (
-                                <Badge className="text-[10px] px-2 py-0.5 rounded-md bg-success/15 text-success border-0">
-                                  <Wallet className="h-3 w-3 mr-1" />Landlord Wallet
-                                </Badge>
-                              ) : (
-                                <Badge className="text-[10px] px-2 py-0.5 rounded-md bg-warning/15 text-warning border-0">
-                                  <AlertTriangle className="h-3 w-3 mr-1" />Agent Float
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="px-3 py-3 align-middle text-xs whitespace-nowrap">
-                              {format(new Date(item.created_at), 'dd MMM yyyy')}
-                            </td>
-                            <td className="px-3 py-3 align-middle text-center" onClick={e => e.stopPropagation()}>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button size="icon" variant="outline" className="h-8 w-8 rounded-lg" aria-label={`Actions for ${item.tenant_name}`}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setReviewTarget(item)}>
-                                    <Eye className="h-4 w-4 mr-2" />Review
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-xs text-muted-foreground whitespace-nowrap">
+                            {format(new Date(item.created_at), 'dd MMM yyyy')}
+                          </td>
+                          <td className="px-3 py-3.5 align-middle text-center" onClick={e => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-muted" aria-label={`Actions for ${item.tenant_name}`}>
+                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-52 rounded-xl shadow-lg border-border/80">
+                                <DropdownMenuItem onClick={() => setReviewTarget(item)} className="gap-2 cursor-pointer">
+                                  <Eye className="h-4 w-4 text-primary" />Review Details
+                                </DropdownMenuItem>
+                                {!reserved && (
+                                  <DropdownMenuItem onClick={() => toggle(item.id)} className="gap-2 cursor-pointer">
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />{isSel ? 'Unselect' : 'Select for disbursement'}
                                   </DropdownMenuItem>
-                                  {!reserved && (
-                                    <DropdownMenuItem onClick={() => toggle(item.id)}>
-                                      <CheckCircle2 className="h-4 w-4 mr-2" />{isSel ? 'Unselect' : 'Select for disbursement'}
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </td>
-                          </tr>
-                        </Fragment>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setRejectTarget(item);
+                                    setRejectReason('');
+                                  }}
+                                  className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                                >
+                                  <XCircle className="h-4 w-4" />Return to COO
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-              <div className="flex items-center justify-between gap-3 pt-4 text-xs text-muted-foreground">
-                <span>
-                  {visibleItems.length === 0 ? 'Showing 0 tenants' : `Showing ${pageStart + 1}–${pageStart + pageItems.length} of ${visibleItems.length} tenants`}
-                </span>
-                <div className="flex items-center gap-1">
-                  <Button size="icon" variant="outline" className="h-8 w-8" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)} aria-label="Previous page">
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  {Array.from({ length: pageCount }, (_, i) => i + 1).map(n => (
-                    <Button key={n} size="icon" variant={n === safePage ? 'default' : 'outline'} className="h-8 w-8" onClick={() => setPage(n)}>{n}</Button>
-                  ))}
-                  <Button size="icon" variant="outline" className="h-8 w-8" disabled={safePage >= pageCount} onClick={() => setPage(safePage + 1)} aria-label="Next page">
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+
+              {/* Pagination Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-border/60 bg-muted/20 text-xs text-muted-foreground">
+                <div>
+                  {visibleItems.length === 0
+                    ? 'Showing 0 tenants'
+                    : `Showing ${pageStart + 1}–${Math.min(pageStart + PAGE_SIZE, visibleItems.length)} of ${visibleItems.length} tenants (Page ${safePage} of ${pageCount})`}
                 </div>
+                {pageCount > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-lg border-border/70 shadow-xs"
+                      disabled={safePage <= 1}
+                      onClick={() => setPage(safePage - 1)}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    {getPageNumbers().map((n, idx) =>
+                      typeof n === 'number' ? (
+                        <Button
+                          key={n}
+                          size="icon"
+                          variant={n === safePage ? 'default' : 'outline'}
+                          className={cn('h-8 w-8 rounded-lg font-medium text-xs', n === safePage ? 'shadow-xs' : 'border-border/70 shadow-xs')}
+                          onClick={() => setPage(n)}
+                        >
+                          {n}
+                        </Button>
+                      ) : (
+                        <span key={`ellipsis-${idx}`} className="px-1 text-muted-foreground select-none">
+                          …
+                        </span>
+                      )
+                    )}
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      className="h-8 w-8 rounded-lg border-border/70 shadow-xs"
+                      disabled={safePage >= pageCount}
+                      onClick={() => setPage(safePage + 1)}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
-
           </div>
         )}
       </CardContent>
@@ -1261,12 +1551,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
                   <span className="text-xs text-muted-foreground">Payout to</span>
                   {reviewTarget.payout_target === 'landlord_wallet' ? (
-                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border-emerald-200">
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium">
                       <Wallet className="h-3 w-3 mr-1" />
                       Landlord Wallet
                     </Badge>
                   ) : (
-                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border-amber-200">
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 font-medium">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       Agent Float
                     </Badge>
@@ -1275,25 +1565,25 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 {reviewTarget.partner_reserved_stage && (
                   <div className="flex items-center justify-between gap-3 px-3 py-2">
                     <span className="text-xs text-muted-foreground">Partner status</span>
-                    <Badge className="text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 border-violet-200">
+                    <Badge variant="outline" className="text-[10px] px-2.5 py-0.5 rounded-full bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/30 font-medium">
                       {PARTNER_RESERVED_LABEL[reviewTarget.partner_reserved_stage]}
                     </Badge>
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-muted/40 py-2">
-                  <p className="text-[10px] text-muted-foreground">Rent out</p>
-                  <p className="font-bold text-sm text-orange-600">{fmt(reviewTarget.rent_amount)}</p>
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-2.5 shadow-xs">
+                  <p className="text-[10px] font-medium text-muted-foreground">Rent out</p>
+                  <p className="font-bold text-sm text-orange-600 dark:text-orange-400 mt-0.5">{fmt(reviewTarget.rent_amount)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2">
-                  <p className="text-[10px] text-muted-foreground">Fees</p>
-                  <p className="font-bold text-sm text-emerald-600">{fmt(reviewTarget.access_fee + reviewTarget.request_fee)}</p>
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-2.5 shadow-xs">
+                  <p className="text-[10px] font-medium text-muted-foreground">Fees</p>
+                  <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400 mt-0.5">{fmt(reviewTarget.access_fee + reviewTarget.request_fee)}</p>
                 </div>
-                <div className="rounded-lg bg-muted/40 py-2">
-                  <p className="text-[10px] text-muted-foreground">Repayment</p>
-                  <p className="font-bold text-sm text-primary">{fmt(reviewTarget.total_repayment)}</p>
+                <div className="rounded-xl border border-border/70 bg-muted/30 p-2.5 shadow-xs">
+                  <p className="text-[10px] font-medium text-muted-foreground">Repayment</p>
+                  <p className="font-bold text-sm text-primary mt-0.5">{fmt(reviewTarget.total_repayment)}</p>
                 </div>
               </div>
 

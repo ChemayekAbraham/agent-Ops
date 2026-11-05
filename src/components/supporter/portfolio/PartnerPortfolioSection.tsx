@@ -64,7 +64,7 @@ export function PartnerPortfolioSection({ onViewPortfolios, onExploreOpportuniti
             onClick={() => { hapticTap(); setView(tab.key); }}
             className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-colors min-h-[36px] ${
               view === tab.key
-                ? 'bg-card text-foreground shadow-sm'
+                ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground'
             }`}
           >
