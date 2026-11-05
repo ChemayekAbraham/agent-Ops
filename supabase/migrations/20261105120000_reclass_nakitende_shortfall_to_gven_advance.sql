@@ -1,4 +1,4 @@
--- NOT YET RUN. Terms decided 2026-11-05: expiry extended to cover the larger balance (instalment unchanged). Dry-run with these terms passed and rolled back 2026-11-05 (see HANDOVER 257).
+-- APPLIED 2026-11-05 07:29 UTC by the CTO under the CFO id; verified (see HANDOVER 257). Terms: expiry extended to cover the larger balance, instalment unchanged.
 --
 -- Move Nakitende Jumeirah's unrecovered Rent Plan receivable (plan 406ed7bc, about 332,000 left in A3)
 -- onto GVEN AKANDWANAHO's advance d0c44c3c, as decided by the CTO and the CFO on 2026-11-05
