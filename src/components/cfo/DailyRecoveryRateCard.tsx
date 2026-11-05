@@ -79,35 +79,50 @@ export function DailyRecoveryRateCard() {
   };
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <Percent className="h-4 w-4" /> Daily Recovery Rate
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+    <Card className="w-full rounded-xl border-border/80 shadow-2xs flex flex-col justify-between">
+      <CardHeader className="pb-3 border-b border-border/50">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <Percent className="h-3.5 w-3.5" />
+          </span>
           <div>
-            <Label className="text-xs">Current rate</Label>
-            <p className="text-2xl font-black tracking-tight text-primary">{currentPct}%</p>
+            <CardTitle className="text-sm font-semibold">Daily Recovery Rate</CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Automated daily sweep share of withdrawable commission
+            </p>
           </div>
-          <div className="flex-1">
-            <Label className="text-xs">New rate (%)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={100}
-              placeholder={String(currentPct)}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-            />
-          </div>
-          <Button onClick={handleSave} disabled={saving || !value} size="sm">
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground mt-2">
-          Each day the recovery job takes this % of an agent's withdrawable commission toward their
+      </CardHeader>
+      <CardContent className="pt-4 flex-1 flex flex-col justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3.5 py-2 shrink-0">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block">
+              Current rate
+            </Label>
+            <p className="text-2xl font-black tracking-tight tabular-nums text-primary leading-tight mt-0.5">
+              {currentPct}%
+            </p>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">New rate (%)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                placeholder={String(currentPct)}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="h-9 text-sm tabular-nums"
+              />
+              <Button onClick={handleSave} disabled={saving || !value} size="sm" className="h-9 px-4 shrink-0">
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p className="text-[11px] text-muted-foreground leading-relaxed bg-muted/20 rounded-md px-2.5 py-1.5 border border-border/40">
+          Each day the recovery job takes this % of an agent&apos;s withdrawable commission toward their
           outstanding advance; the rest stays withdrawable.
         </p>
       </CardContent>
