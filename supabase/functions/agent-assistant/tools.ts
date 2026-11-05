@@ -523,7 +523,7 @@ export const PARTNER_TOOLS: ToolDef[] = [
     name: "get_partner_withdrawals",
     description:
       "The partner's own withdrawal requests (default last 90 days): amount, stage (paid, in_progress, rejected, cancelled), requested_on, paid_on, method, network or bank, " +
-      "sent_to (masked), reference, and whether it was a portfolio Returns payout, plus summary totals. Filter by status (all, paid, in_progress, rejected, cancelled) and by period or from/to. " +
+      "sent_to (masked), reference, and whether it was a portfolio Returns payout, plus summary totals (only the stage is given, never an internal status). Filter by status (all, paid, in_progress, rejected, cancelled) and by period or from/to. " +
       "Use for 'did my withdrawal go through', 'what have I withdrawn', 'where was it sent'.",
     parameters: {
       type: "object",
@@ -541,6 +541,27 @@ export const PARTNER_TOOLS: ToolDef[] = [
       const x = a as Range & { status?: string; limit?: number };
       const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
       return { p_status: x.status ?? "all", ...range, p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_partner_wallet_activity",
+    description:
+      "The partner's wallet activity (default last 30 days): date, amount, direction (in or out) and a plain type such as Returns credited to wallet, Withdrawal, Deposit, Portfolio funding or top-up, " +
+      "Wallet transfer, plus money_in and money_out totals for the period. Only partner-facing activity is listed. It is NOT a full ledger and may not add up to the wallet balance: never try to reconcile it " +
+      "against the balance, never add entries up yourself, and never guess what is missing. If asked why the balance differs or about an adjustment, correction or reversal, say you can only see partner-facing activity and offer to pass it to support. " +
+      "Use period or from/to (YYYY-MM-DD, at most a year) and direction (in or out). For the balance itself use get_partner_overview.",
+    parameters: {
+      type: "object",
+      properties: { direction: { type: "string", enum: ["in", "out"] }, ...rangeProps, limit: partnerLimitProp },
+      additionalProperties: false,
+    },
+    schema: z.object({ ...rangeShape, direction: z.enum(["in", "out"]).optional(), limit: partnerLimit }).strict()
+      .refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_partner_wallet_activity",
+    toRpcArgs: (a) => {
+      const x = a as Range & { direction?: string; limit?: number };
+      const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
+      return { ...range, p_direction: x.direction ?? null, p_limit: x.limit ?? 20 };
     },
   },
   {
