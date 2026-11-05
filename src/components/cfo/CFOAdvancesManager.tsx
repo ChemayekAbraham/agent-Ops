@@ -389,7 +389,7 @@ export function CFOAdvancesManager() {
               variant="outline"
               className="h-9 rounded-lg gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/5"
             >
-              <Calculator className="h-3.5 w-3.5" /> Special Advance
+              <Calculator className="h-3.5 w-3.5" /> Special Transactions
             </Button>
 
             <Button onClick={() => setIssueOpen(true)} size="sm" className="h-9 rounded-lg gap-1.5 text-xs font-semibold shadow-2xs">
