@@ -9,6 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ProxyPerformanceDashboard, ProxyRange } from '@/hooks/useProxyPerformanceDashboard';
 
+/** Minimal card: flat, outlined, rounded. No fills. */
+const CARD = 'rounded-2xl border border-border/60 bg-card shadow-none';
+
 export const ugx = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 export const ugxShort = (n: number) => {
   const v = Number(n) || 0;
@@ -23,14 +26,14 @@ export const shortDate = (iso: string | null | undefined) =>
 /* ---------- Shared status badges (one colour per state, workspace-wide) ---------- */
 type Tone = 'success' | 'warning' | 'danger' | 'neutral' | 'primary';
 const TONE: Record<Tone, string> = {
-  success: 'bg-success/10 text-success border-success/20',
-  warning: 'bg-warning/10 text-warning border-warning/25',
-  danger: 'bg-destructive/10 text-destructive border-destructive/20',
-  neutral: 'bg-muted text-muted-foreground border-border',
-  primary: 'bg-primary/10 text-primary border-primary/20',
+  success: 'bg-transparent text-success border-border',
+  warning: 'bg-transparent text-warning border-border',
+  danger: 'bg-transparent text-destructive border-border',
+  neutral: 'bg-transparent text-muted-foreground border-border',
+  primary: 'bg-transparent text-primary border-border',
 };
 export function StatusPill({ tone, children, className }: { tone: Tone; children: React.ReactNode; className?: string }) {
-  return <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold', TONE[tone], className)}>{children}</span>;
+  return <span className={cn('inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium', TONE[tone], className)}>{children}</span>;
 }
 export function NoteStatusPill({ status }: { status: string }) {
   if (status === 'activated') return <StatusPill tone="success">Brought In</StatusPill>;
@@ -41,7 +44,7 @@ export function NoteStatusPill({ status }: { status: string }) {
 
 export function SectionError({ label, onRetry }: { label: string; onRetry: () => void }) {
   return (
-    <Card className="flex items-center justify-between gap-3 p-4">
+    <Card className={cn(CARD, 'flex items-center justify-between gap-3 p-4')}>
       <p className="text-sm text-muted-foreground">Could not load {label}.</p>
       <Button size="sm" variant="outline" onClick={onRetry}><RefreshCw className="mr-1 h-3.5 w-3.5" />Retry</Button>
     </Card>
@@ -50,7 +53,7 @@ export function SectionError({ label, onRetry }: { label: string; onRetry: () =>
 
 export function EmptyState({ icon: Icon, title, action }: { icon: typeof FileText; title: string; action?: React.ReactNode }) {
   return (
-    <Card className="flex flex-col items-center gap-2 p-8 text-center">
+    <Card className={cn(CARD, 'flex flex-col items-center gap-2 p-8 text-center')}>
       <Icon className="h-8 w-8 text-muted-foreground" />
       <p className="text-sm text-muted-foreground">{title}</p>
       {action}
@@ -62,8 +65,8 @@ export function SectionTitle({ title, sub, action }: { title: string; sub?: stri
   return (
     <div className="flex items-end justify-between gap-2">
       <div className="min-w-0">
-        <h1 className="truncate text-lg font-bold tracking-tight md:text-2xl">{title}</h1>
-        {sub && <p className="text-xs text-muted-foreground md:text-sm">{sub}</p>}
+        <h1 className="truncate text-2xl font-bold tracking-tight">{title}</h1>
+        {sub && <p className="text-sm text-muted-foreground">{sub}</p>}
       </div>
       {action}
     </div>
@@ -74,14 +77,14 @@ export function SectionTitle({ title, sub, action }: { title: string; sub?: stri
 export function ProxyTodayCard({ d }: { d: ProxyPerformanceDashboard }) {
   const items: [string, string, string?][] = [
     ['Notes created', d.notes.created_today.toLocaleString()],
-    ['Brought in', d.notes.brought_in_today.toLocaleString(), 'text-success'],
+    ['Brought in', d.notes.brought_in_today.toLocaleString()],
     ['Amount', ugxShort(d.notes.brought_in_amount_today)],
-    ['Earned', ugx(d.commission.today), 'text-success'],
+    ['Earned', ugx(d.commission.today)],
   ];
   return (
-    <Card className="p-3 md:p-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Today</p>
-      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+    <Card className={cn(CARD, 'p-4')}>
+      <p className="text-sm font-medium text-muted-foreground">Today</p>
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-3">
         {items.map(([k, v, tone]) => (
           <div key={k} className="min-w-0">
             <p className="text-xs text-muted-foreground">{k}</p>
@@ -93,18 +96,18 @@ export function ProxyTodayCard({ d }: { d: ProxyPerformanceDashboard }) {
   );
 }
 
-/* ---------- KPI cards, each with its own semantic tint ---------- */
+/* ---------- KPI cards: neutral, one accent ---------- */
 function Kpi({ label, value, sub, icon: Icon, surface, iconTone, valueTone, onClick }: {
   label: string; value: string; sub?: React.ReactNode; icon: typeof FileText; surface: string; iconTone: string; valueTone?: string; onClick?: () => void;
 }) {
   const Comp = onClick ? 'button' : 'div';
   return (
-    <Comp onClick={onClick} className={cn('rounded-xl border p-3 text-left transition-colors md:p-4', surface, onClick && 'hover:brightness-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
+    <Comp onClick={onClick} className={cn('rounded-2xl border p-4 text-left transition-colors', surface, onClick && 'active:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', iconTone)}><Icon className="h-3.5 w-3.5" /></span>
+        <p className="truncate text-sm font-medium text-muted-foreground">{label}</p>
+        <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full', iconTone)}><Icon className="h-4 w-4" /></span>
       </div>
-      <p className={cn('mt-1 truncate text-2xl font-bold tabular-nums md:text-3xl', valueTone)}>{value}</p>
+      <p className={cn('mt-2 truncate text-2xl font-bold tabular-nums', valueTone)}>{value}</p>
       {sub && <div className="truncate text-xs text-muted-foreground">{sub}</div>}
     </Comp>
   );
@@ -113,16 +116,16 @@ function Kpi({ label, value, sub, icon: Icon, surface, iconTone, valueTone, onCl
 export function ProxyKpiGrid({ d, onEarnings }: { d: ProxyPerformanceDashboard; onEarnings: () => void }) {
   const n = d.notes;
   return (
-    <div className="grid grid-cols-2 gap-2.5 md:gap-3 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2.5">
       <Kpi label="Notes Created" value={n.created.toLocaleString()} sub={`+${n.created_today} today`} icon={FileText}
-        surface="bg-card border-primary/10" iconTone="bg-primary/10 text-primary" />
+        surface="bg-card border-border/60" iconTone="bg-muted text-muted-foreground" />
       <Kpi label="Brought In" value={n.brought_in.toLocaleString()} sub={ugxShort(n.brought_in_amount)} icon={CheckCircle2}
-        surface="bg-success/5 border-success/20" iconTone="bg-success/15 text-success" valueTone="text-success" />
+        surface="bg-card border-border/60" iconTone="bg-muted text-muted-foreground" />
       <Kpi label="Pending" value={n.pending.toLocaleString()} sub={`${ugxShort(n.pending_amount)} promised`} icon={Clock}
-        surface="bg-warning/5 border-warning/25" iconTone="bg-warning/15 text-warning" />
+        surface="bg-card border-border/60" iconTone="bg-muted text-muted-foreground" />
       <Kpi label="Earned" value={ugxShort(d.commission.earned)} icon={Wallet} onClick={onEarnings}
         sub={<span className="inline-flex items-center text-primary">View breakdown<ChevronRight className="h-3 w-3" /></span>}
-        surface="bg-gradient-to-br from-primary/5 to-success/5 border-primary/15" iconTone="bg-primary/10 text-primary" />
+        surface="bg-card border-border/60" iconTone="bg-muted text-muted-foreground" />
     </div>
   );
 }
@@ -144,13 +147,13 @@ export function ProxyTargetCard({ title, done, target, remainingText, expectedFr
   const left = Math.max(0, target - done);
   const st = targetStatus(done, target, expectedFraction);
   return (
-    <Card className="p-3 md:p-4">
+    <Card className={cn(CARD, 'p-4')}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-sm font-medium text-muted-foreground">{title}</p>
         <StatusPill tone={st.tone}>{st.label}</StatusPill>
       </div>
-      <p className="mt-1 text-xl font-bold tabular-nums">{done} <span className="text-sm font-medium text-muted-foreground">/ {target}</span></p>
-      <Progress value={pct} className="mt-1.5 h-2" />
+      <p className="mt-2 text-2xl font-bold tabular-nums">{done} <span className="text-sm font-medium text-muted-foreground">/ {target}</span></p>
+      <Progress value={pct} className="mt-2 h-1.5" />
       <div className="mt-1.5 flex justify-between gap-2 text-xs text-muted-foreground">
         <span>{left > 0 ? `${left} more to go` : 'Done'}</span>
         {remainingText && <span className="shrink-0">{remainingText}</span>}
@@ -171,9 +174,9 @@ export function ProxyPerformanceChart({ d, range, onRange, fetching }: { d: Prox
   const empty = data.every((s) => !s.brought_in && !s.pending);
   const max = Math.max(1, ...data.map((s) => Math.max(s.brought_in, s.pending)));
   return (
-    <Card className="p-3 md:p-4">
+    <Card className={cn(CARD, 'p-4')}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold">Brought In vs Pending</p>
+        <p className="text-sm font-medium text-muted-foreground">Brought In vs Pending</p>
         <Select value={range} onValueChange={(v) => onRange(v as ProxyRange)}>
           <SelectTrigger className="h-8 w-[120px] rounded-lg px-3 text-xs" disabled={fetching} aria-label="Chart period"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -186,8 +189,8 @@ export function ProxyPerformanceChart({ d, range, onRange, fetching }: { d: Prox
         </Select>
       </div>
       <div className="mb-1 flex gap-3 text-xs">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-success" />Brought In</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-warning" />Pending</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-primary" />Brought In</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-muted-foreground/50" />Pending</span>
       </div>
       {empty ? (
         <div className="flex h-28 flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
@@ -213,10 +216,10 @@ export function ProxyEarningsSnapshot({ d, onOpen }: { d: ProxyPerformanceDashbo
     <Card className="p-4">
       <div className="flex items-center justify-between"><p className="text-sm font-semibold">Earnings</p>
         <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={onOpen}>Details</Button></div>
-      <p className="mt-1 text-2xl font-bold tabular-nums text-success">{ugx(c.earned)}</p>
+      <p className="mt-1 text-2xl font-bold tabular-nums">{ugx(c.earned)}</p>
       <dl className="mt-2 space-y-1.5 text-sm">
         {rows.map(([k, v]) => <div key={k} className="flex justify-between"><dt className="text-muted-foreground">{k}</dt><dd className="tabular-nums font-medium">{ugx(v)}</dd></div>)}
-        <div className="flex justify-between"><dt className="text-muted-foreground">Pending</dt><dd className="tabular-nums font-medium text-warning">{ugx(c.pending)}</dd></div>
+        <div className="flex justify-between"><dt className="text-muted-foreground">Pending</dt><dd className="tabular-nums font-medium">{ugx(c.pending)}</dd></div>
       </dl>
     </Card>
   );
@@ -224,15 +227,15 @@ export function ProxyEarningsSnapshot({ d, onOpen }: { d: ProxyPerformanceDashbo
 
 export function ProxyRecentNotes({ d, onViewAll }: { d: ProxyPerformanceDashboard; onViewAll: () => void }) {
   return (
-    <Card className="p-3 md:p-4">
+    <Card className={cn(CARD, 'p-4')}>
       <div className="mb-1 flex items-center justify-between">
-        <p className="text-sm font-semibold">Recent Promissory Notes</p>
+        <p className="text-sm font-medium text-muted-foreground">Recent Promissory Notes</p>
         <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onViewAll}>View all<ChevronRight className="ml-0.5 h-3 w-3" /></Button>
       </div>
       {d.recent.length === 0 ? (
         <p className="py-6 text-center text-sm text-muted-foreground">You haven't created a Promissory Note yet.</p>
       ) : (
-        <ul className="divide-y">
+        <ul className="divide-y divide-border/60">
           {d.recent.slice(0, 5).map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0">
@@ -258,10 +261,10 @@ export function ProxyRecentNotes({ d, onViewAll }: { d: ProxyPerformanceDashboar
 export function ProxyDashboardSkeleton() {
   return (
     <div className="space-y-3">
-      <Skeleton className="h-28 rounded-xl md:hidden" />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[92px] rounded-xl" />)}</div>
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-[104px] rounded-xl" />)}</div>
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-28 rounded-2xl" />
+      <div className="grid grid-cols-2 gap-2.5">{[0, 1].map((i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}</div>
+      <div className="grid grid-cols-2 gap-2.5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[92px] rounded-2xl" />)}</div>
+      <Skeleton className="h-64 rounded-2xl" />
     </div>
   );
 }

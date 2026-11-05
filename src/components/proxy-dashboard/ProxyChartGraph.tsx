@@ -1,7 +1,8 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-const GREEN = 'hsl(var(--success))';
-const AMBER = 'hsl(var(--warning))';
+// One accent for what came in, a neutral grey for what is still pending.
+const GREEN = 'hsl(var(--primary))';
+const AMBER = 'hsl(var(--muted-foreground))';
 
 export interface ProxyChartPoint { label: string; brought_in: number; pending: number }
 

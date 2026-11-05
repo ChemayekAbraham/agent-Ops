@@ -116,7 +116,7 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-bold md:text-lg">Houses You Can Work On</h2>
+        <h2 className="text-lg font-semibold">Houses You Can Work On</h2>
         {preview ? (
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onViewAll}>View all houses<ChevronRight className="ml-0.5 h-3 w-3" /></Button>
         ) : total > 0 && <span className="text-xs text-muted-foreground">{total.toLocaleString()} available</span>}
@@ -130,7 +130,7 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
         <div className="hidden w-[420px] md:block"><div className="grid grid-cols-[1fr_1fr] gap-2 [&>div]:contents">{filters}</div></div>
       </div>
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetContent side="bottom" className="plan-detail-sheet rounded-t-[28px]">
           <SheetHeader><SheetTitle>Filter houses</SheetTitle></SheetHeader>
           <div className="mt-4">{filters}</div>
           <Button className="mt-4 w-full" onClick={() => setFiltersOpen(false)}>Show houses</Button>
@@ -140,7 +140,7 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
       {q.isError ? (
         <SectionError label="houses" onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => <Skeleton key={i} className="h-40 rounded-lg" />)}</div>
+        <div className="grid gap-3">{Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>
       ) : total === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
           <Home className="h-8 w-8 text-muted-foreground" />
@@ -148,32 +148,32 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3">
             {q.data!.houses.map((h) => {
               const photo = h.image_urls?.[0] || h.image_url || null;
               return (
-                <Card key={h.house_id} className="flex flex-col overflow-hidden p-0 shadow-none">
+                <Card key={h.house_id} className="flex flex-col overflow-hidden rounded-2xl border border-border/60 bg-card p-0 shadow-none">
                   {photo ? (
                     <img src={photo} alt={houseLabel(h)} loading="lazy" className="aspect-[16/9] w-full bg-muted object-cover" />
                   ) : (
                     <div className="flex aspect-[16/9] w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
                   )}
-                  <div className="flex flex-1 flex-col p-3">
+                  <div className="flex flex-1 flex-col p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{houseLabel(h)}</p>
                         <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{housePlace(h)}{typeof h.distance_km === 'number' ? ` · ${h.distance_km.toFixed(1)} km` : ''}</p>
                       </div>
-                      {h.verified && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Verified</span>}
+                      {h.verified && <span className="shrink-0 rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium text-primary">Verified</span>}
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                       <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Amount required</p><p className="text-sm font-bold tabular-nums">{ugx(h.monthly_rent)}</p></div>
-                      <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Partner return</p><p className="text-sm font-bold tabular-nums text-success">{ugx(h.partner_monthly_return)}<span className="text-[10px] font-medium text-muted-foreground"> /mo</span></p></div>
+                      <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Partner return</p><p className="text-sm font-bold tabular-nums">{ugx(h.partner_monthly_return)}<span className="text-[10px] font-medium text-muted-foreground"> /mo</span></p></div>
                     </div>
-                    <Button size="sm" className="mt-3 w-full" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
+                    <Button className="mt-3 h-11 w-full rounded-full text-sm font-semibold" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
                     <div className="mt-2 grid grid-cols-2 gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setDetail(h)}><Eye className="mr-1 h-4 w-4" />View</Button>
-                      <Button size="sm" variant="outline" onClick={() => share(h)}><Share2 className="mr-1 h-4 w-4" />Share</Button>
+                      <Button variant="outline" className="h-10 rounded-full" onClick={() => setDetail(h)}><Eye className="mr-1 h-4 w-4" />View</Button>
+                      <Button variant="outline" className="h-10 rounded-full" onClick={() => share(h)}><Share2 className="mr-1 h-4 w-4" />Share</Button>
                     </div>
                   </div>
                 </Card>
