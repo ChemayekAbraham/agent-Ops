@@ -1,6 +1,6 @@
 # 260 — Proxy agent could not see her partner withdrawals or approved ROI payouts (2026-11-05)
 
-**Applied to production 2026-11-05 (six migrations), verified as Kabahuma Lillian; dialog fixes pushed to `lovable` (`9af0a3be2d`, `847b83f960`, `55173c96c6`).**
+**Applied to production 2026-11-05 (seven migrations), verified as Kabahuma Lillian; dialog fixes pushed to `lovable` (`9af0a3be2d`, `847b83f960`, `55173c96c6`).**
 Read this before touching `agent_proxy_withdrawal_summaries`, `agent_onboarded_portfolios`, `agent_partner_payout_routes`,
 `agent_partner_payout_destination`, `copy_proxy_payout_on_file`, `WithdrawRequestDialog.tsx`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
 
@@ -134,6 +134,30 @@ Syntax-checked only; not tested in a browser.
 **Today's workload (11-05 snapshot):** 67 ROI payouts approved to Lillian (UGX 147,045,062, 64 partners); 45 partners withdrawn with amounts equal to their
 approvals, 19 partners (22 approvals, UGX 90,875,911) not yet started at the time. 3 of those 22 approvals are not in `get_agent_proxy_roi_payouts` (partners
 with several approvals); the reason was not found.
+
+## Root cause 7 — my own 5000-row limit ran into the API's 1,000-row cap (ready list empty again)
+
+After the other fixes Lillian's Recent payouts worked but "No proxy partner payouts ready" stayed empty although `get_agent_proxy_roi_payouts` returned 32 rows.
+Her own API log (edge_logs filtered on her JWT subject) showed every call returning 200 and `agent_onboarded_portfolios` returning `content-range 0-999`:
+**1,000 rows cut from 1,315**. PostgREST truncates any response at 1,000 rows. Migration 20261105130000 had lifted the function's cap from 200 to 5000 and sorted by
+`created_at`, so 22 of the 30 portfolios with an open approved payout fell past row 1,000; `ProxyPartnerFunds` maps each approved payout to a partner through this
+list and drops any payout it cannot map. Of the 8 that did map, 7 were cards she had dismissed earlier.
+
+**Fix (applied 11-05):** `supabase/migrations/20261105181000_agent_onboarded_portfolios_priority_order.sql` (rollback restores 130000). Same rows, columns, masking, grants;
+only the order changed: 0 = portfolios with an open approved ROI payout for the caller, 1 = portfolios of partners in her 500 newest proxy withdrawals, 2 = the rest,
+3 = placeholder rows. (Renamed from `…180000`, a prefix `partner_receipts` already uses.) Verified as Lillian through the live function with the API's 1,000-row cut
+simulated: 30 of 30 ready portfolios map, 0 unnamed; 20 cards (UGX 90,012,016) expected on screen, the other 10 are her dismissed cards. Her recent-withdrawal partners
+(789 portfolio rows) all rank within the first 1,000. A proxy agent with more than 1,000 visible portfolios must still be paged; the ordering only guarantees the rows
+the screen needs come first.
+
+**Dismissed cards.** Lillian has 13 saved dismissals (`agent_proxy_card_dismissals`); a dismissed card stays hidden until restored from the "hidden cards" sheet, which
+the empty-state view does not offer. 10 of today's 30 ready portfolios are dismissed. Not changed by this work.
+
+**Unrelated, seen in her console:** `GET /rest/v1/profiles?select=id,full_name&id=in.(null,<her id>)` returns 400 every few minutes (a literal `null` in an id list). The
+calling code was not found. Harmless noise; worth a separate fix.
+
+**DB restart seen while debugging (14:31 local):** automatic crash recovery after ~15 statements hit the statement timeout; the statements were report RPCs taking
+`p_from`/`p_to` or `p_range_start`/`p_range_end`, not this work's functions.
 
 ## What the 68 ROI payouts are (do not confuse with withdrawals)
 
