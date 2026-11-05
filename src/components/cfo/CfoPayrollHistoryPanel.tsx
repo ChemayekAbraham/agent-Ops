@@ -31,7 +31,6 @@ import {
   History,
   Info,
   Landmark,
-  Layers,
   Loader2,
   Lock,
   RefreshCw,
@@ -1188,7 +1187,7 @@ export default function CfoPayrollHistoryPanel() {
   const [advanceLoading, setAdvanceLoading] = useState(true);
   const [advanceError, setAdvanceError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('payroll');
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchPayroll = async () => {
@@ -1262,10 +1261,6 @@ export default function CfoPayrollHistoryPanel() {
       {/* Segmented Sub-View Switcher */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/60 p-1">
-          <TabsTrigger value="all" className="text-xs font-semibold gap-1.5">
-            <Layers className="h-3.5 w-3.5" />
-            Combined Overview
-          </TabsTrigger>
           <TabsTrigger value="payroll" className="text-xs font-semibold gap-1.5">
             <FileSpreadsheet className="h-3.5 w-3.5" />
             Payroll History ({payrollRows.length})
@@ -1275,21 +1270,6 @@ export default function CfoPayrollHistoryPanel() {
             Advances Portfolio ({advanceRows.length})
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="all" className="space-y-6">
-          <PayrollHistory
-            rows={payrollRows}
-            loading={payrollLoading}
-            error={payrollError}
-            onRefresh={fetchPayroll}
-          />
-          <AdvanceStatus
-            rows={advanceRows}
-            loading={advanceLoading}
-            error={advanceError}
-            onRefresh={fetchAdvances}
-          />
-        </TabsContent>
 
         <TabsContent value="payroll">
           <PayrollHistory
