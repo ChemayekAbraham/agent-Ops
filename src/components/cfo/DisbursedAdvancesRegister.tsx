@@ -45,6 +45,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  Ban,
 } from 'lucide-react';
 import { formatUGX, getRiskLevel } from '@/lib/agentAdvanceCalculations';
 import { differenceInDays, format } from 'date-fns';
@@ -52,6 +53,7 @@ import { cn } from '@/lib/utils';
 
 import { ReverseAdvanceDialog } from '@/components/cfo/ReverseAdvanceDialog';
 import { BulkReverseAdvancesDialog } from '@/components/cfo/BulkReverseAdvancesDialog';
+import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type StatusFilter = 'all' | 'active' | 'overdue' | 'completed';
@@ -103,6 +105,7 @@ export function DisbursedAdvancesRegister() {
   const [pageSize, setPageSize] = useState(10);
 
   const [reverseAdvance, setReverseAdvance] = useState<AdvanceRow | null>(null);
+  const [cancelAdvance, setCancelAdvance] = useState<AdvanceRow | null>(null);
   const [bulkIds, setBulkIds] = useState<string[] | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -195,7 +198,6 @@ export function DisbursedAdvancesRegister() {
     new Date(a.issued_at).getTime() >= Date.now() - REVERSAL_WINDOW_DAYS * 86_400_000;
   const todaysBatch = useMemo(() => advances.filter(isTodaysBatch), [advances]);
 
-
   const toggleChecked = (id: string) =>
     setCheckedIds((prev) => {
       const next = new Set(prev);
@@ -220,8 +222,6 @@ export function DisbursedAdvancesRegister() {
       },
     });
   };
-
-
 
   return (
     <Card>
@@ -399,6 +399,16 @@ export function DisbursedAdvancesRegister() {
                       <TableCell>{statusBadge(a.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {(a.status === 'active' || a.status === 'overdue') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-[11px] gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                              onClick={(e) => { e.stopPropagation(); setCancelAdvance(a); }}
+                            >
+                              <Ban className="h-3 w-3" /> Close / Transfer
+                            </Button>
+                          )}
                           {!(a as any).reversed_at && (
                             <Button
                               size="sm"
@@ -499,6 +509,7 @@ export function DisbursedAdvancesRegister() {
         advance={selected}
         onClose={() => setSelected(null)}
         onReverse={(a) => { setSelected(null); setReverseAdvance(a); }}
+        onCloseAdvance={(a) => { setSelected(null); setCancelAdvance(a); }}
       />
 
       <ReverseAdvanceDialog
@@ -507,6 +518,16 @@ export function DisbursedAdvancesRegister() {
         onOpenChange={(o) => { if (!o) setReverseAdvance(null); }}
         onSuccess={() => {
           setReverseAdvance(null);
+          invalidateAdvanceQueries();
+        }}
+      />
+
+      <CancelAdvanceDialog
+        advance={cancelAdvance}
+        open={!!cancelAdvance}
+        onOpenChange={(o) => { if (!o) setCancelAdvance(null); }}
+        onSuccess={() => {
+          setCancelAdvance(null);
           invalidateAdvanceQueries();
         }}
       />
@@ -524,11 +545,20 @@ export function DisbursedAdvancesRegister() {
         onSuccess={invalidateAdvanceQueries}
       />
     </Card>
-
   );
 }
 
-function DisbursementDetailDrawer({ advance, onClose, onReverse }: { advance: AdvanceRow | null; onClose: () => void; onReverse: (a: AdvanceRow) => void }) {
+function DisbursementDetailDrawer({
+  advance,
+  onClose,
+  onReverse,
+  onCloseAdvance,
+}: {
+  advance: AdvanceRow | null;
+  onClose: () => void;
+  onReverse: (a: AdvanceRow) => void;
+  onCloseAdvance: (a: AdvanceRow) => void;
+}) {
   const { data: ledger = [], isLoading } = useQuery({
     queryKey: ['advance-ledger', advance?.id],
     enabled: !!advance?.id,
@@ -709,6 +739,15 @@ function DisbursementDetailDrawer({ advance, onClose, onReverse }: { advance: Ad
               )}
             </div>
 
+            {(advance.status === 'active' || advance.status === 'overdue') && (
+              <Button
+                variant="outline"
+                className="w-full gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                onClick={() => onCloseAdvance(advance)}
+              >
+                <Ban className="h-4 w-4" /> Close / Transfer / Write-off
+              </Button>
+            )}
             {!(advance as any).reversed_at && (
               <Button
                 variant="destructive"

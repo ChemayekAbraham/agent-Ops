@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowRight, Check, Loader2, ScrollText, X } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, Loader2, ScrollText, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -38,7 +38,7 @@ type LooseRpc = (fn: string, args?: Record<string, unknown>) =>
   Promise<{ data: unknown; error: { message: string } | null }>;
 const rpc = supabase.rpc.bind(supabase) as unknown as LooseRpc;
 
-export function CFOTenantBalanceApprovals() {
+export function CFOTenantBalanceApprovals({ hideIfEmpty = false }: { hideIfEmpty?: boolean } = {}) {
   const qc = useQueryClient();
   const [notes, setNotes] = useState<Record<string, string>>({});
 
@@ -80,7 +80,20 @@ export function CFOTenantBalanceApprovals() {
       </CardContent></Card>
     );
   }
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    if (hideIfEmpty) return null;
+    return (
+      <Card className="shadow-sm">
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+          <CheckCircle2 className="h-10 w-10 text-emerald-600 mb-2" />
+          <h3 className="text-base font-semibold text-foreground">No Pending Tenant Balance Changes</h3>
+          <p className="text-xs text-muted-foreground max-w-sm mt-0.5">
+            All proposed rent and balance adjustments from Tenant Operations have been reviewed.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-warning/40">

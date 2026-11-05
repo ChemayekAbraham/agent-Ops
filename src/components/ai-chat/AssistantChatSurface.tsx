@@ -12,7 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 import { type AiRole } from './roleLanding';
-import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips } from './assistantConfig';
+import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips, isPartnerPath, partnerChips, PARTNER_GREETING, DEFAULT_GREETING } from './assistantConfig';
 import claraAvatar from '@/assets/clara-avatar.png';
 
 const INITIAL = ASSISTANT_NAME.charAt(0).toUpperCase();
@@ -85,7 +85,8 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { pathname } = useLocation();
   const agentFirst = role === 'agent' || pathname.startsWith('/dashboard/agent');
-  const chips = orderedChips(agentFirst);
+  const partner = isPartnerPath(pathname);
+  const chips = partner ? partnerChips() : orderedChips(agentFirst);
   const visibleChips = Array.from({ length: Math.min(VISIBLE_CHIPS, chips.length) }, (_, i) => chips[(rotation + i) % chips.length]);
   const suggestedChips = visibleChips.slice(0, isMobile ? 4 : VISIBLE_CHIPS);
   const firstName = String(user?.user_metadata?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
@@ -132,7 +133,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
                 <p className="text-xl font-bold text-foreground">Hi {firstName} 👋</p>
-                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. How can i help you!</p>
+                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. {partner ? PARTNER_GREETING : DEFAULT_GREETING}</p>
               </div>
               <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
                 {suggestedChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="w-full rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}

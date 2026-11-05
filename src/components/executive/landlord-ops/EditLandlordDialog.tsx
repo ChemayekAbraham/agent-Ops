@@ -177,7 +177,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
               {/* Basic Info */}
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Basic Info</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Name *</Label>
                     <Input value={form.name || ''} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Full name" />
@@ -187,7 +187,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                     <Input value={form.phone || ''} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="07XXXXXXXX" />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Village</Label>
                     <Input value={form.village || ''} onChange={e => setForm(f => ({ ...f, village: e.target.value }))} />
@@ -206,7 +206,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
               {/* Financial */}
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Financial</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">MoMo Name</Label>
                     <Input value={form.mobile_money_name || ''} onChange={e => setForm(f => ({ ...f, mobile_money_name: e.target.value }))} />
@@ -233,7 +233,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                   </div>
 
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Monthly Rent (UGX)</Label>
                     <Input type="number" value={form.monthly_rent || ''} onChange={e => setForm(f => ({ ...f, monthly_rent: e.target.value }))} />
@@ -248,7 +248,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
               {/* Property */}
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Property</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Number of Houses</Label>
                     <Input type="number" value={form.number_of_houses || ''} onChange={e => setForm(f => ({ ...f, number_of_houses: e.target.value }))} />
@@ -258,7 +258,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
                     <Label className="text-xs">Has Smartphone</Label>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Electricity Meter</Label>
                     <Input value={form.electricity_meter_number || ''} onChange={e => setForm(f => ({ ...f, electricity_meter_number: e.target.value }))} />
@@ -273,7 +273,7 @@ export function EditLandlordDialog({ landlord, open, onClose, onSaved }: Props) 
               {/* Caretaker */}
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Caretaker</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Caretaker Name</Label>
                     <Input value={form.caretaker_name || ''} onChange={e => setForm(f => ({ ...f, caretaker_name: e.target.value }))} />

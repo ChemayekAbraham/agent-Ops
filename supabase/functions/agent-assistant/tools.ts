@@ -112,7 +112,9 @@ export const AGENT_TOOLS: ToolDef[] = [
     name: "get_wallet_transactions",
     description:
       "The agent's own wallet movements (money in / money out) with category, amount and date. " +
-      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days.",
+      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days. " +
+      "Only customer-facing entries are listed: it is NOT a full ledger and may not add up to the wallet balance, so never try to reconcile the list against the balance, never add entries up yourself, and never guess what is missing. " +
+      "If asked about an adjustment, correction or reversal, say you only see customer-facing wallet activity and offer to pass the question to support.",
     parameters: {
       type: "object",
       properties: {
@@ -444,6 +446,175 @@ export const AGENT_TOOLS: ToolDef[] = [
   },
 ];
 
+/**
+ * Tool registry for the PARTNER (funder) persona: a partner is a person with one or more investment
+ * portfolios. Same rules as the agent tools: read-only `assistant_partner_*` RPCs, identity from
+ * auth.uid(), no id parameters, validated arguments. Payout numbers come back masked ("ending 482").
+ */
+const portfolioCode = z.string().trim().min(3).max(40).regex(/^[A-Za-z0-9-]+$/);
+const partnerLimitProp = { type: "integer", minimum: 1, maximum: 40, description: "How many to list (default 15, max 40)." };
+const partnerLimit = z.number().int().min(1).max(40).optional();
+
+export const PARTNER_TOOLS: ToolDef[] = [
+  {
+    name: "get_partner_overview",
+    description:
+      "The partner's own summary: name, partner_since, portfolio counts (active, compounding, monthly payout, locked, redeemed, pending) and active_principal, " +
+      "Returns earned in total and this month, the last Returns credited to their wallet, wallet (withdrawable_balance, locked_balance, float_available_for_topups), " +
+      "the next Returns payout and next maturity, houses supported, and contract_state (a plain state only). Start here for 'tell me about my account', " +
+      "'my wallet', 'my total Returns'. For ANY question about their contract, agreement, terms or signing, call get_partner_contract instead: this tool has no contract details.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_partner_overview",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_partner_contract",
+    description:
+      "The partner's CONTRACT details, gathered from every place they live: state (signed_agreement, agreement_awaiting_welile_countersignature, accepted_terms_online, none_on_record); " +
+      "the partnership_agreement if there is one (status, agreement_date, partner_signed, countersigned_on, signed_copy_on_file, partnership_amount, payout_mode, return_option as written, managed_by_company, " +
+      "payout_destination with a masked number); accepted_terms (the Welile partner terms they accepted online: version, first and latest date, times accepted); and portfolio_terms (every portfolio's " +
+      "code, status, started_on, current_value, rate_percent, duration_months, mode, maturity_date). Use for 'my contract', 'my agreement', 'what did I sign', 'my terms'. " +
+      "A missing partnership_agreement does NOT mean they have no contract: most partners accepted the Welile terms online, and their portfolio terms are the terms in force. " +
+      "Never say or imply the partner did not sign. return_option is a letter from the agreement: quote it, do not explain what it means.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_partner_contract",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_partner_portfolios",
+    description:
+      "The partner's portfolios: code, name, status, mode (compounding or monthly payout), rate_percent, current_value, duration_months, started_on, maturity_date, days_to_maturity " +
+      "(negative = the maturity date has passed), next_returns_date and next_returns_date_has_passed, standard_monthly_returns_estimate (monthly payout only; already calculated), " +
+      "compounded_so_far (compounding only), returns_on_hold, renewal_scheduled, auto_reinvest_on. Filter by status (all, active, locked, redeemed, pending) or by part of a code or name. " +
+      "Also returns summary counts and active_principal.",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["all", "active", "locked", "redeemed", "pending"], description: "Default all (cancelled are never shown)." },
+        search: searchProp,
+        limit: partnerLimitProp,
+      },
+      additionalProperties: false,
+    },
+    schema: z.object({ status: z.enum(["all", "active", "locked", "redeemed", "pending"]).optional(), search: search.optional(), limit: partnerLimit }).strict(),
+    rpc: "assistant_partner_portfolios",
+    toRpcArgs: (a) => {
+      const x = a as { status?: string; search?: string; limit?: number };
+      return { p_status: x.status ?? "all", p_search: x.search ?? null, p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_partner_portfolio_detail",
+    description:
+      "ONE portfolio in full, found by its code (for example WPF-3542 or WIP2610124417): terms, payout_destination (masked), compounded_so_far (the total compounded, already calculated) and compounds (the individual entries), topups, " +
+      "renewals (old and new maturity, rate, duration), renewal and redemption requests, redemptions, payouts_paid, the maturity notice sent, and whether a renewal is scheduled. " +
+      "Use for compounding, top-up, renewal, maturity and payout questions about a specific portfolio. If found is false, say you could not find that code among their own portfolios.",
+    parameters: {
+      type: "object",
+      properties: { code: { type: "string", minLength: 3, maxLength: 40, description: "The portfolio code. Letters, digits and - only." } },
+      required: ["code"],
+      additionalProperties: false,
+    },
+    schema: z.object({ code: portfolioCode }).strict(),
+    rpc: "assistant_partner_portfolio_detail",
+    toRpcArgs: (a) => ({ p_code: (a as { code: string }).code }),
+  },
+  {
+    name: "get_partner_returns",
+    description:
+      "Returns by month: earned (accrued on the portfolios) and credited_to_my_wallet, with totals. Default is the last 6 months; pass from/to (YYYY-MM-DD, at most about 2 years) or a named period for another window. " +
+      "Partners managed through an agent are paid via that agent, so credited can be lower than earned. Use for 'how much have I earned', 'Returns this month', 'what landed in my wallet'.",
+    parameters: { type: "object", properties: rangeProps, additionalProperties: false },
+    schema: rangeSchema as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_partner_returns",
+    toRpcArgs: (a) => {
+      const x = a as Range;
+      return x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
+    },
+  },
+  {
+    name: "get_partner_withdrawals",
+    description:
+      "The partner's own withdrawal requests (default last 90 days): amount, stage (paid, in_progress, rejected, cancelled), requested_on, paid_on, method, network or bank, " +
+      "sent_to (masked), reference, and whether it was a portfolio Returns payout, plus summary totals (only the stage is given, never an internal status). Filter by status (all, paid, in_progress, rejected, cancelled) and by period or from/to. " +
+      "Use for 'did my withdrawal go through', 'what have I withdrawn', 'where was it sent'.",
+    parameters: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["all", "paid", "in_progress", "rejected", "cancelled"] },
+        ...rangeProps,
+        limit: partnerLimitProp,
+      },
+      additionalProperties: false,
+    },
+    schema: z.object({ ...rangeShape, status: z.enum(["all", "paid", "in_progress", "rejected", "cancelled"]).optional(), limit: partnerLimit }).strict()
+      .refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_partner_withdrawals",
+    toRpcArgs: (a) => {
+      const x = a as Range & { status?: string; limit?: number };
+      const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
+      return { p_status: x.status ?? "all", ...range, p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_partner_wallet_activity",
+    description:
+      "The partner's wallet activity (default last 30 days): date, amount, direction (in or out) and a plain type such as Returns credited to wallet, Withdrawal, Deposit, Portfolio funding or top-up, " +
+      "Wallet transfer, plus money_in and money_out totals for the period. Only partner-facing activity is listed. It is NOT a full ledger and may not add up to the wallet balance: never try to reconcile it " +
+      "against the balance, never add entries up yourself, and never guess what is missing. If asked why the balance differs or about an adjustment, correction or reversal, say you can only see partner-facing activity and offer to pass it to support. " +
+      "Use period or from/to (YYYY-MM-DD, at most a year) and direction (in or out). For the balance itself use get_partner_overview.",
+    parameters: {
+      type: "object",
+      properties: { direction: { type: "string", enum: ["in", "out"] }, ...rangeProps, limit: partnerLimitProp },
+      additionalProperties: false,
+    },
+    schema: z.object({ ...rangeShape, direction: z.enum(["in", "out"]).optional(), limit: partnerLimit }).strict()
+      .refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_partner_wallet_activity",
+    toRpcArgs: (a) => {
+      const x = a as Range & { direction?: string; limit?: number };
+      const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
+      return { ...range, p_direction: x.direction ?? null, p_limit: x.limit ?? 20 };
+    },
+  },
+  {
+    name: "get_partner_topups",
+    description:
+      "The partner's top-ups into their portfolios: date, amount, status (completed, approved, rejected, cancelled), portfolio, paid_from, plus summary (applied_count, applied_total, last_topup_on) " +
+      "and any company-managed top-ups. A top-up keeps the portfolio's own rate. Use for 'what top-ups have I made', 'was my top-up applied'.",
+    parameters: { type: "object", properties: { limit: partnerLimitProp }, additionalProperties: false },
+    schema: z.object({ limit: partnerLimit }).strict(),
+    rpc: "assistant_partner_topups",
+    toRpcArgs: (a) => ({ p_limit: (a as { limit?: number }).limit ?? 15 }),
+  },
+  {
+    name: "get_partner_requests",
+    description:
+      "The partner's renewal and redemption (withdraw-principal) requests: type, status (pending, processing, completed, cancelled), portfolio, requested_on, completed_on, redemption_scope and amount, notice_ends_on, " +
+      "plus how many are open. Use for 'where is my renewal', 'did my redemption go through'.",
+    parameters: { type: "object", properties: { limit: partnerLimitProp }, additionalProperties: false },
+    schema: z.object({ limit: partnerLimit }).strict(),
+    rpc: "assistant_partner_requests",
+    toRpcArgs: (a) => ({ p_limit: (a as { limit?: number }).limit ?? 15 }),
+  },
+  {
+    name: "get_partner_upcoming",
+    description:
+      "What is coming up for the partner in the next days (default 60, max 365): Returns payout dates, compounding dates and maturities, each with days_away, portfolio, current_value, rate_percent, " +
+      "renewal_scheduled and auto_reinvest_on, plus returns_dates_already_passed (a count of active portfolios whose next Returns date is in the past). Use for 'what matures soon', 'when is my next payout'.",
+    parameters: {
+      type: "object",
+      properties: { days: { type: "integer", minimum: 1, maximum: 365, description: "How far ahead to look (default 60)." } },
+      additionalProperties: false,
+    },
+    schema: z.object({ days: z.number().int().min(1).max(365).optional() }).strict(),
+    rpc: "assistant_partner_upcoming",
+    toRpcArgs: (a) => ({ p_days: (a as { days?: number }).days ?? 60 }),
+  },
+];
+
 /** Handled by the edge function itself, never a database call. */
 export const CLARIFICATION_TOOL = {
   name: "ask_clarification",
@@ -490,26 +661,47 @@ export const GENERAL_TOOLS: ToolDef[] = [
   },
 ];
 
-const BY_NAME = new Map([...AGENT_TOOLS, ...GENERAL_TOOLS].map((t) => [t.name, t]));
+const BY_NAME = new Map([...AGENT_TOOLS, ...PARTNER_TOOLS, ...GENERAL_TOOLS].map((t) => [t.name, t]));
 const GENERAL_NAMES = new Set(GENERAL_TOOLS.map((t) => t.name));
+const AGENT_NAMES = new Set(AGENT_TOOLS.map((t) => t.name));
+const PARTNER_NAMES = new Set(PARTNER_TOOLS.map((t) => t.name));
+
+/**
+ * Which data the signed-in person is talking about right now. It is decided on the server from the
+ * database footprint and the screen the chat was opened on, never from anything the user typed.
+ *   agent   - has an agent footprint (collections, tenants, ...)
+ *   partner - has one or more investment portfolios
+ *   none    - neither: general tools only
+ */
+export type Persona = "agent" | "partner" | "none";
 
 export function findTool(name: string): ToolDef | undefined {
   return BY_NAME.get(name);
 }
 
-/** Data tools need an agent footprint; general tools do not. */
+/** Data tools need a footprint; general tools do not. */
 export function isGeneralTool(name: string): boolean {
   return GENERAL_NAMES.has(name);
 }
 
+/** A tool is callable only when it belongs to the active persona (or is a general tool). */
+export function toolAllowedFor(persona: Persona, name: string): boolean {
+  if (GENERAL_NAMES.has(name)) return true;
+  if (persona === "agent") return AGENT_NAMES.has(name);
+  if (persona === "partner") return PARTNER_NAMES.has(name);
+  return false;
+}
+
 /**
- * OpenAI-format tool list for the model. Someone with no agent footprint gets only the calculator
- * and the clarification question: the data tools are simply not offered, so there is nothing to
- * refuse and nothing to leak.
+ * OpenAI-format tool list for the model. Someone with no footprint for the active persona gets only
+ * the help search, the calculator and the clarification question: the data tools are simply not
+ * offered, so there is nothing to refuse and nothing to leak. An agent who is also a partner gets
+ * one persona's tools at a time, chosen by the screen they are on.
  */
-export function openAiTools(isAgent: boolean) {
+export function openAiTools(persona: Persona) {
+  const data = persona === "agent" ? AGENT_TOOLS : persona === "partner" ? PARTNER_TOOLS : [];
   return [
-    ...[...(isAgent ? AGENT_TOOLS : []), ...GENERAL_TOOLS].map((t) => ({
+    ...[...data, ...GENERAL_TOOLS].map((t) => ({
       type: "function" as const,
       function: { name: t.name, description: t.description, parameters: t.parameters },
     })),

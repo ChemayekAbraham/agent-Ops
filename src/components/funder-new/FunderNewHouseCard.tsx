@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Home, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -134,6 +134,20 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
+        {/* Tapping the text block opens the full house details, like the photo does. */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onDetail}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onDetail();
+            }
+          }}
+          aria-label={`Open full details for ${title} in ${place}`}
+          className="-m-2 cursor-pointer space-y-3 rounded-2xl p-2 transition-colors hover:bg-muted/40 active:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
         <div className="min-w-0">
           <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground">
             {title} <span className="font-medium text-muted-foreground">in</span> {place}
@@ -148,11 +162,18 @@ export function FunderNewHouseCard({
           ) : null}
         </div>
 
-        <div className="pt-1">
-          <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
-          </p>
+        <div className="flex items-end justify-between gap-2 pt-1">
+          <div className="min-w-0">
+            <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
+            </p>
+          </div>
+          <span className="inline-flex flex-none items-center gap-0.5 text-xs font-semibold text-primary" aria-hidden>
+            Details
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        </div>
         </div>
 
         <div className="flex items-center gap-2 [container-type:inline-size]">

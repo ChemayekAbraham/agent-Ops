@@ -158,27 +158,29 @@ export async function logMessage(m: {
   toolsCalled?: string[];
   model?: string;
   latencyMs?: number;
+  /** Why the output guard blocked or retried this turn (e.g. "output guard: figure"). Never shown to users. */
+  guardReason?: string;
 }): Promise<string | null> {
-  const { data, error } = await admin()
-    .from("assistant_messages")
-    .insert({
-      conversation_id: m.conversationId,
-      user_id: m.userId,
-      role: m.role,
-      content: m.content.slice(0, 4000),
-      outcome: m.outcome ?? null,
-      tools_called: m.toolsCalled ?? [],
-      model: m.model ?? null,
-      latency_ms: m.latencyMs ?? null,
-    })
-    .select("id")
-    .single();
+  const row = {
+    conversation_id: m.conversationId,
+    user_id: m.userId,
+    role: m.role,
+    content: m.content.slice(0, 4000),
+    outcome: m.outcome ?? null,
+    tools_called: m.toolsCalled ?? [],
+    model: m.model ?? null,
+    latency_ms: m.latencyMs ?? null,
+  };
+  const insert = (r: Record<string, unknown>) => admin().from("assistant_messages").insert(r).select("id").single();
+  let { data, error } = await insert(m.guardReason ? { ...row, guard_reason: m.guardReason.slice(0, 160) } : row);
+  // The guard_reason column arrives with its migration; until it exists the message is logged without it.
+  if (error && m.guardReason && /guard_reason/.test(error.message ?? "")) ({ data, error } = await insert(row));
   if (error) {
     // The answer is still delivered; the gap is visible in the function logs.
     console.error("[agent-assistant] failed to log message", error.message);
     return null;
   }
-  return data.id;
+  return data?.id ?? null;
 }
 
 export async function touchConversation(

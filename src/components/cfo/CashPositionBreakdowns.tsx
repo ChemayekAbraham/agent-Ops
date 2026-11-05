@@ -51,10 +51,19 @@ export function useSourceBreakdown(kind: 'received' | 'paid_out', status: 'appro
     retry: cfoReportRetry,
     queryFn: async (): Promise<SourceTotal[]> => {
       const { p_from, p_to } = rangeArgs();
+      const callRpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
       const results = await Promise.all(
-        sources.map(s => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
-          p_kind: kind, p_from, p_to, p_status: status, p_method: null, p_type: s.type, p_person: null,
-        })),
+        sources.map((s) =>
+          callRpc('get_cfo_money_drilldown_totals', {
+            p_kind: kind,
+            p_from,
+            p_to,
+            p_status: status,
+            p_method: null,
+            p_type: s.type,
+            p_person: null,
+          })
+        )
       );
       return results.map((result, index) => {
         if (result.error) throw result.error;
@@ -75,7 +84,14 @@ export function useSourceBreakdown(kind: 'received' | 'paid_out', status: 'appro
 /** @deprecated Use useSourceBreakdown — kept so existing imports keep working. */
 export const useMethodBreakdown = useSourceBreakdown;
 
-function BreakdownPanel({ title, icon, tone, query, onSelect, onSelectTotal }: {
+function BreakdownPanel({
+  title,
+  icon,
+  tone,
+  query,
+  onSelect,
+  onSelectTotal,
+}: {
   title: string;
   icon: React.ReactNode;
   tone: string;
@@ -86,38 +102,68 @@ function BreakdownPanel({ title, icon, tone, query, onSelect, onSelectTotal }: {
   const rows = query.data ?? [];
   const total = rows.reduce((s, r) => s + r.amount, 0);
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
+
   return (
-    <section className="cash-panel" aria-label={title}>
-      <div className="mb-3 flex items-center gap-2.5">
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tone}`}>{icon}</span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{title}</h2>
-          <p className="text-[11px] text-muted-foreground">
-            {query.isLoading ? 'Loading…' : query.error ? 'Could not load breakdown' : `${formatUGX(total)} all time`}
-          </p>
+    <section className="cash-panel rounded-xl border border-border/80 bg-card p-4 shadow-xs min-w-0" aria-label={title}>
+      {/* Header */}
+      <div className="mb-3.5 flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${tone}`}>
+            {icon}
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground truncate">{title}</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              {query.isLoading ? 'Loading…' : query.error ? 'Could not load breakdown' : `${formatUGX(total)} all time`}
+            </p>
+          </div>
         </div>
+        <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider hidden sm:block">
+          All Time Aggregate
+        </span>
       </div>
-      <div className="divide-y divide-border/60">
-        {rows.map(row => (
-          <button key={row.key} type="button" onClick={() => onSelect(row)}
-            className="flex w-full items-center gap-3 py-2.5 text-left">
+
+      {/* Rows */}
+      <div className="divide-y divide-border/40">
+        {rows.map((row) => (
+          <button
+            key={row.key}
+            type="button"
+            onClick={() => onSelect(row)}
+            className="group flex w-full items-center justify-between gap-3 py-2.5 px-1 text-left rounded-lg hover:bg-muted/40 transition-colors"
+          >
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-semibold">{row.label}</span>
-              <span className="block text-[11px] text-muted-foreground">{row.count.toLocaleString()} transactions</span>
+              <span className="block text-xs font-medium text-foreground group-hover:text-primary transition-colors">
+                {row.label}
+              </span>
+              <span className="block text-[11px] text-muted-foreground tabular-nums">
+                {row.count.toLocaleString()} transactions
+              </span>
             </span>
-            <span className="text-xs font-medium tabular-nums">{formatUGX(row.amount)}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-xs font-semibold tabular-nums text-foreground whitespace-nowrap">
+              {formatUGX(row.amount)}
+            </span>
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
           </button>
         ))}
+
+        {/* Total Summary Row (Matches Test Signature) */}
         {!query.isLoading && !query.error && rows.length > 0 && (
-          <button type="button" onClick={() => onSelectTotal({ amount: total, count: totalCount })}
-            className="flex w-full items-center gap-3 pt-3 pb-1 text-left">
+          <button
+            type="button"
+            onClick={() => onSelectTotal({ amount: total, count: totalCount })}
+            className="group flex w-full items-center justify-between gap-3 pt-3 pb-1.5 px-1 text-left border-t-2 border-border/80 font-bold hover:bg-muted/40 rounded-b-lg transition-colors"
+          >
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-bold">Total</span>
-              <span className="block text-[11px] text-muted-foreground">{totalCount.toLocaleString()} transactions</span>
+              <span className="block text-xs font-bold text-foreground">Total</span>
+              <span className="block text-[11px] font-normal text-muted-foreground tabular-nums">
+                {totalCount.toLocaleString()} transactions
+              </span>
             </span>
-            <span className="text-sm font-bold tabular-nums">{formatUGX(total)}</span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-extrabold tabular-nums text-foreground whitespace-nowrap">
+              {formatUGX(total)}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
           </button>
         )}
       </div>
@@ -141,28 +187,42 @@ export function CashPositionBreakdowns() {
       type: row.type,
       expected: { amount: row.amount, count: row.count, basis: 'confirmed' },
     });
-    if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
+    if (kind === 'received') setReceivedOpen(true);
+    else setPaidOpen(true);
   };
 
-  const openAll = (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') => (total: { amount: number; count: number }) => {
-    setPreset({
-      label: 'All sources — all time',
-      ...allTime(),
-      status,
-      expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
-    });
-    if (kind === 'received') setReceivedOpen(true); else setPaidOpen(true);
-  };
+  const openAll =
+    (kind: 'received' | 'paid_out', status: 'approved' | 'confirmed') =>
+    (total: { amount: number; count: number }) => {
+      setPreset({
+        label: 'All sources — all time',
+        ...allTime(),
+        status,
+        expected: { amount: total.amount, count: total.count, basis: 'confirmed' },
+      });
+      if (kind === 'received') setReceivedOpen(true);
+      else setPaidOpen(true);
+    };
 
   return (
     <>
-      <div className="cash-breakdowns">
-        <BreakdownPanel title="Received by" icon={<ArrowDownLeft className="h-4 w-4" />}
-          tone="bg-success/10 text-success" query={received} onSelect={open('received', 'approved')}
-          onSelectTotal={openAll('received', 'approved')} />
-        <BreakdownPanel title="Paid by" icon={<ArrowUpRight className="h-4 w-4" />}
-          tone="bg-destructive/10 text-destructive" query={paidOut} onSelect={open('paid_out', 'confirmed')}
-          onSelectTotal={openAll('paid_out', 'confirmed')} />
+      <div className="cash-breakdowns grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BreakdownPanel
+          title="Received by"
+          icon={<ArrowDownLeft className="h-4 w-4" />}
+          tone="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          query={received}
+          onSelect={open('received', 'approved')}
+          onSelectTotal={openAll('received', 'approved')}
+        />
+        <BreakdownPanel
+          title="Paid by"
+          icon={<ArrowUpRight className="h-4 w-4" />}
+          tone="bg-rose-500/10 text-rose-600 dark:text-rose-400"
+          query={paidOut}
+          onSelect={open('paid_out', 'confirmed')}
+          onSelectTotal={openAll('paid_out', 'confirmed')}
+        />
       </div>
       <MoneyReceivedReport open={receivedOpen} onOpenChange={setReceivedOpen} preset={preset} />
       <MoneyPaidOutReport open={paidOpen} onOpenChange={setPaidOpen} preset={preset} />

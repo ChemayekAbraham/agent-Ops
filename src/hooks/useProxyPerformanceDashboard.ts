@@ -33,19 +33,52 @@ export interface ProxyPerformanceDashboard {
   }[];
 }
 
-export function useProxyPerformanceDashboard(userId: string | undefined, range: ProxyRange) {
-  return useQuery({
-    queryKey: ['proxy-performance-dashboard', userId, range],
+const CACHE_PREFIX = 'welile.proxy-dash.v1';
+const cacheKey = (userId: string, range: ProxyRange) => `${CACHE_PREFIX}.${userId}.${range}`;
+
+/** Last summary this device saw for the agent: shown instantly while the fresh one loads. */
+function readCachedSummary(userId: string | undefined, range: ProxyRange): ProxyPerformanceDashboard | undefined {
+  if (!userId) return undefined;
+  try {
+    const raw = window.localStorage.getItem(cacheKey(userId, range));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as ProxyPerformanceDashboard;
+    // Today's figures from another day would be wrong, so only a same-day summary is reused.
+    const kampalaToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Kampala' });
+    return parsed?.agent_id === userId && parsed.today === kampalaToday ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCachedSummary(userId: string, range: ProxyRange, value: ProxyPerformanceDashboard) {
+  try {
+    window.localStorage.setItem(cacheKey(userId, range), JSON.stringify(value));
+  } catch { /* storage full or blocked: the live read still works */ }
+}
+
+/** Shared by the dashboard and by the route guard, which starts this read while access is being verified. */
+export function proxyPerformanceQueryOptions(userId: string | undefined, range: ProxyRange) {
+  return {
+    queryKey: ['proxy-performance-dashboard', userId, range] as const,
     enabled: !!userId,
     staleTime: 30_000,
-    placeholderData: (prev) => prev,
     queryFn: async (): Promise<ProxyPerformanceDashboard> => {
       const { data, error } = await supabase.rpc('get_proxy_agent_performance_dashboard' as never, {
         p_agent_id: null,
         p_range: range,
       } as never);
       if (error) throw new Error(error.message);
-      return data as unknown as ProxyPerformanceDashboard;
+      const summary = data as unknown as ProxyPerformanceDashboard;
+      if (userId) writeCachedSummary(userId, range, summary);
+      return summary;
     },
+  };
+}
+
+export function useProxyPerformanceDashboard(userId: string | undefined, range: ProxyRange) {
+  return useQuery({
+    ...proxyPerformanceQueryOptions(userId, range),
+    placeholderData: (prev) => prev ?? readCachedSummary(userId, range),
   });
 }

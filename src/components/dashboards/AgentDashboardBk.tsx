@@ -181,7 +181,6 @@ import { RecentAutoCharges } from '@/components/wallet/RecentAutoCharges';
 import { StuckDepositsRepairPanel } from '@/components/wallet/StuckDepositsRepairPanel';
 import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentRequestsList';
 
-import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
@@ -1541,30 +1540,30 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <div className={cn("space-y-5", tabAnimClass)}>
             {/* Prominent Agent Advance promo — high-visibility entry point so
                 agents always see the cash they can access instantly. */}
-            <div className="relative w-full overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-5 text-card-foreground shadow-lg ring-1 ring-primary/20">
+            <div className="relative w-full overflow-hidden rounded-3xl border border-border/60 bg-card p-5 text-card-foreground">
               <div className="relative">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary/15 p-1.5 text-primary">
+                  <div className="rounded-full bg-muted p-1.5 text-muted-foreground">
                     <Briefcase className="h-4 w-4" strokeWidth={2.2} />
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary dark:text-white">Agent Advance</span>
+                  <span className="text-sm font-medium text-muted-foreground">Agent Advance</span>
                 </div>
-                <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-white">You can access now</p>
-                <p className="mt-1 text-3xl font-black leading-none text-primary dark:text-white whitespace-pre-line">
+                <p className="mt-4 text-sm text-muted-foreground">You can access now</p>
+                <p className="mt-1 text-3xl font-bold leading-none text-foreground whitespace-pre-line">
                   {formatCreditAmount(advanceLimit?.totalLimit || 30000)}
                 </p>
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary dark:text-white">
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                   <TrendingUp className="h-3.5 w-3.5" strokeWidth={2.4} />
                   Grow up to UGX 30,000,000 as you perform better
                 </div>
-                <p className="mt-2 text-[13px] font-medium text-foreground dark:text-white leading-snug">
+                <p className="mt-3 text-sm text-muted-foreground leading-snug">
                   Cash straight to your wallet · repay over up to 12 months. Clear it early to unlock a bigger advance.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => { hapticTap(); setAdvanceRequestOpen(true); }}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm active:scale-[0.97] transition-transform touch-manipulation"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground active:scale-[0.97] transition-transform touch-manipulation"
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     Request advance <ChevronRight className="h-3.5 w-3.5" />
@@ -1572,7 +1571,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <button
                     type="button"
                     onClick={() => { hapticTap(); setAdvanceGuideOpen(true); }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-3.5 py-1.5 text-xs font-bold text-primary dark:text-white active:scale-[0.97] transition-transform touch-manipulation"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-transparent px-4 h-10 text-sm font-medium text-foreground active:scale-[0.97] transition-transform touch-manipulation"
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     <Sparkles className="h-3.5 w-3.5" /> How to increase my limit
@@ -1654,15 +1653,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <div className="p-2.5 rounded-xl bg-[#9234EA]/10">
-                  <Receipt className="h-5 w-5 text-[#9234EA]" strokeWidth={2.2} />
+                <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted">
+                  <Receipt className="h-5 w-5 text-foreground" strokeWidth={2} />
                 </div>
                 <div className="flex-1 text-left">
-                  <div className="font-bold text-sm text-foreground">Confirm landlord payment</div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="font-semibold text-sm text-foreground">Confirm landlord payment</div>
+                  <div className="text-xs text-muted-foreground">
                     Enter the receipt number the landlord received by SMS to confirm the landlord float payment
                   </div>
                 </div>
@@ -1671,49 +1670,49 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             )}
             <button
               onClick={() => { hapticTap(); setBusinessAdvanceOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-primary text-primary-foreground shadow-md">
-                <Briefcase className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <Briefcase className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Business Advance</div>
-                <div className="text-[11px] text-muted-foreground">Request advance for tenant's business · Earn 4% on every repayment</div>
+                <div className="font-semibold text-sm text-foreground">Business Advance</div>
+                <div className="text-xs text-muted-foreground">Request advance for tenant's business · Earn 4% on every repayment</div>
               </div>
-              <span className="text-xs font-bold text-primary">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <button
               onClick={() => { hapticTap(); setLendingAgentOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-primary/5 ring-1 ring-emerald-500/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md">
-                <Banknote className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <Banknote className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Lending Agent</div>
-                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
-                <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                <div className="font-semibold text-sm text-foreground">Lending Agent</div>
+                <div className="text-xs text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2.4} />
                   Principal 100% protected by Welile
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-700">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <button
               onClick={() => { hapticTap(); setBorrowOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-emerald-500/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-primary text-white shadow-md">
-                <HandCoins className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <HandCoins className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Borrow a Loan</div>
-                <div className="text-[11px] text-muted-foreground">Browse lending agents' offers · Request a loan</div>
+                <div className="font-semibold text-sm text-foreground">Borrow a Loan</div>
+                <div className="text-xs text-muted-foreground">Browse lending agents' offers · Request a loan</div>
               </div>
-              <span className="text-xs font-bold text-primary">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <RecentAutoCharges />
             <StuckDepositsRepairPanel agentId={user.id} />
@@ -1724,14 +1723,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">My Tenants</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={() => { hapticTap(); setRentRequestOpen(true); }}
-                  className="h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
+                  className="h-11 rounded-full px-5 text-sm font-semibold gap-2 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
                 >
-                  <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <UserPlus className="h-4 w-4" />
                   Add Tenant
                 </Button>
               </div>
@@ -1747,33 +1746,33 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
-                "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
-                submissionsExpanded && "pb-2.5"
+                "rounded-2xl border border-border/60 bg-card px-4",
+                submissionsExpanded && "pb-3"
               )}
             >
               <button
                 onClick={() => setSubmissionsExpanded((v) => !v)}
-                className="w-full flex items-center justify-between py-2 text-left"
+                className="w-full flex items-center justify-between py-3.5 text-left active:opacity-70 transition-opacity"
                 style={{ touchAction: 'manipulation' }}
               >
-                <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Submissions
                 </h3>
                 <div className="flex items-center gap-1.5">
                   {!submissionsExpanded && (
                     <div className="flex items-center gap-1">
                       {submittedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-amber-600 text-[11px] font-semibold flex items-center justify-center">
                           {submittedCount}
                         </span>
                       )}
                       {approvedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-emerald-600 text-[11px] font-semibold flex items-center justify-center">
                           {approvedCount}
                         </span>
                       )}
                       {rejectedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-destructive text-[11px] font-semibold flex items-center justify-center">
                           {rejectedCount}
                         </span>
                       )}
@@ -1793,7 +1792,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </div>
               )}
             </div>
-            <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">My Tenants</h3>
+            <h3 className="px-1 text-sm font-semibold text-muted-foreground">My Tenants</h3>
             <AgentTenantInlineList
               onOpenTenantSheet={(tenantId) => { setTenantProfileId(tenantId); setTenantsSheetOpen(true); }}
               onAddTenant={() => setRentRequestOpen(true)}
@@ -1829,8 +1828,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
-                { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
-                { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
                   key={a.label}
@@ -1845,7 +1842,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </button>
               ))}
             </div>
-            <ShareRentRecorderCard />
           </div>
         )}
 

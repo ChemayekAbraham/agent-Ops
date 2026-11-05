@@ -27,6 +27,14 @@ type Period = 'today' | 'weekly' | 'monthly' | 'yearly';
 
 function pct(a: number, b: number) { return b > 0 ? Math.round((a / b) * 100) : 0; }
 
+/** Plan status for the Tenants tab. `agent_payment_status` defaults to "paying" on every plan, so it
+ *  is only a tag on a live plan that the agent has marked as not paying. */
+function tenantStatusLabel(t: { status?: string | null; agent_payment_status?: string | null }) {
+  const status = t.status || '—';
+  const live = status === 'funded' || status === 'repaying' || status === 'active';
+  return live && t.agent_payment_status === 'not_paying' ? `${status} · not paying` : status;
+}
+
 function TargetCards({ agentId, dailyTarget }: { agentId: string | null; dailyTarget: number }) {
   // The weekly target is the PINNED bill for the last 7 days, summed
   // server-side. It used to be `dailyTarget * 7`, which extrapolated today
@@ -688,7 +696,7 @@ export function AgentProfile360Sheet({ agentId: rootAgentId, onOpenChange, inlin
                   rows={tenants
                     .slice(tenantPage * TENANTS_PER_PAGE, tenantPage * TENANTS_PER_PAGE + TENANTS_PER_PAGE)
                     .map((t: any) => [
-                      t.full_name ?? '—', t.phone ?? '—', t.agent_payment_status || t.status || '—',
+                      t.full_name ?? '—', t.phone ?? '—', tenantStatusLabel(t),
                       formatUGX(Number(t.rent_amount || 0)), formatUGX(Number(t.outstanding || 0)),
                     ])}
                   empty="No tenants linked to this agent"

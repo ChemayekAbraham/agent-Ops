@@ -262,7 +262,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
 }) {
   const showHeader = Boolean(title) || Boolean(onBack);
   return (
-    <div className={`border border-border/80 bg-card overflow-hidden ${compactMobile ? 'shadow-none sm:shadow-sm rounded-xl sm:rounded-2xl' : 'shadow-sm rounded-2xl'}`}>
+    <div className={`overflow-hidden ${compactMobile ? 'bg-transparent' : 'border border-border/80 bg-card shadow-sm rounded-2xl'}`}>
       {showHeader && (
       <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
@@ -286,7 +286,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
         )}
       </div>
       )}
-      <div className={`${compactMobile ? 'px-3 py-3 sm:px-5 sm:py-4 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
+      <div className={`${compactMobile ? 'px-0 py-1 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
     </div>
   );
 }

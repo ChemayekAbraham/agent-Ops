@@ -2,10 +2,49 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-const { load } = vi.hoisted(() => ({ load: vi.fn() }));
+const { load, bookedBookings, bookedDetails } = vi.hoisted(() => ({
+  load: vi.fn(),
+  bookedBookings: [
+    {
+      intent_id: 'intent-1',
+      note_id: 'note-1',
+      house_id: 'booked-1',
+      title: 'Held bedsitter',
+      district: 'Kira',
+      image_urls: [],
+      verified: true,
+      monthly_rent: 30000,
+      status: 'reserved',
+      promised_funding_date: null,
+      reserved_until: '2026-11-10T00:00:00Z',
+      released_at: null,
+      release_reason: null,
+      funded_at: null,
+      days_left: 5,
+      taken: false,
+      created_at: '2026-11-05T00:00:00Z',
+    },
+  ],
+  bookedDetails: vi.fn(),
+}));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'funder-test' } }) }));
 vi.mock('@/components/funder-new/loadFunderSavedItems', () => ({ loadFunderSavedItems: load }));
-vi.mock('@/components/agent/EmptyHouseDetailSheet', () => ({ default: () => null }));
+vi.mock('@/components/agent/EmptyHouseDetailSheet', () => ({
+  default: ({ house, open }: { house: { title: string } | null; open: boolean }) =>
+    open && house ? <div data-testid="house-sheet">{house.title}</div> : null,
+}));
+vi.mock('@/hooks/useFunderBookedHouses', () => ({
+  BOOKED_HOUSES_MIN_FUNDING: 50000,
+  useFunderBookedHouses: () => ({
+    query: { isPending: false, isError: false, refetch: vi.fn() },
+    bookings: bookedBookings,
+    held: bookedBookings,
+    heldCount: bookedBookings.length,
+  }),
+  fundBookedHouses: vi.fn(),
+  releaseBookedHouse: vi.fn(),
+  loadBookedHouseDetails: (houseId: string) => bookedDetails(houseId),
+}));
 vi.mock('@/components/partner/SelfPortfolioPlanDetailSheet', () => ({ SelfPortfolioPlanDetailSheet: () => null }));
 import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
@@ -17,7 +56,7 @@ function mount() {
 }
 function readSaved() { return JSON.parse(localStorage.getItem(FUNDER_SAVED_KEY) ?? '{}'); }
 describe('Saved Items dialog', () => {
-  beforeEach(() => { localStorage.clear(); load.mockReset(); });
+  beforeEach(() => { localStorage.clear(); load.mockReset(); bookedDetails.mockReset(); });
   it('retains available bookmarks and removes taken items from browser storage', async () => {
     localStorage.setItem(FUNDER_SAVED_KEY, JSON.stringify({ empty: ['house-1', 'taken-house'], ready: ['taken-plan'] }));
     load.mockResolvedValue([availableHouse]);
@@ -60,5 +99,21 @@ describe('Saved Items dialog', () => {
     });
     // The first read must not remove a newly saved ID. Its own later read can resolve availability.
     expect(readSaved().empty).toContain('new-house');
+  });
+
+  it('opens a booked house in the house details sheet and closes the dialog', async () => {
+    localStorage.setItem(FUNDER_SAVED_KEY, JSON.stringify({ empty: [], ready: [] }));
+    load.mockResolvedValue([]);
+    bookedDetails.mockResolvedValue({ house_id: 'booked-1', title: 'Held bedsitter full record', monthly_rent: 30000, district: 'Kira' });
+    const onOpenChange = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><FunderSavedItemsDialog open onOpenChange={onOpenChange} /></QueryClientProvider>);
+    const row = await screen.findByRole('button', { name: 'Open details for Held bedsitter' });
+    await userEvent.click(row);
+    await waitFor(() => expect(bookedDetails).toHaveBeenCalled(), { timeout: 2000 });
+    const sheet = await screen.findByTestId('house-sheet');
+    expect(sheet.textContent).toContain('Held bedsitter full record');
+    expect(bookedDetails).toHaveBeenCalledWith('booked-1');
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

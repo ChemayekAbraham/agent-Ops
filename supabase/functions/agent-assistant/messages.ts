@@ -10,15 +10,27 @@ function pick(options: readonly string[], seed: string): string {
 export const MSG = {
   notEnabled: "The assistant isn't available on your account yet.",
   /** Sensitive or out-of-network request that reached a fixed reply (the model's own REFUSE text is preferred). */
-  refusal: (seed = "") =>
+  refusal: (seed = "", persona: "agent" | "partner" | "none" = "agent") =>
     pick(
-      [
-        "That one is outside what I can see from your account 🙈 but I'd love to help with your own tenants, collections or team. What shall we look at?",
-        "Hmm, I can't peek at that from here 😉 Your own numbers though? Wide open. Want to start with today's collections?",
-        "That's not something I can open for you, but your own account is an open book 📖 Try asking about your tenants or wallet.",
-      ],
+      persona === "partner"
+        ? [
+          "That one is outside what I can see from your account 🙈 but I'd love to help with your own portfolios, Returns or wallet. What shall we look at?",
+          "Hmm, I can't peek at that from here 😉 Your own portfolios though? Wide open. Want to start with your Returns?",
+          "That's not something I can open for you, but your own account is an open book 📖 Try asking about your portfolios or withdrawals.",
+        ]
+        : [
+          "That one is outside what I can see from your account 🙈 but I'd love to help with your own tenants, collections or team. What shall we look at?",
+          "Hmm, I can't peek at that from here 😉 Your own numbers though? Wide open. Want to start with today's collections?",
+          "That's not something I can open for you, but your own account is an open book 📖 Try asking about your tenants or wallet.",
+        ],
       seed,
     ),
+  /** A partner asking about reversals or corrections: nothing is confirmed or denied. */
+  partnerDeflect:
+    "I can show you your top-ups, renewals, Returns and wallet activity exactly as they appear on your account 📋 If something doesn't look right to you, I can pass it to the support team so they can take a closer look.",
+  /** Last resort if the model keeps telling a partner they did not sign. */
+  partnerContractFallback:
+    "Here's what I can see on your account 📄 the Welile partner terms you accepted and the terms of each of your portfolios. If you expect a separate signed copy of an agreement, I can pass that to the support team so they can check for you.",
   unmatched:
     "I didn't quite catch that one 🤔 Could you say it a different way? For example: “How much did I collect today?” or “How do I earn more?”",
   wantsHuman: "I can pass this conversation to the support team so they can follow up with you.",

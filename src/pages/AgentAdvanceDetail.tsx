@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
+import { ArrowLeft, TrendingUp, AlertTriangle, Plus, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,11 +9,13 @@ import { formatUGX, getRiskLevel, calculateCompoundProjection, calculateRegistra
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useState } from 'react';
 import CFOAdvanceTopupDialog from '@/components/cfo/CFOAdvanceTopupDialog';
+import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
 
 export default function AgentAdvanceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [topupOpen, setTopupOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const { data: advance, isLoading, refetch } = useQuery({
     queryKey: ['agent-advance', id],
@@ -81,7 +83,11 @@ export default function AgentAdvanceDetail() {
       {/* Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/agent-advances')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/cfo-dashboard?section=advance-repayments'))}
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1">
@@ -95,6 +101,16 @@ export default function AgentAdvanceDetail() {
           {advance.status === 'active' && (
             <Button size="sm" variant="outline" onClick={() => setTopupOpen(true)} className="gap-1">
               <Plus className="h-3 w-3" /> Top-Up
+            </Button>
+          )}
+          {(advance.status === 'active' || advance.status === 'overdue') && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setCancelOpen(true)}
+              className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+            >
+              <Ban className="h-3 w-3" /> Close / Transfer / Write-off
             </Button>
           )}
         </div>
@@ -256,6 +272,13 @@ export default function AgentAdvanceDetail() {
         onOpenChange={setTopupOpen}
         advance={advance}
         onSuccess={() => { refetch(); refetchTopups(); }}
+      />
+
+      <CancelAdvanceDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        advance={advance}
+        onSuccess={() => { refetch(); setCancelOpen(false); }}
       />
     </div>
   );

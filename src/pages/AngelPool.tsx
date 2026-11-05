@@ -261,12 +261,10 @@ export default function AngelPool() {
             <CapitalOpportunityEntry />
           </div>
 
-
+          {/* Invite & Earn: the last card on the page, scrolling with it (not pinned to the bottom) */}
+          <InviteAndEarnCard variant="supporter" compact />
         </main>
       </div>
-
-      {/* ═══ INVITE & EARN — Same as funder ═══ */}
-      <InviteAndEarnCard variant="supporter" compact />
 
       {showWallet && <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />}
       
