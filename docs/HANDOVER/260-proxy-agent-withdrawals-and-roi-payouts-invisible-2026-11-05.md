@@ -1,8 +1,8 @@
 # 260 — Proxy agent could not see her partner withdrawals or approved ROI payouts (2026-11-05)
 
-**Applied to production 2026-11-05 (three migrations), verified as Kabahuma Lillian; dialog fix pushed to `lovable` (`9af0a3be2d`).**
+**Applied to production 2026-11-05 (five migrations), verified as Kabahuma Lillian; dialog fixes pushed to `lovable` (`9af0a3be2d`, `847b83f960`).**
 Read this before touching `agent_proxy_withdrawal_summaries`, `agent_onboarded_portfolios`, `agent_partner_payout_routes`,
-`WithdrawRequestDialog.tsx`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
+`agent_partner_payout_destination`, `copy_proxy_payout_on_file`, `WithdrawRequestDialog.tsx`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
 
 ## What was reported
 
@@ -76,6 +76,32 @@ checking Lovable's agent was idle (`agentFinished: true`). In proxy mode (`linke
 the agent's profile. Lovable confirmed it is on `9af0a3be2d` and will not touch the change. `tsc` and `guard:all` could not be run (tsc runs out of
 memory locally; the worktree had no `node_modules`) and the live screen was not tested.
 
+## Root cause 5 — the confirm screen showed no destination, and the insert trigger skipped staff-role agents
+
+**Confirm screen.** After the 11-04 privacy change the withdraw dialog's confirm step read "via —": the destination came only from the agent's own
+profile (the bug in cause 4), and `payoutOnFile` carried only a label. Decision (CTO, 2026-11-05): the assigned proxy must see the partner's holder
+name and number to confirm. `supabase/migrations/20261105150000_agent_partner_payout_destination.sql` adds `agent_partner_payout_destination(partner, route_key)`
+(`security definer`, not granted to `anon`), which returns the name, number, bank and provider of ONE route of ONE partner the caller is `agent_id` of or
+an active, approved proxy for. No table policy was loosened and `agent_partner_payout_routes` still returns labels only. Verified as Lillian: 122 routes
+across the 34 partners paid on 4 Nov all returned name and number; 20 portfolios of other agents' partners returned nothing. Frontend: commit `e8091dc128`
+(merged as `847b83f960`, pushed to `lovable` 2026-11-05) shows the destination read-only and locked on the confirm screen and sets `payoutOnFile` for
+saved-method routes too (those left the form invalid and the button grey). Syntax-checked only; not tested in a browser.
+
+**Insert trigger.** `copy_proxy_payout_on_file` (BEFORE INSERT on `withdrawal_requests`) returned immediately for anyone `partner_record_staff_ok()` accepts.
+Lillian also holds `manager`, `coo`, `crm`, `operations` and `partner_ops`, so the trigger never copied the partner's destination for her, and since the
+dialog stopped sending numbers her withdrawals were stored without one. Found on the test withdrawal `15a39110-168e-458b-98ea-24c94277ffbf` (OCHOKAN SAM,
+route `portfolio:9481972b-…`, UGX 150,000, 10:12 UTC): mobile money with null number, name and provider although the portfolio has an MTN number. It was the
+only such row since the trigger was created (8:42 UTC).
+
+**Fix:** `supabase/migrations/20261105160000_copy_proxy_payout_for_staff_agents.sql` (rollback restores the 11-04 behaviour). Staff who typed their own number
+or bank account keep it; otherwise the destination is copied from the chosen route as for any proxy agent. Not on `critical_function_baselines`. Verified as
+Lillian on a throwaway table with the trigger attached: a mobile-money route gets number, provider and name; a bank route gets account number and bank
+name; a number typed by staff is kept. No real withdrawal was created for the test.
+
+**Open: `15a39110-168e-458b-98ea-24c94277ffbf` is still `pending` with no number** (last touched 10:18 UTC). The fix does not repair existing rows. Cancel it
+and have the agent redo it, or patch the number deliberately (an update runs the other withdrawal triggers). If Financial Ops has already acted on it, check
+what was sent before anything else.
+
 ## What the 68 ROI payouts are (do not confuse with withdrawals)
 
 The General Payout Activity table on the CFO page lists `pending_wallet_operations` rows with `category = 'roi_payout'`, `operation_type = 'roi_wallet_credit'`.
@@ -102,4 +128,4 @@ shown by the "ready" section of `ProxyPartnerFunds`, which is why root cause 2 h
 
 ## Not touched
 
-Table grants, the `copy_proxy_payout_on_file` trigger, the live policies and `ProxyPartnerFunds.tsx` were not changed by this work.
+Table grants and the live table policies were not changed by this work.
