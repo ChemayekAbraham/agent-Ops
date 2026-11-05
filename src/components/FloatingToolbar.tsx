@@ -37,9 +37,6 @@ export default function FloatingToolbar() {
 
   // The Welile Assistant launcher is only for dashboard workspaces.
   const isDashboardRoute = location.pathname.startsWith('/dashboard');
-  // The partner dashboard has the bottom role nav and no other right-hand buttons,
-  // so the assistant sits right above the nav there.
-  const dockAssistantAboveNav = /^\/dashboard\/funder(\/|$)/.test(location.pathname);
 
   return (
     <>
@@ -97,7 +94,7 @@ export default function FloatingToolbar() {
         </>
       )}
 
-      <AgentAssistant dockAboveNav={dockAssistantAboveNav} hideLauncher={!isDashboardRoute || (modalOpen && !document.querySelector('.assistant-chat[data-state="open"]'))} />
+      <AgentAssistant hideLauncher={!isDashboardRoute || (modalOpen && !document.querySelector('.assistant-chat[data-state="open"]'))} />
     </>
   );
 }
