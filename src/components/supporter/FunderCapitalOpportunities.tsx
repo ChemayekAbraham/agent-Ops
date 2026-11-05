@@ -629,7 +629,6 @@ export function FunderCapitalOpportunities({
 
   // ─── MENU ───
   if (view === 'menu') {
-    const activeDemand = opportunitySummary?.total_rent_requested ?? 0;
     return (
       <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
         <div className="px-5 pt-5 pb-4 space-y-4">
@@ -642,12 +641,6 @@ export function FunderCapitalOpportunities({
                 Choose how you want to deploy capital.
               </p>
             </div>
-            {activeDemand > 0 && (
-              <div className="text-right shrink-0">
-                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Active demand</p>
-                <p className="text-sm font-black text-foreground">{formatAmountCompact(activeDemand)}</p>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 gap-[clamp(8px,2vw,20px)]">
