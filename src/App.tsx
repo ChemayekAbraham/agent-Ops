@@ -113,7 +113,6 @@ const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import MaintenanceLockScreen from "@/components/MaintenanceLockScreen";
 
-const CreditLoadingDebugPanel = optionalLazyWithRetry(() => import("@/components/debug/CreditLoadingDebugPanel").then(m => ({ default: m.CreditLoadingDebugPanel })), "CreditLoadingDebugPanel");
 
 const DeferredExtras = optionalLazyWithRetry(() => import("@/components/DeferredExtras"), "DeferredExtras");
 const FloatingToolbar = optionalLazyWithRetry(() => import("@/components/FloatingToolbar"), "FloatingToolbar");
@@ -1158,7 +1157,6 @@ const App = () => {
                           <CommunicationGate />
                           <NationalIdUnlinkNoticeDialog />
                           <HRBirthdayNoticeDialog />
-                          <CreditLoadingDebugPanel />
                         </Suspense>
                       </DeferredErrorBoundary>
                     </CurrencyProvider>
