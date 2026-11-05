@@ -260,7 +260,7 @@ import { calculateRentPlan, CALC_TOOL } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
 import { buildSystemPrompt } from "./prompt.ts";
 import { MSG } from "./messages.ts";
-import { openAiTools } from "./tools.ts";
+import { openAiTools, PARTNER_TOOLS, toolAllowedFor } from "./tools.ts";
 
 Deno.test("calc: 500,000 over 30 days matches the platform formula", () => {
   const r = calculateRentPlan(500000, 30);
@@ -285,7 +285,7 @@ Deno.test("calc: out-of-range or unknown arguments are rejected", () => {
 });
 
 Deno.test("tools: someone with no agent footprint is offered no data tools", () => {
-  const names = (isAgent: boolean) => openAiTools(isAgent).map((t) => t.function.name);
+  const names = (isAgent: boolean) => openAiTools(isAgent ? "agent" : "none").map((t) => t.function.name);
   assertEquals(names(false).sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
   assert(names(true).includes("get_wallet") && names(true).includes("calculate_rent_plan"));
 });
@@ -307,7 +307,7 @@ Deno.test("guard: the approved landlord float reply is accepted", () => {
 });
 
 Deno.test("prompt: spendable landlord float uses the approved reply, not a wallet figure", () => {
-  const prompt = buildSystemPrompt({ todayKampala: "2026-11-02", isAgent: true, page: "agent_dashboard" });
+  const prompt = buildSystemPrompt({ todayKampala: "2026-11-02", persona: "agent", page: "agent_dashboard" });
   assert(prompt.includes(`Reply exactly: "${LANDLORD_FLOAT_REPLY}"`));
   assert(!prompt.includes("use the wallet's landlord_float_available"));
   const earn = AGENT_KNOWLEDGE.indexOf("the agent earns 1% of that payout");
@@ -438,4 +438,70 @@ Deno.test("target figures from the tool pass the guard, invented ones do not", (
   const out = JSON.stringify({ amount_needed_to_pass: 75869, needed_per_day_including_today: 37935, percent_so_far: 35.1 });
   assert(checkAnswer("You need UGX 75,869 more, about UGX 37,935 a day.", [out], "am i on target").ok);
   assertEquals(checkAnswer("You need UGX 80,000 more.", [out], "am i on target").ok, false);
+});
+
+// ---- partner (funder) persona ----------------------------------------------------------------
+
+Deno.test("partner tools: every RPC is assistant_partner_*, no identity arguments, no overlap with agent tools", () => {
+  assert(PARTNER_TOOLS.length >= 8);
+  for (const t of PARTNER_TOOLS) {
+    assert(/^assistant_partner_[a-z_]+$/.test(t.rpc), t.rpc);
+    assertEquals(t.schema.safeParse({ partner_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+    assertEquals(t.schema.safeParse({ user_id: "x" }).success, false);
+    assertEquals(AGENT_TOOLS.some((a) => a.name === t.name), false);
+  }
+});
+
+Deno.test("partner tools: arguments are validated before anything runs", () => {
+  const detail = findTool("get_partner_portfolio_detail")!;
+  assert(detail.schema.safeParse({ code: "WPF-3542" }).success);
+  assert(detail.schema.safeParse({ code: "WIP2610124417" }).success);
+  assertEquals(detail.schema.safeParse({ code: "WPF-1'; drop table x;--" }).success, false);
+  assertEquals(detail.schema.safeParse({ code: "ab" }).success, false);
+  const list = findTool("get_partner_portfolios")!;
+  assertEquals(list.schema.safeParse({ status: "cancelled" }).success, false);
+  assertEquals(list.toRpcArgs({}), { p_status: "all", p_search: null, p_limit: 15 });
+  const wd = findTool("get_partner_withdrawals")!;
+  assertEquals(wd.schema.safeParse({ period: "last_week", from: "2026-10-01" }).success, false);
+  assertEquals(wd.toRpcArgs({ status: "paid" }), { p_status: "paid", p_limit: 15 });
+  assertEquals(findTool("get_partner_upcoming")!.schema.safeParse({ days: 9999 }).success, false);
+  assertEquals(findTool("get_partner_returns")!.toRpcArgs({}), {});
+});
+
+Deno.test("personas keep their own tools: a partner cannot call agent tools and an agent cannot call partner tools", () => {
+  assert(toolAllowedFor("partner", "get_partner_overview"));
+  assert(!toolAllowedFor("partner", "get_wallet"));
+  assert(!toolAllowedFor("agent", "get_partner_overview"));
+  assert(toolAllowedFor("agent", "get_wallet"));
+  assert(!toolAllowedFor("none", "get_wallet") && !toolAllowedFor("none", "get_partner_overview"));
+  assert(toolAllowedFor("none", "search_help_center"));
+  const names = (p: "agent" | "partner" | "none") => openAiTools(p).map((t) => t.function.name);
+  assert(names("partner").includes("get_partner_portfolios") && !names("partner").includes("get_wallet"));
+  assert(!names("agent").some((n) => n.startsWith("get_partner_")));
+  assertEquals(names("none").sort(), ["ask_clarification", "calculate_rent_plan", "search_help_center"]);
+});
+
+Deno.test("partner prompt: partner topics only, masked payouts, no agent earning facts, no banned wording as advice", () => {
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  assert(p.includes("ending 245") && p.includes("portfolio"));
+  assert(p.includes("investment advice"));
+  assert(!p.includes("10,000 sub-agent registration") && !p.includes("get_target_progress"));
+  assert(!p.includes("get_collection_day_detail"));
+  const none = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "none", page: "funder_dashboard" });
+  assert(none.includes("no partnership on Welile yet") && none.includes("NO data tools"));
+  assert(!none.includes("get_partner_overview"));
+  const agent = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
+  assert(agent.includes("get_target_progress") && !agent.includes("ending 245"));
+});
+
+Deno.test("partner figures from the tools pass the guard; invented ones do not", () => {
+  const out = JSON.stringify({ earned_total: 280207, active_principal: 846957, standard_monthly_returns_estimate: 7500 });
+  assert(checkAnswer("Your Returns earned so far are UGX 280,207 on UGX 846,957 active.", [out], "how much have I earned").ok);
+  assertEquals(checkAnswer("Your Returns earned so far are UGX 300,000.", [out], "how much have I earned").ok, false);
+  assertEquals(checkAnswer("It was sent to 0777 123 456.", [out], "where did it go").ok, false);
+});
+
+Deno.test("request schema accepts the funder dashboard page hint and nothing else", () => {
+  assert(RequestSchema.safeParse({ action: "message", message: "hi", page: "funder_dashboard" }).success);
+  assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "admin_dashboard" }).success, false);
 });

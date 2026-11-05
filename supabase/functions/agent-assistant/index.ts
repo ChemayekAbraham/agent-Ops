@@ -13,7 +13,7 @@
  */
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { RequestSchema } from "./schemas.ts";
-import { CLARIFICATION_TOOL, findTool, isGeneralTool, openAiTools } from "./tools.ts";
+import { CLARIFICATION_TOOL, findTool, openAiTools, type Persona, toolAllowedFor } from "./tools.ts";
 import { CALC_TOOL, runCalcTool } from "./calc.ts";
 import { AGENT_KNOWLEDGE } from "./knowledge.ts";
 import { callModel, type ChatMessage, ModelError } from "./openai.ts";
@@ -114,15 +114,26 @@ function blocked(toolsCalled: string[], model?: string, reason?: string): TurnRe
   return { reply: MSG.unmatched, outcome: "blocked", toolsCalled, model };
 }
 
+/**
+ * One persona's data per turn. The screen decides when both apply (an agent who is also a partner);
+ * with no screen hint an agent footprint wins, then a partner one. Someone with no footprint for the
+ * screen they are on gets the general tools only, and the prompt tells them so kindly.
+ */
+function choosePersona(page: "agent_dashboard" | "funder_dashboard" | "other", isAgent: boolean, isPartner: boolean): Persona {
+  if (page === "funder_dashboard") return isPartner ? "partner" : "none";
+  if (page === "agent_dashboard") return isAgent ? "agent" : "none";
+  return isAgent ? "agent" : isPartner ? "partner" : "none";
+}
+
 async function runTurn(
   userClient: SupabaseClient,
   history: { role: "user" | "assistant"; content: string }[],
   message: string,
-  isAgent: boolean,
-  page: "agent_dashboard" | "other",
+  persona: Persona,
+  page: "agent_dashboard" | "funder_dashboard" | "other",
 ): Promise<TurnResult> {
   const messages: ChatMessage[] = [
-    { role: "system", content: buildSystemPrompt({ todayKampala: kampalaToday(), isAgent, page }) },
+    { role: "system", content: buildSystemPrompt({ todayKampala: kampalaToday(), persona, page }) },
     ...history,
     { role: "user", content: message },
   ];
@@ -134,7 +145,7 @@ async function runTurn(
   let retried = false;
 
   for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
-    const reply = await callModel({ messages, tools: openAiTools(isAgent) });
+    const reply = await callModel({ messages, tools: openAiTools(persona) });
     model = reply.model;
     const calls = reply.message.tool_calls ?? [];
 
@@ -208,7 +219,7 @@ async function runTurn(
       }
 
       const found = findTool(name);
-      const tool = found && (isAgent || isGeneralTool(name)) ? found : undefined;
+      const tool = found && toolAllowedFor(persona, name) ? found : undefined;
       if (!tool) return blocked(toolsCalled, model, `unknown tool: ${name.slice(0, 60)}`);
 
       const args = tool.schema.safeParse(rawArgs ?? {});
@@ -221,7 +232,7 @@ async function runTurn(
       let content: string;
       if (error) {
         if (error.message?.includes("assistant_not_enabled")) throw new NotEnabledError();
-        if (error.message?.includes("not_an_agent")) {
+        if (error.message?.includes("not_an_agent") || error.message?.includes("not_a_partner")) {
           // The gate and the tool disagreed (e.g. the footprint vanished mid-chat). Say so as data.
           content = JSON.stringify({ untrusted_data: { note: "No agent activity found for this account yet." } });
         } else if (/invalid_(range|direction|status)/.test(error.message ?? "")) {
@@ -295,6 +306,8 @@ Deno.serve(async (req) => {
     // --- the agent gate: no record in agent_collections, no assistant ------------------------
     const { data: isAgent, error: gateError } = await userClient.rpc("assistant_is_agent");
     if (gateError) throw new Error(`gate check failed: ${gateError.message}`);
+    const { data: isPartner, error: partnerGateError } = await userClient.rpc("assistant_is_partner");
+    if (partnerGateError) throw new Error(`partner gate check failed: ${partnerGateError.message}`);
     const startedAt = Date.now();
 
     if (request.action === "escalate") {
@@ -338,7 +351,8 @@ Deno.serve(async (req) => {
       } else if (scope === "wants_human") {
         turn = { reply: MSG.wantsHuman, outcome: "answered", toolsCalled: [], escalationOffered: true };
       } else {
-        turn = await runTurn(userClient, history, request.message, isAgent === true, request.page ?? "other");
+        const page = request.page ?? "other";
+        turn = await runTurn(userClient, history, request.message, choosePersona(page, isAgent === true, isPartner === true), page);
       }
     } catch (e) {
       if (e instanceof NotEnabledError) {
