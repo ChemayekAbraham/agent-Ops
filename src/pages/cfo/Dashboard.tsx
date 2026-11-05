@@ -53,9 +53,9 @@ import { WithdrawalRequestsManager } from '@/components/manager/WithdrawalReques
 import { GeneralLedger } from '@/components/manager/GeneralLedger';
 import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
 import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts';
-import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
-import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
-import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
+
+
+import CfoLandlordPayoutFloatPanel from '@/components/cfo/CfoLandlordPayoutFloatPanel';
 import { WithdrawalHistoryStatement } from '@/components/financial-ops/WithdrawalHistoryStatement';
 import { StaleWithdrawalHoldsPanel } from '@/components/cfo/StaleWithdrawalHoldsPanel';
 import { PayoutReconciliationQueue } from '@/components/financial-ops/PayoutReconciliationQueue';
@@ -116,7 +116,6 @@ import { FinanceMonitoringHealthPanel } from '@/components/cfo/FinanceMonitoring
 import { CFOUnfundingApprovals } from '@/components/cfo/CFOUnfundingApprovals';
 import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
 import { LandlordFloatIdleQueue } from '@/components/shared/LandlordFloatIdleQueue';
-import { CFOTenantBalanceApprovals } from '@/components/cfo/CFOTenantBalanceApprovals';
 import { SmsDeliveryLogPanel } from '@/components/cfo/SmsDeliveryLogPanel';
 import { SmsFailureAlertsPanel } from '@/components/cfo/SmsFailureAlertsPanel';
 import { AlreadyFundedLandlordsPanel } from '@/components/cfo/AlreadyFundedLandlordsPanel';
@@ -409,24 +408,7 @@ export default function CFODashboardPage() {
           </div>
         );
       case 'landlord-payout-float':
-        return (
-          <div className="space-y-4">
-            <div>
-              <h1 className="text-xl font-bold">🏠 Landlord Payout Float</h1>
-              <p className="text-sm text-muted-foreground">
-                Fund agents' Landlord Payout Float from COO-approved rent requests.
-                Each disbursement earmarks money for a specific tenant's landlord —
-                the agent then pays the landlord via MoMo (gated by landlord OTP and Financial Ops sign-off).
-              </p>
-            </div>
-            <CFOTenantBalanceApprovals />
-            <LandlordFloatIdleQueue />
-            <CFOAllocationReturnApprovals />
-            <PromissoryBookingsPanel />
-            <BatchPayoutProcessor />
-            <LandlordFloatAllocationsPanel />
-          </div>
-        );
+        return <CfoLandlordPayoutFloatPanel />;
       case 'welile-homes-payouts':
         return (
           <div className="space-y-4">
