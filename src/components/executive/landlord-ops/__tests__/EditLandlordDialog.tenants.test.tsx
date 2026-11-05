@@ -71,3 +71,21 @@ describe('Edit Landlord dialog: Tenants section', () => {
     expect(rpcMock).not.toHaveBeenCalled();
   });
 });
+
+describe('Edit Landlord dialog: stacks its field grids on a narrow screen', () => {
+  it('every field grid collapses to one column below sm, same 2/3 columns from sm up', async () => {
+    rpcMock.mockResolvedValue({ data: [], error: null });
+    renderDialog();
+    await screen.findByText('This landlord has no tenants on a Rent Plan yet.');
+    const grids = document.querySelectorAll('.grid.grid-cols-1');
+    // Name/Phone, Village/District/Region, MoMo+Bank, Rent/TIN, Houses+Smartphone, Meters, Caretaker.
+    expect(grids.length).toBe(7);
+    const widths = new Set<string>();
+    grids.forEach((g) => {
+      const match = /sm:grid-cols-(\d)/.exec(g.className);
+      widths.add(match?.[1] ?? 'none');
+    });
+    // Six 2-column rows and the Village/District/Region row at 3.
+    expect(widths).toEqual(new Set(['2', '3']));
+  });
+});

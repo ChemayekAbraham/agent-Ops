@@ -2602,15 +2602,35 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     if (!chatMode || !open) return;
     const node = chatScrollRef.current;
     const dlg = node?.closest('[role="dialog"]') as HTMLElement | null;
-    if (!dlg) return;
-    dlg.classList.remove('translate-x-[-50%]', 'translate-y-[-50%]', 'left-[50%]', 'top-[50%]');
-    dlg.style.setProperty('transform', 'none', 'important');
-    dlg.style.setProperty('left', '0px', 'important');
-    dlg.style.setProperty('top', '0px', 'important');
-    dlg.style.setProperty('width', '100vw', 'important');
-    dlg.style.setProperty('max-width', '100vw', 'important');
-    dlg.style.setProperty('height', '100dvh', 'important');
-    dlg.style.setProperty('animation', 'none', 'important');
+    // The chat owns its own geometry: on a phone it takes the whole screen, on
+    // a desktop it floats as a dialog. !important is required because the base
+    // dialog centres itself with classes that would otherwise win.
+    if (dlg) {
+      const force = (prop: string, value: string) => {
+        dlg.style.removeProperty(prop);
+        dlg.style.setProperty(prop, value, 'important');
+      };
+      if (isMobile) {
+        dlg.classList.remove('translate-x-[-50%]', 'translate-y-[-50%]', 'left-[50%]', 'top-[50%]');
+        force('transform', 'none');
+        force('left', '0px');
+        force('top', '0px');
+        force('width', '100vw');
+        force('max-width', '100vw');
+        force('height', '100dvh');
+        force('max-height', '100dvh');
+        force('animation', 'none');
+      } else {
+        force('transform', 'translate(-50%, -50%)');
+        force('left', '50%');
+        force('top', '50%');
+        force('width', 'min(440px, calc(100vw - 2rem))');
+        force('max-width', 'none');
+        force('height', 'min(760px, calc(100dvh - 3rem))');
+        force('max-height', 'none');
+        force('animation', 'none');
+      }
+    }
     if (typeof node?.scrollTo === 'function') node.scrollTo({ top: node.scrollHeight });
   });
 
@@ -3701,9 +3721,15 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         data-rent-chat-text={chatMode ? 'medium' : undefined}
-        style={chatMode ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' } : undefined}
+        style={chatMode
+          ? (isMobile
+            ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' }
+            : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', animation: 'none', width: 'min(440px, calc(100vw - 2rem))', maxWidth: 'none', height: 'min(760px, calc(100dvh - 3rem))', maxHeight: 'none' })
+          : undefined}
         className={chatMode
-        ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
+        ? (isMobile
+          ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
+          : "flex h-full max-h-none w-full max-w-none flex-col gap-0 overflow-hidden rounded-3xl border border-border bg-primary/10 p-0 shadow-2xl sm:rounded-3xl [&>button.absolute]:hidden")
         : "w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain"}>
         {chatMode ? (
           <>

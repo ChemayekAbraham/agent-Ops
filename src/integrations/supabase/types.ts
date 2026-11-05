@@ -37660,6 +37660,45 @@ export type Database = {
         }
         Relationships: []
       }
+      nexa_access_alerts: {
+        Row: {
+          attempted_resource: string
+          channel: string
+          created_at: string
+          id: string
+          notified_founder: boolean
+          phone: string | null
+          reason: string
+          roles: string[]
+          user_id: string | null
+          user_message: string | null
+        }
+        Insert: {
+          attempted_resource: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Update: {
+          attempted_resource?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason?: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Relationships: []
+      }
       nexa_portfolio_access_audit: {
         Row: {
           challenge_id: string | null
@@ -38290,6 +38329,45 @@ export type Database = {
           },
         ]
       }
+      ontology_boards: {
+        Row: {
+          actions: string[]
+          data_rpc: string | null
+          name: string
+          notes: string | null
+          ord: number
+          owner_roles: string[]
+          purpose: string
+          route: string | null
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          actions?: string[]
+          data_rpc?: string | null
+          name: string
+          notes?: string | null
+          ord: number
+          owner_roles?: string[]
+          purpose: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          actions?: string[]
+          data_rpc?: string | null
+          name?: string
+          notes?: string | null
+          ord?: number
+          owner_roles?: string[]
+          purpose?: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       ontology_capture: {
         Row: {
           enabled: boolean
@@ -38397,6 +38475,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_doc_snapshots: {
+        Row: {
+          added: Json
+          doc: string
+          id: number
+          inventory: Json
+          retired: Json
+          taken_at: string
+          version: string | null
+        }
+        Insert: {
+          added?: Json
+          doc: string
+          id?: number
+          inventory: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Update: {
+          added?: Json
+          doc?: string
+          id?: number
+          inventory?: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      ontology_link_types: {
+        Row: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version: string | null
+          status: string
+          to_object: string
+          via: string
+        }
+        Insert: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version?: string | null
+          status?: string
+          to_object: string
+          via: string
+        }
+        Update: {
+          from_object?: string
+          meaning?: string
+          name?: string
+          since_version?: string | null
+          status?: string
+          to_object?: string
+          via?: string
+        }
+        Relationships: []
+      }
       ontology_meta: {
         Row: {
           key: string
@@ -38462,6 +38600,51 @@ export type Database = {
           desks?: string[] | null
           meaning?: string
           requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_rules: {
+        Row: {
+          action: string | null
+          automation: string
+          basis: string
+          board: string
+          condition: string
+          decision: string
+          notes: string | null
+          owner: string | null
+          reason_code: string | null
+          rule_id: string
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board: string
+          condition: string
+          decision: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id: string
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board?: string
+          condition?: string
+          decision?: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id?: string
+          since_version?: string | null
           status?: string
         }
         Relationships: []
@@ -74861,6 +75044,7 @@ export type Database = {
       }
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
+      _cfo_meter: { Args: never; Returns: Json }
       _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
       _cfo_paid_lunch_correction_ok: {
         Args: { p_amount: number; p_group: string; p_id: string; p_ts: string }
@@ -75174,6 +75358,9 @@ export type Database = {
         Args: { p_origin: string; p_sale: string }
         Returns: string
       }
+      _ontology_board_stage: { Args: { p_board: string }; Returns: string }
+      _ontology_document_text: { Args: never; Returns: string }
+      _ontology_inventory: { Args: never; Returns: Json }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -76236,6 +76423,23 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      agent_onboarded_portfolios: {
+        Args: never
+        Returns: {
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          investor_id: string
+          maturity_date: string
+          next_roi_date: string
+          partner_name: string
+          portfolio_code_masked: string
+          portfolio_id: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
       agent_ops_approve_merchandise_order: {
         Args: { p_sale_id: string }
         Returns: string
@@ -76679,6 +76883,29 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_own_promissory_notes: {
+        Args: never
+        Returns: {
+          amount: number
+          contribution_type: string
+          created_at: string
+          deduction_day: number
+          id: string
+          next_deduction_date: string
+          partner_name: string
+          status: string
+          total_collected: number
+        }[]
+      }
+      agent_partner_payout_routes: {
+        Args: { p_partner_id: string }
+        Returns: {
+          label: string
+          payout_mode: string
+          portfolio_id: string
+          route_key: string
+        }[]
+      }
       agent_pay_merchandise_plan: {
         Args: { p_amount: number; p_plan_id: string }
         Returns: Json
@@ -76723,6 +76950,28 @@ export type Database = {
         Returns: Json
       }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
+      agent_proxy_withdrawal_id_for_client_request: {
+        Args: { p_client_request_id: string }
+        Returns: string
+      }
+      agent_proxy_withdrawal_summaries: {
+        Args: never
+        Returns: {
+          agent_id: string
+          amount: number
+          created_at: string
+          id: string
+          linked_party: string
+          payout_method: string
+          processed_at: string
+          proxy_partner_id: string
+          reason: string
+          rejection_reason: string
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       agent_purchase_merchandise: {
         Args: {
           p_catalog_id: string
@@ -79295,10 +79544,12 @@ export type Database = {
         Returns: Json
       }
       cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_budget_meter: { Args: never; Returns: Json }
       cfo_cancel_bike_lease: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
+      cfo_check_selection: { Args: { p_ids: string[] }; Returns: Json }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
@@ -82371,6 +82622,7 @@ export type Database = {
           village: string
         }[]
       }
+      funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funding_commission_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -85765,6 +86017,22 @@ export type Database = {
           subagent_count: number
           total_matched: number
           verified: boolean
+        }[]
+      }
+      get_portfolio_by_activation_token: {
+        Args: { p_token: string }
+        Returns: {
+          agent_name: string
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
         }[]
       }
       get_promissory_ops_report: {
@@ -89829,9 +90097,13 @@ export type Database = {
         Args: { p_day?: string; p_feed: string }
         Returns: Json
       }
+      ontology_desk_view: { Args: { p_days?: number }; Returns: Json }
+      ontology_doc_snapshot: { Args: never; Returns: number }
+      ontology_document: { Args: never; Returns: string }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_rules_for_desk: { Args: { p_desk: string }; Returns: Json }
       ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
@@ -91224,6 +91496,7 @@ export type Database = {
         Returns: Json
       }
       partner_ops_watch: { Args: never; Returns: Json }
+      partner_record_staff_ok: { Args: never; Returns: boolean }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
         Returns: Json

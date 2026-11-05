@@ -44,8 +44,15 @@ interface WithdrawRequestDialogProps {
   lockPayoutDetails?: boolean;
   /** Where the locked details came from, shown to the agent for confidence. */
   payoutSourceLabel?: string;
-  /** Server copies the partner payout number. The agent never sees it. */
-  payoutOnFile?: { portfolioId: string; routeKey: string; summary: string } | null;
+  /** The server copies the partner payout destination on insert. `details` is shown to the agent for confirmation only. */
+  payoutOnFile?: {
+    portfolioId: string;
+    routeKey: string;
+    summary: string;
+    details?: { mode: string; provider: string | null; name: string | null; number: string | null; bank: string | null } | null;
+  } | null;
+  /** Partner name known by the caller; the proxy agent cannot read the partner's profile. */
+  partnerDisplayName?: string;
 }
 
 type PayoutMode = 'mtn' | 'airtel' | 'bank' | 'cash';
@@ -236,7 +243,7 @@ function normalizeUgMomoNumber(raw: string): string {
   return s;
 }
 
-export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel, payoutOnFile = null }: WithdrawRequestDialogProps) {
+export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel, payoutOnFile = null, partnerDisplayName }: WithdrawRequestDialogProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -272,7 +279,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
   const [momoNumber, setMomoNumber] = useState('');
   // Locked destination: only when the caller both asked for the lock AND
   // supplied the resolved details, so we never lock an empty form.
-  const payoutLocked = lockPayoutDetails && !!prefillPayout;
+  const payoutLocked = lockPayoutDetails && (!!prefillPayout || !!payoutOnFile);
   const [momoName, setMomoName] = useState('');
   const [bankName, setBankName] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
@@ -329,10 +336,10 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
         .select('full_name')
         .eq('id', linkedParty)
         .maybeSingle();
-      if (!cancelled) setPartnerName((data as any)?.full_name ?? null);
+      if (!cancelled) setPartnerName((data as any)?.full_name ?? partnerDisplayName ?? null);
     })();
     return () => { cancelled = true; };
-  }, [open, linkedParty]);
+  }, [open, linkedParty, partnerDisplayName]);
 
   // Restore any in-flight idempotency key for this partner on (re)open, so a
   // close-and-reopen after a network failure retries with the SAME key.
@@ -374,6 +381,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       // sourced from the portfolio's saved payment route), don't overwrite
       // them with the agent's own saved MoMo number.
       if (prefillPayout) return;
+      // Proxy withdrawal: the destination belongs to the partner and the server copies it
+      // (payoutOnFile), or no route exists. Never fall back to the agent's own saved number.
+      if (linkedParty || payoutOnFile) { if (!payoutOnFile?.details) setMomoNumber(""); return; }
       setFetchingProfile(true);
       try {
         const { data: profile } = await supabase
@@ -393,7 +403,26 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       }
     };
     fetchSavedNumber();
-  }, [user, open, prefillPayout]);
+  }, [user, open, prefillPayout, linkedParty, payoutOnFile]);
+
+  // Proxy withdrawal: show the partner's saved destination (name + number) read-only so the agent can confirm it.
+  // Display only: the insert sends no number; the server copies it from the route.
+  useEffect(() => {
+    const d = payoutOnFile?.details;
+    if (!open || !d) return;
+    if (d.mode === 'bank_transfer') {
+      setPayoutMode('bank');
+      setBankName(d.bank ?? '');
+      setBankAccountName(d.name ?? '');
+      setBankAccountNumber(d.number ?? '');
+    } else if (d.mode === 'cash') {
+      setPayoutMode('cash');
+    } else {
+      setPayoutMode(/airtel/i.test(d.provider ?? '') ? 'airtel' : 'mtn');
+      setMomoNumber(d.number ?? '');
+      setMomoName(d.name ?? '');
+    }
+  }, [open, payoutOnFile]);
 
   const isPayoutValid = () => {
     if (payoutOnFile) return true;
@@ -831,6 +860,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
                 <p className="text-3xl font-black text-primary tracking-tight">{formatCurrency(amount)}</p>
                 <p className="text-sm font-semibold text-foreground">to {recipientLabel}</p>
                 <p className="text-xs text-muted-foreground">via {destinationLine}</p>
+                {payoutOnFile?.details?.name ? (
+                  <p className="text-xs text-muted-foreground">Account name: <strong className="text-foreground">{payoutOnFile.details.name}</strong></p>
+                ) : null}
               </div>
 
               <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-[11px] text-muted-foreground">
