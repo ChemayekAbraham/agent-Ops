@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
-import { Calculator, Eye, EyeOff, Menu, Plus, Users, Wallet } from 'lucide-react';
+import { Calculator, Eye, EyeOff, Menu, Users, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -10,21 +10,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 const welileLogo = '/welile-colored.png';
-
-// Taller card (354x200) to give the Add Card button more room on mobile.
-const NOTCH_PATH =
-  'M 20,0 L 334,0 A 20,20 0 0 1 354,20 L 354,154 A 8,8 0 0 1 346,162 L 241,162 A 8,8 0 0 0 233,170 L 233,180 A 20,20 0 0 1 213,200 L 20,200 A 20,20 0 0 1 0,180 L 0,20 A 20,20 0 0 1 20,0 Z';
-
-// The card's silhouette as a mask, so the grain and the highlight stay inside the notch.
-const SHAPE_MASK = `url("data:image/svg+xml,${encodeURIComponent(
-  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 354 200' preserveAspectRatio='none'><path d='${NOTCH_PATH}' fill='black'/></svg>`,
-)}")`;
-const SHAPE_MASK_STYLE = {
-  WebkitMaskImage: SHAPE_MASK,
-  maskImage: SHAPE_MASK,
-  WebkitMaskSize: '100% 100%',
-  maskSize: '100% 100%',
-} as const;
 
 // Fine grain: real cards are printed, and a flat gradient is what makes a card look like a CSS box.
 const NOISE_BACKGROUND =
@@ -54,9 +39,9 @@ function EmvChip() {
     >
       <defs>
         <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
-          <stop offset="0%" stopColor="#f4e3ab" />
-          <stop offset="45%" stopColor="#c9a544" />
-          <stop offset="100%" stopColor="#8f6f22" />
+          <stop offset="0%" stopColor="#f4f5f7" />
+          <stop offset="45%" stopColor="#b7bdc6" />
+          <stop offset="100%" stopColor="#7d848e" />
         </linearGradient>
       </defs>
       <rect x="0.5" y="0.5" width="33" height="25" rx="4.5" fill={`url(#${gradientId})`} stroke="rgba(0,0,0,0.22)" />
@@ -78,7 +63,7 @@ function ContactlessGlyph() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeWidth="1.7"
-      className="shrink-0 text-white/65"
+      className="shrink-0 text-[#2a1c04]/60"
       style={{ width: 'clamp(13px, 4.2cqw, 20px)', height: 'clamp(13px, 4.2cqw, 20px)' }}
     >
       <path d="M5.5 9.4a5.4 5.4 0 0 1 0 5.2" />
@@ -116,7 +101,6 @@ function BalanceDisplay({ amount, hidden, reduced }: { amount: string; hidden: b
 }
 
 interface Props {
-  onAddCard?: () => void;
   onPortfolios?: () => void;
   onCalculator?: () => void;
   onMore?: () => void;
@@ -152,7 +136,7 @@ function ActionButton({
  * Premium bank-card style summary of the partner's deployed capital.
  * Additive card — does not replace the wallet hero card.
  */
-export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculator, onMore }: Props) {
+export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore }: Props) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const { portfolios, loading } = usePartnerPortfolios();
@@ -263,182 +247,124 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const name = (profile?.full_name || '').trim().toUpperCase();
 
   if (loading || tenantsLoading) {
-    return <div className="w-full aspect-[354/200] min-h-[180px] max-h-[280px] rounded-[20px] bg-muted animate-pulse" />;
+    return <div className="mx-auto aspect-[1.586] w-full max-w-[420px] rounded-[18px] bg-muted animate-pulse" />;
   }
 
   return (
     <div className="w-full space-y-3">
-      {/* CARD */}
+      {/* CARD: a real bank card's proportions (85.6 x 54 mm), rounded corners and edge light */}
       <motion.div
         ref={cardRef}
-        className="relative w-full aspect-[354/200] min-h-[180px] max-h-[280px] mx-auto"
+        className="relative mx-auto aspect-[1.586] w-full max-w-[420px] overflow-hidden rounded-[18px]"
         initial={reduced || safe ? false : { opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ type: 'spring', bounce: 0.15, duration: 0.6 }}
         onPointerMove={handlePointerMove}
         onPointerLeave={handlePointerLeave}
         style={{
-          filter: 'drop-shadow(0px 8px 22px rgba(99, 26, 186, 0.30))',
+          backgroundImage: 'linear-gradient(145deg, #f6e4a6 0%, #e6c35c 30%, #c99a2e 62%, #9a6f17 100%)',
+          boxShadow:
+            '0 2px 4px rgba(0,0,0,0.10), 0 14px 28px -10px rgba(120,80,10,0.50), 0 34px 60px -24px rgba(120,80,10,0.42)',
           containerType: 'inline-size',
           transformPerspective: 900,
           rotateX: reduced || safe ? 0 : tiltX,
           rotateY: reduced || safe ? 0 : tiltY,
         }}
       >
-        <svg
-          className="absolute inset-0 w-full h-full"
-          viewBox="0 0 354 200"
-          preserveAspectRatio="none"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <defs>
-            <linearGradient id="welilePurpleCardGrad" x1="0" y1="0" x2="354" y2="200" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#7321d4" />
-              <stop offset="45%" stopColor="#631aba" />
-              <stop offset="85%" stopColor="#6219bb" />
-              <stop offset="100%" stopColor="#500fa3" />
-            </linearGradient>
-          </defs>
-          <path d={NOTCH_PATH} fill="url(#welilePurpleCardGrad)" stroke="rgba(255,255,255,0.45)" strokeWidth="8" strokeLinejoin="round" />
-        </svg>
-
-        {/* Printed grain and a highlight that follows the pointer, both clipped to the card's shape */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ ...SHAPE_MASK_STYLE, backgroundImage: NOISE_BACKGROUND }} />
+        {/* soft light across the top, like the glossy lip of a card */}
+        <span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.22) 0%, transparent 34%)' }} />
+        {/* printed grain */}
+        <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ backgroundImage: NOISE_BACKGROUND }} />
+        {/* highlight that follows the pointer */}
         {!safe && (
-          <motion.div
+          <motion.span
             aria-hidden
             className="pointer-events-none absolute inset-0 mix-blend-soft-light"
-            style={{ ...SHAPE_MASK_STYLE, backgroundImage: sheen }}
+            style={{ backgroundImage: sheen }}
           />
         )}
+        {/* the card's edge: a bright inner rim and a bevelled top edge */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[18px]"
+          style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.22), inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.25)' }}
+        />
 
         {/* CONTENT */}
         <div
-          className="relative z-10 w-full h-full flex flex-col justify-between text-white select-none"
-          style={{ padding: 'min(12px, 3.4cqw) min(16px, 4.5cqw) min(18px, 5.1cqw)' }}
+          className="relative z-10 flex h-full w-full select-none flex-col justify-between text-[#2a1c04]"
+          style={{ padding: 'clamp(14px, 5.2cqw, 24px) clamp(16px, 5.6cqw, 26px)' }}
         >
-          <div className="flex items-center justify-between" style={{ paddingTop: 4 }}>
+          {/* chip and contactless on the left, the brand on the right */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5" aria-hidden="true">
+              <EmvChip />
+              <ContactlessGlyph />
+            </div>
             <img
               src={welileLogo}
               alt="Welile"
-              className="w-auto brightness-0 invert object-contain block"
-              style={{ height: 'clamp(16px, 4cqw, 24px)' }}
+              className="block w-auto object-contain brightness-0 opacity-75"
+              style={{ height: 'clamp(16px, 4.6cqw, 26px)' }}
             />
-            <span
-              className="font-medium tracking-widest text-white/80 uppercase whitespace-nowrap"
-              style={{ fontSize: 'clamp(9px, 2.2cqw, 14px)', paddingRight: 'min(0.5cqw, 4px)' }}
+          </div>
+
+          {/* the amount */}
+          <div className="flex min-w-0 flex-col">
+            <div className="flex items-center gap-1.5" style={{ marginBottom: 'min(0.8cqw, 5px)' }}>
+              <span className="whitespace-nowrap font-medium uppercase tracking-wider text-[#2a1c04]/70" style={{ fontSize: 'clamp(8px, 2.3cqw, 12px)' }}>
+                Active rent principal
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAmount((s) => !s)}
+                aria-label={showAmount ? 'Hide amount' : 'Show amount'}
+                aria-pressed={showAmount}
+                className="shrink-0 rounded p-0.5 text-[#2a1c04]/70 transition hover:bg-white/10 hover:text-[#2a1c04]"
+              >
+                {showAmount ? (
+                  <Eye style={{ width: 'clamp(12px, 3.2cqw, 18px)', height: 'clamp(12px, 3.2cqw, 18px)' }} />
+                ) : (
+                  <EyeOff style={{ width: 'clamp(12px, 3.2cqw, 18px)', height: 'clamp(12px, 3.2cqw, 18px)' }} />
+                )}
+              </button>
+            </div>
+            <div
+              className="whitespace-nowrap font-semibold leading-none tracking-tight text-[#2a1c04] tabular-nums"
+              style={{
+                fontSize: 'clamp(22px, 8.4cqw, 40px)',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Segoe UI", Roboto, sans-serif',
+              }}
             >
-              {aiId}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2.5" aria-hidden="true" style={{ marginTop: 'min(1cqw, 6px)' }}>
-            <EmvChip />
-            <ContactlessGlyph />
-          </div>
-
-          <div className="flex items-end justify-between gap-2" style={{ marginTop: 'min(-0.5cqw, -2px)' }}>
-            <div className="flex flex-col min-w-0">
-              <div
-                className="flex items-center gap-1.5"
-                style={{ marginBottom: 'min(0.6cqw, 4px)' }}
-              >
-                <span
-                  className="font-medium tracking-wider text-white/70 uppercase whitespace-nowrap"
-                  style={{ fontSize: 'clamp(8px, 2.25cqw, 13px)' }}
-                >
-                  ACTIVE RENT PRINCIPAL
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAmount((s) => !s)}
-                  aria-label={showAmount ? 'Hide amount' : 'Show amount'}
-                  aria-pressed={showAmount}
-                  className="shrink-0 rounded p-0.5 text-white/70 hover:text-white hover:bg-white/10 transition"
-                >
-                  {showAmount ? (
-                    <Eye style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
-                  ) : (
-                    <EyeOff style={{ width: 'clamp(12px, 3cqw, 18px)', height: 'clamp(12px, 3cqw, 18px)' }} />
-                  )}
-                </button>
-              </div>
-              <div
-                className="font-black text-white tracking-tight leading-none whitespace-nowrap"
-                style={{
-                  fontSize: 'clamp(20px, 6.8cqw, 40px)',
-                  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Segoe UI", Roboto, sans-serif',
-                }}
-              >
-                <BalanceDisplay amount={formatUGX(totalPrincipal)} hidden={!showAmount} reduced={reduced || safe} />
-              </div>
-            </div>
-            <div className="flex flex-col items-end shrink-0" style={{ paddingRight: 'min(0.5cqw, 4px)' }}>
-              <span
-                className="font-medium tracking-wider text-white/70 uppercase text-right whitespace-nowrap"
-                style={{ fontSize: 'clamp(8px, 2.25cqw, 13px)', marginBottom: 'min(0.6cqw, 4px)' }}
-              >
-                NEXT PAYOUT
-              </span>
-              <div
-                className="font-bold text-white/90 leading-none whitespace-nowrap"
-                style={{ fontSize: 'clamp(11px, 2.9cqw, 17px)' }}
-              >
-                {payoutLabel}
-              </div>
+              <BalanceDisplay amount={formatUGX(totalPrincipal)} hidden={!showAmount} reduced={reduced || safe} />
             </div>
           </div>
 
-          <div className="flex items-end justify-between gap-2" style={{ marginTop: 'clamp(16px, 5cqw, 26px)' }}>
-            <div className="flex flex-col min-w-0">
-              <span
-                className="font-medium tracking-wider text-white/70 uppercase whitespace-nowrap"
-                style={{ fontSize: 'clamp(8px, 2cqw, 12px)', marginBottom: 'min(0.4cqw, 3px)' }}
-              >
-                PARTNER NAME
+          {/* the member ID, printed where a card number would be */}
+          <div className="whitespace-nowrap font-medium tabular-nums text-[#2a1c04]/85" style={{ fontSize: 'clamp(12px, 4cqw, 19px)', letterSpacing: '0.16em' }}>
+            {aiId || '—'}
+          </div>
+
+          {/* holder and the next payout, like holder and valid thru */}
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <span className="block uppercase tracking-[0.14em] text-[#2a1c04]/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
+                Partner name
               </span>
-              <span
-                className="font-bold tracking-wide text-white uppercase truncate whitespace-nowrap"
-                style={{ fontSize: 'clamp(11px, 2.9cqw, 17px)' }}
-              >
+              <span className="block truncate font-medium uppercase tracking-[0.05em] text-[#2a1c04]/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
                 {name || '—'}
+              </span>
+            </div>
+            <div className="shrink-0 text-right">
+              <span className="block uppercase tracking-[0.14em] text-[#2a1c04]/55" style={{ fontSize: 'clamp(7px, 1.9cqw, 10px)' }}>
+                Next payout
+              </span>
+              <span className="block font-medium tabular-nums tracking-[0.05em] text-[#2a1c04]/95" style={{ fontSize: 'clamp(11px, 3.2cqw, 16px)' }}>
+                {payoutLabel}
               </span>
             </div>
           </div>
         </div>
-
-        {/* ADD CARD PILL — spans the full notch shelf (x 233→354, y 162→200 of the SVG),
-            so it stretches to the notch's left edge on every viewport. */}
-        <button
-          type="button"
-          onClick={onAddCard}
-          aria-label="Support"
-          
-          className="absolute z-20 bg-black hover:bg-neutral-900 rounded-full flex items-center justify-center border border-white/10 shadow-lg transition active:scale-95"
-          style={{
-            left: '66.2%',
-            right: 0,
-            top: 'calc(81% + 4px)',
-            height: 'calc(19% - 7px)',
-            minHeight: '26px',
-            gap: 'clamp(4px, 1.4cqw, 8px)',
-            paddingInline: 'clamp(6px, 2cqw, 14px)',
-          }}
-        >
-          <span
-            className="rounded-full bg-white flex items-center justify-center shrink-0"
-            style={{ width: 'clamp(15px, 4.6cqw, 26px)', height: 'clamp(15px, 4.6cqw, 26px)' }}
-          >
-            <Plus className="text-black" strokeWidth={3.5} style={{ width: 'clamp(9px, 2.8cqw, 16px)', height: 'clamp(9px, 2.8cqw, 16px)' }} />
-          </span>
-          <span
-            className="tracking-tight text-white font-bold whitespace-nowrap"
-            style={{ fontSize: 'clamp(9.5px, 2.8cqw, 15px)' }}
-          >
-            Support
-          </span>
-        </button>
       </motion.div>
 
       {/* ACTION ROW */}

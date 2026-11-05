@@ -499,11 +499,6 @@ export default function SupporterDashboardBackup({
 
           <WidgetErrorBoundary label="Portfolio card">
             <PartnerPortfolioWalletCard
-              onAddCard={() => {
-                hapticTap();
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
               onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
               onCalculator={() => { hapticTap(); setShowCalculator(true); }}
               onMore={() => { hapticTap(); setShowFunderHub(true); }}
