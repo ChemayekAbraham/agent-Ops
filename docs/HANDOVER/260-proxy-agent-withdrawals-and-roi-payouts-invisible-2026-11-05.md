@@ -1,6 +1,6 @@
 # 260 — Proxy agent could not see her partner withdrawals or approved ROI payouts (2026-11-05)
 
-**Applied to production 2026-11-05 (five migrations), verified as Kabahuma Lillian; dialog fixes pushed to `lovable` (`9af0a3be2d`, `847b83f960`).**
+**Applied to production 2026-11-05 (six migrations), verified as Kabahuma Lillian; dialog fixes pushed to `lovable` (`9af0a3be2d`, `847b83f960`, `55173c96c6`).**
 Read this before touching `agent_proxy_withdrawal_summaries`, `agent_onboarded_portfolios`, `agent_partner_payout_routes`,
 `agent_partner_payout_destination`, `copy_proxy_payout_on_file`, `WithdrawRequestDialog.tsx`, `ProxyRecentPayouts.tsx` or `ProxyPartnerFunds.tsx`.
 
@@ -98,9 +98,42 @@ or bank account keep it; otherwise the destination is copied from the chosen rou
 Lillian on a throwaway table with the trigger attached: a mobile-money route gets number, provider and name; a bank route gets account number and bank
 name; a number typed by staff is kept. No real withdrawal was created for the test.
 
-**Open: `15a39110-168e-458b-98ea-24c94277ffbf` is still `pending` with no number** (last touched 10:18 UTC). The fix does not repair existing rows. Cancel it
-and have the agent redo it, or patch the number deliberately (an update runs the other withdrawal triggers). If Financial Ops has already acted on it, check
-what was sent before anything else.
+**Resolved: `15a39110-168e-458b-98ea-24c94277ffbf` was cancelled and redone** (see cause 6). The trigger fix does not repair existing rows, which is why that row
+was cancelled rather than patched.
+
+## Root cause 6 — bank withdrawals stored as mobile money (no payment details in the merchant agent payout queue)
+
+Reported: in the merchant agent payout queue some of Lillian's payouts had payment details and the bank ones did not. Of her 45 pending withdrawals on
+2026-11-05, **27 were bank transfers stored as `payout_method = 'mobile_money'`** with the bank name and account number filled but no mobile number. The
+queue (`AgentCashPayoutsTab.tsx`) shows details by `payout_method` and its Bank filter is `payout_method ilike '%bank%'`, so those 27 listed as mobile money
+with "—". Nothing was lost; the details were in the rows.
+
+Three things interacted, one of them my own change from cause 5: the dialog filled the bank fields from the partner's saved details for display and still sent
+them; it hard-coded `payout_method: 'mobile_money'` for every route; and `copy_proxy_payout_on_file` (20261105160000) kept any destination a staff caller
+supplied, so for Lillian (staff) the trigger left the row, wrong method included. My earlier claim that all pending rows had destinations only counted "has a
+number or account", not that the method matched.
+
+**Fix 1 (applied 11-05):** `supabase/migrations/20261105171000_copy_proxy_payout_route_authoritative.sql` (rollback restores 160000). When `payout_route_ref`
+is set the route is authoritative: destination AND `payout_method` are copied over whatever the client sent. Staff keep a typed destination only when no route
+was chosen. (Renamed from `…170000`, a version prefix another migration already uses.) Verified on a throwaway table as Lillian: a client sending
+`mobile_money` plus wrong bank fields on a bank route becomes `bank_transfer` with the route's bank and account; a mobile-money route is filled; a staff-typed
+number with no route is kept.
+
+**Fix 2 (applied 11-05, data):** the 27 pending rows were set to `payout_method = 'bank_transfer'` (UGX 48,767,901), only where the row was Lillian's, pending,
+from today, carried a bank account number, and that number and bank matched the partner's portfolio exactly. Nothing else on the rows changed and the ledger
+was not touched. Afterwards her 45 pending rows: 27 bank (all with account number, none with a mobile number) and 18 mobile money (all with a number), 0
+inconsistent. One account number (MUTONYI HARRIET) ends in letters (`…RLOS`); it matches the portfolio, so it is a portfolio data oddity for Partner Ops.
+
+**Fix 3 (pushed to `lovable` 11-05, `55173c96c6`):** commit `1da56b0269`. With a route set, the insert sends no bank or cash fields and the route's own method.
+Syntax-checked only; not tested in a browser.
+
+**Cancelled test withdrawal.** `15a39110-168e-458b-98ea-24c94277ffbf` (OCHOKAN SAM, UGX 150,000) was cancelled by a direct status update with a reason, not through
+`cancel-proxy-withdrawal`: a pending withdrawal posts no ledger rows (its entries are written at completion), so that function's credit
+(`orphan_reversal`, cash_in to the partner) would have created UGX 150,000 never debited. Redone by the agent at 10:52 UTC.
+
+**Today's workload (11-05 snapshot):** 67 ROI payouts approved to Lillian (UGX 147,045,062, 64 partners); 45 partners withdrawn with amounts equal to their
+approvals, 19 partners (22 approvals, UGX 90,875,911) not yet started at the time. 3 of those 22 approvals are not in `get_agent_proxy_roi_payouts` (partners
+with several approvals); the reason was not found.
 
 ## What the 68 ROI payouts are (do not confuse with withdrawals)
 
