@@ -26,15 +26,17 @@ export type BoardPush = {
 
 export type WaitSuggest = { reason_code: string; owner_kind: string; hours: number; rule_id: string | null; note: string | null };
 
-/** The live wait on a row whose decision is 'waiting' (same fields as pipeline_waiting_list). */
+/**
+ * The live wait on a row whose decision is 'waiting'. Unlike pipeline_waiting_list
+ * rows it carries no owner_name or hours_left: time left is worked out from until_at.
+ */
 export type BoardWaiting = {
-  reason_code?: string | null;
-  owner_kind?: string | null;
-  owner_name?: string | null;
-  until_at?: string | null;
-  hours_left?: number | null;
-  expired?: boolean | null;
-  note?: string | null;
+  reason_code: string;
+  owner_kind: string;
+  until_at: string;
+  expired: boolean;
+  note: string | null;
+  rule_id: string | null;
 };
 
 export type BoardRow = {
@@ -213,6 +215,29 @@ const STAGE_LEAD: Record<Stage, string> = {
   partner_ops: 'Partner Ops lead',
   coo: 'COO',
 };
+
+/** Hours until `until_at` (negative once past), or null when it cannot be read. */
+export function hoursUntil(untilAt: string | null | undefined, now = Date.now()): number | null {
+  if (!untilAt) return null;
+  const t = Date.parse(untilAt);
+  return Number.isNaN(t) ? null : (t - now) / 3_600_000;
+}
+
+const OWNER_LABEL: Record<string, string> = {
+  agent: 'Agent',
+  tenant: 'Tenant',
+  landlord: 'Landlord',
+  coo: 'COO',
+  cfo: 'CFO',
+  funder: 'Funder',
+  other: 'Other',
+};
+
+/** owner_kind as a label: desk_lead → "Agent Ops lead" (this desk's lead), other → "Other". */
+export function ownerLabel(kind: string | null | undefined, stage: Stage): string {
+  if (kind === 'desk_lead') return STAGE_LEAD[stage];
+  return OWNER_LABEL[kind ?? ''] ?? (kind || 'Other');
+}
 
 export function ownerWords(kind: string | null | undefined, stage: Stage, name?: string | null): string {
   if (name) return name;

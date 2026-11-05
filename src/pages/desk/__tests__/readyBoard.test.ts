@@ -8,7 +8,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }));
 vi.mock('@/lib/cooDecide', () => ({ cooDecide: vi.fn(), cooDecisionSummary: vi.fn(), mergeApproveResults: vi.fn() }));
 
-import { flagsChip, gradeTrend, ownerWords, primaryLabel, pushRow, setSuggestedWait, type BoardRow } from '../boardApi';
+import { flagsChip, gradeTrend, hoursUntil, ownerLabel, ownerWords, primaryLabel, pushRow, setSuggestedWait, type BoardRow } from '../boardApi';
 import { progressText } from '../ReadyBoard';
 import { badgeFor } from '../agentGrade';
 
@@ -104,6 +104,16 @@ describe('board row reading', () => {
     expect(primaryLabel(row({ decision: 'waiting' }), 'agent_ops')).toBeNull();
     expect(ownerWords('landlord', 'agent_ops')).toBe('the landlord');
     expect(ownerWords('agent', 'agent_ops', 'Named Person')).toBe('Named Person');
+  });
+
+  it('waiting rows: owner label and time left from until_at', () => {
+    expect(ownerLabel('desk_lead', 'agent_ops')).toBe('Agent Ops lead');
+    expect(ownerLabel('other', 'agent_ops')).toBe('Other');
+    expect(ownerLabel('landlord', 'agent_ops')).toBe('Landlord');
+    const now = Date.parse('2026-11-05T12:00:00Z');
+    expect(hoursUntil('2026-11-05T18:00:00Z', now)).toBe(6);
+    expect(hoursUntil('2026-11-05T10:00:00Z', now)).toBe(-2);
+    expect(hoursUntil(null, now)).toBeNull();
   });
 
   it('progress line', () => {

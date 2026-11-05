@@ -19,8 +19,9 @@ import {
   boardKey,
   flagsChip,
   loadBoard,
+  hoursUntil,
   moveFor,
-  ownerWords,
+  ownerLabel,
   primaryLabel,
   pushRow,
   setSuggestedWait,
@@ -118,11 +119,11 @@ function BoardRowLine({
         <span className="ml-auto inline-flex items-center gap-1.5">
           {row.decision === 'waiting' ? (
             <span className={`${LABEL} inline-flex items-center gap-1.5`}>
-              Waiting on {ownerWords(w?.owner_kind, stage, w?.owner_name)}
-              {w && (w.expired || (w.hours_left ?? 1) <= 0) ? (
+              Waiting on {ownerLabel(w?.owner_kind, stage)}
+              {w && (w.expired || (hoursUntil(w.until_at) ?? 1) <= 0) ? (
                 <span className={`desk-pill border px-2 py-0.5 text-[11px] font-semibold ${statusGlass.bad}`}>Time up</span>
               ) : (
-                <span className="tabular-nums text-foreground">{timeLeftText(w?.hours_left ?? null)}</span>
+                <span className="tabular-nums text-foreground">{timeLeftText(hoursUntil(w?.until_at))}</span>
               )}
             </span>
           ) : note?.kind === 'retry' ? (
@@ -181,6 +182,12 @@ function BoardRowLine({
         </span>
       </div>
 
+      {row.decision === 'waiting' && w?.note && (
+        <p className={`${LABEL} max-w-4xl truncate`} title={w.note}>
+          {w.rule_id && <span className="font-mono">{w.rule_id} </span>}
+          {w.reason_code} · {w.note}
+        </p>
+      )}
       {(row.why || row.flags.notes.length > 0) && (
         <p className={`${LABEL} max-w-4xl`}>
           {row.rule_id && <span className="font-mono">{row.rule_id} </span>}
