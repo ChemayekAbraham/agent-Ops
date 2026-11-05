@@ -44,7 +44,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { 
-  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight
+  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, ArrowLeft
 } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
@@ -493,6 +493,15 @@ export default function SupporterDashboardBackup({
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
         <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
+          <button
+            type="button"
+            onClick={() => { hapticTap(); if (window.history.length > 1) navigate(-1); else navigate('/'); }}
+            className="-mb-2 inline-flex items-center gap-1 rounded-full py-1.5 pr-3 pl-1.5 text-sm font-medium text-foreground active:bg-muted"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Back
+          </button>
           <MissionBanner dashboardRole="supporter" />
 
 

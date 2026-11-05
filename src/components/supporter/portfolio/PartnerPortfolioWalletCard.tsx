@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
-import { Calculator, Eye, EyeOff, Menu, Users, Wallet } from 'lucide-react';
+import { Calculator, Eye, EyeOff, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -231,18 +231,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
     [portfolios]
   );
 
-  const directTenantCount = useMemo(
-    () => tenants.filter((t) => t.funding_mode === 'self_managed').length,
-    [tenants]
-  );
-
-  const activePortfolioCount = useMemo(() => active.length, [active]);
-
-  const supportingCount = useMemo(
-    () => directTenantCount + activePortfolioCount,
-    [directTenantCount, activePortfolioCount]
-  );
-
   const totalPrincipal = useMemo(
     () => active.reduce((sum, p: any) => sum + Number(p.investment_amount || 0), 0),
     [active]
@@ -394,13 +382,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
       <div className="bg-muted/70 backdrop-blur rounded-2xl p-2.5 shadow-md border border-border/70 flex items-center justify-around">
         <ActionButton label="Portfolios" onClick={onPortfolios} icon={<Wallet className="w-4 h-4" />} />
         <ActionButton label="Calculator" onClick={onCalculator} icon={<Calculator className="w-4 h-4" />} />
-        <ActionButton
-          label="Supporting"
-          onClick={() => document.getElementById('supported-tenants')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          icon={<Users className="w-4 h-4" />}
-          badge={supportingCount}
-        />
-        <ActionButton label="More" onClick={onMore} icon={<Menu className="w-4 h-4" />} />
       </div>
     </div>
   );
