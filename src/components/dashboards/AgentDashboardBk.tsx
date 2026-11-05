@@ -1724,14 +1724,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">My Tenants</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={() => { hapticTap(); setRentRequestOpen(true); }}
-                  className="h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
+                  className="h-11 rounded-full px-5 text-sm font-semibold gap-2 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
                 >
-                  <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <UserPlus className="h-4 w-4" />
                   Add Tenant
                 </Button>
               </div>
@@ -1747,33 +1747,33 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
-                "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
-                submissionsExpanded && "pb-2.5"
+                "rounded-2xl bg-muted/50 px-4",
+                submissionsExpanded && "pb-3"
               )}
             >
               <button
                 onClick={() => setSubmissionsExpanded((v) => !v)}
-                className="w-full flex items-center justify-between py-2 text-left"
+                className="w-full flex items-center justify-between py-3.5 text-left active:opacity-70 transition-opacity"
                 style={{ touchAction: 'manipulation' }}
               >
-                <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Submissions
                 </h3>
                 <div className="flex items-center gap-1.5">
                   {!submissionsExpanded && (
                     <div className="flex items-center gap-1">
                       {submittedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
                           {submittedCount}
                         </span>
                       )}
                       {approvedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold flex items-center justify-center">
                           {approvedCount}
                         </span>
                       )}
                       {rejectedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
                           {rejectedCount}
                         </span>
                       )}
@@ -1793,7 +1793,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </div>
               )}
             </div>
-            <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">My Tenants</h3>
+            <h3 className="px-1 text-sm font-semibold text-muted-foreground">My Tenants</h3>
             <AgentTenantInlineList
               onOpenTenantSheet={(tenantId) => { setTenantProfileId(tenantId); setTenantsSheetOpen(true); }}
               onAddTenant={() => setRentRequestOpen(true)}

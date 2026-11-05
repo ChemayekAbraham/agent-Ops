@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { downloadAgentRentCollectionsPdf, type RangeKey } from '@/lib/agentRentCollectionsPdf';
 import { downloadLandlordAgreementTemplate } from '@/lib/landlordAgreementTemplatePdf';
-import { ChevronDown, FileText } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 
 /**
  * Compact "Download report card" entry point on the Tenants page. The agent
@@ -177,18 +177,20 @@ export function AgentCapacityShareInline() {
 
   return (
     <>
-      <div className="flex flex-col items-start gap-2">
+      <div className="flex flex-col items-stretch gap-2">
         {/* Dropdown entry point — pick daily card (PNG) or PDF for week/month/year */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               onClick={() => hapticTap()}
-              className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+              className="flex h-12 w-full items-center gap-3 rounded-2xl bg-emerald-500/10 px-3 text-left text-sm font-semibold text-emerald-700 transition active:scale-[0.99] hover:bg-emerald-500/15 dark:text-emerald-400"
             >
-              {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
-              Download report
-              <ChevronDown className="h-3.5 w-3.5" />
+              <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-emerald-500/15">
+                {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="h-4 w-4" />}
+              </span>
+              <span className="min-w-0 flex-1 truncate">Download report</span>
+              <ChevronDown className="h-4 w-4 flex-none" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
@@ -217,10 +219,13 @@ export function AgentCapacityShareInline() {
         <button
           type="button"
           onClick={() => { hapticTap(); downloadLandlordAgreementTemplate(); }}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+          className="flex h-12 w-full items-center gap-3 rounded-2xl bg-primary/10 px-3 text-left text-sm font-semibold text-primary transition active:scale-[0.99] hover:bg-primary/15"
         >
-          <FileText className="h-4 w-4" />
-          Download Landlord Agreement
+          <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-primary/15">
+            <FileText className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1 truncate">Download Landlord Agreement</span>
+          <ChevronRight className="h-4 w-4 flex-none" />
         </button>
       </div>
 

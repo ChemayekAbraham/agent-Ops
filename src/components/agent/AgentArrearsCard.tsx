@@ -30,13 +30,13 @@ export function AgentArrearsCard({ agentId }: Props) {
   const behindCount = Number(totals?.tenants_behind ?? 0);
 
   return (
-    <div className="rounded-xl border border-warning/40 bg-warning/5 overflow-hidden">
+    <div className="rounded-3xl bg-warning/10 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-3 p-3.5 text-left active:scale-[0.99] transition-transform touch-manipulation"
       >
-        <div className="p-2.5 rounded-xl bg-warning/10 shrink-0">
+        <div className="grid h-11 w-11 place-items-center rounded-full bg-warning/15 shrink-0">
           <CalendarX2 className="h-5 w-5 text-warning" />
         </div>
         <div className="flex-1 min-w-0">
