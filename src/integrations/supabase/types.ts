@@ -77913,9 +77913,37 @@ export type Database = {
       }
       assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_is_partner: { Args: never; Returns: boolean }
+      assistant_mask_tail: { Args: { p_value: string }; Returns: string }
       assistant_my_messages: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_overview: { Args: never; Returns: Json }
+      assistant_partner_portfolio_detail: {
+        Args: { p_code: string }
+        Returns: Json
+      }
+      assistant_partner_portfolios: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
+      assistant_partner_requests: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_returns: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_partner_topups: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_upcoming: { Args: { p_days?: number }; Returns: Json }
+      assistant_partner_withdrawals: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
+      assistant_require_partner: { Args: never; Returns: undefined }
       assistant_staff_aops_listing_quality_and_risk: {
         Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
