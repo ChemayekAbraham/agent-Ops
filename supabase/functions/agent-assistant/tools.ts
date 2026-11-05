@@ -112,7 +112,9 @@ export const AGENT_TOOLS: ToolDef[] = [
     name: "get_wallet_transactions",
     description:
       "The agent's own wallet movements (money in / money out) with category, amount and date. " +
-      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days.",
+      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days. " +
+      "Only customer-facing entries are listed: it is NOT a full ledger and may not add up to the wallet balance, so never try to reconcile the list against the balance, never add entries up yourself, and never guess what is missing. " +
+      "If asked about an adjustment, correction or reversal, say you only see customer-facing wallet activity and offer to pass the question to support.",
     parameters: {
       type: "object",
       properties: {

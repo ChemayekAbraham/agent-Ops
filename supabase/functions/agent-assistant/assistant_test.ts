@@ -570,3 +570,10 @@ Deno.test("prompts: dual-role people are pointed to the other dashboard, never r
   assert(partner.includes("never describe screens") && partner.includes("compounded_so_far"));
   assert(/Do not use the words reverse, reversed, reversal, correction or adjustment/.test(partner));
 });
+
+Deno.test("agent wallet list: the model is told it is not a full ledger and must not reconcile or mention corrections", () => {
+  const d = findTool("get_wallet_transactions")!.description;
+  assert(/NOT a full ledger/.test(d) && /never try to reconcile/i.test(d));
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
+  assert(p.includes("customer-facing entries only") && /Do not mention or speculate about corrections, reversals or adjustments/.test(p));
+});

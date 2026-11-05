@@ -152,12 +152,12 @@ if (existsSync(MIGRATIONS_DIR)) {
   const MASKED_PAYOUT_NUMBER = /assistant_mask_tail\(\s*(?:[a-z_]+\.)?(?:mobile_money_number|account_number|bank_account_number|momo_number)\s*\)/gi;
   const FORBIDDEN_FIELD_NOTES = /\b[a-z0-9_]+\.notes\b/i;
 
-  const latestPartnerBodies = new Map(); // the definition that is live once every migration has run
+  const latestBodies = new Map(); // the definition that is live once every migration has run
   for (const file of files) {
     const body = stripComments(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
     for (const m of body.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\([\s\S]*?\bas\s+(\$[a-z_]*\$)([\s\S]*?)\2/gi)) {
       const isPartnerFn = m[1].startsWith('assistant_partner_');
-      if (isPartnerFn) latestPartnerBodies.set(m[1], { file, text: m[3] });
+      latestBodies.set(m[1], { file, text: m[3], isPartnerFn });
       const hit = m[3].match(isPartnerFn ? FORBIDDEN_COLUMNS_PARTNER : FORBIDDEN_COLUMNS) || m[3].match(FORBIDDEN_FIELD_NOTES);
       if (hit) fail(`${file}: ${m[1]}() references "${hit[0]}", a field that must never leave the database through the assistant (it is sent to a third-party model).`);
       if (isPartnerFn) {
@@ -175,12 +175,13 @@ if (existsSync(MIGRATIONS_DIR)) {
     }
   }
 
-  // Partner persona, live definitions only: no reversals and no admin corrections reach a partner.
-  for (const [name, { file, text }] of latestPartnerBodies) {
+  // Live definitions only. No assistant function (agent or partner) may list wallet ledger rows without
+  // the customer-visibility rule: admin corrections and reversals never reach a person or the model.
+  for (const [name, { file, text, isPartnerFn }] of latestBodies) {
     if (/ledger_scope\s*=\s*'wallet'/i.test(text) && !/is_customer_wallet_history_visible\s*\(/i.test(text)) {
       fail(`${file}: ${name}() reads wallet ledger rows without public.is_customer_wallet_history_visible(); admin corrections and reversals must be filtered out.`);
     }
-    if (text.replace(/reversed_at\s+is\s+null/gi, ' ').match(/\breversed_at\b/i)) {
+    if (isPartnerFn && text.replace(/reversed_at\s+is\s+null/gi, ' ').match(/\breversed_at\b/i)) {
       fail(`${file}: ${name}() reads reversed_at other than as "reversed_at is null"; reversed items must be left out, never listed or flagged.`);
     }
   }
