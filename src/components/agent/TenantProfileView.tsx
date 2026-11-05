@@ -1861,7 +1861,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
             )}
 
             {!floatLoading && !floatError && agentFloatBalance < 500 && (
-              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3">
+              <div className="flex items-center gap-2 bg-card border border-border/60 rounded-xl p-3">
                 <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
                 <p className="text-sm text-destructive font-semibold">Insufficient wallet float. Top up Agent Float Allocation to collect.</p>
               </div>
