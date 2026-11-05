@@ -7,7 +7,6 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 const welileLogo = '/welile-colored.png';
 
@@ -158,7 +157,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
   const { user } = useAuth();
   const { profile } = useProfile();
   const { portfolios, loading } = usePartnerPortfolios();
-  const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
   const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
   const [showAmount, setShowAmount] = useState(false);
 
@@ -252,7 +250,7 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
   const aiId = user?.id ? generateWelileAiId(user.id) : '';
   const name = (profile?.full_name || '').trim().toUpperCase();
 
-  if (loading || tenantsLoading) {
+  if (loading) {
     return <div className="mx-auto aspect-[1.586] w-full max-w-[420px] rounded-[18px] bg-muted animate-pulse" />;
   }
 
