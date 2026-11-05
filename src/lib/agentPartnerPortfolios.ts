@@ -23,6 +23,22 @@ export interface AgentPayoutRoute {
   label: string;
 }
 
+/** Full destination of ONE route of a partner the caller is the assigned proxy for. Shown for confirmation. */
+export interface AgentPayoutDestination {
+  out_mode: string;
+  out_provider: string | null;
+  out_name: string | null;
+  out_number: string | null;
+  out_bank: string | null;
+}
+
+export async function fetchAgentPayoutDestination(partnerId: string, routeKey: string): Promise<AgentPayoutDestination | null> {
+  const { data, error } = await supabase.rpc('agent_partner_payout_destination' as never, { p_partner_id: partnerId, p_route_key: routeKey } as never);
+  if (error) throw error;
+  const rows = (data ?? []) as AgentPayoutDestination[];
+  return rows[0] ?? null;
+}
+
 export interface AgentProxyWithdrawalSummary {
   id: string;
   user_id: string | null;
