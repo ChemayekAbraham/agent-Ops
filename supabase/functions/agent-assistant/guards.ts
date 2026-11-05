@@ -15,7 +15,14 @@ const ISO_DATE_G = /\b\d{4}-\d{2}-\d{2}\b/g;
 const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
 const BANNED_TERMS = /\b(loans?|lenders?|roi|interest)\b/i;
 
-export type GuardResult = { ok: true } | { ok: false; reason: "uuid" | "phone" | "figure" | "terminology" };
+export type GuardResult = { ok: true } | { ok: false; reason: "uuid" | "phone" | "figure" | "terminology" | "admin_trail" };
+
+/**
+ * Partner persona only: a partner never sees reversals, corrections or adjustments, so the assistant
+ * must not mention them, hint at them, or say there are none (that would be a false assurance, because
+ * the tools deliberately leave them out).
+ */
+const ADMIN_TRAIL_TERMS = /\b(revers(?:e|ed|es|ing|al|als)|corrections?|corrected|adjust(?:ment|ments|ed)|admin(?:istrative)?\s+(?:correction|adjustment|edit|change)s?)\b/i;
 
 function numericSet(texts: string[]): Set<number> {
   const out = new Set<number>();
@@ -44,6 +51,8 @@ function nationalDigits(s: string): string {
 export const RETRY_NOTE: Record<Exclude<GuardResult, { ok: true }>["reason"], string> = {
   terminology:
     'Your draft used a banned word. Never write "loan", "lender", "ROI" or "interest". Say "Rent Plan", "Supporter" and "Returns", and "no extra charges" instead of "no interest". If the user used the banned word, do not repeat it: answer using the approved words.',
+  admin_trail:
+    "Your draft mentioned reversals, corrections or adjustments. Never mention them, never say there are none, and never guess. Say you can show their top-ups, renewals, Returns and wallet activity as they appear on the account, give the figures you do have, and offer to pass the question to support.",
   figure:
     "Your draft contained a money figure that is not in the tool results. Use only figures copied exactly from the tool results, and do no arithmetic. If a figure is not available, say you do not have it.",
   uuid: "Your draft contained an id that is not in the tool results. Do not include ids.",
@@ -72,8 +81,14 @@ export function trimToSentence(text: string, max: number): string {
   return (space > 0 ? head.slice(0, space) : head).trim();
 }
 
-export function checkAnswer(answer: string, toolOutputs: string[], userMessage: string): GuardResult {
+export function checkAnswer(
+  answer: string,
+  toolOutputs: string[],
+  userMessage: string,
+  opts: { hideAdminTrail?: boolean } = {},
+): GuardResult {
   if (BANNED_TERMS.test(answer)) return { ok: false, reason: "terminology" };
+  if (opts.hideAdminTrail && ADMIN_TRAIL_TERMS.test(answer)) return { ok: false, reason: "admin_trail" };
 
   const sources = [...toolOutputs, userMessage];
   const haystack = sources.join("\n").toLowerCase();

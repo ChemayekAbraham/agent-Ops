@@ -530,3 +530,43 @@ Deno.test("partner tools never expose a raw withdrawal status or a reversal flag
     assert(!/\breversed\b/i.test(t.description.replace(/never mention[^.]*\./gi, "")) || t.name === "get_partner_wallet_activity", t.name);
   }
 });
+
+// ---- follow-ups from the 60-question live test --------------------------------------------------
+
+Deno.test("partner admin trail: a partner reply may not mention reversals, corrections or adjustments (or say there are none)", () => {
+  const opts = { hideAdminTrail: true };
+  for (const bad of [
+    "I don't see any reversals listed here.",
+    "Your top-up was reversed last week.",
+    "There were no admin corrections on your wallet.",
+    "A balance adjustment was made.",
+    "I can't see any internal admin adjustments or corrections.",
+  ]) assertEquals(checkAnswer(bad, [], "x", opts), { ok: false, reason: "admin_trail" }, bad);
+  assert(checkAnswer("I can show your top-ups and wallet activity as they appear on your account.", [], "x", opts).ok);
+  // the agent persona is unaffected
+  assert(checkAnswer("That System balance correction was UGX 15.", [], "x").ok);
+  assert(RETRY_NOTE.admin_trail.length > 40);
+});
+
+Deno.test("partner refusals talk about portfolios, not tenants, and the deflection never confirms or denies", () => {
+  for (const seed of ["a", "bb", "ccc"]) {
+    const r = MSG.refusal(seed, "partner");
+    assert(/portfolio|Returns|withdrawals|wallet/i.test(r) && !/tenant|collection/i.test(r), r);
+    assert(!/\b(loan|lender|ROI|interest)\b/i.test(r));
+    assertEquals(MSG.refusal(seed, "agent") === r, false);
+  }
+  assertEquals(checkAnswer(MSG.partnerDeflect, [], "x", { hideAdminTrail: true }).ok, true);
+});
+
+Deno.test("prompts: dual-role people are pointed to the other dashboard, never refused; league and team differ", () => {
+  const agentAlsoPartner = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard", alsoPartner: true });
+  assert(agentAlsoPartner.includes("also a partner") && agentAlsoPartner.includes("funder) dashboard"));
+  const agentOnly = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
+  assert(!agentOnly.includes("also a partner"));
+  const partnerAlsoAgent = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard", alsoAgent: true });
+  assert(partnerAlsoAgent.includes("also an agent"));
+  assert(agentOnly.includes("get_team_summary covers only the agent's direct verified sub-agents"));
+  const partner = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  assert(partner.includes("never describe screens") && partner.includes("compounded_so_far"));
+  assert(/Do not use the words reverse, reversed, reversal, correction or adjustment/.test(partner));
+});

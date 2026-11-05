@@ -493,7 +493,7 @@ export const PARTNER_TOOLS: ToolDef[] = [
   {
     name: "get_partner_portfolio_detail",
     description:
-      "ONE portfolio in full, found by its code (for example WPF-3542 or WIP2610124417): terms, payout_destination (masked), compounds (date and amount), topups, " +
+      "ONE portfolio in full, found by its code (for example WPF-3542 or WIP2610124417): terms, payout_destination (masked), compounded_so_far (the total compounded, already calculated) and compounds (the individual entries), topups, " +
       "renewals (old and new maturity, rate, duration), renewal and redemption requests, redemptions, payouts_paid, the maturity notice sent, and whether a renewal is scheduled. " +
       "Use for compounding, top-up, renewal, maturity and payout questions about a specific portfolio. If found is false, say you could not find that code among their own portfolios.",
     parameters: {
