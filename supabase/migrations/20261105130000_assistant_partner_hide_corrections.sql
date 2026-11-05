@@ -1,7 +1,7 @@
 -- Agent assistant, partner persona: no reversals, no admin corrections.
 --
 -- A partner must not see reversals or admin corrections on their portfolios or in their wallet
--- details. This replaces five functions from 20261105110000 and adds the wallet activity tool.
+-- details. This replaces five functions from the first partner migration and adds the wallet activity tool.
 --
 --   * Wallet activity uses the platform's own customer-visibility rule
 --     (is_customer_wallet_history_visible: hides classification 'admin_correction', correction and
