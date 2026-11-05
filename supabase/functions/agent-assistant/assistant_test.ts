@@ -567,7 +567,7 @@ Deno.test("prompts: dual-role people are pointed to the other dashboard, never r
   assert(partnerAlsoAgent.includes("also an agent"));
   assert(agentOnly.includes("get_team_summary covers only the agent's direct verified sub-agents"));
   const partner = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
-  assert(partner.includes("never describe screens") && partner.includes("compounded_so_far"));
+  assert(/never describe screens/i.test(partner) && partner.includes("compounded_so_far"));
   assert(/Do not use the words reverse, reversed, reversal, correction or adjustment/.test(partner));
 });
 
@@ -614,4 +614,11 @@ Deno.test("partner prompt: contract rule covers every state and forbids 'didn't 
   const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
   for (const s of ["signed_agreement", "agreement_awaiting_welile_countersignature", "accepted_terms_online", "none_on_record"]) assert(p.includes(s), s);
   assert(p.includes("a missing document is not a missing contract"));
+});
+
+Deno.test("partner prompt: renewal answers come from the help centre, not from invented steps", () => {
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  assert(p.includes("Renewing or creating a portfolio: call search_help_center"));
+  assert(!p.includes("has no step-by-step article"));
+  assert(p.includes("never describe screens") || p.includes("Never describe screens"));
 });
