@@ -77919,6 +77919,7 @@ export type Database = {
       assistant_is_partner: { Args: never; Returns: boolean }
       assistant_mask_tail: { Args: { p_value: string }; Returns: string }
       assistant_my_messages: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_contract: { Args: never; Returns: Json }
       assistant_partner_overview: { Args: never; Returns: Json }
       assistant_partner_portfolio_detail: {
         Args: { p_code: string }
