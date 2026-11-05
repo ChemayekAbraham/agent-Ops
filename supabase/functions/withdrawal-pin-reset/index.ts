@@ -1,21 +1,21 @@
-// Forgotten withdrawal PIN: the 2FA reset (doc 258).
+// Withdrawal PIN: changing or resetting it needs a code sent to the account's real email (doc 258, CTO 2026-11-04).
 //
-// Why an edge function: sending an email or an SMS, and deciding whether an address is a real inbox
-// (59% of accounts carry a placeholder one), both live outside the database. The database functions
-// (pin_reset_begin / pin_challenge_issue / pin_reset_complete) are service-role only and trust what this
-// function tells them.
+// Why an edge function: sending an email, and deciding whether an address is a real inbox (59% of accounts carry a
+// placeholder one), both live outside the database. The database functions (pin_reset_begin, pin_challenge_issue,
+// pin_reset_complete, pin_change_issue, pin_change_complete) are service-role only and trust what this function tells them.
 //
-//   begin      start a reset; tells the owner by SMS (the cancel path is the PIN screen or support)
-//   send_code  send a 6-digit code to the email or to the login / payout number (10 min, 3 per hour)
-//   complete   check the code(s) and set the new PIN
+// Forgot PIN (no PIN needed):
+//   begin      start a reset (refused with no_email when the account has no real email)
+//   send_code  email a 6-digit code (10 min, 3 per hour)
+//   complete   check the code and set the new PIN
+// Change PIN (current PIN + code):
+//   change_send_code  email a 6-digit code
+//   change_complete   check the current PIN AND the code, then set the new PIN
 //
-// Real inbox on file: an email code AND a phone code are both required. No usable email: the phone code
-// alone, after the 48 h cooling-off wait the database enforces. Codes are generated here, only their
-// hash is stored, and neither a code nor a PIN is ever logged.
-import "../_shared/noSignupPrompt.ts";
+// No SMS is involved. An account without a real email can neither change nor reset a PIN: it must add one first.
+// Codes are generated here, only their sha256 is stored, and neither a code nor a PIN is ever logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
-import { isUgandanPhone, sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,16 +36,14 @@ function generateCode(): string {
   return String(buf[0] % 1000000).padStart(6, "0");
 }
 
-// Must match what the browser-side caller sends: sha256 hex of "<user id>:<channel>:<code>".
-async function hashCode(userId: string, channel: "sms" | "email", code: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:${channel}:${code}`));
+// sha256 hex of "<user id>:email:<code>".
+async function hashCode(userId: string, code: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:email:${code}`));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length < 6 ? "•••••" : `+••• ••• ${digits.slice(-3)}`;
-}
+const PIN_RE = /^\d{4}$/;
+const CODE_RE = /^\d{6}$/;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -64,127 +62,106 @@ Deno.serve(async (req) => {
     const body = (await req.json().catch(() => ({}))) ?? {};
     const action = String(body.action ?? "");
 
-    // The real inbox, if any: the sign-in address, else the profile address.
+    // The real inbox, if any: the sign-in address first (the one the account proved), then the profile address.
     const { data: profile } = await admin
       .from("profiles")
-      .select("phone, mobile_money_number, email, full_name")
+      .select("email, full_name")
       .eq("id", userId)
       .maybeSingle();
     const candidates = [u.user.email, profile?.email as string | null | undefined];
     const realEmail = candidates.find((e) => e && !isUnusableEmail(e)) ?? null;
-    const loginPhone = String(profile?.phone ?? "").trim();
-    const payoutPhone = String(profile?.mobile_money_number ?? "").trim();
+
+    // Emails a fresh code. Returns null on success, or the response to send back.
+    async function emailCode(issue: (hash: string, masked: string) => Promise<any>, label: string) {
+      if (!realEmail) return json({ success: false, code: "no_email" }, 400);
+      const code = generateCode();
+      const masked = maskEmail(realEmail);
+      const issued = await issue(await hashCode(userId, code), masked);
+      if (issued.error) {
+        console.error("[withdrawal-pin-reset] issue failed", issued.error.message);
+        return json({ error: "Could not create the code" }, 500);
+      }
+      const data = issued.data;
+      if (data?.success !== true) return json(data, data?.code === "rate_limited" ? 429 : 400);
+
+      const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "two-factor-code",
+          recipientEmail: realEmail.toLowerCase(),
+          templateData: {
+            code,
+            userName: (profile?.full_name as string | null)?.split(" ")[0] || "there",
+            deviceLabel: label,
+            requestedAt: new Date().toISOString(),
+            minutesValid: data.expires_in_minutes,
+          },
+        },
+      });
+      if (mailErr) {
+        console.error("[withdrawal-pin-reset] email failed", mailErr);
+        return json({ error: "Could not send the code. Please try again.", code: "send_failed" }, 502);
+      }
+      return json({ success: true, channel: "email", destination_masked: masked, expires_in_minutes: data.expires_in_minutes });
+    }
 
     if (action === "begin") {
-      const { data, error } = await admin.rpc("pin_reset_begin", {
-        p_user: userId,
-        p_email_usable: realEmail !== null,
-      });
+      const { data, error } = await admin.rpc("pin_reset_begin", { p_user: userId, p_email_usable: realEmail !== null });
       if (error) {
         console.error("[withdrawal-pin-reset] begin failed", error.message);
         return json({ error: "Could not start the reset" }, 500);
       }
       if (data?.success !== true) return json(data, 400);
-
-      // Tell the owner on the login number. Best effort: the reset is already recorded.
-      if (data.code === "reset_requested" && isUgandanPhone(loginPhone)) {
-        await sendSMS(
-          loginPhone,
-          "Welile: a reset of your withdrawal PIN was requested. If this was not you, cancel it in Settings > Withdrawal PIN or contact support.",
-          { admin, source: "withdrawal_pin_reset_notice", recipient_user_id: userId },
-        ).catch((e) => console.error("[withdrawal-pin-reset] notice sms failed", e));
-      }
-      return json({
-        ...data,
-        email_masked: realEmail ? maskEmail(realEmail) : null,
-        phone_masked: isUgandanPhone(loginPhone) ? maskPhone(loginPhone) : null,
-        payout_phone_masked: isUgandanPhone(payoutPhone) ? maskPhone(payoutPhone) : null,
-      });
+      return json({ ...data, email_masked: realEmail ? maskEmail(realEmail) : null });
     }
 
     if (action === "send_code") {
-      const channel = String(body.channel ?? "");
-      if (channel !== "email" && channel !== "sms") return json({ error: "Invalid channel" }, 400);
-
-      let destination: string;
-      let masked: string;
-      if (channel === "email") {
-        if (!realEmail) return json({ error: "No usable email on this account", code: "no_email" }, 400);
-        destination = realEmail.toLowerCase();
-        masked = maskEmail(realEmail);
-      } else {
-        // The login number by default; the payout number if the login number is lost.
-        const target = String(body.sms_target ?? "login");
-        const phone = target === "payout" ? payoutPhone : loginPhone;
-        if (!isUgandanPhone(phone)) return json({ error: "No usable phone number for that choice", code: "no_phone" }, 400);
-        destination = phone;
-        masked = maskPhone(phone);
-      }
-
-      const code = generateCode();
-      const { data: issued, error: issueErr } = await admin.rpc("pin_challenge_issue", {
-        p_user: userId,
-        p_channel: channel,
-        p_code_hash: await hashCode(userId, channel, code),
-        p_destination_masked: masked,
-      });
-      if (issueErr) {
-        console.error("[withdrawal-pin-reset] issue failed", issueErr.message);
-        return json({ error: "Could not create the code" }, 500);
-      }
-      if (issued?.success !== true) return json(issued, issued?.code === "rate_limited" ? 429 : 400);
-
-      let sent = false;
-      if (channel === "email") {
-        const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
-          body: {
-            templateName: "two-factor-code",
-            recipientEmail: destination,
-            templateData: {
-              code,
-              userName: (profile?.full_name as string | null)?.split(" ")[0] || "there",
-              deviceLabel: "Withdrawal PIN reset",
-              requestedAt: new Date().toISOString(),
-              minutesValid: issued.expires_in_minutes,
-            },
-          },
-        });
-        sent = !mailErr;
-        if (mailErr) console.error("[withdrawal-pin-reset] email failed", mailErr);
-      } else {
-        sent = await sendSMS(
-          destination,
-          `Welile PIN reset code: ${code}. Valid ${issued.expires_in_minutes} min. Do not share it.`,
-          {
-            admin,
-            source: "withdrawal_pin_reset",
-            reference_id: issued.challenge_id,
-            recipient_user_id: userId,
-            requireDeliveryConfirmation: true,
-            deliveryConfirmation: { attempts: 2, delayMs: 1500 },
-          },
-        );
-      }
-      if (!sent) return json({ error: "Could not send the code. Please try again.", code: "send_failed" }, 502);
-      return json({ success: true, channel, destination_masked: masked, expires_in_minutes: issued.expires_in_minutes });
+      if (String(body.channel ?? "email") !== "email") return json({ success: false, code: "channel_not_required" }, 400);
+      return await emailCode(
+        (hash, masked) => admin.rpc("pin_challenge_issue", { p_user: userId, p_channel: "email", p_code_hash: hash, p_destination_masked: masked }),
+        "Withdrawal PIN reset",
+      );
     }
 
     if (action === "complete") {
-      const smsCode = String(body.sms_code ?? "");
-      const emailCode = body.email_code == null ? null : String(body.email_code);
+      const emailCodeIn = String(body.email_code ?? "");
       const newPin = String(body.new_pin ?? "");
-      if (!/^\d{6}$/.test(smsCode) || (emailCode !== null && !/^\d{6}$/.test(emailCode))) {
-        return json({ error: "Codes are 6 digits" }, 400);
-      }
+      if (!CODE_RE.test(emailCodeIn)) return json({ success: false, code: "wrong_code", channel: "email" }, 400);
       const { data, error } = await admin.rpc("pin_reset_complete", {
         p_user: userId,
-        p_sms_code_hash: await hashCode(userId, "sms", smsCode),
-        p_email_code_hash: emailCode === null ? null : await hashCode(userId, "email", emailCode),
+        p_sms_code_hash: null,
+        p_email_code_hash: await hashCode(userId, emailCodeIn),
         p_new_pin: newPin,
       });
       if (error) {
         console.error("[withdrawal-pin-reset] complete failed", error.message);
         return json({ error: "Could not finish the reset" }, 500);
+      }
+      return json(data, data?.success === true ? 200 : 400);
+    }
+
+    if (action === "change_send_code") {
+      return await emailCode(
+        (hash, masked) => admin.rpc("pin_change_issue", { p_user: userId, p_code_hash: hash, p_destination_masked: masked }),
+        "Withdrawal PIN change",
+      );
+    }
+
+    if (action === "change_complete") {
+      const currentPin = String(body.current_pin ?? "");
+      const emailCodeIn = String(body.email_code ?? "");
+      const newPin = String(body.new_pin ?? "");
+      // Malformed input is refused without touching the attempt counters.
+      if (!PIN_RE.test(currentPin)) return json({ success: false, code: "wrong_pin", message: "Enter your 4-digit PIN." }, 400);
+      if (!CODE_RE.test(emailCodeIn)) return json({ success: false, code: "wrong_code", channel: "email" }, 400);
+      const { data, error } = await admin.rpc("pin_change_complete", {
+        p_user: userId,
+        p_current_pin: currentPin,
+        p_email_code_hash: await hashCode(userId, emailCodeIn),
+        p_new_pin: newPin,
+      });
+      if (error) {
+        console.error("[withdrawal-pin-reset] change failed", error.message);
+        return json({ error: "Could not change the PIN" }, 500);
       }
       return json(data, data?.success === true ? 200 : 400);
     }
