@@ -2,6 +2,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { HandCoins } from 'lucide-react';
+import { FadedHouseIllustration } from '@/components/common/FadedHouseIllustration';
 import { supabase } from '@/integrations/supabase/client';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 
@@ -136,14 +137,20 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
         onClick={openCard}
         onPointerEnter={preloadOnboarding}
         onTouchStart={preloadOnboarding}
-        className="w-full rounded-2xl border-2 border-primary/40 bg-primary p-5 sm:p-6 text-left flex flex-col shadow-lg active:scale-[0.99] transition-all touch-manipulation overflow-hidden min-h-[175px] sm:min-h-[195px]"
+        className="relative w-full rounded-2xl border-2 border-primary/40 bg-primary p-5 sm:p-6 text-left flex flex-col shadow-lg active:scale-[0.99] transition-all touch-manipulation overflow-hidden min-h-[175px] sm:min-h-[195px]"
       >
-        <div className="flex flex-col justify-between h-full w-full gap-4 sm:gap-6">
+        {/* The house, very faint, behind the text */}
+        <FadedHouseIllustration opacity={0.2} />
+        <div className="relative z-10 flex flex-col justify-between h-full w-full gap-4 sm:gap-6">
           <div className="space-y-3 sm:space-y-3.5">
             <div className="p-2.5 sm:p-3 rounded-xl bg-primary-foreground/20 text-primary-foreground w-fit shadow-xs">
               <HandCoins className="h-6 w-6 sm:h-7 sm:w-7" />
             </div>
-            <p className="font-extrabold text-xl sm:text-2xl lg:text-3xl leading-tight text-primary-foreground tracking-tight">Request rent here</p>
+            <p className="font-extrabold text-[22px] sm:text-[30px] lg:text-[34px] leading-tight text-primary-foreground tracking-tight text-center">
+              <span className="block">Request</span>
+              <span className="block">rent</span>
+              <span className="block">here</span>
+            </p>
           </div>
 
           <div className="space-y-2">
