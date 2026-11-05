@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,12 +29,13 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Download,
-  ListFilter,
-  Layers,
-  ArrowUpDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+const PAGE_SIZE = 15;
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n || 0);
@@ -84,12 +85,13 @@ function downloadCsv(filename: string, header: string[], rows: (string | number 
 /**
  * CFO view: every CFO-disbursed Landlord Payout Float allocation that is
  * currently sitting on an agent's card (open or partially_paid).
- * Organized in clean, professional tabular format.
+ * Organized in clean, professional tabular format with 15 agents/rows per page.
  */
 export function LandlordFloatAllocationsPanel() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'partially_paid'>('all');
-  const [viewMode, setViewMode] = useState<'allocations' | 'by-agent'>('allocations');
+  const [viewMode, setViewMode] = useState<'by-agent' | 'allocations'>('by-agent');
+  const [currentPage, setCurrentPage] = useState(1);
   const [expandedAgents, setExpandedAgents] = useState<Record<string, boolean>>({});
 
   const { data: rows = [], isLoading } = useQuery({
@@ -183,6 +185,43 @@ export function LandlordFloatAllocationsPanel() {
       .sort((a, b) => b.remaining - a.remaining);
   }, [filteredRows]);
 
+  // Reset page when filters, search, or view mode change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, viewMode]);
+
+  // Pagination calculation
+  const totalItems = viewMode === 'by-agent' ? groupedAgents.length : filteredRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const pagedAgents = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return groupedAgents.slice(start, start + PAGE_SIZE);
+  }, [groupedAgents, safePage]);
+
+  const pagedAllocations = useMemo(() => {
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, safePage]);
+
+  // Generate compact page numbers: e.g. [1, 2, 3, '...', 10]
+  const pageNumbers = useMemo(() => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (safePage > 3) pages.push('...');
+      const start = Math.max(2, safePage - 1);
+      const end = Math.min(totalPages - 1, safePage + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (safePage < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    return pages;
+  }, [totalPages, safePage]);
+
   const toggleAgent = (agentId: string) => {
     setExpandedAgents((prev) => ({
       ...prev,
@@ -221,7 +260,7 @@ export function LandlordFloatAllocationsPanel() {
               </CardTitle>
               {rows.length > 0 && (
                 <Badge variant="outline" className="text-xs font-mono font-medium">
-                  {rows.length} {rows.length === 1 ? 'allocation' : 'allocations'} · {totals.agents} agents
+                  {totals.agents} agents · {rows.length} allocations
                 </Badge>
               )}
             </div>
@@ -317,18 +356,7 @@ export function LandlordFloatAllocationsPanel() {
             </div>
 
             {/* View Mode Switcher */}
-            <div className="hidden lg:flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5">
-              <button
-                type="button"
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                  viewMode === 'allocations'
-                    ? 'bg-background text-foreground shadow-xs font-semibold'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-                onClick={() => setViewMode('allocations')}
-              >
-                All Allocations
-              </button>
+            <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5">
               <button
                 type="button"
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
@@ -338,7 +366,18 @@ export function LandlordFloatAllocationsPanel() {
                 }`}
                 onClick={() => setViewMode('by-agent')}
               >
-                By Agent Summary
+                Agents List ({groupedAgents.length})
+              </button>
+              <button
+                type="button"
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  viewMode === 'allocations'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => setViewMode('allocations')}
+              >
+                All Allocations ({filteredRows.length})
               </button>
             </div>
           </div>
@@ -373,9 +412,164 @@ export function LandlordFloatAllocationsPanel() {
             <p className="font-semibold text-foreground">No allocations match filters</p>
             <p className="text-xs text-muted-foreground mt-0.5">Try clearing the search query or status filter.</p>
           </div>
-        ) : viewMode === 'allocations' ? (
+        ) : viewMode === 'by-agent' ? (
           /* ---------------------------------------------------------------- */
-          /* View 1: Detailed Flat Allocations Table                          */
+          /* View 1: By Agent Summary Table (Paginated 15 Agents per page)    */
+          /* ---------------------------------------------------------------- */
+          <div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/40 hover:bg-muted/40 text-xs">
+                    <TableHead className="font-semibold text-foreground min-w-[160px]">Agent</TableHead>
+                    <TableHead className="text-center font-semibold text-foreground">Allocations</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">Total Disbursed (UGX)</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">Paid Out (UGX)</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">Outstanding on Card (UGX)</TableHead>
+                    <TableHead className="min-w-[130px] font-semibold text-foreground">Delivery Completion</TableHead>
+                    <TableHead className="text-right font-semibold text-foreground">Breakdown</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedAgents.map((g) => {
+                    const open = !!expandedAgents[g.agent_id];
+                    const pct = g.allocated > 0 ? Math.min(100, Math.round((g.paid / g.allocated) * 100)) : 0;
+                    return (
+                      <Fragment key={g.agent_id}>
+                        <TableRow className="hover:bg-muted/30 transition-colors text-xs font-medium">
+                          <TableCell>
+                            <div className="flex items-center gap-2.5">
+                              <Avatar className="h-8 w-8 rounded-full border border-border">
+                                <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                                  {getInitials(g.agent_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <span className="font-semibold text-foreground text-sm block leading-tight">{g.agent_name}</span>
+                                <span className="text-[10px] font-mono text-muted-foreground">{g.agent_id.slice(0, 8)}</span>
+                              </div>
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="font-mono text-xs px-2 py-0.5">
+                              {g.rows.length} {g.rows.length === 1 ? 'tenant' : 'tenants'}
+                            </Badge>
+                          </TableCell>
+
+                          <TableCell className="text-right font-mono text-muted-foreground">
+                            {num(g.allocated)}
+                          </TableCell>
+
+                          <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-semibold">
+                            {num(g.paid)}
+                          </TableCell>
+
+                          <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">
+                            {num(g.remaining)}
+                          </TableCell>
+
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
+                                <span>{pct}% complete</span>
+                              </div>
+                              <Progress value={pct} className="h-1.5" />
+                            </div>
+                          </TableCell>
+
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                              onClick={() => toggleAgent(g.agent_id)}
+                            >
+                              {open ? 'Hide' : 'View'}
+                              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Expandable Sub-table for this Agent */}
+                        {open && (
+                          <TableRow className="bg-muted/15 hover:bg-muted/15">
+                            <TableCell colSpan={7} className="p-3 sm:px-6">
+                              <div className="rounded-lg border border-border/80 bg-background overflow-hidden shadow-xs">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/40 text-[11px]">
+                                      <TableHead className="font-semibold">Tenant</TableHead>
+                                      <TableHead className="font-semibold">Landlord</TableHead>
+                                      <TableHead className="font-semibold">Phone &amp; Network</TableHead>
+                                      <TableHead className="font-semibold">Status</TableHead>
+                                      <TableHead className="text-right font-semibold">Allocated</TableHead>
+                                      <TableHead className="text-right font-semibold">Paid Out</TableHead>
+                                      <TableHead className="text-right font-semibold">Remaining</TableHead>
+                                      <TableHead className="whitespace-nowrap">Disbursed Date</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {g.rows.map((r) => (
+                                      <TableRow key={r.id} className="text-xs hover:bg-muted/20">
+                                        <TableCell className="font-medium text-foreground">{r.tenant_name}</TableCell>
+                                        <TableCell className="font-semibold text-primary">{r.landlord_name || 'Landlord'}</TableCell>
+                                        <TableCell className="font-mono text-[11px] text-muted-foreground">
+                                          {r.landlord_phone || '—'} {r.mobile_money_provider ? `(${r.mobile_money_provider})` : ''}
+                                        </TableCell>
+                                        <TableCell>
+                                          <Badge
+                                            variant="outline"
+                                            className={
+                                              r.status === 'partially_paid'
+                                                ? 'text-[9px] px-1.5 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                                                : 'text-[9px] px-1.5 py-0 bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
+                                            }
+                                          >
+                                            {r.status === 'partially_paid' ? 'Partially Paid' : 'Open'}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-muted-foreground">{num(r.allocated_amount)}</TableCell>
+                                        <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-medium">{num(r.paid_out_amount)}</TableCell>
+                                        <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">{num(r.remaining_amount)}</TableCell>
+                                        <TableCell className="text-muted-foreground text-[11px] whitespace-nowrap">
+                                          {format(new Date(r.created_at), 'dd MMM yyyy')}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+                <TableFooter className="bg-muted/40 font-semibold text-xs border-t border-border/80">
+                  <TableRow>
+                    <TableCell colSpan={2} className="text-foreground font-bold">
+                      Total Across All ({groupedAgents.length} {groupedAgents.length === 1 ? 'agent' : 'agents'})
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-foreground">
+                      {num(filteredTotals.allocated)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                      {num(filteredTotals.paid)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-amber-700 dark:text-amber-400">
+                      {num(filteredTotals.remaining)}
+                    </TableCell>
+                    <TableCell colSpan={2} />
+                  </TableRow>
+                </TableFooter>
+              </Table>
+            </div>
+          </div>
+        ) : (
+          /* ---------------------------------------------------------------- */
+          /* View 2: Detailed Flat Allocations Table (Paginated 15 per page)  */
           /* ---------------------------------------------------------------- */
           <div className="overflow-x-auto">
             <Table>
@@ -393,7 +587,7 @@ export function LandlordFloatAllocationsPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.map((r) => {
+                {pagedAllocations.map((r) => {
                   const paidPct = r.allocated_amount > 0 ? Math.min(100, Math.round((r.paid_out_amount / r.allocated_amount) * 100)) : 0;
                   return (
                     <TableRow key={r.id} className="hover:bg-muted/30 transition-colors text-xs">
@@ -486,7 +680,7 @@ export function LandlordFloatAllocationsPanel() {
               <TableFooter className="bg-muted/40 font-semibold text-xs border-t border-border/80">
                 <TableRow>
                   <TableCell colSpan={4} className="text-foreground font-bold">
-                    Total Visible ({filteredRows.length} {filteredRows.length === 1 ? 'allocation' : 'allocations'})
+                    Total Across All ({filteredRows.length} {filteredRows.length === 1 ? 'allocation' : 'allocations'})
                   </TableCell>
                   <TableCell className="text-right font-mono font-bold text-foreground">
                     {num(filteredTotals.allocated)}
@@ -502,155 +696,62 @@ export function LandlordFloatAllocationsPanel() {
               </TableFooter>
             </Table>
           </div>
-        ) : (
-          /* ---------------------------------------------------------------- */
-          /* View 2: By Agent Summary Table with Expandable Details           */
-          /* ---------------------------------------------------------------- */
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40 text-xs">
-                  <TableHead className="font-semibold text-foreground">Agent Name</TableHead>
-                  <TableHead className="text-center font-semibold text-foreground">Allocations</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Total Disbursed (UGX)</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Paid to Landlord (UGX)</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Outstanding on Card (UGX)</TableHead>
-                  <TableHead className="min-w-[130px] font-semibold text-foreground">Delivery Completion</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Details</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {groupedAgents.map((g) => {
-                  const open = !!expandedAgents[g.agent_id];
-                  const pct = g.allocated > 0 ? Math.min(100, Math.round((g.paid / g.allocated) * 100)) : 0;
-                  return (
-                    <Fragment key={g.agent_id}>
-                      <TableRow className="hover:bg-muted/30 transition-colors text-xs font-medium">
-                        <TableCell>
-                          <div className="flex items-center gap-2.5">
-                            <Avatar className="h-8 w-8 rounded-full border border-border">
-                              <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
-                                {getInitials(g.agent_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold text-foreground text-sm">{g.agent_name}</span>
-                          </div>
-                        </TableCell>
+        )}
 
-                        <TableCell className="text-center">
-                          <Badge variant="outline" className="font-mono text-xs px-2 py-0.5">
-                            {g.rows.length} {g.rows.length === 1 ? 'tenant' : 'tenants'}
-                          </Badge>
-                        </TableCell>
+        {/* ------------------------------------------------------------------ */}
+        {/* Pagination Bar (Page 1, 2, 3...)                                   */}
+        {/* ------------------------------------------------------------------ */}
+        {!isLoading && totalItems > 0 && totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-border/60 bg-muted/20">
+            <p className="text-xs text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{(safePage - 1) * PAGE_SIZE + 1}</span>–
+              <span className="font-semibold text-foreground">{Math.min(safePage * PAGE_SIZE, totalItems)}</span> of{' '}
+              <span className="font-semibold text-foreground">{totalItems}</span> {viewMode === 'by-agent' ? 'agents' : 'allocations'}
+            </p>
 
-                        <TableCell className="text-right font-mono text-muted-foreground">
-                          {num(g.allocated)}
-                        </TableCell>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs font-medium"
+                disabled={safePage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Prev
+              </Button>
 
-                        <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-semibold">
-                          {num(g.paid)}
-                        </TableCell>
+              <div className="flex items-center gap-1">
+                {pageNumbers.map((p, idx) =>
+                  typeof p === 'number' ? (
+                    <Button
+                      key={`page-${p}`}
+                      variant={p === safePage ? 'default' : 'outline'}
+                      size="sm"
+                      className={`h-8 w-8 p-0 text-xs font-mono font-medium ${
+                        p === safePage ? 'shadow-xs' : 'text-muted-foreground'
+                      }`}
+                      onClick={() => setCurrentPage(p)}
+                    >
+                      {p}
+                    </Button>
+                  ) : (
+                    <span key={`dots-${idx}`} className="px-1 text-xs text-muted-foreground">
+                      ...
+                    </span>
+                  )
+                )}
+              </div>
 
-                        <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">
-                          {num(g.remaining)}
-                        </TableCell>
-
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
-                              <span>{pct}% complete</span>
-                            </div>
-                            <Progress value={pct} className="h-1.5" />
-                          </div>
-                        </TableCell>
-
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => toggleAgent(g.agent_id)}
-                          >
-                            {open ? 'Hide' : 'View'}
-                            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Expandable Sub-table for this Agent */}
-                      {open && (
-                        <TableRow className="bg-muted/15 hover:bg-muted/15">
-                          <TableCell colSpan={7} className="p-3 sm:px-6">
-                            <div className="rounded-lg border border-border/80 bg-background overflow-hidden shadow-xs">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-muted/40 text-[11px]">
-                                    <TableHead className="font-semibold">Tenant</TableHead>
-                                    <TableHead className="font-semibold">Landlord</TableHead>
-                                    <TableHead className="font-semibold">Phone &amp; Network</TableHead>
-                                    <TableHead className="font-semibold">Status</TableHead>
-                                    <TableHead className="text-right font-semibold">Allocated</TableHead>
-                                    <TableHead className="text-right font-semibold">Paid Out</TableHead>
-                                    <TableHead className="text-right font-semibold">Remaining</TableHead>
-                                    <TableHead className="whitespace-nowrap">Disbursed Date</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {g.rows.map((r) => (
-                                    <TableRow key={r.id} className="text-xs hover:bg-muted/20">
-                                      <TableCell className="font-medium text-foreground">{r.tenant_name}</TableCell>
-                                      <TableCell className="font-semibold text-primary">{r.landlord_name || 'Landlord'}</TableCell>
-                                      <TableCell className="font-mono text-[11px] text-muted-foreground">
-                                        {r.landlord_phone || '—'} {r.mobile_money_provider ? `(${r.mobile_money_provider})` : ''}
-                                      </TableCell>
-                                      <TableCell>
-                                        <Badge
-                                          variant="outline"
-                                          className={
-                                            r.status === 'partially_paid'
-                                              ? 'text-[9px] px-1.5 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
-                                              : 'text-[9px] px-1.5 py-0 bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
-                                          }
-                                        >
-                                          {r.status === 'partially_paid' ? 'Partially Paid' : 'Open'}
-                                        </Badge>
-                                      </TableCell>
-                                      <TableCell className="text-right font-mono text-muted-foreground">{num(r.allocated_amount)}</TableCell>
-                                      <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-medium">{num(r.paid_out_amount)}</TableCell>
-                                      <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">{num(r.remaining_amount)}</TableCell>
-                                      <TableCell className="text-muted-foreground text-[11px] whitespace-nowrap">
-                                        {format(new Date(r.created_at), 'dd MMM yyyy')}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </TableBody>
-              <TableFooter className="bg-muted/40 font-semibold text-xs border-t border-border/80">
-                <TableRow>
-                  <TableCell colSpan={2} className="text-foreground font-bold">
-                    Total Visible ({groupedAgents.length} {groupedAgents.length === 1 ? 'agent' : 'agents'})
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-foreground">
-                    {num(filteredTotals.allocated)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                    {num(filteredTotals.paid)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono font-bold text-amber-700 dark:text-amber-400">
-                    {num(filteredTotals.remaining)}
-                  </TableCell>
-                  <TableCell colSpan={2} />
-                </TableRow>
-              </TableFooter>
-            </Table>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs font-medium"
+                disabled={safePage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
           </div>
         )}
       </CardContent>
