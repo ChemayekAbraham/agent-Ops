@@ -14,7 +14,7 @@ interface Props {
 
 /**
  * On-load earnings dialog for agents: list an empty house + register the tenant
- * on it and earn UGX 12,000 plus the standard rent commissions (8% / 10%).
+ * on it and earn UGX 12,000 plus the standard rent commissions (6% / 8%).
  */
 export function ListRegisterEarnDialog({ onListHouse, onRegisterTenant }: Props) {
   const [open, setOpen] = useState(false);
@@ -86,7 +86,7 @@ export function ListRegisterEarnDialog({ onListHouse, onRegisterTenant }: Props)
                 <Percent className="h-3.5 w-3.5" />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Commission</span>
               </div>
-              <p className="mt-0.5 text-lg sm:text-2xl font-bold tabular-nums text-foreground">8% – 10%</p>
+              <p className="mt-0.5 text-lg sm:text-2xl font-bold tabular-nums text-foreground">6% – 8%</p>
               <p className="text-[11px] text-muted-foreground leading-snug">Every rent cycle</p>
             </div>
           </div>

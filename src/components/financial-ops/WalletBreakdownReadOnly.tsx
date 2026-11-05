@@ -32,7 +32,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   float_withdrawal: 'Float withdrawal',
   landlord_payout: 'Paid landlord',
   partner_float_transfer_out: 'Partner transfer out',
-  agent_rent_commission: 'Rent commission (10%)',
+  agent_rent_commission: 'Rent commission',
   rent_commission: 'Rent commission',
   agent_commission_earned: 'Commission earned',
   agent_commission: 'Commission earned',

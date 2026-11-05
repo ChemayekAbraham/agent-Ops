@@ -110,12 +110,12 @@ export interface SignageRecord {
   removal_effective_at?: string;
 
   // CFO Disbursement Tracking
-  agent_reward_status?: 'eligible' | 'pending' | 'disbursed';
+  agent_reward_status?: 'not_eligible' | 'eligible' | 'pending' | 'processing' | 'paid' | 'failed';
   agent_reward_disbursed_at?: string;
   agent_reward_disbursed_by?: string;
   agent_reward_tx_ref?: string;
 
-  owner_rent_status?: 'pending' | 'disbursed';
+  owner_rent_status?: 'not_due' | 'pending' | 'processing' | 'paid' | 'failed';
   owner_rent_disbursed_at?: string;
   owner_rent_disbursed_by?: string;
   owner_rent_tx_ref?: string;

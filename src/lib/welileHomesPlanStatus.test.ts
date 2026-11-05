@@ -21,7 +21,8 @@ describe('resolveWhPlanStage', () => {
   it('maps each review stage', () => {
     expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'pending' })).toBe('pending_agent_ops');
     expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'agent_ops_approved' })).toBe('pending_tenant_ops');
-    expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'tenant_ops_approved' })).toBe('pending_coo');
+    expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'tenant_ops_approved' })).toBe('pending_landlord_ops');
+    expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'landlord_ops_approved' })).toBe('pending_coo');
     expect(resolveWhPlanStage({ ...base, linkedRequestStatus: 'coo_approved' })).toBe('pending_cfo');
   });
   it('a rejected request is not a declined application and allows re-request', () => {

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { COMMISSION_RATE } from '@/lib/rentCalculations';
 import {
   Wallet, ArrowUpFromLine, Banknote, CreditCard, Phone, Mail, MapPin, Calendar,
   CheckCircle2, XCircle, AlertTriangle, Receipt, Award, Activity,
@@ -407,17 +408,17 @@ function CollectionsList({ items }: any) {
 function AllocationsList({ items }: any) {
   if (!items?.length) return <Section title="Float Allocations to Tenants"><Empty text="No allocations yet" /></Section>;
   const total = items.reduce((s: number, a: any) => s + Number(a.amount), 0);
-  const totalCommission = Math.round(total * 0.10);
+  const totalCommission = Math.round(total * COMMISSION_RATE);
   return (
     <Section title={`Float Allocations · ${items.length} · Total ${fmtShort(total)} UGX`}>
       <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2 mb-2 text-xs text-emerald-800">
-        💰 Estimated commission earned: <strong>+{fmtShort(totalCommission)} UGX</strong> (10% of allocations)
+        💰 Estimated commission earned: <strong>+{fmtShort(totalCommission)} UGX</strong> ({Math.round(COMMISSION_RATE * 100)}% of allocations)
       </div>
       <div className="space-y-1.5 max-h-96 overflow-auto">
         {items.map((a: any) => {
           const tenantName = a.tenant?.full_name || 'Unknown tenant';
           const tenantPhone = a.tenant?.phone ? ` · ${a.tenant.phone}` : '';
-          const commission = Math.round(Number(a.amount) * 0.10);
+          const commission = Math.round(Number(a.amount) * COMMISSION_RATE);
           return (
             <Row key={a.id}
               primary={`${fmt(a.amount)} UGX → ${tenantName}`}

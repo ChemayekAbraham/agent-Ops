@@ -44,6 +44,8 @@ interface WithdrawRequestDialogProps {
   lockPayoutDetails?: boolean;
   /** Where the locked details came from, shown to the agent for confidence. */
   payoutSourceLabel?: string;
+  /** Server copies the partner payout number. The agent never sees it. */
+  payoutOnFile?: { portfolioId: string; routeKey: string; summary: string } | null;
 }
 
 type PayoutMode = 'mtn' | 'airtel' | 'bank' | 'cash';
@@ -234,7 +236,7 @@ function normalizeUgMomoNumber(raw: string): string {
   return s;
 }
 
-export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel }: WithdrawRequestDialogProps) {
+export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel, payoutOnFile = null }: WithdrawRequestDialogProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -394,6 +396,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
   }, [user, open, prefillPayout]);
 
   const isPayoutValid = () => {
+    if (payoutOnFile) return true;
     if (!payoutMode) return false;
     if (payoutMode === 'mtn' || payoutMode === 'airtel') {
       const ugandaPhoneRegex = /^(0[0-9]{9}|\+256[0-9]{9})$/;
@@ -549,7 +552,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const isMomo = payoutMode === 'mtn' || payoutMode === 'airtel';
+        const isMomo = !payoutOnFile && (payoutMode === 'mtn' || payoutMode === 'airtel');
         // Proxy Partner Custody v2: when this dialog is opened on behalf of a
         // partner (linkedParty set), the row is partner-owned for visibility,
         // but approval resolves `agent_id` as the funding wallet and debits
@@ -557,7 +560,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
         // that's the legacy v1 shape that pins the hold to the agent's wallet.
         const isProxy = !!linkedParty;
         let submittedWithdrawalId: string | null = null;
-        const { data: insertedWithdrawal, error } = await supabase.from('withdrawal_requests').insert({
+        const payload = {
           user_id: isProxy ? linkedParty! : user.id,
           // The raiser is ALWAYS recorded. A blank raiser used to read as
           // "raised on someone else's behalf" in the creation-time
@@ -576,7 +579,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
           mobile_money_number: isMomo ? momoNumber.trim() : null,
           mobile_money_provider: isMomo ? payoutMode : null,
           mobile_money_name: isMomo ? momoName.trim() : null,
-          payout_method: payoutMode === 'bank' ? 'bank_transfer' : payoutMode === 'cash' ? 'cash' : 'mobile_money',
+          payout_method: payoutOnFile
+            ? (payoutOnFile.routeKey.startsWith('saved:') ? 'mobile_money' : 'mobile_money')
+            : payoutMode === 'bank' ? 'bank_transfer' : payoutMode === 'cash' ? 'cash' : 'mobile_money',
           bank_name: payoutMode === 'bank' ? bankName : null,
           bank_account_name: payoutMode === 'bank' ? bankAccountName.trim() : null,
           bank_account_number: payoutMode === 'bank' ? bankAccountNumber.trim() : null,
@@ -591,10 +596,17 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
             ? `[Proxy initiated by agent ${user.id}] ${reason.trim()}`
             : reason.trim(),
           client_request_id: clientRequestId,
-          payout_route_ref: isProxy && linkedParty
+          payout_route_ref: payoutOnFile
+            ? payoutOnFile.routeKey
+            : isProxy && linkedParty
             ? derivePayoutRouteRef(reason, linkedParty)
             : null,
-        } as any).select('id').maybeSingle();
+        };
+        const inserted = payoutOnFile
+          ? await supabase.from('withdrawal_requests').insert(payload as any)
+          : await supabase.from('withdrawal_requests').insert(payload as any).select('id').maybeSingle();
+        const insertedWithdrawal = payoutOnFile ? null : (inserted as { data?: { id?: string } | null }).data;
+        const error = (inserted as { error: { code?: string; message?: string } | null }).error;
         submittedWithdrawalId = insertedWithdrawal?.id ?? null;
         if (error) {
           // 23505 = unique_violation. Means a previous attempt already committed
@@ -623,12 +635,17 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
               return;
             }
             console.info('[WithdrawRequestDialog] Duplicate suppressed by idempotency key');
-            const { data: existingWithdrawal } = await supabase
-              .from('withdrawal_requests')
-              .select('id')
-              .eq('client_request_id', clientRequestId)
-              .maybeSingle();
-            submittedWithdrawalId = existingWithdrawal?.id ?? null;
+            if (payoutOnFile) {
+              const { data: existingId } = await supabase.rpc('agent_proxy_withdrawal_id_for_client_request' as never, { p_client_request_id: clientRequestId } as never);
+              submittedWithdrawalId = typeof existingId === 'string' ? existingId : null;
+            } else {
+              const { data: existingWithdrawal } = await supabase
+                .from('withdrawal_requests')
+                .select('id')
+                .eq('client_request_id', clientRequestId)
+                .maybeSingle();
+              submittedWithdrawalId = existingWithdrawal?.id ?? null;
+            }
           } else {
             throw error;
           }

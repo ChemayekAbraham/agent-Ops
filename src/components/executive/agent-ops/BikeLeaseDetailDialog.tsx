@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { BikeLeaseSupplierAssign } from './BikeLeaseSupplierAssign';
+import { BikeLeaseReleaseBooks } from './BikeLeaseReleaseBooks';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
@@ -787,6 +788,9 @@ export function BikeLeaseDetailDialog({
               </div>
             </div>
           </div>
+
+          {/* What was paid out at release vs the bike value and the books (released leases only) */}
+          {!isOps && <BikeLeaseReleaseBooks row={order} />}
 
           {/* COMPANY SUPPLIER (Approved leases are historical and never prompted for a supplier; Ops assigns for pending; CFO views locked; COO omitted) */}
           {isApprovedLease ? (

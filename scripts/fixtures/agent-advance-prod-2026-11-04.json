@@ -1,0 +1,2476 @@
+{
+ "ddl": {
+  "agent_advance_ledger": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "advance_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "date",
+    "d": null,
+    "t": "date"
+   },
+   {
+    "c": "opening_balance",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "interest_accrued",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "amount_deducted",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "closing_balance",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "deduction_status",
+    "d": "'none'::text",
+    "t": "text"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "recovery_source",
+    "d": "'wallet_daily'::text",
+    "t": "text"
+   },
+   {
+    "c": "roi_amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "recovery_percent",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "adjustment_amount",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "wallet_entry_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "ledger_group_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "note",
+    "d": null,
+    "t": "text"
+   }
+  ],
+  "agent_advance_requests": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "agent_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "principal",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "cycle_days",
+    "d": "30",
+    "t": "integer"
+   },
+   {
+    "c": "monthly_rate",
+    "d": "0.33",
+    "t": "numeric"
+   },
+   {
+    "c": "access_fee",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "registration_fee",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "total_payable",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "daily_payment",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "reason",
+    "d": "''::text",
+    "t": "text"
+   },
+   {
+    "c": "status",
+    "d": "'pending'::text",
+    "t": "text"
+   },
+   {
+    "c": "reviewed_by_agent_ops",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "agent_ops_reviewed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "agent_ops_notes",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "reviewed_by_tenant_ops",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "tenant_ops_reviewed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "tenant_ops_notes",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "reviewed_by_landlord_ops",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "landlord_ops_reviewed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "landlord_ops_notes",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "approved_by_coo",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "coo_approved_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "coo_notes",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "paid_by_cfo",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "cfo_paid_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "cfo_adjusted_rate",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "cfo_notes",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "rejection_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "cfo_approved_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "cfo_approved_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "repayment_frequency",
+    "d": "'daily'::text",
+    "t": "text"
+   },
+   {
+    "c": "request_kind",
+    "d": "'new'::text",
+    "t": "text"
+   },
+   {
+    "c": "parent_advance_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "extend_days",
+    "d": null,
+    "t": "integer"
+   },
+   {
+    "c": "gate_override",
+    "d": "false",
+    "t": "boolean"
+   },
+   {
+    "c": "gate_override_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "gate_override_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "gate_override_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "gate_override_gates",
+    "d": null,
+    "t": "text[]"
+   }
+  ],
+  "agent_advance_topups": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "advance_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "topped_up_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "monthly_rate",
+    "d": "0.33",
+    "t": "numeric"
+   },
+   {
+    "c": "extend_days",
+    "d": null,
+    "t": "integer"
+   },
+   {
+    "c": "request_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "access_fee_added",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "reason",
+    "d": null,
+    "t": "text"
+   }
+  ],
+  "agent_advances": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "agent_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "principal",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "outstanding_balance",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "daily_rate",
+    "d": "0.33",
+    "t": "numeric"
+   },
+   {
+    "c": "cycle_days",
+    "d": "30",
+    "t": "integer"
+   },
+   {
+    "c": "issued_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "expires_at",
+    "d": "(now() + '30 days'::interval)",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "status",
+    "d": "'active'::text",
+    "t": "text"
+   },
+   {
+    "c": "issued_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "created_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "updated_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "registration_fee",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "access_fee",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "access_fee_collected",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "access_fee_status",
+    "d": "'unpaid'::text",
+    "t": "text"
+   },
+   {
+    "c": "monthly_rate",
+    "d": "0.33",
+    "t": "numeric"
+   },
+   {
+    "c": "arrears_balance",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "daily_installment",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "cancelled_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "cancelled_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "cancellation_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "cancellation_mode",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "pre_cancel_outstanding",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "prepaid_installments_remaining",
+    "d": "0",
+    "t": "integer"
+   },
+   {
+    "c": "repayment_frequency",
+    "d": "'daily'::text",
+    "t": "text"
+   },
+   {
+    "c": "installment_amount",
+    "d": null,
+    "t": "numeric"
+   },
+   {
+    "c": "recovery_source",
+    "d": "'wallet_daily'::text",
+    "t": "text"
+   },
+   {
+    "c": "roi_recovery_percent",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "deduction_paused",
+    "d": "false",
+    "t": "boolean"
+   },
+   {
+    "c": "paused_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "paused_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "pause_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "resumed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "resumed_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "request_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "reversed_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "reversed_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "reversal_reason",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "reversal_amount",
+    "d": "0",
+    "t": "numeric"
+   },
+   {
+    "c": "reversal_clawback_group_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "gate_override",
+    "d": "false",
+    "t": "boolean"
+   }
+  ],
+  "staff_permissions": [
+   {
+    "c": "id",
+    "d": "gen_random_uuid()",
+    "t": "uuid"
+   },
+   {
+    "c": "user_id",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "permitted_dashboard",
+    "d": null,
+    "t": "text"
+   },
+   {
+    "c": "granted_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "granted_at",
+    "d": "now()",
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "revoked_at",
+    "d": null,
+    "t": "timestamp with time zone"
+   },
+   {
+    "c": "revoked_by",
+    "d": null,
+    "t": "uuid"
+   },
+   {
+    "c": "revoke_reason",
+    "d": null,
+    "t": "text"
+   }
+  ]
+ },
+ "checks": [
+  {
+   "def": "CHECK ((repayment_frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'biweekly'::text, 'monthly'::text])))",
+   "n": "agent_advance_requests_repayment_frequency_check",
+   "t": "agent_advance_requests"
+  },
+  {
+   "def": "CHECK ((request_kind = ANY (ARRAY['new'::text, 'topup'::text])))",
+   "n": "agent_advance_requests_request_kind_check",
+   "t": "agent_advance_requests"
+  },
+  {
+   "def": "CHECK (((cancellation_mode IS NULL) OR (cancellation_mode = ANY (ARRAY['write_off'::text, 'recoup_from_wallet'::text]))))",
+   "n": "agent_advances_cancellation_mode_check",
+   "t": "agent_advances"
+  },
+  {
+   "def": "CHECK ((recovery_source = ANY (ARRAY['wallet_daily'::text, 'roi'::text])))",
+   "n": "agent_advances_recovery_source_check",
+   "t": "agent_advances"
+  },
+  {
+   "def": "CHECK ((repayment_frequency = ANY (ARRAY['daily'::text, 'weekly'::text, 'biweekly'::text, 'monthly'::text])))",
+   "n": "agent_advances_repayment_frequency_check",
+   "t": "agent_advances"
+  },
+  {
+   "def": "CHECK (((roi_recovery_percent >= (0)::numeric) AND (roi_recovery_percent <= (100)::numeric)))",
+   "n": "agent_advances_roi_recovery_percent_check",
+   "t": "agent_advances"
+  },
+  {
+   "def": "CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'overdue'::text, 'cancelled'::text])))",
+   "n": "agent_advances_status_check",
+   "t": "agent_advances"
+  }
+ ],
+ "map": [
+  {
+   "account_code": "R1",
+   "category": "access_fee_collected",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "6a5f70cb-8bd9-4ef9-acca-1f05671c74b5",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "agent_bonus",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "fbb330c8-6806-4fa0-b1f6-8b92f6c414cd",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X3",
+   "category": "agent_commission_earned",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "501f6431-10ca-45d9-a98c-1290f31370b8",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X3",
+   "category": "agent_commission_payable",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "51bcbb6b-87bc-4e0d-bbbb-94509a5a8d12",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X3",
+   "category": "agent_commission_payout",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "cd2b49a1-2f43-4fbe-bcdf-752e631d6087",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "agent_landlord_payout",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "86cdb1e2-cdb0-459a-a905-5b23c7f33350",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A4",
+   "category": "agent_repayment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "45f222aa-1aa2-45e9-a533-73280add41da",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "E3",
+   "category": "balance_correction",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "8cdba33e-0fa3-41cc-804b-7d990102644d",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "equipment_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "4c1c555f-7c00-49b0-ab04-6309ae556d5d",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "general_admin_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "d589175f-b103-43d8-92b7-22d585990336",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "E3",
+   "category": "historical_balance_reseed",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "c4e3e3f5-a11c-4603-a577-29023a759de7",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "interest_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "7fdcc25d-c7a6-43bf-808e-44d77f51f741",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "listing_rejection_recovery",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "c8a388c0-4aa2-4530-be2b-6af224428b8a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "manager_credit",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "7c941f6b-7f5a-4cca-a43a-b89d1dff0c6d",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "marketing_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "6565b092-0d1d-40df-9114-33417cfcc8a8",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L2",
+   "category": "partner_funding",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "bc8eeeb5-98c1-46d6-acc8-12d35e0a7077",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "payroll_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "fa79a413-85f4-4d0d-af35-81002240db02",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L6",
+   "category": "pending_portfolio_topup",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "e3ba7afe-f803-49eb-8d7b-cf95082a710a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "platform_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "ecf9979a-4a72-4e89-824f-958c621f2ecf",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X4",
+   "category": "platform_loss_writeoff",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "d6f9fd48-c896-4473-8aec-4cffe0a60e95",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "E1",
+   "category": "pool_capital_received",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "61b52bd4-9c81-406d-a021-c74a2b1a8f14",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "pool_rent_deployment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "507e7fdb-c956-4d72-b57d-b2266b4694dd",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "registration_fee_collected",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "1a01ddb0-6d16-4376-9b71-e78806502b6a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "rent_disbursement",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "e43cb6fc-1c4b-41d8-8bed-9558b6930b67",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "rent_repayment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "78fd131a-3254-48f7-8eac-9310fb8dc5e4",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "research_development_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "4492b4a3-7433-42fe-96ef-d9f72a0b9444",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X2",
+   "category": "roi_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "8798124f-c8b2-4e82-ba31-07e7cb107fa5",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L2",
+   "category": "roi_reinvestment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "7129f9a4-83bc-4c10-9266-8c75e0acd864",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "salary_payout",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "72e3a26c-3714-4309-a211-55bc4eaea0ab",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "E1",
+   "category": "share_capital",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "7c0dbd6e-b9f9-475a-8e4f-99e32428c274",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "supporter_platform_rewards",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "0275126f-8f06-4a6f-bd14-5a9a01800935",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X1",
+   "category": "tax_expense",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "b5fd4689-69a6-4958-843f-d8436a466809",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "tenant_access_fee",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "52b7531b-38ef-4fa5-ad5c-f253572ed9c6",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "tenant_repayment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "b6ac4b8d-3887-4b9c-ab93-ab23bfd16152",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A4",
+   "category": "wallet_deduction",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "4bd1ce17-b388-47a7-b614-df3115486c4e",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A4",
+   "category": "wallet_deduction_cash_payout_retraction",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "e48f0fa6-3c11-484a-842a-61bedb057b78",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A4",
+   "category": "wallet_deduction_general_adjustment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "eb26df7c-ad30-490b-939b-7ffe82068757",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "wallet_deposit",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "4d267169-81c7-4d3b-b691-1e9a7ed1fa7d",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "wallet_transfer",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "b34780be-1833-4ce7-bfad-ed4be3041ec7",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "wallet_withdrawal",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "b4d0c6d5-ca1a-4a5a-a848-44b329d5fb3f",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X3",
+   "category": "agent_commission",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "797603d0-f983-4420-9f3a-560f0d3a5363",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L2",
+   "category": "partner_funding",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "b9ac8e26-aa64-4bc8-a7c9-d570c0b3f2d4",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "rent_receivable_created",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "5ea67ced-c02a-4685-9cd6-bf12a18ec0d3",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L2",
+   "category": "supporter_facilitation_capital",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "c77fb7e7-ee45-415d-beb9-e9a3858bc9f8",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A9",
+   "category": "orphan_reassignment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "396dd36c-e68a-4ead-b89d-8ed9e9ac48d9",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A9",
+   "category": "orphan_reversal",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "94b6a864-cdf3-42b8-aaf0-b7ab13bb63bc",
+   "ledger_scope": "bridge",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_assignment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "d499a1df-f3ef-4a2d-92a3-cec80506d167",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_deposit",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "504cc051-00bd-41ac-950a-cf080ea4cfae",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_settlement",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "5916f2e7-6340-4b8d-8ca6-23d4fba1a688",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_topup",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "88b89ea0-5505-4e49-b508-42d510fb0694",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_used_for_rent",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "a9e9e4f6-a829-4f05-88c1-7a01526177fe",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "rent_float_funding",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "52643d22-470c-41ab-8fcb-8d75a8638cea",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "proxy_partner_withdrawal",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "4012c79a-6fed-4a6e-80e0-2db31f236972",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A4",
+   "category": "advance_repayment",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "35d4a99b-5b63-440e-a425-27ae0a9af9b3",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:27:16.568255+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "rent_payment_for_tenant",
+   "created_at": "2026-08-15T10:30:42.010029+00:00",
+   "debit_when": "cash_in",
+   "id": "282e7b4f-6d9b-4bbf-a7b3-7b5b91e5b4b0",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-08-15T10:30:42.010029+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "roi_wallet_credit",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_out",
+   "id": "ac450338-96c2-4cfd-a290-310c9c413e9d",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-15T10:30:42.010029+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A5",
+   "category": "cash_receipt_in_transit",
+   "created_at": "2026-08-17T12:31:45.439958+00:00",
+   "debit_when": "cash_in",
+   "id": "d64d6bd0-fb74-45ce-9631-390934c9cbd2",
+   "ledger_scope": "platform",
+   "notes": "Physical cash received by Financial Ops, recognised as cash in transit",
+   "updated_at": "2026-08-17T12:31:45.439958+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "cash_at_bank_reclass",
+   "created_at": "2026-08-17T12:31:45.439958+00:00",
+   "debit_when": "cash_in",
+   "id": "94018777-c094-49d1-b929-2c9f7aa23eae",
+   "ledger_scope": "platform",
+   "notes": "Reclass out of Cash and Bank until the cash is physically banked",
+   "updated_at": "2026-08-17T12:31:45.439958+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A5",
+   "category": "cash_in_transit_banked",
+   "created_at": "2026-08-17T12:31:45.439958+00:00",
+   "debit_when": "cash_in",
+   "id": "1094749d-9292-44ca-a8a3-939bfd744570",
+   "ledger_scope": "platform",
+   "notes": "Cash in transit released when the deposit is banked",
+   "updated_at": "2026-08-17T12:31:45.439958+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "treasury_bank_deposit",
+   "created_at": "2026-08-17T12:31:45.439958+00:00",
+   "debit_when": "cash_in",
+   "id": "b2269515-976a-4c9d-bca7-144c43d27949",
+   "ledger_scope": "platform",
+   "notes": "Treasury / Cash at Bank increase when Financial Ops banks the cash",
+   "updated_at": "2026-08-17T12:31:45.439958+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "agent_float_used_for_rent",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "87094aaa-a470-4fc8-9fe1-48403e2451ff",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-21T08:57:31.035317+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "cash_custody_payable",
+   "created_at": "2026-08-17T14:41:32.291934+00:00",
+   "debit_when": "cash_in",
+   "id": "63408536-76d7-41a2-8c36-929c270252be",
+   "ledger_scope": "platform",
+   "notes": "Custody obligation raised when Financial Ops receives physical cash for a wallet/float deposit",
+   "updated_at": "2026-08-17T14:41:32.291934+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_float_cash_offset",
+   "created_at": "2026-08-17T14:41:32.291934+00:00",
+   "debit_when": "cash_in",
+   "id": "657c215d-f42a-493e-8a4d-f0a845f425f9",
+   "ledger_scope": "platform",
+   "notes": "Offsets the wallet-scope float debit on a physical cash deposit: the cash is held by the company (A5), not by the agent",
+   "updated_at": "2026-08-17T14:41:32.291934+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "partner_capital_cash_received",
+   "created_at": "2026-08-18T05:53:14.666968+00:00",
+   "debit_when": "cash_out",
+   "id": "dc718a05-5f54-4203-b678-accf480a9d6a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-18T05:53:14.666968+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "agent_facilitated_capital_receivable",
+   "created_at": "2026-08-18T05:53:14.666968+00:00",
+   "debit_when": "cash_out",
+   "id": "b8ffb4dd-4684-409e-85ea-a0aadb0cd4ab",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-18T05:53:14.666968+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A2",
+   "category": "bucket_reclass_out",
+   "created_at": "2026-08-19T12:08:11.116959+00:00",
+   "debit_when": "cash_in",
+   "id": "2fce9b94-6015-4a47-aa86-cf76f7e8fdeb",
+   "ledger_scope": "wallet",
+   "notes": "Source leg of a float->withdrawable reclass: cash_out credits Float with Agents.",
+   "updated_at": "2026-08-19T12:08:11.116959+00:00",
+   "wallet_bucket": "float"
+  },
+  {
+   "account_code": "A2",
+   "category": "bucket_reclass_in",
+   "created_at": "2026-08-19T12:08:11.116959+00:00",
+   "debit_when": "cash_in",
+   "id": "6c811cb8-fc0f-42e6-b613-b9ef417691f2",
+   "ledger_scope": "wallet",
+   "notes": "Destination leg of a withdrawable->float reclass: debits Float with Agents.",
+   "updated_at": "2026-08-19T12:08:11.116959+00:00",
+   "wallet_bucket": "float"
+  },
+  {
+   "account_code": "X5",
+   "category": "merchant_oop_reimbursement",
+   "created_at": "2026-08-29T12:28:45.794022+00:00",
+   "debit_when": "cash_out",
+   "id": "b5116b3d-1e6f-4a40-8303-fb7f287012ba",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-08-29T12:28:45.794022+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "supporter_rent_fund",
+   "created_at": "2026-09-02T08:45:11.981764+00:00",
+   "debit_when": "cash_out",
+   "id": "749aa1d7-ceb0-4e17-8e35-768ccf8acc40",
+   "ledger_scope": "wallet",
+   "notes": "Partner self-support funding drawn from the partner balance. Reclassifies wallet custody (L1) into partner capital (L2) on the paired platform leg; no asset moves. Explicit row so resolution no longer depends on wallet_bucket, which is an operational funding-source tag.",
+   "updated_at": "2026-09-02T08:45:11.981764+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "partner_funding",
+   "created_at": "2026-09-02T08:45:11.981764+00:00",
+   "debit_when": "cash_out",
+   "id": "8987f13e-3244-4021-91d6-dac1d0df0712",
+   "ledger_scope": "wallet",
+   "notes": "Wallet-scope counterpart of partner funding and its reversal. Matches all historical partner_funding wallet legs. The platform-scope partner_funding to L2 mapping is unchanged.",
+   "updated_at": "2026-09-02T08:45:11.981764+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A7",
+   "category": "partner_receivable_created",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_in",
+   "id": "294f4415-1125-4df8-84c9-6aa4de190de7",
+   "ledger_scope": "bridge",
+   "notes": "Recognition of a promissory note receivable. Posted cash_in so it debits A7. Counterpart credits L2.",
+   "updated_at": "2026-09-03T09:36:24.832012+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L2",
+   "category": "partner_receivable_capital",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_in",
+   "id": "fd5d480d-bbe1-4040-81ff-5258204f01cc",
+   "ledger_scope": "platform",
+   "notes": "Counterpart to partner_receivable_created. Posted cash_out so it credits L2 Partner Portfolios - Capital Held.",
+   "updated_at": "2026-09-03T09:36:24.832012+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A6",
+   "category": "landlord_receivable_created",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_in",
+   "id": "a02cf9bf-9b4b-4979-865e-817708516299",
+   "ledger_scope": "bridge",
+   "notes": "Recognition of a Welile Homes subscription receivable. Posted cash_in so it debits A6. Counterpart credits L4.",
+   "updated_at": "2026-09-03T09:36:24.832012+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L4",
+   "category": "landlord_receivable_obligation",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_in",
+   "id": "d662d654-70b5-4d3d-a9be-df88096c391c",
+   "ledger_scope": "platform",
+   "notes": "Counterpart to landlord_receivable_created. Posted cash_out so it credits L4 Landlord Rent Payable.",
+   "updated_at": "2026-09-03T09:36:24.832012+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A6",
+   "category": "landlord_receivable_collected",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_out",
+   "id": "9686e9a4-0da4-4422-a1f2-af66c9c34ddd",
+   "ledger_scope": "platform",
+   "notes": "Settlement of a Welile Homes subscription. Posted cash_in (cash received) which, against debit_when cash_out, credits A6 and reduces the receivable. Replaces rent_repayment on this path, which credits A3 and does not hold this receivable.",
+   "updated_at": "2026-09-03T09:44:15.624403+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A7",
+   "category": "partner_receivable_collected",
+   "created_at": "2026-09-03T09:36:24.832012+00:00",
+   "debit_when": "cash_out",
+   "id": "c7949b23-5e0c-4119-91ba-ea2f2f3cb1e4",
+   "ledger_scope": "platform",
+   "notes": "Settlement of a promissory note. Posted cash_in (cash received) which, against debit_when cash_out, credits A7 and reduces the receivable. Matches the rent_repayment/agent_repayment convention. Must be used instead of partner_funding, which credits L2 and would double count.",
+   "updated_at": "2026-09-03T09:44:15.624403+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L7",
+   "category": "treasury_fee_recognised",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "a08e1ac9-6bc2-4cac-a8bc-96f6ca644ca7",
+   "ledger_scope": "platform",
+   "notes": "Registration/Access fee economics recognised into Platform Treasury. Post cash_out to CREDIT L7.",
+   "updated_at": "2026-09-07T20:50:50.260264+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L7",
+   "category": "treasury_allocated",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "e72187a4-37be-4075-aa3e-f4222cd18a31",
+   "ledger_scope": "platform",
+   "notes": "Treasury relieved as it is allocated to L3/L5/R1. Post cash_in to DEBIT L7.",
+   "updated_at": "2026-09-07T20:50:50.260264+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "fee_receivable_created",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "cf45cf64-dce7-4cec-bb88-bd2a9fbd9b4e",
+   "ledger_scope": "bridge",
+   "notes": "Tenant receivable for the fee components of total_repayment. Post cash_in to DEBIT A3.",
+   "updated_at": "2026-09-07T20:50:50.260264+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L3",
+   "category": "partner_reward_accrued",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "ce6b817d-f9a8-4bc7-9c16-613d65db805f",
+   "ledger_scope": "platform",
+   "notes": "Partner Reward obligation from Landlord Flow. Post cash_out to CREDIT L3. NOT POSTED until BD-2 resolves.",
+   "updated_at": "2026-09-07T20:50:50.260264+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L5",
+   "category": "agent_commission_accrued",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "cb2b348e-bcc9-4e03-9b4e-7797ad3b231d",
+   "ledger_scope": "platform",
+   "notes": "Agent Commission obligation from Landlord Flow. Post cash_out to CREDIT L5. NOT POSTED until the waterfall is approved.",
+   "updated_at": "2026-09-07T20:50:50.260264+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "treasury_net_revenue",
+   "created_at": "2026-09-07T20:50:50.260264+00:00",
+   "debit_when": "cash_in",
+   "id": "956a6c86-86a1-4fa6-b385-538b0b0db363",
+   "ledger_scope": "platform",
+   "notes": "Platform Net portion of Treasury. Post cash_out to CREDIT R1 (revenue); post cash_in to DEBIT R1 (contra-revenue pricing subsidy). Convention chosen so Treasury groups satisfy both the raw-direction and mapped DR/CR controls.",
+   "updated_at": "2026-09-07T21:26:47.055406+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "tenant_rent_settlement",
+   "created_at": "2026-09-08T11:57:51.013187+00:00",
+   "debit_when": "cash_out",
+   "id": "1fea6b76-b2c6-433b-a400-d37a0cd31031",
+   "ledger_scope": "wallet",
+   "notes": null,
+   "updated_at": "2026-09-08T11:57:51.013187+00:00",
+   "wallet_bucket": "withdrawable"
+  },
+  {
+   "account_code": "L5",
+   "category": "agent_commission_settled",
+   "created_at": "2026-09-08T11:57:51.013187+00:00",
+   "debit_when": "cash_out",
+   "id": "e106ce37-4221-4c1f-bca7-92d9f9e57109",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-08T11:57:51.013187+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L7",
+   "category": "treasury_fee_drawdown",
+   "created_at": "2026-09-09T14:55:14.392274+00:00",
+   "debit_when": "cash_out",
+   "id": "a51598ab-980a-40b1-958b-965687681fa2",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-09T14:55:14.392274+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "tenant_repayment_collected",
+   "created_at": "2026-09-10T04:22:11.114499+00:00",
+   "debit_when": "cash_in",
+   "id": "9279311d-9f87-48b1-81eb-447c4ac81d75",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-10T04:22:11.114499+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_assignment",
+   "created_at": "2026-09-03T11:16:15.411507+00:00",
+   "debit_when": "cash_in",
+   "id": "887b8560-4fcb-4c27-8ef9-5d1ddc5b8c6b",
+   "ledger_scope": "platform",
+   "notes": "Bank cash sent out to fund an agent float assignment. Mirrors platform.agent_float_deposit: the platform leg is posted cash_out, which against debit_when cash_in credits A1 and reduces bank cash, while the paired wallet float leg debits A2. Without this row the leg fell to the A9 suspense fallback. [2026-09-15 S2 correction] Float issuance/settlement is an amount due from agents, not bank cash: remapped from A1 to A8 Agent and Merchant Float Cycle Control.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_deposit",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "273041c5-c161-4218-a774-bfb0ef93c266",
+   "ledger_scope": "platform",
+   "notes": " [2026-09-15 S2 correction] Float issuance/settlement is an amount due from agents, not bank cash: remapped from A1 to A8 Agent and Merchant Float Cycle Control.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_funding",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "82978154-014c-419d-bb12-dea7b800a21e",
+   "ledger_scope": "platform",
+   "notes": " [2026-09-15 S2 correction] Float issuance/settlement is an amount due from agents, not bank cash: remapped from A1 to A8 Agent and Merchant Float Cycle Control.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_settlement",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "b5cdf625-3d5d-4ad5-bd96-1bb1697e037a",
+   "ledger_scope": "platform",
+   "notes": " [2026-09-15 S2 correction] Float issuance/settlement is an amount due from agents, not bank cash: remapped from A1 to A8 Agent and Merchant Float Cycle Control.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_topup",
+   "created_at": "2026-08-15T10:27:16.568255+00:00",
+   "debit_when": "cash_in",
+   "id": "71d6d8a8-8d47-425e-9286-797d3816a4af",
+   "ledger_scope": "platform",
+   "notes": " [2026-09-15 S2 correction] Float issuance/settlement is an amount due from agents, not bank cash: remapped from A1 to A8 Agent and Merchant Float Cycle Control.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "bucket_reclass_in",
+   "created_at": "2026-08-19T12:08:11.116959+00:00",
+   "debit_when": "cash_in",
+   "id": "7a1b75bc-ce8b-405d-9d20-444e1432a878",
+   "ledger_scope": "wallet",
+   "notes": "Destination leg of a float->withdrawable reclass: debits Wallet Custody Payable so the pair nets to zero.",
+   "updated_at": "2026-09-24T07:18:59.109391+00:00",
+   "wallet_bucket": "withdrawable"
+  },
+  {
+   "account_code": "L1",
+   "category": "bucket_reclass_out",
+   "created_at": "2026-08-19T12:08:11.116959+00:00",
+   "debit_when": "cash_in",
+   "id": "998a6471-6dd9-4956-9dcf-84830a0d0c0f",
+   "ledger_scope": "wallet",
+   "notes": "Source leg of a withdrawable->float reclass: cash_out credits Wallet Custody Payable.",
+   "updated_at": "2026-09-24T07:18:59.109391+00:00",
+   "wallet_bucket": "withdrawable"
+  },
+  {
+   "account_code": "A1",
+   "category": "verified_bank_cash_recognised",
+   "created_at": "2026-09-15T19:25:15.258249+00:00",
+   "debit_when": "cash_in",
+   "id": "a82c491c-cd6c-4632-aa20-e93c8e51dcd5",
+   "ledger_scope": "platform",
+   "notes": "Recognition of independently verified banked cash for a verified banking declaration. Debits A1 Cash and Bank.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "agent_float_cycle_settled_to_bank",
+   "created_at": "2026-09-15T19:25:15.258249+00:00",
+   "debit_when": "cash_in",
+   "id": "857269fb-14c3-48b9-b424-96c837b65e27",
+   "ledger_scope": "platform",
+   "notes": "Counterpart of verified_bank_cash_recognised: float-backed cash banked, so the agent float cycle control account is credited.",
+   "updated_at": "2026-09-15T19:25:15.258249+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "e505479c-a450-4313-92d6-d1d1f4299d78",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Agent Advances receivable to the agent advance's own outstanding balance.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A11",
+   "category": "agent_access_fee_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "84ae4e74-263e-41fb-be81-207ade3a41b4",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Agent Advance Access Fees receivable to the uncollected access fee.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A12",
+   "category": "merchandise_recovery_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "2b3d67dd-9733-41b4-a24f-289995fc6b73",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Merchandise and Smartphone Recovery receivable to the recovery plan's outstanding balance.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A13",
+   "category": "bike_recovery_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "2cac5164-e19e-4968-a22f-0c4528d33be0",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Bike Recovery receivable to the recovery plan's outstanding balance.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A14",
+   "category": "credit_draw_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "b8186922-bfef-4ebd-916f-9209785c3559",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Credit Access Draws receivable to the draw's outstanding balance.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A15",
+   "category": "merchandise_credit_sale_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "67ef3628-78ba-4215-a3c4-6c8de9e886d2",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Merchandise Credit Sales receivable to the sale's outstanding amount.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A16",
+   "category": "service_centre_advance_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "05f6b31d-9aa6-4340-b8e8-dc2ab564f89b",
+   "ledger_scope": "bridge",
+   "notes": "Recognition path for Service Centre Advances. Nil until an advance exists.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A17",
+   "category": "service_centre_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "731f136f-7a06-4bc3-9744-375a342681b5",
+   "ledger_scope": "bridge",
+   "notes": "Recognition path for Service Centre Receivables. Nil until a receivable exists.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A18",
+   "category": "tenant_service_charge_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "1061dd1f-7b7e-4e47-bfeb-41e9b4a477a4",
+   "ledger_scope": "bridge",
+   "notes": "Recognition of Tenant Service Charge receivables from subscription_charges.accumulated_debt.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A19",
+   "category": "business_advance_receivable_opening",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "b49e7663-8700-47de-aa9d-ce4c258d11da",
+   "ledger_scope": "bridge",
+   "notes": "Recognition path for Business Advances. Nil until an advance is disbursed.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A3",
+   "category": "rent_plan_receivable_restatement",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "d36849be-4bf2-4973-a07d-f2a5a5501bf5",
+   "ledger_scope": "bridge",
+   "notes": "Restatement of the Rent Access Plans receivable to the plan's own outstanding balance.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "E3",
+   "category": "receivable_restatement_equity",
+   "created_at": "2026-09-22T19:46:55.862354+00:00",
+   "debit_when": "cash_in",
+   "id": "28b2d871-625d-4cf7-8e60-2246f2e06600",
+   "ledger_scope": "platform",
+   "notes": "Opening-balance counterpart of a receivable restatement. cash_out credits E3 when a receivable is raised; cash_in debits E3 when a receivable is removed.",
+   "updated_at": "2026-09-22T19:46:55.862354+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_repayment",
+   "created_at": "2026-09-23T08:52:43.556523+00:00",
+   "debit_when": "cash_out",
+   "id": "446d7a00-ecc2-41b9-9206-63e9e1a34023",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-23T08:52:43.556523+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A12",
+   "category": "merchandise_recovery_repayment",
+   "created_at": "2026-09-23T08:52:43.556523+00:00",
+   "debit_when": "cash_out",
+   "id": "0614755a-9d05-43cd-a2e7-4b341ab8385a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-23T08:52:43.556523+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A13",
+   "category": "bike_recovery_repayment",
+   "created_at": "2026-09-23T08:52:43.556523+00:00",
+   "debit_when": "cash_out",
+   "id": "754e8f98-39e8-4b59-9fda-c590926d264a",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-23T08:52:43.556523+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A14",
+   "category": "credit_draw_repayment",
+   "created_at": "2026-09-23T08:52:43.556523+00:00",
+   "debit_when": "cash_out",
+   "id": "15919b68-b51f-4ea5-b924-2dfb1bb1a327",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-23T08:52:43.556523+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A12",
+   "category": "smartphone_advance_receivable",
+   "created_at": "2026-09-23T08:52:43.556523+00:00",
+   "debit_when": "cash_out",
+   "id": "708cfd2c-53a2-404c-8d56-70799380036b",
+   "ledger_scope": "platform",
+   "notes": null,
+   "updated_at": "2026-09-23T08:52:43.556523+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "partner_funding",
+   "created_at": "2026-09-23T11:16:01.846778+00:00",
+   "debit_when": "cash_out",
+   "id": "b9658591-5c93-4b4d-912d-ab1b89f0e1f0",
+   "ledger_scope": "wallet",
+   "notes": "Accounting-only correction 2026-09-24: float-bucket partner_funding wallet leg is a transfer out of partner custody (Dr L1 on cash_out), not company cash. Previously A2.",
+   "updated_at": "2026-09-24T08:15:57.13622+00:00",
+   "wallet_bucket": "float"
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_repayment_external",
+   "created_at": "2026-09-25T12:37:39.105777+00:00",
+   "debit_when": "cash_in",
+   "id": "02e039c1-381c-44e2-af49-2cff47a065d1",
+   "ledger_scope": "platform",
+   "notes": "Credit side of an agent advance repayment received OUTSIDE the wallet (mobile money, bank transfer, cash). Pairs with a cash_in debit leg to A1 (agent_advance_receipt_bank) or A5 (cash_receipt_in_transit). debit_when = cash_in so the cash_out leg resolves as a CREDIT to A10, which keeps total cash_in = total cash_out inside create_ledger_transaction. Reserved for cfo_record_advance_payment. Added Phase 0 (2026-09-25).",
+   "updated_at": "2026-09-25T12:37:39.105777+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "agent_advance_receipt_bank",
+   "created_at": "2026-09-25T12:37:39.105777+00:00",
+   "debit_when": "cash_in",
+   "id": "3ff857cf-6da2-4aab-b170-4b152f7da8db",
+   "ledger_scope": "platform",
+   "notes": "Debit side of an agent advance repayment received by mobile money or bank transfer. DELIBERATELY SEPARATE from verified_bank_cash_recognised, which is reserved for float-backed cash verified as banked, pairs with A8 agent_float_cycle_settled_to_bank and writes bank_cash_recognition_log. Also separate from treasury_bank_deposit and every wallet/deposit category. Pairs with agent_advance_repayment_external (CR A10). Reserved for cfo_record_advance_payment. Added Phase 0 (2026-09-25).",
+   "updated_at": "2026-09-25T12:37:39.105777+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_disbursement",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "6832d162-afc7-43b3-bcc1-d2f9d3c5ce63",
+   "ledger_scope": "platform",
+   "notes": "Agent Advance principal advanced. Replaces the rent_disbursement + source_table exception; posted cash_out to debit A10.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A11",
+   "category": "agent_advance_access_fee_charged",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "979ff074-223c-440e-a7e3-70924d934625",
+   "ledger_scope": "platform",
+   "notes": "Access fee charged at origination or on a top-up/re-term increase. Debits A11.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A20",
+   "category": "agent_advance_registration_fee_charged",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "0e7551e3-6bcf-49b9-86c9-ee56c15943ed",
+   "ledger_scope": "platform",
+   "notes": "Flat registration fee charged at origination. Debits A20.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_penalty_accrued",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "45f65691-ec03-415d-bcf5-253a40c55231",
+   "ledger_scope": "platform",
+   "notes": "Overdue penalty capitalised into the advance balance. Debits A10; the counterpart is L8, not revenue.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L8",
+   "category": "agent_advance_penalty_unearned",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "065d88fc-8a9c-4cd2-b2ff-5803f5d9f834",
+   "ledger_scope": "platform",
+   "notes": "Unearned penalty income. Credited on accrual, debited on collection or write-off. Produces no P&L until collected.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A11",
+   "category": "agent_advance_access_fee_collected",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "d0384f1b-4b17-4fa8-872f-d39d930a526f",
+   "ledger_scope": "platform",
+   "notes": "Access-fee share of a repayment. Posted cash_in to credit A11.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A20",
+   "category": "agent_advance_registration_fee_collected",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "ad49a9e5-96d4-46c7-9c8f-3b261072dbbf",
+   "ledger_scope": "platform",
+   "notes": "Registration-fee share of a repayment. Posted cash_in to credit A20. Distinct from registration_fee_collected, which maps to R1.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_written_off",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "8042583e-2bd1-4f23-ad59-0cd24bda2bfc",
+   "ledger_scope": "platform",
+   "notes": "Principal and capitalised penalty de-recognised on write-off. Credits A10 against X4; the penalty portion is offset by a DR to L8, so it carries no P&L.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A11",
+   "category": "agent_advance_access_fee_written_off",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "6f234295-4aea-4d08-b2f9-ed4dec70fdaf",
+   "ledger_scope": "platform",
+   "notes": "Access-fee receivable de-recognised on write-off or reversal. Credits A11.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A20",
+   "category": "agent_advance_registration_fee_written_off",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "aa142fda-7daa-4f4d-b97a-69721bc4e2e9",
+   "ledger_scope": "platform",
+   "notes": "Registration-fee receivable de-recognised on write-off or reversal. Credits A20.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_reversed",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "63098ad6-38d3-465a-aac9-2d42953fdc75",
+   "ledger_scope": "platform",
+   "notes": "Principal de-recognised when an advance is reversed and the clawback has actually settled. Credits A10.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "agent_advance_clawback",
+   "created_at": "2026-09-26T08:13:20.30088+00:00",
+   "debit_when": "cash_out",
+   "id": "245a7fcd-08ef-4b8f-a3f7-50c0a50a9d92",
+   "ledger_scope": "wallet",
+   "notes": "Wallet side of an advance clawback: debits customer custody payable. Amount and bucket are unchanged from the executed movement.",
+   "updated_at": "2026-09-26T08:13:20.30088+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A8",
+   "category": "merchant_float_correction_writedown",
+   "created_at": "2026-09-26T11:22:48.629631+00:00",
+   "debit_when": "cash_in",
+   "id": "fb26e80a-9c17-4ef3-bcf4-4a2cd050aad7",
+   "ledger_scope": "platform",
+   "notes": "Merchant float return / write-down: mirror of agent_float_deposit platform leg (CR A8). Was unmapped -> A9 suspense until 2026-09-26.",
+   "updated_at": "2026-09-26T11:22:48.629631+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R2",
+   "category": "agent_advance_fee_revenue",
+   "created_at": "2026-09-27T11:01:08.541435+00:00",
+   "debit_when": "cash_out",
+   "id": "dc9729e7-aed9-4326-87f6-a67ea0ae39bc",
+   "ledger_scope": "platform",
+   "notes": "Agent Advance access fee income, recognised in full at origination or top-up. Posted cash_in so it credits R2. CFO decision 2026-09-27: a dedicated account, not R1, so agent lending margin is visible separately from tenant rent-plan fees.",
+   "updated_at": "2026-09-27T11:01:08.541435+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R3",
+   "category": "agent_advance_late_fee_income",
+   "created_at": "2026-09-27T14:14:51.686208+00:00",
+   "debit_when": "cash_out",
+   "id": "03cb77c9-1583-4d45-98cc-f2f70355fa12",
+   "ledger_scope": "platform",
+   "notes": "Agent Advance Late Fee income, recognised only on collection by releasing L8. Posted cash_in so it credits R3. CFO decision 2026-09-27: a dedicated account, separate from R2 origination fee income, because Late Fee is default income earned on collection rather than at grant.",
+   "updated_at": "2026-09-27T14:14:51.686208+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A11",
+   "category": "agent_advance_access_fee_collected_external",
+   "created_at": "2026-09-27T14:22:40.333865+00:00",
+   "debit_when": "cash_in",
+   "id": "78de3da1-f4a6-4c20-bb05-3ee3f310d1db",
+   "ledger_scope": "platform",
+   "notes": "Access-fee share of an EXTERNALLY funded repayment (CFO cash/bank receipt). Posted cash_out so it credits A11, mirroring agent_advance_access_fee_collected on the wallet route. Inert until the external receipt branch is revived.",
+   "updated_at": "2026-09-27T14:22:40.333865+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A20",
+   "category": "agent_advance_registration_fee_collected_external",
+   "created_at": "2026-09-27T14:22:40.333865+00:00",
+   "debit_when": "cash_in",
+   "id": "4e49da5b-7b81-41ff-9a3f-04baf238f582",
+   "ledger_scope": "platform",
+   "notes": "Registration-fee share of an EXTERNALLY funded repayment. Posted cash_out so it credits A20. Inert until the external receipt branch is revived.",
+   "updated_at": "2026-09-27T14:22:40.333865+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A10",
+   "category": "agent_advance_penalty_accrued_external",
+   "created_at": "2026-09-27T14:22:40.333865+00:00",
+   "debit_when": "cash_in",
+   "id": "40a4490a-b287-4ca9-8c85-231cfb79d04c",
+   "ledger_scope": "platform",
+   "notes": "Late-fee de-recognition on an EXTERNALLY funded repayment: credits A10 for the capitalised late fee being settled. Posted cash_out. The matching L8 release and R3 income legs need no external variant. Inert until the external receipt branch is revived.",
+   "updated_at": "2026-09-27T14:22:40.333865+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "platform_fee_collected",
+   "created_at": "2026-09-29T10:05:44.011919+00:00",
+   "debit_when": "cash_out",
+   "id": "efd99b16-cc41-485e-a8c5-49e2bf334c33",
+   "ledger_scope": "platform",
+   "notes": "Four-part waterfall Platform Fee (residual). Post cash_in to CREDIT R1.",
+   "updated_at": "2026-09-29T10:05:44.011919+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L7",
+   "category": "partner_returns_allocated",
+   "created_at": "2026-09-29T10:05:44.011919+00:00",
+   "debit_when": "cash_out",
+   "id": "3917b116-6143-4b03-9c96-d6a0270c2092",
+   "ledger_scope": "platform",
+   "notes": "Four-part waterfall Partner Returns share of collected fees. Accounting allocation HELD in L7 (Platform Treasury holding). NOT revenue, NOT the L3 obligation (BD-2 unresolved), NOT a payment. Supporter Returns remain paid and expensed by the monthly returns engine. Post cash_in to CREDIT L7.",
+   "updated_at": "2026-09-29T10:05:44.011919+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_reserve_self_support",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "32488eb2-e5bd-41d8-8d7a-4cb736c6e093",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: self-support principal reserved on portfolio approval.",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_reserve_company_managed",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "569af648-884c-4170-8ea4-c018404d0d39",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: company-managed principal reserved on portfolio approval.",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "landlord_pool_reserve_source",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "687dc856-5c40-44bb-85b0-dc6368ae2608",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: free treasury cash leaving A1 into the pool (posted cash_out = CR A1).",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_return_self_support",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "4bc9a91f-7da8-45b5-911c-1c6da6979cc6",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: principal part of a tenant repayment returned to the self-support pool.",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_return_company_managed",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "6e825592-1d8c-4349-a157-01aed539c051",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: principal part of a tenant repayment returned to the company-managed pool.",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A5",
+   "category": "landlord_pool_return_source",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "95a158ce-8988-4d9a-b2dc-fb5c87f4dcb2",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: collected principal leaving cash in transit into the pool (posted cash_out = CR A5).",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_release_self_support",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "54c30c3e-49c4-4247-8322-f64a24c2dccf",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: undeployed self-support money released on maturity/redemption (posted cash_out = CR A21).",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_release_company_managed",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "092b38ed-e736-4340-abdb-1228db2cad66",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: undeployed company-managed money released on maturity/redemption (posted cash_out = CR A22).",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "landlord_pool_release_target",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "7466c2fb-031d-419c-a3a1-52ae278d5347",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: released money returning to free treasury cash (DR A1).",
+   "updated_at": "2026-09-29T13:04:44.514529+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "landlord_pool_deploy_target",
+   "created_at": "2026-09-29T13:28:06.814082+00:00",
+   "debit_when": "cash_in",
+   "id": "cb0360d8-fb86-438f-91a5-a723b9f45289",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: pool money drawn back into treasury to fund a tenant (DR A1); pairs with landlord_pool_deploy_<origin> CR A21/A22. Sits beside the unchanged rent_disbursement group.",
+   "updated_at": "2026-09-29T13:28:06.814082+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_deploy_self_support",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "d06be31a-30d4-45aa-b558-b9bf2efda8cb",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: self-support money drawn to fund a tenant (posted cash_out = CR A21); pairs with landlord_pool_deploy_target DR A1.",
+   "updated_at": "2026-09-29T13:28:06.814082+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_deploy_company_managed",
+   "created_at": "2026-09-29T13:04:44.514529+00:00",
+   "debit_when": "cash_in",
+   "id": "00e7daa3-caf7-4574-930a-e706fd21782a",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: company-managed money drawn to fund a tenant (posted cash_out = CR A22); pairs with landlord_pool_deploy_target DR A1.",
+   "updated_at": "2026-09-29T13:28:06.814082+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_topup_self_support",
+   "created_at": "2026-09-29T15:15:53.113662+00:00",
+   "debit_when": "cash_in",
+   "id": "7cf45919-0828-43bb-ad4d-3eab0caf09c0",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: a self-support top-up reserved into the pool (pairs with landlord_pool_reserve_source CR A1).",
+   "updated_at": "2026-09-29T15:15:53.113662+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_topup_company_managed",
+   "created_at": "2026-09-29T15:15:53.113662+00:00",
+   "debit_when": "cash_in",
+   "id": "97473b18-6750-4fd3-bb6d-ff32b1b42f7a",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: a company-managed top-up reserved into the pool (pairs with landlord_pool_reserve_source CR A1).",
+   "updated_at": "2026-09-29T15:15:53.113662+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A21",
+   "category": "landlord_pool_compound_self_support",
+   "created_at": "2026-09-29T15:15:53.113662+00:00",
+   "debit_when": "cash_in",
+   "id": "9cf6a7a8-a7fc-4d50-816b-28f610bc4646",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: compounded Returns on a self-support portfolio reserved into the pool (pairs with landlord_pool_reserve_source CR A1).",
+   "updated_at": "2026-09-29T15:15:53.113662+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A22",
+   "category": "landlord_pool_compound_company_managed",
+   "created_at": "2026-09-29T15:15:53.113662+00:00",
+   "debit_when": "cash_in",
+   "id": "25454275-17ab-4e52-9f08-8dc1e059f8ee",
+   "ledger_scope": "platform",
+   "notes": "Landlord Float Pool: compounded Returns on a company-managed portfolio reserved into the pool (pairs with landlord_pool_reserve_source CR A1).",
+   "updated_at": "2026-09-29T15:15:53.113662+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "special_advance_credit",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_out",
+   "id": "669fe96a-1bf1-4875-9e66-d03f61061eaf",
+   "ledger_scope": "wallet",
+   "notes": "Special Advance paid out to a Welile borrower's withdrawable wallet (owed to them)",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": "withdrawable"
+  },
+  {
+   "account_code": "A24",
+   "category": "special_advance_receivable",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_out",
+   "id": "f69e3a4b-87f6-4bae-90ce-f6b43815f002",
+   "ledger_scope": "platform",
+   "notes": "Special Advance receivable: principal at payout, plus access and registration fees recognised at payout",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "special_advance_payout_cash",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_out",
+   "id": "ff76443c-7167-4dd4-9bba-e9fc1a0bdc89",
+   "ledger_scope": "platform",
+   "notes": "Special Advance paid out off-platform to an external borrower (company cash leaves)",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "special_advance_fee_revenue",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_out",
+   "id": "88a8f14b-601e-4b77-af7e-861e65da358f",
+   "ledger_scope": "platform",
+   "notes": "Special Advance access / registration fee recognised at payout",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "special_advance_repayment_received",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_in",
+   "id": "d13f269b-0498-4552-be11-05f10676d3be",
+   "ledger_scope": "platform",
+   "notes": "Special Advance repayment received into company cash (recorded by the CFO)",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A24",
+   "category": "special_advance_repayment",
+   "created_at": "2026-11-02T10:56:33.439473+00:00",
+   "debit_when": "cash_in",
+   "id": "abb663f0-2de2-4164-8774-64d5deb4f3ce",
+   "ledger_scope": "platform",
+   "notes": "Special Advance repayment reduces the receivable",
+   "updated_at": "2026-11-02T10:56:33.439473+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X4",
+   "category": "special_advance_impairment_charge",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_out",
+   "id": "ad1d91d0-77ce-4f9a-9a84-dedd99bbb42d",
+   "ledger_scope": "platform",
+   "notes": "Special Advance impairment: raise (DR X4) or release (CR X4)",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A25",
+   "category": "special_advance_impairment_allowance",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_out",
+   "id": "9527dede-d6c7-4c24-aa82-8fe36c4a7eee",
+   "ledger_scope": "platform",
+   "notes": "Special Advance impairment allowance (contra A24): raise CR, release / use DR",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A24",
+   "category": "special_advance_write_off",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_out",
+   "id": "fe01bd8b-697a-4082-b9f4-924c3236a73b",
+   "ledger_scope": "platform",
+   "notes": "Special Advance written off: the gross receivable leaves A24 (CR)",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X4",
+   "category": "special_advance_write_off_loss",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_out",
+   "id": "7dabfb51-1d3a-49df-a3ed-8730362d2b52",
+   "ledger_scope": "platform",
+   "notes": "Special Advance write-off not covered by the allowance (DR X4)",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "A1",
+   "category": "special_advance_recovery_received",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_in",
+   "id": "ded28542-3ba4-4ef9-a5d9-ef055ff83940",
+   "ledger_scope": "platform",
+   "notes": "Money recovered on a written-off Special Advance into company cash (DR A1)",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "X4",
+   "category": "special_advance_recovery_income",
+   "created_at": "2026-11-03T04:31:51.043896+00:00",
+   "debit_when": "cash_in",
+   "id": "cdc5ed63-c9da-47c0-879a-56349cda0606",
+   "ledger_scope": "platform",
+   "notes": "Recovery after write-off reduces credit losses (CR X4)",
+   "updated_at": "2026-11-03T04:31:51.043896+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "merchandise_revenue",
+   "created_at": "2026-11-04T09:01:42.607217+00:00",
+   "debit_when": "cash_out",
+   "id": "61593b1e-ac1a-4ac4-bea0-f0e37eeef75d",
+   "ledger_scope": "platform",
+   "notes": "2026-11-04 (CFO): merchandise sales revenue (company stock sold on credit or for cash)",
+   "updated_at": "2026-11-04T09:01:42.607217+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "L1",
+   "category": "merchandise_advance_memo_offset",
+   "created_at": "2026-11-04T09:01:42.607217+00:00",
+   "debit_when": "cash_out",
+   "id": "bb945503-033c-4d3c-bfee-f0fce7eb9725",
+   "ledger_scope": "platform",
+   "notes": "2026-11-04 (CFO): offsets the advance shown on an agent's wallet (advance_credit) for goods the company paid for; not money owed to the agent",
+   "updated_at": "2026-11-04T09:01:42.607217+00:00",
+   "wallet_bucket": null
+  },
+  {
+   "account_code": "R1",
+   "category": "merchandise_payment_retained",
+   "created_at": "2026-11-04T09:01:42.607217+00:00",
+   "debit_when": "cash_in",
+   "id": "54c7d59c-617b-49bb-b4f2-1f324e2ba408",
+   "ledger_scope": "platform",
+   "notes": "2026-11-04 (CFO policy): customer payments retained when a motorcycle plan is rejected (no refund). Post cash_out to CREDIT R1.",
+   "updated_at": "2026-11-04T09:01:42.607217+00:00",
+   "wallet_bucket": null
+  }
+ ],
+ "md5": {
+  "advance_period_days(text)": "bd39be9991293be8adbeb2174bdcabcc",
+  "agent_advance_allocation_entries(uuid,uuid,numeric,timestamp with time zone,boolean)": "b18c2e742b972d6f57ac27052ebe1792",
+  "apply_advance_topup(uuid,numeric,integer,uuid,text,boolean)": "3c2cbb35c83e349a9e638c6cb5f2e02b",
+  "cancel_agent_advance(uuid,boolean,text)": "68e98c8d9dcd62502b282be426f3cced",
+  "cfo_create_advance(uuid,numeric,integer,numeric,text,text,boolean,text)": "0326c099ba6448dc47b1cfa73a1337dc",
+  "cfo_record_advance_payment(uuid,numeric,text,text,text)": "d74a4d69afdb91681e2b6f00e79fb8c5",
+  "disburse_agent_advance_request(uuid,numeric,integer,numeric,text,text,text,text,numeric)": "9b660f07ecba3741d8616c3005dfa70a",
+  "get_cfo_paid_by_category_page(date,date,text,text,integer,integer)": "bec8062bea85a6cf4453dbd29b94cc5c",
+  "get_cfo_paid_by_category_totals(date,date)": "42525180ea3dbc9ea67d0dce4df75c33",
+  "ledger_category_allowlist()": "0cf8f4c90c5fc99832b276f8615a3423"
+ }
+}

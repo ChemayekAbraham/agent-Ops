@@ -3,7 +3,7 @@
  *
  * Server functions (applied 2026-11-02; source docs/pending-migrations/welile_homes_float_link.sql):
  *   wh_request_float       agent requests float for specific subscriptions (links stored)
- *   wh_float_advance       Agent Ops / Tenant Ops / COO approve, reject or return
+ *   wh_float_advance       Agent Ops / Tenant Ops / Landlord Ops / COO approve; any stage returns or rejects
  *   wh_cfo_disburse_float  CFO: credit + ledger + status in one transaction (no fallback here)
  *
  * These are the only paths. There is no direct-write fallback: the database refuses any other
@@ -63,4 +63,77 @@ export async function requestWelileHomesFloat(args: {
     amount: Number(data?.amount ?? 0),
     tenantCount: Number(data?.tenant_count ?? ids.length),
   };
+}
+
+/**
+ * Stage chain (server-enforced in wh_float_advance):
+ * pending → Agent Ops → agent_ops_approved → Tenant Ops → tenant_ops_approved → Landlord Ops →
+ * landlord_ops_approved → COO → coo_approved → CFO disburses (wh_cfo_disburse_float).
+ * Any stage may return to the agent (returned_to_agent) or reject, each with a reason.
+ */
+export const WH_FLOAT_STAGES = [
+  { key: 'agent', label: 'Agent', status: null as string | null },
+  { key: 'agent_ops', label: 'Agent Ops', status: 'pending' },
+  { key: 'tenant_ops', label: 'Tenant Ops', status: 'agent_ops_approved' },
+  { key: 'landlord_ops', label: 'Landlord Ops', status: 'tenant_ops_approved' },
+  { key: 'coo', label: 'COO', status: 'landlord_ops_approved' },
+  { key: 'cfo', label: 'CFO', status: 'coo_approved' },
+] as const;
+
+/** Which desk must act on a request in this status, or null when nobody needs to. */
+export function whStageForStatus(status?: string | null): string | null {
+  return WH_FLOAT_STAGES.find((s) => s.status === status)?.key ?? null;
+}
+
+export function whStatusLabel(status?: string | null): string {
+  switch (status) {
+    case 'pending': return 'Pending – awaiting Agent Ops review';
+    case 'agent_ops_approved': return 'Awaiting Tenant Ops review';
+    case 'tenant_ops_approved': return 'Awaiting Landlord Ops review';
+    case 'landlord_ops_approved': return 'Awaiting COO approval';
+    case 'coo_approved': return 'Awaiting CFO disbursement';
+    case 'approved': case 'funded': case 'disbursed': return 'Disbursed by CFO';
+    case 'returned_to_agent': return 'Returned to agent';
+    case 'rejected': return 'Rejected';
+    default: return status || 'Unknown';
+  }
+}
+
+export interface WhFloatEvent {
+  float_request_id: string;
+  from_status: string | null;
+  to_status: string;
+  action: 'submitted' | 'approved' | 'returned' | 'rejected' | 'disbursed' | string;
+  stage: string | null;
+  actor_id: string | null;
+  actor_name: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export async function fetchWhFloatHistory(requestIds: string[]): Promise<Map<string, WhFloatEvent[]>> {
+  const out = new Map<string, WhFloatEvent[]>();
+  const ids = Array.from(new Set(requestIds.filter(Boolean)));
+  if (ids.length === 0) return out;
+  const { data, error } = await (supabase.rpc as any)('wh_float_request_history', { p_request_ids: ids });
+  if (error) throw new Error(error.message);
+  for (const e of (data ?? []) as WhFloatEvent[]) {
+    const list = out.get(e.float_request_id) ?? [];
+    list.push(e);
+    out.set(e.float_request_id, list);
+  }
+  return out;
+}
+
+export interface WhReviewRow {
+  id: string; agent_id: string; agent_name: string | null; agent_phone: string | null;
+  requested_amount: number; reason: string | null; expected_recipient_phone: string | null;
+  status: string; rejection_reason: string | null; created_at: string; updated_at: string | null;
+  tenant_count: number;
+}
+
+export async function fetchWhReviewQueue(): Promise<WhReviewRow[]> {
+  const { data, error } = await (supabase.rpc as any)('wh_float_review_queue', { p_limit: 300 });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as WhReviewRow[];
 }

@@ -13,6 +13,7 @@ import { AgentOpsLiveStatsCard } from './AgentOpsLiveStatsCard';
 import { FunderEngagementPanel } from './FunderEngagementPanel';
 import { FunderFunnelPanel } from './FunderFunnelPanel';
 import { CeoSalaryAdvanceApprovals } from './CeoSalaryAdvanceApprovals';
+import { AdvanceWriteOffApprovals } from '@/components/cfo/AdvanceWriteOffApprovals';
 import { CEOGrowthQuality } from './CEOGrowthQuality';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
@@ -183,6 +184,9 @@ export function CEODashboard() {
 
       {/* Salary advances waiting on the CEO stage */}
       <CeoSalaryAdvanceApprovals />
+
+      {/* Agent advance write-offs waiting for a second person (shown only when one is waiting) */}
+      <AdvanceWriteOffApprovals hideWhenEmpty />
 
       {/* Mission scoreboard — Trust Coverage */}
       <TrustCoverageSection />

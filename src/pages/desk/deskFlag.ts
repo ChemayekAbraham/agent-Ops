@@ -18,11 +18,11 @@
  *   2. The variable is unset (today) → the host decides:
  *        on   localhost / 127.0.0.1 / *.local               (development)
  *        on   *.lovableproject.com, id-preview--*, preview--* (Lovable preview)
- *        off  welileapp.com and www.welileapp.com            (production)
+ *        on   welileapp.com and www.welileapp.com            (production —
+ *             each desk can then be switched off on its own, see deskLive.ts)
  *        off  *.lovable.app published, and any host not named above
  *
- * Unknown hosts fail closed, so production can only ever turn on by someone
- * deliberately setting the variable. Host detection matches `isPreviewHost` in
+ * Unknown hosts fail closed. Host detection matches `isPreviewHost` in
  * `src/hooks/auth/authOperations.ts` and `detectEnv` in `EnvironmentBanner`.
  */
 
@@ -43,14 +43,30 @@ export function isCheckListHost(hostname: string): boolean {
   return local || preview;
 }
 
+/** welileapp.com and www.welileapp.com. Per-desk switches (deskLive.ts) now decide there. */
+export function isProductionHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === 'welileapp.com' || host === 'www.welileapp.com';
+}
+
+/** True only when VITE_DESK_CHECKLIST explicitly says false/0/off — the kill switch for every desk. */
+export function deskChecklistForcedOff(): boolean {
+  return envOverride() === false;
+}
+
 /**
  * Read at call time, never cached at import, so a prerender or a test can run
  * without a window. No window means no host to trust: off.
+ *
+ * Since the per-desk live switches (deskLive.ts), production is on by default:
+ * welileapp.com returns true unless VITE_DESK_CHECKLIST says false. Each desk is
+ * then turned off on its own with a `desk_live:<desk>` row in pipeline_switches.
+ * Unknown hosts still fail closed.
  */
 export function deskChecklistOn(hostname?: string): boolean {
   const override = envOverride();
   if (override !== undefined) return override;
   const host = hostname ?? (typeof window === 'undefined' ? '' : window.location.hostname);
   if (!host) return false;
-  return isCheckListHost(host);
+  return isCheckListHost(host) || isProductionHost(host);
 }

@@ -1,0 +1,38 @@
+{
+  "status": "not_run",
+  "date_kampala": "2026-11-04",
+  "recorded_at": "2026-11-04T12:57:12.391Z",
+  "reason": "Dedicated test staff account credentials (ZOE_EVAL_TEST_ACCOUNTS_JSON, SUPABASE_URL, SUPABASE_ANON_KEY) were not provided in the environment, and the 7 [ZOE_TEST] accounts (zoe.eval.employee@welile.com .. zoe.eval.hr@welile.com) do not exist in public.profiles yet. Per Prompt 2 rule (1), agents must never create staff accounts themselves, never fabricate results, and never re-pin staff_assistant_config until this runner produces a real, dated, non-'not_run' summary.json.",
+  "instructions_doc": "docs/zoe/test-accounts.md",
+  "candidate_models_to_evaluate": [
+    "google/gemini-3.8-flash",
+    "google/gemini-2.5-flash-lite",
+    "google/gemini-3-pro-preview"
+  ],
+  "live_model_drift_snapshot": {
+    "source": "staff_assistant_check_model_drift",
+    "drift_detected": true,
+    "checked_count": 8,
+    "mismatched_count": 8,
+    "configured_model_fast": "google/gemini-2.5-flash",
+    "configured_model_deep": "google/gemini-2.5-pro",
+    "dominant_gateway_model": "google/gemini-3.8-flash",
+    "warning_message": "Model drift detected: 8 of the last 8 Zoe replies were answered by google/gemini-3.8-flash, which does not match staff_assistant_config (model_fast: google/gemini-2.5-flash, model_deep: google/gemini-2.5-pro)."
+  },
+  "planned_question_counts": {
+    "general": 40,
+    "staff_record": 40,
+    "advice_research": 20,
+    "safety": 20,
+    "total_core": 120
+  },
+  "metrics": {
+    "raw_errors_general": "not run",
+    "raw_errors_staff_record": "not run",
+    "figure_mismatches": "not run",
+    "wrong_question_replies": "not run",
+    "safety_leaks": "not run",
+    "median_ttfb_ms": "not run",
+    "p95_ttfb_ms": "not run"
+  }
+}

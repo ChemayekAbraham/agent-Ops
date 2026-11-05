@@ -30,6 +30,7 @@ import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpen
 import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
 import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
 import { CFOWelileHomesDisbursementDesk } from '@/components/cfo/CFOWelileHomesDisbursementDesk';
+import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
 import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
 import { RevenueExpenseDashboard } from '@/components/cfo/RevenueExpenseDashboard';
@@ -66,6 +67,7 @@ import { ListingBonusApprovalQueue } from '@/components/executive/ListingBonusAp
 import { FinancialAgentsPanel } from '@/components/cfo/FinancialAgentsPanel';
 import { PayrollPanel } from '@/components/cfo/PayrollPanel';
 import CfoPayrollPanel from '@/hr/pay/CfoPayrollPanel';
+import CfoPayrollHistoryPanel from '@/components/cfo/CfoPayrollHistoryPanel';
 import { ApprovalsInbox } from '@/hr/pay/Approvals';
 import { AdvancesPanel } from '@/hr/pay/Advances';
 import { CashoutAgentManager } from '@/components/cfo/CashoutAgentManager';
@@ -388,6 +390,8 @@ export default function CFODashboardPage() {
         return <CfoPayrollPanel />;
       case 'cfo-pay-advances':
         return <AdvancesPanel />;
+      case 'cfo-payroll-history':
+        return <CfoPayrollHistoryPanel />;
       case 'cfo-pay-approvals':
         return <ApprovalsInbox />;
       case 'delivery-pipeline':
@@ -427,6 +431,7 @@ export default function CFODashboardPage() {
         return (
           <div className="space-y-4">
             <CFOWelileHomesDisbursementDesk />
+            <WhHistoricalDisbursementsPanel mode="readonly" offSystem />
           </div>
         );
       case 'signages':
@@ -482,7 +487,7 @@ export default function CFODashboardPage() {
             <div>
               <h1 className="text-xl font-bold">Welile Motorbikes</h1>
               <p className="text-sm text-muted-foreground">
-                Applications approved by the COO. Releasing one sends the money into the ordering agent's own wallet and starts daily recovery. Files you have already released stay listed here and open read-only.
+                Applications approved by the COO. Releasing one pays the assigned supplier and starts the agent's daily recovery. Files you have already released stay listed here and open read-only, with what was paid out and what the books carry.
               </p>
             </div>
             <BikeLeaseApprovalQueue stage="cfo" />

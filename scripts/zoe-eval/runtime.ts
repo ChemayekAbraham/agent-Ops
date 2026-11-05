@@ -82,9 +82,13 @@ import {
   GuardResult,
   isDirectPromptInjection,
   isWriteMutationIntent,
+  type ParsedModelRefusal,
+  parseModelRefusal,
+  REFUSE_PREFIX_RE,
   UNVERIFIED_PARAGRAPH_REPLACEMENT,
   validateZoeNoteText,
   verifyAndSanitizeStreamedParagraphs,
+  type ZoeRefusalKind,
 } from "../../supabase/functions/staff-assistant/guards.ts";
 import {
   handleStaffAssistantRequest,
@@ -271,10 +275,13 @@ export {
   MSG,
   normalizeStaffRecipients,
   openAiToolsForRoles,
+  type ParsedModelRefusal,
+  parseModelRefusal,
   POLICY_DISCLAIMER_TAG,
   prepareToolOutputForModel,
   PROMPT_ACTIVE_MESSAGES,
   PROMPT_ACTIVE_TURNS,
+  REFUSE_PREFIX_RE,
   RequestSchema,
   resetStaffAssistantHealthCache,
   resetStaffAssistantHealthCache as resetStaffAssistantHealthCacheForTest,
@@ -311,6 +318,7 @@ export {
   ZOE_REPORT_EMAIL_TEMPLATE,
   ZOE_RO_AREA_ROLES,
   ZOE_RO_VIEWS_CATALOG,
+  type ZoeRefusalKind,
 };
 export type {
   AnalystSqlValidationResult,

@@ -23,6 +23,7 @@ import {
 import { disburseAgentAdvanceRequest } from '@/lib/disburseAgentAdvance';
 import { DuplicateAccountAlert, useAgentDuplicateMap } from '@/components/ops/DuplicateAccountAlert';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import { advanceControlCode, advanceControlMessage, withNewMoney } from '@/lib/advanceControls';
 
 /**
  * Fat-finger guardrails. These are ADVISORY: the CFO may issue outside them, but only
@@ -73,15 +74,21 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
   const [overrideGates, setOverrideGates] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Set when the database refused the payout because it matches a balance the agent already carries (a transfer
+  // dressed up as a payout). The CFO must confirm it is genuinely new money before it can be paid.
+  const [possibleTransfer, setPossibleTransfer] = useState<string | null>(null);
 
   const reset = () => {
     setAgent(null); setAmount(''); setCycleDays('30');
     setRatePreset('33'); setCustomRate('33'); setFrequency('daily');
     setReason(''); setConfirmAmount(''); setAckRisk(false);
-    setOverrideGates(false); setOverrideReason('');
+    setOverrideGates(false); setOverrideReason(''); setPossibleTransfer(null);
   };
 
   useEffect(() => { if (!open) reset(); }, [open]);
+
+  // A confirmation belongs to one agent and one amount.
+  useEffect(() => { setPossibleTransfer(null); }, [agent?.id, amount]);
 
   const { data: duplicateMap = {} } = useAgentDuplicateMap(agent ? [agent.id] : []);
 
@@ -192,10 +199,11 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
     confirmAmount.replace(/[^0-9]/g, '') === String(principal) &&
     !submitting;
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (newMoney = false) => {
     if (!canSubmit || !agent || !user?.id) return;
     setSubmitting(true);
     const usedOverride = needsOverride && overrideGates;
+    const sentReason = withNewMoney(reason, newMoney);
     try {
       // 1. Create the originating request through the privileged RPC. It authorises the
       //    caller, stamps the override (with the gates it bypassed) and writes audit_logs
@@ -206,7 +214,7 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
         p_cycle_days: days,
         p_monthly_rate: monthlyRate,
         p_repayment_frequency: frequency,
-        p_reason: reason.trim(),
+        p_reason: sentReason,
         p_override: usedOverride,
         p_override_reason: usedOverride ? overrideReason.trim() : null,
       } as any);
@@ -222,7 +230,7 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
         cycleDays: days,
         monthlyRate,
         repaymentFrequency: frequency,
-        notes: `CFO-initiated advance · ${reason.trim()}`,
+        notes: `CFO-initiated advance · ${sentReason}`,
         recoverySource,
         roiRecoveryPercent: recoverySource === 'roi' ? roiPercentNum : 0,
       });
@@ -254,7 +262,14 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
       onSuccess?.();
       onOpenChange(false);
     } catch (e: any) {
-      toast.error(e.message || 'Advance issuance failed');
+      const code = advanceControlCode(e?.message);
+      if (code === 'possible_transfer') {
+        setPossibleTransfer(advanceControlMessage(e.message));
+      } else if (code === 'duplicate_submission') {
+        toast.error('This advance was just submitted. Check the advances list before trying again.');
+      } else {
+        toast.error(advanceControlMessage(e?.message) || 'Advance issuance failed');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -482,10 +497,30 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
           </label>
         </div>
 
+        {possibleTransfer && (
+          <div role="alert" className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 space-y-2 text-xs">
+            <p className="font-semibold flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> This looks like a transfer, not a new payout</p>
+            <p>{possibleTransfer}</p>
+            <p className="text-muted-foreground">
+              To move an existing balance, close that advance with Transfer instead: nothing is paid out. Only continue if
+              the agent is genuinely receiving new money.
+            </p>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button size="sm" variant="outline" onClick={() => setPossibleTransfer(null)} disabled={submitting}>Go back</Button>
+              <CfoApprovalGate>
+                <Button size="sm" variant="destructive" onClick={() => handleSubmit(true)} disabled={!canSubmit}>
+                  {submitting && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  This is new money: pay {formatUGX(principal)}
+                </Button>
+              </CfoApprovalGate>
+            </div>
+          </div>
+        )}
+
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>Cancel</Button>
           <CfoApprovalGate>
-            <Button onClick={handleSubmit} disabled={!canSubmit}>
+            <Button onClick={() => handleSubmit()} disabled={!canSubmit || !!possibleTransfer}>
               {submitting && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
               Issue {principal > 0 ? formatUGX(principal) : 'advance'}
             </Button>

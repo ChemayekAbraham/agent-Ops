@@ -53,6 +53,7 @@ export function AutoCreditReviewPanel() {
   const [reverseTarget, setReverseTarget] = useState<ReviewRow | null>(null);
   const [reverseReason, setReverseReason] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const { data: rows = [], isLoading, refetch } = useQuery({
     queryKey: ['auto-credit-review-queue'],
@@ -170,6 +171,132 @@ export function AutoCreditReviewPanel() {
     }
   };
 
+  const selected = rows.find((r) => r.id === selectedId) ?? rows[0] ?? null;
+  const isRisky = (r: ReviewRow) => {
+    const t = String(r.auto_match_audit?.tiebreaker ?? '');
+    return t === 'first-candidate' || t === 'most-recent-active';
+  };
+
+  const renderDetail = (r: ReviewRow) => {
+    const audit = r.auto_match_audit ?? {};
+    const tieKey: string = String(audit.tiebreaker ?? '');
+    const risky = isRisky(r);
+    return (
+      <Card className={risky ? 'border-amber-500/40' : ''}>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl flex flex-wrap items-center gap-2">
+            {formatDynamic(r.amount)}
+            <Badge variant="outline" className="text-[10px] uppercase">{r.provider ?? '—'}</Badge>
+            {tieKey && (
+              <Badge variant={risky ? 'destructive' : 'secondary'} className="text-[10px]">{tieKey}</Badge>
+            )}
+          </CardTitle>
+          <CardDescription>
+            TID {r.transaction_id ?? '—'} · {new Date(r.created_at).toLocaleString()}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="rounded-lg bg-muted/40 p-3 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Credited to</div>
+            <div className="flex items-center gap-2 font-medium">
+              <User className="h-3.5 w-3.5 text-muted-foreground" />
+              {r.profile?.full_name ?? '(no profile name)'}
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Phone className="h-3.5 w-3.5" />
+              {r.profile?.phone ?? 'no phone on file'}
+            </div>
+            {r.profile?.email && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Mail className="h-3.5 w-3.5" />
+                {r.profile.email}
+              </div>
+            )}
+          </div>
+          {audit.matched_name && (
+            <div className="text-xs text-muted-foreground">
+              Email sender name: <span className="font-mono">{String(audit.matched_name)}</span>
+            </div>
+          )}
+          {audit.name_match && (
+            <div className="rounded-lg border border-border/60 bg-background/60 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Match audit</div>
+                {audit.confidence && (
+                  <Badge
+                    variant={audit.confidence === 'high' ? 'secondary' : audit.confidence === 'medium' ? 'outline' : 'destructive'}
+                    className="text-[10px]"
+                  >
+                    {audit.confidence} confidence
+                    {typeof audit.confidence_score === 'number' ? ` · ${(audit.confidence_score * 100).toFixed(0)}%` : ''}
+                  </Badge>
+                )}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Tie-breaker: <span className="font-mono">{tieKey || '—'}</span>
+                {audit.name_match.tiebreaker_pool && (
+                  <> · pool: <span className="font-mono">{audit.name_match.tiebreaker_pool}</span></>
+                )}
+                {' · '}
+                {audit.name_match.total_candidates} candidate
+                {audit.name_match.total_candidates === 1 ? '' : 's'}
+              </div>
+              {Array.isArray(audit.confidence_reasons) && audit.confidence_reasons.length > 0 && (
+                <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-0.5">
+                  {audit.confidence_reasons.map((reason: string, i: number) => (
+                    <li key={i}>{reason}</li>
+                  ))}
+                </ul>
+              )}
+              {Array.isArray(audit.name_match.candidates) && audit.name_match.candidates.length > 0 && (
+                <div className="space-y-1 pt-1">
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Candidate pool</div>
+                  {audit.name_match.candidates.map((c: any) => (
+                    <div
+                      key={c.id}
+                      className={`flex items-center justify-between gap-2 text-[11px] rounded px-2 py-1.5 ${
+                        c.selected ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-muted/30'
+                      }`}
+                    >
+                      <div className="min-w-0 truncate">
+                        {c.selected && <span className="font-semibold">✓ </span>}
+                        <span className="font-medium">{c.full_name ?? '(unnamed)'}</span>
+                        {c.phone_last4 ? (
+                          <span className="text-muted-foreground"> · •••{c.phone_last4}</span>
+                        ) : (
+                          <span className="text-muted-foreground"> · no phone</span>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground shrink-0">
+                        {c.last_sign_in_at ? `seen ${new Date(c.last_sign_in_at).toLocaleDateString()}` : 'never signed in'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-2 pt-1">
+            <Button size="sm" variant="success" disabled={busyId === r.id} onClick={() => confirm(r)} className="flex-1">
+              <CheckCircle2 className="h-4 w-4" />
+              Confirm credit
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={busyId === r.id}
+              onClick={() => { setReverseTarget(r); setReverseReason(''); }}
+              className="flex-1"
+            >
+              <Undo2 className="h-4 w-4" />
+              Reverse credit
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -182,7 +309,7 @@ export function AutoCreditReviewPanel() {
         <div className="flex items-center gap-2 text-sm text-muted-foreground p-6 justify-center">
           <Loader2 className="h-4 w-4 animate-spin" /> Loading queue…
         </div>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 || !selected ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
             <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-2" />
@@ -190,156 +317,46 @@ export function AutoCreditReviewPanel() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {rows.map((r) => {
-            const audit = r.auto_match_audit ?? {};
-            const tieKey: string = String(audit.tiebreaker ?? '');
-            const risky = tieKey === 'first-candidate' || tieKey === 'most-recent-active';
-            return (
-              <Card key={r.id} className={risky ? 'border-amber-500/40' : ''}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        {formatDynamic(r.amount)}
-                        <Badge variant="outline" className="text-[10px] uppercase">
-                          {r.provider ?? '—'}
-                        </Badge>
-                        {tieKey && (
-                          <Badge
-                            variant={risky ? 'destructive' : 'secondary'}
-                            className="text-[10px]"
-                          >
-                            {tieKey}
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription className="mt-0.5">
-                        TID {r.transaction_id ?? '—'} · {new Date(r.created_at).toLocaleString()}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-2 text-sm">
-                  <div className="rounded-lg bg-muted/40 p-2.5 space-y-1">
-                    <div className="flex items-center gap-2 font-medium">
-                      <User className="h-3.5 w-3.5 text-muted-foreground" />
-                      {r.profile?.full_name ?? '(no profile name)'}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Phone className="h-3.5 w-3.5" />
-                      {r.profile?.phone ?? 'no phone on file'}
-                    </div>
-                    {r.profile?.email && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Mail className="h-3.5 w-3.5" />
-                        {r.profile.email}
-                      </div>
-                    )}
-                  </div>
-                  {audit.matched_name && (
-                    <div className="text-xs text-muted-foreground">
-                      Email sender name: <span className="font-mono">{String(audit.matched_name)}</span>
-                    </div>
-                  )}
-                  {audit.name_match && (
-                    <div className="rounded-lg border border-border/60 bg-background/60 p-2.5 space-y-1.5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-start">
+          <div className="rounded-2xl border bg-card shadow-2xs overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <h3 className="text-sm font-semibold">Review queue</h3>
+              <Badge variant="secondary" className="text-[10px]">{rows.length} pending</Badge>
+            </div>
+            <ul className="divide-y max-h-[70vh] overflow-y-auto">
+              {rows.map((r) => {
+                const active = r.id === selected.id;
+                const risky = isRisky(r);
+                const conf = r.auto_match_audit?.confidence;
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(r.id)}
+                      aria-current={active}
+                      className={`w-full text-left px-4 py-3 transition-colors hover:bg-muted/40 border-l-2 ${
+                        active ? 'bg-primary/5 border-primary' : 'border-transparent'
+                      }`}
+                    >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          Match audit
-                        </div>
-                        {audit.confidence && (
-                          <Badge
-                            variant={
-                              audit.confidence === 'high'
-                                ? 'secondary'
-                                : audit.confidence === 'medium'
-                                ? 'outline'
-                                : 'destructive'
-                            }
-                            className="text-[10px]"
-                          >
-                            {audit.confidence} confidence
-                            {typeof audit.confidence_score === 'number'
-                              ? ` · ${(audit.confidence_score * 100).toFixed(0)}%`
-                              : ''}
-                          </Badge>
-                        )}
+                        <span className="font-semibold tabular-nums">{formatDynamic(r.amount)}</span>
+                        <span className="flex items-center gap-1.5">
+                          {risky && <Badge variant="destructive" className="text-[10px]">risky tie</Badge>}
+                          {conf && <Badge variant="outline" className="text-[10px]">{conf}</Badge>}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Tie-breaker: <span className="font-mono">{tieKey || '—'}</span>
-                        {audit.name_match.tiebreaker_pool && (
-                          <> · pool: <span className="font-mono">{audit.name_match.tiebreaker_pool}</span></>
-                        )}
-                        {' · '}
-                        {audit.name_match.total_candidates} candidate
-                        {audit.name_match.total_candidates === 1 ? '' : 's'}
+                      <div className="mt-0.5 truncate text-sm">{r.profile?.full_name ?? '(no profile name)'}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        {(r.provider ?? '—').toUpperCase()} · TID {r.transaction_id ?? '—'} · {new Date(r.created_at).toLocaleDateString()}
                       </div>
-                      {Array.isArray(audit.confidence_reasons) && audit.confidence_reasons.length > 0 && (
-                        <ul className="text-[11px] text-muted-foreground list-disc list-inside space-y-0.5">
-                          {audit.confidence_reasons.map((reason: string, i: number) => (
-                            <li key={i}>{reason}</li>
-                          ))}
-                        </ul>
-                      )}
-                      {Array.isArray(audit.name_match.candidates) && audit.name_match.candidates.length > 0 && (
-                        <div className="space-y-1 pt-1">
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                            Candidate pool
-                          </div>
-                          {audit.name_match.candidates.map((c: any) => (
-                            <div
-                              key={c.id}
-                              className={`flex items-center justify-between gap-2 text-[11px] rounded px-2 py-1 ${
-                                c.selected ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-muted/30'
-                              }`}
-                            >
-                              <div className="min-w-0 truncate">
-                                {c.selected && <span className="font-semibold">✓ </span>}
-                                <span className="font-medium">{c.full_name ?? '(unnamed)'}</span>
-                                {c.phone_last4 ? (
-                                  <span className="text-muted-foreground"> · •••{c.phone_last4}</span>
-                                ) : (
-                                  <span className="text-muted-foreground"> · no phone</span>
-                                )}
-                              </div>
-                              <span className="text-muted-foreground shrink-0">
-                                {c.last_sign_in_at
-                                  ? `seen ${new Date(c.last_sign_in_at).toLocaleDateString()}`
-                                  : 'never signed in'}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                    <Button
-                      size="sm"
-                      variant="success"
-                      disabled={busyId === r.id}
-                      onClick={() => confirm(r)}
-                      className="flex-1"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Confirm credit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      disabled={busyId === r.id}
-                      onClick={() => { setReverseTarget(r); setReverseReason(''); }}
-                      className="flex-1"
-                    >
-                      <Undo2 className="h-4 w-4" />
-                      Reverse credit
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <div className="lg:sticky lg:top-4">{renderDetail(selected)}</div>
         </div>
       )}
 

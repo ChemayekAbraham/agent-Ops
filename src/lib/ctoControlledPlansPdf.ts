@@ -140,7 +140,7 @@ export async function generateCtoControlledPlansPdf(opts: {
     ],
     [
       ['Partner (15% of given, pro rata by days)', fmtUgx(summary.expectedPartner), fmtUgx(summary.partnerEarned)],
-      ['Agent (10% of due)', fmtUgx(summary.expectedAgent), fmtUgx(summary.agentCommission)],
+      ['Agent (8% of due)', fmtUgx(summary.expectedAgent), fmtUgx(summary.agentCommission)],
       ['Platform', '—', fmtUgx(summary.platformEarned)],
     ],
   );

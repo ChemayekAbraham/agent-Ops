@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Wallet, TrendingUp, Calendar, Clock, User, Shield, PiggyBank } from 'lucide-react';
+import { Wallet, Calendar, Clock, User, Shield, PiggyBank } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function InvestorPortfolioPublic() {
@@ -22,27 +22,21 @@ export default function InvestorPortfolioPublic() {
   const fetchPortfolio = async () => {
     setLoading(true);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('investor_portfolios')
-        .select('*')
-        .eq('activation_token', token)
-        .maybeSingle();
+      const { data, error: fetchError } = await supabase.rpc(
+        'get_portfolio_by_activation_token' as never,
+        { p_token: token } as never,
+      );
 
       if (fetchError) throw fetchError;
-      if (!data) {
+      const rows = Array.isArray(data) ? data : data ? [data] : [];
+      const row = rows[0];
+      if (!row) {
         setError('Portfolio not found or link expired');
         return;
       }
 
-      setPortfolio(data);
-
-      // Fetch agent name
-      const { data: agentProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.agent_id)
-        .maybeSingle();
-      if (agentProfile) setAgentName(agentProfile.full_name);
+      setPortfolio(row);
+      if (row.agent_name) setAgentName(row.agent_name);
     } catch (e: any) {
       setError(e.message || 'Failed to load portfolio');
     } finally {
@@ -131,34 +125,6 @@ export default function InvestorPortfolioPublic() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Payment Info Card */}
-        {portfolio.payment_method && (
-          <Card>
-            <CardContent className="p-5 space-y-4">
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Returns Payment Details
-              </h3>
-              <div className="space-y-3">
-                <DetailRow label="Payment Method" value={portfolio.payment_method === 'mobile_money' ? 'Mobile Money' : 'Bank Transfer'} />
-                {portfolio.payment_method === 'mobile_money' && (
-                  <>
-                    {portfolio.mobile_network && <DetailRow label="Network" value={portfolio.mobile_network.toUpperCase()} />}
-                    {portfolio.mobile_money_number && <DetailRow label="Number" value={portfolio.mobile_money_number} />}
-                  </>
-                )}
-                {portfolio.payment_method === 'bank' && (
-                  <>
-                    {portfolio.bank_name && <DetailRow label="Bank" value={portfolio.bank_name} />}
-                    {portfolio.account_name && <DetailRow label="Account Name" value={portfolio.account_name} />}
-                    {portfolio.account_number && <DetailRow label="Account Number" value={portfolio.account_number} />}
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Agent Info */}
         <Card>

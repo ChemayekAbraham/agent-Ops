@@ -335,6 +335,14 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
 
             {step === 3 && (
               <div className="space-y-3">
+                <div className="rounded-xl border-2 border-primary bg-primary/10 p-4 text-center" aria-live="polite">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Cash you are recording — count it again
+                  </div>
+                  <div className="mt-1 text-3xl font-extrabold font-mono tabular-nums tracking-tight text-primary">
+                    UGX {amountNum.toLocaleString()}
+                  </div>
+                </div>
                 <dl className="divide-y divide-border rounded-lg border border-border">
                   {([
                     [User, 'Depositor', ownerNameClean, 0],

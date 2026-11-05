@@ -66,7 +66,7 @@ function Choice({
               aria-pressed={on}
               onClick={() => onChange(o.value)}
               className={`desk-pill border px-3 py-1 text-xs ${CALM} ${FOCUS} ${
-                on ? statusGlass.ok : 'border-white/12 bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-foreground'
+                on ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
               }`}
             >
               {o.label}
@@ -158,7 +158,7 @@ export function CallLog({
           onChange={(e) => setPhone(e.target.value)}
           inputMode="tel"
           placeholder="+2567…"
-          className={`desk-pill h-9 w-full max-w-xs border border-white/12 bg-white/5 px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
+          className={`desk-pill h-9 w-full max-w-xs border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
         />
       </label>
 
@@ -197,7 +197,7 @@ export function CallLog({
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={2}
-          className={`w-full rounded-xl border border-white/12 bg-white/5 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
+          className={`w-full rounded-xl border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
           placeholder="What the person said in their own words."
         />
       </label>
@@ -210,7 +210,7 @@ export function CallLog({
         disabled={!ready || busy}
         onClick={submit}
         className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-          ready && !busy ? statusGlass.ok : 'border-white/12 bg-white/5 text-muted-foreground'
+          ready && !busy ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
         } disabled:cursor-not-allowed`}
       >
         {busy ? 'Saving the call…' : 'Save the call'}

@@ -37,12 +37,12 @@ describe('Nexa consent-based inquiry signup', () => {
   });
 });
 describe('Nexa projections and access campaign',()=>{
-  it('uses 15% monthly and 12-month Returns without moving capital',()=>{
+  it('uses 10% monthly for new partners and 12-month Returns without moving capital',()=>{
     const p=calculateSupporterSalesProjection(100000,new Date('2026-01-01'));
-    expect(p.monthly).toBe(15000);expect(p.annual).toBe(180000);expect(p.capital).toBe(100000);expect(p.termMonths).toBe(12);
-    expect(calculateSupporterSalesProjection(700000).monthly).toBe(105000);
-    expect(p.totalWithPrincipal).toBe(280000);expect(p.workedExample).toHaveLength(5);
-    expect(calculateSupporterSalesProjection(500000).monthly).toBe(75000);
+    expect(p.monthly).toBe(10000);expect(p.annual).toBe(120000);expect(p.capital).toBe(100000);expect(p.termMonths).toBe(12);
+    expect(calculateSupporterSalesProjection(700000).monthly).toBe(70000);
+    expect(p.totalWithPrincipal).toBe(220000);expect(p.workedExample).toHaveLength(5);
+    expect(calculateSupporterSalesProjection(500000).monthly).toBe(50000);
   });
   it('extracts supported UGX amounts and rejects unavailable values',()=>{
     expect(extractUgxAmount('UGX 100,000')).toBe(100000);expect(extractUgxAmount('2.5m')).toBe(2500000);expect(extractUgxAmount('50k')).toBe(50000);expect(extractUgxAmount('no amount')).toBeNull();

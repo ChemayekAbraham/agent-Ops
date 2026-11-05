@@ -7,6 +7,9 @@ import {
   SOURCE_RATE,
   MANAGER_RATE,
   RECRUITER_RATE,
+  AGENT_COMMISSION_RATE,
+  SUBAGENT_COMMISSION_RATE,
+  PARENT_OVERRIDE_RATE,
   RECRUITER_VERIFICATION_OVERRIDE,
   LANDLORD_PAYOUT_COMMISSION_RATE,
 } from "@/lib/rentCalculations";
@@ -58,7 +61,7 @@ interface EarningPath {
 
 const RECURRING_PATHS: EarningPath[] = [
   {
-    label: "Rent repayment commission (10% total)",
+    label: "Rent repayment commission (8% total)",
     needles: [pct(COMMISSION_RATE)],
   },
   {
@@ -66,7 +69,7 @@ const RECURRING_PATHS: EarningPath[] = [
     needles: [pct(SOURCE_RATE)],
   },
   {
-    label: "Managing agent share (8%)",
+    label: "Sub-agent / managing agent share (6%)",
     needles: [pct(MANAGER_RATE)],
   },
   {
@@ -133,7 +136,7 @@ describe("How You Earn page — backend earning-rule coverage", () => {
       });
     }
 
-    it("commission split is internally consistent (2% + 8% = 10%)", () => {
+    it("commission split is internally consistent (2% + 6% = 8%)", () => {
       expect(SOURCE_RATE + MANAGER_RATE).toBeCloseTo(COMMISSION_RATE, 10);
       expect(RECRUITER_RATE + MANAGER_RATE).toBeCloseTo(COMMISSION_RATE, 10);
     });
@@ -200,9 +203,13 @@ describe("Backend earning constants snapshot (guards silent rate drift)", () => 
   });
 
   it("commission rates match the figures the page is verified against", () => {
-    expect(COMMISSION_RATE).toBe(0.1);
+    expect(COMMISSION_RATE).toBe(0.08);
     expect(SOURCE_RATE).toBe(0.02);
-    expect(MANAGER_RATE).toBe(0.08);
+    expect(MANAGER_RATE).toBe(0.06);
     expect(RECRUITER_RATE).toBe(0.02);
+    expect(AGENT_COMMISSION_RATE).toBe(0.08);
+    expect(SUBAGENT_COMMISSION_RATE).toBe(0.06);
+    expect(PARENT_OVERRIDE_RATE).toBe(0.02);
+    expect(SUBAGENT_COMMISSION_RATE + PARENT_OVERRIDE_RATE).toBeCloseTo(AGENT_COMMISSION_RATE, 10);
   });
 });

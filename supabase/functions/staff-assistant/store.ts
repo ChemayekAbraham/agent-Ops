@@ -80,6 +80,7 @@ export interface StaffAssistantHealthStatus {
   missingTables: string[];
   missingColumns: string[];
   missingViews: string[];
+  modelDrift?: Record<string, unknown> | null;
   checkedAtMs: number;
 }
 
@@ -195,6 +196,13 @@ export async function checkStaffAssistantHealth(
       payload.ok === false ||
       missingObjects.length > 0;
 
+    const modelDrift =
+      payload.model_drift &&
+      typeof payload.model_drift === "object" &&
+      !Array.isArray(payload.model_drift)
+        ? (payload.model_drift as Record<string, unknown>)
+        : null;
+
     const statusObj: StaffAssistantHealthStatus = {
       ok: !isBehind,
       status: isBehind ? "zoe_database_behind" : "ok",
@@ -203,6 +211,7 @@ export async function checkStaffAssistantHealth(
       missingTables,
       missingColumns,
       missingViews,
+      modelDrift,
       checkedAtMs: nowMs,
     };
     cachedHealthStatus = statusObj;

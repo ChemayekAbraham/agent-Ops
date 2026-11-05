@@ -156,10 +156,10 @@ export function AgentMoneyMapCard({ withdrawable, float, advance = 0, pendingHol
             <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
             <Step icon={<Home className="h-4 w-4" />} label="Pay rent" tone="primary" />
             <ArrowRight className="h-4 w-4 text-muted-foreground/50 shrink-0" />
-            <Step icon={<Coins className="h-4 w-4" />} label="Earn 10% commission" tone="emerald" />
+            <Step icon={<Coins className="h-4 w-4" />} label="Earn 8% commission" tone="emerald" />
           </div>
           <p className="text-[11px] text-muted-foreground mt-3 leading-snug">
-            Every shilling you allocate to a tenant's rent pays you <span className="font-bold text-foreground">10% commission</span> instantly and grows your Agent Advance limit by <span className="font-bold text-foreground">2×</span>.
+            Every shilling you allocate to a tenant's rent pays you <span className="font-bold text-foreground">8% commission</span> instantly and grows your Agent Advance limit by <span className="font-bold text-foreground">2×</span>.
           </p>
         </div>
       </CardContent>

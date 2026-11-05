@@ -599,7 +599,7 @@ var V360_MODEL_A_EXAMPLE = {
 // src/lib/mcp-public/tools/estimate-rent-access.ts
 var MONTHLY_RATE = 0.33;
 var DEFAULT_DURATIONS = [30, 60, 90];
-var AGENT_COMMISSION_RATE = 0.1;
+var AGENT_COMMISSION_RATE = 0.08;
 var MIN_RENT = 1e4;
 var MAX_RENT = 5e6;
 var MIN_DAYS = 7;

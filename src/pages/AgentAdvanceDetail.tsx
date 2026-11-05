@@ -64,7 +64,8 @@ export default function AgentAdvanceDetail() {
   const risk = getRiskLevel(advance);
   const principal = Number(advance.principal);
   const rate = advance.monthly_rate != null ? Number(advance.monthly_rate) : MONTHLY_RATE;
-  const regFee = Number(advance.registration_fee) || calculateRegistrationFee(principal);
+  // 0 is a real value (a transferred balance already carries its fees); only a missing fee is estimated
+  const regFee = advance.registration_fee != null ? Number(advance.registration_fee) : calculateRegistrationFee(principal);
   const accessFee = advance.access_fee != null ? Number(advance.access_fee) : calculateAccessFeeSimple(principal, advance.cycle_days, rate);
   const totalPayable = principal + accessFee + regFee;
   const dailyPmt = Number(advance.daily_installment) || Number(advance.installment_amount) || Math.ceil(totalPayable / advance.cycle_days);

@@ -48,7 +48,7 @@ export function ShareSubAgentLink() {
 
 💰 Earn money by:
 • Registering tenants & landlords
-• Earning 8% commission on repayments
+• Earning 6% commission on repayments
 • Building your own team of sub-agents
 
 ✨ It's FREE to join and start earning!

@@ -192,7 +192,7 @@ export function WhyRequestsBounce({ board, enabled, days = 30 }: { board: boolea
       )}
 
       {rows.length > 0 && (
-        <div className="overflow-auto rounded-xl border border-white/10">
+        <div className="overflow-auto rounded-xl border border-[var(--desk-line-color)]">
           <table className="w-full border-collapse text-sm tabular-nums">
             <thead className="desk-thead">
               <tr>
@@ -200,7 +200,7 @@ export function WhyRequestsBounce({ board, enabled, days = 30 }: { board: boolea
                   <th
                     key={h}
                     scope="col"
-                    className={`sticky top-0 z-10 border-b border-white/12 px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${
+                    className={`sticky top-0 z-10 border-b border-[var(--desk-line-color)] px-3 py-2 font-medium text-muted-foreground whitespace-nowrap ${
                       i >= 2 ? 'text-right' : 'text-left'
                     }`}
                   >
@@ -211,7 +211,7 @@ export function WhyRequestsBounce({ board, enabled, days = 30 }: { board: boolea
             </thead>
             <tbody>
               {rows.map((r, i) => (
-                <tr key={`${r.agent_name ?? 'agent'}-${r.check_code}-${i}`} className={`desk-row border-b border-white/5 last:border-0 ${CALM}`}>
+                <tr key={`${r.agent_name ?? 'agent'}-${r.check_code}-${i}`} className={`desk-row border-b border-[var(--desk-line-soft)] last:border-0 ${CALM}`}>
                   <td className="px-3 py-2 text-foreground">{r.agent_name ?? '—'}</td>
                   <td className="px-3 py-2 text-foreground">{r.check_label ?? r.check_code}</td>
                   <td className="px-3 py-2 text-right text-foreground">{fmt('int', r.times)}</td>

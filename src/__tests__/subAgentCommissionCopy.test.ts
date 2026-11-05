@@ -3,14 +3,17 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 /**
- * Guards the canonical sub-agent commission split across every agent-facing surface:
- *   - Sub-agent (manager) keeps 8%
+ * Guards the canonical sub-agent commission split across every agent-facing surface
+ * (since the 2026-11-04 change from 10% to 8%):
+ *   - Sub-agent (manager) keeps 6%
  *   - Recruiter (upline) earns a 2% override
- *   - Total system payout is 10%
+ *   - Total system payout is 8%
+ *   - Whitelisted / elite sub-agents keep the full 8%
  *
  * These are source-level assertions: they read the actual component/page source
  * and verify the displayed copy uses the canonical figures, and that the old
- * 1% override / 4% sub-agent / 5% total figures never reappear.
+ * 10% total / 8% sub-agent figures and the older 1% override / 4% sub-agent /
+ * 5% total figures never reappear.
  */
 
 const root = resolve(__dirname, "..", "..");
@@ -23,7 +26,6 @@ const SURFACES: Record<string, { mustInclude: string[]; mustNotInclude: string[]
       "Your 2% Earnings (UGX)",
       "Your 2% Share (UGX)",
       "earn 2% of all their tenants",
-      "Monthly Earnings (2% from Sub-Agents)",
       "your 2%",
       "2% of all collections facilitated",
     ],
@@ -38,35 +40,41 @@ const SURFACES: Record<string, { mustInclude: string[]; mustNotInclude: string[]
     mustNotInclude: ["You earn 1% on every collection"],
   },
   "src/components/agent/ShareSubAgentLink.tsx": {
-    mustInclude: ["Earning 8% commission on repayments", "you earn 2% of their earnings"],
-    mustNotInclude: ["Earning 4% commission", "you earn 1% of their earnings"],
+    mustInclude: ["Earning 6% commission on repayments", "you earn 2% of their earnings"],
+    mustNotInclude: ["Earning 8% commission", "Earning 4% commission", "you earn 1% of their earnings"],
   },
   "src/components/agent/QuickShareSubAgentSheet.tsx": {
-    mustInclude: ["8% commission on every rent collection", "2% of all their collections forever"],
-    mustNotInclude: ["4% commission on every rent collection", "1% of all their collections"],
+    mustInclude: ["6% commission on every rent collection", "2% of all their collections forever"],
+    mustNotInclude: ["8% commission on every rent collection", "4% commission on every rent collection", "1% of all their collections"],
   },
   "src/components/agent/SubAgentsList.tsx": {
-    mustInclude: ["your 2%"],
-    mustNotInclude: ["your 1%"],
+    // Reworded 2026-09-24 (050139d006): the list shows "Rent 2% UGX …" per sub-agent.
+    mustInclude: ["Rent 2%", "the 2% override"],
+    mustNotInclude: ["your 1%", "Rent 1%"],
   },
   "src/components/agent/AgentMenuDrawer.tsx": {
     mustInclude: [">2%</span> of their collections"],
     mustNotInclude: [">1%</span> of their collections"],
   },
   "src/components/agent/EarningsRankSystemSheet.tsx": {
-    mustInclude: [">8%</Badge>", ">2%</Badge>", ">10% (Fixed)</Badge>"],
-    mustNotInclude: [">4%</Badge>", ">1%</Badge>", ">5% (Fixed)</Badge>"],
+    mustInclude: [">6%</Badge>", ">2%</Badge>", ">8% (Fixed)</Badge>"],
+    mustNotInclude: [">10% (Fixed)</Badge>", ">4%</Badge>", ">1%</Badge>", ">5% (Fixed)</Badge>"],
   },
   "src/components/agent/agreement/AgentAgreementContent.ts": {
     mustInclude: [
-      "Sub-Agent Commission (8%)",
-      "you earn 8% commission on every rent repayment",
+      "Direct Agent Commission (8%)",
+      "Sub-Agent Commission (6%)",
+      "you earn 6% commission on every rent repayment",
       "remaining 2% goes to your recruiting",
+      "Sub-Agents keep the full 8%",
       "Super Agent Override Commission (2%)",
       "you earn 2% override commission",
       "Earn 2% on every tenant your sub-agents bring",
     ],
     mustNotInclude: [
+      "Direct Agent Commission (5%)",
+      "Sub-Agent Commission (8%)",
+      "(recruited by another agent), you earn 8% commission",
       "Sub-Agent Commission (4%)",
       "you earn 4% commission on every rent repayment",
       "remaining 1% goes",
@@ -88,15 +96,21 @@ const SURFACES: Record<string, { mustInclude: string[]; mustNotInclude: string[]
   },
   "src/pages/AgentCommissionBenefits.tsx": {
     mustInclude: [
-      "The agent who REGISTERED the tenant gets *2%*",
-      "The agent MANAGING the tenant gets *8%*",
-      "you keep the full *10%*",
+      "The agent COLLECTING the rent gets *8%*",
+      "If you are a sub-agent, you get *6%*",
+      "the agent who recruited you gets *2%*",
+      "keep the full *8%*",
     ],
-    mustNotInclude: ["REGISTERED the tenant gets *1%*", "MANAGING the tenant gets *4%*"],
+    mustNotInclude: [
+      "you keep the full *10%*",
+      "MANAGING the tenant gets *8%*",
+      "REGISTERED the tenant gets *1%*",
+      "MANAGING the tenant gets *4%*",
+    ],
   },
 };
 
-describe("Sub-agent commission split copy (2% override / 8% share / 10% total)", () => {
+describe("Sub-agent commission split copy (2% override / 6% share / 8% total)", () => {
   for (const [file, { mustInclude, mustNotInclude }] of Object.entries(SURFACES)) {
     describe(file, () => {
       const source = read(file);
@@ -119,8 +133,8 @@ describe("Sub-agent commission split copy (2% override / 8% share / 10% total)",
 describe("Split arithmetic invariant", () => {
   it("recruiter override + sub-agent share equals total payout", () => {
     const RECRUITER_OVERRIDE = 2;
-    const SUB_AGENT_SHARE = 8;
-    const TOTAL_PAYOUT = 10;
+    const SUB_AGENT_SHARE = 6;
+    const TOTAL_PAYOUT = 8;
     expect(RECRUITER_OVERRIDE + SUB_AGENT_SHARE).toBe(TOTAL_PAYOUT);
   });
 });

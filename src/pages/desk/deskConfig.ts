@@ -41,6 +41,8 @@ const st = (ord: string, field: string, f: Fmt): Ref => ({ feed: 'pipeline', fie
 const kp = (metric: string, f: Fmt): Ref => ({ feed: 'coo_kpis', field: 'value', where: ['metric', metric], fmt: f });
 /** Ontology summary is a single-row feed, so tiles and the lead read its first row. */
 const os = (field: string, f?: Fmt): Ref => ({ feed: 'onto_summary', field, fmt: f });
+/** Ontology change summary is a single-row feed, so its tiles read the first row. */
+const ocs = (field: string, f?: Fmt): Ref => ({ feed: 'onto_chg_summary', field, fmt: f });
 
 const PAYMENT_GAPS: TableSpec = {
   id: 'payment-gaps', feed: 'payment_gaps', title: 'Money out: landlord payment gaps', rowKey: 'ord',
@@ -174,6 +176,8 @@ export const DESKS: Desk[] = [
       { label: 'Tables written', ...os('tables_written', 'int'), sub: { label: 'In the ontology', ...os('tables_registered', 'int') } },
       { label: 'Scheduled jobs acting', ...os('jobs_active', 'int'), sub: { label: 'With a named owner', ...os('jobs_registered', 'int') } },
       { label: 'Ontology changes to decide', ...os('open_proposals', 'int'), sub: { label: 'New last night', ...os('new_proposals', 'int') } },
+      { label: 'System changes, 7 days', ...ocs('changes_7d', 'int'), sub: { label: 'Not published', ...ocs('not_published', 'int') } },
+      { label: 'Changes that say why', ...ocs('changes_explained_share', 'pct'), sub: { label: 'Builder not recorded', ...ocs('builder_unknown', 'int') } },
     ],
     tables: [
       {
@@ -198,6 +202,11 @@ export const DESKS: Desk[] = [
         id: 'onto-drift', feed: 'onto_drift', title: 'Drift: reality outside the ontology', rowKey: 'grp_key',
         note: 'Each group is decided at once, with one reason, by a staff account holding the COO position. Decisions are stamped with name, staff number and position.',
         columns: [{ field: 'what', label: 'Proposal' }, { field: 'suggested', label: 'Suggested type' }, { field: 'n', label: 'Items', fmt: 'int', right: true }, { field: 'examples', label: 'Examples' }, DEC],
+      },
+      {
+        id: 'onto-changes', feed: 'onto_chg_list', title: 'System changes, last 7 days', rowKey: 'change_ref',
+        note: 'Every change to the system itself. Database changes are picked up automatically each night; app changes are recorded when made. A change without a reason shows as such.',
+        columns: [{ field: 'when_eat', label: 'When (EAT)' }, { field: 'kind_label', label: 'Type' }, { field: 'title', label: 'Change' }, { field: 'built_by', label: 'Built by' }, { field: 'approved_by', label: 'Approved by' }, { field: 'why', label: 'Why' }, { field: 'status_label', label: 'Status' }, DEC],
       },
     ],
   },
