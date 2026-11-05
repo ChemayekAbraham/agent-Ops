@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
+import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -766,9 +766,10 @@ export default function SupporterDashboard({
                   <button
                     type="button"
                     onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
-                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground touch-manipulation py-1 px-2 rounded-lg hover:bg-muted/60 transition-colors"
+                    className="flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground touch-manipulation transition active:scale-95 hover:bg-muted/70"
                   >
                     <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
+                    {snap === 'collapsed' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               )}

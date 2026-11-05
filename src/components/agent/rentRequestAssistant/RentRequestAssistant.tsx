@@ -11,7 +11,8 @@
  * queue and the listing "swap tenant" flow still open AgentRentRequestDialog.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, FilePlus2, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
+import welileLogo from '@/assets/welile-logo.png';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAssistantSpeech } from './useAssistantSpeech';
@@ -864,7 +865,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </TooltipProvider>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-primary/[0.07] px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
           <div className="px-1 pb-1 pt-2">
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
@@ -977,7 +978,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                   placeholder={placeholderOf(current)}
                   className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base outline-none focus:border-primary"
                 />
-                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
+                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
                   {lc1Looking || recordChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </form>
@@ -985,7 +986,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <button
                 type="button"
                 onClick={continueStep}
-                className="h-11 flex-1 rounded-full bg-primary font-semibold text-primary-foreground"
+                className="h-11 flex-1 rounded-full bg-success font-semibold text-success-foreground active:scale-[0.99] hover:bg-success/90"
               >
                 Continue
               </button>
@@ -1271,10 +1272,9 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('flex shrink-0 items-center justify-center rounded-full text-white', size === 'lg' ? 'h-9 w-9' : 'h-7 w-7')}
-      style={{ background: 'linear-gradient(137deg, hsl(271 85% 62%), hsl(271 81% 48%) 54%, hsl(258 72% 34%))' }}
+      className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary', size === 'lg' ? 'h-9 w-9' : 'h-7 w-7')}
     >
-      <FilePlus2 className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+      <img src={welileLogo} alt="" draggable={false} className="h-full w-full object-cover" />
     </span>
   );
 }

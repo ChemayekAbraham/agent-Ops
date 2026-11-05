@@ -77,7 +77,7 @@ export function RecentAutoCharges() {
           e.stopPropagation();
           setExpanded(!expanded);
         }}
-        className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-destructive/10 border border-destructive/20 text-left touch-manipulation"
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-card border border-border/60 text-left touch-manipulation"
       >
         <div className="flex items-center gap-1.5 min-w-0">
           <ArrowDownRight className="h-3 w-3 text-destructive shrink-0" />

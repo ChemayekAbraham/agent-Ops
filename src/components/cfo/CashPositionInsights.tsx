@@ -8,8 +8,8 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import {
-  LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
-  TrendingUp, TrendingDown, AlertTriangle, Info, CheckCircle2, Landmark, Gauge, ArrowRight,
+  LineChart as LineIcon, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
+  TrendingUp, TrendingDown, AlertTriangle, Info, ArrowUpRight, ArrowDownLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CashPositionAccounts } from './CashPositionAccounts';
@@ -27,13 +27,6 @@ const axisShort = (n: number) => {
   return String(Math.round(n));
 };
 const kampalaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
-const fmtDate = (d?: string | null) => {
-  if (!d) return '—';
-  const key = d.slice(0, 10);
-  if (key === kampalaToday()) return 'Today';
-  return new Date(`${key}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-const label = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface Props {
   receivablesReady?: boolean;
@@ -52,12 +45,14 @@ interface Props {
 
 function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: string; sub?: string; right?: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-2 mb-3">
-      <div className="flex items-start gap-2.5 min-w-0">
-        <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">{icon}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5 mb-3.5">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          {icon}
+        </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{title}</p>
-          {sub && <p className="text-[11px] text-muted-foreground truncate">{sub}</p>}
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground truncate">{title}</h2>
+          {sub && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
         </div>
       </div>
       {right}
@@ -66,7 +61,18 @@ function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: strin
 }
 
 export function CashPositionInsights({
-  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate, receivablesReady = true, moneyReady = true, accountMoney, accountUpdatedAt = 0, onSelectAccount,
+  totalReceivables,
+  receivablesCategories,
+  moneyWeHave,
+  moneyWeCanUse,
+  moneyWeOwe,
+  bankReconciled,
+  onNavigate,
+  receivablesReady = true,
+  moneyReady = true,
+  accountMoney,
+  accountUpdatedAt = 0,
+  onSelectAccount,
 }: Props) {
   const [days, setDays] = useState(30);
   const [reportsOpen, setReportsOpen] = useState(false);
@@ -76,7 +82,7 @@ export function CashPositionInsights({
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_cfo_daily_cash_flow', { p_days: days });
       if (error) throw error;
-      return ((data as any[]) || []).map((r) => {
+      return ((data as Array<Record<string, unknown>>) || []).map((r) => {
         const inflow = Number(r.inflow) || 0;
         const outflow = Number(r.outflow) || 0;
         const dayLabel = new Date(`${String(r.day).slice(0, 10)}T00:00:00`)
@@ -92,59 +98,36 @@ export function CashPositionInsights({
     retry: cfoReportRetry,
     queryFn: async () => {
       const today = kampalaToday();
-      const to = new Date(); to.setDate(to.getDate() + 30);
+      const to = new Date();
+      to.setDate(to.getDate() + 30);
       const toKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(to);
-      // Independent reads: run them together instead of one after the other.
+      const callRpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
       const [{ data, error }, { data: src, error: e2 }] = await Promise.all([
-        (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey }),
-        (supabase.rpc as any)('get_payables_by_source', { p_from: today, p_to: toKey }),
+        callRpc('get_payables_due_range', { p_from: today, p_to: toKey }),
+        callRpc('get_payables_by_source', { p_from: today, p_to: toKey }),
       ]);
       if (error) throw error;
       if (e2) throw e2;
-      const d = (data || {}) as any;
-      const top = ((src || []) as any[]).slice(0, 5).map((r) => ({
-        id: String(r.source), name: String(r.source), amount: Number(r.amount || 0),
-        due_date: r.due_date ?? null, count: Number(r.count || 0),
+      const d = (data || {}) as Record<string, unknown>;
+      const top = ((src as Array<Record<string, unknown>>) || []).slice(0, 5).map((r) => ({
+        id: String(r.source),
+        name: String(r.source),
+        amount: Number(r.amount || 0),
+        due_date: (r.due_date as string | null) ?? null,
+        count: Number(r.count || 0),
       }));
-      const all = { length: ((src || []) as any[]).reduce((n, r) => n + Number(r.count || 0), 0) };
-      return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
+      const all = { length: ((src as Array<Record<string, unknown>>) || []).reduce((n, r) => n + Number(r.count || 0), 0) };
+      return {
+        outstanding: Number(d.outstanding || 0),
+        dueInRange: Number(d.due_in_range || 0),
+        count: all.length,
+        top,
+      };
     },
     staleTime: 300_000,
     gcTime: 600_000,
     refetchOnWindowFocus: false,
   });
-
-  const recent = useQuery({
-    queryKey: ['cfo-cash-position-recent-tx'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('general_ledger')
-        .select('id, transaction_date, description, category, amount, direction')
-        .eq('ledger_scope', 'platform')
-        .in('classification', ['production', 'legacy_real'])
-        .order('transaction_date', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 60_000,
-  });
-
-  const payablesTotal = rp.data?.outstanding ?? 0; // receivables show immediately; payables fill in when ready
-  const outstanding = totalReceivables + payablesTotal;
-  const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
-
-  const topPayables = rp.data?.top ?? [];
-  const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
-  const obligationsReady = receivablesReady && !!rp.data && !rp.error;
-  const liquidityCoverage = obligationsReady && moneyReady && payablesTotal > 0 ? moneyWeCanUse / payablesTotal : null;
-  const netOutstanding = totalReceivables - payablesTotal;
-  const obligationsShare = moneyWeHave > 0 ? (moneyWeOwe / moneyWeHave) * 100 : 0;
-  const liquidityState = liquidityCoverage === null
-    ? { label: !obligationsReady || !moneyReady ? 'Checking obligations' : 'No payables recorded', tone: 'text-muted-foreground', surface: 'bg-muted' }
-    : liquidityCoverage >= 1
-      ? { label: 'Covered', tone: 'text-success', surface: 'bg-success/10' }
-      : { label: 'Attention required', tone: 'text-destructive', surface: 'bg-destructive/10' };
 
   const series = flow.data ?? [];
   const half = Math.floor(series.length / 2);
@@ -152,23 +135,27 @@ export function CashPositionInsights({
   const priorIn = series.slice(0, half).reduce((s, d) => s + d.inflow, 0);
   const inChange = priorIn > 0 ? ((recentIn - priorIn) / priorIn) * 100 : null;
   const netAll = series.reduce((s, d) => s + d.net, 0);
-  
+  const totalInflow = series.reduce((s, d) => s + d.inflow, 0);
+  const totalOutflow = series.reduce((s, d) => s + d.outflow, 0);
+
   const insights = [
     inChange !== null && {
       icon: inChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />,
-      tone: inChange >= 0 ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground',
+      tone: inChange >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       title: `Money received is ${inChange >= 0 ? 'up' : 'down'} ${Math.abs(inChange).toFixed(0)}%`,
       sub: `${fmt(recentIn)} vs ${fmt(priorIn)} in the previous ${series.length - half} days`,
       go: 'cash-position',
     },
     {
-      icon: <AlertTriangle className="h-4 w-4" />, tone: 'bg-destructive text-destructive-foreground',
+      icon: <AlertTriangle className="h-4 w-4" />,
+      tone: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       title: 'Payables due soon',
       sub: `${rp.data?.count ?? 0} items due in 30 days, totalling ${fmt(rp.data?.dueInRange ?? 0)}`,
       go: 'withdrawals',
     },
     {
-      icon: <Info className="h-4 w-4" />, tone: 'bg-info text-info-foreground',
+      icon: <Info className="h-4 w-4" />,
+      tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
       sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} ${days === 1 ? 'today' : `over the last ${days} days`}`,
       go: 'cash-position',
@@ -182,79 +169,194 @@ export function CashPositionInsights({
     { icon: <ShieldCheck className="h-4 w-4" />, title: 'Audit Log', sub: 'View recent approvals history', go: 'approval-audit' },
   ];
 
-  const statusBadge = (due?: string | null) => {
-    const today = kampalaToday();
-    const key = due?.slice(0, 10);
-    if (!key || key <= today) return <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[10px]">Due</Badge>;
-    return <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning text-[10px]">Upcoming</Badge>;
-  };
-
   return (
-    <div className="cash-insights-layout">
-      {onSelectAccount && <CashPositionAccounts money={accountMoney} updatedAt={accountUpdatedAt} onSelect={onSelectAccount} />}
-      {/* Row 1 */}
-      <div className="cash-analysis-primary">
-        <Card className="cash-flow-chart min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<LineIcon className="h-4 w-4" />} title="Cash Position Overview" sub="Money in, money out and net movement"
-            right={
-              <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-                className="h-9 rounded-md border border-border bg-card px-2 text-xs">
-                <option value={1}>Today</option><option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
-              </select>
-            } />
-          <div className="h-72">
-            {flow.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={series} margin={{ left: 0, right: 8, top: 4, bottom: 4 }} barCategoryGap="22%" barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11 }} minTickGap={24} tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                  <YAxis tick={{ fontSize: 11 }} width={44} tickFormatter={axisShort} tickLine={false} axisLine={false} />
-                  <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
-                  <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8}
-                    wrapperStyle={{ fontSize: 11, paddingBottom: 8 }} />
-                  <Bar dataKey="inflow" name="Money Received" fill="hsl(var(--success))" radius={[3, 3, 0, 0]} maxBarSize={34} />
-                  <Bar dataKey="outflow" name="Money Paid Out" fill="hsl(var(--warning))" radius={[3, 3, 0, 0]} maxBarSize={34} />
-                  <Line type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--primary))" strokeWidth={2.5}
-                    dot={{ r: 3, fill: 'hsl(var(--primary))', strokeWidth: 0 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent></Card>
+    <div className="cash-insights-layout space-y-5">
+      {/* Treasury & Banking Accounts */}
+      {onSelectAccount && (
+        <CashPositionAccounts
+          money={accountMoney}
+          updatedAt={accountUpdatedAt}
+          onSelect={onSelectAccount}
+        />
+      )}
 
+      {/* Row 1: Flow Trend Chart & Breakdowns */}
+      <div className="cash-analysis-primary space-y-5">
+        <Card className="cash-flow-chart rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head
+              icon={<LineIcon className="h-4 w-4" />}
+              title="Cash Flow & Net Movement"
+              sub="Money received, money paid out and net liquidity velocity"
+              right={
+                <select
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-border/80 bg-muted/40 px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer shadow-2xs"
+                >
+                  <option value={1}>Today</option>
+                  <option value={7}>Last 7 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={90}>Last 90 days</option>
+                </select>
+              }
+            />
+
+            <div className="h-72 w-full pt-1">
+              {flow.isLoading ? (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  Loading flow trend…
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={series}
+                    margin={{ left: 0, right: 8, top: 4, bottom: 4 }}
+                    barCategoryGap="22%"
+                    barGap={4}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      minTickGap={24}
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      width={48}
+                      tickFormatter={axisShort}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 11, paddingBottom: 10 }}
+                    />
+                    <Bar
+                      dataKey="inflow"
+                      name="Money Received"
+                      fill="#10b981"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={32}
+                    />
+                    <Bar
+                      dataKey="outflow"
+                      name="Money Paid Out"
+                      fill="#f43f5e"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={32}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net Movement"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Velocity Summary Strip */}
+            <div className="mt-3.5 grid grid-cols-3 gap-2.5 border-t border-border/40 pt-3 text-xs">
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">
+                  Total Received
+                </span>
+                <span className="text-xs sm:text-sm font-bold tabular-nums text-foreground mt-0.5 block">
+                  {fmt(totalInflow)}
+                </span>
+              </div>
+              <div className="rounded-lg bg-rose-500/5 border border-rose-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-rose-600 dark:text-rose-400 block">
+                  Total Paid Out
+                </span>
+                <span className="text-xs sm:text-sm font-bold tabular-nums text-foreground mt-0.5 block">
+                  {fmt(totalOutflow)}
+                </span>
+              </div>
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 block">
+                  Net Movement
+                </span>
+                <span className={`text-xs sm:text-sm font-bold tabular-nums mt-0.5 block ${netAll >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {netAll >= 0 ? `+${fmt(netAll)}` : fmt(netAll)}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Source Breakdowns */}
         <CashPositionBreakdowns />
       </div>
 
-      {/* Row 2 */}
-      <div className="cash-analysis-secondary">
+      {/* Row 2: Insights & Actions */}
+      <div className="cash-analysis-secondary grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Key Insights Card */}
+        <Card className="cash-key-insights rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" sub="Automated treasury observations" />
+            <div className="divide-y divide-border/40">
+              {insights.map((i) => (
+                <button
+                  key={i.title}
+                  type="button"
+                  onClick={() => onNavigate?.(i.go)}
+                  className="w-full flex items-center gap-3 py-3 px-1 text-left hover:bg-muted/40 rounded-lg transition-colors group"
+                >
+                  <span className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${i.tone}`}>
+                    {i.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {i.title}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground truncate">{i.sub}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card className="cash-key-insights min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" />
-          <div className="divide-y divide-border/60">
-            {insights.map((i) => (
-              <button key={i.title} type="button" onClick={() => onNavigate?.(i.go)} className="w-full flex items-center gap-3 py-2.5 text-left">
-                <span className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${i.tone}`}>{i.icon}</span>
-                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{i.title}</span><span className="block text-[11px] text-muted-foreground truncate">{i.sub}</span></span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
-        </CardContent></Card>
-
-        <Card className="cash-quick-actions min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" />
-          <div className="space-y-2">
-            {actions.map((a) => (
-              <Button key={a.title} variant="outline" type="button" onClick={() => (a.onClick ? a.onClick() : onNavigate?.(a.go!))}
-                className="w-full flex h-auto items-center gap-2 rounded-md border border-border/70 px-2 py-2.5 text-left hover:bg-muted/50 min-h-11 whitespace-normal">
-                <span className="text-primary shrink-0">{a.icon}</span>
-                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{a.title}</span><span className="block text-[11px] text-muted-foreground truncate">{a.sub}</span></span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </Button>
-            ))}
-          </div>
-        </CardContent></Card>
+        {/* Quick Actions Card */}
+        <Card className="cash-quick-actions rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" sub="Frequently used CFO tools and audits" />
+            <div className="space-y-2">
+              {actions.map((a) => (
+                <Button
+                  key={a.title}
+                  variant="outline"
+                  type="button"
+                  onClick={() => (a.onClick ? a.onClick() : onNavigate?.(a.go!))}
+                  className="w-full flex h-auto items-center gap-2.5 rounded-lg border border-border/70 p-3 text-left hover:bg-muted/50 transition-colors justify-start"
+                >
+                  <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    {a.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-foreground">{a.title}</span>
+                    <span className="block text-[10px] text-muted-foreground truncate">{a.sub}</span>
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
       <CashPositionDownloadReports open={reportsOpen} onOpenChange={setReportsOpen} />
     </div>
   );

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
-import { KPICard } from '@/components/executive/KPICard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,10 +48,10 @@ interface LedgerRow {
 }
 
 const STATUS_TONE: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  repaying: 'bg-emerald-100 text-emerald-700',
-  overdue: 'bg-rose-100 text-rose-700',
-  completed: 'bg-muted text-muted-foreground',
+  active: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25',
+  repaying: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/25',
+  overdue: 'bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/25',
+  completed: 'bg-muted text-muted-foreground border-border',
 };
 
 const CHART_COLORS = ['#7c3aed', '#059669', '#f59e0b', '#ef4444', '#0ea5e9', '#ec4899'];
@@ -213,43 +212,132 @@ export function AdvanceRepaymentsPanel() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex flex-col items-center justify-center py-20 gap-2 text-muted-foreground">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="text-xs font-medium">Loading repayment analytics...</span>
       </div>
     );
   }
 
+  const kpiItems = [
+    {
+      title: 'Active advances',
+      value: String(stats.activeCount),
+      sub: `Principal ${formatUGX(stats.principalActive)}`,
+      icon: Activity,
+      tone: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 ring-violet-500/20',
+      accent: 'from-violet-500/80 via-violet-500/40 to-transparent',
+    },
+    {
+      title: 'Outstanding (active)',
+      value: formatUGX(stats.outstanding),
+      sub: 'Current book balance',
+      icon: CircleDollarSign,
+      tone: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 ring-sky-500/20',
+      accent: 'from-sky-500/80 via-sky-500/40 to-transparent',
+    },
+    {
+      title: 'Repaid (30d)',
+      value: formatUGX(stats.repaid30),
+      sub: 'Rolling 30-day collections',
+      icon: TrendingDown,
+      tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20',
+      accent: 'from-emerald-500/80 via-emerald-500/40 to-transparent',
+    },
+    {
+      title: 'Repaid (7d)',
+      value: formatUGX(stats.repaid7),
+      sub: 'Last 7 days recovered',
+      icon: TrendingDown,
+      tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20',
+      accent: 'from-emerald-500/80 via-emerald-500/40 to-transparent',
+    },
+    {
+      title: 'Avg daily repayment',
+      value: formatUGX(stats.avgDaily),
+      sub: 'On active collection days',
+      icon: Banknote,
+      tone: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 ring-teal-500/20',
+      accent: 'from-teal-500/80 via-teal-500/40 to-transparent',
+    },
+    {
+      title: 'Access charges (30d)',
+      value: formatUGX(stats.interest30),
+      sub: 'Accrued over last 30 days',
+      icon: Percent,
+      tone: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20',
+      accent: 'from-amber-500/80 via-amber-500/40 to-transparent',
+    },
+    {
+      title: 'Overdue advances',
+      value: String(stats.overdueCount),
+      sub: 'Past scheduled expiry',
+      icon: AlertTriangle,
+      tone: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20',
+      accent: 'from-rose-500/80 via-rose-500/40 to-transparent',
+    },
+    {
+      title: 'Overdue outstanding',
+      value: formatUGX(stats.overdueOutstanding),
+      sub: 'At-risk balance exposure',
+      icon: AlertTriangle,
+      tone: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20',
+      accent: 'from-rose-500/80 via-rose-500/40 to-transparent',
+    },
+  ];
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPICard title="Active advances" value={String(stats.activeCount)} icon={Activity} color="bg-purple-100 text-purple-700" />
-        <KPICard title="Outstanding (active)" value={formatUGX(stats.outstanding)} icon={CircleDollarSign} color="bg-blue-100 text-blue-700" />
-        <KPICard title="Repaid (30d)" value={formatUGX(stats.repaid30)} icon={TrendingDown} color="bg-emerald-100 text-emerald-700" />
-        <KPICard title="Repaid (7d)" value={formatUGX(stats.repaid7)} icon={TrendingDown} color="bg-emerald-100 text-emerald-700" />
-        <KPICard title="Avg daily repayment" value={formatUGX(stats.avgDaily)} icon={Banknote} color="bg-teal-100 text-teal-700" />
-        <KPICard title="Interest accrued (30d)" value={formatUGX(stats.interest30)} icon={Percent} color="bg-amber-100 text-amber-700" />
-        <KPICard title="Overdue advances" value={String(stats.overdueCount)} icon={AlertTriangle} color="bg-rose-100 text-rose-700" />
-        <KPICard title="Overdue outstanding" value={formatUGX(stats.overdueOutstanding)} icon={AlertTriangle} color="bg-rose-100 text-rose-700" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {kpiItems.map((k) => (
+          <Card key={k.title} className="relative overflow-hidden rounded-xl border-border/80 bg-card shadow-2xs transition-all hover:shadow-md">
+            <div className={` inset-x-0 top-0 h-1 bg-gradient-to-r ${k.accent}`} />
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground leading-tight">
+                  {k.title}
+                </span>
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ${k.tone}`}>
+                  <k.icon className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <p className="text-lg sm:text-xl font-bold tracking-tight tabular-nums text-foreground truncate">
+                {k.value}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">{k.sub}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Daily repayment trend */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-primary" /> Repayment trend (last 60 days)
-          </CardTitle>
+      <Card className="rounded-xl border-border/80 shadow-2xs">
+        <CardHeader className="pb-3 border-b border-border/50">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <TrendingUp className="h-3.5 w-3.5" />
+              </span>
+              <div>
+                <span>Repayment trend (last 60 days)</span>
+                <p className="text-[11px] font-normal text-muted-foreground">
+                  Daily principal &amp; fee deductions versus daily accrued access charges
+                </p>
+              </div>
+            </CardTitle>
+          </div>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={dailyTrend} margin={{ left: -10, right: 8, top: 4 }}>
+        <CardContent className="pt-4">
+          <ResponsiveContainer width="100%" height={250}>
+            <AreaChart data={dailyTrend} margin={{ left: -10, right: 8, top: 6 }}>
               <defs>
                 <linearGradient id="rep" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.5} />
+                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.45} />
                   <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="intr" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
                   <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                 </linearGradient>
               </defs>
@@ -259,7 +347,7 @@ export function AdvanceRepaymentsPanel() {
               <Tooltip formatter={(v: any) => formatUGX(Number(v))} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Area type="monotone" dataKey="Repaid" stroke="#7c3aed" fill="url(#rep)" strokeWidth={2} />
-              <Area type="monotone" dataKey="Interest" stroke="#f59e0b" fill="url(#intr)" strokeWidth={2} />
+              <Area type="monotone" dataKey="Interest" name="Accrued Charges" stroke="#f59e0b" fill="url(#intr)" strokeWidth={2} />
             </AreaChart>
           </ResponsiveContainer>
         </CardContent>
@@ -267,20 +355,26 @@ export function AdvanceRepaymentsPanel() {
 
       <div className="grid lg:grid-cols-2 gap-4">
         {/* Outstanding by advance */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-primary" /> Top outstanding balances
+        <Card className="rounded-xl border-border/80 shadow-2xs">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Banknote className="h-3.5 w-3.5" />
+              </span>
+              <div>
+                <span>Top outstanding balances</span>
+                <p className="text-[11px] font-normal text-muted-foreground">Highest active &amp; overdue exposures by agent</p>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={outstandingByAdvance} margin={{ left: -6, right: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v: any) => formatUGX(Number(v))} />
-                <Bar dataKey="Outstanding" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="Outstanding" radius={[5, 5, 0, 0]}>
                   {outstandingByAdvance.map((e, i) => (
                     <Cell key={i} fill={e.overdue ? '#ef4444' : '#7c3aed'} />
                   ))}
@@ -291,16 +385,22 @@ export function AdvanceRepaymentsPanel() {
         </Card>
 
         {/* Status distribution */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" /> Advances by status
+        <Card className="rounded-xl border-border/80 shadow-2xs">
+          <CardHeader className="pb-3 border-b border-border/50">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Activity className="h-3.5 w-3.5" />
+              </span>
+              <div>
+                <span>Advances by status</span>
+                <p className="text-[11px] font-normal text-muted-foreground">Portfolio composition across lifecycle stages</p>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <ResponsiveContainer width="100%" height={230}>
               <PieChart>
-                <Pie data={statusDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={(e: any) => `${e.name} (${e.value})`} labelLine={false} fontSize={10}>
+                <Pie data={statusDist} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={48} outerRadius={82} paddingAngle={2} label={(e: any) => `${e.name} (${e.value})`} labelLine={false} fontSize={10}>
                   {statusDist.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Pie>
                 <Tooltip />
@@ -311,59 +411,72 @@ export function AdvanceRepaymentsPanel() {
       </div>
 
       {/* Per-advance list */}
-      <Card>
-        <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <History className="h-4 w-4 text-primary" /> Advance repayment tracker
+      <Card className="rounded-xl border-border/80 shadow-2xs">
+        <CardHeader className="pb-3 border-b border-border/50 flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <History className="h-3.5 w-3.5" />
+            </span>
+            <div>
+              <span>Advance repayment tracker</span>
+              <p className="text-[11px] font-normal text-muted-foreground">Click any advance to inspect its 90-day ledger history</p>
+            </div>
           </CardTitle>
-          <div className="flex gap-1">
-            <Button size="sm" variant={scope === 'active' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('active')}>Active</Button>
-            <Button size="sm" variant={scope === 'all' ? 'default' : 'outline'} className="h-7 text-xs" onClick={() => setScope('all')}>All</Button>
+          <div className="flex gap-1.5 bg-muted/60 p-1 rounded-lg">
+            <Button size="sm" variant={scope === 'active' ? 'default' : 'ghost'} className="h-7 text-xs px-3 rounded-md" onClick={() => setScope('active')}>Active</Button>
+            <Button size="sm" variant={scope === 'all' ? 'default' : 'ghost'} className="h-7 text-xs px-3 rounded-md" onClick={() => setScope('all')}>All</Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {list.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-6">No advances in this view.</p>
+        <CardContent className="pt-4">
+          {list.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 py-10 text-center">
+              <p className="text-xs text-muted-foreground">No advances in this view.</p>
+            </div>
+          ) : (
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {list.map((a) => {
+                const repaid = Math.max(0, num(a.principal) - num(a.outstanding_balance));
+                const pct = num(a.principal) > 0 ? Math.min(100, (repaid / num(a.principal)) * 100) : 0;
+                const daysLeft = differenceInCalendarDays(new Date(a.expires_at), new Date());
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => setSelected(a)}
+                    className="group w-full text-left rounded-xl border border-border/80 bg-card p-3.5 hover:border-primary/40 hover:shadow-xs transition-all"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                          {nameOf(a.agent_id)}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <CalendarClock className="h-3 w-3 shrink-0" />
+                          {a.status === 'completed'
+                            ? `Issued ${format(new Date(a.issued_at), 'MMM d')}`
+                            : daysLeft >= 0 ? `${daysLeft}d left` : `${Math.abs(daysLeft)}d overdue`}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 h-5 font-semibold capitalize ${STATUS_TONE[a.status] || 'bg-muted'}`}>
+                        {a.status}
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </div>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-[11px] mb-1.5">
+                        <span className="text-muted-foreground tabular-nums">Repaid {formatUGX(repaid)}</span>
+                        <span className="font-semibold tabular-nums text-foreground">{pct.toFixed(0)}%</span>
+                      </div>
+                      <Progress value={pct} className="h-1.5" />
+                      <div className="flex justify-between text-[11px] text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                        <span className="tabular-nums">Principal {formatUGX(num(a.principal))}</span>
+                        <span className="font-bold tabular-nums text-foreground">Outstanding {formatUGX(num(a.outstanding_balance))}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           )}
-          {list.map((a) => {
-            const repaid = Math.max(0, num(a.principal) - num(a.outstanding_balance));
-            const pct = num(a.principal) > 0 ? Math.min(100, (repaid / num(a.principal)) * 100) : 0;
-            const daysLeft = differenceInCalendarDays(new Date(a.expires_at), new Date());
-            return (
-              <button
-                key={a.id}
-                onClick={() => setSelected(a)}
-                className="w-full text-left rounded-xl border border-border bg-card p-3 hover:border-primary/40 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{nameOf(a.agent_id)}</p>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <CalendarClock className="h-3 w-3" />
-                      {a.status === 'completed'
-                        ? `Issued ${format(new Date(a.issued_at), 'MMM d')}`
-                        : daysLeft >= 0 ? `${daysLeft}d left` : `${Math.abs(daysLeft)}d overdue`}
-                    </p>
-                  </div>
-                  <Badge className={`text-[9px] px-1.5 py-0 h-4 font-bold border-0 ${STATUS_TONE[a.status] || 'bg-muted'}`}>
-                    {a.status}
-                  </Badge>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                </div>
-                <div className="mt-2">
-                  <div className="flex justify-between text-[11px] mb-1">
-                    <span className="text-muted-foreground">Repaid {formatUGX(repaid)}</span>
-                    <span className="font-semibold">{pct.toFixed(0)}%</span>
-                  </div>
-                  <Progress value={pct} className="h-1.5" />
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                    <span>Principal {formatUGX(num(a.principal))}</span>
-                    <span className="font-bold text-foreground">Outstanding {formatUGX(num(a.outstanding_balance))}</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
         </CardContent>
       </Card>
 
@@ -423,24 +536,24 @@ function RepaymentDetailDialog({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+                  className="gap-1.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10"
                   onClick={() => setCancelOpen(true)}
                 >
                   <Ban className="h-3.5 w-3.5" /> Cancel advance
                 </Button>
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <MiniStat label="Principal" value={formatUGX(num(advance.principal))} />
               <MiniStat label="Outstanding" value={formatUGX(num(advance.outstanding_balance))} />
               <MiniStat label="Repaid" value={formatUGX(totalRepaid)} />
-              <MiniStat label="Interest (90d)" value={formatUGX(totalInterest)} />
+              <MiniStat label="Access Charges (90d)" value={formatUGX(totalInterest)} />
             </div>
 
             {chartData.length > 0 ? (
               <>
-                <div>
-                  <p className="text-xs font-semibold mb-1">Balance drawdown</p>
+                <div className="rounded-xl border border-border/70 bg-muted/15 p-3.5">
+                  <p className="text-xs font-semibold mb-2">Balance drawdown</p>
                   <ResponsiveContainer width="100%" height={200}>
                     <LineChart data={chartData} margin={{ left: -8, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -452,8 +565,8 @@ function RepaymentDetailDialog({
                   </ResponsiveContainer>
                 </div>
 
-                <div>
-                  <p className="text-xs font-semibold mb-1">Daily deductions</p>
+                <div className="rounded-xl border border-border/70 bg-muted/15 p-3.5">
+                  <p className="text-xs font-semibold mb-2">Daily deductions</p>
                   <ResponsiveContainer width="100%" height={160}>
                     <BarChart data={chartData} margin={{ left: -8, right: 8 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
@@ -466,31 +579,31 @@ function RepaymentDetailDialog({
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold mb-1">Ledger history</p>
-                  <div className="rounded-lg border border-border overflow-hidden">
+                  <p className="text-xs font-semibold mb-2">Ledger history</p>
+                  <div className="rounded-xl border border-border/80 overflow-hidden">
                     <table className="w-full text-[11px]">
-                      <thead className="bg-muted/60">
+                      <thead className="bg-muted/50">
                         <tr className="text-left">
-                          <th className="p-2 font-semibold">Date</th>
-                          <th className="p-2 font-semibold text-right">Opening</th>
-                          <th className="p-2 font-semibold text-right">Interest</th>
-                          <th className="p-2 font-semibold text-right">Deducted</th>
-                          <th className="p-2 font-semibold text-right">Closing</th>
-                          <th className="p-2 font-semibold">Status</th>
+                          <th className="p-2.5 font-semibold">Date</th>
+                          <th className="p-2.5 font-semibold text-right">Opening</th>
+                          <th className="p-2.5 font-semibold text-right">Charges</th>
+                          <th className="p-2.5 font-semibold text-right">Deducted</th>
+                          <th className="p-2.5 font-semibold text-right">Closing</th>
+                          <th className="p-2.5 font-semibold">Status</th>
                         </tr>
                       </thead>
                       <tbody>
                         {[...rows].reverse().map((r, i) => (
-                          <tr key={i} className="border-t border-border">
-                            <td className="p-2 whitespace-nowrap">{format(new Date(r.date), 'MMM d')}</td>
-                            <td className="p-2 text-right">{formatUGX(num(r.opening_balance))}</td>
-                            <td className="p-2 text-right text-amber-600">{formatUGX(num(r.interest_accrued))}</td>
-                            <td className="p-2 text-right text-emerald-600 font-semibold">{formatUGX(num(r.amount_deducted))}</td>
-                            <td className="p-2 text-right">{formatUGX(num(r.closing_balance))}</td>
-                            <td className="p-2">
-                              <Badge className={`text-[8px] px-1 py-0 h-4 border-0 ${
-                                r.deduction_status === 'full' ? 'bg-emerald-100 text-emerald-700'
-                                : r.deduction_status === 'partial' ? 'bg-amber-100 text-amber-700'
+                          <tr key={i} className="border-t border-border/60 hover:bg-muted/20">
+                            <td className="p-2.5 whitespace-nowrap tabular-nums">{format(new Date(r.date), 'MMM d')}</td>
+                            <td className="p-2.5 text-right tabular-nums">{formatUGX(num(r.opening_balance))}</td>
+                            <td className="p-2.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{formatUGX(num(r.interest_accrued))}</td>
+                            <td className="p-2.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400 font-semibold">{formatUGX(num(r.amount_deducted))}</td>
+                            <td className="p-2.5 text-right tabular-nums font-medium">{formatUGX(num(r.closing_balance))}</td>
+                            <td className="p-2.5">
+                              <Badge className={`text-[9px] px-1.5 py-0 h-4 border-0 capitalize ${
+                                r.deduction_status === 'full' ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                : r.deduction_status === 'partial' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
                                 : 'bg-muted text-muted-foreground'}`}>
                                 {r.deduction_status}
                               </Badge>
@@ -503,9 +616,11 @@ function RepaymentDetailDialog({
                 </div>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-6">
-                No repayment ledger activity recorded in the last 90 days.
-              </p>
+              <div className="rounded-xl border border-dashed border-border/70 bg-muted/15 py-8 text-center">
+                <p className="text-xs text-muted-foreground">
+                  No repayment ledger activity recorded in the last 90 days.
+                </p>
+              </div>
             )}
           </div>
         )}
@@ -529,9 +644,9 @@ function RepaymentDetailDialog({
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/40 p-2">
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-      <p className="text-sm font-bold truncate">{value}</p>
+    <div className="rounded-xl border border-border/80 bg-muted/30 p-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="text-sm font-bold tabular-nums text-foreground truncate mt-0.5">{value}</p>
     </div>
   );
 }

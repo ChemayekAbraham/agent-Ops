@@ -27,7 +27,7 @@ import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell'
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WelileHomesLandlordBadge } from '@/components/landlord/WelileHomesLandlordBadge';
-import RegisterPropertyDialog from '@/components/landlord/RegisterPropertyDialog';
+import RegisterPropertyAssistant from '@/components/landlord/registerPropertyAssistant/RegisterPropertyAssistant';
 import { LandlordRegisterHouseCard } from '@/components/landlord/LandlordRegisterHouseCard';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
@@ -168,7 +168,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       </Dialog>
 
       {/* Dialogs */}
-      <RegisterPropertyDialog
+      <RegisterPropertyAssistant
         open={registerPropertyOpen}
         onOpenChange={setRegisterPropertyOpen}
       />

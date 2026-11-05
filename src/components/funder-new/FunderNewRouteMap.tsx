@@ -651,7 +651,7 @@ export function FunderNewRouteMap({
         <div className="pointer-events-none absolute left-3 right-[4.5rem] top-[4.75rem] z-20 pt-safe">{notice}</div>
       ) : null}
       <p className={cn(
-        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
+        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-full bg-card/95 px-3 py-1.5 text-xs font-medium leading-tight text-muted-foreground shadow-md backdrop-blur",
         fullscreen ? (reserveTopForSearch ? (notice ? "top-[9.75rem] left-3 pt-safe hidden sm:block" : "top-[4.75rem] left-3 pt-safe hidden sm:block") : "top-3 left-3 pt-safe hidden sm:block") : "bottom-6"
       )}>{loadedNote}</p>
     </div>

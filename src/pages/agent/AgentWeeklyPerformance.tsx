@@ -24,7 +24,7 @@ function TargetBar({ g, tone }: { g: GroupProgress; tone: 'current' | 'expired' 
       <div
         className={cn(
           'h-full rounded-full transition-all duration-500',
-          g.met ? 'bg-success' : tone === 'current' ? 'bg-primary' : 'bg-amber-500',
+          g.met || tone === 'current' ? 'bg-primary' : 'bg-muted-foreground/50',
         )}
         style={{ width: `${fill}%` }}
       />
@@ -49,13 +49,13 @@ function GroupCard({
     <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-sm font-bold leading-tight">{title}</p>
-          <p className="text-[11px] text-muted-foreground leading-tight">{subtitle} · {plans} plan{plans === 1 ? '' : 's'}</p>
+          <p className="text-base font-semibold leading-tight">{title}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground leading-tight">{subtitle} · {plans} plan{plans === 1 ? '' : 's'}</p>
         </div>
         <span
           className={cn(
-            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-            g.met ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive',
+            'shrink-0 rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium',
+            g.met ? 'text-success' : 'text-destructive',
           )}
         >
           {g.met ? 'Target met' : `Needs ${Math.round((g.required ?? 0) * 100)}%`}
@@ -66,8 +66,8 @@ function GroupCard({
       </div>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
-          <p className="text-[10px] text-muted-foreground">Collected</p>
-          <p className="text-sm font-bold">{formatUGX(g.collected)}</p>
+          <p className="text-xs text-muted-foreground">Collected</p>
+          <p className="text-sm font-semibold">{formatUGX(g.collected)}</p>
           <p className="text-[10px] text-muted-foreground">{pct.toFixed(1)}%</p>
         </div>
         <div>
@@ -80,7 +80,7 @@ function GroupCard({
         </div>
       </div>
       {!g.met && (
-        <p className={cn('text-[11px] font-semibold rounded-xl px-3 py-2', liveWeek ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive')}>
+        <p className={cn('text-xs font-medium rounded-xl border border-border/60 bg-card px-3 py-2.5', liveWeek ? 'text-foreground' : 'text-destructive')}>
           {liveWeek
             ? `Collect ${formatUGX(g.remaining)} more on these plans by Wednesday${daysLeft !== undefined ? ` (${daysLeft + 1} day${daysLeft === 0 ? '' : 's'} left, about ${formatUGX(Math.ceil(g.remaining / (daysLeft + 1)))} a day)` : ''}.`
             : `Short by ${formatUGX(g.remaining)}.`}
@@ -98,13 +98,13 @@ function PlanRow({ p }: { p: PerformancePlan }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-semibold truncate">{p.tenant_name}</p>
-          <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold',
-            p.expired ? 'bg-amber-500/15 text-amber-600' : 'bg-primary/10 text-primary')}>
+          <span className={cn('shrink-0 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium',
+            p.expired ? 'text-muted-foreground' : 'text-primary')}>
             {p.expired ? 'Expired' : 'Current'}
           </span>
         </div>
         <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
-          <div className={cn('h-full rounded-full', ratio >= 1 ? 'bg-success' : p.expired ? 'bg-amber-500' : 'bg-primary')}
+          <div className={cn('h-full rounded-full', p.expired && ratio < 1 ? 'bg-muted-foreground/50' : 'bg-primary')}
             style={{ width: `${Math.round(ratio * 100)}%` }} />
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground">
@@ -116,7 +116,7 @@ function PlanRow({ p }: { p: PerformancePlan }) {
         <a
           href={`tel:${p.tenant_phone}`}
           aria-label={`Call ${p.tenant_name}`}
-          className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-success/10 text-success active:scale-95 transition"
+          className="shrink-0 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-foreground active:scale-95 transition"
         >
           <Phone className="h-4 w-4" />
         </a>
@@ -131,13 +131,13 @@ function HistoryRow({ w }: { w: PerformanceWeek }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-card p-3">
       <div className={cn('shrink-0 flex h-9 w-9 items-center justify-center rounded-full',
-        nothing ? 'bg-muted text-muted-foreground' : w.passes ? 'bg-success/15 text-success' : 'bg-destructive/10 text-destructive')}>
+        'bg-muted', nothing ? 'text-muted-foreground' : w.passes ? 'text-success' : 'text-destructive')}>
         {nothing ? <Hourglass className="h-4 w-4" /> : w.passes ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold leading-tight">
           {shortDay(w.week_start)} – {shortDay(w.week_end)}
-          {w.is_judged && <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">Decides this week</span>}
+          {w.is_judged && <span className="ml-1.5 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-primary">Decides this week</span>}
         </p>
         {nothing ? (
           <p className="text-[11px] text-muted-foreground">Nothing was due</p>
@@ -180,8 +180,8 @@ export default function AgentWeeklyPerformancePage() {
             <ArrowLeft className="h-6 w-6" />
           </Button>
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Activity className="h-5 w-5 text-primary" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+              <Activity className="h-5 w-5 text-muted-foreground" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-bold leading-tight truncate">Weekly Performance</h1>
@@ -204,7 +204,7 @@ export default function AgentWeeklyPerformancePage() {
         )}
 
         {error && !isLoading && (
-          <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <div className="rounded-2xl border border-border/60 bg-card p-4 text-sm">
             <p className="font-semibold text-destructive">Could not load your performance</p>
             <p className="text-muted-foreground mt-1">Check your connection and try again.</p>
             <Button size="sm" variant="outline" className="mt-3" onClick={() => refetch()}>Try again</Button>
@@ -250,14 +250,14 @@ export default function AgentWeeklyPerformancePage() {
               <section className="space-y-3">
                 <div className="flex items-end justify-between">
                   <div>
-                    <h2 className="text-base font-bold flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-primary" /> This week so far</h2>
+                    <h2 className="text-lg font-semibold flex items-center gap-1.5"><TrendingUp className="h-4 w-4 text-muted-foreground" /> This week so far</h2>
                     <p className="text-[11px] text-muted-foreground">
                       {shortDay(data.current_week.week_start)} – {shortDay(data.current_week.week_end)} · day {data.current_week.days_elapsed} of 7
                     </p>
                   </div>
                   {data.current_week.book !== 'none' && (
-                    <span className={cn('rounded-full px-2.5 py-1 text-[10px] font-bold',
-                      live.onTrack ? 'bg-success/15 text-success' : 'bg-amber-500/15 text-amber-600')}>
+                    <span className={cn('rounded-full border border-border px-2.5 py-1 text-[11px] font-medium',
+                      live.onTrack ? 'text-success' : 'text-warning')}>
                       {live.onTrack ? 'On track' : 'Behind target'}
                     </span>
                   )}
@@ -294,7 +294,7 @@ export default function AgentWeeklyPerformancePage() {
             {/* Last week (decides this week) */}
             {judged && judgedProg && judged.book !== 'none' && (
               <section className="space-y-3">
-                <h2 className="text-base font-bold flex items-center gap-1.5"><Target className="h-4 w-4 text-primary" /> Last week's result</h2>
+                <h2 className="text-lg font-semibold flex items-center gap-1.5"><Target className="h-4 w-4 text-muted-foreground" /> Last week's result</h2>
                 <GroupCard title="Current Rent Plans" subtitle={`${shortDay(judged.week_start)} – ${shortDay(judged.week_end)}`}
                   g={judgedProg.current} plans={judged.in_window_plans} tone="current" liveWeek={false} />
                 <GroupCard title="Expired Rent Plans" subtitle={`${shortDay(judged.week_start)} – ${shortDay(judged.week_end)}`}
@@ -306,7 +306,7 @@ export default function AgentWeeklyPerformancePage() {
             {data.plans.length > 0 && (
               <section className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold">Your tenants this week</h2>
+                  <h2 className="text-lg font-semibold">Your tenants this week</h2>
                   <span className="text-[11px] text-muted-foreground">{data.plans.length}</span>
                 </div>
                 <div className="flex gap-1.5">
@@ -341,9 +341,9 @@ export default function AgentWeeklyPerformancePage() {
 
             {/* How it works */}
             {s && (
-              <section className="rounded-2xl border border-border/60 bg-muted/30">
+              <section className="rounded-2xl border border-border/60 bg-card">
                 <button onClick={() => setShowRules((v) => !v)} className="w-full flex items-center gap-2 p-4 text-left">
-                  <Info className="h-4 w-4 text-primary shrink-0" />
+                  <Info className="h-4 w-4 text-muted-foreground shrink-0" />
                   <span className="flex-1 text-sm font-semibold">How the weekly target works</span>
                   <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', showRules && 'rotate-180')} />
                 </button>

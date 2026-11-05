@@ -76897,6 +76897,16 @@ export type Database = {
           total_collected: number
         }[]
       }
+      agent_partner_payout_destination: {
+        Args: { p_partner_id: string; p_route_key: string }
+        Returns: {
+          out_bank: string
+          out_mode: string
+          out_name: string
+          out_number: string
+          out_provider: string
+        }[]
+      }
       agent_partner_payout_routes: {
         Args: { p_partner_id: string }
         Returns: {
