@@ -1,0 +1,349 @@
+import { useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { MapPin } from 'lucide-react';
+import { CALM, FIGURE, FOCUS, LABEL, PANEL, TILE, statusGlass, statusText } from '../deskTheme';
+import { clockTime } from '../deskPrefs';
+import { Skeleton } from '../Skeleton';
+import { readableError } from '../reviewApi';
+import { FUNDERS_KEY, PERIODS, fundOne, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
+import { canFundRow, heldLabel, rating, sortRows, ugx, type Rank } from './fundersView';
+
+const GRADE_TONE: Record<string, string> = {
+  A: 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  B: 'border-teal-500/60 bg-teal-500/15 text-teal-700 dark:text-teal-300',
+  C: 'border-amber-500/60 bg-amber-500/15 text-amber-800 dark:text-amber-300',
+  D: 'border-red-500/60 bg-red-500/15 text-red-700 dark:text-red-300',
+};
+
+function GradeBadge({ grade }: { grade: string | null }) {
+  const g = (grade ?? '').trim().toUpperCase();
+  const tone = GRADE_TONE[g] ?? 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground';
+  return (
+    <span className={`inline-flex min-w-[2rem] justify-center rounded-md border px-2 py-0.5 text-xs font-semibold ${tone}`}>
+      {g || '—'}
+    </span>
+  );
+}
+
+function Tile({ label, value, sub, board }: { label: string; value: string; sub?: string; board: boolean }) {
+  return (
+    <div className={`${TILE} min-w-0 space-y-2 p-4`}>
+      <div className={LABEL}>{label}</div>
+      <div className={`${FIGURE} ${board ? 'text-[36px]' : 'text-[28px]'} leading-none`}>{value}</div>
+      {sub && <div className={`${LABEL} truncate`}>{sub}</div>}
+    </div>
+  );
+}
+
+const pill = (active: boolean) =>
+  `desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+    active
+      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
+  }`;
+
+const HEAD: { label: string; right?: boolean }[] = [
+  { label: 'Request' },
+  { label: 'Tenant' },
+  { label: 'Agent' },
+  { label: 'Landlord' },
+  { label: 'Grade · Agent / Tenant / Landlord' },
+  { label: 'Days on board', right: true },
+  { label: 'Rent (UGX)', right: true },
+  { label: 'GPS · photos' },
+  { label: '' },
+  { label: '' },
+];
+
+type Outcome = { id: string; ok: boolean; text: string };
+
+function ConfirmFund({
+  row,
+  busy,
+  outcome,
+  onConfirm,
+  onClose,
+}: {
+  row: FundersRow;
+  busy: boolean;
+  outcome: Outcome | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const amount = row.funding_amount ?? row.rent;
+  const done = !!outcome;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-6" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="funders-confirm-title"
+        className={`${PANEL} w-full max-w-md space-y-3 bg-[hsl(var(--background))] p-4 sm:p-5`}
+      >
+        <h2 id="funders-confirm-title" className="text-lg font-semibold text-foreground">
+          Fund with Welile money
+        </h2>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          <dt className="text-muted-foreground">Request</dt>
+          <dd className="font-mono text-foreground">{row.req ?? row.id.slice(0, 8)}</dd>
+          <dt className="text-muted-foreground">Tenant</dt>
+          <dd className="text-foreground">{row.tenant ?? '—'}</dd>
+          <dt className="text-muted-foreground">Landlord</dt>
+          <dd className="text-foreground">{row.landlord ?? '—'}</dd>
+          <dt className="text-muted-foreground">Amount</dt>
+          <dd className="tabular-nums text-foreground">{ugx(amount)}</dd>
+        </dl>
+        {!done && (
+          <p className="text-xs text-muted-foreground">
+            This funds the agent&rsquo;s landlord float from Welile&rsquo;s money now. The request leaves the funders&rsquo;
+            board.
+          </p>
+        )}
+        {outcome && (
+          <p role={outcome.ok ? 'status' : 'alert'} className={`text-sm ${outcome.ok ? statusText.ok : statusText.bad}`}>
+            {outcome.text}
+          </p>
+        )}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={busy}
+            className={`desk-pill border border-[var(--desk-line-color)] px-4 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
+          >
+            {done ? 'Close' : 'Cancel'}
+          </button>
+          {!done && (
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={busy}
+              className={`desk-pill border border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.25)] px-4 py-2 text-sm font-medium text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
+            >
+              {busy ? 'Funding…' : `Fund ${ugx(amount)}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The Funders Dashboard (desk id `cfo`): what funders can take today, what
+ * they hold, what was funded, and — where the CFO is allowed — a way to fund a
+ * request with Welile money, one at a time.
+ */
+export function FundersDashboard({ board }: { board: boolean }) {
+  const qc = useQueryClient();
+  const [period, setPeriod] = useState<Period>('today');
+  const [rank, setRank] = useState<Rank>('grade');
+  const [target, setTarget] = useState<FundersRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+
+  const q = useFundersDashboard(period);
+  const d = q.data;
+  const rows = useMemo(() => sortRows(d?.rows ?? [], rank), [d?.rows, rank]);
+  const updatedMs = d?.generated_at ? Date.parse(d.generated_at) : q.dataUpdatedAt;
+
+  const confirm = async () => {
+    if (!target) return;
+    setBusy(true);
+    try {
+      const res = await fundOne(target.id);
+      setOutcome(
+        res.ok
+          ? { id: target.id, ok: true, text: 'Funded. The agent will complete the payout to the landlord.' }
+          : { id: target.id, ok: false, text: res.reason },
+      );
+    } catch (e) {
+      setOutcome({ id: target.id, ok: false, text: readableError(e) });
+    } finally {
+      setBusy(false);
+      qc.invalidateQueries({ queryKey: FUNDERS_KEY });
+      qc.invalidateQueries({ queryKey: ['desk-feed'] });
+      qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
+      qc.invalidateQueries({ queryKey: ['treasury-cash-snapshot'] });
+      qc.invalidateQueries({ queryKey: ['cfo-overview'] });
+    }
+  };
+
+  const close = () => {
+    if (busy) return;
+    setTarget(null);
+    setOutcome(null);
+  };
+
+  const avg = d?.funded.avg_days_coo_to_funded;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="group" aria-label="Period for the funded figures" className="flex flex-wrap gap-1.5">
+          {PERIODS.map((p) => (
+            <button key={p.value} type="button" aria-pressed={period === p.value} onClick={() => setPeriod(p.value)} className={pill(period === p.value)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-muted-foreground">
+          Updated {clockTime(Number.isFinite(updatedMs) ? updatedMs : 0)}
+          {q.isFetching && !q.isLoading ? ' · refreshing' : ''}
+        </span>
+      </div>
+
+      {q.isLoading ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 w-full" />
+          ))}
+        </div>
+      ) : d ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Tile board={board} label="Fund today" value={ugx(d.fund_today.ugx)} sub={`${d.fund_today.n} on the board, not held`} />
+          <Tile board={board} label="Held by funders now" value={ugx(d.held_by_funders.ugx)} sub={`${d.held_by_funders.n} held`} />
+          <Tile
+            board={board}
+            label={`Funded · ${PERIODS.find((p) => p.value === period)?.label ?? period}`}
+            value={ugx(d.funded.ugx)}
+            sub={`${d.funded.n} requests · Funders ${d.funded.by_funders.n} · Welile ${d.funded.by_welile.n}`}
+          />
+          <Tile
+            board={board}
+            label="Avg days COO → funded"
+            value={avg === null || avg === undefined ? '—' : (Math.round(avg * 10) / 10).toFixed(1)}
+          />
+        </div>
+      ) : null}
+
+      {q.error && (
+        <p role="alert" className={`text-sm ${statusText.bad}`}>
+          {readableError(q.error)}
+        </p>
+      )}
+
+      <section className={`${PANEL} space-y-3 p-4 sm:p-5`} aria-labelledby="funders-list-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1">
+            <h3 id="funders-list-title" className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>
+              On the funders&rsquo; board
+            </h3>
+            <p className="max-w-3xl text-xs leading-snug text-muted-foreground">
+              Rent Plans approved by the COO, graded on the three ops reviews. Funded or claimed requests leave this list on
+              their own.
+            </p>
+          </div>
+          <div role="group" aria-label="Sort" className="flex flex-wrap gap-1.5">
+            <button type="button" aria-pressed={rank === 'grade'} onClick={() => setRank('grade')} className={pill(rank === 'grade')}>
+              Best grade first
+            </button>
+            <button type="button" aria-pressed={rank === 'oldest'} onClick={() => setRank('oldest')} className={pill(rank === 'oldest')}>
+              Oldest first
+            </button>
+          </div>
+        </div>
+
+        {q.isLoading && <Skeleton className="h-40 w-full" />}
+        {!q.isLoading && !q.error && rows.length === 0 && (
+          <p className="text-sm text-muted-foreground">Nothing is on the funders&rsquo; board right now.</p>
+        )}
+
+        {rows.length > 0 && (
+          <div className="max-h-[40rem] overflow-auto rounded-xl border border-[var(--desk-line-color)]">
+            <table className="w-full border-collapse text-sm tabular-nums">
+              <thead className="desk-thead">
+                <tr>
+                  {HEAD.map((h, i) => (
+                    <th
+                      key={i}
+                      scope="col"
+                      className={`sticky top-0 z-10 whitespace-nowrap border-b border-[var(--desk-line-color)] px-3 py-2 font-medium text-muted-foreground ${
+                        h.right ? 'text-right' : 'text-left'
+                      }`}
+                    >
+                      {h.label || <span className="sr-only">{i === 8 ? 'Held' : 'Action'}</span>}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const photos = Array.isArray(r.photos) ? r.photos.length : 0;
+                  const held = heldLabel(r);
+                  const cell = 'px-3 py-2 align-top';
+                  return (
+                    <tr key={r.id} className={`desk-row border-b border-[var(--desk-line-soft)] last:border-0 ${CALM}`}>
+                      <td className={`${cell} font-mono text-xs text-muted-foreground`}>{r.req ?? r.id.slice(0, 8)}</td>
+                      <td className={cell}>
+                        <div className="text-foreground">{r.tenant ?? '—'}</div>
+                        {r.tenant_location && <div className="text-xs text-muted-foreground">{r.tenant_location}</div>}
+                      </td>
+                      <td className={`${cell} text-foreground`}>{r.agent ?? '—'}</td>
+                      <td className={cell}>
+                        <div className="text-foreground">{r.landlord ?? '—'}</div>
+                        {r.landlord_phone && <div className="text-xs text-muted-foreground">{r.landlord_phone}</div>}
+                      </td>
+                      <td className={`${cell} whitespace-nowrap`}>
+                        <GradeBadge grade={r.grade} />
+                        <span className="ml-2 text-xs text-muted-foreground" title="Agent / Tenant / Landlord ratings">
+                          {rating(r.ratings?.agent_ops)} / {rating(r.ratings?.tenant_ops)} / {rating(r.ratings?.landlord_ops)}
+                        </span>
+                      </td>
+                      <td className={`${cell} text-right text-foreground`}>{r.days_on_board ?? '—'}</td>
+                      <td className={`${cell} text-right text-foreground`}>
+                        {r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')}
+                      </td>
+                      <td className={`${cell} whitespace-nowrap text-xs`}>
+                        {r.gps ? (
+                          <a
+                            href={`https://www.google.com/maps?q=${r.gps.lat},${r.gps.lng}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={`inline-flex items-center gap-0.5 text-[hsl(var(--primary))] underline-offset-2 hover:underline ${FOCUS}`}
+                          >
+                            <MapPin className="h-3.5 w-3.5" aria-hidden /> Map
+                          </a>
+                        ) : (
+                          <span className="text-muted-foreground">No GPS</span>
+                        )}
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · {photos} photo{photos === 1 ? '' : 's'}
+                        </span>
+                      </td>
+                      <td className={cell}>
+                        {held && (
+                          <span className={`desk-pill inline-block whitespace-nowrap border px-2.5 py-0.5 text-xs ${statusGlass.warn}`}>
+                            {held}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${cell} text-right`}>
+                        {canFundRow(r, d?.can_fund_welile === true) && (
+                          <button
+                            type="button"
+                            disabled={busy || !!target}
+                            onClick={() => {
+                              setOutcome(null);
+                              setTarget(r);
+                            }}
+                            className={`desk-pill whitespace-nowrap border border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
+                          >
+                            Fund with Welile money
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {target && <ConfirmFund row={target} busy={busy} outcome={outcome} onConfirm={confirm} onClose={close} />}
+    </div>
+  );
+}

@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
-import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
+import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
 import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
 import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
@@ -20,7 +20,7 @@ import { ReviewDrawer } from './ReviewDrawer';
 import { FundByScore } from './FundByScore';
 import { FunderBoard } from './FunderBoard';
 import { BudgetRoomCard } from './BudgetRoomCard';
-import { BurnChart } from './BurnChart';
+import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
@@ -319,11 +319,10 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
-      {/* The COO reads the room before opening the queue; the CFO reads the week. */}
+      {/* The COO reads the room before opening the queue. */}
       {checklistOn && desk.id === 'coo' && (
         <BudgetRoomCard board={board} enabled budgetSetToday={budgetSetToday} />
       )}
-      {checklistOn && desk.id === 'cfo' && <BurnChart board={board} enabled />}
     </>
   );
 
@@ -393,7 +392,9 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
           </h2>
           {tabs}
           {extraView}
-          {showQueue && stage && BOARD_DESKS.has(desk.id) ? (
+          {desk.id === 'cfo' ? (
+            <FundersDashboard board={board} />
+          ) : showQueue && stage && BOARD_DESKS.has(desk.id) ? (
             <ReadyBoard
               stage={stage}
               board={board}
@@ -433,7 +434,9 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
 }
 
 function DeskShell() {
-  const { desk: deskId } = useParams();
+  const { desk: rawDeskId } = useParams();
+  // `/desk/funders` is the same desk as `/desk/cfo`.
+  const deskId = rawDeskId ? (DESK_ALIASES[rawDeskId] ?? rawDeskId) : rawDeskId;
   const { roles } = useAuth();
   const { board, rotate, theme } = useDeskPrefs();
   /**
@@ -507,9 +510,9 @@ function DeskShell() {
             <NavLink
               key={d.id}
               to={`/desk/${d.id}${board ? '?board=1' : ''}`}
-              className={({ isActive }) =>
+              className={() =>
                 `whitespace-nowrap rounded-t px-3 py-2 ${board ? 'text-base' : 'text-sm'} border-b-2 -mb-px ${CALM} ${FOCUS} ${
-                  isActive
+                  d.id === desk.id
                     ? 'border-[hsl(var(--primary))] text-foreground font-medium'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`

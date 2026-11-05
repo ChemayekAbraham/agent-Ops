@@ -34,7 +34,7 @@ export const STRIP_STAGES: StripStage[] = [
   { ord: '3', flowOrd: '4', desk: 'landlord-ops', label: 'Landlord Ops' },
   { ord: '4', flowOrd: '5', desk: 'partner-ops', label: 'Partner Ops', retired: true },
   { ord: '5', flowOrd: '6', desk: 'coo', label: 'COO' },
-  { ord: '6', flowOrd: '7', desk: 'cfo', label: 'CFO' },
+  { ord: '6', flowOrd: '7', desk: 'cfo', label: 'Funders' },
   { ord: '7', flowOrd: '8', desk: null, label: 'Landlord paid' },
 ];
 

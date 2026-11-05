@@ -2,7 +2,7 @@ import { FinOpsScope } from '@/components/financial-ops/FinOpsScope';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, Home, RefreshCw, Search } from 'lucide-react';
+import { ArrowLeft, Banknote, ChevronRight, Home, RefreshCw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
@@ -121,6 +121,11 @@ export default function FinancialOpsPage() {
               Auto-refresh
               <Switch checked={autoRefresh} onCheckedChange={setFinOpsAutoRefresh} aria-label="Toggle auto-refresh" />
             </label>
+            <Button variant="outline" size="sm" onClick={() => navigate('/desk/funders')} className="h-10 gap-1.5 rounded-xl px-3 text-sm font-semibold">
+              <Banknote className="h-4 w-4" aria-hidden />
+              <span className="hidden sm:inline">Funders Dashboard</span>
+              <span className="sm:hidden">Funders</span>
+            </Button>
             <BudgetDepartmentNotificationBell dashboard="financial-ops" />
             <Button variant="outline" size="sm" onClick={goToManagerDashboard} className="hidden h-10 gap-1.5 rounded-xl px-3 text-sm font-semibold xl:inline-flex">
               <ArrowLeft className="h-4 w-4" aria-hidden /> Back to Manager dashboard
