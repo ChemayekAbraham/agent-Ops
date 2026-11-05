@@ -75012,6 +75012,10 @@ export type Database = {
         Returns: Json
       }
       _pipeline_my_roles: { Args: { p_uid: string }; Returns: string[] }
+      _pipeline_sc_decide: {
+        Args: { p_auto: Json; p_request_id: string }
+        Returns: Json
+      }
       _pipeline_staff_ref: { Args: { p_uid: string }; Returns: string }
       _pipeline_stage_rating: {
         Args: { p_auto: Json; p_request_id: string; p_stage: string }
