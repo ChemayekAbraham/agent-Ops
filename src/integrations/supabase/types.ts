@@ -9012,6 +9012,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          guard_reason: string | null
           id: string
           latency_ms: number | null
           model: string | null
@@ -9024,6 +9025,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -9036,6 +9038,7 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -77932,6 +77935,15 @@ export type Database = {
       }
       assistant_partner_topups: { Args: { p_limit?: number }; Returns: Json }
       assistant_partner_upcoming: { Args: { p_days?: number }; Returns: Json }
+      assistant_partner_wallet_activity: {
+        Args: {
+          p_direction?: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
       assistant_partner_withdrawals: {
         Args: {
           p_from?: string
