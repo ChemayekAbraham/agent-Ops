@@ -1,6 +1,6 @@
 # 256 — Landlord Ops still showed a waived plan balance as owed
 
-**Date:** 2026-11-05 · **Status:** migration written and committed, **NOT APPLIED to production** (blocked by the permission classifier; needs the CTO's go-ahead or a manual run). Drawer change is code only.
+**Date:** 2026-11-05 · **Status:** APPLIED to production by the CTO 2026-11-05; both functions verified to carry the waiver filter, grants intact. Drawer change is code only (not yet pushed).
 
 ## Symptom
 After docs 254/255, Nakitende Jumeirah (plan `406ed7bc`, completed, 216,000 of 552,000 repaid, 336,000 waived) still showed as owing on Landlord Ops.
