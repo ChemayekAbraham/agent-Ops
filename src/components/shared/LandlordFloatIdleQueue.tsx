@@ -1,11 +1,12 @@
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Table,
   TableBody,
@@ -16,15 +17,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatDistanceToNowStrict, format } from 'date-fns';
@@ -39,10 +46,12 @@ import {
   Phone,
   Search,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
+  MoreHorizontal,
+  XCircle,
   ShieldAlert,
+  ArrowRight,
+  User,
+  Info,
 } from 'lucide-react';
 import {
   useLandlordFloatIdleQueue,
@@ -54,9 +63,8 @@ import {
 /**
  * Landlord money sitting in an agent's wallet, unpaid.
  *
- * Shared by the CFO dashboard and the Landlord Operations console — the two
- * teams who own this problem from different ends.
- * Rendered in an executive, high-density professional table format.
+ * Shared by the CFO dashboard and the Landlord Operations console.
+ * Rendered in a clean, executive data table with standard 3-dots action menus.
  */
 
 const SCOPES: Array<{ key: IdleFloatScope; label: string }> = [
@@ -71,6 +79,13 @@ const ACTION_LABEL: Record<IdleFloatAction, string> = {
   note: 'Note saved',
   recall_now: 'Float recalled',
   dismiss: 'Case closed',
+};
+
+const getInitials = (name: string | null | undefined): string => {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
 };
 
 function severityBadge(row: IdleFloatRow) {
@@ -125,10 +140,12 @@ export function LandlordFloatIdleQueue() {
     acting,
   } = useLandlordFloatIdleQueue('open');
 
-  const [openRow, setOpenRow] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [confirmRecall, setConfirmRecall] = useState<IdleFloatRow | null>(null);
+  const [actionTarget, setActionTarget] = useState<{
+    row: IdleFloatRow;
+    action: IdleFloatAction;
+  } | null>(null);
+  const [actionNote, setActionNote] = useState('');
 
   const counts = useMemo<Record<IdleFloatScope, number>>(
     () => ({
@@ -158,21 +175,31 @@ export function LandlordFloatIdleQueue() {
     [filteredRows],
   );
 
-  const run = async (row: IdleFloatRow, action: IdleFloatAction) => {
-    const note = (notes[row.id] || '').trim();
+  const openActionDialog = (row: IdleFloatRow, action: IdleFloatAction) => {
+    setActionTarget({ row, action });
+    setActionNote('');
+  };
+
+  const handleExecuteAction = async () => {
+    if (!actionTarget) return;
+    const { row, action } = actionTarget;
+    const note = actionNote.trim();
+
     if (note.length < 10) {
       toast({
-        title: 'Say what you decided',
-        description: 'At least 10 characters. It is kept on the record against this case.',
+        title: 'Note required',
+        description: 'Please provide a note of at least 10 characters for the audit log.',
         variant: 'destructive',
       });
       return;
     }
+
     const failure = await act(row.id, action, note);
     if (failure) {
       toast({ title: 'Not saved', description: failure, variant: 'destructive' });
       return;
     }
+
     toast({
       title: ACTION_LABEL[action],
       description:
@@ -182,12 +209,9 @@ export function LandlordFloatIdleQueue() {
             } is cancelled and they owe nothing.`
           : `Recorded against ${row.landlord_name || 'this case'}.`,
     });
-    setNotes((n) => {
-      const c = { ...n };
-      delete c[row.id];
-      return c;
-    });
-    setOpenRow(null);
+
+    setActionTarget(null);
+    setActionNote('');
   };
 
   return (
@@ -243,7 +267,7 @@ export function LandlordFloatIdleQueue() {
 
         {/* Scope Tabs & Search Bar */}
         <div className="flex flex-col gap-2.5 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs value={scope} onValueChange={(v) => { setScope(v as IdleFloatScope); setOpenRow(null); }}>
+          <Tabs value={scope} onValueChange={(v) => setScope(v as IdleFloatScope)}>
             <TabsList className="bg-muted/60 p-1 flex-wrap h-auto gap-1">
               {SCOPES.map((s) => (
                 <TabsTrigger key={s.key} value={s.key} className="text-xs font-semibold gap-1.5 py-1 px-3">
@@ -316,27 +340,32 @@ export function LandlordFloatIdleQueue() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40 hover:bg-muted/40 text-xs">
-                  <TableHead className="font-semibold text-foreground min-w-[150px]">Landlord</TableHead>
-                  <TableHead className="font-semibold text-foreground min-w-[150px]">Tenant &amp; Agent</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Amount (UGX)</TableHead>
-                  <TableHead className="font-semibold text-foreground min-w-[130px]">Funded / Aging</TableHead>
-                  <TableHead className="font-semibold text-foreground min-w-[200px]">Status &amp; Diagnostics</TableHead>
-                  <TableHead className="text-right font-semibold text-foreground">Action</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[180px]">Landlord</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[170px]">Tenant &amp; Agent</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Unpaid Float (UGX)</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[130px]">Aging &amp; Funded</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[220px]">Diagnostics &amp; Notes</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground w-[60px]">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.map((row) => {
                   const autoNotice = whyNotAuto(row);
-                  const expanded = openRow === row.id;
-                  const busy = acting === row.id;
 
                   return (
-                    <Fragment key={row.id}>
-                      <TableRow className={`hover:bg-muted/30 transition-colors text-xs ${expanded ? 'bg-muted/20' : ''}`}>
-                        {/* Landlord Name & Badges */}
-                        <TableCell className="align-top">
-                          <div>
-                            <p className="font-semibold text-sm text-foreground leading-tight">
+                    <TableRow key={row.id} className="hover:bg-muted/30 transition-colors text-xs">
+                      {/* Landlord Name & Badges */}
+                      <TableCell className="align-middle">
+                        <div className="flex items-start gap-2.5">
+                          <Avatar className="h-8 w-8 rounded-full border border-border shrink-0 mt-0.5">
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                              {getInitials(row.landlord_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm text-foreground leading-tight truncate">
                               {row.landlord_name || 'Landlord Not Named'}
                             </p>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -369,172 +398,132 @@ export function LandlordFloatIdleQueue() {
                               )}
                             </div>
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        {/* Tenant & Agent */}
-                        <TableCell className="align-top">
-                          <div>
-                            <p className="font-medium text-foreground">{row.tenant_name || 'Tenant'}</p>
-                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
-                              <span>Agent: {row.agent_name || 'Unknown'}</span>
-                              {row.agent_phone && (
-                                <a
-                                  href={`tel:${row.agent_phone}`}
-                                  className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono"
-                                  title="Call agent"
-                                >
-                                  <Phone className="h-2.5 w-2.5" />
-                                  {row.agent_phone}
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-
-                        {/* Amount */}
-                        <TableCell className="text-right align-top font-mono font-bold text-sm text-foreground">
-                          {formatUGX(row.amount)}
-                        </TableCell>
-
-                        {/* Aging */}
-                        <TableCell className="align-top text-muted-foreground">
-                          <div>
-                            <span className="font-medium text-foreground block">
-                              {Math.round(row.hours_outstanding)}h outstanding
-                            </span>
-                            <span className="text-[11px] block mt-0.5">
-                              Funded {formatDistanceToNowStrict(new Date(row.funded_at))} ago
-                            </span>
-                          </div>
-                        </TableCell>
-
-                        {/* Diagnostics & Notes */}
-                        <TableCell className="align-top">
-                          <div className="space-y-1">
-                            {row.last_payout_error && (
-                              <p className="text-[11px] font-semibold text-destructive flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3 shrink-0" />
-                                {row.last_payout_error}
-                              </p>
-                            )}
-                            {autoNotice && (
-                              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                {autoNotice}
-                              </p>
-                            )}
-                            {row.review_note && (
-                              <div className="rounded-md bg-muted/40 p-1.5 text-[11px] text-foreground italic border border-border/60">
-                                &ldquo;{row.review_note}&rdquo;
-                                <span className="block text-[10px] text-muted-foreground not-italic mt-0.5 font-medium">
-                                  — {row.reviewed_by_name || 'Reviewer'}
-                                  {row.reviewed_at && <> · {format(new Date(row.reviewed_at), 'd MMM HH:mm')}</>}
-                                </span>
-                              </div>
+                      {/* Tenant & Agent */}
+                      <TableCell className="align-middle">
+                        <div>
+                          <p className="font-medium text-foreground">{row.tenant_name || 'Tenant'}</p>
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+                            <span>Agent: {row.agent_name || 'Unknown'}</span>
+                            {row.agent_phone && (
+                              <a
+                                href={`tel:${row.agent_phone}`}
+                                className="inline-flex items-center gap-0.5 text-primary hover:underline font-mono"
+                                title="Call agent"
+                              >
+                                <Phone className="h-2.5 w-2.5" />
+                                {row.agent_phone}
+                              </a>
                             )}
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        {/* Action Trigger */}
-                        <TableCell className="text-right align-top">
-                          {!row.resolved_at ? (
-                            <Button
-                              variant={expanded ? 'secondary' : 'outline'}
-                              size="sm"
-                              className="h-7 text-xs font-medium gap-1"
-                              onClick={() => setOpenRow(expanded ? null : row.id)}
-                            >
-                              {expanded ? 'Close' : 'Act on this'}
-                              {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                            </Button>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                              Resolved
-                            </Badge>
+                      {/* Amount */}
+                      <TableCell className="text-right align-middle font-mono font-bold text-sm text-foreground">
+                        {formatUGX(row.amount)}
+                      </TableCell>
+
+                      {/* Aging */}
+                      <TableCell className="align-middle text-muted-foreground">
+                        <div>
+                          <span className="font-medium text-foreground block">
+                            {Math.round(row.hours_outstanding)}h outstanding
+                          </span>
+                          <span className="text-[11px] block mt-0.5">
+                            Funded {formatDistanceToNowStrict(new Date(row.funded_at))} ago
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      {/* Diagnostics & Notes */}
+                      <TableCell className="align-middle">
+                        <div className="space-y-1">
+                          {row.last_payout_error && (
+                            <p className="text-[11px] font-semibold text-destructive flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3 shrink-0" />
+                              {row.last_payout_error}
+                            </p>
                           )}
-                        </TableCell>
-                      </TableRow>
-
-                      {/* Expandable Decision Drawer Sub-row */}
-                      {expanded && !row.resolved_at && (
-                        <TableRow className="bg-muted/15 hover:bg-muted/15">
-                          <TableCell colSpan={6} className="p-4 border-b border-border/80">
-                            <div className="rounded-xl border border-border/80 bg-background p-4 shadow-xs space-y-3">
-                              <div>
-                                <p className="text-xs font-bold text-foreground">Record Action or Float Recall</p>
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                  State what you found and what action was taken. Your note is permanently recorded in the audit log.
-                                </p>
-                              </div>
-
-                              <Textarea
-                                placeholder="Explain what you investigated and what decision was made (min 10 characters)..."
-                                value={notes[row.id] || ''}
-                                onChange={(e) => setNotes((n) => ({ ...n, [row.id]: e.target.value }))}
-                                rows={2}
-                                className="text-xs"
-                              />
-
-                              <div className="flex flex-wrap items-center gap-2 pt-1">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="h-8 text-xs font-medium gap-1.5"
-                                  disabled={busy}
-                                  onClick={() => void run(row, 'acknowledge')}
-                                >
-                                  {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                                  I am working this
-                                </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 text-xs font-medium gap-1.5"
-                                  disabled={busy}
-                                  onClick={() => void run(row, 'note')}
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" /> Just record note
-                                </Button>
-
-                                {canAct && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 text-xs font-medium"
-                                      disabled={busy}
-                                      onClick={() => void run(row, 'dismiss')}
-                                    >
-                                      Close without returning
-                                    </Button>
-
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      className="h-8 text-xs font-medium gap-1.5 ml-auto"
-                                      disabled={busy}
-                                      onClick={() => {
-                                        if ((notes[row.id] || '').trim().length < 10) {
-                                          toast({
-                                            title: 'Say why',
-                                            description: 'A recall cancels the tenant\'s Rent Plan. Give a reason of at least 10 characters.',
-                                            variant: 'destructive',
-                                          });
-                                          return;
-                                        }
-                                        setConfirmRecall(row);
-                                      }}
-                                    >
-                                      <Undo2 className="h-3.5 w-3.5" /> Return Float Now
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
+                          {autoNotice && (
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              {autoNotice}
+                            </p>
+                          )}
+                          {row.review_note && (
+                            <div className="rounded-md bg-muted/40 p-1.5 text-[11px] text-foreground italic border border-border/60">
+                              &ldquo;{row.review_note}&rdquo;
+                              <span className="block text-[10px] text-muted-foreground not-italic mt-0.5 font-medium">
+                                — {row.reviewed_by_name || 'Reviewer'}
+                                {row.reviewed_at && <> · {format(new Date(row.reviewed_at), 'd MMM HH:mm')}</>}
+                              </span>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
+                          )}
+                        </div>
+                      </TableCell>
+
+                      {/* Actions via Standard 3-Dots Menu */}
+                      <TableCell className="text-right align-middle">
+                        {!row.resolved_at ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                aria-label="Open action menu"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">
+                                Case Actions
+                              </DropdownMenuLabel>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-xs"
+                                onClick={() => openActionDialog(row, 'acknowledge')}
+                              >
+                                <Check className="mr-2 h-3.5 w-3.5 text-emerald-600" />
+                                I am working this
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-xs"
+                                onClick={() => openActionDialog(row, 'note')}
+                              >
+                                <MessageSquare className="mr-2 h-3.5 w-3.5 text-blue-600" />
+                                Record investigation note
+                              </DropdownMenuItem>
+                              {canAct && (
+                                <>
+                                  <DropdownMenuItem
+                                    className="cursor-pointer text-xs"
+                                    onClick={() => openActionDialog(row, 'dismiss')}
+                                  >
+                                    <XCircle className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                                    Close without recall
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    className="cursor-pointer text-xs text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    onClick={() => openActionDialog(row, 'recall_now')}
+                                  >
+                                    <Undo2 className="mr-2 h-3.5 w-3.5" />
+                                    Return float now
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                            Resolved
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
               </TableBody>
@@ -554,42 +543,106 @@ export function LandlordFloatIdleQueue() {
         )}
       </CardContent>
 
-      {/* Confirmation Dialog for Recall */}
-      <AlertDialog open={!!confirmRecall} onOpenChange={(o) => !o && setConfirmRecall(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Return this float and cancel the Rent Plan?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <strong className="text-foreground">{formatUGX(confirmRecall?.amount || 0)}</strong> comes out of{' '}
-                  <strong className="text-foreground">{confirmRecall?.agent_name || 'the agent'}</strong>&rsquo;s landlord float
-                  and returns back to company treasury.
-                </p>
-                <p>
-                  <strong className="text-foreground">{confirmRecall?.tenant_name || 'The tenant'}</strong>&rsquo;s Rent Plan
-                  is cancelled and they are texted that nothing is owed by them. The access and registration fees are unwound
-                  with it so the general ledger stays in balance.
-                </p>
-                <p className="font-semibold text-destructive">This action cannot be undone.</p>
+      {/* Action Dialog (triggered by 3-dots menu options) */}
+      <Dialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              {actionTarget?.action === 'recall_now' && <Undo2 className="h-4 w-4 text-destructive" />}
+              {actionTarget?.action === 'acknowledge' && <Check className="h-4 w-4 text-emerald-600" />}
+              {actionTarget?.action === 'note' && <MessageSquare className="h-4 w-4 text-blue-600" />}
+              {actionTarget?.action === 'dismiss' && <XCircle className="h-4 w-4 text-muted-foreground" />}
+              {actionTarget?.action === 'recall_now' && 'Recall & Return Float'}
+              {actionTarget?.action === 'acknowledge' && 'Acknowledge Case'}
+              {actionTarget?.action === 'note' && 'Record Case Note'}
+              {actionTarget?.action === 'dismiss' && 'Close Case Without Recall'}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Landlord: <span className="font-semibold text-foreground">{actionTarget?.row.landlord_name || 'Landlord'}</span> · Tenant:{' '}
+              <span className="font-semibold text-foreground">{actionTarget?.row.tenant_name || 'Tenant'}</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            {/* Case Details Pill */}
+            <div className="rounded-lg border border-border/80 bg-muted/30 p-2.5 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Unpaid Amount:</span>
+                <span className="font-mono font-bold text-foreground">{formatUGX(actionTarget?.row.amount || 0)}</span>
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep it as it is</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-              onClick={() => {
-                const row = confirmRecall;
-                setConfirmRecall(null);
-                if (row) void run(row, 'recall_now');
-              }}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Agent:</span>
+                <span className="font-medium text-foreground">{actionTarget?.row.agent_name || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Time Idle:</span>
+                <span className="font-medium text-foreground">{Math.round(actionTarget?.row.hours_outstanding || 0)}h outstanding</span>
+              </div>
+            </div>
+
+            {actionTarget?.action === 'recall_now' && (
+              <Alert variant="destructive" className="py-2.5">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle className="text-xs font-bold">Permanent Float Reversal</AlertTitle>
+                <AlertDescription className="text-xs mt-0.5 leading-relaxed">
+                  The amount of <strong className="font-mono">{formatUGX(actionTarget?.row.amount || 0)}</strong> will be deducted from the
+                  agent&rsquo;s landlord float and returned to company treasury. The tenant&rsquo;s Rent Plan will be cancelled and
+                  associated platform/access fees unwound on the general ledger.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="font-semibold text-foreground block">
+                Investigation / Decision Note <span className="text-destructive">*</span>
+              </label>
+              <Textarea
+                placeholder="State what you found, why this action is taken, and next steps (min 10 characters)..."
+                value={actionNote}
+                onChange={(e) => setActionNote(e.target.value)}
+                rows={3}
+                className="text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Minimum 10 characters required for permanent audit trail.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs h-8"
+              onClick={() => setActionTarget(null)}
+              disabled={acting === actionTarget?.row.id}
             >
-              Return {formatUGX(confirmRecall?.amount || 0)}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant={actionTarget?.action === 'recall_now' ? 'destructive' : 'default'}
+              className="text-xs h-8 gap-1.5"
+              disabled={acting === actionTarget?.row.id || actionNote.trim().length < 10}
+              onClick={handleExecuteAction}
+            >
+              {acting === actionTarget?.row.id ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...
+                </>
+              ) : actionTarget?.action === 'recall_now' ? (
+                <>
+                  <Undo2 className="h-3.5 w-3.5" /> Return {formatUGX(actionTarget?.row.amount || 0)}
+                </>
+              ) : (
+                <>
+                  <Check className="h-3.5 w-3.5" /> Confirm Decision
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
