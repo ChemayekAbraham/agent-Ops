@@ -21,7 +21,6 @@ import { AngelPoolAgreementDialog } from './agreement/AngelPoolAgreementDialog';
 
 type ViewState = 'default' | 'investing' | 'committed';
 
-const MOCK_ACTIVE_DEMAND = 935_599_000;
 const MOCK_STATS = { activeRequests: 1901, verifiedLandlords: 1322, fieldAgents: 1006 };
 
 // ─── Shared Amount Input ───
@@ -362,9 +361,9 @@ function AngelCommittedSummary({
 // ─── DEFAULT GATEWAY CARD ───
 // ═══════════════════════════════════════════
 function DefaultEntryCard({
-  onOpenSelection, formatAmountCompact,
+  onOpenSelection,
 }: {
-  onOpenSelection: () => void; formatAmountCompact: (n: number) => string;
+  onOpenSelection: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
@@ -381,15 +380,6 @@ function DefaultEntryCard({
               Verified opportunities. Structured returns. Choose your path.
             </p>
           </div>
-        </div>
-
-        <div className="rounded-xl bg-muted/40 border border-border/40 px-4 py-3 text-center">
-          <p className="text-2xl font-black text-foreground tracking-tight">
-            {formatAmountCompact(MOCK_ACTIVE_DEMAND)}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">
-            Active Capital Demand
-          </p>
         </div>
 
         <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -540,7 +530,7 @@ export function CapitalOpportunityEntry() {
   if (viewState === 'default') {
     return (
       <>
-        <DefaultEntryCard onOpenSelection={() => setSheetOpen(true)} formatAmountCompact={formatAmountCompact} />
+        <DefaultEntryCard onOpenSelection={() => setSheetOpen(true)} />
         <InvestmentSelectionSheet open={sheetOpen} onOpenChange={setSheetOpen} onSelect={handlePoolSelect} />
         <AngelPoolAgreementDialog
           open={showAgreementDialog}

@@ -725,13 +725,6 @@ export function FunderCapitalOpportunities({
         >
           <HowItWorksSteps steps={MANAGED_FUNDING_STEPS} />
 
-          <div>
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Total Rent Demand</p>
-            <p className="text-3xl font-black text-foreground tracking-tight mt-0.5">
-              {formatAmountCompact(summary?.total_rent_requested ?? 0)}
-            </p>
-          </div>
-
           <div className="grid grid-cols-3 gap-2">
             {[
               { value: (summary?.total_requests ?? 0).toLocaleString(), label: 'Requests' },
