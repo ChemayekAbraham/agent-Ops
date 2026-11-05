@@ -608,19 +608,21 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
           mobile_money_number: isMomo ? momoNumber.trim() : null,
           mobile_money_provider: isMomo ? payoutMode : null,
           mobile_money_name: isMomo ? momoName.trim() : null,
+          // A chosen route is authoritative: send no destination fields (the display values in state must not be
+          // sent) and the route's own method; the server copies the destination from the route.
           payout_method: payoutOnFile
-            ? (payoutOnFile.routeKey.startsWith('saved:') ? 'mobile_money' : 'mobile_money')
+            ? (payoutOnFile.details?.mode === 'bank_transfer' ? 'bank_transfer' : payoutOnFile.details?.mode === 'cash' ? 'cash' : 'mobile_money')
             : payoutMode === 'bank' ? 'bank_transfer' : payoutMode === 'cash' ? 'cash' : 'mobile_money',
-          bank_name: payoutMode === 'bank' ? bankName : null,
-          bank_account_name: payoutMode === 'bank' ? bankAccountName.trim() : null,
-          bank_account_number: payoutMode === 'bank' ? bankAccountNumber.trim() : null,
-          agent_location: payoutMode === 'cash'
+          bank_name: !payoutOnFile && payoutMode === 'bank' ? bankName : null,
+          bank_account_name: !payoutOnFile && payoutMode === 'bank' ? bankAccountName.trim() : null,
+          bank_account_number: !payoutOnFile && payoutMode === 'bank' ? bankAccountNumber.trim() : null,
+          agent_location: !payoutOnFile && payoutMode === 'cash'
             ? (selectedCashAgent
                 ? [selectedCashAgent.agent_name, selectedCashAgent.district]
                     .filter(Boolean).join(' · ')
                 : 'Nearest Agent')
             : null,
-          preferred_cashout_agent_id: payoutMode === 'cash' ? (selectedCashAgent?.cashout_agent_id ?? null) : null,
+          preferred_cashout_agent_id: !payoutOnFile && payoutMode === 'cash' ? (selectedCashAgent?.cashout_agent_id ?? null) : null,
           reason: isProxy
             ? `[Proxy initiated by agent ${user.id}] ${reason.trim()}`
             : reason.trim(),
