@@ -75175,6 +75175,8 @@ export type Database = {
         Args: { p_origin: string; p_sale: string }
         Returns: string
       }
+      _ontology_document_text: { Args: never; Returns: string }
+      _ontology_inventory: { Args: never; Returns: Json }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -89833,6 +89835,8 @@ export type Database = {
         Args: { p_day?: string; p_feed: string }
         Returns: Json
       }
+      ontology_doc_snapshot: { Args: never; Returns: number }
+      ontology_document: { Args: never; Returns: string }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
