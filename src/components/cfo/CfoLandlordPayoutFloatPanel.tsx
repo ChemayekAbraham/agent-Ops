@@ -7,24 +7,19 @@
  *   3. Idle & Overdue (LandlordFloatIdleQueue) — unreleased float aging and recall
  *   4. Send-Backs (CFOAllocationReturnApprovals) — agent return requests
  *   5. Promissory Bookings (PromissoryBookingsPanel) — 7-day partner note holds
- *   6. Tenant Balance Changes (CFOTenantBalanceApprovals) — proposed rent & balance edits
  */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import {
   Banknote,
   CalendarClock,
   Clock,
   Home,
   Landmark,
-  ScrollText,
   ShieldCheck,
   Undo2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CFOTenantBalanceApprovals } from '@/components/cfo/CFOTenantBalanceApprovals';
 import { LandlordFloatIdleQueue } from '@/components/shared/LandlordFloatIdleQueue';
 import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
 import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
@@ -33,19 +28,6 @@ import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAll
 
 export default function CfoLandlordPayoutFloatPanel() {
   const [activeTab, setActiveTab] = useState<string>('disburse');
-
-  // Query pending tenant balance edits for live tab counter badge
-  const { data: pendingBalanceEdits = [] } = useQuery({
-    queryKey: ['cfo-tenant-balance-edits'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('tenant_balance_edits_pending' as any);
-      if (error) throw error;
-      return (data as any[]) ?? [];
-    },
-    staleTime: 30_000,
-  });
-
-  const pendingBalanceCount = pendingBalanceEdits.length;
 
   return (
     <div className="space-y-6">
@@ -96,18 +78,6 @@ export default function CfoLandlordPayoutFloatPanel() {
             <CalendarClock className="h-3.5 w-3.5" />
             Promissory Bookings
           </TabsTrigger>
-          <TabsTrigger value="balance-changes" className="text-xs font-semibold gap-1.5 py-1.5">
-            <ScrollText className="h-3.5 w-3.5" />
-            Tenant Balance Changes
-            {pendingBalanceCount > 0 && (
-              <Badge
-                variant="outline"
-                className="ml-1 px-1.5 py-0 text-[10px] font-mono font-semibold bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300"
-              >
-                {pendingBalanceCount}
-              </Badge>
-            )}
-          </TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Batch Disburse Desk */}
@@ -133,11 +103,6 @@ export default function CfoLandlordPayoutFloatPanel() {
         {/* Tab 5: Promissory Bookings */}
         <TabsContent value="promissory" className="space-y-4">
           <PromissoryBookingsPanel />
-        </TabsContent>
-
-        {/* Tab 6: Tenant Balance Changes */}
-        <TabsContent value="balance-changes" className="space-y-4">
-          <CFOTenantBalanceApprovals />
         </TabsContent>
       </Tabs>
     </div>

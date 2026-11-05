@@ -56,6 +56,7 @@ import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts'
 
 
 import CfoLandlordPayoutFloatPanel from '@/components/cfo/CfoLandlordPayoutFloatPanel';
+import CfoTenantBalanceChangesPage from '@/components/cfo/CfoTenantBalanceChangesPage';
 import { WithdrawalHistoryStatement } from '@/components/financial-ops/WithdrawalHistoryStatement';
 import { StaleWithdrawalHoldsPanel } from '@/components/cfo/StaleWithdrawalHoldsPanel';
 import { PayoutReconciliationQueue } from '@/components/financial-ops/PayoutReconciliationQueue';
@@ -409,6 +410,8 @@ export default function CFODashboardPage() {
         );
       case 'landlord-payout-float':
         return <CfoLandlordPayoutFloatPanel />;
+      case 'tenant-balance-changes':
+        return <CfoTenantBalanceChangesPage />;
       case 'welile-homes-payouts':
         return (
           <div className="space-y-4">
