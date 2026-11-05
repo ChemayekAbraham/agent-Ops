@@ -1,4 +1,4 @@
--- NOT YET RUN. Dry-run passed 2026-11-05 (rolled back, nothing kept). Run only after the CFO has decided the repayment terms (see HANDOVER 257).
+-- NOT YET RUN. Terms decided 2026-11-05: expiry extended to cover the larger balance (instalment unchanged). Dry-run with these terms passed and rolled back 2026-11-05 (see HANDOVER 257).
 --
 -- Move Nakitende Jumeirah's unrecovered Rent Plan receivable (plan 406ed7bc, about 332,000 left in A3)
 -- onto GVEN AKANDWANAHO's advance d0c44c3c, as decided by the CTO and the CFO on 2026-11-05
@@ -12,7 +12,10 @@
 --
 -- WHAT THIS DOES (one transaction)
 -- 1. Raises advances d0c44c3c.outstanding_balance by v_amt with a statement row (the
---    zz_advance_balance_must_be_on_statement trigger writes it from the adjustment note).
+--    zz_advance_balance_must_be_on_statement trigger writes it from the adjustment note), and
+--    extends expires_at / cycle_days so the unchanged daily instalment clears the new balance:
+--    days needed = ceil(new balance / daily instalment) + 1 spare day, counted from the run date.
+--    The expiry only ever moves later (GREATEST), never earlier.
 -- 2. Posts ONE balanced platform group (balanced on base mapping alone, no wallet effect):
 --      DR A10  agent_advance_disbursement  cash_out  v_amt   (agent owes the company)
 --      CR A3   tenant_repayment            cash_in   v_amt   (tenant receivable cleared)
@@ -22,12 +25,10 @@
 -- RUN AS: SARAH ANGWEN (CFO) 29a0cfa8-1eaf-453c-874c-0fc72fa4f74b. Idempotent. Aborts without changes
 -- if the plan, the advance, the agent or the A3 balance are not exactly as approved.
 --
--- OPEN QUESTIONS FOR THE CFO (not decided by this file)
--- * Gven's advance is 495,060 outstanding at 16,417/day and expires 2026-12-15. Adding v_amt
---   without changing the instalment or expiry leaves it unpayable by the expiry date, so it goes
---   overdue and the overdue penalty (0.8263%/day) starts on the larger balance. Decide: extend
---   expires_at / raise the instalment, or accept the penalty.
--- * Gven's agent should be told. This file sends no notification.
+-- TERMS (CFO decision 2026-11-05): extend the expiry; the daily instalment stays 16,417.
+-- Without this the larger balance could not clear by the old expiry (2026-12-15) and would go
+-- overdue and attract the 0.8263%/day overdue penalty.
+-- STILL OPEN: Gven should be told. This file sends no notification.
 
 DO $$
 DECLARE
@@ -42,6 +43,10 @@ DECLARE
   v_adv      record;
   v_note     text;
   v_group    uuid;
+  v_days     integer;
+  v_exp_old  timestamptz;
+  v_exp_new  timestamptz;
+  v_ext      integer;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = v_by AND role::text = 'cfo') THEN
     RAISE EXCEPTION 'Actor % does not hold the cfo role; refusing to run', v_by;
@@ -91,8 +96,15 @@ BEGIN
   v_note := 'CFO: tenant shortfall of plan 406ed7bc (Nakitende Jumeirah) moved onto agent advance; agent collected the rent and did not remit';
   PERFORM set_config('welile.advance_adjustment_note', v_note, true);
 
+  v_exp_old := v_adv.expires_at;
+  v_days    := ceil((v_adv.outstanding_balance + v_amt) / NULLIF(v_adv.daily_installment, 0))::int + 1;
+  v_exp_new := GREATEST(v_exp_old, now() + make_interval(days => v_days));
+  v_ext     := ceil(extract(epoch FROM (v_exp_new - v_exp_old)) / 86400)::int;
+
   UPDATE public.agent_advances
      SET outstanding_balance = outstanding_balance + v_amt,
+         expires_at = v_exp_new,
+         cycle_days = COALESCE(cycle_days, 0) + v_ext,
          updated_at = now()
    WHERE id = v_advance;
 
@@ -121,5 +133,6 @@ BEGIN
       'amount', v_amt, 'a3_before', v_a3, 'a3_after', 0,
       'advance_outstanding_before', v_adv.outstanding_balance,
       'advance_outstanding_after', v_adv.outstanding_balance + v_amt,
+      'expires_at_before', v_exp_old, 'expires_at_after', v_exp_new, 'cycle_days_added', v_ext,
       'transaction_group_id', v_group, 'topup_ref', 'bdf7dc99-1f22-4a32-badf-945c93ccce89'));
 END $$;
