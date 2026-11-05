@@ -38,6 +38,8 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
+import { useWithdrawalPinPrompt } from '@/components/wallet/WithdrawalPinPrompt';
+import { isPinProofError, pinErrorMessage } from '@/hooks/useWithdrawalPin';
 import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { useIdentityBinding, maskPayoutNumber } from '@/hooks/useIdentityBinding';
@@ -361,6 +363,8 @@ export default function WithdrawFlow({
   // proving whoever is submitting still controls that original channel. Cash
   // pickup has no destination-redirection surface and is exempt.
   const walletOtp = useWalletWithdrawalOtp();
+  // Withdrawal PIN (docs 258 to 260): asked right before the submit, because the proof it creates lives 5 minutes.
+  const { askPin, pinPrompt } = useWithdrawalPinPrompt();
   const [otpCode, setOtpCode] = useState('');
   const requiresOtp = payoutMode !== 'cash';
 
@@ -1110,6 +1114,14 @@ export default function WithdrawFlow({
           isSubmittingRef.current = false;
           return false;
         }
+        if (isPinProofError(rawMsg)) {
+          const pinMessage = pinErrorMessage({ code: rawMsg.includes('proof') ? 'withdrawal_pin_proof_required' : 'withdrawal_pin_required' });
+          setPaymentStatus('failed');
+          setLastFailureMessage(pinMessage);
+          toast.error(pinMessage, { duration: 8000 });
+          isSubmittingRef.current = false;
+          return false;
+        }
         if (rawMsg.includes('Ledger mismatch detected')) {
           setPaymentStatus('failed');
           setLastFailureMessage('Ledger mismatch detected. Refresh your balance and try again.');
@@ -1273,6 +1285,10 @@ export default function WithdrawFlow({
         toast.error('Enter the 6-digit code sent to your phone.', { duration: 6000 });
         return false;
       }
+
+      // Withdrawal PIN, for accounts that have one (every payout method, cash included). Nothing is shown when
+      // the account has no PIN. The proof is spent by the very insert below, so ask only now.
+      if (!(await askPin('withdrawal'))) return false;
 
       // Event-driven completion: enter the Processing screen and submit to
       // the server NOW. We DO NOT rely on ProcessingScreen's animation
@@ -2358,6 +2374,7 @@ export default function WithdrawFlow({
 
   return (
     <>
+      {pinPrompt}
       <StepperModal
         open={open}
         onOpenChange={handleClose}

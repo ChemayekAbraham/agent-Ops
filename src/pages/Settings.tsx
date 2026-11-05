@@ -44,6 +44,7 @@ import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
 
 const DiagnosticsSection = lazy(() => import('@/components/settings/DiagnosticsSection'));
 const PinSecuritySection = lazy(() => import('@/components/settings/PinSecuritySection'));
+const WithdrawalPinSection = lazy(() => import('@/components/settings/WithdrawalPinSection'));
 const BiometricSecuritySection = lazy(() => import('@/components/settings/BiometricSecuritySection'));
 const DeviceSessionsSection = lazy(() => import('@/components/settings/DeviceSessionsSection'));
 const TwoFactorSection = lazy(() => import('@/components/settings/TwoFactorSection'));
@@ -84,6 +85,7 @@ const SECTION_PREFETCH: Record<string, Array<() => Promise<unknown>>> = {
   ],
   security: [
     () => import('@/components/settings/PinSecuritySection'),
+    () => import('@/components/settings/WithdrawalPinSection'),
     () => import('@/components/settings/BiometricSecuritySection'),
     () => import('@/components/settings/TwoFactorSection'),
     () => import('@/components/settings/AuthenticatorAppCard'),
@@ -1004,6 +1006,7 @@ export default function Settings() {
                   </CardContent>
                 </Card>
                 <LazySection name="PinSecurity"><PinSecuritySection /></LazySection>
+                <LazySection name="WithdrawalPin"><WithdrawalPinSection /></LazySection>
                 <LazySection name="BiometricSecurity"><BiometricSecuritySection /></LazySection>
                 <Card className="border-border/40 rounded-2xl">
                   <CardHeader className="pb-2">
