@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { normalizePortfolioState } from '@/lib/portfolioAccrual';
-import { ActivePortfolioCard } from './ActivePortfolioCard';
+import { PortfolioCardStack } from './PortfolioCardStack';
 import { PortfolioSkeleton, PortfolioEmptyState, PortfolioErrorState } from './PortfolioStates';
 import { SupportedTenantsSection } from '@/components/supporter/SupportedTenantsSection';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
@@ -98,11 +98,7 @@ export function PartnerPortfolioSection({ onViewPortfolios, onExploreOpportuniti
             <span className="text-[10px] font-bold text-muted-foreground">{list.length}</span>
           </div>
 
-          <div className="space-y-3">
-            {shown.map(p => (
-              <ActivePortfolioCard key={p.id} portfolio={p} onView={() => onViewPortfolios(p.id)} />
-            ))}
-          </div>
+          <PortfolioCardStack portfolios={shown} onView={(id) => onViewPortfolios(id)} />
 
           <button
             onClick={() => onViewPortfolios()}
