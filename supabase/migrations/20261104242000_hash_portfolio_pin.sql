@@ -1,3 +1,4 @@
+set local statement_timeout = '15min';
 -- Hash investor_portfolios.portfolio_pin with bcrypt (pgcrypto). Approved 4 Nov 2026.
 -- REQUIRES 20261104241000_portfolio_pin_backup.sql to have run first. This file refuses to hash
 -- while any plaintext PIN has no row in private.portfolio_pin_backup_20261104.

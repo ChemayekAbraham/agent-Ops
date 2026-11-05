@@ -458,7 +458,7 @@ async function sendViaAfricasTalking(phone: string, message: string): Promise<Sm
 async function sendSMS(
   phone: string,
   message: string,
-  options: { preferBackupRoute?: boolean; previousAcceptedProvider?: string | null } = {},
+  options: { preferBackupRoute?: boolean; previousAcceptedProvider?: string | null; africasTalkingFirst?: boolean } = {},
 ): Promise<SmsOutcome> {
   const attempts: ProviderAttempt[] = [];
 
@@ -506,7 +506,12 @@ async function sendSMS(
   // likely to arrive.
   void options.previousAcceptedProvider;
   void options.preferBackupRoute;
-  const chain = primaryChain;
+  // Parent-agent National ID link codes go to Africa's Talking first: Yoola
+  // accepted these but never confirmed handset delivery. Yoola and LANA stay
+  // as fallbacks if Africa's Talking rejects.
+  const chain = options.africasTalkingFirst
+    ? [primaryChain[1], primaryChain[0], primaryChain[2]]
+    : primaryChain;
 
   let bestReason: string | undefined;
   for (let i = 0; i < chain.length; i++) {
@@ -717,6 +722,7 @@ Deno.serve(async (req) => {
       const smsPromise = sendSMS(phone, message, {
         preferBackupRoute,
         previousAcceptedProvider,
+        africasTalkingFirst: category === "national_id_link",
       });
       const timeoutPromise = new Promise<typeof TIMED_OUT>((resolve) =>
         setTimeout(() => resolve(TIMED_OUT), ACCEPTANCE_TIMEOUT_MS),

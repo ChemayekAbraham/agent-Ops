@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ArrowRight, User, Users, X } from 'lucide-react';
 import s from './WelcomeNew.module.css';
 import { Button } from '@/components/ui/button';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import logoA from '@/assets/welcome-new/welile-logo.png.asset.json';
 import familyA from '@/assets/welcome-new/welcome-family.png.asset.json';
 import hubA from '@/assets/welcome-new/ecosystem-hub.png.asset.json';
@@ -60,6 +61,9 @@ function Dots({ count, active }: { count: number; active: number }) {
 
 export default function WelcomeNew() {
   const navigate = useNavigate();
+  // The assistant launcher is only for people with an active session; a
+  // visitor with none never sees it and never opens the chat.
+  const signedIn = useAuthenticatedAudience();
   const [params, setParams] = useSearchParams();
   const parsed = Number(params.get('step'));
   const step = Number.isFinite(parsed) && parsed >= 1 && parsed <= 7 ? parsed - 1 : 0;
@@ -182,7 +186,9 @@ export default function WelcomeNew() {
         else if (dx > 50 && step > 0) go(step - 1);
       }}
     >
-      <header className="fixed right-4 top-4 z-30"><Button variant="outline" className="rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button></header>
+      {signedIn && (
+        <header className="fixed right-4 top-4 z-30"><Button variant="outline" className="rounded-full" onClick={() => window.dispatchEvent(new CustomEvent('open-welile-assistant'))}>Welile AI</Button></header>
+      )}
       <main className={s.frame} {...(redirect ? { inert: '' as unknown as boolean } : {})}>
         {/* Screen 1 */}
         <section className={`${s.screen} ${pos(0)} ${side(0)}`} aria-labelledby="wn-h-0" {...inertProps(0)}>
@@ -198,7 +204,7 @@ export default function WelcomeNew() {
               <p className={s.subtitle}>Where homes meet opportunity.</p>
               <Dots count={4} active={0} />
               <button type="button" className={s.primary} onClick={() => go(1)}>Get Started <ArrowRight size={18} aria-hidden /></button>
-              <button type="button" className={s.textLink} onClick={() => navigate(SIGN_IN)}>Sign in</button>
+              <button type="button" className={s.textLink} onClick={() => navigate(SIGN_IN)}>Sign in / Login</button>
             </div>
             <Footer />
           </div>
