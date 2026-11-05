@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
 import { Calculator, Eye, EyeOff, Menu, Plus, Users, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
@@ -13,6 +14,106 @@ const welileLogo = '/welile-colored.png';
 // Taller card (354x200) to give the Add Card button more room on mobile.
 const NOTCH_PATH =
   'M 20,0 L 334,0 A 20,20 0 0 1 354,20 L 354,154 A 8,8 0 0 1 346,162 L 241,162 A 8,8 0 0 0 233,170 L 233,180 A 20,20 0 0 1 213,200 L 20,200 A 20,20 0 0 1 0,180 L 0,20 A 20,20 0 0 1 20,0 Z';
+
+// The card's silhouette as a mask, so the grain and the highlight stay inside the notch.
+const SHAPE_MASK = `url("data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 354 200' preserveAspectRatio='none'><path d='${NOTCH_PATH}' fill='black'/></svg>`,
+)}")`;
+const SHAPE_MASK_STYLE = {
+  WebkitMaskImage: SHAPE_MASK,
+  maskImage: SHAPE_MASK,
+  WebkitMaskSize: '100% 100%',
+  maskSize: '100% 100%',
+} as const;
+
+// Fine grain: real cards are printed, and a flat gradient is what makes a card look like a CSS box.
+const NOISE_BACKGROUND =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
+const SHEEN_HOME = { x: 28, y: 18 };
+const SHEEN_SPRING = { damping: 26, mass: 0.4, stiffness: 140 };
+const TILT_SPRING = { damping: 22, mass: 0.5, stiffness: 160 };
+const MASK_LENGTH = 6;
+const BLUR = 6;
+const CHAR_STAGGER = 0.018;
+
+/** The app's low-power mode for phones that struggle with blend and blur effects. */
+const isSafeMode = () =>
+  typeof document !== 'undefined' && document.documentElement.classList.contains('android-compositor-safe');
+
+/** EMV chip, contact grid and all. */
+function EmvChip() {
+  const gradientId = useId();
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 34 26"
+      fill="none"
+      className="shrink-0"
+      style={{ height: 'clamp(18px, 5.6cqw, 28px)', width: 'auto', aspectRatio: '34 / 26' }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f4e3ab" />
+          <stop offset="45%" stopColor="#c9a544" />
+          <stop offset="100%" stopColor="#8f6f22" />
+        </linearGradient>
+      </defs>
+      <rect x="0.5" y="0.5" width="33" height="25" rx="4.5" fill={`url(#${gradientId})`} stroke="rgba(0,0,0,0.22)" />
+      <g stroke="rgba(0,0,0,0.3)" strokeWidth="1">
+        <path d="M0 8.5H11" /><path d="M0 17.5H11" /><path d="M23 8.5H34" /><path d="M23 17.5H34" />
+        <path d="M11 3.5V22.5" /><path d="M23 3.5V22.5" /><path d="M11 13H23" />
+      </g>
+    </svg>
+  );
+}
+
+/** Contactless payment glyph: three nested arcs. */
+function ContactlessGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeWidth="1.7"
+      className="shrink-0 text-white/65"
+      style={{ width: 'clamp(13px, 4.2cqw, 20px)', height: 'clamp(13px, 4.2cqw, 20px)' }}
+    >
+      <path d="M5.5 9.4a5.4 5.4 0 0 1 0 5.2" />
+      <path d="M9.2 7a9.4 9.4 0 0 1 0 10" />
+      <path d="M12.9 4.7a13.4 13.4 0 0 1 0 14.6" />
+    </svg>
+  );
+}
+
+/** The amount, one character at a time: it blurs out when hidden and sharpens in when shown. */
+function BalanceDisplay({ amount, hidden, reduced }: { amount: string; hidden: boolean; reduced: boolean }) {
+  const symbol = amount.split(/\s/)[0] || 'UGX';
+  const characters = hidden
+    ? [...symbol.split(''), ' ', ...Array.from({ length: MASK_LENGTH }, () => '•')]
+    : amount.split('');
+  return (
+    <span aria-label={hidden ? 'Amount hidden' : amount} className="flex">
+      <AnimatePresence initial={false} mode="popLayout">
+        {characters.map((char, index) => (
+          <motion.span
+            key={`${hidden}-${index}-${char}`}
+            aria-hidden="true"
+            className="inline-block"
+            initial={reduced ? { opacity: 1 } : { filter: `blur(${BLUR}px)`, opacity: 0 }}
+            animate={{ filter: 'blur(0px)', opacity: 1 }}
+            exit={reduced ? { opacity: 0, transition: { duration: 0 } } : { filter: `blur(${BLUR}px)`, opacity: 0 }}
+            transition={reduced ? { duration: 0 } : { type: 'spring', bounce: 0.1, duration: 0.25, delay: index * CHAR_STAGGER }}
+          >
+            {char === ' ' ? '\u00A0' : char}
+          </motion.span>
+        ))}
+      </AnimatePresence>
+    </span>
+  );
+}
 
 interface Props {
   onAddCard?: () => void;
@@ -58,6 +159,65 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
   const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
   const [showAmount, setShowAmount] = useState(false);
+
+  // The pointer drives a highlight and a slight tilt. All of it is written to motion values,
+  // so moving over the card never re-renders it.
+  const reduced = Boolean(useReducedMotion());
+  const safe = useMemo(isSafeMode, []);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const pointerActive = useRef(false);
+  const hoverCapable = useRef(false);
+  const px = useMotionValue(SHEEN_HOME.x);
+  const py = useMotionValue(SHEEN_HOME.y);
+  const sheenX = useSpring(px, SHEEN_SPRING);
+  const sheenY = useSpring(py, SHEEN_SPRING);
+  const sheen = useMotionTemplate`radial-gradient(120% 90% at ${sheenX}% ${sheenY}%, rgba(255,255,255,0.32), rgba(255,255,255,0.06) 45%, transparent 72%)`;
+  const tiltX = useSpring(useMotionValue(0), TILT_SPRING);
+  const tiltY = useSpring(useMotionValue(0), TILT_SPRING);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    hoverCapable.current = mq.matches;
+    const onChange = (e: MediaQueryListEvent) => { hoverCapable.current = e.matches; };
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // With no pointer over it (a phone, say), the highlight drifts slowly so the card still looks alive.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || reduced || safe) return;
+    let visible = true;
+    const io = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; });
+    io.observe(el);
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (!visible || document.hidden || pointerActive.current) return;
+      px.set(SHEEN_HOME.x + Math.sin((now - t0) / 2800) * 28);
+      py.set(SHEEN_HOME.y + Math.cos((now - t0) / 3400) * 14);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { cancelAnimationFrame(raf); io.disconnect(); };
+  }, [reduced, safe, px, py]);
+
+  const handlePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!hoverCapable.current || reduced || safe) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width;
+    const y = (e.clientY - r.top) / r.height;
+    pointerActive.current = true;
+    px.set(x * 100);
+    py.set(y * 100);
+    tiltY.set((x - 0.5) * 10);
+    tiltX.set(-(y - 0.5) * 8);
+  };
+  const handlePointerLeave = () => {
+    pointerActive.current = false;
+    tiltX.set(0);
+    tiltY.set(0);
+  };
 
   const active = useMemo(
     // Locked portfolios (open redemption) stop accruing but the capital is still
@@ -109,11 +269,20 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
   return (
     <div className="w-full space-y-3">
       {/* CARD */}
-      <div
+      <motion.div
+        ref={cardRef}
         className="relative w-full aspect-[354/200] min-h-[180px] max-h-[280px] mx-auto"
+        initial={reduced || safe ? false : { opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', bounce: 0.15, duration: 0.6 }}
+        onPointerMove={handlePointerMove}
+        onPointerLeave={handlePointerLeave}
         style={{
           filter: 'drop-shadow(0px 8px 22px rgba(99, 26, 186, 0.30))',
           containerType: 'inline-size',
+          transformPerspective: 900,
+          rotateX: reduced || safe ? 0 : tiltX,
+          rotateY: reduced || safe ? 0 : tiltY,
         }}
       >
         <svg
@@ -134,6 +303,16 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
           <path d={NOTCH_PATH} fill="url(#welilePurpleCardGrad)" stroke="rgba(255,255,255,0.45)" strokeWidth="8" strokeLinejoin="round" />
         </svg>
 
+        {/* Printed grain and a highlight that follows the pointer, both clipped to the card's shape */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.14] mix-blend-overlay" style={{ ...SHAPE_MASK_STYLE, backgroundImage: NOISE_BACKGROUND }} />
+        {!safe && (
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 mix-blend-soft-light"
+            style={{ ...SHAPE_MASK_STYLE, backgroundImage: sheen }}
+          />
+        )}
+
         {/* CONTENT */}
         <div
           className="relative z-10 w-full h-full flex flex-col justify-between text-white select-none"
@@ -152,6 +331,11 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
             >
               {aiId}
             </span>
+          </div>
+
+          <div className="flex items-center gap-2.5" aria-hidden="true" style={{ marginTop: 'min(1cqw, 6px)' }}>
+            <EmvChip />
+            <ContactlessGlyph />
           </div>
 
           <div className="flex items-end justify-between gap-2" style={{ marginTop: 'min(-0.5cqw, -2px)' }}>
@@ -187,7 +371,7 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
                   fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Segoe UI", Roboto, sans-serif',
                 }}
               >
-                {showAmount ? formatUGX(totalPrincipal) : 'UGX ••••••'}
+                <BalanceDisplay amount={formatUGX(totalPrincipal)} hidden={!showAmount} reduced={reduced || safe} />
               </div>
             </div>
             <div className="flex flex-col items-end shrink-0" style={{ paddingRight: 'min(0.5cqw, 4px)' }}>
@@ -255,7 +439,7 @@ export function PartnerPortfolioWalletCard({ onAddCard, onPortfolios, onCalculat
             Support
           </span>
         </button>
-      </div>
+      </motion.div>
 
       {/* ACTION ROW */}
       <div className="bg-muted/70 backdrop-blur rounded-2xl p-2.5 shadow-md border border-border/70 flex items-center justify-around">
