@@ -27,7 +27,7 @@ import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
 import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
 
 export default function CfoLandlordPayoutFloatPanel() {
-  const [activeTab, setActiveTab] = useState<string>('disburse');
+  const [activeTab, setActiveTab] = useState<string>('active');
 
   return (
     <div className="space-y-6">
@@ -58,13 +58,13 @@ export default function CfoLandlordPayoutFloatPanel() {
       {/* Segmented Workspace Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="bg-muted/60 p-1 flex-wrap h-auto gap-1">
-          <TabsTrigger value="disburse" className="text-xs font-semibold gap-1.5 py-1.5">
-            <Banknote className="h-3.5 w-3.5" />
-            Disburse Payout Float
-          </TabsTrigger>
           <TabsTrigger value="active" className="text-xs font-semibold gap-1.5 py-1.5">
             <Landmark className="h-3.5 w-3.5" />
             Active on Agent Cards
+          </TabsTrigger>
+          <TabsTrigger value="disburse" className="text-xs font-semibold gap-1.5 py-1.5">
+            <Banknote className="h-3.5 w-3.5" />
+            Disburse Payout Float
           </TabsTrigger>
           <TabsTrigger value="idle" className="text-xs font-semibold gap-1.5 py-1.5">
             <Clock className="h-3.5 w-3.5" />
@@ -80,14 +80,14 @@ export default function CfoLandlordPayoutFloatPanel() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Batch Disburse Desk */}
-        <TabsContent value="disburse" className="space-y-4">
-          <BatchPayoutProcessor />
-        </TabsContent>
-
-        {/* Tab 2: Active on Cards */}
+        {/* Tab 1: Active on Cards */}
         <TabsContent value="active" className="space-y-4">
           <LandlordFloatAllocationsPanel />
+        </TabsContent>
+
+        {/* Tab 2: Batch Disburse Desk */}
+        <TabsContent value="disburse" className="space-y-4">
+          <BatchPayoutProcessor />
         </TabsContent>
 
         {/* Tab 3: Idle & Overdue Float */}
