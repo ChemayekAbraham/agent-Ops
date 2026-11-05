@@ -97539,6 +97539,10 @@ export type Database = {
         }[]
       }
       verify_payout_code_throttled: { Args: { p_code: string }; Returns: Json }
+      verify_portfolio_pin: {
+        Args: { p_pin: string; p_portfolio_id: string }
+        Returns: boolean
+      }
       verify_staff_access_password: {
         Args: { p_password: string; p_user_id: string }
         Returns: Json
