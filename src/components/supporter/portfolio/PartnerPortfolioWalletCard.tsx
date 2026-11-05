@@ -1,13 +1,12 @@
 import { useEffect, useId, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, useReducedMotion, useSpring } from 'framer-motion';
-import { Calculator, Eye, EyeOff, Menu, Users, Wallet } from 'lucide-react';
+import { Calculator, Eye, EyeOff, Wallet } from 'lucide-react';
 import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 import { computeAccrual, normalizePortfolioState } from '@/lib/portfolioAccrual';
 import { formatUGX } from '@/lib/rentCalculations';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
-import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 const welileLogo = '/welile-colored.png';
 
@@ -158,7 +157,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
   const { user } = useAuth();
   const { profile } = useProfile();
   const { portfolios, loading } = usePartnerPortfolios();
-  const { tenants, isLoading: tenantsLoading } = useSupportedTenants();
   const { available: availableBalance, refresh: refreshAvailable } = useAvailableBalance(user?.id);
   const [showAmount, setShowAmount] = useState(false);
 
@@ -231,18 +229,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
     [portfolios]
   );
 
-  const directTenantCount = useMemo(
-    () => tenants.filter((t) => t.funding_mode === 'self_managed').length,
-    [tenants]
-  );
-
-  const activePortfolioCount = useMemo(() => active.length, [active]);
-
-  const supportingCount = useMemo(
-    () => directTenantCount + activePortfolioCount,
-    [directTenantCount, activePortfolioCount]
-  );
-
   const totalPrincipal = useMemo(
     () => active.reduce((sum, p: any) => sum + Number(p.investment_amount || 0), 0),
     [active]
@@ -264,7 +250,7 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
   const aiId = user?.id ? generateWelileAiId(user.id) : '';
   const name = (profile?.full_name || '').trim().toUpperCase();
 
-  if (loading || tenantsLoading) {
+  if (loading) {
     return <div className="mx-auto aspect-[1.586] w-full max-w-[420px] rounded-[18px] bg-muted animate-pulse" />;
   }
 
@@ -394,13 +380,6 @@ export function PartnerPortfolioWalletCard({ onPortfolios, onCalculator, onMore 
       <div className="bg-muted/70 backdrop-blur rounded-2xl p-2.5 shadow-md border border-border/70 flex items-center justify-around">
         <ActionButton label="Portfolios" onClick={onPortfolios} icon={<Wallet className="w-4 h-4" />} />
         <ActionButton label="Calculator" onClick={onCalculator} icon={<Calculator className="w-4 h-4" />} />
-        <ActionButton
-          label="Supporting"
-          onClick={() => document.getElementById('supported-tenants')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          icon={<Users className="w-4 h-4" />}
-          badge={supportingCount}
-        />
-        <ActionButton label="More" onClick={onMore} icon={<Menu className="w-4 h-4" />} />
       </div>
     </div>
   );
