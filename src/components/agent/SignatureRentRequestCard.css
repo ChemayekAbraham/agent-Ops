@@ -17,30 +17,7 @@
   transform: translateY(-2px);
 }
 
-.signature-rent-card::before,
-.signature-rent-card::after {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: 50%;
-}
-
-.signature-rent-card::before {
-  right: -151px;
-  top: 136px;
-  width: 375px;
-  height: 375px;
-  border: 53px solid hsl(var(--signature-rent-ring) / 0.25);
-}
-
-.signature-rent-card::after {
-  right: -61px;
-  top: -122px;
-  width: 240px;
-  height: 240px;
-  border: 2px solid hsl(var(--signature-rent-foreground) / 0.27);
-}
+/* The background ring decorations were replaced by a faint house (FadedHouseIllustration, in the markup). */
 
 .signature-rent-open {
   position: absolute;
@@ -64,8 +41,7 @@
 
 /* Only the real controls inside the card take clicks; everything else
    falls through to the card-wide open-request target. */
-.signature-rent-content .signature-rent-how,
-.signature-rent-content .signature-rent-post {
+.signature-rent-content .signature-rent-how {
   pointer-events: auto;
 }
 
@@ -113,32 +89,6 @@
   text-underline-offset: 3px;
 }
 
-.signature-rent-card .signature-rent-post {
-  height: 52px;
-  min-height: 52px;
-  width: 100%;
-  margin-top: 16px;
-  justify-content: space-between;
-  border-radius: 13px;
-  background: hsl(var(--signature-rent-foreground));
-  color: hsl(var(--signature-rent-button-text));
-  padding: 0 11px 0 17px;
-  font-size: 14px;
-  font-weight: 800;
-  box-shadow: var(--signature-rent-button-shadow);
-}
-
-.signature-rent-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: hsl(var(--signature-rent-button-icon));
-}
-
 @container (max-width: 380px) {
   .signature-rent-content { padding-inline: 22px; }
   .signature-rent-heading { font-size: 42px; }
@@ -151,7 +101,6 @@
 
 @container (max-width: 275px) {
   .signature-rent-heading { font-size: 30px; }
-  .signature-rent-card .signature-rent-post { padding-left: 10px; font-size: 12px; }
 }
 
 /* --- "How do I earn?" dialog: compact, violet-brand, never full width --- */

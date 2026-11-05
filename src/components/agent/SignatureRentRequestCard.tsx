@@ -3,6 +3,7 @@ import { ArrowUpRight, Asterisk, CalendarCheck2, Percent, Wallet } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { FadedHouseIllustration } from '@/components/common/FadedHouseIllustration';
 import './SignatureRentRequestCard.css';
 
 interface SignatureRentRequestCardProps {
@@ -19,6 +20,7 @@ export function SignatureRentRequestCard({ fullName, onPostRequest, onIntent }: 
   return (
     <>
       <section className="signature-rent-card" aria-labelledby="signature-rent-title">
+        <FadedHouseIllustration opacity={0.2} />
         <button
           type="button"
           className="signature-rent-open"
@@ -48,10 +50,6 @@ export function SignatureRentRequestCard({ fullName, onPostRequest, onIntent }: 
               How do I earn? <ArrowUpRight className="!h-3 !w-3" aria-hidden="true" />
             </Button>
           </div>
-          <Button className="signature-rent-post" onClick={onPostRequest}>
-            <span>Post rent request</span>
-            <span className="signature-rent-arrow" aria-hidden="true"><ArrowUpRight className="!h-5 !w-5" /></span>
-          </Button>
         </div>
       </section>
       <Dialog open={earningsOpen} onOpenChange={setEarningsOpen}>
