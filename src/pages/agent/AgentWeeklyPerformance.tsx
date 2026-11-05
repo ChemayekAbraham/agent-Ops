@@ -214,27 +214,32 @@ export default function AgentWeeklyPerformancePage() {
         {data && (
           <>
             {/* Posting status hero */}
-            <section className="rounded-3xl border border-border/60 bg-card p-5">
-              <div className="flex items-start gap-3">
-                {canPost
-                  ? <CheckCircle2 className="h-8 w-8 shrink-0 text-primary" />
-                  : <XCircle className="h-8 w-8 shrink-0 text-destructive" />}
+            <section
+              className={cn(
+                'rounded-3xl p-5 text-primary-foreground shadow-lg relative overflow-hidden bg-primary',
+                !canPost && 'ring-2 ring-primary-foreground/25',
+              )}
+            >
+              <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-primary-foreground/10" />
+              <div className="absolute -right-2 bottom-0 h-16 w-16 rounded-full bg-primary-foreground/10" />
+              <div className="relative flex items-start gap-3">
+                {canPost ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground">This week</p>
-                  <p className="text-xl font-bold leading-tight">
+                  <p className="text-xs font-semibold uppercase tracking-wide opacity-90">This week</p>
+                  <p className="text-xl font-extrabold leading-tight">
                     {canPost ? 'You can post new Rent Plans' : 'You cannot post new Rent Plans'}
                   </p>
                   {judged && (
-                    <p className="mt-1 text-sm text-muted-foreground">
+                    <p className="mt-1 text-[12px] opacity-90">
                       Based on last week, {shortDay(judged.week_start)} – {shortDay(judged.week_end)}.
                     </p>
                   )}
                 </div>
               </div>
               {!canPost && judged?.reason && (
-                <p className="mt-3 rounded-2xl bg-muted px-3 py-2 text-sm leading-snug">{judged.reason}</p>
+                <p className="relative mt-3 rounded-2xl bg-primary-foreground/15 px-3 py-2 text-[12px] leading-snug">{judged.reason}</p>
               )}
-              <div className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="relative mt-3 flex items-center gap-2 text-[12px] opacity-95">
                 <CalendarClock className="h-4 w-4 shrink-0" />
                 <span>Next result on {nextResultDay(data.current_week.week_end)}, from this week's collections.</span>
               </div>
