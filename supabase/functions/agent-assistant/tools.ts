@@ -112,7 +112,9 @@ export const AGENT_TOOLS: ToolDef[] = [
     name: "get_wallet_transactions",
     description:
       "The agent's own wallet movements (money in / money out) with category, amount and date. " +
-      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days.",
+      "Returns totals for the whole range and up to `limit` of the most recent items. Max range 92 days. " +
+      "Only customer-facing entries are listed: it is NOT a full ledger and may not add up to the wallet balance, so never try to reconcile the list against the balance, never add entries up yourself, and never guess what is missing. " +
+      "If asked about an adjustment, correction or reversal, say you only see customer-facing wallet activity and offer to pass the question to support.",
     parameters: {
       type: "object",
       properties: {
@@ -459,12 +461,25 @@ export const PARTNER_TOOLS: ToolDef[] = [
     description:
       "The partner's own summary: name, partner_since, portfolio counts (active, compounding, monthly payout, locked, redeemed, pending) and active_principal, " +
       "Returns earned in total and this month, the last Returns credited to their wallet, wallet (withdrawable_balance, locked_balance, float_available_for_topups), " +
-      "the next Returns payout and next maturity, houses supported, their partnership AGREEMENT (status, agreement_date, countersigned_on, partnership_amount, payout_mode, " +
-      "return_option as written, managed_by_company, payout_destination with a masked number) and the agreement acceptance version and date. Start here for 'tell me about my account', " +
-      "'my contract', 'my wallet', 'my total Returns'. return_option is a letter from the agreement: quote it, do not explain what it means.",
+      "the next Returns payout and next maturity, houses supported, and contract_state (a plain state only). Start here for 'tell me about my account', " +
+      "'my wallet', 'my total Returns'. For ANY question about their contract, agreement, terms or signing, call get_partner_contract instead: this tool has no contract details.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_partner_overview",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_partner_contract",
+    description:
+      "The partner's CONTRACT details, gathered from every place they live: state (signed_agreement, agreement_awaiting_welile_countersignature, accepted_terms_online, none_on_record); " +
+      "the partnership_agreement if there is one (status, agreement_date, partner_signed, countersigned_on, signed_copy_on_file, partnership_amount, payout_mode, return_option as written, managed_by_company, " +
+      "payout_destination with a masked number); accepted_terms (the Welile partner terms they accepted online: version, first and latest date, times accepted); and portfolio_terms (every portfolio's " +
+      "code, status, started_on, current_value, rate_percent, duration_months, mode, maturity_date). Use for 'my contract', 'my agreement', 'what did I sign', 'my terms'. " +
+      "A missing partnership_agreement does NOT mean they have no contract: most partners accepted the Welile terms online, and their portfolio terms are the terms in force. " +
+      "Never say or imply the partner did not sign. return_option is a letter from the agreement: quote it, do not explain what it means.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_partner_contract",
     toRpcArgs: () => ({}),
   },
   {
@@ -493,7 +508,7 @@ export const PARTNER_TOOLS: ToolDef[] = [
   {
     name: "get_partner_portfolio_detail",
     description:
-      "ONE portfolio in full, found by its code (for example WPF-3542 or WIP2610124417): terms, payout_destination (masked), compounds (date and amount), topups, " +
+      "ONE portfolio in full, found by its code (for example WPF-3542 or WIP2610124417): terms, payout_destination (masked), compounded_so_far (the total compounded, already calculated) and compounds (the individual entries), topups, " +
       "renewals (old and new maturity, rate, duration), renewal and redemption requests, redemptions, payouts_paid, the maturity notice sent, and whether a renewal is scheduled. " +
       "Use for compounding, top-up, renewal, maturity and payout questions about a specific portfolio. If found is false, say you could not find that code among their own portfolios.",
     parameters: {
@@ -523,7 +538,7 @@ export const PARTNER_TOOLS: ToolDef[] = [
     name: "get_partner_withdrawals",
     description:
       "The partner's own withdrawal requests (default last 90 days): amount, stage (paid, in_progress, rejected, cancelled), requested_on, paid_on, method, network or bank, " +
-      "sent_to (masked), reference, and whether it was a portfolio Returns payout, plus summary totals. Filter by status (all, paid, in_progress, rejected, cancelled) and by period or from/to. " +
+      "sent_to (masked), reference, and whether it was a portfolio Returns payout, plus summary totals (only the stage is given, never an internal status). Filter by status (all, paid, in_progress, rejected, cancelled) and by period or from/to. " +
       "Use for 'did my withdrawal go through', 'what have I withdrawn', 'where was it sent'.",
     parameters: {
       type: "object",
@@ -541,6 +556,27 @@ export const PARTNER_TOOLS: ToolDef[] = [
       const x = a as Range & { status?: string; limit?: number };
       const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
       return { p_status: x.status ?? "all", ...range, p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_partner_wallet_activity",
+    description:
+      "The partner's wallet activity (default last 30 days): date, amount, direction (in or out) and a plain type such as Returns credited to wallet, Withdrawal, Deposit, Portfolio funding or top-up, " +
+      "Wallet transfer, plus money_in and money_out totals for the period. Only partner-facing activity is listed. It is NOT a full ledger and may not add up to the wallet balance: never try to reconcile it " +
+      "against the balance, never add entries up yourself, and never guess what is missing. If asked why the balance differs or about an adjustment, correction or reversal, say you can only see partner-facing activity and offer to pass it to support. " +
+      "Use period or from/to (YYYY-MM-DD, at most a year) and direction (in or out). For the balance itself use get_partner_overview.",
+    parameters: {
+      type: "object",
+      properties: { direction: { type: "string", enum: ["in", "out"] }, ...rangeProps, limit: partnerLimitProp },
+      additionalProperties: false,
+    },
+    schema: z.object({ ...rangeShape, direction: z.enum(["in", "out"]).optional(), limit: partnerLimit }).strict()
+      .refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_partner_wallet_activity",
+    toRpcArgs: (a) => {
+      const x = a as Range & { direction?: string; limit?: number };
+      const range = x.period || x.from || x.to ? rangeToRpc(x, "last_30_days") : {};
+      return { ...range, p_direction: x.direction ?? null, p_limit: x.limit ?? 20 };
     },
   },
   {

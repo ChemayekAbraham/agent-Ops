@@ -505,3 +505,113 @@ Deno.test("request schema accepts the funder dashboard page hint and nothing els
   assert(RequestSchema.safeParse({ action: "message", message: "hi", page: "funder_dashboard" }).success);
   assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "admin_dashboard" }).success, false);
 });
+
+Deno.test("partner wallet activity: validated arguments, no identity, defaults to the last 30 days", () => {
+  const t = findTool("get_partner_wallet_activity")!;
+  assertEquals(t.rpc, "assistant_partner_wallet_activity");
+  assert(t.schema.safeParse({ direction: "in", period: "last_7_days" }).success);
+  assertEquals(t.schema.safeParse({ direction: "sideways" }).success, false);
+  assertEquals(t.schema.safeParse({ period: "last_week", from: "2026-10-01" }).success, false);
+  assertEquals(t.schema.safeParse({ partner_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assertEquals(t.toRpcArgs({}), { p_direction: null, p_limit: 20 });
+  assert(toolAllowedFor("partner", "get_partner_wallet_activity") && !toolAllowedFor("agent", "get_partner_wallet_activity"));
+});
+
+Deno.test("partner prompt: wallet activity is not reconciled and reversals or corrections are never mentioned", () => {
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  assert(p.includes("may not add up to the balance"));
+  assert(/Never mention, hint at or speculate about reversals, corrections, adjustments/.test(p));
+  const tool = findTool("get_partner_wallet_activity")!.description;
+  assert(/never try to reconcile/i.test(tool));
+});
+
+Deno.test("partner tools never expose a raw withdrawal status or a reversal flag in their descriptions", () => {
+  for (const t of PARTNER_TOOLS) {
+    assert(!/\breversed\b/i.test(t.description.replace(/never mention[^.]*\./gi, "")) || t.name === "get_partner_wallet_activity", t.name);
+  }
+});
+
+// ---- follow-ups from the 60-question live test --------------------------------------------------
+
+Deno.test("partner admin trail: a partner reply may not mention reversals, corrections or adjustments (or say there are none)", () => {
+  const opts = { hideAdminTrail: true };
+  for (const bad of [
+    "I don't see any reversals listed here.",
+    "Your top-up was reversed last week.",
+    "There were no admin corrections on your wallet.",
+    "A balance adjustment was made.",
+    "I can't see any internal admin adjustments or corrections.",
+  ]) assertEquals(checkAnswer(bad, [], "x", opts), { ok: false, reason: "admin_trail" }, bad);
+  assert(checkAnswer("I can show your top-ups and wallet activity as they appear on your account.", [], "x", opts).ok);
+  // the agent persona is unaffected
+  assert(checkAnswer("That System balance correction was UGX 15.", [], "x").ok);
+  assert(RETRY_NOTE.admin_trail.length > 40);
+});
+
+Deno.test("partner refusals talk about portfolios, not tenants, and the deflection never confirms or denies", () => {
+  for (const seed of ["a", "bb", "ccc"]) {
+    const r = MSG.refusal(seed, "partner");
+    assert(/portfolio|Returns|withdrawals|wallet/i.test(r) && !/tenant|collection/i.test(r), r);
+    assert(!/\b(loan|lender|ROI|interest)\b/i.test(r));
+    assertEquals(MSG.refusal(seed, "agent") === r, false);
+  }
+  assertEquals(checkAnswer(MSG.partnerDeflect, [], "x", { hideAdminTrail: true }).ok, true);
+});
+
+Deno.test("prompts: dual-role people are pointed to the other dashboard, never refused; league and team differ", () => {
+  const agentAlsoPartner = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard", alsoPartner: true });
+  assert(agentAlsoPartner.includes("also a partner") && agentAlsoPartner.includes("funder) dashboard"));
+  const agentOnly = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
+  assert(!agentOnly.includes("also a partner"));
+  const partnerAlsoAgent = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard", alsoAgent: true });
+  assert(partnerAlsoAgent.includes("also an agent"));
+  assert(agentOnly.includes("get_team_summary covers only the agent's direct verified sub-agents"));
+  const partner = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  assert(partner.includes("never describe screens") && partner.includes("compounded_so_far"));
+  assert(/Do not use the words reverse, reversed, reversal, correction or adjustment/.test(partner));
+});
+
+Deno.test("agent wallet list: the model is told it is not a full ledger and must not reconcile or mention corrections", () => {
+  const d = findTool("get_wallet_transactions")!.description;
+  assert(/NOT a full ledger/.test(d) && /never try to reconcile/i.test(d));
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "agent", page: "agent_dashboard" });
+  assert(p.includes("customer-facing entries only") && /Do not mention or speculate about corrections, reversals or adjustments/.test(p));
+});
+
+Deno.test("partner contract: one tool, no arguments, agent persona cannot call it", () => {
+  const t = findTool("get_partner_contract")!;
+  assertEquals(t.rpc, "assistant_partner_contract");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ partner_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assert(toolAllowedFor("partner", "get_partner_contract") && !toolAllowedFor("agent", "get_partner_contract"));
+  assert(/Never say or imply the partner did not sign/.test(t.description));
+  assert(!/AGREEMENT \(status/.test(findTool("get_partner_overview")!.description));
+});
+
+Deno.test("partner contract: telling a partner they did not sign fails the guard, honest wording passes", () => {
+  const opts = { noSignatureClaims: true };
+  for (const bad of [
+    "It looks like you haven't signed a formal partnership agreement document yet.",
+    "You have not signed any contract.",
+    "You didn't sign anything.",
+    "Your agreement is unsigned.",
+    "You never signed a contract with us.",
+    "The agreement has not been signed.",
+  ]) assertEquals(checkAnswer(bad, [], "x", opts), { ok: false, reason: "signature_claim" }, bad);
+  for (const good of [
+    "You accepted the Welile partner terms online (v1.0) on 2026-09-15, and your portfolio terms are listed below.",
+    "Your agreement is waiting for Welile's countersignature.",
+    "I can't find an agreement on the account yet.",
+    "There is no separate signed partnership document on your account, but you accepted the terms online.",
+  ]) assert(checkAnswer(good, [], "x", opts).ok, good);
+  // the agent persona is untouched
+  assert(checkAnswer("You haven't signed that tenant's form yet.", [], "x").ok);
+  assert(RETRY_NOTE.signature_claim.includes("get_partner_contract"));
+  assert(!/\b(loan|lender|ROI|interest)\b/i.test(MSG.partnerContractFallback));
+});
+
+Deno.test("partner prompt: contract rule covers every state and forbids 'didn't sign'", () => {
+  const p = buildSystemPrompt({ todayKampala: "2026-11-05", persona: "partner", page: "funder_dashboard" });
+  for (const s of ["signed_agreement", "agreement_awaiting_welile_countersignature", "accepted_terms_online", "none_on_record"]) assert(p.includes(s), s);
+  assert(p.includes("a missing document is not a missing contract"));
+});

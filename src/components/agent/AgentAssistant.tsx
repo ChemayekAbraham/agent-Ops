@@ -22,9 +22,9 @@ const GREETING_FADE_MS = 600;
 
 /**
  * Mounted once by FloatingToolbar; every page can open it without creating another chat.
- * `dockAboveNav` sits the launcher just above the bottom nav (pages with no other right-hand button stack).
+ * The launcher sits just above the bottom nav (`--fab-above-nav`); nothing else stacks on that side now.
  */
-export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: { hideLauncher?: boolean; dockAboveNav?: boolean }) {
+export function AgentAssistant({ hideLauncher = false }: { hideLauncher?: boolean }) {
   const [open, setOpen] = useState(false);
   // The session is read straight from the context: this component is also
   // mounted by tests with no provider, where useAuth() would throw.
@@ -57,12 +57,10 @@ export function AgentAssistant({ hideLauncher = false, dockAboveNav = false }: {
 
   // The bubble sits directly above the launcher and follows whichever dock
   // offset the launcher itself uses, so the two never drift apart.
-  const bubbleBottom = dockAboveNav
-    ? 'calc(var(--fab-bottom) + 4.25rem)'
-    : 'calc(max(var(--fab-bottom-stacked), 9.25rem) + 4.25rem)';
+  const bubbleBottom = 'calc(var(--fab-above-nav) + 4.25rem)';
 
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed ${dockAboveNav ? 'bottom-[var(--fab-bottom)]' : 'bottom-[max(var(--fab-bottom-stacked),9.25rem)]'} right-4 h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
     {!open && !hideLauncher && !!user && phase !== 'done' && createPortal(
       <AnimatePresence>
         {phase === 'in' && (

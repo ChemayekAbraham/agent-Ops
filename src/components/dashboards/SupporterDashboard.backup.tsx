@@ -499,11 +499,6 @@ export default function SupporterDashboardBackup({
 
           <WidgetErrorBoundary label="Portfolio card">
             <PartnerPortfolioWalletCard
-              onAddCard={() => {
-                hapticTap();
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
               onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
               onCalculator={() => { hapticTap(); setShowCalculator(true); }}
               onMore={() => { hapticTap(); setShowFunderHub(true); }}
@@ -600,6 +595,8 @@ export default function SupporterDashboardBackup({
           {/* Houses on Welile / Available Now moved inside
               "Support Tenants Directly" in Capital Opportunities. */}
 
+          {/* Invite & Earn: the last card on the page, scrolling with it (not pinned to the bottom) */}
+          <InviteAndEarnCard variant="supporter" compact />
         </main>
       </div>
       <SupporterMenuDrawer
@@ -621,9 +618,6 @@ export default function SupporterDashboardBackup({
         }}
         onRefreshRef={opportunitiesRefreshRef}
       />
-
-      {/* Invite & Earn */}
-      <InviteAndEarnCard variant="supporter" compact />
 
       <PaymentPartnersDialog 
         open={showPaymentPartners} 

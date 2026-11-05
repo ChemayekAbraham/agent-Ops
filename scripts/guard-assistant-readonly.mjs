@@ -139,6 +139,8 @@ if (existsSync(MIGRATIONS_DIR)) {
     'portfolio_pin', 'activation_token', 'return_fields_edit_token', 'receipt_file_url', 'receipt_token',
     'cfo_rejection_reason', 'processing_note', 'review_notes', 'rejection_reason', 'lock_reason', 'release_reason',
     'payout_proof\\w*', 'payout_code', 'request_ip_address', 'request_user_agent', 'kin_name', 'kin_contact',
+    // Reversal and correction trail: partners never see it (running_balance is built from every entry, corrections included).
+    'running_balance', 'reversed_by', 'reversal_reason', 'solvency_bypass_reason',
   ];
   // Payout destinations, funder identities: forbidden for the agent persona. The partner persona
   // may read its OWN payout destination, but only through assistant_mask_tail() (last 3 digits).
@@ -150,10 +152,12 @@ if (existsSync(MIGRATIONS_DIR)) {
   const MASKED_PAYOUT_NUMBER = /assistant_mask_tail\(\s*(?:[a-z_]+\.)?(?:mobile_money_number|account_number|bank_account_number|momo_number)\s*\)/gi;
   const FORBIDDEN_FIELD_NOTES = /\b[a-z0-9_]+\.notes\b/i;
 
+  const latestBodies = new Map(); // the definition that is live once every migration has run
   for (const file of files) {
     const body = stripComments(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
     for (const m of body.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\([\s\S]*?\bas\s+(\$[a-z_]*\$)([\s\S]*?)\2/gi)) {
       const isPartnerFn = m[1].startsWith('assistant_partner_');
+      latestBodies.set(m[1], { file, text: m[3], isPartnerFn });
       const hit = m[3].match(isPartnerFn ? FORBIDDEN_COLUMNS_PARTNER : FORBIDDEN_COLUMNS) || m[3].match(FORBIDDEN_FIELD_NOTES);
       if (hit) fail(`${file}: ${m[1]}() references "${hit[0]}", a field that must never leave the database through the assistant (it is sent to a third-party model).`);
       if (isPartnerFn) {
@@ -168,6 +172,17 @@ if (existsSync(MIGRATIONS_DIR)) {
       const header = m[0];
       const args = m[2];
       defined.set(name, { file, header, args, body });
+    }
+  }
+
+  // Live definitions only. No assistant function (agent or partner) may list wallet ledger rows without
+  // the customer-visibility rule: admin corrections and reversals never reach a person or the model.
+  for (const [name, { file, text, isPartnerFn }] of latestBodies) {
+    if (/ledger_scope\s*=\s*'wallet'/i.test(text) && !/is_customer_wallet_history_visible\s*\(/i.test(text)) {
+      fail(`${file}: ${name}() reads wallet ledger rows without public.is_customer_wallet_history_visible(); admin corrections and reversals must be filtered out.`);
+    }
+    if (isPartnerFn && text.replace(/reversed_at\s+is\s+null/gi, ' ').match(/\breversed_at\b/i)) {
+      fail(`${file}: ${name}() reads reversed_at other than as "reversed_at is null"; reversed items must be left out, never listed or flagged.`);
     }
   }
 

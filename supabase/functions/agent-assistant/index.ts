@@ -64,6 +64,8 @@ interface TurnResult {
   model?: string;
   quickReplies?: string[];
   escalationOffered?: boolean;
+  /** Why the output guard blocked or retried this turn; logged for the CRM team, never shown to users. */
+  guardReason?: string;
 }
 
 /** The rollout gate closed between the access check and a tool call (e.g. removed from the allowlist). */
@@ -111,7 +113,7 @@ async function scopeCheck(
 
 function blocked(toolsCalled: string[], model?: string, reason?: string): TurnResult {
   console.error(`[agent-assistant] blocked: ${reason ?? "unspecified"}`);
-  return { reply: MSG.unmatched, outcome: "blocked", toolsCalled, model };
+  return { reply: MSG.unmatched, outcome: "blocked", toolsCalled, model, guardReason: reason };
 }
 
 /**
@@ -131,9 +133,10 @@ async function runTurn(
   message: string,
   persona: Persona,
   page: "agent_dashboard" | "funder_dashboard" | "other",
+  footprints: { agent: boolean; partner: boolean },
 ): Promise<TurnResult> {
   const messages: ChatMessage[] = [
-    { role: "system", content: buildSystemPrompt({ todayKampala: kampalaToday(), persona, page }) },
+    { role: "system", content: buildSystemPrompt({ todayKampala: kampalaToday(), persona, page, alsoAgent: footprints.agent, alsoPartner: footprints.partner }) },
     ...history,
     { role: "user", content: message },
   ];
@@ -143,6 +146,9 @@ async function runTurn(
   let model: string | undefined;
   let totalCalls = 0;
   let retried = false;
+  let firstFailure: string | undefined;
+  // A partner never sees reversals or corrections, so the assistant must not talk about them either.
+  const guardOpts = { hideAdminTrail: persona === "partner", noSignatureClaims: persona === "partner" };
 
   for (let round = 0; round < MAX_MODEL_ROUNDS; round++) {
     const reply = await callModel({ messages, tools: openAiTools(persona) });
@@ -157,8 +163,8 @@ async function runTurn(
       const refused = REFUSE_PREFIX.test(text) || /^OUT_OF_SCOPE\b/.test(text);
       if (refused) {
         const own = text.replace(REFUSE_PREFIX, "").replace(/^OUT_OF_SCOPE\b[:\s-]*/, "").trim().slice(0, 400);
-        const ok = own.length > 0 && checkAnswer(own, [AGENT_KNOWLEDGE], message).ok;
-        return { reply: ok ? own : MSG.refusal(message), outcome: "out_of_scope", toolsCalled, model };
+        const ok = own.length > 0 && checkAnswer(own, [AGENT_KNOWLEDGE], message, guardOpts).ok;
+        return { reply: ok ? own : MSG.refusal(message, persona), outcome: "out_of_scope", toolsCalled, model };
       }
 
       text = text.slice(0, MAX_ANSWER_CHARS);
@@ -166,22 +172,30 @@ async function runTurn(
       // still checked below, so nothing outside the tools and the fixed knowledge can get through.
       if (!toolsCalled.length && text.length > MAX_UNGROUNDED_CHARS) text = trimToSentence(text, MAX_UNGROUNDED_CHARS);
       // Figures given in earlier turns already passed this guard, so they may be restated.
-      let verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message);
+      let verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message, guardOpts);
       if (!verdict.ok && !retried) {
         // One retry: tell the model what was wrong and let it fix its own draft.
         retried = true;
+        firstFailure = verdict.reason;
         console.error(`[agent-assistant] retry after output guard: ${verdict.reason}`);
         messages.push({ role: "assistant", content: text });
         messages.push({ role: "user", content: `[note from the system, not from the user] ${RETRY_NOTE[verdict.reason]} Reply again to the user's last message, in the same friendly voice.` });
         continue;
       }
+      // A partner asking about reversals or corrections gets a fixed, kind answer: nothing is confirmed or denied.
+      if (!verdict.ok && verdict.reason === "admin_trail") {
+        return { reply: MSG.partnerDeflect, outcome: "answered", toolsCalled, model, guardReason: "admin_trail" };
+      }
+      if (!verdict.ok && verdict.reason === "signature_claim") {
+        return { reply: MSG.partnerContractFallback, outcome: "answered", toolsCalled, model, guardReason: "signature_claim" };
+      }
       // Wording is safe to repair; a figure, id or phone number that could not be verified is not.
       if (!verdict.ok && verdict.reason === "terminology") {
         text = cleanTerms(text);
-        verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message);
+        verdict = checkAnswer(text, [...toolOutputs, ...history.map((h) => h.content)], message, guardOpts);
       }
-      if (!verdict.ok) return blocked(toolsCalled, model, `output guard: ${verdict.reason}`);
-      return { reply: text, outcome: "answered", toolsCalled, model };
+      if (!verdict.ok) return blocked(toolsCalled, model, `output guard: ${verdict.reason} (after retry${firstFailure ? `, first: ${firstFailure}` : ""})`);
+      return { reply: text, outcome: "answered", toolsCalled, model, guardReason: firstFailure ? `retried: ${firstFailure}` : undefined };
     }
 
     if (calls.length > MAX_CALLS_PER_ROUND) return blocked(toolsCalled, model, "too many tool calls in one round");
@@ -346,13 +360,14 @@ Deno.serve(async (req) => {
     try {
       const lastAssistant = [...history].reverse().find((h) => h.role === "assistant")?.content;
       const scope = await scopeCheck(request.message, lastAssistant);
+      const page = request.page ?? "other";
+      const persona = choosePersona(page, isAgent === true, isPartner === true);
       if (scope === "sensitive") {
-        turn = { reply: MSG.refusal(request.message), outcome: "out_of_scope", toolsCalled: [] };
+        turn = { reply: MSG.refusal(request.message, persona), outcome: "out_of_scope", toolsCalled: [] };
       } else if (scope === "wants_human") {
         turn = { reply: MSG.wantsHuman, outcome: "answered", toolsCalled: [], escalationOffered: true };
       } else {
-        const page = request.page ?? "other";
-        turn = await runTurn(userClient, history, request.message, choosePersona(page, isAgent === true, isPartner === true), page);
+        turn = await runTurn(userClient, history, request.message, persona, page, { agent: isAgent === true, partner: isPartner === true });
       }
     } catch (e) {
       if (e instanceof NotEnabledError) {
@@ -372,6 +387,7 @@ Deno.serve(async (req) => {
       toolsCalled: turn.toolsCalled,
       model: turn.model,
       latencyMs: Date.now() - startedAt,
+      guardReason: turn.guardReason,
     });
     await touchConversation(conversation.id, { messageCount: conversation.messageCount + 2 }).catch(() => {});
 
