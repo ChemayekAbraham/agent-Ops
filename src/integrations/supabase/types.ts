@@ -9012,6 +9012,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          guard_reason: string | null
           id: string
           latency_ms: number | null
           model: string | null
@@ -9024,6 +9025,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -9036,6 +9038,7 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
