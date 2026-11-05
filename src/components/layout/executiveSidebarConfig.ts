@@ -6,7 +6,7 @@ import {
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
   Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
-  Sparkles, ScrollText,
+  Sparkles, ScrollText, ClipboardCheck,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -129,6 +129,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll History & Advances', icon: History, id: 'cfo-payroll-history', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
+        { label: 'General Payout Activity', icon: ClipboardCheck, id: 'general-payout-activity' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
