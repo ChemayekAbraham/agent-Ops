@@ -435,7 +435,7 @@ export function FunderHouseListingsSection({
 
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
         {effectiveSort === 'nearest' && origin ? (
           <span>
             Within {origin.radiusKm} km of {origin.label}
