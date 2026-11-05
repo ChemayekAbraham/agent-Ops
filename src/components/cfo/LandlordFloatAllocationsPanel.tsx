@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,6 +6,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Loader2,
   Landmark,
@@ -19,11 +29,24 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
+  Download,
+  ListFilter,
+  Layers,
+  ArrowUpDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const fmt = (n: number) =>
   new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n || 0);
+
+const num = (n: number) => Math.round(n || 0).toLocaleString('en-US');
+
+const getInitials = (name: string | null | undefined): string => {
+  if (!name) return '??';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
 
 interface AllocationRow {
   id: string;
@@ -43,16 +66,30 @@ interface AllocationRow {
   tenant_name?: string;
 }
 
+function downloadCsv(filename: string, header: string[], rows: (string | number | null)[][]) {
+  const esc = (v: string | number | null) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [header, ...rows].map((r) => r.map(esc).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * CFO view: every CFO-disbursed Landlord Payout Float allocation that is
  * currently sitting on an agent's card (open or partially_paid).
- * This is the downstream side of the Landlord Payout Float tab — what has
- * already left treasury and is now earmarked on agent wallets, waiting for
- * the agent to pay the landlord via MoMo.
+ * Organized in clean, professional tabular format.
  */
 export function LandlordFloatAllocationsPanel() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'partially_paid'>('all');
+  const [viewMode, setViewMode] = useState<'allocations' | 'by-agent'>('allocations');
   const [expandedAgents, setExpandedAgents] = useState<Record<string, boolean>>({});
 
   const { data: rows = [], isLoading } = useQuery({
@@ -117,8 +154,15 @@ export function LandlordFloatAllocationsPanel() {
     });
   }, [rows, statusFilter, searchTerm]);
 
-  // Group by agent
-  const grouped = useMemo(() => {
+  const filteredTotals = useMemo(() => {
+    const allocated = filteredRows.reduce((s, r) => s + r.allocated_amount, 0);
+    const remaining = filteredRows.reduce((s, r) => s + r.remaining_amount, 0);
+    const paid = filteredRows.reduce((s, r) => s + r.paid_out_amount, 0);
+    return { allocated, remaining, paid };
+  }, [filteredRows]);
+
+  // Group by agent for the summary view
+  const groupedAgents = useMemo(() => {
     const map = new Map<string, { agent_name: string; rows: AllocationRow[]; remaining: number; allocated: number; paid: number }>();
     for (const r of filteredRows) {
       const g = map.get(r.agent_id) ?? {
@@ -142,11 +186,28 @@ export function LandlordFloatAllocationsPanel() {
   const toggleAgent = (agentId: string) => {
     setExpandedAgents((prev) => ({
       ...prev,
-      [agentId]: prev[agentId] === undefined ? false : !prev[agentId],
+      [agentId]: !prev[agentId],
     }));
   };
 
-  const isExpanded = (agentId: string) => expandedAgents[agentId] !== false;
+  const exportCsv = () => {
+    downloadCsv(
+      'live-landlord-float-allocations.csv',
+      ['Agent', 'Tenant', 'Landlord', 'Landlord Phone', 'MoMo Provider', 'Status', 'Allocated (UGX)', 'Paid Out (UGX)', 'Remaining (UGX)', 'Disbursed Date'],
+      filteredRows.map((r) => [
+        r.agent_name ?? '',
+        r.tenant_name ?? '',
+        r.landlord_name ?? '',
+        r.landlord_phone ?? '',
+        r.mobile_money_provider ?? '',
+        r.status,
+        r.allocated_amount,
+        r.paid_out_amount,
+        r.remaining_amount,
+        format(new Date(r.created_at), 'yyyy-MM-dd HH:mm'),
+      ]),
+    );
+  };
 
   return (
     <Card className="shadow-sm">
@@ -165,65 +226,121 @@ export function LandlordFloatAllocationsPanel() {
               )}
             </div>
             <CardDescription className="text-xs mt-0.5">
-              Funds disbursed from company treasury, earmarked per tenant→landlord on agent cards awaiting MoMo payout.
+              Authoritative ledger register of ring-fenced float currently sitting on agent cards awaiting MoMo disbursement to landlords.
             </CardDescription>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs font-medium gap-1.5"
+              disabled={!filteredRows.length}
+              onClick={exportCsv}
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </Button>
           </div>
         </div>
 
         {/* 3-Card Summary Strip */}
         {!isLoading && rows.length > 0 && (
-          <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-border/80 bg-card p-3 shadow-xs">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Total Disbursed</p>
-              <p className="mt-0.5 text-base font-bold text-foreground sm:text-lg">{fmt(totals.allocated)}</p>
-              <p className="text-[10px] text-muted-foreground">Original earmarked principal</p>
+          <div className="grid grid-cols-1 gap-2.5 pt-2 sm:grid-cols-3">
+            <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Total Disbursed</span>
+                <Wallet className="h-4 w-4 text-primary" />
+              </div>
+              <p className="mt-1 text-base font-bold text-foreground sm:text-lg">{fmt(totals.allocated)}</p>
+              <p className="text-[10px] text-muted-foreground">Total earmarked principal</p>
             </div>
-            <div className="rounded-lg border border-border/80 bg-card p-3 shadow-xs">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Already Paid Out</p>
-              <p className="mt-0.5 text-base font-bold text-emerald-700 dark:text-emerald-400 sm:text-lg">{fmt(totals.paid)}</p>
-              <p className="text-[10px] text-muted-foreground">Sent to landlords via MoMo</p>
+
+            <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Delivered to Landlords</span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              </div>
+              <p className="mt-1 text-base font-bold text-emerald-700 dark:text-emerald-400 sm:text-lg">
+                {fmt(totals.paid)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Sent via MoMo (OTP verified)</p>
             </div>
-            <div className="rounded-lg border border-border/80 bg-card p-3 shadow-xs">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Outstanding on Cards</p>
-              <p className="mt-0.5 text-base font-bold text-amber-700 dark:text-amber-400 sm:text-lg">{fmt(totals.remaining)}</p>
-              <p className="text-[10px] text-muted-foreground">Currently held by {totals.agents} agents</p>
+
+            <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs">
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Outstanding on Cards</span>
+                <Clock className="h-4 w-4 text-amber-600" />
+              </div>
+              <p className="mt-1 text-base font-bold text-amber-700 dark:text-amber-400 sm:text-lg">
+                {fmt(totals.remaining)}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Currently held across {totals.agents} agents</p>
             </div>
           </div>
         )}
 
-        {/* Filter and Search Bar */}
-        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            <Button
-              size="sm"
-              variant={statusFilter === 'all' ? 'default' : 'ghost'}
-              className={`h-7 px-3 text-xs font-medium rounded-full ${
-                statusFilter === 'all' ? 'shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setStatusFilter('all')}
-            >
-              All ({rows.length})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'open' ? 'default' : 'ghost'}
-              className={`h-7 px-3 text-xs font-medium rounded-full ${
-                statusFilter === 'open' ? 'shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setStatusFilter('open')}
-            >
-              Open ({rows.filter((r) => r.status === 'open').length})
-            </Button>
-            <Button
-              size="sm"
-              variant={statusFilter === 'partially_paid' ? 'default' : 'ghost'}
-              className={`h-7 px-3 text-xs font-medium rounded-full ${
-                statusFilter === 'partially_paid' ? 'shadow-sm' : 'text-muted-foreground'
-              }`}
-              onClick={() => setStatusFilter('partially_paid')}
-            >
-              Partially Paid ({rows.filter((r) => r.status === 'partially_paid').length})
-            </Button>
+        {/* Filter, View Toggle, and Search Bar */}
+        <div className="flex flex-col gap-2.5 pt-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Status Pills */}
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={statusFilter === 'all' ? 'default' : 'ghost'}
+                className={`h-7 px-2.5 text-xs font-medium rounded-full ${
+                  statusFilter === 'all' ? 'shadow-sm' : 'text-muted-foreground'
+                }`}
+                onClick={() => setStatusFilter('all')}
+              >
+                All ({rows.length})
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'open' ? 'default' : 'ghost'}
+                className={`h-7 px-2.5 text-xs font-medium rounded-full ${
+                  statusFilter === 'open' ? 'shadow-sm' : 'text-muted-foreground'
+                }`}
+                onClick={() => setStatusFilter('open')}
+              >
+                Open ({rows.filter((r) => r.status === 'open').length})
+              </Button>
+              <Button
+                size="sm"
+                variant={statusFilter === 'partially_paid' ? 'default' : 'ghost'}
+                className={`h-7 px-2.5 text-xs font-medium rounded-full ${
+                  statusFilter === 'partially_paid' ? 'shadow-sm' : 'text-muted-foreground'
+                }`}
+                onClick={() => setStatusFilter('partially_paid')}
+              >
+                Partially Paid ({rows.filter((r) => r.status === 'partially_paid').length})
+              </Button>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="hidden lg:flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5">
+              <button
+                type="button"
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  viewMode === 'allocations'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => setViewMode('allocations')}
+              >
+                All Allocations
+              </button>
+              <button
+                type="button"
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  viewMode === 'by-agent'
+                    ? 'bg-background text-foreground shadow-xs font-semibold'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                onClick={() => setViewMode('by-agent')}
+              >
+                By Agent Summary
+              </button>
+            </div>
           </div>
 
           <div className="relative w-full sm:w-64">
@@ -238,7 +355,7 @@ export function LandlordFloatAllocationsPanel() {
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 sm:p-5">
+      <CardContent className="p-0">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin text-primary mb-2" />
@@ -248,121 +365,292 @@ export function LandlordFloatAllocationsPanel() {
           <div className="text-center py-12 text-muted-foreground">
             <CheckCircle2 className="h-10 w-10 mx-auto mb-2 text-emerald-600" />
             <p className="font-semibold text-foreground">No outstanding float on agent cards</p>
-            <p className="text-xs text-muted-foreground mt-0.5">All disbursed landlord float has been fully delivered to landlords.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">All disbursed landlord float has been delivered to landlords.</p>
           </div>
-        ) : grouped.length === 0 ? (
+        ) : filteredRows.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Search className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
             <p className="font-semibold text-foreground">No allocations match filters</p>
             <p className="text-xs text-muted-foreground mt-0.5">Try clearing the search query or status filter.</p>
           </div>
-        ) : (
-          <div className="space-y-3.5">
-            {grouped.map((g) => {
-              const open = isExpanded(g.agent_id);
-              const pct = g.allocated > 0 ? Math.round((g.paid / g.allocated) * 100) : 0;
-              return (
-                <div
-                  key={g.agent_id}
-                  className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs transition-colors hover:border-border"
-                >
-                  {/* Agent Header */}
-                  <div
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-muted/30 cursor-pointer select-none border-b border-border/60"
-                    onClick={() => toggleAgent(g.agent_id)}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
-                        <Users className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
+        ) : viewMode === 'allocations' ? (
+          /* ---------------------------------------------------------------- */
+          /* View 1: Detailed Flat Allocations Table                          */
+          /* ---------------------------------------------------------------- */
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40 text-xs">
+                  <TableHead className="font-semibold text-foreground min-w-[140px]">Agent</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[130px]">Tenant</TableHead>
+                  <TableHead className="font-semibold text-foreground min-w-[160px]">Landlord &amp; Phone</TableHead>
+                  <TableHead className="font-semibold text-foreground">Status</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Allocated (UGX)</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Paid Out (UGX)</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Outstanding (UGX)</TableHead>
+                  <TableHead className="min-w-[110px] font-semibold text-foreground">Delivery</TableHead>
+                  <TableHead className="font-semibold text-foreground whitespace-nowrap">Disbursed Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRows.map((r) => {
+                  const paidPct = r.allocated_amount > 0 ? Math.min(100, Math.round((r.paid_out_amount / r.allocated_amount) * 100)) : 0;
+                  return (
+                    <TableRow key={r.id} className="hover:bg-muted/30 transition-colors text-xs">
+                      {/* Agent */}
+                      <TableCell>
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm truncate text-foreground">{g.agent_name}</p>
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                          <Avatar className="h-7 w-7 rounded-full border border-border">
+                            <AvatarFallback className="bg-primary/10 text-primary font-bold text-[10px]">
+                              {getInitials(r.agent_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-foreground truncate max-w-[130px]">
+                            {r.agent_name}
+                          </span>
+                        </div>
+                      </TableCell>
+
+                      {/* Tenant */}
+                      <TableCell>
+                        <span className="font-medium text-foreground">{r.tenant_name}</span>
+                      </TableCell>
+
+                      {/* Landlord & Phone */}
+                      <TableCell>
+                        <div>
+                          <p className="font-semibold text-foreground leading-tight">{r.landlord_name || 'Landlord'}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5 text-[11px] text-muted-foreground font-mono">
+                            {r.landlord_phone && (
+                              <span className="inline-flex items-center gap-1">
+                                <Phone className="h-2.5 w-2.5" />
+                                {r.landlord_phone}
+                              </span>
+                            )}
+                            {r.mobile_money_provider && (
+                              <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground font-sans">
+                                {r.mobile_money_provider}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={
+                            r.status === 'partially_paid'
+                              ? 'text-[10px] px-2 py-0.5 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                              : 'text-[10px] px-2 py-0.5 bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
+                          }
+                        >
+                          {r.status === 'partially_paid' ? 'Partially Paid' : 'Open'}
+                        </Badge>
+                      </TableCell>
+
+                      {/* Allocated */}
+                      <TableCell className="text-right font-mono font-medium text-muted-foreground">
+                        {num(r.allocated_amount)}
+                      </TableCell>
+
+                      {/* Paid Out */}
+                      <TableCell className="text-right font-mono font-medium text-emerald-700 dark:text-emerald-400">
+                        {num(r.paid_out_amount)}
+                      </TableCell>
+
+                      {/* Outstanding */}
+                      <TableCell className="text-right font-mono font-bold text-amber-700 dark:text-amber-400">
+                        {num(r.remaining_amount)}
+                      </TableCell>
+
+                      {/* Delivery Progress */}
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[10px] font-mono text-muted-foreground">
+                            <span>{paidPct}%</span>
+                          </div>
+                          <Progress value={paidPct} className="h-1.5 w-20" />
+                        </div>
+                      </TableCell>
+
+                      {/* Disbursed Date */}
+                      <TableCell className="text-muted-foreground whitespace-nowrap">
+                        {format(new Date(r.created_at), 'dd MMM yyyy')}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+              <TableFooter className="bg-muted/40 font-semibold text-xs border-t border-border/80">
+                <TableRow>
+                  <TableCell colSpan={4} className="text-foreground font-bold">
+                    Total Visible ({filteredRows.length} {filteredRows.length === 1 ? 'allocation' : 'allocations'})
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-foreground">
+                    {num(filteredTotals.allocated)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                    {num(filteredTotals.paid)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-amber-700 dark:text-amber-400">
+                    {num(filteredTotals.remaining)}
+                  </TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
+              </TableFooter>
+            </Table>
+          </div>
+        ) : (
+          /* ---------------------------------------------------------------- */
+          /* View 2: By Agent Summary Table with Expandable Details           */
+          /* ---------------------------------------------------------------- */
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40 hover:bg-muted/40 text-xs">
+                  <TableHead className="font-semibold text-foreground">Agent Name</TableHead>
+                  <TableHead className="text-center font-semibold text-foreground">Allocations</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Total Disbursed (UGX)</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Paid to Landlord (UGX)</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Outstanding on Card (UGX)</TableHead>
+                  <TableHead className="min-w-[130px] font-semibold text-foreground">Delivery Completion</TableHead>
+                  <TableHead className="text-right font-semibold text-foreground">Details</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groupedAgents.map((g) => {
+                  const open = !!expandedAgents[g.agent_id];
+                  const pct = g.allocated > 0 ? Math.min(100, Math.round((g.paid / g.allocated) * 100)) : 0;
+                  return (
+                    <Fragment key={g.agent_id}>
+                      <TableRow className="hover:bg-muted/30 transition-colors text-xs font-medium">
+                        <TableCell>
+                          <div className="flex items-center gap-2.5">
+                            <Avatar className="h-8 w-8 rounded-full border border-border">
+                              <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                                {getInitials(g.agent_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-semibold text-foreground text-sm">{g.agent_name}</span>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className="font-mono text-xs px-2 py-0.5">
                             {g.rows.length} {g.rows.length === 1 ? 'tenant' : 'tenants'}
                           </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-                          <span>Paid: {fmt(g.paid)}</span>
-                          <span>·</span>
-                          <span>{pct}% complete</span>
-                        </div>
-                      </div>
-                    </div>
+                        </TableCell>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <p className="text-[10px] uppercase font-semibold text-muted-foreground">Outstanding</p>
-                        <p className="font-bold text-sm font-mono text-amber-700 dark:text-amber-400">
-                          {fmt(g.remaining)}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground">
-                        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
+                        <TableCell className="text-right font-mono text-muted-foreground">
+                          {num(g.allocated)}
+                        </TableCell>
 
-                  {/* Allocation Details */}
-                  {open && (
-                    <div className="divide-y divide-border/60 bg-card">
-                      {g.rows.map((r) => {
-                        const paidPct = r.allocated_amount > 0 ? Math.round((r.paid_out_amount / r.allocated_amount) * 100) : 0;
-                        return (
-                          <div key={r.id} className="p-3 sm:px-4 text-xs transition-colors hover:bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="space-y-1 min-w-0 flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-foreground text-sm">{r.tenant_name}</span>
-                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                <span className="font-semibold text-primary text-sm">{r.landlord_name || 'Landlord'}</span>
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    r.status === 'partially_paid'
-                                      ? 'text-[10px] px-1.5 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
-                                      : 'text-[10px] px-1.5 py-0 bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
-                                  }
-                                >
-                                  {r.status === 'partially_paid' ? 'Partially Paid' : 'Open'}
-                                </Badge>
-                              </div>
+                        <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-semibold">
+                          {num(g.paid)}
+                        </TableCell>
 
-                              <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
-                                {r.landlord_phone && (
-                                  <span className="inline-flex items-center gap-1 font-mono">
-                                    <Phone className="h-3 w-3 text-muted-foreground" />
-                                    {r.landlord_phone}
-                                    {r.mobile_money_provider ? ` (${r.mobile_money_provider})` : ''}
-                                  </span>
-                                )}
-                                <span>Disbursed: {format(new Date(r.created_at), 'dd MMM yyyy')}</span>
-                              </div>
+                        <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">
+                          {num(g.remaining)}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[11px] font-mono text-muted-foreground">
+                              <span>{pct}% complete</span>
                             </div>
-
-                            <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 border-t border-border/40 pt-2 sm:border-0 sm:pt-0">
-                              <div className="text-left sm:text-right">
-                                <p className="text-[10px] text-muted-foreground uppercase">Remaining</p>
-                                <p className="font-bold text-sm font-mono text-amber-700 dark:text-amber-400">
-                                  {fmt(r.remaining_amount)}
-                                </p>
-                              </div>
-
-                              <div className="w-24 sm:w-28 space-y-1">
-                                <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                                  <span>{paidPct}%</span>
-                                  <span>{fmt(r.allocated_amount)}</span>
-                                </div>
-                                <Progress value={paidPct} className="h-1.5" />
-                              </div>
-                            </div>
+                            <Progress value={pct} className="h-1.5" />
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                            onClick={() => toggleAgent(g.agent_id)}
+                          >
+                            {open ? 'Hide' : 'View'}
+                            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Expandable Sub-table for this Agent */}
+                      {open && (
+                        <TableRow className="bg-muted/15 hover:bg-muted/15">
+                          <TableCell colSpan={7} className="p-3 sm:px-6">
+                            <div className="rounded-lg border border-border/80 bg-background overflow-hidden shadow-xs">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow className="bg-muted/40 text-[11px]">
+                                    <TableHead className="font-semibold">Tenant</TableHead>
+                                    <TableHead className="font-semibold">Landlord</TableHead>
+                                    <TableHead className="font-semibold">Phone &amp; Network</TableHead>
+                                    <TableHead className="font-semibold">Status</TableHead>
+                                    <TableHead className="text-right font-semibold">Allocated</TableHead>
+                                    <TableHead className="text-right font-semibold">Paid Out</TableHead>
+                                    <TableHead className="text-right font-semibold">Remaining</TableHead>
+                                    <TableHead className="whitespace-nowrap">Disbursed Date</TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {g.rows.map((r) => (
+                                    <TableRow key={r.id} className="text-xs hover:bg-muted/20">
+                                      <TableCell className="font-medium text-foreground">{r.tenant_name}</TableCell>
+                                      <TableCell className="font-semibold text-primary">{r.landlord_name || 'Landlord'}</TableCell>
+                                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                                        {r.landlord_phone || '—'} {r.mobile_money_provider ? `(${r.mobile_money_provider})` : ''}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge
+                                          variant="outline"
+                                          className={
+                                            r.status === 'partially_paid'
+                                              ? 'text-[9px] px-1.5 py-0 bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300'
+                                              : 'text-[9px] px-1.5 py-0 bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950/40 dark:text-blue-300'
+                                          }
+                                        >
+                                          {r.status === 'partially_paid' ? 'Partially Paid' : 'Open'}
+                                        </Badge>
+                                      </TableCell>
+                                      <TableCell className="text-right font-mono text-muted-foreground">{num(r.allocated_amount)}</TableCell>
+                                      <TableCell className="text-right font-mono text-emerald-700 dark:text-emerald-400 font-medium">{num(r.paid_out_amount)}</TableCell>
+                                      <TableCell className="text-right font-mono text-amber-700 dark:text-amber-400 font-bold">{num(r.remaining_amount)}</TableCell>
+                                      <TableCell className="text-muted-foreground text-[11px] whitespace-nowrap">
+                                        {format(new Date(r.created_at), 'dd MMM yyyy')}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </TableBody>
+              <TableFooter className="bg-muted/40 font-semibold text-xs border-t border-border/80">
+                <TableRow>
+                  <TableCell colSpan={2} className="text-foreground font-bold">
+                    Total Visible ({groupedAgents.length} {groupedAgents.length === 1 ? 'agent' : 'agents'})
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-foreground">
+                    {num(filteredTotals.allocated)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                    {num(filteredTotals.paid)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-bold text-amber-700 dark:text-amber-400">
+                    {num(filteredTotals.remaining)}
+                  </TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         )}
       </CardContent>
