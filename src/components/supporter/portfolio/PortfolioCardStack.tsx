@@ -15,7 +15,7 @@ import { ContactlessGlyph, EmvChip, NOISE_BACKGROUND } from './PartnerPortfolioW
  * the portfolio. Display only: it reads the same figures as the list card and moves no money.
  */
 
-const PEEK = 46; // how much of each card behind shows above the one in front
+const PEEK = 52; // how much of each card behind shows above the one in front
 const SPRING = 'cubic-bezier(0.34, 1.35, 0.64, 1)';
 
 interface Palette {
@@ -138,6 +138,9 @@ export function PortfolioCardStack({
     };
   }, [reduced, safe]);
 
+  // Tapping the front card lifts it out of the pocket so its whole face shows; tap again to tuck it back.
+  const [expanded, setExpanded] = useState(false);
+
   const frontId = order[order.length - 1];
   const front = frontId ? byId[frontId] : undefined;
   const pendingTopup = usePendingTopup(front?.id);
@@ -154,7 +157,8 @@ export function PortfolioCardStack({
   // The pocket rises over the lower 46% of the front card. The card is min(wrap - 32px, 420px) wide
   // at bank-card proportions, so its height is that width / 1.586.
   const pocketStyle: CSSProperties = {
-    marginTop: 'calc(min(100cqw - 32px, 420px) / 1.586 * -0.46)',
+    marginTop: expanded ? 12 : 'calc(min(100cqw - 32px, 420px) / 1.586 * -0.46)',
+    transition: reduced ? 'none' : `margin-top 600ms ${SPRING}`,
     background: safe ? 'hsl(var(--card))' : 'hsl(var(--card) / 0.82)',
     borderTop: '1px solid hsl(var(--foreground) / 0.1)',
     boxShadow: '0 -10px 24px -16px rgba(0,0,0,0.35)',
@@ -192,28 +196,36 @@ export function PortfolioCardStack({
                   key={id}
                   type="button"
                   onClick={() => {
-                    if (isFront) return;
                     hapticTap();
+                    if (isFront) {
+                      setExpanded((e) => !e);
+                      return;
+                    }
+                    // A card from behind comes forward already lifted out of the pocket.
                     setOrder((o) => [...o.filter((x) => x !== id), id]);
+                    setExpanded(true);
                   }}
-                  aria-label={`${ref}, ${status}, principal ${formatUGX(acc.deployed)}${isFront ? ', selected' : ', bring to front'}`}
+                  aria-label={`${ref}, ${status}, principal ${formatUGX(acc.deployed)}${isFront ? (expanded ? ', tap to put back' : ', tap to show the whole card') : ', bring to front'}`}
                   aria-pressed={isFront}
+                  aria-expanded={isFront ? expanded : undefined}
                   className="absolute inset-x-0 block h-full rounded-[18px] p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   style={{
                     top: -fromFront * PEEK,
                     zIndex: pos + 1,
-                    transform: `scale(${1 - fromFront * 0.05}) translateY(${mounted ? 0 : 20}px)`,
+                    transform: `scale(${1 - fromFront * 0.05}) translateY(${mounted ? (isFront && expanded ? -4 : 0) : 20}px)`,
                     transformOrigin: 'top center',
                     opacity: mounted ? 1 : 0,
                     color: pal.ink,
                     containerType: 'inline-size',
                     boxShadow: isFront
-                      ? '0 2px 4px rgba(0,0,0,0.10), 0 14px 28px -12px rgba(0,0,0,0.35)'
+                      ? expanded
+                        ? '0 4px 8px rgba(0,0,0,0.12), 0 24px 40px -16px rgba(0,0,0,0.45)'
+                        : '0 2px 4px rgba(0,0,0,0.10), 0 14px 28px -12px rgba(0,0,0,0.35)'
                       : '0 -8px 22px -14px rgba(0,0,0,0.6)',
-                    cursor: isFront ? 'default' : 'pointer',
+                    cursor: 'pointer',
                     transition: reduced
                       ? 'none'
-                      : `top 650ms ${SPRING}, transform 650ms ${SPRING}, opacity 500ms ease ${pos * 90}ms`,
+                      : `top 650ms ${SPRING}, transform 650ms ${SPRING}, box-shadow 500ms ease, opacity 500ms ease ${pos * 90}ms`,
                   } as CSSProperties}
                 >
                   {/* card face: gloss, corner glow, colour gradient and printed grain */}
@@ -279,6 +291,38 @@ export function PortfolioCardStack({
                         <span className="block font-mono text-[13px] font-semibold tabular-nums">{shortDate(p.next_roi_date)}</span>
                       </span>
                     </span>
+
+                    {/* lower half: only seen once the card is lifted out of the pocket */}
+                    {isFront && (
+                      <span
+                        className="mt-auto block"
+                        style={{
+                          opacity: expanded ? 1 : 0,
+                          transition: reduced ? 'none' : `opacity 400ms ease ${expanded ? 180 : 0}ms`,
+                        }}
+                        aria-hidden={!expanded}
+                      >
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] opacity-70">Principal</span>
+                        <span
+                          className="block truncate font-mono font-semibold tabular-nums tracking-tight"
+                          style={{ fontSize: 'clamp(20px, 7.4cqw, 32px)', lineHeight: 1.1 }}
+                        >
+                          {formatUGX(acc.deployed)}
+                        </span>
+                        {acc.state === 'active' && (
+                          <span className="mt-[2cqw] flex items-end justify-between gap-3">
+                            <span className="min-w-0">
+                              <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Earned this cycle</span>
+                              <span className="block truncate font-mono text-[13px] font-semibold tabular-nums">+{formatUGX(Math.round(acc.cycleAccrued))}</span>
+                            </span>
+                            <span className="flex-none text-right">
+                              <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Day</span>
+                              <span className="block font-mono text-[13px] font-semibold tabular-nums">{acc.cycleElapsedDays}/{acc.cycleDays}</span>
+                            </span>
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </span>
                 </button>
               );
