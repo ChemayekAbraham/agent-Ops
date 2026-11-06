@@ -170,14 +170,14 @@ export function PortfolioCardStack({
   const pocketStyle: CSSProperties = {
     marginTop: expanded ? 12 : 'calc(min(100cqw - 32px, 420px) / 1.586 * -0.46)',
     transition: reduced ? 'none' : `margin-top 600ms ${SPRING}`,
-    background: safe ? '#2b2d33' : 'rgba(43,45,51,0.94)',
+    background: safe ? '#999894' : 'rgba(153,152,148,0.95)',
     borderTop: '1px solid rgba(255,255,255,0.08)',
     boxShadow: '0 -10px 24px -16px rgba(0,0,0,0.35)',
     ...(safe ? {} : { backdropFilter: 'blur(18px) saturate(1.3)', WebkitBackdropFilter: 'blur(18px) saturate(1.3)' }),
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border/60 bg-card" style={{ containerType: 'inline-size' }}>
+    <div className="overflow-hidden rounded-3xl border border-border/60" style={{ containerType: 'inline-size', background: '#d9d8d4' }}>
       {/* The stack. Pointer position drives the shimmer on every card. */}
       <div
         ref={stackRef}
@@ -354,14 +354,14 @@ export function PortfolioCardStack({
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-white/65">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-white/90">
               Your active portfolios
               <button
                 type="button"
                 onClick={() => { hapticTap(); setShowTotal((v) => !v); }}
                 aria-label={showTotal ? 'Hide total' : 'Show total'}
                 aria-pressed={showTotal}
-                className="-m-1 rounded-full p-1 text-white/65 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="-m-1 rounded-full p-1 text-white/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {showTotal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </button>
@@ -375,8 +375,8 @@ export function PortfolioCardStack({
         {isActive && (
           <div>
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-white/65">
-                Earned this cycle <span className="font-mono font-semibold tabular-nums text-green-400">+{formatUGX(Math.round(a.cycleAccrued))}</span>
+              <span className="text-white/90">
+                Earned this cycle <span className="font-mono font-semibold tabular-nums text-green-200">+{formatUGX(Math.round(a.cycleAccrued))}</span>
               </span>
               {remaining && <span className="font-medium text-white">{remaining}</span>}
             </div>
@@ -390,7 +390,7 @@ export function PortfolioCardStack({
             >
               <div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: `${progressPct}%` }} />
             </div>
-            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-white/65">
+            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-white/90">
               {formatUGX(Math.round(a.dailyAccrual))}/day · day {a.cycleElapsedDays}/{a.cycleDays} · {period}
             </p>
           </div>
