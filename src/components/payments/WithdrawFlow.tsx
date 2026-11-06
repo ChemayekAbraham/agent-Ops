@@ -38,6 +38,9 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
+import { useWithdrawalPinPrompt } from '@/components/wallet/WithdrawalPinPrompt';
+import { fetchPinStatus, isPinProofError, pinErrorMessage, verifyPin, type PinStatus } from '@/hooks/useWithdrawalPin';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { useIdentityBinding, maskPayoutNumber } from '@/hooks/useIdentityBinding';
@@ -361,7 +364,21 @@ export default function WithdrawFlow({
   // proving whoever is submitting still controls that original channel. Cash
   // pickup has no destination-redirection surface and is exempt.
   const walletOtp = useWalletWithdrawalOtp();
+  // Withdrawal PIN (docs 258 to 260): asked right before the submit, because the proof it creates lives 5 minutes.
+  const { askPin, pinPrompt } = useWithdrawalPinPrompt();
   const [otpCode, setOtpCode] = useState('');
+  // Inline PIN field on the Verify step (shown only when the account has a PIN). Read fresh each time step 4 opens.
+  const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
+  const [withdrawPin, setWithdrawPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const pinNeeded = !!pinStatus?.required && pinStatus.hasPin;
+  const pinMissing = !!pinStatus?.required && !pinStatus.hasPin;
+  useEffect(() => {
+    if (!open || currentStep !== 4) return;
+    let cancelled = false;
+    void fetchPinStatus().then((s) => { if (!cancelled) setPinStatus(s); });
+    return () => { cancelled = true; };
+  }, [open, currentStep]);
   const requiresOtp = payoutMode !== 'cash';
 
   // Withdrawable = withdrawable_balance + advance_balance (advance is recoverable
@@ -678,6 +695,8 @@ export default function WithdrawFlow({
     setCashCodeError(null);
     walletOtp.resetOtp();
     setOtpCode('');
+    setWithdrawPin('');
+    setPinError(null);
     clientRequestIdRef.current = null;
     issuedKeyRef.current = null;
   };
@@ -835,7 +854,9 @@ export default function WithdrawFlow({
         return (
           ledgerAvailable !== null &&
           amount <= maxAmount &&
-          (!requiresOtp || otpCode.trim().length === 6)
+          (!requiresOtp || otpCode.trim().length === 6) &&
+          !pinMissing &&
+          (!pinNeeded || withdrawPin.length === 4)
         );
       default: return false;
     }
@@ -1110,6 +1131,14 @@ export default function WithdrawFlow({
           isSubmittingRef.current = false;
           return false;
         }
+        if (isPinProofError(rawMsg)) {
+          const pinMessage = pinErrorMessage({ code: rawMsg.includes('proof') ? 'withdrawal_pin_proof_required' : 'withdrawal_pin_required' });
+          setPaymentStatus('failed');
+          setLastFailureMessage(pinMessage);
+          toast.error(pinMessage, { duration: 8000 });
+          isSubmittingRef.current = false;
+          return false;
+        }
         if (rawMsg.includes('Ledger mismatch detected')) {
           setPaymentStatus('failed');
           setLastFailureMessage('Ledger mismatch detected. Refresh your balance and try again.');
@@ -1271,6 +1300,21 @@ export default function WithdrawFlow({
       // own registered phone before the withdrawal can submit at all.
       if (requiresOtp && otpCode.trim().length !== 6) {
         toast.error('Enter the 6-digit code sent to your phone.', { duration: 6000 });
+        return false;
+      }
+
+      // Withdrawal PIN, for accounts that have one (every payout method, cash included). Nothing is shown when
+      // the account has no PIN. The proof is spent by the very insert below, so ask only now.
+      if (pinNeeded) {
+        const pinResult = await verifyPin(withdrawPin, 'withdrawal');
+        if (!pinResult.success) {
+          setWithdrawPin('');
+          setPinError(pinErrorMessage(pinResult));
+          return false;
+        }
+        setPinError(null);
+      } else if (!(await askPin('withdrawal'))) {
+        // Status could not be read at step 4: fall back to the pop-up (it shows nothing if no PIN is required).
         return false;
       }
 
@@ -2202,6 +2246,37 @@ export default function WithdrawFlow({
                 </div>
               </div>
             )}
+
+            {/* Withdrawal PIN (docs 258 to 261): only for accounts that have one. Checked by the database when the
+                user taps Confirm; the proof it creates is spent by the withdrawal insert a moment later. */}
+            {pinNeeded && (
+              <div className="space-y-2 text-left">
+                <Label>Withdrawal PIN</Label>
+                <InputOTP
+                  maxLength={4}
+                  containerClassName="justify-center"
+                  value={withdrawPin}
+                  onChange={(v) => { setWithdrawPin(v.replace(/\D/g, '')); setPinError(null); }}
+                  inputMode="numeric"
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3].map((i) => (
+                      <InputOTPSlot key={i} index={i} className="[-webkit-text-security:disc]" />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  The 4-digit PIN you set in Settings. It is not your sign-in password.
+                </p>
+                {pinError && <p role="alert" className="text-xs text-destructive font-medium">{pinError}</p>}
+              </div>
+            )}
+            {pinMissing && (
+              <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 text-left">
+                <p className="text-sm font-semibold text-destructive">{pinErrorMessage({ code: 'withdrawal_pin_required' })}</p>
+              </div>
+            )}
           </div>
         );
 
@@ -2342,6 +2417,7 @@ export default function WithdrawFlow({
                 issuedKeyRef.current = null;
                 walletOtp.resetOtp();
                 setOtpCode('');
+                setWithdrawPin('');
                 setCurrentStep(2);
                 toast.info('Previous request cancelled. Confirm the details to resubmit.');
               }}
@@ -2358,6 +2434,7 @@ export default function WithdrawFlow({
 
   return (
     <>
+      {pinPrompt}
       <StepperModal
         open={open}
         onOpenChange={handleClose}
