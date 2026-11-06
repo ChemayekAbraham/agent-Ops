@@ -200,6 +200,9 @@ export function PortfolioCardStack({
               const fromFront = depth - pos; // 0 = front
               const isFront = fromFront === 0;
               const ref = p.portfolio_code || p.account_name || 'Portfolio';
+              // A portfolio can be named for the person it is held for (e.g. HASIFA); that name leads the card.
+              const accountName = (p.account_name || '').trim();
+              const cardHolder = (accountName || holderName).toUpperCase();
               const status = STATE_LABEL[acc.state] ?? acc.state;
               const returnsLabel = acc.isMonthlyCycle ? 'monthly' : `per ${acc.cycleDays} days`;
               return (
@@ -216,7 +219,7 @@ export function PortfolioCardStack({
                     setOrder((o) => [...o.filter((x) => x !== id), id]);
                     setExpanded(true);
                   }}
-                  aria-label={`${ref}, ${status}, principal ${formatUGX(acc.deployed)}${isFront ? (expanded ? ', tap to put back' : ', tap to show the whole card') : ', bring to front'}`}
+                  aria-label={`${accountName ? `${accountName}, ` : ''}${ref}, ${status}, principal ${formatUGX(acc.deployed)}${isFront ? (expanded ? ', tap to put back' : ', tap to show the whole card') : ', bring to front'}`}
                   aria-pressed={isFront}
                   aria-expanded={isFront ? expanded : undefined}
                   className="absolute inset-x-0 block h-full rounded-[18px] p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -284,7 +287,18 @@ export function PortfolioCardStack({
                           <span className="block truncate text-[10px] font-semibold uppercase leading-none tracking-[0.12em] opacity-70">
                             Tenant capital · {acc.monthlyRoiPct}% {returnsLabel}
                           </span>
-                          <span className="block truncate text-[13px] font-bold leading-tight tracking-wide">{ref}</span>
+                          <span className="flex min-w-0 items-baseline gap-1.5 leading-tight">
+                            {accountName ? (
+                              <>
+                                <span className="truncate text-[13px] font-bold tracking-wide">{accountName.toUpperCase()}</span>
+                                {p.portfolio_code && (
+                                  <span className="shrink-0 font-mono text-[10px] font-semibold opacity-70">{p.portfolio_code}</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="truncate text-[13px] font-bold tracking-wide">{ref}</span>
+                            )}
+                          </span>
                         </span>
                       </span>
                       <span className="flex flex-none items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em]">
@@ -325,8 +339,10 @@ export function PortfolioCardStack({
                         {/* holder's name bottom-left, as a bank card prints it */}
                         <span className="mt-[2cqw] flex items-end justify-between gap-3">
                           <span className="min-w-0">
-                            <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Partner name</span>
-                            <span className="block truncate text-[13px] font-semibold tracking-[0.06em]">{holderName || '—'}</span>
+                            <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">
+                              {accountName ? 'Account holder' : 'Partner name'}
+                            </span>
+                            <span className="block truncate text-[13px] font-semibold tracking-[0.06em]">{cardHolder || '—'}</span>
                           </span>
                           {acc.state === 'active' && (
                             <span className="flex-none text-right">
