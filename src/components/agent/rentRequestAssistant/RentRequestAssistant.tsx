@@ -830,7 +830,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   // ----- render -----
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
-    <div className="fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
+    <div className="rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -865,7 +865,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </TooltipProvider>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted px-4 py-4">
+      <div ref={scrollRef} className="rent-request-canvas flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
           <div className="px-1 pb-1 pt-2">
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
@@ -986,7 +986,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <button
                 type="button"
                 onClick={continueStep}
-                className="h-11 flex-1 rounded-full bg-success font-semibold text-success-foreground active:scale-[0.99] hover:bg-success/90"
+                className="h-11 flex-1 rounded-full bg-primary font-semibold text-primary-foreground active:scale-[0.99] hover:bg-primary/90"
               >
                 Continue
               </button>

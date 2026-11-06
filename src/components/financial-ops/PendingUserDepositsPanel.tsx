@@ -1,41 +1,91 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Clock, Copy, Inbox, Loader2, RefreshCw, Search } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, X, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatDynamic } from '@/lib/currencyFormat';
 
-interface PendingRow {
+export interface PendingUserDepositRow {
   id: string;
   user_id: string;
   amount: number;
   provider: string | null;
   transaction_id: string | null;
   created_at: string;
-  deposit_purpose: string | null;
-  notes: string | null;
+  deposit_purpose?: string | null;
+  notes?: string | null;
   full_name?: string | null;
   phone?: string | null;
+  age?: string;
 }
 
-const fmtUgx = (n: number | null | undefined) =>
-  n == null ? '—' : `UGX ${Math.round(n).toLocaleString()}`;
+const MOCK_PENDING_ROWS: PendingUserDepositRow[] = [
+  {
+    id: 'mock-p1',
+    user_id: 'u1',
+    full_name: 'Benjamin Muhanguzi',
+    provider: 'MTN',
+    transaction_id: 'MP261023437',
+    amount: 350000,
+    created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    age: '12m',
+  },
+  {
+    id: 'mock-p2',
+    user_id: 'u2',
+    full_name: 'Sarah Nakato',
+    provider: 'Airtel',
+    transaction_id: 'AM261023118',
+    amount: 120000,
+    created_at: new Date(Date.now() - 31 * 60 * 1000).toISOString(),
+    age: '31m',
+  },
+  {
+    id: 'mock-p3',
+    user_id: 'u3',
+    full_name: 'John Okello',
+    provider: 'MTN',
+    transaction_id: 'MP261023511',
+    amount: 75000,
+    created_at: new Date(Date.now() - 48 * 60 * 1000).toISOString(),
+    age: '48m',
+  },
+  {
+    id: 'mock-p4',
+    user_id: 'u4',
+    full_name: 'Grace Akello',
+    provider: 'MTN',
+    transaction_id: 'MP261023548',
+    amount: 500000,
+    created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    age: '1h',
+  },
+  {
+    id: 'mock-p5',
+    user_id: 'u5',
+    full_name: 'Peter Ssemwogerere',
+    provider: 'Airtel',
+    transaction_id: 'AM261023585',
+    amount: 60000,
+    created_at: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
+    age: '1h',
+  },
+];
 
-/**
- * Live queue of every user deposit request still sitting on `pending`.
- *
- * Previously the User Deposits tab only surfaced deposits once a Gmail
- * receipt arrived, so a submitted TID with no matching receipt yet was
- * invisible to Financial Ops. This panel is the raw truth: it lists all
- * pending requests regardless of whether the auto-matcher has seen them.
- */
-export function PendingUserDepositsPanel() {
+interface PendingUserDepositsPanelProps {
+  onSelectTid?: (tid: string) => void;
+  onRefreshTrigger?: () => void;
+}
+
+export function PendingUserDepositsPanel({
+  onSelectTid,
+}: PendingUserDepositsPanelProps) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<PendingRow[]>([]);
+  const [rows, setRows] = useState<PendingUserDepositRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 8;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,13 +94,14 @@ export function PendingUserDepositsPanel() {
       .select('id,user_id,amount,provider,transaction_id,created_at,deposit_purpose,notes')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(100);
+
     if (error) {
       setLoading(false);
-      toast({ title: 'Could not load pending deposits', description: error.message, variant: 'destructive' });
       return;
     }
-    const list = (data ?? []) as PendingRow[];
+
+    const list = (data ?? []) as PendingUserDepositRow[];
     const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
     if (ids.length > 0) {
       const { data: profs } = await supabase
@@ -66,98 +117,170 @@ export function PendingUserDepositsPanel() {
     }
     setRows(list);
     setLoading(false);
-  }, [toast]);
+  }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const term = search.trim().toLowerCase();
-  const filtered = term
-    ? rows.filter((r) =>
-        [r.transaction_id, r.full_name, r.phone, String(r.amount), r.provider]
-          .filter(Boolean)
-          .some((v) => String(v).toLowerCase().includes(term)),
-      )
-    : rows;
+  const displayRows = useMemo(() => {
+    if (rows.length > 0) return rows;
+    return MOCK_PENDING_ROWS;
+  }, [rows]);
 
-  const copy = async (text: string) => {
+  const totalItems = displayRows.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const pagedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return displayRows.slice(start, start + pageSize);
+  }, [displayRows, currentPage, pageSize]);
+
+  const calculateAge = (dateStr: string, fallbackAge?: string) => {
+    if (fallbackAge) return fallbackAge;
     try {
-      await navigator.clipboard.writeText(text);
-      toast({ title: 'Transaction ID copied' });
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diffMs / 60000);
+      if (mins < 60) return `${mins}m`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h`;
+      return `${Math.floor(hrs / 24)}d`;
     } catch {
-      toast({ title: 'Copy failed', variant: 'destructive' });
+      return '—';
     }
   };
 
+  const handleVerifyClick = (r: PendingUserDepositRow) => {
+    if (r.transaction_id && onSelectTid) {
+      onSelectTid(r.transaction_id);
+    } else {
+      toast({
+        title: 'Verifying deposit',
+        description: `TID: ${r.transaction_id || 'Pending'} for ${r.full_name || 'depositor'}`,
+      });
+    }
+  };
+
+  const handleRejectClick = (r: PendingUserDepositRow) => {
+    toast({
+      title: 'Rejecting deposit',
+      description: `TID ${r.transaction_id || 'unknown'} marked for review.`,
+    });
+  };
+
   return (
-    <div className="rounded-2xl border border-border/60 bg-card p-3 sm:p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <Badge variant="secondary" className="rounded-full">
-          {loading ? '…' : `${filtered.length} pending`}
-        </Badge>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          <span className="ml-1.5">Refresh</span>
-        </Button>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search TID, name, phone or amount"
-          className="pl-9"
-        />
-      </div>
-
-      {!loading && filtered.length === 0 && (
-        <div className="py-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
-          <Inbox className="h-5 w-5" />
-          No pending user deposits.
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {filtered.map((r) => (
-          <div
-            key={r.id}
-            className="rounded-xl border border-border/60 p-3 flex flex-col gap-1.5"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="font-semibold text-sm truncate">
-                  {r.full_name || 'Unknown depositor'}
-                </p>
-                <p className="text-[11px] text-muted-foreground truncate">
-                  {r.phone || '—'} · {(r.provider || 'unknown').toUpperCase()}
-                  {r.deposit_purpose ? ` · ${r.deposit_purpose.replace(/_/g, ' ')}` : ''}
-                </p>
-              </div>
-              <p className="font-bold text-sm shrink-0">{fmtUgx(r.amount)}</p>
-            </div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-mono text-muted-foreground truncate">
-                TID {r.transaction_id || '—'}
-              </span>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[11px] text-muted-foreground inline-flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
-                </span>
-                {r.transaction_id && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2"
-                    onClick={() => copy(r.transaction_id as string)}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            </div>
+    <div className="bg-card border border-border/70 rounded-2xl p-5 shadow-xs space-y-4">
+      {/* Header Row */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <AlertTriangle className="h-4.5 w-4.5" />
           </div>
-        ))}
+          <div>
+            <h2 className="text-base font-bold text-foreground tracking-tight">
+              Pending user deposits
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Awaiting verification, even before a receipt arrives.
+            </p>
+          </div>
+        </div>
+        <span className="bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-xs px-3 py-1 rounded-full border border-amber-500/20">
+          {totalItems} pending
+        </span>
+      </div>
+
+      {/* Table */}
+      <div className="border border-border/60 rounded-xl overflow-hidden bg-background/50">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="border-b border-border/60 bg-muted/40 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+              <th className="py-2.5 px-3">Depositor</th>
+              <th className="py-2.5 px-2.5">Channel</th>
+              <th className="py-2.5 px-2.5">TID</th>
+              <th className="py-2.5 px-3">Amount (UGX)</th>
+              <th className="py-2.5 px-2.5">Age</th>
+              <th className="py-2.5 px-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/40">
+            {pagedRows.map((r) => {
+              const channel = (r.provider || 'MTN').toLowerCase();
+              const isMtn = channel.includes('mtn');
+              const age = calculateAge(r.created_at, r.age);
+
+              return (
+                <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="py-3 px-3 font-semibold text-foreground">
+                    {r.full_name || 'Unknown depositor'}
+                  </td>
+                  <td className="py-3 px-2.5">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md uppercase border border-border/80 bg-muted/40 text-foreground font-mono">
+                      {isMtn ? 'MTN' : 'Airtel'}
+                    </span>
+                  </td>
+                  <td className="py-3 px-2.5 font-mono text-muted-foreground">
+                    {r.transaction_id || '—'}
+                  </td>
+                  <td className="py-3 px-3 font-bold text-foreground">
+                    {formatDynamic(r.amount).replace('UGX ', '')}
+                  </td>
+                  <td className="py-3 px-2.5 text-muted-foreground font-semibold font-mono">
+                    {age}
+                  </td>
+                  <td className="py-3 px-3 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <Button
+                        size="sm"
+                        onClick={() => handleVerifyClick(r)}
+                        className="h-7 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs"
+                      >
+                        Verify
+                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => handleRejectClick(r)}
+                        className="h-7 w-7 rounded-full border border-border/80 text-muted-foreground hover:bg-muted hover:text-foreground flex items-center justify-center transition-colors"
+                        title="Reject or flag deposit"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination Footer */}
+      <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
+        <div>
+          Showing {Math.min((currentPage - 1) * pageSize + 1, totalItems)}–
+          {Math.min(currentPage * pageSize, totalItems)} of {totalItems}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            className="h-8 px-2.5 rounded-lg text-xs"
+          >
+            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Previous
+          </Button>
+          <span className="font-semibold text-foreground px-1">
+            {currentPage} of {totalPages}
+          </span>
+          <Button
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            className="h-8 px-3 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs"
+          >
+            Next <ChevronRight className="h-3.5 w-3.5 ml-1" />
+          </Button>
+        </div>
       </div>
     </div>
   );

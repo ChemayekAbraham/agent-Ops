@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Landmark, ArrowRight, Loader2, TrendingUp, History, ShieldCheck, KeyRound } from 'lucide-react';
+import { Landmark, ArrowRight, Loader2, TrendingUp, History, ShieldCheck, KeyRound, Lock } from 'lucide-react';
+import { useLandlordFloatGate } from '@/hooks/useLandlordFloatGate';
 import { Badge } from '@/components/ui/badge';
 
 interface AgentLandlordFloatCardProps {
@@ -44,13 +45,17 @@ export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHi
   // or fully ring-fenced allocation falls back to the "CFO will fund this"
   // state rather than advertising an amount the payout will reject.
   const hasFloat = availableBalance > 0;
+  // Under 50% performance: the card is locked and says why, like a paused money withdrawal. It does not open the withdrawal.
+  const { gate, locked } = useLandlordFloatGate();
 
   return (
-    <div className="rounded-2xl border-2 border-[#9234EA]/30 bg-[#9234EA]/5 overflow-hidden">
+    <div className={`rounded-2xl border-2 overflow-hidden ${locked ? 'border-destructive/40 bg-destructive/5' : 'border-[#9234EA]/30 bg-[#9234EA]/5'}`}>
       {/* Main Pay Button */}
       <button
-        onClick={onPayLandlord}
-        className="w-full p-4 hover:bg-[#9234EA]/5 touch-manipulation active:opacity-80 text-left"
+        onClick={locked ? undefined : onPayLandlord}
+        disabled={locked}
+        aria-disabled={locked}
+        className={`w-full p-4 touch-manipulation text-left ${locked ? 'cursor-not-allowed opacity-90' : 'hover:bg-[#9234EA]/5 active:opacity-80'}`}
       >
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-[#9234EA]/15 shrink-0">
@@ -77,11 +82,25 @@ export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHi
             </p>
           </div>
           <div className="flex items-center gap-1">
-            <span className="text-xs text-[#9234EA] dark:text-white font-semibold">Pay</span>
-            <ArrowRight className="h-4 w-4 text-[#9234EA] dark:text-white" />
+            {locked ? (
+              <>
+                <span className="text-xs text-destructive font-semibold">Locked</span>
+                <Lock className="h-4 w-4 text-destructive" aria-hidden />
+              </>
+            ) : (
+              <>
+                <span className="text-xs text-[#9234EA] dark:text-white font-semibold">Pay</span>
+                <ArrowRight className="h-4 w-4 text-[#9234EA] dark:text-white" />
+              </>
+            )}
           </div>
         </div>
       </button>
+      {locked && gate?.blockReason && (
+        <p role="alert" className="mx-4 mb-3 -mt-1 rounded-lg bg-destructive/10 px-3 py-2 text-xs font-medium text-destructive">
+          {gate.blockReason}
+        </p>
+      )}
 
       {/* Quick Action Strip */}
       <div className="border-t border-[#9234EA]/20 grid grid-cols-4 divide-x divide-[#9234EA]/20">

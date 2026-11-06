@@ -58,7 +58,11 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "list");
     const myFp = String(body?.device_fp ?? "").trim();
-    if (!FP_RE.test(myFp)) return json({ devices: [] });
+    if (!FP_RE.test(myFp)) {
+      // A list with no usable fingerprint is just empty; an answer must not look like it saved.
+      if (action === "respond") return json({ error: "This device could not be identified. Reload the page and try again." }, 400);
+      return json({ devices: [] });
+    }
 
     if (action === "list") {
       const { data: me } = await admin

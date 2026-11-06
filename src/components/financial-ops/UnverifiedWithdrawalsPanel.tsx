@@ -62,7 +62,7 @@ function MissingChips({ row }: { row: UnverifiedWithdrawalRow }) {
         <span
           key={m}
           role="listitem"
-          className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400"
+          className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
         >
           <AlertTriangle className="h-3 w-3" aria-hidden />
           {m}
@@ -82,10 +82,10 @@ function StatusBadge({ badge }: { badge: UnverifiedWithdrawalRow['badge'] }) {
   const Icon = badge === 'verified' ? BadgeCheck : badge === 'needs_review' ? AlertTriangle : Clock;
   const tone =
     badge === 'verified'
-      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+      ? 'border-primary/30 bg-primary/10 text-primary'
       : badge === 'needs_review'
-        ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
-        : 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400';
+        ? 'border-primary/20 bg-primary/5 text-foreground'
+        : 'border-border bg-muted/40 text-muted-foreground';
   return (
     <Badge variant="outline" className={`gap-1 ${tone}`} role="status" aria-label={`Status: ${label}`}>
       <Icon className="h-3 w-3" aria-hidden />
@@ -250,8 +250,8 @@ export default function UnverifiedWithdrawalsPanel() {
           Could not load this list. {(error as Error)?.message ?? ''}
         </p>
       ) : total === 0 ? (
-        <p className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm">
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden />
+        <p className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden />
           {filter === 'all'
             ? 'Nothing here — every open withdrawal belongs to a verified person.'
             : filter === 'verified'
@@ -294,7 +294,7 @@ export default function UnverifiedWithdrawalsPanel() {
                                 : <Smartphone className="h-3 w-3 shrink-0" aria-hidden />}
                               {destinationLine(r)}
                             </p>
-                            <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                            <p className="mt-1 text-[11px] text-primary font-medium">
                               Missing: {missingPieces(r).join(', ') || 'nothing'}
                             </p>
                           </div>

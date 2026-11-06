@@ -1788,6 +1788,11 @@ html.reduce-motion *::after {
 .assistant-composer [data-align="block-end"] { position: absolute; bottom: 6px; left: 6px; right: 6px; width: auto; padding: 0; pointer-events: none; }
 .assistant-composer [data-align="block-end"] button { pointer-events: auto; }
 .assistant-starter:hover { background: hsl(var(--muted)); }
+/* Rent request assistant: the message canvas is a pale white (#F9FAFC) on the
+   light ground; dark mode keeps a soft near-black so the screen never blinds. */
+.rent-request-assistant { --rent-request-canvas: 220 33.3% 98.2%; }
+.dark .rent-request-assistant { --rent-request-canvas: 222 20% 9%; }
+.rent-request-canvas { background: hsl(var(--rent-request-canvas)); }
 /* Cash Position: a scoped compact finance board; no other CFO views change. */
 .cash-position-page {
   --background: 214 55% 98%;
@@ -2154,4 +2159,49 @@ html.reduce-motion *::after {
   .desk-live-dot { animation: none; }
   /* The particles are the motion. Asked for less, they go rather than freeze. */
   .desk-particle { display: none; }
+}
+
+/* ============================================
+   FINANCIAL OPS SURFACE - one border + card language
+   Scoped to the Financial Ops page root (.finops-surface) so no other page
+   changes. The page mixed border-border at /40 to /100 opacity on a very pale
+   token, so neighbouring cards looked different weights. Here every
+   border-border/NN resolves to ONE visible border colour, cards share one
+   radius and elevation. Skipped under .high-contrast (accessibility mode).
+   ============================================ */
+html:not(.high-contrast) .finops-surface {
+  --border: 220 12% 72%;
+}
+html.dark:not(.high-contrast) .finops-surface {
+  --border: 222 14% 34%;
+}
+html:not(.high-contrast) .finops-surface [class*="border-border"],
+html:not(.high-contrast) .finops-surface [class*="divide-border"] > * + * {
+  border-color: hsl(var(--border));
+}
+html:not(.high-contrast) .finops-surface :is(div, section, article)[class*="bg-card"][class*="border"]:is([class*="rounded-xl"], [class*="rounded-2xl"]) {
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 hsl(220 20% 20% / 0.05);
+}
+
+/* Financial Ops depth: white cards on a pale slate page (they were white on
+   white, so nothing separated), deeper secondary text, stronger brand tints,
+   a real card shadow. Same scope + High Contrast opt-out as above. */
+html:not(.high-contrast) .finops-surface {
+  --muted-foreground: 220 10% 36%;
+  background-color: hsl(220 22% 95%);
+}
+html.dark:not(.high-contrast) .finops-surface {
+  --muted-foreground: 220 10% 72%;
+  background-color: hsl(222 25% 8%);
+}
+html:not(.high-contrast) .finops-surface :is(div, section, article)[class*="bg-card"][class*="border"] {
+  box-shadow: 0 1px 3px 0 hsl(220 25% 20% / 0.08), 0 4px 12px -4px hsl(220 25% 20% / 0.08);
+}
+html:not(.high-contrast) .finops-surface [class*="bg-primary/10"] {
+  background-color: hsl(var(--primary) / 0.14);
+}
+html:not(.high-contrast) .finops-surface [class*="border-primary/20"],
+html:not(.high-contrast) .finops-surface [class*="border-primary/25"] {
+  border-color: hsl(var(--primary) / 0.4);
 }

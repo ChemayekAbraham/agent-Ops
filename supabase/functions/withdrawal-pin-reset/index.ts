@@ -20,7 +20,7 @@
 // Codes are generated here, only their sha256 is stored, and neither a code nor a PIN is ever logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
-import { isUgandanPhone, sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { isInternationalPhone, sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -180,7 +180,8 @@ Deno.serve(async (req) => {
     // per-withdrawal OTP used (doc 263). It proves the person holds that phone, not just a session.
     if (action === "setup_send_code") {
       const phone = String(profile?.phone ?? "").trim();
-      if (!isUgandanPhone(phone)) return json({ success: false, code: "no_phone" }, 400);
+      // Ugandan, or a full +<country code> number (a Kenyan +254 account phone is a real registered phone).
+      if (!isInternationalPhone(phone)) return json({ success: false, code: "no_phone" }, 400);
       const code = generateCode();
       const issued = await admin.rpc("pin_setup_issue", {
         p_user: userId,
@@ -203,6 +204,7 @@ Deno.serve(async (req) => {
           recipient_user_id: userId,
           requireDeliveryConfirmation: true,
           deliveryConfirmation: { attempts: 2, delayMs: 1500 },
+          allowInternational: true,
         },
       );
       if (!sent) return json({ error: "Could not send the code. Please try again.", code: "send_failed" }, 502);
