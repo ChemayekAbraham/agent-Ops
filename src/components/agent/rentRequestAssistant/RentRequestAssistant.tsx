@@ -986,7 +986,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <button
                 type="button"
                 onClick={continueStep}
-                className="h-11 flex-1 rounded-full bg-success font-semibold text-success-foreground active:scale-[0.99] hover:bg-success/90"
+                className="h-11 flex-1 rounded-full bg-primary font-semibold text-primary-foreground active:scale-[0.99] hover:bg-primary/90"
               >
                 Continue
               </button>
