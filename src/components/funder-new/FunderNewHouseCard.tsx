@@ -46,7 +46,7 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-none transition-[border-color,box-shadow] sm:my-0 sm:shadow-sm',
+        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-muted shadow-none transition-[border-color,box-shadow] sm:my-0 sm:shadow-sm',
         'sm:hover:shadow-md',
         selected && 'border-primary ring-1 ring-primary',
       )}
@@ -164,7 +164,7 @@ export function FunderNewHouseCard({
 
         <div className="flex items-end justify-between gap-2 pt-1">
           <div className="min-w-0">
-            <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
+            <p className="text-xl font-bold leading-none text-green-600 dark:text-green-400">{formatDynamic(amount)}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
             </p>
