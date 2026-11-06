@@ -164,7 +164,7 @@ export function FunderNewHouseCard({
 
         <div className="flex items-end justify-between gap-2 pt-1">
           <div className="min-w-0">
-            <p className="text-xl font-bold leading-none text-green-600 dark:text-green-400">{formatDynamic(amount)}</p>
+            <p className="text-lg font-bold leading-none text-green-600 dark:text-green-400">{formatDynamic(amount)}</p>
             <p className="mt-2 text-xs text-muted-foreground">
               {monthlyReturn === null ? 'Support this home' : <>Earn <span className="font-semibold text-primary">{formatDynamic(monthlyReturn)}</span> monthly</>}
             </p>
