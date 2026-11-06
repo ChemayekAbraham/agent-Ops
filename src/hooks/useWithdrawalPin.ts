@@ -103,6 +103,8 @@ export function pinErrorMessage(r: Pick<PinResult, 'code' | 'attemptsLeft' | 'lo
       return 'That PIN is too easy to guess. Avoid repeats like 1111 and runs like 1234.';
     case 'current_pin_required':
       return 'Enter your current PIN first.';
+    case 'phone_code_required':
+      return 'To set your first PIN we send a code to your registered phone.';
     case 'email_code_required':
       return 'To change your PIN we need the code we email you.';
     case 'pin_exists':
@@ -132,7 +134,7 @@ export function pinErrorMessage(r: Pick<PinResult, 'code' | 'attemptsLeft' | 'lo
     case 'email_recently_changed':
       return `Your email was changed recently, so a PIN reset is paused until ${fmtTime(r.releaseAt)}. If you did not change it, contact support.`;
     case 'no_phone':
-      return 'We have no phone number for this account.';
+      return 'We have no valid registered phone number for this account, so we cannot text you a code. Contact support.';
     case 'send_failed':
       return 'We could not send the code. Please try again.';
     case 'not_pending':
@@ -204,6 +206,13 @@ export const forgotPin = {
   sendCode: () => callReset({ action: 'send_code', channel: 'email' }),
   complete: (emailCode: string, newPin: string) =>
     callReset({ action: 'complete', email_code: emailCode, new_pin: newPin }),
+};
+
+/** First PIN: a code is texted to the account's registered phone, then the code and the new PIN are sent together. */
+export const setupPin = {
+  sendCode: () => callReset({ action: 'setup_send_code' }),
+  complete: (phoneCode: string, newPin: string) =>
+    callReset({ action: 'setup_complete', phone_code: phoneCode, new_pin: newPin }),
 };
 
 /** Change PIN: the current PIN and an emailed code are both required. */

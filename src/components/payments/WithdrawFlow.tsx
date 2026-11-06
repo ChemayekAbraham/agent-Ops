@@ -38,7 +38,8 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
-import { fetchPinStatus, isPinProofError, pinErrorMessage, setFirstPin, verifyPin, type PinStatus } from '@/hooks/useWithdrawalPin';
+import { fetchPinStatus, isPinProofError, pinErrorMessage, verifyPin, type PinStatus } from '@/hooks/useWithdrawalPin';
+import FirstPinSetup from '@/components/wallet/FirstPinSetup';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
@@ -375,9 +376,6 @@ export default function WithdrawFlow({
   const [pinChecked, setPinChecked] = useState(false);
   const [withdrawPin, setWithdrawPin] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
-  const [newPin, setNewPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
-  const [pinSetBusy, setPinSetBusy] = useState(false);
   const pinNeeded = !!pinStatus?.hasPin;
   const mustSetPin = pinStatus !== null && !pinStatus.hasPin;
   const refreshPinStatus = useCallback(async () => {
@@ -389,20 +387,6 @@ export default function WithdrawFlow({
     setPinChecked(false);
     void refreshPinStatus();
   }, [open, currentStep, refreshPinStatus]);
-  const saveNewPin = async () => {
-    if (pinSetBusy) return;
-    if (newPin.length !== 4) { setPinError('Choose a 4-digit PIN.'); return; }
-    if (newPin !== confirmPin) { setPinError('The two PINs do not match.'); return; }
-    setPinSetBusy(true);
-    setPinError(null);
-    const r = await setFirstPin(newPin);
-    setPinSetBusy(false);
-    if (!r.success) { setPinError(pinErrorMessage(r)); return; }
-    setNewPin('');
-    setConfirmPin('');
-    toast.success('Withdrawal PIN set', { description: 'Now enter it to confirm this withdrawal.' });
-    await refreshPinStatus();
-  };
   const requiresOtp = WITHDRAWAL_OTP_REQUIRED && payoutMode !== 'cash';
 
   // Withdrawable = withdrawable_balance + advance_balance (advance is recoverable
@@ -2295,34 +2279,8 @@ export default function WithdrawFlow({
               </div>
             )}
             {mustSetPin && (
-              <div className="space-y-3 text-left rounded-lg border border-primary/30 bg-primary/5 p-4">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  <h4 className="font-semibold text-sm">Set your withdrawal PIN first</h4>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Choose a secret 4-digit PIN. You will enter it every time you withdraw. Do not share it, and do not use your phone number or 1234.
-                </p>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">New PIN</Label>
-                  <InputOTP maxLength={4} value={newPin} onChange={(v) => { setNewPin(v.replace(/\D/g, '')); setPinError(null); }} inputMode="numeric" disabled={pinSetBusy}>
-                    <InputOTPGroup>
-                      {[0, 1, 2, 3].map((i) => (<InputOTPSlot key={i} index={i} className="[-webkit-text-security:disc]" />))}
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Repeat the PIN</Label>
-                  <InputOTP maxLength={4} value={confirmPin} onChange={(v) => { setConfirmPin(v.replace(/\D/g, '')); setPinError(null); }} inputMode="numeric" disabled={pinSetBusy}>
-                    <InputOTPGroup>
-                      {[0, 1, 2, 3].map((i) => (<InputOTPSlot key={i} index={i} className="[-webkit-text-security:disc]" />))}
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                {pinError && <p role="alert" className="text-xs text-destructive font-medium">{pinError}</p>}
-                <Button type="button" className="w-full h-11" onClick={saveNewPin} disabled={pinSetBusy || newPin.length !== 4 || confirmPin.length !== 4}>
-                  {pinSetBusy ? 'Saving…' : 'Save PIN'}
-                </Button>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <FirstPinSetup onDone={() => void refreshPinStatus()} />
               </div>
             )}
             {pinChecked && pinStatus === null && (
