@@ -29,9 +29,18 @@ export type BudgetRoom = {
   rule: string | null;
 };
 
+export type BriefCount = { n: number | null; ugx: number | null };
+
 export type MorningBrief = {
   clauses: string[];
+  /** Budgets were retired on 5 Nov. Kept only for old screens; new code must not read it. */
   budget_room: BudgetRoom | null;
+  /** Requests waiting for the COO's push. */
+  coo_queue?: BriefCount | null;
+  /** What the funders' board shows: listed, their worth, and how many a funder holds. */
+  funders_board?: (BriefCount & { held: number | null }) | null;
+  /** Funded, landlord not yet paid. */
+  funded_not_paid?: BriefCount | null;
   generated_at: string;
 };
 

@@ -19,7 +19,7 @@ import { ReviewStatusProvider } from './reviewStatus';
 import { ReviewDrawer } from './ReviewDrawer';
 import { FundByScore } from './FundByScore';
 import { FunderBoard } from './FunderBoard';
-import { BudgetRoomCard } from './BudgetRoomCard';
+import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
@@ -232,14 +232,6 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     deskParams.get('tab') && deskParams.get('tab') !== 'queue' ? 'extra' : 'queue',
   );
 
-  // Whether the CFO has set today's budget — the one thing that tells "spent
-  // out" apart from "nothing was ever budgeted".
-  const kpiRows = feeds.coo_kpis?.rows ?? [];
-  const budgetRow = kpiRows.find((r) => String(r.metric) === 'budget_today_ugx');
-  const budgetSetToday = feeds.coo_kpis?.loading
-    ? null
-    : budgetRow !== undefined && budgetRow.value !== null && budgetRow.value !== undefined;
-
   /**
    * The row carries an 8-character code, so the id is looked up on the press.
    * An ambiguous code opens nothing: recording a review against the wrong
@@ -319,10 +311,8 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
-      {/* The COO reads the room before opening the queue. */}
-      {checklistOn && desk.id === 'coo' && (
-        <BudgetRoomCard board={board} enabled budgetSetToday={budgetSetToday} />
-      )}
+      {/* The COO reads the push queue and the funders' board before opening the queue (budgets retired 5 Nov). */}
+      {checklistOn && desk.id === 'coo' && <PushQueueCards board={board} enabled onCooDesk />}
     </>
   );
 

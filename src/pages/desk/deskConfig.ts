@@ -61,7 +61,6 @@ const BALANCE_TILES: Tile[] = [
   { label: 'Funded with a funder tag', ...kp('funder_tagged_30d', 'pct'), sub: { label: 'Linked to a portfolio', ...kp('portfolio_linked_30d', 'pct') } },
   { label: 'Landlord paid with proof', ...kp('paid_with_proof_30d', 'pct') },
   { label: 'Repaid against amount due', ...kp('repaid_vs_due', 'pct'), sub: { label: 'Arrears', ...kp('arrears_ugx', 'ugx') } },
-  { label: 'Daily float budget', ...kp('budget_today_ugx', 'budget'), sub: { label: 'Week used', ...kp('budget_week_used_ugx', 'ugx') } },
   { label: 'ROI credits to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
 ];
 
@@ -116,13 +115,13 @@ export const DESKS: Desk[] = [
     ],
   },
   {
-    id: 'coo', name: 'COO', question: 'Approve within budget, and keep the business in balance.', roles: DESK_ROLES['coo'],
-    lead: (g) => `${g(st('5', 'n', 'int'))} requests worth ${g(st('5', 'ugx', 'ugx'))} wait for your approval. Today's float budget: ${g(kp('budget_today_ugx', 'budget'))}.`,
+    id: 'coo', name: 'COO', question: 'Push approved requests on, and keep the business in balance.', roles: DESK_ROLES['coo'],
+    lead: (g) => `${g(st('5', 'n', 'int'))} requests worth ${g(st('5', 'ugx', 'ugx'))} wait for your push.`,
     tiles: BALANCE_TILES,
     tables: [
       {
         id: 'coo-queue', feed: 'coo_queue', title: 'Your approval queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx',
-        note: 'Return when the landlord is unverified or a funder-visible request has no funder tag; otherwise approve oldest first while the CFO budget has room. A signed agreement is shown but not required (policy pending).',
+        note: 'Return when the landlord is unverified or a funder-visible request has no funder tag; otherwise approve oldest first. A signed agreement is shown but not required (policy pending).',
         columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, { field: 'landlord', label: 'Landlord' }, DAYS, RENT, { field: 'funder_tag', label: 'Funder tag' }, { field: 'landlord_verified', label: 'Landlord verified' }, { field: 'agreement', label: 'Agreement' }, DEC],
       },
       {

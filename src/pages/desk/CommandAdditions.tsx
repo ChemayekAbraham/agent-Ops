@@ -20,8 +20,8 @@ import {
 
 /**
  * What the command centre gained in Operations 4. Everything that was on it
- * stays; these only add. Where an L1 card already carries a figure (budget
- * room today, the money blocker on the budget tile) the line links to it
+ * stays; these only add. Where a card already carries a figure (the COO push
+ * queue, funded not paid) the line links to it
  * instead of printing it twice.
  */
 
@@ -66,11 +66,6 @@ export function findGap(rows: Row[], kind: keyof typeof GAP_ORD): Gap | null {
   return row ? { label: String(row.gap ?? ''), n: num(row.n), ugx: num(row.ugx), oldestDays: num(row.oldest_days) } : null;
 }
 
-function kpi(rows: Row[], metric: string): number | null {
-  const r = rows.find((x) => String(x.metric) === metric);
-  return r ? num(r.value) : null;
-}
-
 function Figure({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
   return (
     <span className="inline-flex flex-wrap items-baseline gap-x-1.5" title={title}>
@@ -80,43 +75,41 @@ function Figure({ label, children, title }: { label: string; children: ReactNode
   );
 }
 
-export function MoneyLine({ kpis, gaps, board }: { kpis: FeedState | undefined; gaps: FeedState; board: boolean }) {
-  if (kpis?.loading || gaps.loading) return <Skeleton className="h-6 w-full max-w-4xl" />;
+/**
+ * One line under the brief. Budgets were retired on 5 Nov, so the line no
+ * longer carries a budget room or a weekly budget. The push queue and the
+ * funded-not-paid count live on their own cards, so the line links to them
+ * rather than printing the same figure twice.
+ */
+export function MoneyLine({ gaps, board }: { gaps: FeedState; board: boolean }) {
+  if (gaps.loading) return <Skeleton className="h-6 w-full max-w-4xl" />;
 
-  const rows = kpis?.rows ?? [];
-  const week = kpi(rows, 'budget_week_ugx');
-  const weekUsed = kpi(rows, 'budget_week_used_ugx') ?? 0;
-  const weekRoom = week === null ? null : Math.max(0, week - weekUsed);
   const fnp = findGap(gaps.rows, 'funded_not_paid');
   const rcp = findGap(gaps.rows, 'receipts_missing');
   const dot = <span className="text-muted-foreground" aria-hidden>·</span>;
+  const link = `rounded text-[hsl(var(--desk-lavender))] underline underline-offset-4 ${FOCUS}`;
 
   return (
     <p
       className={`${board ? 'text-base' : 'text-sm'} flex flex-wrap items-baseline gap-x-3 gap-y-1.5`}
       aria-label="Money today"
     >
-      <Figure label="Budget room today">
-        <a href="#budget-room" className={`rounded text-[hsl(var(--desk-lavender))] underline underline-offset-4 ${FOCUS}`}>
-          on the Budget room card
+      <Figure label="COO push queue">
+        <a href="#coo-push-queue" className={link}>
+          on the card
         </a>
       </Figure>
       {dot}
-      <Figure label="This week">{week === null ? <span className={statusText.bad}>No weekly budget set</span> : `UGX ${fmt('ugxfull', weekRoom)}`}</Figure>
-      {dot}
       <Figure label="Funded, not paid" title={fnp?.label || undefined}>
-        {fnp
-          ? `${fmt('int', fnp.n)} · UGX ${fmt('ugxfull', fnp.ugx)}${fnp.oldestDays !== null ? ` · oldest ${fmt('days', fnp.oldestDays)} days` : ''}`
-          : '—'}
+        <a href="#funded-not-paid" className={link}>
+          on the card
+        </a>
+        {fnp?.oldestDays !== null && fnp?.oldestDays !== undefined ? ` · oldest ${fmt('days', fnp.oldestDays)} days` : ''}
       </Figure>
       {dot}
       <Figure label="Receipts missing over 24 h" title={rcp?.label || undefined}>
         {rcp ? `${fmt('int', rcp.n)} · UGX ${fmt('ugxfull', rcp.ugx)}` : '—'}
       </Figure>
-      {dot}
-      <a href="#money-blocker" className={`rounded text-xs text-[hsl(var(--desk-lavender))] underline underline-offset-4 ${FOCUS}`}>
-        Money blocked today: see the budget tile
-      </a>
     </p>
   );
 }
