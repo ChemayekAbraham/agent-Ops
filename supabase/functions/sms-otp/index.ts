@@ -974,8 +974,23 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Use up one attempt BEFORE comparing, atomically in the database, so a
+      // burst of parallel guesses cannot all read the same old count
+      // (register_otp_attempt, doc 251). Every guess is counted, right or wrong.
+      const { data: attemptsUsed, error: attemptError } = await adminClient
+        .rpc("register_otp_attempt", { p_otp_id: otpRecord.id });
+
+      // Fail closed: if we cannot count the guess, we do not check it.
+      if (attemptError || attemptsUsed === null) {
+        console.error("[sms-otp] register_otp_attempt failed:", attemptError?.message);
+        return new Response(JSON.stringify({ error: "Could not verify code. Please try again." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       // Check max attempts (5)
-      if (otpRecord.attempts >= 5) {
+      if (attemptsUsed > 5) {
         return new Response(JSON.stringify({ error: "Too many failed attempts. Please request a new code." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -984,13 +999,9 @@ Deno.serve(async (req) => {
 
       // Verify
       if (otpCode !== otpRecord.otp_code) {
-        await adminClient
-          .from("otp_verifications")
-          .update({ attempts: otpRecord.attempts + 1 })
-          .eq("phone", phoneKey);
         await logOtpUsage(adminClient, verifyCategory, "verify_failed", phoneKey, "sms-otp");
 
-        const remaining = 4 - otpRecord.attempts;
+        const remaining = Math.max(0, 5 - attemptsUsed);
         return new Response(JSON.stringify({ error: `Invalid code. ${remaining} attempts remaining.` }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -1012,6 +1023,17 @@ Deno.serve(async (req) => {
     }
 
     if (action === "send_custom" || action === "custom") {
+      // Free-text SMS from the WELILE sender. verify_jwt is off for this
+      // function, so anyone could call it; only server-side callers holding the
+      // service-role key (e.g. fraud-cutoff-account) may send arbitrary text.
+      const bearer = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+      if (!bearer || bearer !== supabaseServiceKey) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const message = (body.message as string || "").trim();
       if (!message) {
         return new Response(JSON.stringify({ error: "Message required" }), {
