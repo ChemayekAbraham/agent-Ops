@@ -68977,6 +68977,39 @@ export type Database = {
         }
         Relationships: []
       }
+      withdrawal_pin_setup_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       withdrawal_release_events: {
         Row: {
           created_at: string
@@ -92180,6 +92213,18 @@ export type Database = {
           p_email_code_hash: string
           p_new_pin: string
           p_sms_code_hash: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_setup_complete: {
+        Args: { p_code_hash: string; p_new_pin: string; p_user: string }
+        Returns: Json
+      }
+      pin_setup_issue: {
+        Args: {
+          p_code_hash: string
+          p_destination_masked?: string
           p_user: string
         }
         Returns: Json
