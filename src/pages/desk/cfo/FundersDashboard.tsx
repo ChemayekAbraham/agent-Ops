@@ -155,7 +155,7 @@ export function FundersDashboard({ board }: { board: boolean }) {
       setOutcome(
         res.ok
           ? { id: target.id, ok: true, text: 'Funded. The agent will complete the payout to the landlord.' }
-          : { id: target.id, ok: false, text: res.reason },
+          : { id: target.id, ok: false, text: res.reason ?? 'Funding failed' },
       );
     } catch (e) {
       setOutcome({ id: target.id, ok: false, text: readableError(e) });

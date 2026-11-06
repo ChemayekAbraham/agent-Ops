@@ -139,7 +139,9 @@ export function useFundersDashboard(period: Period) {
  * database refuses a request a funder holds or has funded. The server's words
  * come back unchanged.
  */
-export async function fundOne(id: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+export type FundResult = { ok: boolean; reason?: string };
+
+export async function fundOne(id: string): Promise<FundResult> {
   const { error, data } = await supabase.functions.invoke('fund-agent-landlord-float', {
     body: { rent_request_id: id, notes: 'Funders Dashboard' },
   });
