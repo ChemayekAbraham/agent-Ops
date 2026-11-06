@@ -559,7 +559,7 @@ BEGIN
     'generated_at', NOW()
   );
 END;
-$function$
+$function$;
 
 CREATE OR REPLACE FUNCTION public.get_user_trust_profile(p_ai_id text)
  RETURNS jsonb
@@ -635,7 +635,7 @@ BEGIN
     is_agent_managed = EXCLUDED.is_agent_managed,
     last_calculated_at = now();
 END;
-$function$
+$function$;
 
 REVOKE ALL ON FUNCTION public._get_user_trust_profile_impl(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public._get_user_trust_profile_impl(uuid) TO service_role;
