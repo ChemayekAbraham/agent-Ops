@@ -17,7 +17,7 @@
 
 | Step | Item | Result |
 |---|---|---|
-| 1 | Migration `20261104090000_withdrawal_pin.sql` applied. Only edit: `set local lock_timeout = '5s'` as the first line, so it would abort rather than queue behind live withdrawals. | PASS, first attempt |
+| 1 | Migration `20261104090100_withdrawal_pin.sql` applied. Only edit: `set local lock_timeout = '5s'` as the first line, so it would abort rather than queue behind live withdrawals. | PASS, first attempt |
 | 1 | 5 new tables; 3 new columns on `payout_number_change_requests` (`pin_verified`, `device_fp`, `device_trusted`) | PASS |
 | 1 | `trg_require_withdrawal_pin_proof` exists on `withdrawal_requests` and on `payout_number_change_requests`, both enabled | PASS |
 | 1 | `has_function_privilege`: `anon` and `authenticated` cannot execute `pin_reset_begin`, `pin_challenge_issue`, `pin_challenge_check`, `pin_reset_complete`, `withdrawal_pin_check`, `consume_withdrawal_pin_proof`; `authenticated` can execute `verify_withdrawal_pin`, `set_withdrawal_pin`, `cancel_withdrawal_pin_reset`, `my_withdrawal_pin_status` | PASS |
@@ -63,7 +63,7 @@ New database checks after the email-OTP migration (rolled back, on the CTO's acc
 
 ## 5. Files changed beyond the three listed
 
-Web repo `wl-withdrawal-pin` (uncommitted): `supabase/migrations/20261104130000_withdrawal_pin_four_digits.sql`, `supabase/migrations/20261104150000_withdrawal_pin_email_otp.sql`, `supabase/functions/withdrawal-pin-reset/index.ts` (rewritten: no SMS, new `change_send_code` / `change_complete` actions), this report.
+Web repo `wl-withdrawal-pin` (uncommitted): `supabase/migrations/20261104130000_withdrawal_pin_four_digits.sql`, `supabase/migrations/20261104150100_withdrawal_pin_email_otp.sql`, `supabase/functions/withdrawal-pin-reset/index.ts` (rewritten: no SMS, new `change_send_code` / `change_complete` actions), this report.
 
 The deployed function ships trimmed copies of `../_shared/twoFactorEmail.ts` (comments and the unused `generateCode` / `hashCode` removed) and `../_shared/recipientMailbox.ts` (comments removed). Logic used is identical.
 
@@ -101,4 +101,4 @@ Android repo `welilereceipts-mobile` (uncommitted):
 
 ## 9. Rollback
 
-`update public.withdrawal_pin_config set enforce_mode = 'off'` stops all enforcement and keeps the data. The original `20261104090000_withdrawal_pin.rollback.sql` drops the first migration's objects but does not know about the two follow-up migrations; extend it before using it. The edge function can be deleted from the Supabase dashboard.
+`update public.withdrawal_pin_config set enforce_mode = 'off'` stops all enforcement and keeps the data. The original `20261104090100_withdrawal_pin.rollback.sql` drops the first migration's objects but does not know about the two follow-up migrations; extend it before using it. The edge function can be deleted from the Supabase dashboard.

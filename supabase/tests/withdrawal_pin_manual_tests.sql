@@ -1,4 +1,4 @@
--- Manual test script for 20261104090000_withdrawal_pin.sql (doc 258, v2).
+-- Manual test script for 20261104090100_withdrawal_pin.sql (doc 258, v2).
 -- RUN ONLY on a Supabase preview branch or a throwaway database, NEVER on production.
 -- It creates a fake user, impersonates it via the JWT claim, and rolls everything back.
 -- Each "expect" comment is what a reviewer should see.

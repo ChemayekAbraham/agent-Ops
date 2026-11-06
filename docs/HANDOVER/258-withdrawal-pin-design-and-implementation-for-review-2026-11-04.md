@@ -1,7 +1,7 @@
 # 258. Withdrawal PIN: design and implementation for lead-engineer review (2026-11-04, v2)
 
 **Status (updated 2026-11-05):** the design below is v2 as written for review; **what was actually built and run differs, see doc 259** (the source of truth). Differences: PIN is **4 digits**, not 6; changing a PIN needs the current PIN **and an emailed code**; forgotten-PIN reset needs **only the emailed code** (no SMS, no 48 h wait; accounts without a real email get `no_email`). Database, edge function and Android screens are live on `byrzshwlentqvktcksem`; web frontend not built. Branch `dev/withdrawal-pin`, not pushed.
-**Files:** `supabase/migrations/20261104090000_withdrawal_pin.sql` (+ `.rollback.sql`), `supabase/functions/withdrawal-pin-reset/index.ts`, `supabase/tests/withdrawal_pin_manual_tests.sql`. No frontend change yet.
+**Files:** `supabase/migrations/20261104090100_withdrawal_pin.sql` (+ `.rollback.sql`), `supabase/functions/withdrawal-pin-reset/index.ts`, `supabase/tests/withdrawal_pin_manual_tests.sql`. No frontend change yet.
 **Origin:** Josh (CTO), 2026-11-04: every user has a secret PIN used to withdraw; it must be tied to the Welile ID, not the phone number, so a person who gets into an account cannot withdraw.
 **v2 changes** (lead engineer's review, same day): (1) cash pickups are gated too; (2) forgotten PIN is reset by a 2FA code instead of a bare wait; (3) the PIN proof records whether the device is one the owner trusts.
 
@@ -112,4 +112,4 @@ Trigger exceptions (SQLSTATE `28000`): `withdrawal_pin_required` (mode `all`, no
 
 ## 10. Rollback
 
-`20261104090000_withdrawal_pin.rollback.sql` (now also covers the follow-up migrations `20261104130000` and `20261104150000`) drops triggers, functions, tables and the three added `payout_number_change_requests` columns; delete the edge function too. Faster and non-destructive: `update public.withdrawal_pin_config set enforce_mode = 'off'` stops all enforcement and keeps the data.
+`20261104090100_withdrawal_pin.rollback.sql` (now also covers the follow-up migrations `20261104130000` and `20261104150100`) drops triggers, functions, tables and the three added `payout_number_change_requests` columns; delete the edge function too. Faster and non-destructive: `update public.withdrawal_pin_config set enforce_mode = 'off'` stops all enforcement and keeps the data.

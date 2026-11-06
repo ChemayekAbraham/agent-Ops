@@ -1,5 +1,5 @@
 -- Withdrawal PIN: an email code is needed to CHANGE or RESET the PIN (CTO, 2026-11-04). Follow-up to
--- 20261104090000_withdrawal_pin.sql and 20261104130000_withdrawal_pin_four_digits.sql.
+-- 20261104090100_withdrawal_pin.sql and 20261104130000_withdrawal_pin_four_digits.sql.
 --
 -- Decisions:
 --   * Change PIN  = the current PIN AND a code sent to the account's real email. The old "current PIN only"

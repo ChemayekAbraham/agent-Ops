@@ -1,4 +1,4 @@
--- Withdrawal PIN is 4 digits, not 6 (CTO, 2026-11-04). Follow-up to 20261104090000_withdrawal_pin.sql.
+-- Withdrawal PIN is 4 digits, not 6 (CTO, 2026-11-04). Follow-up to 20261104090100_withdrawal_pin.sql.
 --
 -- Only the PIN changes. The reset codes sent by SMS or email stay 6 digits.
 -- Safe to apply only while no PIN exists (a stored 6-digit PIN could no longer be typed): it checks that first.

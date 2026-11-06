@@ -1,4 +1,4 @@
--- Rollback for 20261104090000_withdrawal_pin.sql AND its follow-ups 20261104130000 (four digits) and 20261104150000 (email codes). Drops the gates first, then the data.
+-- Rollback for 20261104090100_withdrawal_pin.sql AND its follow-ups 20261104130000 (four digits) and 20261104150100 (email codes). Drops the gates first, then the data.
 -- Kill switch without dropping anything:  update public.withdrawal_pin_config set enforce_mode = 'off';
 -- Redeploy-free: the edge function withdrawal-pin-reset simply starts failing once its functions are gone; delete it too.
 drop trigger if exists trg_require_withdrawal_pin_proof on public.withdrawal_requests;

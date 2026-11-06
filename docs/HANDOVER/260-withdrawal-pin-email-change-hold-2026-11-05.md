@@ -37,4 +37,4 @@ Why a trigger and not an edit of the email functions: the live `confirm_email_ve
 
 ## 6. Rollback
 
-`update public.withdrawal_pin_config set email_change_hold_hours = 0` (non-destructive), or `20261105090000_withdrawal_pin_email_change_hold.rollback.sql` and re-run `pin_reset_begin` from `20261104150000`.
+`update public.withdrawal_pin_config set email_change_hold_hours = 0` (non-destructive), or `20261105090000_withdrawal_pin_email_change_hold.rollback.sql` and re-run `pin_reset_begin` from `20261104150100`.
