@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronRight, Building2, Clock, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Building2, Clock, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import type { PortfolioRecord } from '@/hooks/useCapitalOpportunities';
 import { computeAccrual } from '@/lib/portfolioAccrual';
 import { usePendingTopup } from './ActivePortfolioCard';
+import { useProfile } from '@/hooks/useProfile';
 import { CardWaves, ContactlessGlyph, EmvChip, NOISE_BACKGROUND } from './PartnerPortfolioWalletCard';
 
 /**
@@ -85,10 +86,10 @@ function remainingLabel(daysToPayout: number | null) {
 
 export function PortfolioCardStack({
   portfolios,
-  onView,
 }: {
   portfolios: PortfolioRecord[];
-  onView: (portfolioId: string) => void;
+  /** No longer used: the pocket is display only. Kept so existing callers still type-check. */
+  onView?: (portfolioId: string) => void;
 }) {
   const reduced = usePrefersReducedMotion();
   const safe = useMemo(isSafeMode, []);
@@ -145,6 +146,9 @@ export function PortfolioCardStack({
 
   // Tapping the front card lifts it out of the pocket so its whole face shows; tap again to tuck it back.
   const [expanded, setExpanded] = useState(false);
+  // The holder's name is printed on each card, as on the gold Partner card.
+  const { profile } = useProfile();
+  const holderName = (profile?.full_name || '').trim().toUpperCase();
   // The total stays masked until the partner taps the eye, like the balance on the gold card.
   const [showTotal, setShowTotal] = useState(false);
 
@@ -166,8 +170,8 @@ export function PortfolioCardStack({
   const pocketStyle: CSSProperties = {
     marginTop: expanded ? 12 : 'calc(min(100cqw - 32px, 420px) / 1.586 * -0.46)',
     transition: reduced ? 'none' : `margin-top 600ms ${SPRING}`,
-    background: safe ? 'hsl(var(--card))' : 'hsl(var(--card) / 0.82)',
-    borderTop: '1px solid hsl(var(--foreground) / 0.1)',
+    background: safe ? '#2b2d33' : 'rgba(43,45,51,0.94)',
+    borderTop: '1px solid rgba(255,255,255,0.08)',
     boxShadow: '0 -10px 24px -16px rgba(0,0,0,0.35)',
     ...(safe ? {} : { backdropFilter: 'blur(18px) saturate(1.3)', WebkitBackdropFilter: 'blur(18px) saturate(1.3)' }),
   };
@@ -318,18 +322,19 @@ export function PortfolioCardStack({
                         >
                           {formatUGX(acc.deployed)}
                         </span>
-                        {acc.state === 'active' && (
-                          <span className="mt-[2cqw] flex items-end justify-between gap-3">
-                            <span className="min-w-0">
-                              <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Earned this cycle</span>
-                              <span className="block truncate font-mono text-[13px] font-semibold tabular-nums">+{formatUGX(Math.round(acc.cycleAccrued))}</span>
-                            </span>
-                            <span className="flex-none text-right">
-                              <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Day</span>
-                              <span className="block font-mono text-[13px] font-semibold tabular-nums">{acc.cycleElapsedDays}/{acc.cycleDays}</span>
-                            </span>
+                        {/* holder's name bottom-left, as a bank card prints it */}
+                        <span className="mt-[2cqw] flex items-end justify-between gap-3">
+                          <span className="min-w-0">
+                            <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Partner name</span>
+                            <span className="block truncate text-[13px] font-semibold tracking-[0.06em]">{holderName || '—'}</span>
                           </span>
-                        )}
+                          {acc.state === 'active' && (
+                            <span className="flex-none text-right">
+                              <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Earned this cycle</span>
+                              <span className="block font-mono text-[13px] font-semibold tabular-nums">+{formatUGX(Math.round(acc.cycleAccrued))}</span>
+                            </span>
+                          )}
+                        </span>
                       </span>
                     )}
                   </span>
@@ -341,57 +346,42 @@ export function PortfolioCardStack({
       </div>
 
       {/* The wallet pocket the cards sit in: it covers the lower part of the front card.
-          Tapping it opens the portfolio, as the list card did. */}
+          Display only; "View all portfolios" below is the way into the portfolios. */}
       <div
-        role="button"
-        tabIndex={0}
-        onClick={() => { hapticTap(); onView(front.id); }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            hapticTap();
-            onView(front.id);
-          }
-        }}
-        aria-label={`Open portfolio ${front.portfolio_code || ''}`}
-        className="relative z-[20] cursor-pointer px-4 pb-4 pt-4 active:opacity-90"
+        className="relative z-[20] px-4 pb-4 pt-4"
         style={pocketStyle}
         aria-live="polite"
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-white/65">
               Your active portfolios
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); hapticTap(); setShowTotal((v) => !v); }}
-                onKeyDown={(e) => e.stopPropagation()}
+                onClick={() => { hapticTap(); setShowTotal((v) => !v); }}
                 aria-label={showTotal ? 'Hide total' : 'Show total'}
                 aria-pressed={showTotal}
-                className="-m-1 rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="-m-1 rounded-full p-1 text-white/65 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {showTotal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </button>
             </p>
-            <p className="mt-0.5 break-words font-mono text-2xl font-semibold leading-tight tabular-nums tracking-tight text-foreground">
+            <p className="mt-0.5 break-words font-mono text-2xl font-semibold leading-tight tabular-nums tracking-tight text-white">
               {showTotal ? formatUGX(totalPrincipal) : 'UGX ••••••'}
             </p>
           </div>
-          <span className="mt-1 grid h-9 w-9 flex-none place-items-center rounded-full bg-muted/80 text-muted-foreground">
-            <ChevronRight className="h-4 w-4" />
-          </span>
         </div>
 
         {isActive && (
           <div>
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-muted-foreground">
-                Earned this cycle <span className="font-mono font-semibold tabular-nums text-success">+{formatUGX(Math.round(a.cycleAccrued))}</span>
+              <span className="text-white/65">
+                Earned this cycle <span className="font-mono font-semibold tabular-nums text-green-400">+{formatUGX(Math.round(a.cycleAccrued))}</span>
               </span>
-              {remaining && <span className="font-medium text-foreground">{remaining}</span>}
+              {remaining && <span className="font-medium text-white">{remaining}</span>}
             </div>
             <div
-              className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+              className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/15"
               role="progressbar"
               aria-valuemin={0}
               aria-valuemax={100}
@@ -400,7 +390,7 @@ export function PortfolioCardStack({
             >
               <div className="h-full rounded-full bg-primary transition-all duration-1000" style={{ width: `${progressPct}%` }} />
             </div>
-            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-muted-foreground">
+            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-white/65">
               {formatUGX(Math.round(a.dailyAccrual))}/day · day {a.cycleElapsedDays}/{a.cycleDays} · {period}
             </p>
           </div>
@@ -409,13 +399,13 @@ export function PortfolioCardStack({
         {(isCompounding || pendingTopup > 0) && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {isCompounding && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] font-medium text-violet-300">
                 <RefreshCw className="h-3 w-3" />
                 Compounding
               </span>
             )}
             {pendingTopup > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium text-warning">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 px-2.5 py-0.5 text-[11px] font-medium text-amber-300">
                 <Clock className="h-3 w-3" />
                 +{formatUGX(pendingTopup)} pending
               </span>
