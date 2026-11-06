@@ -2254,6 +2254,7 @@ export default function WithdrawFlow({
                 <Label>Withdrawal PIN</Label>
                 <InputOTP
                   maxLength={4}
+                  containerClassName="justify-center"
                   value={withdrawPin}
                   onChange={(v) => { setWithdrawPin(v.replace(/\D/g, '')); setPinError(null); }}
                   inputMode="numeric"
