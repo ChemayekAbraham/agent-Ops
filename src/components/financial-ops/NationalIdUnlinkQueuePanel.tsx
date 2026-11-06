@@ -20,9 +20,9 @@ import {
 } from '@/hooks/useNationalIdGroup';
 
 const TONES: Record<string, string> = {
-  pending: 'bg-amber-500/15 text-amber-700',
-  approved: 'bg-emerald-500/15 text-emerald-700',
-  rejected: 'bg-destructive/15 text-destructive',
+  pending: 'bg-primary/10 text-primary',
+  approved: 'bg-primary/15 text-primary',
+  rejected: 'bg-muted text-muted-foreground',
   cancelled: 'bg-muted text-muted-foreground',
 };
 

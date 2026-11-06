@@ -10,12 +10,44 @@
 
 export const FINOPS_BASE = '/admin/financial-ops';
 
+/** The grouped, searchable "All tools" menu: /admin/financial-ops/menu. Not a panel; the console renders it directly. */
+export const FINOPS_MENU_SLUG = 'menu';
+
 /** Panels that are "views" (a sub-screen) rather than tools; same URL shape. */
 const VIEW_IDS = ['deposits', 'offline_collections'] as const;
 
 /** Panels whose id makes an awkward URL get a readable slug instead. */
-const SLUG_ALIASES: Record<string, string> = { email_tx: 'email-transactions' };
-const ID_FROM_ALIAS = Object.fromEntries(Object.entries(SLUG_ALIASES).map(([id, slug]) => [slug, id]));
+const SLUG_ALIASES: Record<string, string> = {
+  email_tx: 'email-transactions',
+  deposits: 'verify-deposits',
+  payout_queue: 'payout-queue',
+  withdrawals: 'withdrawals',
+  cash_codes: 'cash-deposit-codes',
+  ops: 'ops-center',
+  queue: 'approval-queue',
+  recon: 'reconciliation',
+  recon_review: 'reconciliation-review',
+  ledgers: 'ledger',
+  audit: 'audit-trail',
+  search: 'transaction-search',
+};
+
+const ID_FROM_ALIAS: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(SLUG_ALIASES).map(([id, slug]) => [slug, id])),
+  // Direct hyphenated equivalents and legacy aliases also map directly back to id:
+  deposits: 'deposits',
+  withdrawals: 'withdrawals',
+  'withdrawal-requests': 'withdrawals',
+  'payout-queue': 'payout_queue',
+  'cash-codes': 'cash_codes',
+  ledgers: 'ledgers',
+  ledger: 'ledgers',
+  recon: 'recon',
+  audit: 'audit',
+  ops: 'ops',
+  queue: 'queue',
+  'email-tx': 'email_tx',
+};
 
 export const finopsSlug = (id: string): string => SLUG_ALIASES[id] ?? id.replace(/_/g, '-');
 export const finopsIdFromSlug = (slug: string): string => ID_FROM_ALIAS[slug] ?? slug.replace(/-/g, '_');

@@ -125,8 +125,8 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
         <div
           className={
             vetting.data.approvable
-              ? 'rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-2 text-xs'
-              : 'rounded-lg border border-destructive/50 bg-destructive/5 p-2 text-xs font-semibold text-destructive'
+              ? 'rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs'
+              : 'rounded-lg border border-border bg-muted/30 p-2 text-xs font-semibold text-foreground'
           }
         >
           <p>{vetting.data.message}</p>
@@ -167,14 +167,14 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
         </div>
       ) : (
         <>
-          <div className="space-y-2 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 p-3">
-            <p className="text-sm font-bold text-amber-700 dark:text-amber-400">
+          <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-sm font-bold text-foreground">
               Required: is this number in the names on the National ID?
             </p>
 
             {/* How-to-check guide */}
-            <div className="rounded-md border border-amber-500/40 bg-background/70 p-2.5">
-              <p className="text-[11px] font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+            <div className="rounded-md border border-primary/20 bg-background/70 p-2.5">
+              <p className="text-[11px] font-extrabold uppercase tracking-wide text-primary">
                 How to check before approving
               </p>
               <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-[11px] text-foreground">
@@ -204,7 +204,7 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
                 <span className="text-muted-foreground">Names registered on {r.requested_number}: </span>
                 <span className="font-bold">{r.requested_name}</span>
               </p>
-              <p className={looksSame ? 'font-semibold text-emerald-600' : 'font-semibold text-destructive'}>
+              <p className={looksSame ? 'font-semibold text-primary' : 'font-semibold text-muted-foreground'}>
                 {looksSame
                   ? 'The two names share at least one name — still check it yourself on MTN MoMo or Airtel Money.'
                   : 'These names do not match. Do not approve unless the number is genuinely in the ID names.'}
@@ -213,7 +213,7 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
             <label className="flex cursor-pointer items-start gap-2 text-xs font-semibold">
               <input
                 type="checkbox"
-                className="mt-0.5 h-4 w-4 accent-amber-600"
+                className="mt-0.5 h-4 w-4 accent-primary"
                 checked={nameChecked}
                 onChange={(e) => setNameChecked(e.target.checked)}
               />
@@ -229,7 +229,7 @@ function RequestCard({ r, readOnly }: { r: NumberChangeRequest; readOnly?: boole
               placeholder="Proof statement: how you checked and the exact name the network showed (25 characters minimum)"
             />
             {!proofReady && (
-              <p className="text-[11px] font-semibold text-destructive">
+              <p className="text-[11px] font-semibold text-primary">
                 Approve stays locked until this is ticked and the proof statement is written.
               </p>
             )}
@@ -285,12 +285,12 @@ export default function PayoutNumberChangeQueue() {
   if (tab === 'pending' && rows.length === 0) return null;
 
   return (
-    <div className="space-y-2 rounded-xl border-2 border-amber-500/40 bg-amber-500/5 p-3">
+    <div className="space-y-2 rounded-xl border border-primary/30 bg-card p-3 shadow-xs">
       <div className="flex items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-bold">
-          <ShieldAlert className="h-4 w-4 text-amber-600" />
+          <ShieldAlert className="h-4 w-4 text-primary" />
           Withdrawal number changes
-          {pending > 0 && <Badge variant="destructive">{pending} waiting</Badge>}
+          {pending > 0 && <span className="rounded-full bg-primary/15 border border-primary/25 px-2 py-0.5 text-[10px] font-bold text-primary">{pending} waiting</span>}
         </p>
         <Tabs value={tab} onValueChange={(v) => setTab(v as 'pending' | 'all')}>
           <TabsList className="h-8">

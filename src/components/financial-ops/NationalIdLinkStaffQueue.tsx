@@ -39,14 +39,14 @@ export default function NationalIdLinkStaffQueue() {
   };
 
   return (
-    <Card id="national-id-link-staff-queue" className="border-2 border-amber-500/40 shadow-sm scroll-mt-20">
+    <Card id="national-id-link-staff-queue" className="border border-primary/30 bg-card shadow-sm scroll-mt-20">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
-            <IdCard className="h-4 w-4 text-amber-600" />
+            <IdCard className="h-4 w-4 text-primary" />
             National ID link audit queue ({rows.length})
           </CardTitle>
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 ring-1 ring-inset ring-emerald-500/30 dark:text-emerald-400">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary ring-1 ring-inset ring-primary/25">
             Audit review · Payout auto-verified
           </span>
         </div>
@@ -65,7 +65,7 @@ export default function NationalIdLinkStaffQueue() {
               <p className="text-sm font-semibold text-foreground">
                 National ID <span className="font-mono font-bold">{r.nin}</span>
               </p>
-              <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                 Awaiting staff audit
               </span>
             </div>

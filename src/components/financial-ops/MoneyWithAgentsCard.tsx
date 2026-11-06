@@ -256,7 +256,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
               {isLoading ? '—' : formatUGX(owedTotal)}
             </span>
             {!isLoading && underReviewTotal > 0 && (
-              <span className="block mt-0.5 text-[11px] font-semibold text-warning">
+              <span className="block mt-0.5 text-[11px] font-semibold text-primary">
                 + {formatUGX(underReviewTotal)} filed but not supported by the books across{' '}
                 {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'} — not payable
               </span>
@@ -271,14 +271,14 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
       </p>
 
       {deficitTotal > 0 && (
-        <div className="mt-4 rounded-2xl border-2 border-dashed border-destructive/60 bg-destructive/10 p-3">
+        <div className="mt-4 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 p-3">
           <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <AlertTriangle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-destructive">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
                 Hidden deficit across desks
               </p>
-              <p className="mt-1 font-mono text-lg font-bold tabular-nums text-destructive">
+              <p className="mt-1 font-mono text-lg font-bold tabular-nums text-primary">
                 {formatUGX(deficitTotal)}
               </p>
               <p className="mt-1 text-[10px] text-muted-foreground">
@@ -414,7 +414,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                   <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Already with them
                   </p>
-                  <p className="font-mono text-sm font-bold tabular-nums text-warning">
+                  <p className="font-mono text-sm font-bold tabular-nums text-primary">
                     {isLoading ? '—' : formatUGX(floatTotal)}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
@@ -423,7 +423,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                 </div>
               </div>
               {pot > 0 && capacityTotal === 0 && (
-                <p className="mt-2 text-[10px] font-medium text-destructive">
+                <p className="mt-2 text-[10px] font-medium text-muted-foreground">
                   No desk currently qualifies on record, so nothing can be recommended.
                 </p>
               )}
@@ -436,11 +436,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
               <p className="text-[10px] text-muted-foreground">
                 Total float with merchant agents (evidenced only)
               </p>
-              <p
-                className={`font-mono text-base font-extrabold tabular-nums text-right ${
-                  floatTotal > 0 ? 'text-warning' : floatTotal < 0 ? 'text-destructive' : 'text-foreground'
-                }`}
-              >
+              <p className="font-mono text-base font-extrabold tabular-nums text-right text-foreground">
                 {isLoading ? '—' : formatUGX(floatTotal)}
               </p>
             </div>
@@ -475,9 +471,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       className={`sm:hidden font-mono text-sm font-bold tabular-nums shrink-0 whitespace-nowrap ${
                         isUnverified(r)
                           ? 'text-muted-foreground'
-                          : spendableFloat(r) > 0
-                            ? 'text-warning'
-                            : 'text-foreground'
+                          : 'text-foreground'
                       }`}
                     >
                       {formatUGX(spendableFloat(r))}
@@ -496,7 +490,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       }
                       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition hover:brightness-110 disabled:cursor-default ${
                         !cap || cap.earnedCapacity === 0
-                          ? 'border-destructive/40 bg-destructive/10 text-destructive'
+                          ? 'border-border bg-muted/40 text-muted-foreground'
                           : 'border-primary/40 bg-primary/10 text-primary'
                       }`}
                       title={
@@ -511,7 +505,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     </button>
                     {cap?.override && (
                       <span
-                        className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-warning"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary"
                         title={`Override by ${cap.override.setBy || 'Financial Ops'} — ${cap.override.reason}`}
                       >
                         override · earned {formatUGX(cap.performanceCapacity)}
@@ -533,7 +527,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       <SlidersHorizontal className="h-2.5 w-2.5" /> adjust
                     </button>
                     {pot > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-success">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
                         send {formatUGX(cap?.suggestedAllocation ?? 0)}
                       </span>
                     )}
@@ -545,7 +539,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       : ''}
                   </p>
                   {isUnverified(r) && (
-                    <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-destructive">
+                    <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
                       <ShieldAlert className="h-2.5 w-2.5" /> {evidenceLabel(r)}
                     </span>
                   )}
@@ -557,9 +551,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                       movements.map((m, idx) => (
                         <p
                           key={`${m.agentId}-${m.date}-${idx}`}
-                          className={`text-[11px] font-semibold tabular-nums text-left whitespace-nowrap ${
-                            m.direction === 'cash_in' ? 'text-success' : 'text-destructive'
-                          }`}
+                          className="text-[11px] font-semibold tabular-nums text-left whitespace-nowrap text-foreground"
                         >
                           {m.direction === 'cash_in' ? '+' : '−'}
                           {formatUGX(m.amount)}
@@ -576,18 +568,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                 </div>
                 <div className="text-left sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
                   <p
-                    className={`hidden sm:block font-mono text-sm font-bold tabular-nums whitespace-nowrap ${
-                      isUnverified(r)
-                        ? 'text-muted-foreground'
-                        : spendableFloat(r) > 0
-                          ? 'text-warning'
-                          : 'text-foreground'
-                    }`}
+                    className="hidden sm:block font-mono text-sm font-bold tabular-nums whitespace-nowrap text-foreground"
                   >
                     {formatUGX(spendableFloat(r))}
                   </p>
                   {isUnverified(r) && (
-                    <p className="text-[10px] text-destructive whitespace-nowrap">
+                    <p className="text-[10px] text-primary whitespace-nowrap">
                       {formatUGX(excludedFloat(r))} not counted as float
                     </p>
                   )}
@@ -611,12 +597,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     </p>
                   )}
                   {r.clampedShortfall > 0 && (
-                    <p className="text-[10px] font-semibold text-destructive">
+                    <p className="text-[10px] font-semibold text-primary">
                       hides a UGX {formatUGX(r.clampedShortfall)} deficit
                     </p>
                   )}
                   {r.ownCashUnderReview > 0 && (
-                    <p className="text-[10px] font-semibold text-warning">
+                    <p className="text-[10px] font-semibold text-primary">
                       {formatUGX(r.ownCashUnderReview)} of their own money filed but not supported by
                       the books — not payable
                     </p>
@@ -640,11 +626,11 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
       )}
 
       {!error && excludedRows.length > 0 && (
-        <div className="mt-4 rounded-xl border-2 border-dashed border-destructive/40 bg-destructive/5 p-3">
+        <div className="mt-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3">
           <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <ShieldAlert className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-destructive">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
                 Unverified — excluded from float
               </p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -657,13 +643,13 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             {excludedRows.map((r) => (
               <div
                 key={`excluded-${r.deskId}`}
-                className="rounded-lg border border-destructive/20 bg-background px-3 py-2 min-w-0"
+                className="rounded-lg border border-primary/20 bg-background px-3 py-2 min-w-0"
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <p className="text-xs font-medium text-foreground truncate min-w-0">
                     {r.agentName || r.label || 'Merchant agent'}
                   </p>
-                  <p className="font-mono text-xs font-bold tabular-nums text-destructive shrink-0">
+                  <p className="font-mono text-xs font-bold tabular-nums text-primary shrink-0">
                     {formatUGX(excludedFloat(r))}
                   </p>
                 </div>
@@ -684,11 +670,11 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
       )}
 
       {!error && deficitRows.length > 0 && (
-        <div className="mt-4 rounded-xl border-2 border-dashed border-destructive/40 bg-destructive/5 p-3">
+        <div className="mt-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3">
           <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+            <ShieldAlert className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-destructive">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
                 Hidden deficit — the zero floor is hiding a shortfall
               </p>
               <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -703,13 +689,13 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             {deficitRows.map((r) => (
               <div
                 key={`deficit-${r.deskId}`}
-                className="rounded-lg border border-destructive/20 bg-background px-3 py-2 min-w-0"
+                className="rounded-lg border border-primary/20 bg-background px-3 py-2 min-w-0"
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <p className="text-xs font-medium text-foreground truncate min-w-0">
                     {r.agentName || r.label || 'Merchant agent'}
                   </p>
-                  <p className="font-mono text-xs font-bold tabular-nums text-destructive shrink-0">
+                  <p className="font-mono text-xs font-bold tabular-nums text-primary shrink-0">
                     −{formatUGX(r.clampedShortfall)}
                   </p>
                 </div>
@@ -728,8 +714,8 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         </p>
       </div>
 
-      <div className="mt-2 rounded-xl bg-warning/5 border border-warning/20 p-3 flex gap-2">
-        <ArrowRightLeft className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+      <div className="mt-2 rounded-xl bg-primary/5 border border-primary/20 p-3 flex gap-2">
+        <ArrowRightLeft className="h-4 w-4 text-primary shrink-0 mt-0.5" />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           <span className="font-semibold text-foreground">How to pay them:</span> send the money to
           the merchant agent's float number using MTN or Airtel only. The MTN/Airtel confirmation

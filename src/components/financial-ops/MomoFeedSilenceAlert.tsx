@@ -39,12 +39,12 @@ export function MomoFeedSilenceAlert() {
   return (
     <div
       role="alert"
-      className="rounded-xl border border-destructive/40 bg-destructive/5 p-4 space-y-2"
+      className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-2 shadow-2xs"
     >
       <div className="flex items-start gap-3">
-        <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+        <AlertTriangle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-destructive">
+          <p className="text-sm font-semibold text-foreground">
             MoMo feed silent{lastAt ? ` for ${formatDistanceToNowStrict(lastAt)}` : ''}
           </p>
           <p className="text-xs text-muted-foreground mt-1">

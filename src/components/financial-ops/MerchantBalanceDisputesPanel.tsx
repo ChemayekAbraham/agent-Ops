@@ -105,7 +105,7 @@ export function MerchantBalanceDisputesPanel() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {openCount > 0 ? (
-            <span className="rounded-full bg-destructive/10 border border-destructive/25 px-2.5 py-1 text-xs font-bold text-destructive">
+            <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-bold text-primary">
               {openCount} to review
             </span>
           ) : (
@@ -165,10 +165,10 @@ export function MerchantBalanceDisputesPanel() {
                 <span
                   className={`text-[10px] font-semibold shrink-0 ${
                     d.status === 'resolved'
-                      ? 'text-emerald-600 dark:text-emerald-400'
+                      ? 'text-primary'
                       : d.status === 'rejected'
-                        ? 'text-destructive'
-                        : 'text-warning'
+                        ? 'text-muted-foreground'
+                        : 'text-primary font-bold'
                   }`}
                 >
                   {d.status === 'open'

@@ -26,7 +26,7 @@ export default function PayoutVerificationCallout({ onOpen }: { onOpen: () => vo
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-base font-bold tracking-tight text-foreground">Verify payout numbers</h2>
           {waiting > 0 && (
-            <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">
+            <span className="rounded-full bg-primary/15 border border-primary/25 px-2 py-0.5 text-[10px] font-bold text-primary">
               {waiting > 999 ? '999+' : waiting} waiting
             </span>
           )}

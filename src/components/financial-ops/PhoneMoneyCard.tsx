@@ -106,8 +106,8 @@ export function PhoneMoneyCard() {
                   <img src={r.logo} alt="" className="w-full h-full object-contain" loading="lazy" />
                 </span>
               ) : (
-                <span className="h-8 w-8 rounded-full shrink-0 border border-border bg-emerald-500/10 flex items-center justify-center">
-                  <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                <span className="h-8 w-8 rounded-full shrink-0 border border-border bg-primary/10 flex items-center justify-center">
+                  <Banknote className="h-4 w-4 text-primary" aria-hidden="true" />
                 </span>
               )}
               <span className="text-sm font-medium text-foreground truncate">{r.label}</span>

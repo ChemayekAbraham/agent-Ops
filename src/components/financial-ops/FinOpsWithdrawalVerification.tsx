@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   ArrowDownToLine, CheckCircle, XCircle, Loader2, RefreshCw,
   Smartphone, Clock, Hand, Wallet, Briefcase, AlertTriangle, EyeOff, Eye, Unlock, Building,
+  Search, RotateCcw, CheckCircle2,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -90,6 +91,10 @@ export function FinOpsWithdrawalVerification() {
   
   const [activeTab, setActiveTab] = useState<ActiveTab>('pending');
   const [releasingClaim, setReleasingClaim] = useState<string | null>(null);
+  const [approvedTodayCount, setApprovedTodayCount] = useState<number>(0);
+  const [approvedTodayAmount, setApprovedTodayAmount] = useState<number>(0);
+  const [methodFilter, setMethodFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Release a merchant agent's claim on a withdrawal so it returns to the open queue.
   const handleReleaseClaim = async (req: WithdrawalRequest) => {
@@ -216,16 +221,20 @@ export function FinOpsWithdrawalVerification() {
       return null;
     };
     const userIds = [...new Set([
-      ...data.map(r => r.user_id),
+      ...data.map(r => r.user_id).filter(Boolean),
       ...data.map(r => r.claimed_by).filter(Boolean),
       ...data.map(r => r.assigned_cashout_agent_id).filter(Boolean),
       ...data.map(proxyIdFor).filter(Boolean),
-    ])];
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone, avatar_url')
-      .in('id', userIds);
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    ])].filter(Boolean) as string[];
+
+    let profileMap = new Map<string, any>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone, avatar_url')
+        .in('id', userIds);
+      profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    }
     return data.map(r => {
       const proxyId = proxyIdFor(r);
       const proxyProfile = proxyId ? profileMap.get(proxyId) : null;
@@ -267,6 +276,22 @@ export function FinOpsWithdrawalVerification() {
         .limit(100);
 
       if (rejectedErr) throw rejectedErr;
+
+      // Fetch approved today (since start of day)
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      const { data: approvedTodayData } = await supabase
+        .from('withdrawal_requests')
+        .select('id, amount')
+        .in('status', ['approved', 'completed'])
+        .gte('created_at', todayMidnight.toISOString());
+
+      if (approvedTodayData) {
+        setApprovedTodayCount(approvedTodayData.length);
+        setApprovedTodayAmount(
+          approvedTodayData.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
+        );
+      }
 
       const [pendingWithProfiles, rejectedWithProfiles] = await Promise.all([
         fetchProfiles(pendingData || []),
@@ -620,13 +645,9 @@ export function FinOpsWithdrawalVerification() {
     else if (hours >= 1) label = `${hours}h old`;
     else label = `${Math.max(1, minutes)}m old`;
 
-    let variant: 'destructive' | 'warning' | 'secondary' = 'secondary';
-    if (hours >= 4 || days >= 1) variant = 'destructive';
-    else if (hours >= 1) variant = 'warning';
-
     return (
-      <Badge variant={variant} size="sm" className="gap-1">
-        <Clock className="h-2.5 w-2.5" />
+      <Badge variant="secondary" size="sm" className="gap-1 bg-muted/80 text-muted-foreground border-border/70 text-[10px] font-medium">
+        <Clock className="h-2.5 w-2.5 text-primary" />
         {label}
       </Badge>
     );
@@ -638,25 +659,25 @@ export function FinOpsWithdrawalVerification() {
       case 'pending':
       case 'requested':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/25 text-primary text-[10px] font-bold uppercase tracking-wider">
             Awaiting Manager
           </span>
         );
       case 'manager_approved':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-700 dark:text-blue-300 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider">
             Manager OK → Needs FinOps TID
           </span>
         );
       case 'cfo_approved':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/20 border border-primary/35 text-primary text-[10px] font-bold uppercase tracking-wider">
             CFO OK → Needs FinOps TID
           </span>
         );
       case 'fin_ops_approved':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-muted border border-border text-foreground text-[10px] font-bold uppercase tracking-wider">
             FinOps OK → Finalising
           </span>
         );
@@ -687,17 +708,17 @@ export function FinOpsWithdrawalVerification() {
           className={`p-3 rounded-xl border transition-all ${
             isShort
               ? 'bg-destructive/5 border-destructive/30 dark:bg-destructive/10'
-              : 'bg-amber-500/5 border-amber-500/20 dark:bg-amber-500/10'
+              : 'bg-primary/5 border-primary/20 dark:bg-primary/10'
           } space-y-2`}
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0">
-              <Briefcase className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+              <Briefcase className="h-3.5 w-3.5 text-primary shrink-0" />
               <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                 Landlord Float: <span className="text-foreground normal-case font-semibold">{req.user?.full_name || 'Agent'}</span>
               </p>
             </div>
-            <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold uppercase tracking-wider">
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold uppercase tracking-wider">
               Company Float
             </span>
           </div>
@@ -783,7 +804,7 @@ export function FinOpsWithdrawalVerification() {
                   Short {formatCurrency(amount - totalAvailable)}
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 shrink-0">
                   <CheckCircle className="h-2.5 w-2.5" />
                   Funded
                 </span>
@@ -822,9 +843,9 @@ export function FinOpsWithdrawalVerification() {
 
           {/* Pending Holds Banner */}
           {bal && pendingHolds > 0 && (
-            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-[11px]">
+            <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-primary/5 border border-primary/20 text-foreground text-[11px]">
               <span className="inline-flex items-center gap-1.5 font-medium min-w-0 truncate">
-                <Clock className="h-3 w-3 shrink-0 text-amber-600 dark:text-amber-400" />
+                <Clock className="h-3 w-3 shrink-0 text-primary" />
                 Reserved hold against pending requests
               </span>
               <span className="font-bold tabular-nums shrink-0 whitespace-nowrap">
@@ -974,13 +995,13 @@ export function FinOpsWithdrawalVerification() {
 
         {/* Claimed Banner (if claimed by merchant agent) */}
         {req.assigned_cashout_agent_id && (
-          <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200">
+          <div className="flex items-center justify-between gap-2.5 px-3 py-2 rounded-xl bg-primary/5 border border-primary/25 text-foreground">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="h-7 w-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                <Hand className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+              <div className="h-7 w-7 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
+                <Hand className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-primary">
                   Claimed by Merchant Agent — DO NOT double-pay
                 </p>
                 <p className="text-xs font-semibold truncate">
@@ -993,7 +1014,7 @@ export function FinOpsWithdrawalVerification() {
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 h-7 text-xs font-bold border-amber-500/40 text-amber-900 dark:text-amber-200 hover:bg-amber-500/20"
+              className="shrink-0 h-7 text-xs font-bold border-primary/30 text-primary hover:bg-primary/10"
               disabled={releasingClaim === req.id}
               onClick={(e) => { e.stopPropagation(); handleReleaseClaim(req); }}
             >
@@ -1010,7 +1031,7 @@ export function FinOpsWithdrawalVerification() {
         {/* Hidden from Merchant Queue Notification Strip */}
         {req.hidden_from_merchant_queue && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/60 border border-border/70 text-muted-foreground text-xs">
-            <EyeOff className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+            <EyeOff className="h-3.5 w-3.5 text-primary shrink-0" />
             <span className="font-medium">Hidden from Merchant Agent payout queue</span>
           </div>
         )}
@@ -1032,16 +1053,16 @@ export function FinOpsWithdrawalVerification() {
           <div className="flex items-center gap-3 min-w-0">
             {/* Provider Rail Icon */}
             {isMtn ? (
-              <div className="h-9 w-9 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center shrink-0">
-                <Smartphone className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-primary" />
               </div>
             ) : isAirtel ? (
-              <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
-                <Smartphone className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-primary" />
               </div>
             ) : isBank ? (
-              <div className="h-9 w-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Building className="h-4 w-4 text-primary" />
               </div>
             ) : (
               <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -1055,14 +1076,18 @@ export function FinOpsWithdrawalVerification() {
                   {recipientName || req.user?.full_name || 'Direct Payout'}
                 </span>
                 {req.mobile_money_provider && (
-                  <span
-                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                      isMtn
-                        ? 'bg-yellow-500/20 text-yellow-800 dark:text-yellow-300'
-                        : 'bg-red-500/20 text-red-700 dark:text-red-300'
-                    }`}
-                  >
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                     {req.mobile_money_provider}
+                  </span>
+                )}
+                {isBank && (
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
+                    Bank
+                  </span>
+                )}
+                {isCash && (
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
+                    Cash
                   </span>
                 )}
               </div>
@@ -1100,7 +1125,7 @@ export function FinOpsWithdrawalVerification() {
               variant="outline"
               className={`h-8 text-xs font-semibold shrink-0 transition-colors ${
                 req.hidden_from_merchant_queue
-                  ? 'text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20'
+                  ? 'text-primary border-primary/40 bg-primary/10 hover:bg-primary/20'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => handleToggleHiddenFromMerchantQueue(req)}
@@ -1113,7 +1138,7 @@ export function FinOpsWithdrawalVerification() {
             >
               {req.hidden_from_merchant_queue ? (
                 <>
-                  <EyeOff className="h-3.5 w-3.5 mr-1.5 text-amber-600" />
+                  <EyeOff className="h-3.5 w-3.5 mr-1.5 text-primary" />
                   Hidden from queue
                 </>
               ) : (
@@ -1127,7 +1152,7 @@ export function FinOpsWithdrawalVerification() {
             <Button
               size="sm"
               variant="outline"
-              className="h-8 text-xs font-semibold text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              className="h-8 text-xs font-semibold text-foreground border-border hover:bg-muted shrink-0"
               onClick={() => {
                 setSelected(req);
                 setRejectOpen(true);
@@ -1146,7 +1171,7 @@ export function FinOpsWithdrawalVerification() {
             ) : (
               <Button
                 size="sm"
-                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0 shadow-xs transition-all"
+                className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0 shadow-xs transition-all"
                 onClick={() => {
                   setSelected(req);
                   setApproveOpen(true);
@@ -1154,7 +1179,7 @@ export function FinOpsWithdrawalVerification() {
                 disabled={!!processing}
               >
                 <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
-                Approve & Complete
+                Approve & Pay
               </Button>
             )}
           </div>
@@ -1227,16 +1252,16 @@ export function FinOpsWithdrawalVerification() {
 
           <div className="flex items-center gap-3 min-w-0">
             {isMtn ? (
-              <div className="h-9 w-9 rounded-xl bg-yellow-500/15 border border-yellow-500/30 flex items-center justify-center shrink-0">
-                <Smartphone className="h-4 w-4 text-yellow-700 dark:text-yellow-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-primary" />
               </div>
             ) : isAirtel ? (
-              <div className="h-9 w-9 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center shrink-0">
-                <Smartphone className="h-4 w-4 text-red-600 dark:text-red-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Smartphone className="h-4 w-4 text-primary" />
               </div>
             ) : isBank ? (
-              <div className="h-9 w-9 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center shrink-0">
-                <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Building className="h-4 w-4 text-primary" />
               </div>
             ) : (
               <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -1250,14 +1275,18 @@ export function FinOpsWithdrawalVerification() {
                   {recipientName || req.user?.full_name || 'Direct Payout'}
                 </span>
                 {req.mobile_money_provider && (
-                  <span
-                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                      isMtn
-                        ? 'bg-yellow-500/20 text-yellow-800 dark:text-yellow-300'
-                        : 'bg-red-500/20 text-red-700 dark:text-red-300'
-                    }`}
-                  >
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                     {req.mobile_money_provider}
+                  </span>
+                )}
+                {isBank && (
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
+                    Bank
+                  </span>
+                )}
+                {isCash && (
+                  <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-muted text-foreground border border-border">
+                    Cash
                   </span>
                 )}
               </div>
@@ -1272,11 +1301,11 @@ export function FinOpsWithdrawalVerification() {
 
         {/* Rejection Reason Banner */}
         {rejectionText && (
-          <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-xs space-y-1">
-            <p className="font-bold text-[10px] uppercase tracking-wider text-destructive flex items-center gap-1.5">
-              <XCircle className="h-3.5 w-3.5" /> Rejection Reason
+          <div className="p-3 rounded-xl bg-muted/60 border border-border/80 text-xs space-y-1">
+            <p className="font-bold text-[10px] uppercase tracking-wider text-foreground flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-muted-foreground" /> Rejection Reason
             </p>
-            <p className="text-foreground leading-relaxed">{rejectionText}</p>
+            <p className="text-muted-foreground leading-relaxed">{rejectionText}</p>
           </div>
         )}
 
@@ -1298,7 +1327,7 @@ export function FinOpsWithdrawalVerification() {
             ) : (
               <Button
                 size="sm"
-                className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shrink-0 shadow-xs transition-all"
+                className="h-8 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-bold shrink-0 shadow-xs transition-all"
                 onClick={() => {
                   setSelected(req);
                   setApproveOpen(true);
@@ -1315,93 +1344,258 @@ export function FinOpsWithdrawalVerification() {
     );
   };
 
+  const totalPendingAmount = pendingRequests.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const totalRejectedAmount = rejectedRequests.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+
+  const filteredRequests = (() => {
+    let list = activeTab === 'pending' ? pendingRequests : rejectedRequests;
+
+    if (methodFilter !== 'all') {
+      list = list.filter((r) => {
+        const method = (r.payout_method || 'mobile_money').toLowerCase();
+        const provider = (r.mobile_money_provider || '').toLowerCase();
+        if (methodFilter === 'mtn') return provider.includes('mtn');
+        if (methodFilter === 'airtel') return provider.includes('airtel');
+        if (methodFilter === 'bank') return method.includes('bank') || !!r.bank_name;
+        if (methodFilter === 'cash') return method.includes('cash');
+        return true;
+      });
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter((r) => {
+        const name = (r.user?.full_name || '').toLowerCase();
+        const phone = (r.user?.phone || '').toLowerCase();
+        const recipient = (r.mobile_money_name || r.bank_account_name || '').toLowerCase();
+        const destPhone = (r.mobile_money_number || r.bank_account_number || '').toLowerCase();
+        const reason = (r.reason || '').toLowerCase();
+        const ref = (r.fin_ops_reference || '').toLowerCase();
+        return (
+          name.includes(q) ||
+          phone.includes(q) ||
+          recipient.includes(q) ||
+          destPhone.includes(q) ||
+          reason.includes(q) ||
+          ref.includes(q) ||
+          r.id.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return list;
+  })();
+
   if (loading) {
     return (
-      <Card>
-        <CardContent className="p-6 text-center">
-          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-        </CardContent>
-      </Card>
+      <div className="rounded-2xl border border-border/80 bg-card p-12 text-center shadow-xs">
+        <Loader2 className="h-7 w-7 animate-spin mx-auto text-primary mb-2" />
+        <p className="text-xs text-muted-foreground">Loading withdrawal requests and queue metrics…</p>
+      </div>
     );
   }
 
   return (
-    <>
-      <Card>
-        <CardHeader className="pb-2">
+    <div className="space-y-6">
+      {/* 4 Top KPI Summary Cards matching Board 02 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Pending Requests */}
+        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-2 hover:border-primary/40 transition-colors">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <ArrowDownToLine className="h-4 w-4 text-primary" />
-              Withdrawal Requests
-            </CardTitle>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchRequests}>
-              <RefreshCw className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Requests</span>
+            <span className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+              <Clock className="h-4 w-4" />
+            </span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-foreground tracking-tight">{pendingRequests.length}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Awaiting payout / verification</p>
+          </div>
+        </div>
+
+        {/* Metric 2: Total Pending Volume */}
+        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-2 hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending Volume</span>
+            <span className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+              <Wallet className="h-4 w-4" />
+            </span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-foreground tracking-tight">{formatCurrency(totalPendingAmount)}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Total payable in queue</p>
+          </div>
+        </div>
+
+        {/* Metric 3: Approved Today */}
+        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-2 hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Approved Today</span>
+            <span className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+              <CheckCircle className="h-4 w-4" />
+            </span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-foreground tracking-tight">{approvedTodayCount}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{formatCurrency(approvedTodayAmount)} completed</p>
+          </div>
+        </div>
+
+        {/* Metric 4: Rejected (90d) */}
+        <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-2 hover:border-primary/40 transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rejected (90d)</span>
+            <span className="h-8 w-8 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground">
+              <XCircle className="h-4 w-4" />
+            </span>
+          </div>
+          <div>
+            <p className="text-2xl font-black text-foreground tracking-tight">{rejectedRequests.length}</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{formatCurrency(totalRejectedAmount)} declined</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Modern Filter & Search Bar matching Board 02 */}
+      <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Status Tabs */}
+          <div className="flex items-center bg-muted/60 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveTab('pending')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'pending'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>Pending Requests</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-bold">
+                {pendingRequests.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('rejected')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                activeTab === 'rejected'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <span>Rejected Queue</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-bold">
+                {rejectedRequests.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Payment Method & Search Controls */}
+          <div className="flex flex-wrap items-center gap-2.5 flex-1 max-w-xl justify-end">
+            <div className="w-36 shrink-0">
+              <Select value={methodFilter} onValueChange={setMethodFilter}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="All Methods" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="mtn">MTN MoMo</SelectItem>
+                  <SelectItem value="airtel">Airtel Money</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="cash">Cash Pickup</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, phone, TID..."
+                className="h-9 pl-9 pr-8 text-xs"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {(methodFilter !== 'all' || searchQuery) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setMethodFilter('all');
+                  setSearchQuery('');
+                }}
+              >
+                Clear
+              </Button>
+            )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={fetchRequests}
+              title="Refresh Queue"
+            >
+              <RefreshCw className="h-3.5 w-3.5 text-primary" />
             </Button>
           </div>
+        </div>
 
-          {/* Tabs */}
-          <div className="flex gap-1 bg-muted/50 p-1 rounded-xl mt-2">
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'pending'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Pending
-              {pendingRequests.length > 0 && (
-                <Badge variant="warning" size="sm" className="text-[10px] px-1.5">{pendingRequests.length}</Badge>
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('rejected')}
-              className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
-                activeTab === 'rejected'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              Rejected
-              {rejectedRequests.length > 0 && (
-                <Badge variant="destructive" size="sm" className="text-[10px] px-1.5">{rejectedRequests.length}</Badge>
-              )}
-            </button>
-          </div>
+        {/* Informative Guidance Banner */}
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs flex items-center justify-between gap-2">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-foreground">Operational Rule:</span> Customer mobile money withdrawals are claimed and paid out by merchant agents from their own float — you only refund the merchant agent afterwards. Bank transfers and cash pickups are paid directly by Financial Ops.
+          </p>
+        </div>
+      </div>
 
-          <div className="mt-2 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2">
-            <p className="text-[11px] leading-relaxed text-muted-foreground">
-              <span className="font-semibold text-foreground">Your role here is to watch, not to pay.</span>{' '}
-              Customer mobile money withdrawals are claimed and paid out by merchant agents from
-              their own MTN/Airtel money — you only refund the merchant agent afterwards. You still
-              pay bank transfers and cash pickups yourself.
-            </p>
+      {/* Main Request List */}
+      {filteredRequests.length === 0 ? (
+        <div className="rounded-2xl border border-border/80 bg-card p-12 text-center shadow-xs">
+          <div className="h-12 w-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto mb-3 text-primary">
+            <ArrowDownToLine className="h-6 w-6" />
           </div>
-        </CardHeader>
-        <CardContent>
-          {activeTab === 'pending' ? (
-            pendingRequests.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                No pending wallet withdrawals
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {pendingRequests.map(req => renderPendingCard(req))}
-              </div>
-            )
-          ) : (
-            rejectedRequests.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                No rejected withdrawals in the last 90 days
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {rejectedRequests.map(req => renderRejectedCard(req))}
-              </div>
-            )
+          <p className="text-base font-bold text-foreground">No withdrawals found</p>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+            {searchQuery || methodFilter !== 'all'
+              ? 'No requests match your current filters. Try resetting the filters.'
+              : activeTab === 'pending'
+                ? 'All customer withdrawal requests have been processed and settled.'
+                : 'No rejected withdrawals in the last 90 days.'}
+          </p>
+          {(searchQuery || methodFilter !== 'all') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 text-xs"
+              onClick={() => {
+                setMethodFilter('all');
+                setSearchQuery('');
+              }}
+            >
+              Reset Filters
+            </Button>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredRequests.map((req) =>
+            activeTab === 'pending' ? renderPendingCard(req) : renderRejectedCard(req)
+          )}
+        </div>
+      )}
 
       {/* Approve & Complete Dialog */}
       <AlertDialog open={approveOpen} onOpenChange={(open) => { setApproveOpen(open); if (!open) { setReference(''); setPaymentMethod(''); } }}>
@@ -1415,8 +1609,8 @@ export function FinOpsWithdrawalVerification() {
                 {selected && (
                   <>
                     {selected.status === 'rejected' && (
-                      <div className="px-2.5 py-2 rounded-lg bg-warning/10 border border-warning/30">
-                        <p className="text-[10px] font-semibold text-warning uppercase tracking-wider mb-0.5">⚠️ Previously Rejected</p>
+                      <div className="px-2.5 py-2 rounded-lg bg-primary/10 border border-primary/25">
+                        <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-0.5">⚠️ Previously Rejected</p>
                         <p className="text-xs text-foreground">This withdrawal was rejected and is being re-approved. Ensure the reason for rejection has been resolved.</p>
                       </div>
                     )}
@@ -1433,7 +1627,7 @@ export function FinOpsWithdrawalVerification() {
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">MoMo</span>
                           <span className="text-foreground">
-                            <span className={`uppercase font-medium ${selected.mobile_money_provider === 'mtn' ? 'text-yellow-600' : 'text-red-500'}`}>
+                            <span className="uppercase font-semibold text-primary">
                               {selected.mobile_money_provider || 'MoMo'}
                             </span>
                             {' · '}{selected.mobile_money_number}
@@ -1473,8 +1667,8 @@ export function FinOpsWithdrawalVerification() {
                     </SelectContent>
                   </Select>
                   {!paymentMethod && (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
-                      ⚠ Pick a method to enable Approve
+                    <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+                      Pick a method to enable Approve
                     </p>
                   )}
                 </div>
@@ -1547,8 +1741,8 @@ export function FinOpsWithdrawalVerification() {
                     <p className="text-[10px] text-destructive mt-1">Must be at least 3 characters</p>
                   )}
                   {reference.trim().length === 0 && (
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
-                      ⚠ Enter the TID / receipt to enable Approve
+                    <p className="text-[10px] text-muted-foreground mt-1 font-medium">
+                      Enter the TID / receipt to enable Approve
                     </p>
                   )}
                 </div>
@@ -1566,7 +1760,7 @@ export function FinOpsWithdrawalVerification() {
                   type="button"
                   onClick={() => void handleApprove()}
                   disabled={!!processing || reference.trim().length < 3 || !paymentMethod}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {processing ? 'Processing...' : selected?.status === 'rejected' ? 'Re-Approve & Complete' : 'Approve & Complete'}
                 </Button>
@@ -1604,7 +1798,6 @@ export function FinOpsWithdrawalVerification() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Full requester profile — wallet, balances, roles, transfers */}
       <UserDrilldownDrawer
         open={!!profileUser}
         onOpenChange={(o) => { if (!o) setProfileUser(null); }}
@@ -1613,6 +1806,6 @@ export function FinOpsWithdrawalVerification() {
         defaultTab="agent"
       />
 
-    </>
+    </div>
   );
 }

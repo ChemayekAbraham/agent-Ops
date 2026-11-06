@@ -17,7 +17,7 @@ export default function FinancialOpsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div className="finops-surface min-h-screen bg-background overflow-x-clip">
       {/* Sticky top bar so the back action is always reachable */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border shadow-xs">
         <div className="w-full px-3 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 min-w-0">
@@ -48,7 +48,7 @@ export default function FinancialOpsPage() {
         </div>
       </div>
 
-      <div className="w-full px-3 sm:px-6 py-3 sm:py-8 space-y-4 sm:space-y-6 min-w-0">
+      <div className="w-full px-3 sm:px-6 py-2 sm:py-3 space-y-3 min-w-0">
         <FinancialOpsCommandCenter />
       </div>
     </div>
