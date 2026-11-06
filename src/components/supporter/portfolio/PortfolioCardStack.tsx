@@ -6,18 +6,16 @@ import { cn } from '@/lib/utils';
 import type { PortfolioRecord } from '@/hooks/useCapitalOpportunities';
 import { computeAccrual } from '@/lib/portfolioAccrual';
 import { usePendingTopup } from './ActivePortfolioCard';
+import { ContactlessGlyph, EmvChip, NOISE_BACKGROUND } from './PartnerPortfolioWalletCard';
 
 /**
- * Fanned stack of the partner's portfolios, like a wallet of cards.
- * The front card is the selected portfolio; its details sit in a frosted panel under the stack.
- * Tap a card behind to bring it forward; tap the panel to open the portfolio.
- * Display only: it reads the same figures as the list card and moves no money.
+ * Fanned stack of the partner's portfolios, each drawn as a bank card (85.6 x 54 mm proportions).
+ * The front card carries the principal, code, status, rate and next payout; this cycle's Returns
+ * sit in the panel under the stack. Tap a card behind to bring it forward; tap the panel to open
+ * the portfolio. Display only: it reads the same figures as the list card and moves no money.
  */
 
-const PEEK = 46; // how much of each card behind shows
-const CARD_HEIGHT = 176;
-const FRONT_VISIBLE = 104; // how much of the front card shows above the panel
-const OVERLAP = CARD_HEIGHT - FRONT_VISIBLE; // how far the cards tuck under the panel
+const PEEK = 46; // how much of each card behind shows above the one in front
 const SPRING = 'cubic-bezier(0.34, 1.35, 0.64, 1)';
 
 interface Palette {
@@ -68,6 +66,13 @@ function useMounted() {
     return () => cancelAnimationFrame(id);
   }, []);
   return on;
+}
+
+/** "2026-11-14" -> "14/11", like the expiry printed on a card. */
+function shortDate(value: string | null | undefined) {
+  if (!value) return '--/--';
+  const [, m, d] = String(value).slice(0, 10).split('-');
+  return d && m ? `${d}/${m}` : '--/--';
 }
 
 function remainingLabel(daysToPayout: number | null) {
@@ -146,20 +151,23 @@ export function PortfolioCardStack({
   const isCompounding = front.roi_mode === 'monthly_compounding' || front.auto_reinvest === true;
   const remaining = remainingLabel(a.daysToPayout);
 
-  const panelStyle: CSSProperties = {
-    marginTop: -OVERLAP,
+  // The pocket rises over the lower 46% of the front card. The card is min(wrap - 32px, 420px) wide
+  // at bank-card proportions, so its height is that width / 1.586.
+  const pocketStyle: CSSProperties = {
+    marginTop: 'calc(min(100cqw - 32px, 420px) / 1.586 * -0.46)',
     background: safe ? 'hsl(var(--card))' : 'hsl(var(--card) / 0.82)',
     borderTop: '1px solid hsl(var(--foreground) / 0.1)',
+    boxShadow: '0 -10px 24px -16px rgba(0,0,0,0.35)',
     ...(safe ? {} : { backdropFilter: 'blur(18px) saturate(1.3)', WebkitBackdropFilter: 'blur(18px) saturate(1.3)' }),
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-border/60 bg-card">
+    <div className="overflow-hidden rounded-3xl border border-border/60 bg-card" style={{ containerType: 'inline-size' }}>
       {/* The stack. Pointer position drives the shimmer on every card. */}
       <div
         ref={stackRef}
-        className="relative px-4 pt-4"
-        style={{ height: 16 + depth * PEEK + CARD_HEIGHT, '--glare': 30 } as CSSProperties}
+        className="px-4 pt-4"
+        style={{ '--glare': 30 } as CSSProperties}
         onPointerMove={(e) => {
           if (reduced || safe) return;
           const r = e.currentTarget.getBoundingClientRect();
@@ -168,93 +176,119 @@ export function PortfolioCardStack({
         }}
         onPointerLeave={() => { pointerActive.current = false; }}
       >
-        {order.map((id, pos) => {
-          const p = byId[id];
-          const acc = accruals[id];
-          const pal = paletteOf[id];
-          const fromFront = depth - pos; // 0 = front
-          const isFront = fromFront === 0;
-          const ref = p.portfolio_code || p.account_name || 'Portfolio';
-          const status = STATE_LABEL[acc.state] ?? acc.state;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                if (isFront) return;
-                hapticTap();
-                setOrder((o) => [...o.filter((x) => x !== id), id]);
-              }}
-              aria-label={`${ref}, ${status}${isFront ? ', selected' : ', bring to front'}`}
-              aria-pressed={isFront}
-              className="absolute left-4 right-4 block rounded-2xl p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              style={{
-                top: 16 + (depth - fromFront) * PEEK,
-                height: CARD_HEIGHT,
-                zIndex: pos + 1,
-                transform: `scale(${1 - fromFront * 0.055}) translateY(${mounted ? 0 : 20}px)`,
-                transformOrigin: 'top center',
-                opacity: mounted ? 1 : 0,
-                color: pal.ink,
-                boxShadow: '0 -10px 28px -14px rgba(0,0,0,0.75)',
-                cursor: isFront ? 'default' : 'pointer',
-                transition: reduced
-                  ? 'none'
-                  : `top 650ms ${SPRING}, transform 650ms ${SPRING}, opacity 500ms ease ${pos * 90}ms`,
-              }}
-            >
-              {/* card face: gloss, corner glow and the colour gradient */}
-              <span
-                aria-hidden
-                className="absolute inset-0 overflow-hidden rounded-2xl"
-                style={{
-                  backgroundImage: [
-                    'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 34%)',
-                    `radial-gradient(110% 90% at 100% 0%, ${pal.to} 0%, transparent 60%)`,
-                    `linear-gradient(135deg, ${pal.from} 0%, ${pal.to} 100%)`,
-                  ].join(', '),
-                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 0 1px rgba(255,255,255,0.16)',
-                }}
-              >
-                {/* holographic film that slides with the pointer */}
-                {!safe && (
+        <div className="mx-auto w-full max-w-[420px]" style={{ paddingTop: depth * PEEK }}>
+          <div className="relative aspect-[1.586] w-full">
+            {order.map((id, pos) => {
+              const p = byId[id];
+              const acc = accruals[id];
+              const pal = paletteOf[id];
+              const fromFront = depth - pos; // 0 = front
+              const isFront = fromFront === 0;
+              const ref = p.portfolio_code || p.account_name || 'Portfolio';
+              const status = STATE_LABEL[acc.state] ?? acc.state;
+              const returnsLabel = acc.isMonthlyCycle ? 'monthly' : `per ${acc.cycleDays} days`;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    if (isFront) return;
+                    hapticTap();
+                    setOrder((o) => [...o.filter((x) => x !== id), id]);
+                  }}
+                  aria-label={`${ref}, ${status}, principal ${formatUGX(acc.deployed)}${isFront ? ', selected' : ', bring to front'}`}
+                  aria-pressed={isFront}
+                  className="absolute inset-x-0 block h-full rounded-[18px] p-0 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  style={{
+                    top: -fromFront * PEEK,
+                    zIndex: pos + 1,
+                    transform: `scale(${1 - fromFront * 0.05}) translateY(${mounted ? 0 : 20}px)`,
+                    transformOrigin: 'top center',
+                    opacity: mounted ? 1 : 0,
+                    color: pal.ink,
+                    containerType: 'inline-size',
+                    boxShadow: isFront
+                      ? '0 2px 4px rgba(0,0,0,0.10), 0 14px 28px -12px rgba(0,0,0,0.35)'
+                      : '0 -8px 22px -14px rgba(0,0,0,0.6)',
+                    cursor: isFront ? 'default' : 'pointer',
+                    transition: reduced
+                      ? 'none'
+                      : `top 650ms ${SPRING}, transform 650ms ${SPRING}, opacity 500ms ease ${pos * 90}ms`,
+                  } as CSSProperties}
+                >
+                  {/* card face: gloss, corner glow, colour gradient and printed grain */}
                   <span
-                    className="absolute inset-0"
+                    aria-hidden
+                    className="absolute inset-0 overflow-hidden rounded-[18px]"
                     style={{
-                      backgroundImage: FILM,
-                      backgroundSize: '260% 100%',
-                      backgroundPosition: `calc((var(--glare, 30) + ${fromFront * 18}) * 1%) 0`,
-                      mixBlendMode: 'soft-light',
-                      transition: reduced ? 'none' : 'background-position 700ms cubic-bezier(0.22, 1, 0.36, 1)',
+                      backgroundImage: [
+                        'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 34%)',
+                        `radial-gradient(110% 90% at 100% 0%, ${pal.to} 0%, transparent 60%)`,
+                        `linear-gradient(135deg, ${pal.from} 0%, ${pal.to} 100%)`,
+                      ].join(', '),
+                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5), inset 0 0 0 1px rgba(255,255,255,0.16)',
                     }}
-                  />
-                )}
-              </span>
+                  >
+                    <span className="absolute inset-0 opacity-[0.12] mix-blend-overlay" style={{ backgroundImage: NOISE_BACKGROUND }} />
+                    {/* holographic film that slides with the pointer */}
+                    {!safe && (
+                      <span
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage: FILM,
+                          backgroundSize: '260% 100%',
+                          backgroundPosition: `calc((var(--glare, 30) + ${fromFront * 18}) * 1%) 0`,
+                          mixBlendMode: 'soft-light',
+                          transition: reduced ? 'none' : 'background-position 700ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        }}
+                      />
+                    )}
+                  </span>
 
-              <span className="relative flex items-center justify-between gap-3 px-4 pt-3.5">
-                <span className="flex min-w-0 items-center gap-2.5">
-                  <span className="grid h-7 w-7 flex-none place-items-center rounded-full" style={{ background: 'rgba(255,255,255,0.35)' }}>
-                    <Building2 className="h-4 w-4" />
+                  <span
+                    className="relative flex h-full flex-col"
+                    style={{ padding: 'clamp(12px, 5cqw, 22px) clamp(14px, 5.5cqw, 24px)' }}
+                  >
+                    {/* top line: what it is, its code, its state. This is the strip that shows on cards behind. */}
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="grid h-7 w-7 flex-none place-items-center rounded-full" style={{ background: 'rgba(255,255,255,0.35)' }}>
+                          <Building2 className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[10px] font-semibold uppercase leading-none tracking-[0.12em] opacity-70">
+                            Tenant capital · {acc.monthlyRoiPct}% {returnsLabel}
+                          </span>
+                          <span className="block truncate text-[13px] font-bold leading-tight tracking-wide">{ref}</span>
+                        </span>
+                      </span>
+                      <span className="flex flex-none items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+                        {status}
+                      </span>
+                    </span>
+
+                    {/* chip row, with the next payout where a card prints its expiry */}
+                    <span className="mt-[4cqw] flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2">
+                        <EmvChip />
+                        <ContactlessGlyph className="opacity-70" />
+                      </span>
+                      <span className="flex-none text-right">
+                        <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-65">Next payout</span>
+                        <span className="block font-mono text-[13px] font-semibold tabular-nums">{shortDate(p.next_roi_date)}</span>
+                      </span>
+                    </span>
                   </span>
-                  <span className="min-w-0">
-                    <span className="block text-[10px] font-semibold uppercase leading-none tracking-wide opacity-70">Tenant capital</span>
-                    <span className="block truncate text-[13px] font-bold leading-tight tracking-tight">{ref}</span>
-                  </span>
-                </span>
-                <span className="flex flex-none items-center gap-1.5 font-mono text-[12px] font-semibold">
-                  <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
-                  {status}
-                </span>
-              </span>
-              <span className="relative mt-3 block px-4 text-xs font-semibold opacity-75">
-                {acc.monthlyRoiPct}% · {acc.isMonthlyCycle ? 'Monthly Returns' : `${acc.cycleDays}-day Returns`}
-              </span>
-            </button>
-          );
-        })}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Frosted panel the cards tuck under. Tapping it opens the portfolio, as the list card did. */}
+      {/* The wallet pocket the cards sit in: it covers the lower part of the front card.
+          Tapping it opens the portfolio, as the list card did. */}
       <div
         role="button"
         tabIndex={0}
@@ -268,10 +302,10 @@ export function PortfolioCardStack({
         }}
         aria-label={`Open portfolio ${front.portfolio_code || ''}`}
         className="relative z-[20] cursor-pointer px-4 pb-4 pt-4 active:opacity-90"
-        style={panelStyle}
+        style={pocketStyle}
         aria-live="polite"
       >
-        <div className="flex items-start justify-between gap-3">
+        <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-muted-foreground">Principal</p>
             <p className="mt-0.5 break-words font-mono text-2xl font-semibold leading-tight tabular-nums tracking-tight text-foreground">
@@ -284,10 +318,10 @@ export function PortfolioCardStack({
         </div>
 
         {isActive && (
-          <div className="mt-3">
-            <div className="flex items-baseline justify-between gap-2 text-xs">
+          <div>
+            <div className="flex items-center justify-between gap-2 text-xs">
               <span className="text-muted-foreground">
-                Earned <span className="font-mono font-semibold tabular-nums text-success">+{formatUGX(Math.round(a.cycleAccrued))}</span>
+                Earned this cycle <span className="font-mono font-semibold tabular-nums text-success">+{formatUGX(Math.round(a.cycleAccrued))}</span>
               </span>
               {remaining && <span className="font-medium text-foreground">{remaining}</span>}
             </div>

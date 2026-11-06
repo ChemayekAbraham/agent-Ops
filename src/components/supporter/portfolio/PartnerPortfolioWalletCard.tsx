@@ -7,11 +7,12 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { cn } from '@/lib/utils';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 const welileLogo = '/welile-colored.png';
 
 // Fine grain: real cards are printed, and a flat gradient is what makes a card look like a CSS box.
-const NOISE_BACKGROUND =
+export const NOISE_BACKGROUND =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
 const SHEEN_HOME = { x: 28, y: 18 };
@@ -44,7 +45,7 @@ function GoldWaves() {
 }
 
 /** EMV chip, contact grid and all. */
-function EmvChip() {
+export function EmvChip() {
   const gradientId = useId();
   return (
     <svg
@@ -71,7 +72,7 @@ function EmvChip() {
 }
 
 /** Contactless payment glyph: three nested arcs. */
-function ContactlessGlyph() {
+export function ContactlessGlyph({ className = 'text-black/70' }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -80,7 +81,7 @@ function ContactlessGlyph() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeWidth="1.7"
-      className="shrink-0 text-black/70"
+      className={cn('shrink-0', className)}
       style={{ width: 'clamp(13px, 4.2cqw, 20px)', height: 'clamp(13px, 4.2cqw, 20px)' }}
     >
       <path d="M5.5 9.4a5.4 5.4 0 0 1 0 5.2" />
