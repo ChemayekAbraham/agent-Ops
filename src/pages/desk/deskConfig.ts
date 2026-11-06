@@ -65,35 +65,15 @@ const BALANCE_TILES: Tile[] = [
   { label: 'ROI credits to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
 ];
 
+/** Other names a desk answers to in the URL: /desk/funders opens the cfo desk. */
+export const DESK_ALIASES: Record<string, string> = { funders: 'cfo' };
+
 export const DESKS: Desk[] = [
   {
     id: 'command', name: 'Command centre', question: 'What is blocked today, and is the business in balance?', roles: DESK_ROLES['coo'],
     lead: () => 'Every desk at a glance: what is blocked today, where requests are waiting, and whether the money balances.',
     tiles: BALANCE_TILES,
     tables: [PAYMENT_GAPS],
-  },
-  {
-    id: 'coo', name: 'COO', question: 'Approve within budget, and keep the business in balance.', roles: DESK_ROLES['coo'],
-    lead: (g) => `${g(st('5', 'n', 'int'))} requests worth ${g(st('5', 'ugx', 'ugx'))} wait for your approval. Today's float budget: ${g(kp('budget_today_ugx', 'budget'))}.`,
-    tiles: BALANCE_TILES,
-    tables: [
-      {
-        id: 'coo-queue', feed: 'coo_queue', title: 'Your approval queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx',
-        note: 'Return when the landlord is unverified or a funder-visible request has no funder tag; otherwise approve oldest first while the CFO budget has room. A signed agreement is shown but not required (policy pending).',
-        columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, { field: 'landlord', label: 'Landlord' }, DAYS, RENT, { field: 'funder_tag', label: 'Funder tag' }, { field: 'landlord_verified', label: 'Landlord verified' }, { field: 'agreement', label: 'Agreement' }, DEC],
-      },
-      {
-        id: 'pipeline', feed: 'pipeline', title: 'Where requests are waiting', rowKey: 'ord',
-        note: 'Days count from the moment a request entered its current stage. The August 2026 batch is shown apart.',
-        columns: [{ field: 'stage', label: 'Stage' }, { field: 'desk', label: 'Acts next' }, { field: 'n', label: 'Waiting', fmt: 'int', right: true }, { field: 'ugx', label: 'UGX', fmt: 'bar', right: true }, { field: 'median_days', label: 'Median days', fmt: 'days', right: true }, { field: 'oldest_days', label: 'Oldest days', fmt: 'days', right: true }],
-      },
-      PAYMENT_GAPS,
-      {
-        id: 'monthly-flow', feed: 'monthly_flow', title: 'Demand against funding by month', rowKey: 'ym',
-        note: 'Submitted counts requests created in the month; funded counts requests funded in the month. August 2026 includes the one-off batch.',
-        columns: [{ field: 'ym', label: 'Month' }, { field: 'submitted', label: 'Submitted', fmt: 'int', right: true }, { field: 'funded', label: 'Funded', fmt: 'bar', right: true }, { field: 'funder_tagged', label: 'Funder-tagged', fmt: 'int', right: true }],
-      },
-    ],
   },
   {
     id: 'service-centre', name: 'Service Centre', question: 'Verify complete requests; send incomplete ones back.', roles: DESK_ROLES['service-centre'],
@@ -136,26 +116,47 @@ export const DESKS: Desk[] = [
     ],
   },
   {
+    id: 'coo', name: 'COO', question: 'Approve within budget, and keep the business in balance.', roles: DESK_ROLES['coo'],
+    lead: (g) => `${g(st('5', 'n', 'int'))} requests worth ${g(st('5', 'ugx', 'ugx'))} wait for your approval. Today's float budget: ${g(kp('budget_today_ugx', 'budget'))}.`,
+    tiles: BALANCE_TILES,
+    tables: [
+      {
+        id: 'coo-queue', feed: 'coo_queue', title: 'Your approval queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx',
+        note: 'Return when the landlord is unverified or a funder-visible request has no funder tag; otherwise approve oldest first while the CFO budget has room. A signed agreement is shown but not required (policy pending).',
+        columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, { field: 'landlord', label: 'Landlord' }, DAYS, RENT, { field: 'funder_tag', label: 'Funder tag' }, { field: 'landlord_verified', label: 'Landlord verified' }, { field: 'agreement', label: 'Agreement' }, DEC],
+      },
+      {
+        id: 'pipeline', feed: 'pipeline', title: 'Where requests are waiting', rowKey: 'ord',
+        note: 'Days count from the moment a request entered its current stage. The August 2026 batch is shown apart.',
+        columns: [{ field: 'stage', label: 'Stage' }, { field: 'desk', label: 'Acts next' }, { field: 'n', label: 'Waiting', fmt: 'int', right: true }, { field: 'ugx', label: 'UGX', fmt: 'bar', right: true }, { field: 'median_days', label: 'Median days', fmt: 'days', right: true }, { field: 'oldest_days', label: 'Oldest days', fmt: 'days', right: true }],
+      },
+      PAYMENT_GAPS,
+      {
+        id: 'monthly-flow', feed: 'monthly_flow', title: 'Demand against funding by month', rowKey: 'ym',
+        note: 'Submitted counts requests created in the month; funded counts requests funded in the month. August 2026 includes the one-off batch.',
+        columns: [{ field: 'ym', label: 'Month' }, { field: 'submitted', label: 'Submitted', fmt: 'int', right: true }, { field: 'funded', label: 'Funded', fmt: 'bar', right: true }, { field: 'funder_tagged', label: 'Funder-tagged', fmt: 'int', right: true }],
+      },
+    ],
+  },
+  {
+    // The id stays 'cfo' so the switch key stays desk_live:cfo; /desk/funders is an alias (DESK_ALIASES).
+    id: 'cfo', name: 'Funders Dashboard', question: 'Which approved requests are funders taking, and which should Welile fund?', roles: DESK_ROLES['cfo'],
+    lead: (g) => `${g(st('6', 'n', 'int'))} requests approved by the COO are on the funders' board, worth ${g(st('6', 'ugx', 'ugx'))}.`,
+    // The Funders Dashboard draws its own tiles from funders_dashboard.
+    tiles: [],
+    tables: [
+      { id: 'cfo-queue', feed: 'cfo_queue', title: 'Funding queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx', note: 'Fund today unless the landlord is unverified, which the system blocks at funding.', columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, { field: 'landlord', label: 'Landlord' }, DAYS, RENT, { field: 'landlord_verified', label: 'Landlord verified' }, DEC] },
+      PAYMENT_GAPS,
+      { ...CAPITAL, id: 'cfo-capital', title: 'Partner capital to verify' },
+    ],
+  },
+  {
     id: 'partner-ops', name: 'Partner Ops', question: 'Attach the funder side, then forward to the COO.', roles: DESK_ROLES['partner-ops'],
     lead: (g) => `${g(st('4', 'n', 'int'))} requests wait for Partner Ops. Of requests funded in 30 days, ${g(kp('funder_tagged_30d', 'pct'))} carry a proxy partner and ${g(kp('portfolio_linked_30d', 'pct'))} are linked to a funder's portfolio.`,
     tiles: [{ label: 'Waiting', ...st('4', 'n', 'int') }, { label: 'Funded with a funder tag, 30 days', ...kp('funder_tagged_30d', 'pct') }],
     tables: [
       { id: 'partner-queue', feed: 'partner_ops_queue', title: 'Partner Ops queue', rowKey: 'req', summarySum: 'rent_ugx', note: 'Funders choosing tenants themselves is planned for new tenants, alongside this model, once the team agrees the logic.', columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, DAYS, RENT, { field: 'funder_visibility', label: 'Funder visibility' }, { field: 'proxy', label: 'Proxy partner' }, DEC] },
       CAPITAL,
-    ],
-  },
-  {
-    id: 'cfo', name: 'CFO', question: 'Fund approved requests and keep the float budget set.', roles: DESK_ROLES['cfo'],
-    lead: (g) => `${g(st('6', 'n', 'int'))} requests approved by the COO wait for funding. Today's daily float budget: ${g(kp('budget_today_ugx', 'budget'))}.`,
-    tiles: [
-      { label: 'Daily budget', ...kp('budget_today_ugx', 'budget'), sub: { label: 'Used today', ...kp('budget_used_today_ugx', 'ugx') } },
-      { label: 'Weekly budget', ...kp('budget_week_ugx', 'budget'), sub: { label: 'Used this week', ...kp('budget_week_used_ugx', 'ugx') } },
-      { label: 'Waiting for funding', ...st('6', 'ugx', 'ugx') },
-    ],
-    tables: [
-      { id: 'cfo-queue', feed: 'cfo_queue', title: 'Funding queue, oldest first', rowKey: 'req', summarySum: 'rent_ugx', note: 'Fund today unless the landlord is unverified, which the system blocks at funding.', columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, { field: 'landlord', label: 'Landlord' }, DAYS, RENT, { field: 'landlord_verified', label: 'Landlord verified' }, DEC] },
-      PAYMENT_GAPS,
-      { ...CAPITAL, id: 'cfo-capital', title: 'Partner capital to verify' },
     ],
   },
   {

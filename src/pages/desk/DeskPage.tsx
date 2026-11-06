@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
-import { DESKS, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
+import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
 import { useDeskFeeds, type FeedState, type Row } from './useDeskFeed';
 import { DeskTable, type ReviewHook } from './DeskTable';
 import { CommandCentre } from './CommandCentre';
@@ -20,12 +20,19 @@ import { ReviewDrawer } from './ReviewDrawer';
 import { FundByScore } from './FundByScore';
 import { FunderBoard } from './FunderBoard';
 import { BudgetRoomCard } from './BudgetRoomCard';
-import { BurnChart } from './BurnChart';
+import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
+import { ReadyBoard } from './ReadyBoard';
+import type { Decision } from './reviewTypes';
+import { DeskRules } from './DeskRules';
+import { OntologyTab } from './ontology/OntologyTab';
 
 const ROTATE_MS = 45_000;
+
+/** Desks whose "Ready for your push" is the board (pipeline_desk_board). Their queue table stays in Classic view. */
+const BOARD_DESKS = new Set(['agent-ops']);
 
 /** The one table on each desk whose rows are reviewable requests. */
 const QUEUE_TABLE: Record<string, string> = {
@@ -41,6 +48,7 @@ const QUEUE_TABLE: Record<string, string> = {
 const EXTRA_TAB: Record<string, string> = {
   coo: 'Fund by score',
   'partner-ops': 'Funder board — preview',
+  ontology: 'Ontology',
 };
 
 function ToolButton({
@@ -213,6 +221,8 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   const checklistOn = deskLive(desk.id);
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
+  // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
+  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | undefined>(undefined);
   const [opening, setOpening] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   // `?tab=` opens the second tab straight away, so the budget-room card can
@@ -247,6 +257,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     const found = await resolveShortId(short, stage);
     setOpening(null);
     if (found.status === 'ok') {
+      setOpenInitial(undefined);
       setOpenRequest(found.id);
       return;
     }
@@ -308,11 +319,10 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <TileGrid tiles={tiles} feeds={feeds} board={board} />
       )}
 
-      {/* The COO reads the room before opening the queue; the CFO reads the week. */}
+      {/* The COO reads the room before opening the queue. */}
       {checklistOn && desk.id === 'coo' && (
         <BudgetRoomCard board={board} enabled budgetSetToday={budgetSetToday} />
       )}
-      {checklistOn && desk.id === 'cfo' && <BurnChart board={board} enabled />}
     </>
   );
 
@@ -331,7 +341,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
               : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
           }`}
         >
-          {t === 'queue' ? 'Queue' : extraTab}
+          {t === 'queue' ? (desk.id === 'ontology' ? 'Day map' : 'Queue') : extraTab}
         </button>
       ))}
     </div>
@@ -341,6 +351,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     <>
       {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
     </>
   );
 
@@ -357,7 +368,13 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   /* Keyed on the request: opening a second row never carries the first
      request's ticks, note or logged call across to another tenant. */
   const drawer = stage && openRequest && (
-    <ReviewDrawer key={openRequest} stage={stage} requestId={openRequest} onClose={() => setOpenRequest(null)} />
+    <ReviewDrawer
+      key={`${openRequest}:${openInitial ?? ''}`}
+      stage={stage}
+      requestId={openRequest}
+      initial={openInitial}
+      onClose={() => setOpenRequest(null)}
+    />
   );
 
   // The stage desks, when live: strip → Ready for your push → Waiting on… →
@@ -375,7 +392,20 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
           </h2>
           {tabs}
           {extraView}
-          {showQueue && ready && table(ready)}
+          {desk.id === 'cfo' ? (
+            <FundersDashboard board={board} />
+          ) : showQueue && stage && BOARD_DESKS.has(desk.id) ? (
+            <ReadyBoard
+              stage={stage}
+              board={board}
+              onOpen={(id, initial) => {
+                setOpenInitial(initial);
+                setOpenRequest(id);
+              }}
+            />
+          ) : (
+            showQueue && ready && table(ready)
+          )}
         </section>
 
         <WaitingOnFold deskId={desk.id} board={board} />
@@ -392,17 +422,21 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   return (
     <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
       {checklistOn && <PipelineStrip deskId={desk.id} board={board} />}
-      {intro}
+      {!(desk.id === 'ontology' && !showQueue) && intro}
       {tabs}
       {extraView}
       {showQueue && desk.tables.map(table)}
+      {/* Partner Ops and Customer Care have no frame, so their rules sit at the foot. */}
+      {checklistOn && <DeskRules deskId={desk.id} board={board} />}
       {drawer}
     </div>
   );
 }
 
 function DeskShell() {
-  const { desk: deskId } = useParams();
+  const { desk: rawDeskId } = useParams();
+  // `/desk/funders` is the same desk as `/desk/cfo`.
+  const deskId = rawDeskId ? (DESK_ALIASES[rawDeskId] ?? rawDeskId) : rawDeskId;
   const { roles } = useAuth();
   const { board, rotate, theme } = useDeskPrefs();
   /**
@@ -476,9 +510,9 @@ function DeskShell() {
             <NavLink
               key={d.id}
               to={`/desk/${d.id}${board ? '?board=1' : ''}`}
-              className={({ isActive }) =>
+              className={() =>
                 `whitespace-nowrap rounded-t px-3 py-2 ${board ? 'text-base' : 'text-sm'} border-b-2 -mb-px ${CALM} ${FOCUS} ${
-                  isActive
+                  d.id === desk.id
                     ? 'border-[hsl(var(--primary))] text-foreground font-medium'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 }`
