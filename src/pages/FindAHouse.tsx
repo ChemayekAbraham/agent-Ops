@@ -209,7 +209,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
       animate={{ opacity: 1, y: 0 }}
       data-house-card=""
       data-house-id={listing.id}
-      className="pb-6 border-b border-border/40 last:border-b-0"
+      className="p-3 pb-4 rounded-3xl bg-primary/[0.07]"
       itemScope itemType="https://schema.org/Accommodation"
     >
       {/* Image */}
@@ -258,7 +258,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
         </p>
 
         <div className="flex items-baseline gap-1.5 pt-1">
-          <span className="font-semibold text-[15px]" itemProp="price">{formatUGX(listing.daily_rate)}</span>
+          <span className="font-semibold text-[15px] text-green-600 dark:text-green-400" itemProp="price">{formatUGX(listing.daily_rate)}</span>
           <span className="text-sm text-muted-foreground">/ day</span>
         </div>
       </div>
@@ -306,7 +306,7 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
             key={vi.key}
             data-index={vi.index}
             ref={virtualizer.measureElement}
-            className="absolute left-0 top-0 w-full"
+            className="absolute left-0 top-0 w-full pb-4"
             style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
           >
             <PublicHouseCard listing={listing} isFirst={vi.index === 0} onOpenDetails={onOpenDetails} userLat={userLat} userLng={userLng} />
