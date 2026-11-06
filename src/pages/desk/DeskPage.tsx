@@ -26,6 +26,8 @@ import { PipelineStrip } from './PipelineStrip';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard } from './ReadyBoard';
 import type { Decision } from './reviewTypes';
+import { DeskRules } from './DeskRules';
+import { OntologyTab } from './ontology/OntologyTab';
 
 const ROTATE_MS = 45_000;
 
@@ -46,6 +48,7 @@ const QUEUE_TABLE: Record<string, string> = {
 const EXTRA_TAB: Record<string, string> = {
   coo: 'Fund by score',
   'partner-ops': 'Funder board — preview',
+  ontology: 'Ontology',
 };
 
 function ToolButton({
@@ -339,7 +342,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
               : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
           }`}
         >
-          {t === 'queue' ? 'Queue' : extraTab}
+          {t === 'queue' ? (desk.id === 'ontology' ? 'Day map' : 'Queue') : extraTab}
         </button>
       ))}
     </div>
@@ -349,6 +352,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     <>
       {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
+      {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
     </>
   );
 
@@ -417,10 +421,12 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   return (
     <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
       {checklistOn && <PipelineStrip deskId={desk.id} board={board} />}
-      {intro}
+      {!(desk.id === 'ontology' && !showQueue) && intro}
       {tabs}
       {extraView}
       {showQueue && desk.tables.map(table)}
+      {/* Partner Ops and Customer Care have no frame, so their rules sit at the foot. */}
+      {checklistOn && <DeskRules deskId={desk.id} board={board} />}
       {drawer}
     </div>
   );

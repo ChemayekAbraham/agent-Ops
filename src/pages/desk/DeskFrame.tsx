@@ -7,6 +7,7 @@ import { CALM, FOCUS, LABEL, statusGlass } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { STRIP_STAGES } from './PipelineStrip';
 import { WAIT_DESK_OF, WaitingRows, isTimeUp, useWaitingList } from './waitOn';
+import { DeskRules } from './DeskRules';
 
 /**
  * The frame every stage desk shares when it is live:
@@ -124,8 +125,11 @@ export function DoneTodayFold({ deskId, board }: { deskId: string; board: boolea
   const row = stage ? flow.rows.find((r) => String(r.ord) === stage.flowOrd) : undefined;
   const n = flow.loading || !row ? null : Number(row.done_24h ?? 0);
   return (
-    <Fold title="Done today" board={board} badge={<CountPill n={n} tone={n ? 'ok' : 'idle'} />} hint="Cleared from this desk in the last 24 hours">
-      <DoneDetail deskId={deskId} />
-    </Fold>
+    <>
+      <Fold title="Done today" board={board} badge={<CountPill n={n} tone={n ? 'ok' : 'idle'} />} hint="Cleared from this desk in the last 24 hours">
+        <DoneDetail deskId={deskId} />
+      </Fold>
+      <DeskRules deskId={deskId} board={board} />
+    </>
   );
 }
