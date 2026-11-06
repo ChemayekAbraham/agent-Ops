@@ -29,6 +29,7 @@ import { PartnerWatch } from './PartnerWatch';
 import { desksFor, useMyScScope } from './scScope';
 import type { Decision } from './reviewTypes';
 import { DeskRules } from './DeskRules';
+import { AgentsLiveFold } from './agents/AgentsLive';
 import { OntologyTab } from './ontology/OntologyTab';
 
 const ROTATE_MS = 45_000;
@@ -431,6 +432,7 @@ function DeskView({
           )}
         </section>
 
+        <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />
         <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">

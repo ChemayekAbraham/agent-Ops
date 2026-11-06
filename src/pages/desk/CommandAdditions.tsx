@@ -7,6 +7,7 @@ import { rpc } from './reviewApi';
 import { isMissingDbObject, logMissingOnce } from './deskLive';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
 import { Skeleton } from './Skeleton';
+import { AgentsTodayLine } from './agents/AgentsLive';
 import {
   OWNER_LABEL,
   WAIT_DESKS,
@@ -90,6 +91,7 @@ export function MoneyLine({ gaps, board }: { gaps: FeedState; board: boolean }) 
   const link = `rounded text-[hsl(var(--desk-lavender))] underline underline-offset-4 ${FOCUS}`;
 
   return (
+    <>
     <p
       className={`${board ? 'text-base' : 'text-sm'} flex flex-wrap items-baseline gap-x-3 gap-y-1.5`}
       aria-label="Money today"
@@ -111,6 +113,8 @@ export function MoneyLine({ gaps, board }: { gaps: FeedState; board: boolean }) 
         {rcp ? `${fmt('int', rcp.n)} · UGX ${fmt('ugxfull', rcp.ugx)}` : '—'}
       </Figure>
     </p>
+    <AgentsTodayLine board={board} />
+    </>
   );
 }
 
