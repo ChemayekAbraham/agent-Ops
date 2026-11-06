@@ -56730,18 +56730,21 @@ export type Database = {
       }
       staff_mfa_config: {
         Row: {
+          force_enrol_from: string | null
           id: boolean
           mode: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
@@ -95015,6 +95018,10 @@ export type Database = {
       set_staff_access_password: {
         Args: { p_new_password: string; p_user_id: string }
         Returns: boolean
+      }
+      set_staff_mfa_force_enrol: {
+        Args: { p_from: string; p_reason: string }
+        Returns: string
       }
       set_staff_mfa_mode: {
         Args: { p_mode: string; p_reason: string }
