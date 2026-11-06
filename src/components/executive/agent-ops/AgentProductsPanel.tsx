@@ -475,7 +475,7 @@ function DrillAgentCard({
   );
 }
 
-export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'completed' | 'full' } = {}) {
+export function AgentProductsPanel({ category, mode = 'full', showReceivablesReconciliation = true }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'completed' | 'full'; showReceivablesReconciliation?: boolean } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [itemFilter, setItemFilter] = useState('all');
@@ -1195,8 +1195,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
         </div>
       )}
 
-      {/* How the outstanding balances tie to the balance sheet (A12 + A13). */}
-      {showIssued && <MerchandiseReceivablesReconciliation category={category} />}
+      {/* How the outstanding balances tie to the balance sheet (A12 + A13). Hidden where the screen does not need it. */}
+      {showIssued && showReceivablesReconciliation && <MerchandiseReceivablesReconciliation category={category} />}
 
       {/* KPI drill-down: every overview card opens the exact list behind its number. */}
       <Sheet open={drill !== null} onOpenChange={(o) => { if (!o) setDrill(null); }}>

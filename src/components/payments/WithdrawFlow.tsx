@@ -1,5 +1,5 @@
 import { safeUUID } from '@/lib/safeUUID';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import StepperModal, { Step } from './StepperModal';
 import ConfirmSummaryCard from './ConfirmSummaryCard';
 import ProcessingScreen from './ProcessingScreen';
@@ -38,6 +38,9 @@ import { useNavigate } from 'react-router-dom';
 import { WITHDRAWAL_REASON_OPTIONS, OTHER_WITHDRAWAL_REASON } from '@/lib/cashoutAgentConfig';
 import { useWithdrawContext, invalidateWithdrawContext } from '@/hooks/useWithdrawContext';
 import { useWalletWithdrawalOtp } from '@/hooks/useWalletWithdrawalOtp';
+import { fetchPinStatus, isPinProofError, pinErrorMessage, verifyPin, type PinStatus } from '@/hooks/useWithdrawalPin';
+import FirstPinSetup from '@/components/wallet/FirstPinSetup';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { AlertTriangle, ShieldCheck, MessageSquare, Camera, IdCard } from 'lucide-react';
 import { PayoutDestinationConsentDialog } from '@/components/payments/PayoutDestinationConsentDialog';
 import { useIdentityBinding, maskPayoutNumber } from '@/hooks/useIdentityBinding';
@@ -87,14 +90,20 @@ interface WithdrawFlowProps {
   defaultWithdrawalReason?: string;
 }
 
+// The per-withdrawal SMS code is retired: the withdrawal PIN replaces it (CTO, 2026-11-06, doc 262). Flip to true to bring
+// the OTP step back (issue-wallet-withdrawal-otp / verify-wallet-withdrawal-otp are untouched).
+const WITHDRAWAL_OTP_REQUIRED = false;
+
+// Two sheets plus the processing/receipt screen. The flow's internal step numbers are unchanged (0 = Request, which now
+// holds source, amount, destination and reason together; 4 = Confirm with the withdrawal PIN; 5 = Processing), so every
+// gate, effect and submit path keyed on them keeps working. Steps 1 to 3 are never visited.
 const STEPS: Step[] = [
-  { id: 'source', title: 'Select Source' },
-  { id: 'amount', title: 'Amount' },
-  { id: 'payout', title: 'Payout Mode' },
-  { id: 'details', title: 'Details' },
-  { id: 'security', title: 'Verify' },
+  { id: 'request', title: 'Request' },
+  { id: 'confirm', title: 'Confirm' },
   { id: 'process', title: 'Processing' },
 ];
+const INTERNAL_STEP = [0, 4, 5] as const;
+const toDisplayStep = (internal: number) => (internal === 0 ? 0 : internal === 4 ? 1 : 2);
 
 export default function WithdrawFlow({
   open,
@@ -362,7 +371,25 @@ export default function WithdrawFlow({
   // pickup has no destination-redirection surface and is exempt.
   const walletOtp = useWalletWithdrawalOtp();
   const [otpCode, setOtpCode] = useState('');
-  const requiresOtp = payoutMode !== 'cash';
+  // Withdrawal PIN (docs 258 to 262): every user must set one before withdrawing, and it replaces the per-withdrawal
+  // OTP (CTO, 2026-11-06). Status is read fresh each time step 4 opens. Fail closed: with the OTP gone, an unreadable
+  // status blocks Confirm instead of letting the withdrawal through.
+  const [pinStatus, setPinStatus] = useState<PinStatus | null>(null);
+  const [pinChecked, setPinChecked] = useState(false);
+  const [withdrawPin, setWithdrawPin] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const pinNeeded = !!pinStatus?.hasPin;
+  const mustSetPin = pinStatus !== null && !pinStatus.hasPin;
+  const refreshPinStatus = useCallback(async () => {
+    setPinStatus(await fetchPinStatus());
+    setPinChecked(true);
+  }, []);
+  useEffect(() => {
+    if (!open || currentStep !== 4) return;
+    setPinChecked(false);
+    void refreshPinStatus();
+  }, [open, currentStep, refreshPinStatus]);
+  const requiresOtp = WITHDRAWAL_OTP_REQUIRED && payoutMode !== 'cash';
 
   // Withdrawable = withdrawable_balance + advance_balance (advance is recoverable
   // user money). Float is operational/company money and stays locked.
@@ -499,7 +526,7 @@ export default function WithdrawFlow({
   // stays disabled until the fresh figure lands.
   useEffect(() => {
     if (!open || !user) return;
-    if (currentStep === 1 || currentStep === 4) {
+    if (currentStep === 0 || currentStep === 4) {
       refetchLedger();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -554,7 +581,7 @@ export default function WithdrawFlow({
   // Debounced re-validation as the user types a new amount — keeps
   // the maxAmount and inline error in sync without spamming the API.
   useEffect(() => {
-    if (!open || !user || currentStep !== 1) return;
+    if (!open || !user || currentStep !== 0) return;
     const t = setTimeout(() => { refetchLedger(); }, 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -678,6 +705,8 @@ export default function WithdrawFlow({
     setCashCodeError(null);
     walletOtp.resetOtp();
     setOtpCode('');
+    setWithdrawPin('');
+    setPinError(null);
     clientRequestIdRef.current = null;
     issuedKeyRef.current = null;
   };
@@ -783,7 +812,7 @@ export default function WithdrawFlow({
     setTimeout(handleReset, 300);
   };
 
-  const canProceed = () => {
+  const canProceedAt = (step: number): boolean => {
     // Global gates — apply on every step. Server-computed so a paused
     // platform / frozen account / exhausted daily count blocks the flow
     // uniformly across every dialog.
@@ -795,13 +824,14 @@ export default function WithdrawFlow({
     // Agent performance gate — blocks step 0 and 1 for the "available"
     // (personal wallet) source. Landlord-float payouts use a separate
     // flow and are exempt. Threshold: today_pct < 20% with active tenants.
-    switch (currentStep) {
+    switch (step) {
       // Verify the wallet first: no valid National ID on file, no withdrawal.
       case 0:
         // A Financial Ops rejection closes withdrawals until it is put right.
         if (identityBlock.data?.code === 'destination_rejected') return false;
         if (identityBlock.data?.blocked) return false;
-        return !needsNationalId && !needsIdentityPhotos;
+        if (needsNationalId || needsIdentityPhotos) return false;
+        return canProceedAt(1) && canProceedAt(2) && canProceedAt(3);
       case 1:
         // Mirror the Confirm-step pattern: keep Continue tappable even when
         // the live ledger check is still loading / failed / stale. We refetch
@@ -835,11 +865,14 @@ export default function WithdrawFlow({
         return (
           ledgerAvailable !== null &&
           amount <= maxAmount &&
-          (!requiresOtp || otpCode.trim().length === 6)
+          (!requiresOtp || otpCode.trim().length === 6) &&
+          pinNeeded &&
+          withdrawPin.length === 4
         );
       default: return false;
     }
   };
+  const canProceed = () => canProceedAt(currentStep);
 
   const getPayoutSummary = () => {
     if (payoutMode === 'mobile_money') return `${momoProvider} - ${momoNumber}`;
@@ -1110,6 +1143,14 @@ export default function WithdrawFlow({
           isSubmittingRef.current = false;
           return false;
         }
+        if (isPinProofError(rawMsg)) {
+          const pinMessage = pinErrorMessage({ code: rawMsg.includes('proof') ? 'withdrawal_pin_proof_required' : 'withdrawal_pin_required' });
+          setPaymentStatus('failed');
+          setLastFailureMessage(pinMessage);
+          toast.error(pinMessage, { duration: 8000 });
+          isSubmittingRef.current = false;
+          return false;
+        }
         if (rawMsg.includes('Ledger mismatch detected')) {
           setPaymentStatus('failed');
           setLastFailureMessage('Ledger mismatch detected. Refresh your balance and try again.');
@@ -1208,7 +1249,7 @@ export default function WithdrawFlow({
     // before advancing. Show a real error instead of letting the stepper
     // silently swallow the tap. This is the counterpart to the Confirm-step
     // logic below and the reason `canProceed()` no longer hard-blocks here.
-    if (currentStep === 1) {
+    if (currentStep === 0) {
       if (ledgerAvailable === null || isStale || validating) {
         const fresh = await refetchLedger();
         const freshMax =
@@ -1234,7 +1275,7 @@ export default function WithdrawFlow({
           return false;
         }
       }
-      return; // let the stepper advance to step 2
+      return; // let the stepper advance (Request -> Confirm)
     }
     if (currentStep === 4) {
       // If our ledger snapshot is stale (or actively refreshing), don't
@@ -1274,6 +1315,20 @@ export default function WithdrawFlow({
         return false;
       }
 
+      // Withdrawal PIN, for accounts that have one (every payout method, cash included). Nothing is shown when
+      // the account has no PIN. The proof is spent by the very insert below, so ask only now.
+      if (!pinNeeded) {
+        toast.error(pinErrorMessage({ code: 'withdrawal_pin_required' }), { duration: 8000 });
+        return false;
+      }
+      const pinResult = await verifyPin(withdrawPin, 'withdrawal');
+      if (!pinResult.success) {
+        setWithdrawPin('');
+        setPinError(pinErrorMessage(pinResult));
+        return false;
+      }
+      setPinError(null);
+
       // Event-driven completion: enter the Processing screen and submit to
       // the server NOW. We DO NOT rely on ProcessingScreen's animation
       // timer — the screen is just a "working…" indicator. As soon as the
@@ -1298,8 +1353,8 @@ export default function WithdrawFlow({
     }
   };
 
-  const renderStep = () => {
-    switch (currentStep) {
+  const renderStepAt = (step: number) => {
+    switch (step) {
       case 0:
         return (
           <div className="space-y-4">
@@ -1369,15 +1424,15 @@ export default function WithdrawFlow({
             </div>
 
             {(floatBalance > 0 || advanceBalance > 0) && (
-              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-foreground">Wallet bucket breakdown</p>
+              <details className="group rounded-lg border border-dashed border-border bg-muted/30 p-3 space-y-2">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <p className="text-xs font-semibold text-foreground">Wallet bucket breakdown <span className="text-muted-foreground font-normal">(tap to view)</span></p>
                   {userRoles.length > 1 && (
                     <span className="text-[10px] text-muted-foreground">
                       {userRoles.length} active roles
                     </span>
                   )}
-                </div>
+                </summary>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">💰 Ledger-backed withdrawable</span>
                   <span className="font-medium text-foreground">{formatCurrency(trueAvailable, 'UGX')}</span>
@@ -1397,7 +1452,7 @@ export default function WithdrawFlow({
                 <p className="text-[10px] text-muted-foreground leading-relaxed pt-1 border-t border-border/40">
                   Only <span className="font-semibold text-foreground">Ledger-backed withdrawable</span> can be paid out. <span className="font-semibold text-foreground">Advance</span> is money you owe Welile, and <span className="font-semibold text-foreground">Operational Float</span> is company money reserved for agent/partner operations — neither can be withdrawn.
                 </p>
-              </div>
+              </details>
             )}
               </div>
             )}
@@ -2202,6 +2257,43 @@ export default function WithdrawFlow({
                 </div>
               </div>
             )}
+
+            {/* Withdrawal PIN (docs 258 to 261): only for accounts that have one. Checked by the database when the
+                user taps Confirm; the proof it creates is spent by the withdrawal insert a moment later. */}
+            {pinNeeded && (
+              <div className="space-y-2 text-left">
+                <Label>Withdrawal PIN</Label>
+                <InputOTP
+                  maxLength={4}
+                  containerClassName="justify-center"
+                  value={withdrawPin}
+                  onChange={(v) => { setWithdrawPin(v.replace(/\D/g, '')); setPinError(null); }}
+                  inputMode="numeric"
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2, 3].map((i) => (
+                      <InputOTPSlot key={i} index={i} className="[-webkit-text-security:disc]" />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  The 4-digit PIN you set in Settings. It is not your sign-in password.
+                </p>
+                {pinError && <p role="alert" className="text-xs text-destructive font-medium">{pinError}</p>}
+              </div>
+            )}
+            {mustSetPin && (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <FirstPinSetup onDone={() => void refreshPinStatus()} />
+              </div>
+            )}
+            {pinChecked && pinStatus === null && (
+              <div className="rounded-lg border-2 border-destructive bg-destructive/10 p-4 text-left space-y-2">
+                <p className="text-sm font-semibold text-destructive">We could not check your withdrawal PIN. Check your connection and try again.</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => void refreshPinStatus()}>Try again</Button>
+              </div>
+            )}
           </div>
         );
 
@@ -2227,8 +2319,8 @@ export default function WithdrawFlow({
               date={new Date()}
               onDownload={() => {}}
               onShare={() => {}}
-              onTryAgain={() => setCurrentStep(2)}
-              onChangeMethod={() => setCurrentStep(2)}
+              onTryAgain={() => setCurrentStep(0)}
+              onChangeMethod={() => setCurrentStep(0)}
               onContactSupport={() => {}}
               onClose={handleClose}
             />
@@ -2342,7 +2434,8 @@ export default function WithdrawFlow({
                 issuedKeyRef.current = null;
                 walletOtp.resetOtp();
                 setOtpCode('');
-                setCurrentStep(2);
+                setWithdrawPin('');
+                setCurrentStep(0);
                 toast.info('Previous request cancelled. Confirm the details to resubmit.');
               }}
             />
@@ -2356,6 +2449,21 @@ export default function WithdrawFlow({
     }
   };
 
+  // Request sheet: what used to be four steps (source, amount, payout method, details) in one scroll. The payout
+  // method cards only appear when the user has no locked destination; with a verified number from Settings the method
+  // is fixed, so there is nothing to choose.
+  const renderStep = () => {
+    if (currentStep !== 0 || identityHardBlock) return renderStepAt(currentStep);
+    return (
+      <div className="space-y-6">
+        {renderStepAt(0)}
+        {renderStepAt(1)}
+        {!lockedMomo && renderStepAt(2)}
+        {renderStepAt(3)}
+      </div>
+    );
+  };
+
   return (
     <>
       <StepperModal
@@ -2363,8 +2471,10 @@ export default function WithdrawFlow({
         onOpenChange={handleClose}
         title="Withdraw Funds"
         steps={STEPS}
-        currentStep={currentStep}
-        onStepChange={(next) => {
+        visibleSteps={2}
+        currentStep={toDisplayStep(currentStep)}
+        onStepChange={(nextDisplay) => {
+          const next = INTERNAL_STEP[nextDisplay] ?? 5;
           // Identity missing: the flow is pinned to the first step.
           if (identityHardBlock && next > 0) {
             setCurrentStep(0);
@@ -2398,6 +2508,10 @@ export default function WithdrawFlow({
           identityHardBlock && currentStep === 0 ? (
             <p className="text-xs text-muted-foreground mt-0.5">
               Verification required before withdrawal
+            </p>
+          ) : currentStep === 0 || currentStep === 4 ? (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Step {toDisplayStep(currentStep) + 1} of 2: {STEPS[toDisplayStep(currentStep)].title}
             </p>
           ) : undefined
         }

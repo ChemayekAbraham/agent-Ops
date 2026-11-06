@@ -7,11 +7,12 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
+import { cn } from '@/lib/utils';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 const welileLogo = '/welile-colored.png';
 
 // Fine grain: real cards are printed, and a flat gradient is what makes a card look like a CSS box.
-const NOISE_BACKGROUND =
+export const NOISE_BACKGROUND =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
 const SHEEN_HOME = { x: 28, y: 18 };
@@ -29,13 +30,17 @@ const isSafeMode = () =>
 const WAVE_UPPER = Array.from({ length: 9 }, (_, i) => `M ${160 + i * 7} -10 C ${215 + i * 5} 72, ${310 - i * 4} 38, 432 ${64 + i * 6}`);
 const WAVE_LOWER = Array.from({ length: 9 }, (_, i) => `M -10 ${214 + i * 6} C 118 ${172 + i * 4}, 252 ${252 - i * 3}, 432 ${188 + i * 7}`);
 
-function GoldWaves() {
+/** Engraved wave ribbons in two bands. The gold card uses a cream tint; other cards pass their own. */
+export function CardWaves({
+  stroke = 'rgba(255,246,222,0.55)',
+  fill = 'rgba(255,244,214,0.10)',
+}: { stroke?: string; fill?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 420 265" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" fill="none">
       {/* two soft satin sweeps */}
-      <path d="M0 196 C 120 150, 262 252, 420 170 L420 265 L0 265 Z" fill="rgba(255,244,214,0.10)" />
-      <path d="M150 0 C 220 80, 330 30, 420 90 L420 0 Z" fill="rgba(255,244,214,0.10)" />
-      <g stroke="rgba(255,246,222,0.55)" strokeWidth="0.8" strokeLinecap="round">
+      <path d="M0 196 C 120 150, 262 252, 420 170 L420 265 L0 265 Z" fill={fill} />
+      <path d="M150 0 C 220 80, 330 30, 420 90 L420 0 Z" fill={fill} />
+      <g stroke={stroke} strokeWidth="0.8" strokeLinecap="round">
         {WAVE_UPPER.map((d) => <path key={d} d={d} />)}
         {WAVE_LOWER.map((d) => <path key={d} d={d} />)}
       </g>
@@ -43,8 +48,12 @@ function GoldWaves() {
   );
 }
 
+function GoldWaves() {
+  return <CardWaves />;
+}
+
 /** EMV chip, contact grid and all. */
-function EmvChip() {
+export function EmvChip() {
   const gradientId = useId();
   return (
     <svg
@@ -71,7 +80,7 @@ function EmvChip() {
 }
 
 /** Contactless payment glyph: three nested arcs. */
-function ContactlessGlyph() {
+export function ContactlessGlyph({ className = 'text-black/70' }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -80,7 +89,7 @@ function ContactlessGlyph() {
       stroke="currentColor"
       strokeLinecap="round"
       strokeWidth="1.7"
-      className="shrink-0 text-black/70"
+      className={cn('shrink-0', className)}
       style={{ width: 'clamp(13px, 4.2cqw, 20px)', height: 'clamp(13px, 4.2cqw, 20px)' }}
     >
       <path d="M5.5 9.4a5.4 5.4 0 0 1 0 5.2" />

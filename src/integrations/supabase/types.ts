@@ -56730,18 +56730,21 @@ export type Database = {
       }
       staff_mfa_config: {
         Row: {
+          force_enrol_from: string | null
           id: boolean
           mode: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
@@ -68973,6 +68976,39 @@ export type Database = {
           requested_at?: string
           required_factors?: string
           status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_setup_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          used_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -92184,6 +92220,18 @@ export type Database = {
         }
         Returns: Json
       }
+      pin_setup_complete: {
+        Args: { p_code_hash: string; p_new_pin: string; p_user: string }
+        Returns: Json
+      }
+      pin_setup_issue: {
+        Args: {
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
       pin_tenant_ops_weekly_metrics: {
         Args: { p_anchor?: string }
         Returns: number
@@ -94970,6 +95018,10 @@ export type Database = {
       set_staff_access_password: {
         Args: { p_new_password: string; p_user_id: string }
         Returns: boolean
+      }
+      set_staff_mfa_force_enrol: {
+        Args: { p_from: string; p_reason: string }
+        Returns: string
       }
       set_staff_mfa_mode: {
         Args: { p_mode: string; p_reason: string }
