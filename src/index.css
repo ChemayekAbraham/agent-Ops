@@ -1788,6 +1788,11 @@ html.reduce-motion *::after {
 .assistant-composer [data-align="block-end"] { position: absolute; bottom: 6px; left: 6px; right: 6px; width: auto; padding: 0; pointer-events: none; }
 .assistant-composer [data-align="block-end"] button { pointer-events: auto; }
 .assistant-starter:hover { background: hsl(var(--muted)); }
+/* Rent request assistant: the message canvas is a pale white (#F9FAFC) on the
+   light ground; dark mode keeps a soft near-black so the screen never blinds. */
+.rent-request-assistant { --rent-request-canvas: 220 33.3% 98.2%; }
+.dark .rent-request-assistant { --rent-request-canvas: 222 20% 9%; }
+.rent-request-canvas { background: hsl(var(--rent-request-canvas)); }
 /* Cash Position: a scoped compact finance board; no other CFO views change. */
 .cash-position-page {
   --background: 214 55% 98%;
