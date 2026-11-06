@@ -12,7 +12,7 @@ Three readers computed balance as total_repayment - amount_repaid for any plan n
 - `useLandlordTenants` (Call Drawer, browser-side arithmetic on `rent_requests`)
 
 ## Fix
-- `supabase/migrations/20261105090000_landlord_ops_balance_left_ignores_waived_plans.sql`: both RPCs return 0 for plans with an audit row `rent_plan_balance_waived%` (same marker as doc 255). Bodies are the live definitions plus that one condition.
+- `supabase/migrations/20261105090001_landlord_ops_balance_left_ignores_waived_plans.sql`: both RPCs return 0 for plans with an audit row `rent_plan_balance_waived%` (same marker as doc 255). Bodies are the live definitions plus that one condition.
 - `LandlordCallDrawer.tsx` now reads `useLandlordTenantOverview` (server-decided balance) instead of recomputing in the browser. `useLandlordTenants.ts` is left in place, now unused by the drawer.
 
 ## Deliberately not done

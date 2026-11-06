@@ -35,7 +35,7 @@ plus one placeholder row (null `portfolio_id`) per active assignment, capped at 
 only 2 portfolios list her as `agent_id`, so she got 200 placeholders and no real portfolio. All 77 approved ROI rows were dropped and every partner
 name fell back to "Name not available".
 
-**Fix:** `supabase/migrations/20261105130000_agent_onboarded_portfolios_include_proxy_partners.sql` (rollback restores the 11-04 definition).
+**Fix:** `supabase/migrations/20261105093743_agent_onboarded_portfolios_include_proxy_partners.sql` (rollback restores the 11-04 definition).
 Same return type, same masked code, no payout numbers. It now also returns the real portfolios of every partner with an active, **approved**
 `proxy_agent_assignments` row for the caller, keeps a placeholder only for an assignment with no portfolio, and the cap is 5000. Neither function
 is in `critical_function_baselines` (checked 2026-11-05), so no re-baseline.
@@ -80,7 +80,7 @@ memory locally; the worktree had no `node_modules`) and the live screen was not 
 
 **Confirm screen.** After the 11-04 privacy change the withdraw dialog's confirm step read "via —": the destination came only from the agent's own
 profile (the bug in cause 4), and `payoutOnFile` carried only a label. Decision (CTO, 2026-11-05): the assigned proxy must see the partner's holder
-name and number to confirm. `supabase/migrations/20261105150000_agent_partner_payout_destination.sql` adds `agent_partner_payout_destination(partner, route_key)`
+name and number to confirm. `supabase/migrations/20261105102036_agent_partner_payout_destination.sql` adds `agent_partner_payout_destination(partner, route_key)`
 (`security definer`, not granted to `anon`), which returns the name, number, bank and provider of ONE route of ONE partner the caller is `agent_id` of or
 an active, approved proxy for. No table policy was loosened and `agent_partner_payout_routes` still returns labels only. Verified as Lillian: 122 routes
 across the 34 partners paid on 4 Nov all returned name and number; 20 portfolios of other agents' partners returned nothing. Frontend: commit `e8091dc128`
@@ -93,7 +93,7 @@ dialog stopped sending numbers her withdrawals were stored without one. Found on
 route `portfolio:9481972b-…`, UGX 150,000, 10:12 UTC): mobile money with null number, name and provider although the portfolio has an MTN number. It was the
 only such row since the trigger was created (8:42 UTC).
 
-**Fix:** `supabase/migrations/20261105160000_copy_proxy_payout_for_staff_agents.sql` (rollback restores the 11-04 behaviour). Staff who typed their own number
+**Fix:** `supabase/migrations/20261105102612_copy_proxy_payout_for_staff_agents.sql` (rollback restores the 11-04 behaviour). Staff who typed their own number
 or bank account keep it; otherwise the destination is copied from the chosen route as for any proxy agent. Not on `critical_function_baselines`. Verified as
 Lillian on a throwaway table with the trigger attached: a mobile-money route gets number, provider and name; a bank route gets account number and bank
 name; a number typed by staff is kept. No real withdrawal was created for the test.
