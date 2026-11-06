@@ -17,14 +17,16 @@ import { DESK_STAGE } from './reviewTypes';
 import { AMBIGUOUS_MSG, NOT_FOUND_MSG, NO_STAFF_ID, resolveShortId, useMyStaffRef } from './reviewApi';
 import { ReviewStatusProvider } from './reviewStatus';
 import { ReviewDrawer } from './ReviewDrawer';
-import { FundByScore } from './FundByScore';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
-import { ReadyBoard } from './ReadyBoard';
+import { ReadyBoard, type OpenDrawer } from './ReadyBoard';
+import { CooBoard, RetiredFundNote } from './CooBoard';
+import { PartnerWatch } from './PartnerWatch';
+import { desksFor, useMyScScope } from './scScope';
 import type { Decision } from './reviewTypes';
 import { DeskRules } from './DeskRules';
 import { OntologyTab } from './ontology/OntologyTab';
@@ -32,7 +34,7 @@ import { OntologyTab } from './ontology/OntologyTab';
 const ROTATE_MS = 45_000;
 
 /** Desks whose "Ready for your push" is the board (pipeline_desk_board). Their queue table stays in Classic view. */
-const BOARD_DESKS = new Set(['agent-ops']);
+const BOARD_DESKS = new Set(['service-centre', 'agent-ops', 'tenant-ops', 'landlord-ops']);
 
 /** The one table on each desk whose rows are reviewable requests. */
 const QUEUE_TABLE: Record<string, string> = {
@@ -45,8 +47,8 @@ const QUEUE_TABLE: Record<string, string> = {
 };
 
 /** The desks that carry a second tab beside their queue. */
+// The COO's "Fund by score" tab was the budget path, retired 5 Nov; Classic view says so.
 const EXTRA_TAB: Record<string, string> = {
-  coo: 'Fund by score',
   'partner-ops': 'Funder board — preview',
   ontology: 'Ontology',
 };
@@ -213,7 +215,18 @@ function StaffBadge() {
   return <p className={`text-xs ${statusText.warn}`}>{NO_STAFF_ID}</p>;
 }
 
-function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, FeedState>; board: boolean }) {
+function DeskView({
+  desk,
+  feeds,
+  board,
+  scOnly = false,
+}: {
+  desk: Desk;
+  feeds: Record<string, FeedState>;
+  board: boolean;
+  /** A Service Centre person with no desk role: their own requests on the board, nothing else. */
+  scOnly?: boolean;
+}) {
   // The review drawer (E26), the frame and the strip. The stage is null on desks
   // with no checklist, and the whole thing is off unless this desk is live:
   // its `desk_live:<id>` switch is not off and VITE_DESK_CHECKLIST is not false.
@@ -222,7 +235,7 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
-  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | undefined>(undefined);
+  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | 'call' | undefined>(undefined);
   const [opening, setOpening] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   // `?tab=` opens the second tab straight away, so the budget-room card can
@@ -339,7 +352,6 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
 
   const extraView = (
     <>
-      {extraTab && tab === 'extra' && desk.id === 'coo' && <FundByScore board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'partner-ops' && <FunderBoard board={board} />}
       {extraTab && tab === 'extra' && desk.id === 'ontology' && <OntologyTab board={board} />}
     </>
@@ -367,6 +379,32 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
     />
   );
 
+  const openFromBoard: OpenDrawer = (id, initial) => {
+    setOpenInitial(initial);
+    setOpenRequest(id);
+  };
+
+  // A Service Centre person: the board scoped to their own requests, and nothing
+  // that reads staff-only feeds.
+  if (scOnly) {
+    return (
+      <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+        <p className="text-sm text-muted-foreground">{desk.question}</p>
+        {checklistOn && stage ? (
+          <section className="space-y-3" aria-labelledby="desk-ready">
+            <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+              Ready for your push
+            </h2>
+            <ReadyBoard stage={stage} board={board} onOpen={openFromBoard} />
+          </section>
+        ) : (
+          <p className="text-sm text-muted-foreground">The Service Centre desk is switched off right now. Try again later.</p>
+        )}
+        {drawer}
+      </div>
+    );
+  }
+
   // The stage desks, when live: strip → Ready for your push → Waiting on… →
   // Done today → Classic view. Classic view keeps every table the desk had.
   if (checklistOn && FRAMED_DESKS.has(desk.id)) {
@@ -384,15 +422,10 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
           {extraView}
           {desk.id === 'cfo' ? (
             <FundersDashboard board={board} />
+          ) : desk.id === 'coo' ? (
+            <CooBoard board={board} onOpen={openFromBoard} />
           ) : showQueue && stage && BOARD_DESKS.has(desk.id) ? (
-            <ReadyBoard
-              stage={stage}
-              board={board}
-              onOpen={(id, initial) => {
-                setOpenInitial(initial);
-                setOpenRequest(id);
-              }}
-            />
+            <ReadyBoard stage={stage} board={board} onOpen={openFromBoard} />
           ) : (
             showQueue && ready && table(ready)
           )}
@@ -401,9 +434,34 @@ function DeskView({ desk, feeds, board }: { desk: Desk; feeds: Record<string, Fe
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />
         <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+          {desk.id === 'coo' && <RetiredFundNote />}
           {desk.tables.map(table)}
         </Fold>
 
+        {drawer}
+      </div>
+    );
+  }
+
+  // Partner Ops, when live: it no longer attaches funders; it watches the funders' board.
+  if (checklistOn && desk.id === 'partner-ops') {
+    return (
+      <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
+        <PipelineStrip deskId={desk.id} board={board} />
+        {intro}
+        <section className="space-y-3" aria-labelledby="desk-watch">
+          <h2 id="desk-watch" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+            Funder board watch
+          </h2>
+          <PartnerWatch board={board} />
+        </section>
+        <Fold title="Funder board — preview" board={board} hint="What the funders would see">
+          <FunderBoard board={board} />
+        </Fold>
+        <DeskRules deskId={desk.id} board={board} />
+        <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+          {desk.tables.map(table)}
+        </Fold>
         {drawer}
       </div>
     );
@@ -438,12 +496,16 @@ function DeskShell() {
   const navigate = useNavigate();
 
   const mine = (roles ?? []) as unknown as string[];
-  const allowed = DESKS.filter((d) => d.roles.some((r) => mine.includes(r)));
+  // Desk roles first; with none, ask whether this account is a Service Centre person.
+  const hasDeskRole = DESKS.some((d) => d.roles.some((r) => mine.includes(r)));
+  const scScope = useMyScScope(!hasDeskRole && roles !== undefined);
+  const { desks: allowed, scOnly } = desksFor(DESKS, mine, scScope.data);
   const desk = allowed.find((d) => d.id === deskId);
   const [search] = useSearchParams();
   const rawDay = search.get('day');
   const day = desk?.id === 'ontology' && rawDay && /^\d{4}-\d{2}-\d{2}$/.test(rawDay) ? rawDay : null;
-  const feeds = useDeskFeeds(desk ? feedsOf(desk) : [], day);
+  // A Service Centre person reads only the board, never the staff feeds.
+  const feeds = useDeskFeeds(desk && !scOnly ? feedsOf(desk) : [], day);
 
   // Board mode can walk itself through the desks for a wall display. Off unless asked for.
   const deskKey = desk?.id;
@@ -458,6 +520,14 @@ function DeskShell() {
     }, ROTATE_MS);
     return () => window.clearInterval(id);
   }, [board, rotate, deskKey, allowedKey, navigate]);
+
+  if (allowed.length === 0 && !hasDeskRole && scScope.isLoading) {
+    return (
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme} aria-busy>
+        <p className="text-sm text-muted-foreground">Opening your desk…</p>
+      </main>
+    );
+  }
 
   if (allowed.length === 0) {
     return (
@@ -522,7 +592,7 @@ function DeskShell() {
       <div className="desk-root flex h-[100dvh] min-w-0 flex-col gap-6 overflow-hidden px-4 py-6 sm:px-8" data-desk-theme="dark">
         {header}
         <div className="min-h-0 min-w-0 flex-1">
-          <DeskView key={desk.id} desk={desk} feeds={feeds} board />
+          <DeskView key={desk.id} desk={desk} feeds={feeds} board scOnly={scOnly} />
         </div>
       </div>
     );
@@ -532,7 +602,7 @@ function DeskShell() {
     <div className="desk-root min-h-screen" data-desk-theme={rootTheme}>
       <main className="mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 py-6 sm:px-8">
         {header}
-        <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} />
+        <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} scOnly={scOnly} />
       </main>
     </div>
   );

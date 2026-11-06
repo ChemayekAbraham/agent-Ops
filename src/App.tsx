@@ -947,8 +947,8 @@ function AppRoutes() {
           <Route path="/coo/reports/system-overview" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOSystemOverviewReport /></RoleGuard>} />
           <Route path="/coo/funder-rent-plans" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFunderRentPlanVisibility /></RoleGuard>} />
           {/* Decision desks (E16 phase 1). Data comes from desk_feed(), which checks roles in the database too. */}
-          <Route path="/desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
-          <Route path="/desk/:desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
+          <Route path="/desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm','agent'] as AppRole[]}><DeskPage /></RoleGuard>} />
+          <Route path="/desk/:desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm','agent'] as AppRole[]}><DeskPage /></RoleGuard>} />
           <Route path="/share" element={<Index />} />
           <Route path="/ai" element={<WelileAIPage />} />
           <Route path="/terms" element={<Terms />} />

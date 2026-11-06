@@ -24,7 +24,7 @@ import {
 import {
   DECISION_HELP,
   DECISION_LABEL,
-  STAGE_DECISIONS,
+  visibleDecisions,
   type CheckEntry,
   type CheckResult,
   type ChecklistItem,
@@ -217,8 +217,8 @@ export function ReviewDrawer({
   stage: Stage;
   requestId: string;
   onClose: () => void;
-  /** Opened from the board's ⋯ menu: start on this decision, or on "Wait on…". */
-  initial?: Decision | 'wait';
+  /** Opened from the board: start on this decision, on "Wait on…", or with the call button ready. */
+  initial?: Decision | 'wait' | 'call';
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -228,7 +228,7 @@ export function ReviewDrawer({
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
   const [decision, setDecision] = useState<Decision | null>(() =>
-    initial && initial !== 'wait' && STAGE_DECISIONS[stage].includes(initial) ? initial : null,
+    initial && initial !== 'wait' && initial !== 'call' && visibleDecisions(stage).includes(initial) ? initial : null,
   );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
@@ -442,6 +442,7 @@ export function ReviewDrawer({
                       <span className="ml-1.5 align-middle">
                         <DeskCallButton
                           target={{ requestId, desk: stage, subject: 'tenant', calleeId: req.tenant?.id ?? null, name: req.tenant?.name ?? null, phone: req.tenant?.phone ?? null }}
+                          autoFocus={initial === 'call'}
                           onEnded={(ok) => ok && setLiveAnswered(true)}
                         />
                       </span>
@@ -466,6 +467,7 @@ export function ReviewDrawer({
                       <span className="ml-1.5 align-middle">
                         <DeskCallButton
                           target={{ requestId, desk: stage, subject: 'landlord', calleeId: null, name: req.landlord?.name ?? null, phone: req.landlord?.phone ?? null }}
+                          autoFocus={initial === 'call'}
                           onEnded={(ok) => ok && setLiveAnswered(true)}
                         />
                       </span>
@@ -502,6 +504,12 @@ export function ReviewDrawer({
                   </Fact>
                 </div>
               </section>
+
+              {initial === 'call' && callDesk && (
+                <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.warn}`}>
+                  Call the {callDesk} first: press the phone button next to their name above, then log the call below.
+                </p>
+              )}
 
               {/* ── The call, which must come before the decision ── */}
               {callDesk && (
@@ -554,7 +562,7 @@ export function ReviewDrawer({
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
                 <div className="flex flex-wrap gap-2">
-                  {STAGE_DECISIONS[stage].map((d) => {
+                  {visibleDecisions(stage).map((d) => {
                     const on = decision === d;
                     const isRec = recommended === d;
                     const off = d === 'pass' && !canPass;

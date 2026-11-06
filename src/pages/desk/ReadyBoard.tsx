@@ -10,21 +10,23 @@ import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
-import { DECISION_LABEL, STAGE_DECISIONS, type Decision, type Stage } from './reviewTypes';
+import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import {
   GROUP_LABEL,
-  GROUP_ORDER,
   PUSHABLE,
   boardKey,
   flagsChip,
+  groupsFor,
   loadBoard,
   hoursUntil,
   moveFor,
+  opensDrawer,
   ownerLabel,
   primaryLabel,
   pushRow,
   setSuggestedWait,
+  triesToday,
   useDeskBoard,
   type BoardDecision,
   type BoardRow,
@@ -41,7 +43,8 @@ import {
  * reason code is asked.
  */
 
-export type OpenDrawer = (requestId: string, initial?: Decision | 'wait') => void;
+/** `call` opens the drawer with the call button ready. */
+export type OpenDrawer = (requestId: string, initial?: Decision | 'wait' | 'call') => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
 
@@ -54,6 +57,7 @@ function rowTone(d: BoardDecision): 'ok' | 'warn' | 'bad' | 'idle' {
   if (d === 'pass') return 'ok';
   if (d === 'reject') return 'bad';
   if (d === 'waiting') return 'idle';
+  if (d === 'call' || d === 'complete') return 'idle';
   return 'warn';
 }
 
@@ -90,7 +94,8 @@ function BoardRowLine({
 }) {
   const chip = flagsChip(row.flags);
   const label = primaryLabel(row, stage);
-  const others = STAGE_DECISIONS[stage].filter((d) => d !== row.decision);
+  const others = visibleDecisions(stage).filter((d) => d !== row.decision);
+  const tries = triesToday(row.call);
   const text = board ? 'text-base' : 'text-sm';
   const w = row.waiting;
 
@@ -115,6 +120,7 @@ function BoardRowLine({
         </span>
         <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
         <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
+        {tries && <span className={`text-xs ${statusText.warn}`}>{tries}</span>}
 
         <span className="ml-auto inline-flex items-center gap-1.5">
           {row.decision === 'waiting' ? (
@@ -341,6 +347,11 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
 
   const primary = async (row: BoardRow) => {
     if (!user) return;
+    // Call first / finish the checks: the reviewer works in the drawer.
+    if (opensDrawer(row.decision)) {
+      onOpen(row.id, row.decision === 'call' ? 'call' : undefined);
+      return;
+    }
     // No push values: the drawer asks for what is missing.
     if (row.decision !== 'wait' && !row.push) {
       onOpen(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
@@ -395,7 +406,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   return (
     <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
       <div className="flex flex-wrap items-center gap-1.5">
-        {GROUP_ORDER.map((d) => {
+        {groupsFor(stage).map((d) => {
           const n = countOf(d);
           const on = only === d;
           return (

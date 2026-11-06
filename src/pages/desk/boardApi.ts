@@ -12,7 +12,18 @@ import type { CheckEntry, Decision, Stage } from './reviewTypes';
  * values, nothing more.
  */
 
-export type BoardDecision = 'pass' | 'transfer' | 'send_back' | 'reject' | 'wait' | 'waiting';
+export type BoardDecision =
+  | 'pass'
+  | 'transfer'
+  | 'send_back'
+  | 'reject'
+  | 'wait'
+  | 'waiting'
+  /** Service Centre: items missing — call and fill them in the drawer. Tenant/Landlord Ops: checks left to finish. */
+  | 'complete'
+  /** Tenant/Landlord Ops: no answered call yet — call first. */
+  | 'call'
+  | 'call_again';
 
 export type BoardFlag = { code: string; label: string; level: 'hard' | 'soft' | 'info'; ok: boolean; detail: string | null };
 
@@ -167,7 +178,31 @@ export async function setSuggestedWait(row: BoardRow, stage: Stage): Promise<{ o
 /** The groups "Push all" works on. */
 export const PUSHABLE: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reject'];
 
-export const GROUP_ORDER: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reject', 'wait', 'waiting'];
+/** The decision groups each board shows, in the order the desk works them. */
+export const STAGE_GROUPS: Partial<Record<Stage, BoardDecision[]>> = {
+  service_centre: ['pass', 'send_back', 'complete', 'waiting'],
+  agent_ops: ['pass', 'transfer', 'send_back', 'reject', 'wait', 'waiting'],
+  tenant_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
+  landlord_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
+};
+
+export const GROUP_ORDER: BoardDecision[] = STAGE_GROUPS.agent_ops as BoardDecision[];
+
+export function groupsFor(stage: Stage): BoardDecision[] {
+  return STAGE_GROUPS[stage] ?? GROUP_ORDER;
+}
+
+/** Decisions whose button opens the drawer instead of pushing: the reviewer has work to do first. */
+export function opensDrawer(d: BoardDecision): boolean {
+  return d === 'complete' || d === 'call';
+}
+
+/** "3 tries today", or null when nobody has tried in 24 hours. */
+export function triesToday(call: BoardRow['call']): string | null {
+  const n = call?.attempts_24h ?? 0;
+  if (!n || n <= 0) return null;
+  return n === 1 ? '1 try today' : `${n} tries today`;
+}
 
 export const GROUP_LABEL: Record<BoardDecision, string> = {
   pass: 'Pass',
@@ -176,6 +211,9 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   reject: 'Reject',
   wait: 'Wait',
   waiting: 'Waiting',
+  complete: 'Complete',
+  call: 'Call',
+  call_again: 'Call again',
 };
 
 /** "5/5 ✓", or "4/5 — <first failing label>". */
@@ -254,6 +292,12 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
       return 'Send back';
     case 'reject':
       return 'Reject';
+    case 'call_again':
+      return 'Call again';
+    case 'call':
+      return stage === 'landlord_ops' ? 'Call landlord' : 'Call tenant';
+    case 'complete':
+      return stage === 'service_centre' ? 'Call and fill' : 'Finish checks';
     case 'transfer': {
       const r = row.receiver;
       if (!r) return 'Transfer';
