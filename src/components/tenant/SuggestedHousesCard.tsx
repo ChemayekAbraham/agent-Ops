@@ -208,7 +208,7 @@ export function SuggestedHousesCard({ userId, onViewAll }: SuggestedHousesCardPr
                 {house.house_category} · {house.number_of_rooms} room{house.number_of_rooms !== 1 ? 's' : ''}
               </p>
               <p className="text-sm font-semibold text-foreground">
-                {formatUGX(house.daily_rate)} <span className="text-xs font-normal text-muted-foreground">/ day</span>
+<span className="text-green-600 dark:text-green-400">{formatUGX(house.daily_rate)}</span> <span className="text-xs font-normal text-muted-foreground">/ day</span>
               </p>
             </div>
           </div>
