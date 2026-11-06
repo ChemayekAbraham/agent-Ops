@@ -533,8 +533,10 @@ export default function HouseDetail() {
           {/* Floating top controls */}
           <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 pt-safe-top py-3">
             <button
-              onClick={() => navigate('/dashboard/tenant')}
-              aria-label="Back to tenant dashboard"
+              onClick={() => navigate(filteredListTo, {
+                state: { from: fromFunder ? 'funder' : undefined, listSearch, focusHouseId: listing.id },
+              })}
+              aria-label="Back to this house in Find a House"
               className="bg-background/80 backdrop-blur-sm text-foreground rounded-full p-2.5 shadow-lg active:scale-95 transition-transform">
               <ArrowLeft className="h-5 w-5" />
             </button>

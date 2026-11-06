@@ -134,7 +134,7 @@ export function SuggestedHousesCard({ userId, onViewAll }: SuggestedHousesCardPr
               }
             }}
             aria-label={`View details for ${house.title}`}
-            className="flex-shrink-0 w-[44vw] sm:w-48 snap-start cursor-pointer focus:outline-none group"
+            className="flex-shrink-0 w-[44vw] sm:w-48 snap-start cursor-pointer focus:outline-none group rounded-2xl bg-primary/[0.07] p-2 pb-3"
           >
             {/* Image container */}
             <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
