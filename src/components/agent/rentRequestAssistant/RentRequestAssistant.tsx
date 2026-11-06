@@ -865,7 +865,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </TooltipProvider>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted px-4 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted/20 px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
           <div className="px-1 pb-1 pt-2">
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
