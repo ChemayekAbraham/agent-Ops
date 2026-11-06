@@ -61,6 +61,11 @@ export type VettingNationalId = {
 
 export type AgentVetting = {
   status: VettingStatus;
+  /**
+   * Works as an agent by footprint (server agent_vetting_in_scope: posted a rent request,
+   * collected, or has verified sub-agents). The agent role itself is held by nearly everyone.
+   */
+  in_scope: boolean;
   review_note: string | null;
   submitted_at: string | null;
   verified_at: string | null;
@@ -117,6 +122,7 @@ export function parseAgentVetting(raw: unknown): AgentVetting {
 
   return {
     status: STATUSES.includes(r.status) ? r.status : 'unverified',
+    in_scope: r.in_scope === true,
     review_note: str(r.review_note),
     submitted_at: str(r.submitted_at),
     verified_at: str(r.verified_at),
@@ -220,6 +226,15 @@ export function vettingChecklist(v: AgentVetting, now: Date = new Date()): Vetti
 export function vettingProgress(steps: VettingStep[]) {
   const done = steps.filter((s) => s.done).length;
   return { done, total: steps.length, complete: done === steps.length };
+}
+
+/**
+ * Whether verification concerns this account at all: it works as an agent, or it has
+ * already started verification (submitted, verified or sent back). Role holders who are
+ * neither see no verification ring or banner; posting a first rent request still asks them.
+ */
+export function vettingApplies(v: Pick<AgentVetting, 'in_scope' | 'status'>): boolean {
+  return v.in_scope || v.status !== 'unverified';
 }
 
 /** Agents can edit while unverified or rejected; editing a verified record sends it back for review. */
