@@ -43,7 +43,7 @@ import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { DialableNumber } from './DialableNumber';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
 import { EmailTransactionsTableView } from './EmailTransactionsTableView';
-import { EmailTransactionsMockupHeader } from './EmailTransactionsMockupHeader';
+import { PageHeader } from './FinopsKit';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -181,148 +181,47 @@ export function EmailTransactionsPanel() {
     startHistoryQueue, historyQueueIndex, swipeNavigate, refreshRowStatus, gmailLabelCounts, gmailLabels,
     applyRecentWindow,
   } = useEmailTransactionsPanel();
-  // Mockup mode: the Table layout on the Live Inbox tab is a standalone page
-  // (header, tiles, search card, table + detail). Everything else keeps the
-  // original chrome. Display-only; no handler or calculation changes.
-  const mockupMode = focusView === 'table' && workspaceTab === 'inbox';
-  const mockupTodayKey = dateKeyInTz(new Date(), tz);
-  const mockupKeyDaysAgo = (n: number) => {
-    const [y, m, d] = mockupTodayKey.split('-').map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d) - n * 86_400_000);
+  // Which of the quick date windows (Today / 7 / 30 days) is currently applied.
+  const todayKeyNow = dateKeyInTz(new Date(), tz);
+  const windowStartKey = (days: number) => {
+    const [y, m, d] = todayKeyNow.split('-').map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d) - (days - 1) * 86_400_000);
     return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
   };
-  const mockupActiveDays =
-    toDate === mockupTodayKey ? ([1, 7, 30].find((n) => fromDate === mockupKeyDaysAgo(n - 1)) ?? null) : null;
-  const mockupSyncedLabel = (() => {
-    const t = lastSuccessAt ? Date.parse(lastSuccessAt) : NaN;
-    if (Number.isNaN(t)) return null;
-    const mins = Math.max(0, Math.floor((Date.now() - t) / 60_000));
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins} min ago`;
-    if (mins < 1440) return `${Math.floor(mins / 60)} h ago`;
-    return `${Math.floor(mins / 1440)} d ago`;
-  })();
-  const mockupViews = ([
-    ['all', 'All'],
-    ['needs_routing', 'Needs routing'],
-    ['unparsed', 'Could not read'],
-    ['out', 'Money out'],
-  ] as const).flatMap(([key, label]) => {
-    const l = gmailLabels.find((x) => x.key === key);
-    if (!l) return [];
-    return [{
-      key,
-      label,
-      active: l.active,
-      onSelect: () => {
-        l.apply();
-        setMatchFilter('all');
-        setDebitFilter('all');
-        setSearchOptionsOpen(false);
-      },
-    }];
-  });
+  const isWindowActive = (days: number) => toDate === todayKeyNow && fromDate === windowStartKey(days);
   return (
     <div className="space-y-3.5">
-      {mockupMode && (
-        <EmailTransactionsMockupHeader
-          tiles={{
-            all: gmailLabelCounts.all,
-            credited: gmailLabelCounts.credited,
-            routing: gmailLabelCounts.routing,
-            unparsed: gmailLabelCounts.unparsed,
-          }}
-          periodLabel={mockupActiveDays === 1 ? 'today' : mockupActiveDays ? `in the last ${mockupActiveDays} days` : 'in this period'}
-          syncedLabel={mockupSyncedLabel}
-          syncFailed={!!loadError}
-          loading={loading}
-          onRefresh={() => load()}
-          onPoll={pollNow}
-          polling={polling}
-          moreTools={(
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-full text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:mr-1 sm:w-auto">Export</span>
-                <Button
-                  variant="outline"
-                  onClick={() => exportTotalsCsv({ rows: filteredRows, totalIn, totalOut, netAmount, channelBreakdown })}
-                  disabled={filteredRows.length === 0}
-                  className="gap-2"
-                >
-                  <FileDown className="h-4 w-4" /> Export CSV
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => exportTotalsPdf({ rows: filteredRows, totalIn, totalOut, netAmount, channelBreakdown })}
-                  disabled={filteredRows.length === 0}
-                  className="gap-2"
-                >
-                  <FileText className="h-4 w-4" /> Export PDF
-                </Button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                <span className="w-full text-[11px] font-medium uppercase tracking-wider text-muted-foreground sm:mr-1 sm:w-auto">Gmail &amp; diagnostics</span>
-                <ArchivedPdfsDrawer />
-                <ReconnectGmailDialog />
-                <DebugPollDialog />
-                <SmsSetupGuide />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                <span className="w-full text-[11px] font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400 sm:mr-1 sm:w-auto">Moves money</span>
-                <BucketTransferLauncher />
-                <BacklogSweepLauncher />
-              </div>
-            </div>
-          )}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          activeDays={mockupActiveDays}
-          onWindow={applyRecentWindow}
-          moreFiltersOpen={searchOptionsOpen}
-          onToggleMoreFilters={() => setSearchOptionsOpen((v) => !v)}
-          views={mockupViews}
-          presets={filterPresets.map((p) => ({ id: p.id, name: p.name, active: activePresetId === p.id }))}
-          onApplyPreset={(id) => {
-            const p = filterPresets.find((x) => x.id === id);
-            if (p) applyPreset(p);
-          }}
-          onDeletePreset={deletePreset}
-          presetSaveOpen={presetSaveOpen}
-          onTogglePresetSave={() => setPresetSaveOpen((v) => !v)}
-          presetNameDraft={presetNameDraft}
-          setPresetNameDraft={setPresetNameDraft}
-          onSavePreset={savePreset}
-          layout={focusView === 'table' ? 'table' : focusView === 'gmail' ? 'gmail' : 'ops'}
-          onLayout={(l) => {
-            setFocusView(l);
-            if (l !== 'ops') setFocusDirection(null);
-          }}
-          onAnalytics={() => setWorkspaceTab('analytics')}
-          onDiagnostics={() => setWorkspaceTab('diagnostics')}
-        />
-      )}
-      {/* Page header + at-a-glance summary for the Inbox / Ops layouts (figures follow
-          the current date range and search). The Table layout has its own header above. */}
-      <div className={mockupMode ? 'hidden' : 'space-y-1'}>
-        <h2 className="text-2xl font-bold tracking-tight">Email Transactions</h2>
-        <p className="text-sm text-muted-foreground">Live transactions extracted from connected Gmail</p>
-      </div>
-      <div className={mockupMode ? 'hidden' : 'grid grid-cols-2 gap-3 lg:grid-cols-4'}>
-        {[
-          { label: 'Emails in view', value: filteredRows.length.toLocaleString(), note: 'Read from connected Gmail' },
-          { label: 'Money in', value: `UGX ${Math.round(totalIn).toLocaleString()}`, note: 'Deposits read from email' },
-          { label: 'Awaiting routing', value: (unmatchedInCount + unmatchedOutCount).toLocaleString(), note: 'Need a wallet match' },
-          { label: 'Could not read', value: unparsedRows.length.toLocaleString(), note: 'A person needs to look' },
-        ].map((s) => (
-          <div key={s.label} className="flex flex-col gap-1 rounded-2xl border bg-card p-4 shadow-sm">
-            <span className="text-xs font-medium text-muted-foreground">{s.label}</span>
-            <span className="text-xl font-bold tracking-tight tabular-nums sm:text-2xl">{s.value}</span>
-            <span className="text-xs text-muted-foreground">{s.note}</span>
-          </div>
-        ))}
-      </div>
+      <PageHeader
+        icon={Mail}
+        title="Email Transactions"
+        description="Scan and process incoming deposit notifications from email."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="min-h-[44px] sm:min-h-[40px] gap-2"
+              onClick={() => { void load(); }}
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
+            </Button>
+            <Button
+              className="min-h-[44px] sm:min-h-[40px] gap-2"
+              onClick={() => {
+                setSearchQuery('');
+                setPhoneQuery('');
+                setSearchOptionsOpen(true);
+                if (typeof document !== 'undefined') document.getElementById('email-tx-search')?.focus();
+              }}
+            >
+              <Search className="h-4 w-4" aria-hidden="true" /> New search
+            </Button>
+          </>
+        }
+      />
+
       {/* ── Top Workspace Tab Navigation ── */}
-      <div className={`${mockupMode ? 'hidden' : 'flex'} items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm`}>
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
         <button
           type="button"
           onClick={() => setWorkspaceTab('inbox')}
@@ -394,7 +293,7 @@ export function EmailTransactionsPanel() {
 
       {/* ── Gmail-style app bar: hamburger, product name, one big rounded
           search field, then the layout switch on the far right. ───────── */}
-      <div className={`${mockupMode ? 'hidden' : 'flex'} items-center gap-2 sm:gap-3 rounded-full border bg-card px-2 py-1.5 sm:px-3 sm:py-2`}>
+      <div className="flex items-center gap-2 sm:gap-3 rounded-full border bg-card px-2 py-1.5 sm:px-3 sm:py-2">
         <Button
           size="icon"
           variant="ghost"
@@ -405,14 +304,11 @@ export function EmailTransactionsPanel() {
         >
           <Menu className="h-4 w-4" />
         </Button>
-        <div className="hidden sm:flex items-center gap-2 shrink-0 pl-1 pr-1">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium tracking-tight">Email transactions</span>
-        </div>
-        {!mockupMode && <TelecomBalanceStrip refreshKey={rows[0]?.id ?? null} />}
+        <TelecomBalanceStrip refreshKey={rows[0]?.id ?? null} />
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <input
+            id="email-tx-search"
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -575,7 +471,7 @@ export function EmailTransactionsPanel() {
       )}
 
       {/* Compact quick date pills (Gmail chip row) — always visible. */}
-      <div className={`${mockupMode ? 'hidden' : 'flex'} items-center gap-2 overflow-x-auto pb-0.5`}>
+      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
         {([
           { label: 'Today', days: 1 },
           { label: 'Last 7 days', days: 7 },
@@ -585,7 +481,12 @@ export function EmailTransactionsPanel() {
             key={p.label}
             type="button"
             onClick={() => applyRecentWindow(p.days)}
-            className="shrink-0 rounded-full border bg-card px-4 py-2 text-xs font-medium text-foreground shadow-sm hover:bg-muted"
+            aria-pressed={isWindowActive(p.days)}
+            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-medium shadow-sm transition-colors ${
+              isWindowActive(p.days)
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'bg-card text-foreground hover:bg-muted'
+            }`}
           >
             {p.label}
           </button>
@@ -606,7 +507,7 @@ export function EmailTransactionsPanel() {
       {(workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
       <div className="flex gap-4">
         <aside
-          className={`${mockupMode ? 'hidden' : gmailNavOpen ? 'block lg:block' : 'hidden lg:block'} w-full max-w-[256px] shrink-0 lg:w-[232px] lg:sticky lg:top-3 lg:self-start`}
+          className={`${gmailNavOpen ? 'block' : 'hidden'} lg:block w-full max-w-[256px] shrink-0 lg:w-[232px] lg:sticky lg:top-3 lg:self-start`}
           aria-label="Mail labels"
         >
           <nav className="space-y-0.5 pr-1 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
@@ -649,12 +550,12 @@ export function EmailTransactionsPanel() {
             ))}
           </nav>
         </aside>
-        <div className={`min-w-0 flex-1 space-y-4 ${gmailNavOpen && !mockupMode ? 'hidden lg:block' : ''}`}>
-      <div id="email-tx-results" className={mockupMode ? 'scroll-mt-20' : 'rounded-2xl border bg-card overflow-hidden scroll-mt-20 shadow-sm'}>
+        <div className={`min-w-0 flex-1 space-y-4 ${gmailNavOpen ? 'hidden lg:block' : ''}`}>
+      <div id="email-tx-results" className="rounded-2xl border bg-card overflow-hidden scroll-mt-20 shadow-sm">
         {/* Prominent, full-width search bar — lets ops find any email by
             amount, name, phone (any format), reference id, or any word in
             the body / subject. Sticky on scroll so it's always reachable. */}
-        <div className={`${mockupMode ? 'hidden' : ''} p-3.5 border-b bg-card/95 backdrop-blur sm:sticky sm:top-0 sm:z-10 space-y-2`}>
+        <div className="p-3.5 border-b bg-card/95 backdrop-blur sm:sticky sm:top-0 sm:z-10 space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <h3 className="font-medium text-sm flex items-center gap-2">
               <Mail className="h-3.5 w-3.5 text-muted-foreground" />
@@ -794,7 +695,7 @@ export function EmailTransactionsPanel() {
           </div>
         </div>
         
-        <div className={`${mockupMode ? 'hidden' : ''} p-3 sm:p-4 border-b sticky top-[104px] z-[18] bg-card sm:static sm:z-auto`}>
+        <div className="p-3 sm:p-4 border-b sticky top-[104px] z-[18] bg-card sm:static sm:z-auto">
           {/* Saved filter presets — one-tap switching between saved views.
               Always visible (mobile-first) so operators never have to expand the
               chip groups to restore a triage view. */}
@@ -857,7 +758,7 @@ export function EmailTransactionsPanel() {
 
         {/* ── Gmail list toolbar: refresh on the left, result count on the
             right — the strip that sits above every Gmail inbox. ────────── */}
-        <div className={`${mockupMode ? 'hidden' : 'flex'} items-center justify-between gap-2 border-b px-2 py-1.5`}>
+        <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5">
           <div className="flex items-center gap-0.5">
             <Button
               size="icon"
@@ -918,7 +819,7 @@ export function EmailTransactionsPanel() {
             <p className="text-xs">Click <strong>Poll now</strong> to check Gmail for new emails, or just wait a minute — it checks on its own.</p>
           </div>
         ) : (
-          <div className={mockupMode ? 'space-y-3' : 'divide-y max-h-[calc(100vh-16rem)] min-h-[420px] overflow-y-auto'}>
+          <div className="divide-y max-h-[calc(100vh-16rem)] min-h-[420px] overflow-y-auto">
             {selectedIds.size > 0 && (
               <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-2 border-b border-primary/20 bg-primary/10 backdrop-blur px-3.5 py-2.5 shadow-sm">
                 <div className="text-sm font-semibold">
@@ -2703,7 +2604,7 @@ export function EmailTransactionsPanel() {
       )}
 
       {/* Action buttons on inbox tabs */}
-      {!mockupMode && (workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
+      {(workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
         <div className="rounded-xl border bg-card p-3 flex flex-col gap-3">
 
         <div className="flex flex-wrap items-center gap-2">
@@ -3648,7 +3549,7 @@ export function EmailTransactionsPanel() {
       </Dialog>
 
 
-      {!mockupMode && <DedupAuditPanel />}
+      <DedupAuditPanel />
 
       <AlertDialog open={!!pendingSwipe} onOpenChange={(o) => { if (!o) { setPendingSwipe(null); setSwipeAck(false); } }}>
         <AlertDialogContent>

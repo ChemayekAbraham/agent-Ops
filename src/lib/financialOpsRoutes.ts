@@ -50,7 +50,9 @@ const ID_FROM_ALIAS: Record<string, string> = {
 };
 
 export const finopsSlug = (id: string): string => SLUG_ALIASES[id] ?? id.replace(/_/g, '-');
-export const finopsIdFromSlug = (slug: string): string => ID_FROM_ALIAS[slug] ?? slug.replace(/-/g, '_');
+/** /payout-queue opens Verify Payout Numbers (decision 5583358c33). */
+const EXTRA_SLUGS: Record<string, string> = { 'payout-queue': 'payout_verification' };
+export const finopsIdFromSlug = (slug: string): string => EXTRA_SLUGS[slug] ?? ID_FROM_ALIAS[slug] ?? slug.replace(/-/g, '_');
 export const isFinopsViewId = (id: string): boolean => (VIEW_IDS as readonly string[]).includes(id);
 
 /** The URL of a panel, or the overview when no id is given. */
