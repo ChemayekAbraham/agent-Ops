@@ -2471,6 +2471,7 @@ export default function WithdrawFlow({
         onOpenChange={handleClose}
         title="Withdraw Funds"
         steps={STEPS}
+        visibleSteps={2}
         currentStep={toDisplayStep(currentStep)}
         onStepChange={(nextDisplay) => {
           const next = INTERNAL_STEP[nextDisplay] ?? 5;
