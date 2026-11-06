@@ -203,6 +203,16 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
             </div>
           </div>
         </div>
+        {!strictLoading && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+              driftIsMaterial ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+            }`}
+          >
+            {driftIsMaterial ? <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            {driftIsMaterial ? 'Drift' : 'Reconciled'}
+          </span>
+        )}
         {interactive && (
           <span
             className="hidden sm:inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary shrink-0"

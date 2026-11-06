@@ -1,45 +1,30 @@
-import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+/**
+ * Cash Deposit Codes.
+ *
+ * Cash handed in is credited to a wallet only when Financial Ops enters the 4-digit code the depositor received and
+ * re-confirms the amount. Everything on this screen is real data: the totals, the counts, the chart and the table come from
+ * the database over the chosen time range (fin_ops_cash_codes_page / fin_ops_cash_codes_summary). There are no sample rows,
+ * and a screen never says money moved unless the server confirmed it.
+ *
+ * Until migration 20261106140000 is applied, the screen falls back to the older list function (latest 200 deposits) and says
+ * so on screen, instead of showing made-up figures.
+ */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  AlertCircle, ArrowLeft, Banknote, BarChart3, Building2, Check, CheckCircle2, Clock, Info, Loader2, Mail, Radio, RefreshCw, Search,
+  Smartphone, Ticket,
+} from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import {
-  KeyRound,
-  RefreshCw,
-  Loader2,
-  Check,
-  Clock,
-  Radio,
-  Smartphone,
-  Search,
-  Inbox,
-  X,
-  ArrowLeft,
-  BarChart3,
-  CheckCircle2,
-  Building2,
-  Banknote,
-  Mail,
-  User,
-  Ticket,
-} from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from 'recharts';
+import { useFinOpsAutoRefresh } from '@/hooks/useFinOpsAutoRefresh';
 import { StartCashDepositDialog } from './StartCashDepositDialog';
+import { Pager } from './FinopsKit';
 
 export interface CashCodeRow {
   verification_id: string;
@@ -47,149 +32,155 @@ export interface CashCodeRow {
   depositor_name: string | null;
   wallet_holder_name?: string | null;
   cash_owner_name?: string | null;
-  depositor_phone: string | null;
+  /** The phone of the wallet that is credited. It is NOT the phone of the person handing over cash. */
+  wallet_holder_phone: string | null;
   amount: number | null;
-  code: string | null;
   status: string;
   attempts: number | null;
   max_attempts: number | null;
   deposit_purpose: string | null;
   cash_location: 'cash_at_hand' | 'bank' | string | null;
-  delivery_channel: string | null;
   expires_at: string | null;
   created_at: string;
 }
 
-const fmtUgx = (n: number | null) =>
-  n === null || n === undefined ? '—' : `UGX ${Math.round(n).toLocaleString()}`;
+type Range = 'today' | '7d' | '30d' | 'all';
+type Loc = 'all' | 'cash_at_hand' | 'bank';
+type Tab = 'all' | 'awaiting' | 'verified' | 'cashflow';
+type Summary = {
+  deposits_total: number; verified_count: number; verified_total: number; awaiting_count: number;
+  awaiting_live_count: number; awaiting_live_total: number; expired_count: number;
+  by_day: { day: string; verified: number; awaiting: number }[];
+};
+type Loaded = { rows: CashCodeRow[]; total: number; summary: Summary; legacy: boolean; capped: boolean };
 
-const formatAmountOnly = (n: number | null) =>
-  n === null || n === undefined ? '—' : Math.round(n).toLocaleString();
+const PAGE_SIZE = 25;
+const TZ = 'Africa/Kampala';
+const DAY_MS = 86_400_000;
 
-const purposeLabel = (p: string | null) =>
-  p === 'operational_float'
-    ? 'Operational Float'
-    : p === 'other'
-      ? 'Other'
-      : 'Personal Deposit';
+const RANGE_LABEL: Record<Range, string> = { today: 'Today', '7d': 'Last 7 days', '30d': 'Last 30 days', all: 'All time' };
 
-const cashLocationLabel = (loc: string | null) =>
-  loc === 'bank' ? 'Banked' : 'Cash at hand';
+const ugx = (n: number | null | undefined) => (n == null ? '—' : `UGX ${Math.round(n).toLocaleString('en-UG')}`);
+const num = (n: number | null | undefined) => (n == null ? '—' : Math.round(n).toLocaleString('en-UG'));
+const purposeLabel = (p: string | null) => (p === 'operational_float' ? 'Operational Float' : p === 'other' ? 'Other' : 'Personal Deposit');
+const isBank = (loc: string | null) => loc === 'bank';
 
-const MOCK_ROWS: CashCodeRow[] = [
-  {
-    verification_id: 'mock-1',
-    deposit_request_id: 'dr-1',
-    depositor_name: 'Benjamin Muhanguzi',
-    depositor_phone: '+256771000123',
-    amount: 350000,
-    code: '4821',
-    status: 'awaiting_code',
-    attempts: 0,
-    max_attempts: 3,
-    deposit_purpose: 'personal_deposit',
-    cash_location: 'cash_at_hand',
-    delivery_channel: 'sms',
-    expires_at: new Date(Date.now() + 418000).toISOString(), // 6m 58s
-    created_at: '2026-10-24T10:53:35Z',
-  },
-  {
-    verification_id: 'mock-2',
-    deposit_request_id: 'dr-2',
-    depositor_name: 'Sarah Nakato',
-    depositor_phone: '+256700552211',
-    amount: 120000,
-    code: '7193',
-    status: 'awaiting_code',
-    attempts: 0,
-    max_attempts: 3,
-    deposit_purpose: 'operational_float',
-    cash_location: 'cash_at_hand',
-    delivery_channel: 'sms',
-    expires_at: new Date(Date.now() + 418000).toISOString(),
-    created_at: '2026-10-24T10:47:35Z',
-  },
-  {
-    verification_id: 'mock-3',
-    deposit_request_id: 'dr-3',
-    depositor_name: 'John Okello',
-    depositor_phone: '+256752883344',
-    amount: 75000,
-    code: null,
-    status: 'verified',
-    attempts: 1,
-    max_attempts: 3,
-    deposit_purpose: 'personal_deposit',
-    cash_location: 'bank',
-    delivery_channel: 'sms',
-    expires_at: '2026-10-24T10:24:35Z',
-    created_at: '2026-10-24T10:14:35Z',
-  },
-  {
-    verification_id: 'mock-4',
-    deposit_request_id: 'dr-4',
-    depositor_name: 'Grace Akello',
-    depositor_phone: '+256782667788',
-    amount: 500000,
-    code: null,
-    status: 'verified',
-    attempts: 1,
-    max_attempts: 3,
-    deposit_purpose: 'operational_float',
-    cash_location: 'bank',
-    delivery_channel: 'sms',
-    expires_at: '2026-10-24T09:31:35Z',
-    created_at: '2026-10-24T09:21:35Z',
-  },
-  {
-    verification_id: 'mock-5',
-    deposit_request_id: 'dr-5',
-    depositor_name: 'Peter Ssemwogerere',
-    depositor_phone: '+256701445566',
-    amount: 60000,
-    code: null,
-    status: 'awaiting_code',
-    attempts: 0,
-    max_attempts: 3,
-    deposit_purpose: 'personal_deposit',
-    cash_location: 'cash_at_hand',
-    delivery_channel: 'sms',
-    expires_at: '2026-10-24T08:06:35Z', // expired
-    created_at: '2026-10-24T07:56:35Z',
-  },
-  {
-    verification_id: 'mock-6',
-    deposit_request_id: 'dr-6',
-    depositor_name: 'Agnes Namuli',
-    depositor_phone: '+256772998877',
-    amount: 1200000,
-    code: null,
-    status: 'verified',
-    attempts: 1,
-    max_attempts: 3,
-    deposit_purpose: 'operational_float',
-    cash_location: 'cash_at_hand',
-    delivery_channel: 'sms',
-    expires_at: '2026-10-24T06:46:35Z',
-    created_at: '2026-10-24T06:36:35Z',
-  },
-  {
-    verification_id: 'mock-7',
-    deposit_request_id: 'dr-7',
-    depositor_name: 'David Mugisha',
-    depositor_phone: '+256759112233',
-    amount: 45000,
-    code: null,
-    status: 'verified',
-    attempts: 1,
-    max_attempts: 3,
-    deposit_purpose: 'other',
-    cash_location: 'bank',
-    delivery_channel: 'sms',
-    expires_at: '2026-10-24T04:26:35Z',
-    created_at: '2026-10-24T04:16:35Z',
-  },
-];
+/** Start of the range in Uganda time. */
+function rangeFrom(range: Range, now = Date.now()): Date | null {
+  if (range === 'all') return null;
+  if (range === '7d') return new Date(now - 7 * DAY_MS);
+  if (range === '30d') return new Date(now - 30 * DAY_MS);
+  const eat = new Date(now + 3 * 3_600_000);
+  eat.setUTCHours(0, 0, 0, 0);
+  return new Date(eat.getTime() - 3 * 3_600_000);
+}
+
+const dateOf = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric' });
+const timeOf = (iso: string, seconds = true) =>
+  new Date(iso).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', ...(seconds ? { second: '2-digit' } : {}), hour12: false });
+
+const isLive = (r: CashCodeRow, now = Date.now()) => r.status === 'awaiting_code' && (!r.expires_at || new Date(r.expires_at).getTime() > now);
+const isExpired = (r: CashCodeRow, now = Date.now()) =>
+  r.status === 'expired' || (r.status === 'awaiting_code' && !!r.expires_at && new Date(r.expires_at).getTime() <= now);
+
+/** The server's own words when a function call fails (an error status hides the message inside the response). */
+async function functionError(error: unknown, fallback: string): Promise<string> {
+  try {
+    const ctx = (error as { context?: Response })?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const j = (await ctx.json()) as { message?: string; error?: string };
+      return j?.message || j?.error || fallback;
+    }
+  } catch {
+    /* fall through */
+  }
+  return (error as { message?: string })?.message || fallback;
+}
+
+type RpcResult = { data: unknown; error: { message: string; code?: string } | null };
+const rpc = (fn: string, args?: Record<string, unknown>) =>
+  (supabase.rpc as unknown as (f: string, a?: Record<string, unknown>) => Promise<RpcResult>)(fn, args);
+const functionMissing = (e: { message: string; code?: string } | null) =>
+  !!e && (e.code === 'PGRST202' || /could not find the function|does not exist|schema cache/i.test(e.message));
+
+/** Totals and the per-day series computed from rows, used only when the server functions are not installed yet. */
+function summarize(rows: CashCodeRow[]): Summary {
+  const now = Date.now();
+  const byDay = new Map<string, { verified: number; awaiting: number }>();
+  for (const r of rows) {
+    const day = new Date(r.created_at).toLocaleDateString('en-CA', { timeZone: TZ });
+    const d = byDay.get(day) ?? { verified: 0, awaiting: 0 };
+    if (r.status === 'verified') d.verified += r.amount ?? 0;
+    if (isLive(r, now)) d.awaiting += r.amount ?? 0;
+    byDay.set(day, d);
+  }
+  return {
+    deposits_total: rows.length,
+    verified_count: rows.filter((r) => r.status === 'verified').length,
+    verified_total: rows.filter((r) => r.status === 'verified').reduce((s, r) => s + (r.amount ?? 0), 0),
+    awaiting_count: rows.filter((r) => r.status === 'awaiting_code').length,
+    awaiting_live_count: rows.filter((r) => isLive(r, now)).length,
+    awaiting_live_total: rows.filter((r) => isLive(r, now)).reduce((s, r) => s + (r.amount ?? 0), 0),
+    expired_count: rows.filter((r) => isExpired(r, now)).length,
+    by_day: Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([day, v]) => ({ day, ...v })),
+  };
+}
+
+async function fetchCodes(p: { range: Range; tab: Tab; loc: Loc; search: string; page: number }): Promise<Loaded> {
+  const chartRange: Range = p.tab === 'cashflow' && p.range === 'today' ? '7d' : p.range;
+  const from = rangeFrom(p.tab === 'cashflow' ? chartRange : p.range);
+
+  const sumRes = await rpc('fin_ops_cash_codes_summary', { p_from: from?.toISOString() ?? null, p_to: null });
+  const pageRes =
+    p.tab === 'cashflow'
+      ? null
+      : await rpc('fin_ops_cash_codes_page', {
+          p_from: from?.toISOString() ?? null,
+          p_to: null,
+          p_status: p.tab === 'awaiting' ? 'awaiting' : p.tab === 'verified' ? 'verified' : null,
+          p_location: p.loc === 'all' ? null : p.loc,
+          p_search: p.search || null,
+          p_limit: PAGE_SIZE,
+          p_offset: p.page * PAGE_SIZE,
+        });
+
+  if (functionMissing(sumRes.error) || functionMissing(pageRes?.error ?? null)) {
+    // Older database: the latest 200 deposits, filtered here. Said so on screen.
+    const legacy = await rpc('fin_ops_recent_cash_codes', { p_limit: 200 });
+    if (legacy.error) throw new Error(legacy.error.message);
+    const all = ((legacy.data ?? []) as (Omit<CashCodeRow, 'wallet_holder_phone'> & { depositor_phone?: string | null })[]).map((r) => ({
+      ...r,
+      wallet_holder_phone: r.depositor_phone ?? null,
+    })) as CashCodeRow[];
+    const inRange = all.filter((r) => !from || new Date(r.created_at) >= from);
+    const q = p.search.trim().toLowerCase();
+    const filtered = inRange.filter((r) => {
+      if (p.tab === 'awaiting' && r.status !== 'awaiting_code') return false;
+      if (p.tab === 'verified' && r.status !== 'verified') return false;
+      if (p.loc !== 'all' && (r.cash_location ?? 'cash_at_hand') !== p.loc) return false;
+      if (q && !`${r.depositor_name ?? ''} ${r.wallet_holder_phone ?? ''} ${r.amount ?? ''} ${purposeLabel(r.deposit_purpose)}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    return {
+      rows: filtered.slice(p.page * PAGE_SIZE, (p.page + 1) * PAGE_SIZE),
+      total: filtered.length,
+      summary: summarize(inRange),
+      legacy: true,
+      capped: all.length >= 200,
+    };
+  }
+
+  if (sumRes.error) throw new Error(sumRes.error.message);
+  if (pageRes?.error) throw new Error(pageRes.error.message);
+  const pageRows = ((pageRes?.data ?? []) as (CashCodeRow & { total_count?: number })[]);
+  return {
+    rows: pageRows,
+    total: Number(pageRows[0]?.total_count ?? 0),
+    summary: sumRes.data as Summary,
+    legacy: false,
+    capped: false,
+  };
+}
 
 function Countdown({ expiresAt }: { expiresAt: string | null }) {
   const [now, setNow] = useState(Date.now());
@@ -197,672 +188,446 @@ function Countdown({ expiresAt }: { expiresAt: string | null }) {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  if (!expiresAt) return null;
+  const s = Math.floor((new Date(expiresAt).getTime() - now) / 1000);
+  if (s <= 0) return <span className="text-sm font-bold text-[#D92D20]">Expired</span>;
+  return <span className="text-sm text-foreground/80 tabular-nums">Expires in {String(Math.floor(s / 60)).padStart(2, '0')}:{String(s % 60).padStart(2, '0')}</span>;
+}
 
-  if (!expiresAt) return <span className="text-muted-foreground">—</span>;
-  const ms = new Date(expiresAt).getTime() - now;
-  if (ms <= 0) return <span className="text-muted-foreground font-medium text-xs">expired</span>;
-  const s = Math.floor(ms / 1000);
-  const mm = Math.floor(s / 60);
-  const ss = s % 60;
-
+/** Four single-digit boxes for the 4-digit receipt code. */
+function CodeBoxes({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const digits = value.padEnd(4, ' ').slice(0, 4).split('');
+  const set = (i: number, d: string) => {
+    const next = digits.slice();
+    next[i] = d || ' ';
+    onChange(next.join('').replace(/ /g, ''));
+  };
   return (
-    <span className="inline-flex items-center gap-1 font-semibold text-xs text-primary tabular-nums">
-      <Clock className="h-3 w-3" />
-      {mm}:{String(ss).padStart(2, '0')}
+    <div className="flex items-center gap-1.5" role="group" aria-label={label}>
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => { refs.current[i] = el; }}
+          value={d === ' ' ? '' : d}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={1}
+          aria-label={`${label}, digit ${i + 1}`}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(-1);
+            set(i, v);
+            if (v && i < 3) refs.current[i + 1]?.focus();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Backspace' && !digits[i].trim() && i > 0) refs.current[i - 1]?.focus();
+          }}
+          onPaste={(e) => {
+            const t = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+            if (t) { e.preventDefault(); onChange(t); refs.current[Math.min(t.length, 3)]?.focus(); }
+          }}
+          className="h-10 w-9 rounded-lg border border-slate-300 bg-background text-center text-base font-bold tabular-nums outline-none focus:border-[#6D2EE8] focus:ring-2 focus:ring-[#B79BF2] sm:w-10"
+        />
+      ))}
+    </div>
+  );
+}
+
+function StatusChip({ r }: { r: CashCodeRow }) {
+  if (r.status === 'verified') return <span className="inline-flex rounded-lg bg-[#C9EFD5] px-3 py-1 text-sm font-bold text-[#0B6630] dark:bg-emerald-500/30 dark:text-emerald-100">Verified</span>;
+  if (r.status === 'awaiting_code')
+    return (
+      <div>
+        <span className="inline-flex rounded-lg bg-[#FFE49A] px-3 py-1 text-sm font-bold text-[#6B4200] dark:bg-amber-400/30 dark:text-amber-100">Awaiting code</span>
+        <div className="mt-1"><Countdown expiresAt={r.expires_at} /></div>
+      </div>
+    );
+  return <span className="inline-flex rounded-lg bg-slate-200 px-3 py-1 text-sm font-bold capitalize text-slate-700 dark:bg-slate-700 dark:text-slate-100">{r.status.replace(/_/g, ' ')}</span>;
+}
+
+function LocationChip({ loc }: { loc: string | null }) {
+  const bank = isBank(loc);
+  const Icon = bank ? Building2 : Banknote;
+  return (
+    <span className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-background px-3 py-1.5 text-sm font-semibold text-foreground">
+      <Icon className="h-4 w-4 text-slate-600" strokeWidth={1.75} aria-hidden="true" /> {bank ? 'Banked' : 'Cash at hand'}
     </span>
   );
 }
 
-export function CashDepositCodesPanel({
-  fullScreen = false,
-  onClose,
-}: { fullScreen?: boolean; onClose?: () => void } = {}) {
+export function CashDepositCodesPanel({ onClose }: { fullScreen?: boolean; onClose?: () => void } = {}) {
   const { toast } = useToast();
-  const [rows, setRows] = useState<CashCodeRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [denied, setDenied] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<number>(Date.now());
-  const [secondsToRefresh, setSecondsToRefresh] = useState<number>(14);
-  const [reissuing, setReissuing] = useState<string | null>(null);
-  const [codeInputs, setCodeInputs] = useState<Record<string, string>>({});
-  const [verifying, setVerifying] = useState<string | null>(null);
-  const [banking, setBanking] = useState<string | null>(null);
-  const [startOpen, setStartOpen] = useState(false);
-  const [openRow, setOpenRow] = useState<CashCodeRow | null>(null);
+  const autoRefresh = useFinOpsAutoRefresh();
+  const [tab, setTab] = useState<Tab>('all');
+  const [loc, setLoc] = useState<Loc>('all');
+  const [range, setRange] = useState<Range>('today');
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const [codes, setCodes] = useState<Record<string, string>>({});
   const [confirmRow, setConfirmRow] = useState<CashCodeRow | null>(null);
-
-  // Filter States
-  const [query, setQuery] = useState('');
-  const [tab, setTab] = useState<'all' | 'awaiting' | 'verified' | 'cashflow'>('all');
-  const [cashLocation, setCashLocation] = useState<'all' | 'cash_at_hand' | 'bank'>('all');
-  const [range, setRange] = useState<'today' | '7d' | '30d' | 'all'>('today');
-
-  const load = useCallback(async () => {
-    try {
-      const { data, error } = await (supabase.rpc as any)('fin_ops_recent_cash_codes', { p_limit: 50 });
-      if (error) {
-        if (/not_authorized/i.test(error.message)) setDenied(true);
-        else setLoadError(error.message);
-        setRows(MOCK_ROWS);
-      } else if (data && data.length > 0) {
-        setRows(data as CashCodeRow[]);
-      } else {
-        setRows(MOCK_ROWS);
-      }
-    } catch {
-      setRows(MOCK_ROWS);
-    } finally {
-      setLoading(false);
-      setLastRefreshedAt(Date.now());
-    }
-  }, []);
+  const [openRow, setOpenRow] = useState<CashCodeRow | null>(null);
+  const [startOpen, setStartOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    load();
-    const interval = setInterval(load, 15000);
-    const countInterval = setInterval(() => {
-      setSecondsToRefresh((prev) => (prev > 1 ? prev - 1 : 15));
-    }, 1000);
-    return () => {
-      clearInterval(interval);
-      clearInterval(countInterval);
-    };
-  }, [load]);
+    const t = setTimeout(() => { setSearch(searchInput.trim()); setPage(0); }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
-  const displayRows = useMemo(() => {
-    const list = rows.length > 0 ? rows : MOCK_ROWS;
-    return list.filter((r) => {
-      // Tab filter
-      if (tab === 'awaiting' && r.status !== 'awaiting_code') return false;
-      if (tab === 'verified' && r.status !== 'verified') return false;
+  const query = useQuery({
+    queryKey: ['cash-deposit-codes', range, tab, loc, search, page],
+    queryFn: () => fetchCodes({ range, tab, loc, search, page }),
+    refetchInterval: autoRefresh ? 15_000 : false,
+    retry: false,
+    placeholderData: (prev) => prev,
+  });
+  const refetch = query.refetch;
+  const data = query.data;
+  const summary = data?.summary;
+  const denied = query.isError && /not_authorized/i.test((query.error as Error)?.message ?? '');
 
-      // Location filter
-      if (cashLocation === 'cash_at_hand' && r.cash_location !== 'cash_at_hand') return false;
-      if (cashLocation === 'bank' && r.cash_location !== 'bank') return false;
+  const setTabAndReset = (t: Tab) => { setTab(t); setPage(0); };
 
-      // Search query
-      if (query.trim()) {
-        const q = query.trim().toLowerCase();
-        const str = `${r.depositor_name || ''} ${r.depositor_phone || ''} ${r.amount || ''} ${purposeLabel(r.deposit_purpose)}`.toLowerCase();
-        if (!str.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [rows, tab, cashLocation, query]);
-
-  // Totals calculations
-  const totalVerified = useMemo(() => {
-    const list = rows.length > 0 ? rows : MOCK_ROWS;
-    return list
-      .filter((r) => r.status === 'verified')
-      .reduce((sum, r) => sum + (r.amount ?? 0), 0);
-  }, [rows]);
-
-  const totalAwaiting = useMemo(() => {
-    const list = rows.length > 0 ? rows : MOCK_ROWS;
-    return list
-      .filter((r) => {
-        const isLive = r.status === 'awaiting_code' && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now());
-        return isLive;
-      })
-      .reduce((sum, r) => sum + (r.amount ?? 0), 0);
-  }, [rows]);
-
-  const activeAwaitingCount = useMemo(() => {
-    const list = rows.length > 0 ? rows : MOCK_ROWS;
-    return list.filter((r) => r.status === 'awaiting_code' && (!r.expires_at || new Date(r.expires_at).getTime() > Date.now())).length;
-  }, [rows]);
-
-  // Step 1 of the double-check: validate the code, then ask the operator to
-  // re-confirm the amount before anything is credited.
-  const requestCredit = (row: CashCodeRow) => {
-    const entered = (codeInputs[row.verification_id] ?? '').replace(/\D/g, '');
-    if (entered.length < 3) {
-      toast({
-        title: 'Enter deposit code',
-        description: 'Please enter the code provided by the depositor.',
-        variant: 'destructive',
+  // ---- Actions. Each one reports what the server said, never what we hoped for. ----
+  const credit = useCallback(async (row: CashCodeRow) => {
+    const code = (codes[row.verification_id] ?? '').replace(/\D/g, '');
+    setBusy(row.verification_id);
+    try {
+      const { data: res, error } = await supabase.functions.invoke('cash-deposit-verify-code', {
+        body: { deposit_request_id: row.deposit_request_id, code, on_behalf: true },
       });
+      if (error) throw new Error(await functionError(error, 'The deposit was not credited.'));
+      const failure = (res as { error?: string; message?: string } | null)?.error;
+      if (failure) throw new Error((res as { message?: string }).message || failure);
+      toast({ title: 'Deposit credited', description: `${ugx(row.amount)} credited to ${row.wallet_holder_name || row.depositor_name || 'the wallet'}.` });
+      setCodes((c) => ({ ...c, [row.verification_id]: '' }));
+    } catch (e) {
+      toast({ title: 'Not credited', description: e instanceof Error ? e.message : 'The deposit was not credited.', variant: 'destructive' });
+    } finally {
+      setBusy(null);
+      void refetch();
+    }
+  }, [codes, refetch, toast]);
+
+  const askToCredit = (row: CashCodeRow) => {
+    if ((codes[row.verification_id] ?? '').length < 4) {
+      toast({ title: 'Enter the 4-digit code', description: 'Type the code the depositor received.', variant: 'destructive' });
       return;
     }
     setConfirmRow(row);
   };
 
-  // Submit code for credit
-  const submitCode = async (row: CashCodeRow) => {
-    const entered = (codeInputs[row.verification_id] ?? '').replace(/\D/g, '');
-    if (entered.length < 3) {
-      toast({
-        title: 'Enter deposit code',
-        description: 'Please enter the code provided by the depositor.',
-        variant: 'destructive',
-      });
+  const moveCash = async (row: CashCodeRow) => {
+    const next = isBank(row.cash_location) ? 'cash_at_hand' : 'bank';
+    setBusy(row.verification_id);
+    const { error } = await rpc('fin_ops_set_cash_location', { p_deposit_request_id: row.deposit_request_id, p_location: next });
+    setBusy(null);
+    if (error) {
+      toast({ title: 'Location not changed', description: error.message, variant: 'destructive' });
       return;
     }
-    setVerifying(row.verification_id);
+    toast({ title: next === 'bank' ? 'Marked as banked' : 'Marked as cash at hand', description: `${ugx(row.amount)} location updated.` });
+    void refetch();
+  };
+
+  const resend = async (row: CashCodeRow, channel: 'sms' | 'email') => {
+    setBusy(row.verification_id);
     try {
-      const { data, error } = await supabase.functions.invoke('cash-deposit-verify-code', {
-        body: { deposit_request_id: row.deposit_request_id, code: entered, on_behalf: true },
+      const { data: res, error } = await supabase.functions.invoke('finops-cash-deposit-resend', {
+        body: { verification_id: row.verification_id, send_email: channel === 'email' },
       });
-      if (error) throw error;
-      toast({
-        title: 'Deposit credited',
-        description: `${fmtUgx(row.amount)} credited to ${row.depositor_name || 'depositor'}'s wallet.`,
-      });
-      load();
-    } catch {
-      // Local optimistic update for sample preview
-      setRows((prev) =>
-        prev.map((r) => (r.verification_id === row.verification_id ? { ...r, status: 'verified' } : r))
-      );
-      toast({
-        title: 'Deposit credited',
-        description: `${fmtUgx(row.amount)} credited to ${row.depositor_name || 'depositor'}'s wallet.`,
-      });
+      if (error) throw new Error(await functionError(error, 'A new code could not be sent.'));
+      const failure = (res as { error?: string; message?: string } | null)?.error;
+      if (failure) throw new Error((res as { message?: string }).message || failure);
+      toast({ title: 'New code sent', description: `Delivered by ${channel.toUpperCase()}.` });
+      void refetch();
+    } catch (e) {
+      toast({ title: 'Code not sent', description: e instanceof Error ? e.message : 'A new code could not be sent.', variant: 'destructive' });
     } finally {
-      setVerifying(null);
+      setBusy(null);
     }
   };
 
-  const setCashLocationFor = async (row: CashCodeRow, location: 'bank' | 'cash_at_hand') => {
-    setBanking(row.verification_id);
-    try {
-      await (supabase.rpc as any)('fin_ops_set_cash_location', {
-        p_deposit_request_id: row.deposit_request_id,
-        p_location: location,
-      });
-    } catch {
-      // Fallback
-    } finally {
-      setRows((prev) =>
-        prev.map((r) => (r.deposit_request_id === row.deposit_request_id ? { ...r, cash_location: location } : r))
-      );
-      setBanking(null);
-      toast({
-        title: location === 'bank' ? 'Marked as banked' : 'Marked as cash at hand',
-        description: `${fmtUgx(row.amount)} location updated.`,
-      });
-    }
-  };
-
-  const reissue = async (verificationId: string, channel: 'sms' | 'email' = 'sms') => {
-    setReissuing(verificationId);
-    try {
-      await supabase.functions.invoke('finops-cash-deposit-resend', {
-        body: { verification_id: verificationId, send_email: channel === 'email' },
-      });
-      toast({
-        title: 'New code sent',
-        description: `Delivered by ${channel.toUpperCase()} to depositor.`,
-      });
-    } catch {
-      toast({
-        title: 'Code resent',
-        description: 'A new 4-digit code has been delivered.',
-      });
-    } finally {
-      setReissuing(null);
-    }
-  };
+  const chart = useMemo(
+    () => (summary?.by_day ?? []).map((d) => ({ label: new Date(`${d.day}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), verified: d.verified, awaiting: d.awaiting })),
+    [summary],
+  );
 
   if (denied) return null;
 
-  return (
-    <div className="w-full space-y-4 max-w-none">
-      <StartCashDepositDialog open={startOpen} onOpenChange={setStartOpen} onIssued={load} />
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: 'all', label: 'All', count: summary?.deposits_total },
+    { key: 'awaiting', label: 'Awaiting', count: summary?.awaiting_count },
+    { key: 'verified', label: 'Verified', count: summary?.verified_count },
+    { key: 'cashflow', label: 'Cashflow' },
+  ];
+  const chipOn = 'bg-primary text-primary-foreground shadow-sm';
+  const chipOff = 'border border-slate-300 bg-card text-foreground hover:border-[#B79BF2]';
+  const rows = data?.rows ?? [];
+  const sinceUpdate = query.dataUpdatedAt ? Math.max(0, Math.round((now - query.dataUpdatedAt) / 1000)) : null;
 
-      {/* Top Back Action */}
+  const codeCell = (r: CashCodeRow) =>
+    isLive(r, now) ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <CodeBoxes value={codes[r.verification_id] ?? ''} onChange={(v) => setCodes((c) => ({ ...c, [r.verification_id]: v }))} label={`Code for ${r.depositor_name ?? 'deposit'}`} />
+        <Button size="sm" className="min-h-[40px] rounded-lg px-3 font-bold" disabled={(codes[r.verification_id] ?? '').length < 4 || busy === r.verification_id} onClick={() => askToCredit(r)}>
+          {busy === r.verification_id ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null} Credit wallet
+        </Button>
+      </div>
+    ) : (
+      <span className="text-muted-foreground">—</span>
+    );
+
+  const phoneCell = (r: CashCodeRow) => (
+    <div className="font-mono text-sm text-foreground">
+      {r.wallet_holder_phone || '—'}
+      {r.cash_owner_name && r.wallet_holder_name && r.cash_owner_name !== r.wallet_holder_name && (
+        <div className="font-sans text-xs text-muted-foreground">Wallet: {r.wallet_holder_name}</div>
+      )}
+    </div>
+  );
+
+  const depositor = (r: CashCodeRow) => (
+    <div className="flex items-center gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E6DAFF] text-sm font-extrabold text-[#5A1FD0] dark:bg-violet-500/30 dark:text-violet-100">
+        {(r.depositor_name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('')}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-base font-bold text-foreground">{r.depositor_name || 'Unknown'}</p>
+        <p className="text-sm text-muted-foreground">{purposeLabel(r.deposit_purpose)}</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="w-full max-w-none space-y-4">
+      <StartCashDepositDialog open={startOpen} onOpenChange={setStartOpen} onIssued={() => void refetch()} />
+
       {onClose && (
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Overview</span>
+        <button type="button" onClick={onClose} className="inline-flex min-h-[44px] items-center gap-2 text-sm font-semibold text-[#5A1FD0] hover:underline dark:text-violet-300 sm:min-h-0">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to Overview
         </button>
       )}
 
-      {/* Header Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 shadow-xs">
-            <Banknote className="h-6 w-6 stroke-[2.2]" />
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#D2BFFA] bg-[#EFE8FF] text-[#6D2EE8] dark:bg-violet-500/20">
+            <Banknote className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
+          </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Cash Deposit Codes
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Manage cash deposit ranges, verify codes and track cash inflows.
-            </p>
+            <h1 className="text-3xl font-black tracking-tight text-foreground">Cash Deposit Codes</h1>
+            <p className="text-sm text-muted-foreground">Manage cash deposit ranges, verify codes and track cash inflows.</p>
           </div>
         </div>
-
-        {/* Right Action Buttons */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          <Button
-            variant="outline"
-            onClick={() => load()}
-            disabled={loading}
-            className="h-10 w-10 p-0 rounded-xl border-border/80 shadow-xs hover:bg-muted/40"
-            title="Refresh"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <RefreshCw className="h-4 w-4 text-muted-foreground" />}
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => void refetch()} disabled={query.isFetching} className="h-11 w-11 rounded-xl p-0" aria-label="Refresh">
+            {query.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
-
-          <Button
-            onClick={() => setStartOpen(true)}
-            className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-2 shadow-xs"
-          >
-            <Ticket className="h-4 w-4" />
-            <span>Start deposit</span>
+          <Button onClick={() => setStartOpen(true)} className="h-11 gap-2 rounded-xl px-5 text-sm font-bold">
+            <Ticket className="h-4 w-4" aria-hidden="true" /> Start deposit
           </Button>
         </div>
       </div>
 
-      {/* Sub-Navigation Tabs Row */}
-      <div className="flex items-center justify-between border-b border-border/70 pb-0 gap-3">
-        <div className="flex items-center gap-6 overflow-x-auto">
-          {[
-            { key: 'all' as const, label: 'All', count: rows.length || MOCK_ROWS.length },
-            { key: 'awaiting' as const, label: 'Awaiting', count: (rows.length ? rows : MOCK_ROWS).filter((r) => r.status === 'awaiting_code').length },
-            { key: 'verified' as const, label: 'Verified', count: (rows.length ? rows : MOCK_ROWS).filter((r) => r.status === 'verified').length },
-            { key: 'cashflow' as const, label: 'Cashflow' },
-          ].map((t) => (
+      {/* Tabs */}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border">
+        <div role="tablist" aria-label="Deposit views" className="flex items-center gap-6 overflow-x-auto">
+          {tabs.map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`pb-3 text-sm font-bold transition-all relative flex items-center gap-1.5 ${
-                tab === t.key
-                  ? 'text-primary border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              onClick={() => setTabAndReset(t.key)}
+              className={`-mb-px flex min-h-[44px] items-center gap-2 border-b-[3px] pb-1 text-base font-bold transition-colors ${tab === t.key ? 'border-[#6D2EE8] text-[#5A1FD0] dark:text-violet-300' : 'border-transparent text-foreground/80 hover:text-foreground'}`}
             >
-              <span>{t.label}</span>
-              {t.count !== undefined && (
-                <span className={`text-xs px-1.5 py-0.2 rounded-full font-bold ${
-                  tab === t.key ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                }`}>
-                  {t.count}
-                </span>
-              )}
+              {t.label}
+              {t.count != null && <span className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold tabular-nums ${tab === t.key ? 'bg-[#E6DAFF] text-[#5A1FD0]' : 'bg-muted text-muted-foreground'}`}>{t.count}</span>}
             </button>
           ))}
         </div>
+        <p className="hidden items-center gap-3 pb-2 text-xs text-muted-foreground md:flex" aria-live="polite">
+          <span className="flex items-center gap-1.5 font-semibold text-foreground"><Radio className={`h-3.5 w-3.5 ${autoRefresh ? 'animate-pulse text-emerald-600' : 'text-slate-400'}`} aria-hidden="true" /> {autoRefresh ? 'Live' : 'Paused'}{sinceUpdate != null ? ` · ${sinceUpdate}s` : ''}</span>
+          {query.dataUpdatedAt ? <span>Updated {timeOf(new Date(query.dataUpdatedAt).toISOString())} EAT</span> : null}
+          {autoRefresh && <span className="border-l border-border pl-3">Refreshes every 15 seconds</span>}
+        </p>
+      </div>
 
-        <div className="hidden sm:flex items-center gap-2 text-xs text-muted-foreground pb-2.5">
-          <Radio className="h-3 w-3 text-primary animate-pulse" />
-          <span>Live · {secondsToRefresh}s</span>
-          <span className="opacity-60">Updated {new Date(lastRefreshedAt).toLocaleTimeString()}</span>
+      {/* Filters */}
+      <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+        <div className="flex flex-wrap items-center gap-2">
+          {([['all', 'All cash'], ['cash_at_hand', 'Cash at hand'], ['bank', 'Cash banked']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => { setLoc(k); setPage(0); }} aria-pressed={loc === k} className={`min-h-[40px] rounded-full px-4 text-sm font-semibold transition ${loc === k ? chipOn : chipOff}`}>{l}</button>
+          ))}
+          <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden="true" />
+          {([['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['all', 'All time']] as const).map(([k, l]) => (
+            <button key={k} type="button" onClick={() => { setRange(k); setPage(0); }} aria-pressed={range === k} className={`min-h-[40px] rounded-full px-4 text-sm font-semibold transition ${range === k ? chipOn : chipOff}`}>{l}</button>
+          ))}
+        </div>
+        <div className="relative w-full shrink-0 lg:w-80">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search depositor, phone or amount" aria-label="Search deposits" className="h-11 rounded-full border-slate-300 bg-card pl-10 text-sm" />
         </div>
       </div>
 
-      {/* Filters & Search Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-none flex-wrap">
-          {/* Location Filters */}
-          {[
-            { key: 'all' as const, label: 'All cash' },
-            { key: 'cash_at_hand' as const, label: 'Cash at hand' },
-            { key: 'bank' as const, label: 'Cash banked' },
-          ].map((l) => (
-            <button
-              key={l.key}
-              onClick={() => setCashLocation(l.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                cashLocation === l.key
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-card border border-border/70 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-              }`}
-            >
-              {l.label}
-            </button>
-          ))}
+      {data?.legacy && (
+        <p role="status" className="flex items-start gap-2 rounded-xl border border-[#F0B53F] bg-[#FFF1CF] px-4 py-2.5 text-sm text-foreground dark:bg-amber-400/15">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[#B26A00]" aria-hidden="true" />
+          <span>Showing the latest 200 deposits only{data.capped ? '' : ' (all there are)'}. Totals, counts and the chart cover these deposits, not the whole range. The full-range totals switch on when the database update (20261106140000) is applied.</span>
+        </p>
+      )}
 
-          <div className="h-4 w-px bg-border/80 mx-1 hidden sm:block" />
-
-          {/* Time Preset Filters */}
-          {[
-            { key: 'today' as const, label: 'Today' },
-            { key: '7d' as const, label: '7 days' },
-            { key: '30d' as const, label: '30 days' },
-            { key: 'all' as const, label: 'All time' },
-          ].map((rg) => (
-            <button
-              key={rg.key}
-              onClick={() => setRange(rg.key)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                range === rg.key
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-card border border-border/70 text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-              }`}
-            >
-              {rg.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Input */}
-        <div className="relative w-full lg:w-72 shrink-0">
-          <Search className="h-4 w-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search depositor, phone or amount"
-            className="pl-9 h-10 text-xs rounded-full bg-card border-border/80 focus-visible:ring-primary shadow-xs"
-          />
-        </div>
-      </div>
-
-      {/* 2 KPI Stat Cards (Mockup Layout) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Card 1: Verified cash */}
-        <div className="bg-card border border-border/70 rounded-2xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="h-6 w-6 stroke-[2]" />
-          </div>
+      {/* Totals for the range */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[#D2BFFA] bg-[#EFE8FF] text-[#6D2EE8]"><CheckCircle2 className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" /></span>
           <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Verified cash
-            </div>
-            <div className="text-2xl font-bold tracking-tight text-foreground font-mono mt-0.5">
-              UGX {formatAmountOnly(totalVerified)}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium mt-0.5">
-              Today
-            </div>
+            <p className="text-sm font-semibold text-foreground">Verified cash</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{summary ? ugx(summary.verified_total) : '—'}</p>
+            <p className="text-sm text-muted-foreground">{RANGE_LABEL[tab === 'cashflow' && range === 'today' ? '7d' : range]} · {summary?.verified_count ?? 0} verified deposit{summary?.verified_count === 1 ? '' : 's'}</p>
           </div>
         </div>
-
-        {/* Card 2: Awaiting code */}
-        <div className="bg-card border border-border/70 rounded-2xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
-            <Clock className="h-6 w-6 stroke-[2]" />
-          </div>
+        <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-[#D2BFFA] bg-[#EFE8FF] text-[#6D2EE8]"><Clock className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" /></span>
           <div>
-            <div className="text-xs font-semibold text-muted-foreground">
-              Awaiting code
-            </div>
-            <div className="text-2xl font-bold tracking-tight text-foreground font-mono mt-0.5">
-              UGX {formatAmountOnly(totalAwaiting)}
-            </div>
-            <div className="text-xs text-muted-foreground font-medium mt-0.5">
-              {activeAwaitingCount} active
-            </div>
+            <p className="text-sm font-semibold text-foreground">Awaiting code</p>
+            <p className="text-3xl font-black tabular-nums tracking-tight text-foreground">{summary ? ugx(summary.awaiting_live_total) : '—'}</p>
+            <p className="text-sm text-muted-foreground">{summary?.awaiting_live_count ?? 0} active · expired excluded</p>
           </div>
         </div>
       </div>
 
-      {/* Main Content: Cashflow Chart View OR Full-Width Table */}
-      {tab === 'cashflow' ? (
-        <div className="bg-card border border-border/70 rounded-2xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Cashflow over time</h2>
-            </div>
-            <Badge variant="outline" className="text-xs font-medium">
-              {range.toUpperCase()}
-            </Badge>
-          </div>
-          <div className="h-[280px] w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={[
-                { label: 'Oct 20', verified: 950000, awaiting: 120000 },
-                { label: 'Oct 21', verified: 1400000, awaiting: 200000 },
-                { label: 'Oct 22', verified: 1100000, awaiting: 50000 },
-                { label: 'Oct 23', verified: 1650000, awaiting: 300000 },
-                { label: 'Oct 24', verified: 1820000, awaiting: 470000 },
-              ]} barGap={4}>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} width={50} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-                <Tooltip formatter={(v: any) => fmtUgx(Number(v))} contentStyle={{ fontSize: 12, borderRadius: 12 }} />
-                <Bar dataKey="verified" name="Verified" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="awaiting" name="Awaiting" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.5} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-card border border-border/70 rounded-2xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border/60 bg-muted/40 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Date &amp; Time</th>
-                  <th className="py-3.5 px-4">Depositor</th>
-                  <th className="py-3.5 px-3">Phone</th>
-                  <th className="py-3.5 px-4">Amount (UGX)</th>
-                  <th className="py-3.5 px-3">Code</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-3">Location</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {displayRows.map((r) => {
-                  const isAwaiting = r.status === 'awaiting_code';
-                  const isExpired = r.expires_at ? new Date(r.expires_at).getTime() <= Date.now() : false;
-                  const isVerified = r.status === 'verified';
-                  const isBank = r.cash_location === 'bank';
-                  const initial = (r.depositor_name || '?').charAt(0).toUpperCase();
-
-                  return (
-                    <tr
-                      key={r.verification_id}
-                      className="hover:bg-muted/30 transition-colors"
-                    >
-                      {/* DATE & TIME */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        <div className="font-semibold text-foreground text-xs">
-                          {new Date(r.created_at).toLocaleDateString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground font-mono mt-0.5">
-                          {new Date(r.created_at).toLocaleTimeString(undefined, {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </div>
-                      </td>
-
-                      {/* DEPOSITOR */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-bold text-xs shrink-0">
-                            {initial}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="font-bold text-sm text-foreground truncate">
-                              {r.depositor_name || 'Unknown'}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground font-medium mt-0.5">
-                              {purposeLabel(r.deposit_purpose)}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* PHONE */}
-                      <td className="py-3.5 px-3 font-mono text-xs text-foreground whitespace-nowrap">
-                        {r.depositor_phone || '—'}
-                      </td>
-
-                      {/* AMOUNT (UGX) */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-sm text-foreground whitespace-nowrap">
-                        {formatAmountOnly(r.amount)}
-                      </td>
-
-                      {/* CODE ENTRY / STATUS */}
-                      <td className="py-3.5 px-3 whitespace-nowrap">
-                        {isAwaiting && !isExpired ? (
-                          <div className="flex items-center gap-1.5">
-                            <Input
-                              value={codeInputs[r.verification_id] ?? ''}
-                              onChange={(e) =>
-                                setCodeInputs((prev) => ({
-                                  ...prev,
-                                  [r.verification_id]: e.target.value.replace(/\D/g, '').slice(0, 4),
-                                }))
-                              }
-                              placeholder="000"
-                              maxLength={4}
-                              className="h-8 w-16 text-center font-mono font-bold text-xs rounded-lg bg-background border-border/80"
-                            />
-                            <Button
-                              size="sm"
-                              onClick={() => requestCredit(r)}
-                              disabled={verifying === r.verification_id}
-                              className="h-8 px-2.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs gap-1 shadow-xs"
-                            >
-                              {verifying === r.verification_id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Check className="h-3 w-3" />
-                              )}
-                              <span>Credit wallet</span>
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground font-mono pl-3">—</span>
-                        )}
-                      </td>
-
-                      {/* STATUS */}
-                      <td className="py-3.5 px-4 whitespace-nowrap">
-                        {isVerified ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-primary/25 bg-primary/10 text-primary">
-                            Verified
-                          </span>
-                        ) : isAwaiting ? (
-                          <div>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-bold border border-border/80 bg-muted/40 text-foreground">
-                              Awaiting code
-                            </span>
-                            <div className="mt-1">
-                              {isExpired ? (
-                                <span className="text-[11px] text-muted-foreground font-semibold">
-                                  expired
-                                </span>
-                              ) : (
-                                <Countdown expiresAt={r.expires_at} />
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <Badge variant="outline" className="text-[11px] capitalize">
-                            {r.status.replace(/_/g, ' ')}
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* LOCATION */}
-                      <td className="py-3.5 px-3 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-border/80 bg-muted/30 text-foreground">
-                          {isBank ? (
-                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                          ) : (
-                            <Banknote className="h-3.5 w-3.5 text-muted-foreground" />
-                          )}
-                          {cashLocationLabel(r.cash_location)}
-                        </span>
-                      </td>
-
-                      {/* ACTIONS */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setOpenRow(r)}
-                          className="h-8 px-3.5 rounded-xl border-border/80 text-xs font-semibold hover:bg-muted/40 text-foreground shadow-2xs"
-                        >
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      {query.isError && !denied && (
+        <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive">
+          <p className="font-semibold">The deposits could not be loaded</p>
+          <p>{(query.error as Error)?.message}</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={() => void refetch()}>Try again</Button>
         </div>
       )}
 
-      {/* Double-check: operator re-confirms the amount before crediting */}
-      <Dialog
-        open={confirmRow !== null}
-        onOpenChange={(open) => !open && verifying === null && setConfirmRow(null)}
-      >
-        <DialogContent className="sm:max-w-md rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-              Double-check before crediting
-            </DialogTitle>
-          </DialogHeader>
+      {tab === 'cashflow' ? (
+        <section className="space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm" aria-label="Cashflow over time">
+          <div className="flex items-center gap-2"><BarChart3 className="h-5 w-5 text-[#6D2EE8]" aria-hidden="true" /><h2 className="text-lg font-bold text-foreground">Cashflow over time</h2><span className="ml-2 rounded-full bg-muted px-3 py-0.5 text-xs font-bold text-muted-foreground">{RANGE_LABEL[range === 'today' ? '7d' : range]}</span></div>
+          {query.isLoading ? (
+            <Skeleton className="h-72 w-full rounded-xl" />
+          ) : chart.length === 0 ? (
+            <p className="py-16 text-center text-sm text-muted-foreground">No cash deposits in this period.</p>
+          ) : (
+            <div className="h-[300px] w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chart} barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} width={56} tickFormatter={(v) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : `${Math.round(v / 1000)}k`)} />
+                  <Tooltip formatter={(v: number) => ugx(Number(v))} contentStyle={{ fontSize: 13, borderRadius: 12 }} />
+                  <Bar dataKey="verified" name="Verified" fill="#5A1FD0" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="awaiting" name="Awaiting (live)" fill="#F0B53F" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm" aria-label="Deposits">
+          {/* Wide screens: table */}
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[60rem] border-collapse text-left">
+              <thead>
+                <tr className="border-b border-border bg-muted/40 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <th className="px-5 py-3.5">Date &amp; time</th>
+                  <th className="px-4 py-3.5">Depositor</th>
+                  <th className="px-4 py-3.5" title="The phone of the wallet that is credited">Wallet phone</th>
+                  <th className="px-4 py-3.5 text-right">Amount (UGX)</th>
+                  <th className="px-4 py-3.5">Code</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Location</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {query.isLoading && Array.from({ length: 5 }).map((_, i) => (<tr key={i}><td colSpan={8} className="px-5 py-4"><Skeleton className="h-10 w-full" /></td></tr>))}
+                {rows.map((r) => (
+                  <tr key={r.verification_id} className="align-middle hover:bg-muted/30">
+                    <td className="whitespace-nowrap px-5 py-3.5"><p className="text-base font-bold text-foreground">{dateOf(r.created_at)}</p><p className="font-mono text-sm text-muted-foreground">{timeOf(r.created_at)}</p></td>
+                    <td className="px-4 py-3.5">{depositor(r)}</td>
+                    <td className="px-4 py-3.5">{phoneCell(r)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5 text-right text-lg font-extrabold tabular-nums text-foreground">{num(r.amount)}</td>
+                    <td className="px-4 py-3.5">{codeCell(r)}</td>
+                    <td className="whitespace-nowrap px-4 py-3.5"><StatusChip r={r} /></td>
+                    <td className="whitespace-nowrap px-4 py-3.5"><LocationChip loc={r.cash_location} /></td>
+                    <td className="whitespace-nowrap px-5 py-3.5 text-right"><Button variant="outline" className="min-h-[40px] rounded-xl px-5 font-bold" onClick={() => setOpenRow(r)}>View</Button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Phones: one card per deposit */}
+          <ul className="divide-y divide-border md:hidden">
+            {rows.map((r) => (
+              <li key={r.verification_id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  {depositor(r)}
+                  <p className="shrink-0 text-lg font-extrabold tabular-nums text-foreground">{num(r.amount)}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">{dateOf(r.created_at)} · {timeOf(r.created_at, false)} EAT · <span className="font-mono">{r.wallet_holder_phone || '—'}</span></p>
+                <div className="flex flex-wrap items-center gap-2"><StatusChip r={r} /><LocationChip loc={r.cash_location} /></div>
+                {isLive(r, now) && codeCell(r)}
+                <Button variant="outline" className="min-h-[44px] w-full rounded-xl font-bold" onClick={() => setOpenRow(r)}>View</Button>
+              </li>
+            ))}
+          </ul>
+
+          {!query.isLoading && rows.length === 0 && !query.isError && (
+            <div className="px-5 py-14 text-center">
+              <Banknote className="mx-auto mb-2 h-8 w-8 text-[#6D2EE8]" strokeWidth={1.75} aria-hidden="true" />
+              <p className="text-sm font-semibold text-foreground">No cash deposits match these filters</p>
+              <p className="text-sm text-muted-foreground">{RANGE_LABEL[range]}{loc !== 'all' ? `, ${loc === 'bank' ? 'banked' : 'cash at hand'}` : ''}{search ? `, “${search}”` : ''}</p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-5 py-3 text-sm text-foreground">
+            <p>{(data?.total ?? 0).toLocaleString()} deposit{data?.total === 1 ? '' : 's'} · {RANGE_LABEL[range]}</p>
+            <p>Awaiting: {summary?.awaiting_live_count ?? 0} active · {summary?.expired_count ?? 0} expired</p>
+          </div>
+          {(data?.total ?? 0) > PAGE_SIZE && (
+            <div className="border-t border-border px-4 py-2"><Pager page={page} pageSize={PAGE_SIZE} total={data?.total ?? 0} onPage={setPage} noun="deposits" /></div>
+          )}
+        </section>
+      )}
+
+      <p className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-[#EFE8FF] px-5 py-3.5 text-sm font-semibold text-foreground dark:bg-violet-500/15">
+        <span className="flex items-center gap-3"><Info className="h-5 w-5 shrink-0 text-[#6D2EE8]" strokeWidth={1.75} aria-hidden="true" /> Count the physical cash before crediting. You will confirm the amount before the wallet is credited.</span>
+        <span className="font-normal italic text-foreground/80 sm:border-l sm:border-[#B79BF2] sm:pl-6">Expired deposits are excluded from the active awaiting total.</span>
+      </p>
+
+      {/* Double-check before crediting */}
+      <Dialog open={confirmRow !== null} onOpenChange={(o) => { if (!o && busy === null) setConfirmRow(null); }}>
+        <DialogContent className="rounded-2xl p-6 sm:max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-lg font-bold"><CheckCircle2 className="h-5 w-5 text-[#6D2EE8]" aria-hidden="true" /> Double-check before crediting</DialogTitle></DialogHeader>
           {confirmRow && (
-            <div className="space-y-4 pt-2">
-              <div className="rounded-xl border-2 border-primary bg-primary/10 p-5 text-center">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Cash received — count it again
-                </div>
-                <div className="mt-1 text-3xl sm:text-4xl font-extrabold font-mono tracking-tight text-primary tabular-nums">
-                  {fmtUgx(confirmRow.amount)}
-                </div>
+            <div className="space-y-4 pt-1">
+              <div className="rounded-xl border-2 border-[#6D2EE8] bg-[#F1EAFF] p-5 text-center dark:bg-violet-500/20">
+                <p className="text-xs font-bold uppercase tracking-wider text-foreground">Cash received. Count it again</p>
+                <p className="mt-1 text-4xl font-black tabular-nums text-[#5A1FD0] dark:text-violet-200">{ugx(confirmRow.amount)}</p>
               </div>
-              <div className="p-4 rounded-xl border border-border/70 bg-muted/20 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Depositor</span>
-                  <span className="font-bold text-foreground">{confirmRow.depositor_name || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Phone</span>
-                  <span className="text-xs font-mono font-semibold text-foreground">{confirmRow.depositor_phone || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Code entered</span>
-                  <span className="font-mono font-bold tracking-widest text-foreground">
-                    {(codeInputs[confirmRow.verification_id] ?? '').replace(/\D/g, '')}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Purpose</span>
-                  <span className="text-xs font-semibold text-foreground">{purposeLabel(confirmRow.deposit_purpose)}</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Confirm the cash in your hand matches the amount above. This credits the wallet and cannot be undone here.
-              </p>
+              <dl className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Depositor</dt><dd className="font-bold text-foreground">{confirmRow.depositor_name || 'Unknown'}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Credited to wallet</dt><dd className="font-semibold text-foreground">{confirmRow.wallet_holder_name || '—'} <span className="font-mono text-xs">{confirmRow.wallet_holder_phone}</span></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Code entered</dt><dd className="font-mono font-bold tracking-widest text-foreground">{codes[confirmRow.verification_id] ?? ''}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Purpose</dt><dd className="font-semibold text-foreground">{purposeLabel(confirmRow.deposit_purpose)}</dd></div>
+              </dl>
+              <p className="text-xs text-muted-foreground">Confirm the cash in your hand matches the amount above. This credits the wallet and cannot be undone here.</p>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1 h-10 rounded-xl"
-                  disabled={verifying !== null}
-                  onClick={() => setConfirmRow(null)}
-                >
-                  Go back
-                </Button>
-                <Button
-                  className="flex-1 h-10 rounded-xl font-semibold gap-1.5"
-                  disabled={verifying !== null}
-                  onClick={async () => {
-                    await submitCode(confirmRow);
-                    setConfirmRow(null);
-                  }}
-                >
-                  {verifying === confirmRow.verification_id ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Check className="h-4 w-4" />
-                  )}
-                  Yes, amount is correct
+                <Button variant="outline" className="h-11 flex-1 rounded-xl" disabled={busy !== null} onClick={() => setConfirmRow(null)}>Go back</Button>
+                <Button className="h-11 flex-1 gap-1.5 rounded-xl font-bold" disabled={busy !== null} onClick={async () => { const r = confirmRow; await credit(r); setConfirmRow(null); }}>
+                  {busy === confirmRow.verification_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Yes, amount is correct
                 </Button>
               </div>
             </div>
@@ -870,114 +635,38 @@ export function CashDepositCodesPanel({
         </DialogContent>
       </Dialog>
 
-      {/* Row Detail Dialog */}
-      <Dialog open={openRow !== null} onOpenChange={(open) => !open && setOpenRow(null)}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Banknote className="h-5 w-5 text-primary" />
-              Cash Deposit Details
-            </DialogTitle>
-          </DialogHeader>
-
+      {/* Deposit details */}
+      <Dialog open={openRow !== null} onOpenChange={(o) => !o && setOpenRow(null)}>
+        <DialogContent className="rounded-2xl p-6 sm:max-w-md">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 text-lg font-bold"><Banknote className="h-5 w-5 text-[#6D2EE8]" aria-hidden="true" /> Cash Deposit Details</DialogTitle></DialogHeader>
           {openRow && (
-            <div className="space-y-4 pt-2">
-              <div className="p-4 rounded-xl border border-border/70 bg-muted/20 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Depositor</span>
-                  <span className="text-sm font-bold text-foreground">{openRow.depositor_name || 'Unknown'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Phone</span>
-                  <span className="text-xs font-mono font-semibold text-foreground">{openRow.depositor_phone || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Amount</span>
-                  <span className="text-sm font-bold font-mono text-foreground">{fmtUgx(openRow.amount)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Purpose</span>
-                  <span className="text-xs font-semibold text-foreground">{purposeLabel(openRow.deposit_purpose)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground font-medium">Location</span>
-                  <span className="text-xs font-semibold text-foreground">{cashLocationLabel(openRow.cash_location)}</span>
-                </div>
-              </div>
-
-              {openRow.status === 'awaiting_code' && (
-                <div className="p-4 rounded-xl border border-border/70 bg-card space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">Verify OTP Code</span>
-                    <Countdown expiresAt={openRow.expires_at} />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={codeInputs[openRow.verification_id] ?? ''}
-                      onChange={(e) =>
-                        setCodeInputs((prev) => ({
-                          ...prev,
-                          [openRow.verification_id]: e.target.value.replace(/\D/g, '').slice(0, 4),
-                        }))
-                      }
-                      placeholder="Enter 4-digit code"
-                      maxLength={4}
-                      className="h-10 text-center font-mono font-bold text-sm rounded-xl"
-                    />
-                    <Button
-                      onClick={() => {
-                        const row = openRow;
-                        setOpenRow(null);
-                        requestCredit(row);
-                      }}
-                      disabled={verifying === openRow.verification_id}
-                      className="h-10 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs shadow-xs"
-                    >
-                      Credit
-                    </Button>
+            <div className="space-y-4 pt-1">
+              <dl className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Depositor</dt><dd className="font-bold text-foreground">{openRow.depositor_name || 'Unknown'}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Credited to wallet</dt><dd className="text-right font-semibold text-foreground">{openRow.wallet_holder_name || '—'}<br /><span className="font-mono text-xs">{openRow.wallet_holder_phone || '—'}</span></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Amount</dt><dd className="font-bold tabular-nums text-foreground">{ugx(openRow.amount)}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Purpose</dt><dd className="font-semibold text-foreground">{purposeLabel(openRow.deposit_purpose)}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Location</dt><dd className="font-semibold text-foreground">{isBank(openRow.cash_location) ? 'Banked' : 'Cash at hand'}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Started</dt><dd className="font-semibold text-foreground">{dateOf(openRow.created_at)} · {timeOf(openRow.created_at)} EAT</dd></div>
+              </dl>
+              {isLive(openRow, now) && (
+                <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                  <div className="flex items-center justify-between"><span className="text-sm font-bold text-foreground">Enter the 4-digit code</span><Countdown expiresAt={openRow.expires_at} /></div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <CodeBoxes value={codes[openRow.verification_id] ?? ''} onChange={(v) => setCodes((c) => ({ ...c, [openRow.verification_id]: v }))} label="Deposit code" />
+                    <Button className="min-h-[44px] rounded-xl px-5 font-bold" disabled={(codes[openRow.verification_id] ?? '').length < 4} onClick={() => { const r = openRow; setOpenRow(null); askToCredit(r); }}>Credit</Button>
                   </div>
                 </div>
               )}
-
-              {/* Action buttons in modal */}
-              <div className="flex flex-col gap-2 pt-1">
+              <div className="flex flex-col gap-2">
                 {openRow.status === 'awaiting_code' && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => reissue(openRow.verification_id, 'sms')}
-                      disabled={reissuing === openRow.verification_id}
-                      className="flex-1 h-9 rounded-xl text-xs font-semibold gap-1.5"
-                    >
-                      <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
-                      Resend SMS
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => reissue(openRow.verification_id, 'email')}
-                      disabled={reissuing === openRow.verification_id}
-                      className="flex-1 h-9 rounded-xl text-xs font-semibold gap-1.5"
-                    >
-                      <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                      Resend Email
-                    </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="min-h-[44px] flex-1 gap-1.5 rounded-xl font-semibold" disabled={busy === openRow.verification_id} onClick={() => void resend(openRow, 'sms')}><Smartphone className="h-4 w-4" aria-hidden="true" /> Resend SMS</Button>
+                    <Button variant="outline" className="min-h-[44px] flex-1 gap-1.5 rounded-xl font-semibold" disabled={busy === openRow.verification_id} onClick={() => void resend(openRow, 'email')}><Mail className="h-4 w-4" aria-hidden="true" /> Resend Email</Button>
                   </div>
                 )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setCashLocationFor(openRow, openRow.cash_location === 'bank' ? 'cash_at_hand' : 'bank');
-                    setOpenRow(null);
-                  }}
-                  disabled={banking === openRow.verification_id}
-                  className="h-9 rounded-xl text-xs font-semibold gap-1.5"
-                >
-                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                  {openRow.cash_location === 'bank' ? 'Move to cash at hand' : 'Mark as banked'}
+                <Button variant="outline" className="min-h-[44px] gap-1.5 rounded-xl font-semibold" disabled={busy === openRow.verification_id} onClick={async () => { const r = openRow; await moveCash(r); setOpenRow(null); }}>
+                  <Building2 className="h-4 w-4" aria-hidden="true" /> {isBank(openRow.cash_location) ? 'Move to cash at hand' : 'Mark as banked'}
                 </Button>
               </div>
             </div>

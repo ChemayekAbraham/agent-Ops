@@ -277,6 +277,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { finopsPath, finopsIdFromSlug, isFinopsViewId, isOnFinopsRoute, FINOPS_MENU_SLUG } from '@/lib/financialOpsRoutes';
 import FinOpsMenuHome from './new-ui/FinOpsMenuHome';
+import FinOpsOverviewTiles from './new-ui/FinOpsOverviewTiles';
+import WalletBreakdownDonut from './new-ui/WalletBreakdownDonut';
 
 const WALLET_BREAKDOWN_KEY = 'finops_wallet_breakdown_open_v2';
 const IFTTT_DIAGNOSTICS_KEY = 'finops_ifttt_diagnostics_open_v1';
@@ -534,14 +536,6 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {(activeTool === 'withdrawals' || activeTool === 'payout_queue') && (
           <div className="space-y-6 w-full">
             <div>
-              <button
-                type="button"
-                onClick={() => { setActiveTool(null); setView('home'); }}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary transition-colors mb-3"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Back to Overview
-              </button>
               <PageHeader
                 icon={payoutsSubTab === 'landlord_payouts' ? Building : Banknote}
                 tone="primary"
@@ -709,7 +703,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
         {activeTool === 'topup_audit' && <PartnershipTopupAuditLog />}
         {activeTool === 'momo_sms_template' && <MomoSignupSmsTemplatePanel />}
         {activeTool === 'cash_codes' && (
-          <CashDepositCodesPanel fullScreen onClose={() => setActiveTool(null)} />
+          <CashDepositCodesPanel fullScreen />
         )}
         {activeTool === 'manual_float_credit' && <ManualFloatCreditPanel />}
         {activeTool === 'user_statements' && <UserWalletStatementsPanel />}
@@ -1162,81 +1156,8 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
         {!activeTool && view === 'home' && !isMenu && (
           <div className="mt-6 space-y-4">
+            {/* Only renders when the money feed has gone silent. The IFTTT and merchant-phone accordions live under their own tools. */}
             <MomoFeedSilenceAlert />
-
-            {/* IFTTT Diagnostics Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setIftttDiagnosticsOpen(!iftttDiagnosticsOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-expanded={iftttDiagnosticsOpen}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <Activity className="h-4.5 w-4.5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold tracking-tight text-foreground">IFTTT Live Webhook Diagnostics</h2>
-                      <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Automation
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      SMS forwarding health, last received webhooks & payload inspection.
-                    </p>
-                  </div>
-                </div>
-                {iftttDiagnosticsOpen ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-              {iftttDiagnosticsOpen && (
-                <div className="p-4 border-t border-border bg-muted/5">
-                  <IftttDiagnosticsPanel />
-                </div>
-              )}
-            </div>
-
-            {/* Merchant Phone Checklist Accordion — collapsed by default */}
-            <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setMerchantChecklistOpen(!merchantChecklistOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-expanded={merchantChecklistOpen}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <Smartphone className="h-4.5 w-4.5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold tracking-tight text-foreground">Merchant Operational Phone Setup</h2>
-                      <span className="hidden sm:inline-flex items-center rounded-md bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                        Checklist
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Required background permissions, battery optimizations & SMS automation steps.
-                    </p>
-                  </div>
-                </div>
-                {merchantChecklistOpen ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-              {merchantChecklistOpen && (
-                <div className="p-4 border-t border-border bg-muted/5">
-                  <MerchantPhoneChecklist />
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -1354,92 +1275,37 @@ function FinOpsHome({
 
   return (
     <div className="space-y-5">
-      {/* Header row */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-            Verify deposits, approve withdrawals and keep the platform balanced.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {onFinopsRoute && (<button
-            type="button"
-            onClick={() => navigate(finopsPath(FINOPS_MENU_SLUG))}
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors min-h-[44px]"
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> All Tools
-          </button>)}
-          <button
-            type="button"
-            onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs min-h-[44px] sm:min-h-[40px]"
-          >
-            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Refresh
-          </button>
-          <label
-            className="inline-flex items-center gap-2.5 text-sm font-medium text-foreground cursor-pointer select-none min-h-[44px] sm:min-h-[40px]"
-            title={
-              autoRefresh
-                ? 'Auto-refresh is on. Turn it off to keep the screen stable while you review.'
-                : 'Auto-refresh is off. Numbers will not update until you turn it back on.'
-            }
-          >
-            Auto-refresh
-            <Switch
-              checked={autoRefresh}
-              onCheckedChange={setFinOpsAutoRefresh}
-              aria-label="Toggle auto-refresh"
-            />
-          </label>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
+        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Verify deposits, approve withdrawals and keep the platform balanced.
+        </p>
       </div>
-
       {/* Verified payout destinations — nobody is paid to an unverified number */}
       <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
-      {/* Daily tools */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        <QuickAction onClick={() => onOpenTool('cash_codes')} icon={KeyRound} label="Cash Deposit Codes" />
-        <QuickAction onClick={() => onOpenTool('email_tx')} icon={Mail} label="Email Transactions" />
-        <QuickAction onClick={() => onOpenTool('wallet_buckets')} icon={Wallet} label="Wallet Buckets" />
-        <QuickAction onClick={() => onOpenTool('payout_queue')} icon={Banknote} label="Payout Queue" />
-        <QuickAction onClick={() => onOpenTool('merchant_float')} icon={HandCoins} label="Merchant Float" />
-      </div>
+      <FinOpsOverviewTiles
+        activeWallets={totals?.activeWallets}
+        payoutsPending={queues?.payoutsPending}
+        onOpenTool={(id) => onOpenTool(id as Tool)}
+      />
 
-      {/* Queues that need a person */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <ActionStatTile
-          onClick={() => onView('deposits')}
-          icon={ShieldCheck}
-          count={queues?.depositsPending ?? 0}
-          countLabel="Pending verification"
-          title="Verify Deposits"
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('withdrawals')}
-          icon={ArrowRightLeft}
-          count={queues?.payoutsPending ?? 0}
-          countLabel="Payout requests"
-          title="Withdrawal Approvals"
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('merchant_claims')}
-          icon={HandCoins}
-          count={queues?.activeClaims ?? 0}
-          countLabel="Active claims"
-          title="Merchant Claims"
-        />
-      </div>
-
-      {/* Where the money is */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+      {/* Wallet split, money in all wallets, and the money we actually hold */}
+      <div className="grid grid-cols-1 gap-4 items-stretch lg:grid-cols-[1.15fr_1fr_1fr]">
+        <div className="min-w-0 h-full">
+          <WalletBreakdownDonut
+            withdrawable={totals?.totalWithdrawable}
+            float={totals?.totalFloat}
+            loading={totalsLoading}
+            onViewAll={() => onOpenTool('wallet_breakdown')}
+          />
+        </div>
         <div className="min-w-0 h-full">
           <WalletOverviewCard
             onOpenReconciliation={() => onOpenTool('recon')}
             onOpenBreakdown={() => onOpenTool('wallet_breakdown')}
-            onDrillBucket={(bucket) => onFocusBucket(bucket)}
+            onDrillBucket={() => onOpenTool('wallet_breakdown')}
           />
         </div>
         <div className="min-w-0 h-full">
@@ -1447,63 +1313,8 @@ function FinOpsHome({
         </div>
       </div>
 
-      {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <Search className="h-5 w-5 text-primary" aria-hidden="true" />
-            </div>
-            <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-            aria-label="Search every wallet by name, phone or balance range"
-            className="flex-1 min-w-[12rem] h-10 inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm text-muted-foreground hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">Search by name, phone or balance range</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-            aria-expanded={walletBreakdownOpen}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-0"
-          >
-            {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
-            {walletBreakdownOpen ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
-          </button>
-        </div>
-        {walletBreakdownOpen && (
-          <div className="px-4 pb-4 pt-3 border-t border-border bg-muted/5">
-            <WalletBreakdownReadOnly
-              focusBucket={focusBucket}
-              onClearFocus={onClearFocus}
-            />
-          </div>
-        )}
-      </div>
-
       {/* Company money sitting with merchant agents */}
       <MoneyWithAgentsCard onOpenTimeline={() => onOpenTool('cashout_settlement')} />
-
-      {/* Float allocation + merchant balance disputes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
-        <MerchantBalanceDisputesPanel />
-      </div>
-
-      <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
-
-      {/* Quick tools */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-card px-4 py-1.5 shadow-2xs">
-        <span className="text-xs font-bold text-foreground">Quick Tools</span>
-        <QuickLink icon={Activity} label="Bridge Health" onClick={() => onOpenTool('bridge_health')} />
-        <QuickLink icon={Archive} label="Receipt Archive" onClick={() => onOpenTool('receipt_archive')} />
-        <QuickLink icon={ArrowRightLeft} label="Cash-Out Timeline" onClick={() => onOpenTool('cashout_settlement')} />
-        <QuickLink icon={MoreHorizontal} label="Explore Tools" onClick={onOpenMore} />
-      </div>
 
       {/* "More" Sheet */}
       <Sheet open={moreSheet} onOpenChange={setMoreSheet}>

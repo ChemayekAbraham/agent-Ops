@@ -6,9 +6,8 @@
  * cannot approve a request the holder has not allowed.
  */
 import { useState } from 'react';
-import { IdCard, Loader2 } from 'lucide-react';
+import { Check, IdCard, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -38,76 +37,57 @@ export default function NationalIdLinkStaffQueue() {
     }
   };
 
+  const maskId = (n?: string | null) => (n && n.length > 4 ? `${n.slice(0, 2)}${'•'.repeat(n.length - 4)}${n.slice(-2)}` : n ?? '—');
   return (
-    <Card id="national-id-link-staff-queue" className="border border-primary/30 bg-card shadow-sm scroll-mt-20">
-      <CardHeader className="pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <IdCard className="h-4 w-4 text-primary" />
-            National ID link audit queue ({rows.length})
-          </CardTitle>
-          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary ring-1 ring-inset ring-primary/25">
-            Audit review · Payout auto-verified
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Holders approved these links in-app. Payout destinations are auto-verified immediately; staff review and audit the link record.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section id="national-id-link-staff-queue" className="scroll-mt-20 rounded-2xl border-2 border-[#B79BF2] bg-card p-4 shadow-sm sm:p-5" aria-label="National ID link audit queue">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h3 className="flex items-center gap-2.5 text-xl font-bold text-foreground">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-[#B79BF2] text-[#6D2EE8]"><IdCard className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" /></span> National ID link audit queue ({rows.length})
+        </h3>
+        <span className="text-sm text-muted-foreground">Audit review · Payout auto-verified</span>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">The holder approved the link in the app. Staff audit the record afterwards.</p>
+
+      <div className="mt-3 divide-y divide-border/70 border-t border-border/70">
         {rows.map((r) => (
-          <div
-            key={r.id}
-            id={`national-id-link-record-${r.id}`}
-            className="space-y-2.5 rounded-xl border border-border bg-card/60 p-3.5 transition-all scroll-mt-24"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground">
-                National ID <span className="font-mono font-bold">{r.nin}</span>
-              </p>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                Awaiting staff audit
-              </span>
+          <div key={r.id} id={`national-id-link-record-${r.id}`} className="flex scroll-mt-24 flex-wrap items-center gap-x-5 gap-y-3 py-3.5">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-base font-bold text-foreground">{maskId(r.nin)}</span>
+              <span className="rounded-full bg-[#FFE49A] px-3.5 py-1 text-sm font-extrabold text-[#6B4200] dark:bg-amber-400/30 dark:text-amber-200">Awaiting staff audit</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Holder approved this link on{' '}
+            <p className="text-sm text-foreground">
+              Holder approved{' '}
               {r.owner_confirmed_at
-                ? new Date(r.owner_confirmed_at as string).toLocaleString('en-GB', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })
+                ? new Date(r.owner_confirmed_at as string).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                 : '—'}
-              , and mobile code was entered
-              {r.code_verified_at ? ' ✓' : ' — not yet'}.
+              <span className="mx-3 text-border" aria-hidden="true">|</span>
+              <span className={r.code_verified_at ? 'font-bold text-[#13803E] dark:text-emerald-300' : 'font-semibold text-[#9A5B00]'}>
+                {r.code_verified_at ? <><Check className="mr-1 inline h-4 w-4" strokeWidth={3} aria-hidden="true" />Mobile code entered</> : 'Mobile code not yet entered'}
+              </span>
             </p>
-            <Textarea
-              value={notes[r.id] ?? ''}
-              onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
-              placeholder="Audit notes — what did you check? (at least 10 characters)"
-              rows={2}
-              className="text-sm"
-            />
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <Button
-                variant="outline"
-                className="h-10 text-xs font-semibold"
-                onClick={() => decide(r.id, false)}
-                disabled={confirm.isPending}
-              >
+            <div className="min-w-[14rem] flex-1">
+              <label htmlFor={`link-note-${r.id}`} className="text-sm font-bold text-foreground">Audit notes</label>
+              <Textarea
+                id={`link-note-${r.id}`}
+                value={notes[r.id] ?? ''}
+                onChange={(e) => setNotes((n) => ({ ...n, [r.id]: e.target.value }))}
+                placeholder="At least 10 characters."
+                rows={1}
+                className="mt-1 min-h-[44px] text-sm"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="min-h-[44px] rounded-xl border-[#E0352B] bg-white px-5 font-extrabold text-[#D92D20] hover:bg-[#FFECEB] dark:bg-transparent" onClick={() => decide(r.id, false)} disabled={confirm.isPending}>
                 Refuse link
               </Button>
-              <Button
-                className="h-10 text-xs font-semibold shadow-sm"
-                onClick={() => decide(r.id, true)}
-                disabled={confirm.isPending}
-              >
+              <Button className="min-h-[44px] rounded-xl px-5 font-bold" onClick={() => decide(r.id, true)} disabled={confirm.isPending}>
                 {confirm.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 Confirm audit
               </Button>
             </div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

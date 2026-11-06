@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wallet, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge, History, Coins, Smartphone, Undo2, Info, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
+import { AlertCircle, HandCoins, ArrowRightLeft, AlertTriangle, SlidersHorizontal, ShieldAlert, RefreshCw, Gauge, Coins, Smartphone, Undo2, Info, ChevronDown, ChevronUp, ArrowRight } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -182,107 +182,230 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
 
 
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 min-w-0 shadow-2xs">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <HandCoins className="h-5 w-5 text-primary" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-base font-bold tracking-tight text-foreground">Money With Merchant Agents</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Company funds held by agents and reimbursements owed
+  // ---- Cells shared by the table (wide screens) and the stacked cards (phones) ----
+  const agentLabel = (r: MerchantFloatPosition) => r.agentName || r.label || 'Merchant agent';
+
+  const agentCell = (r: MerchantFloatPosition) => (
+    <div className="min-w-0">
+      <button
+        type="button"
+        onClick={() => setStatementFor(r)}
+        className="text-left text-base font-extrabold uppercase leading-tight text-[#5A1FD0] underline decoration-[#B79BF2] underline-offset-2 hover:text-[#4413A8] dark:text-violet-300"
+      >
+        {agentLabel(r)}
+      </button>
+      <p className="mt-1 flex items-center gap-1.5 text-sm text-foreground">
+        <Smartphone className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
+        {r.agentPhone || '—'}
+      </p>
+    </div>
+  );
+
+  const capacityCell = (r: MerchantFloatPosition) => {
+    const cap = capacityFor(r.agentId);
+    const earned = cap?.earnedCapacity ?? 0;
+    return (
+      <div className="min-w-0 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            disabled={!r.agentId}
+            onClick={() => r.agentId && setHistoryFor({ agentId: r.agentId, name: agentLabel(r) })}
+            title={cap?.blocker ? cap.blocker : `${cap?.reason || 'No verified payout record yet'}. Tap for capacity history`}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-extrabold uppercase tracking-wide disabled:cursor-default ${
+              earned > 0
+                ? 'border-[#9B6FF0] bg-[#EDE5FF] text-[#5A1FD0] dark:bg-violet-500/25 dark:text-violet-100'
+                : 'border-slate-300 bg-white text-slate-800 dark:bg-transparent dark:text-slate-100'
+            }`}
+          >
+            <Gauge className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            Qualifies {perfLoading ? '…' : formatUGX(earned)}/day
+          </button>
+          {cap?.override && (
+            <span
+              className="inline-flex items-center rounded-full border border-[#9B6FF0] bg-[#EDE5FF] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#5A1FD0]"
+              title={`Override by ${cap.override.setBy || 'Financial Ops'}: ${cap.override.reason}`}
+            >
+              override · earned {formatUGX(cap.performanceCapacity)}
+            </span>
+          )}
+          {pot > 0 && (
+            <span className="inline-flex items-center rounded-full bg-[#5A1FD0] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-white">
+              send {formatUGX(cap?.suggestedAllocation ?? 0)}
+            </span>
+          )}
+          {isUnverified(r) && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#FFD6D6] px-3 py-1 text-xs font-extrabold uppercase tracking-wide text-[#B42318]">
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> {evidenceLabel(r)}
+            </span>
+          )}
+        </div>
+        {cap?.blocker ? (
+          <p className="flex items-start gap-1.5 text-sm font-medium text-[#C2410C]">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <span>Blocked · {cap.blocker.replace(/^blocked:?\s*/i, '')}</span>
+          </p>
+        ) : (
+          <p className="text-sm text-foreground/80">
+            {capacityLabel(cap).replace(/^./, (c) => c.toUpperCase()).replace(' — ', ' · ')}
+            {cap && cap.earnedCapacity > 0 ? <span className="block">Avg {formatUGX(Math.round(cap.dailyThroughput))}/day paid out</span> : null}
+          </p>
+        )}
+      </div>
+    );
+  };
+
+  const movementsCell = (r: MerchantFloatPosition) => {
+    const movements = movementsFor(r);
+    const latestAt = latestMovementAt(r);
+    return (
+      <div className="space-y-0.5 text-sm tabular-nums">
+        {movements.length === 0 ? (
+          <p className="text-muted-foreground">No float movements</p>
+        ) : (
+          movements.map((m, idx) => (
+            <p key={`${m.agentId}-${m.date}-${idx}`} className="font-bold text-foreground">
+              {m.direction === 'cash_in' ? '+' : '−'}{formatUGX(m.amount)}
+              <span className="ml-1.5 font-normal text-muted-foreground">· {format(new Date(m.date), 'd MMM')}</span>
             </p>
+          ))
+        )}
+        {latestAt && <p className="pt-0.5 text-xs text-muted-foreground">Last movement {format(new Date(latestAt), 'd MMM yyyy · HH:mm')}</p>}
+      </div>
+    );
+  };
+
+  const paidCell = (r: MerchantFloatPosition) => (
+    <dl className="space-y-1 text-sm tabular-nums">
+      <div className="flex items-baseline justify-between gap-4"><dt className="text-muted-foreground">Paid out</dt><dd className="font-bold text-foreground">{formatUGX(r.paidOut)}</dd></div>
+      <div className="flex items-baseline justify-between gap-4"><dt className="text-muted-foreground">Reimbursed</dt><dd className="font-bold text-foreground">{formatUGX(r.reimbursed)}</dd></div>
+    </dl>
+  );
+
+  const floatCell = (r: MerchantFloatPosition) => {
+    const holding = r.companyCashWithAgent > 0;
+    const settled = !holding && r.owedToAgent <= 0 && r.ownCashUnderReview <= 0;
+    const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
+    return (
+      <div>
+        <p className="text-xl font-extrabold tabular-nums text-foreground">{formatUGX(spendableFloat(r))}</p>
+        <p className="text-sm text-muted-foreground">
+          {spendableFloat(r) > 0 ? 'Float balance on their phone' : holding ? 'Our money still on their phone' : settled ? 'Nothing outstanding either way' : 'We must send this back to them'}
+        </p>
+        {isUnverified(r) && <p className="mt-1 text-xs font-semibold text-[#B42318]">{formatUGX(excludedFloat(r))} not counted as float</p>}
+        {booksProveLess && <p className="mt-1 text-xs text-muted-foreground">Shown on their phone {formatUGX(Math.max(0, r.ledgerFloatHeld))}. Books prove less.</p>}
+        {r.clampedShortfall > 0 && <p className="mt-1 text-xs font-bold text-[#B42318]">Hides a {formatUGX(r.clampedShortfall)} deficit</p>}
+        {r.ownCashUnderReview > 0 && <p className="mt-1 text-xs font-bold text-[#B42318]">{formatUGX(r.ownCashUnderReview)} of their own money filed but not supported by the books. Not payable.</p>}
+      </div>
+    );
+  };
+
+  const actionsCell = (r: MerchantFloatPosition) => (
+    <div className="flex flex-row flex-wrap gap-x-5 gap-y-2 lg:flex-col lg:gap-y-3">
+      <button
+        type="button"
+        disabled={!r.agentId}
+        onClick={() => r.agentId && setOverrideFor({ agentId: r.agentId, name: agentLabel(r) })}
+        title="Temporarily adjust this desk's qualified capacity (reason required)"
+        className="inline-flex min-h-[32px] items-center gap-2 text-sm font-bold text-[#5A1FD0] hover:underline disabled:cursor-default disabled:opacity-50 dark:text-violet-300"
+      >
+        <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" /> Adjust
+      </button>
+      {canEditFloat ? (
+        <button
+          type="button"
+          onClick={() => setReconciling(r)}
+          className="inline-flex min-h-[32px] items-center gap-2 text-sm font-bold text-[#5A1FD0] hover:underline dark:text-violet-300"
+        >
+          <RefreshCw className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" /> Fix balance
+        </button>
+      ) : (
+        <p className="max-w-[10rem] text-xs text-muted-foreground">{readOnlyReason}</p>
+      )}
+    </div>
+  );
+
+  const tile = 'flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#D2BFFA] bg-[#EFE8FF] text-[#6D2EE8] dark:bg-violet-500/20 dark:border-violet-400/40';
+  const th = 'px-4 py-3 text-left text-sm font-bold text-foreground';
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={tile}><HandCoins className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">Money With Merchant Agents</h2>
+            <p className="text-sm text-muted-foreground">Company funds held by agents and reimbursements owed</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           {onOpenTimeline && (
-            <button
-              type="button"
-              onClick={onOpenTimeline}
-              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1.5 min-h-[44px] sm:min-h-0"
-            >
-              <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden="true" /> Settlement timeline <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <button type="button" onClick={onOpenTimeline} className="inline-flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#5A1FD0] hover:underline dark:text-violet-300 sm:min-h-0">
+              <ArrowRightLeft className="h-[18px] w-[18px]" aria-hidden="true" /> Settlement timeline <ArrowRight className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
           )}
           <button
             type="button"
             onClick={() => setShowDetails((v) => !v)}
             aria-expanded={showDetails}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-0"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-bold text-foreground hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             {showDetails ? 'Hide details' : 'Show details'}
-            {showDetails ? <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> : <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />}
+            {showDetails ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
           </button>
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border/70">
-        <div className="flex items-center gap-3 py-3 sm:py-0 sm:pr-5 min-w-0">
-          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-            <Coins className="h-5 w-5" aria-hidden="true" />
-          </span>
+      {/* The three headline figures */}
+      <div className="mt-5 grid grid-cols-1 divide-y divide-border sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <div className="flex min-w-0 items-center gap-4 py-3 sm:py-0 sm:pr-6">
+          <span className={tile}><Coins className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Float they can spend now</p>
-            <p className="text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
-              {isLoading ? '—' : formatUGX(floatTotal)}
-            </p>
+            <p className="text-sm text-muted-foreground">Float they can spend now</p>
+            <p className="break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(floatTotal)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 py-3 sm:py-0 sm:px-5 min-w-0">
-          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-            <Smartphone className="h-5 w-5" aria-hidden="true" />
-          </span>
+        <div className="flex min-w-0 items-center gap-4 py-3 sm:px-6 sm:py-0">
+          <span className={tile}><Smartphone className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Our cash still on their phones</p>
-            <p className="text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
-              {isLoading ? '—' : formatUGX(heldTotal)}
-            </p>
+            <p className="text-sm text-muted-foreground">Our cash still on their phones</p>
+            <p className="break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(heldTotal)}</p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => setDebtsOpen(true)}
-          className="flex items-center gap-3 py-3 sm:py-0 sm:pl-5 min-w-0 text-left rounded-lg hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           title="See what each agent is owed, the transactions behind it, and download a settlement PDF"
+          className="flex min-w-0 items-center gap-4 rounded-lg py-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:py-0 sm:pl-6"
         >
-          <span className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-            <Undo2 className="h-5 w-5" aria-hidden="true" />
-          </span>
+          <span className={tile}><Undo2 className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <span className="min-w-0">
-            <span className="block text-xs text-muted-foreground">Money we must send back to them</span>
-            <span className="block text-xl sm:text-2xl font-black tabular-nums tracking-tight text-foreground break-all">
-              {isLoading ? '—' : formatUGX(owedTotal)}
-            </span>
+            <span className="block text-sm text-muted-foreground">Money we must send back to them</span>
+            <span className="block break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(owedTotal)}</span>
             {!isLoading && underReviewTotal > 0 && (
-              <span className="block mt-0.5 text-[11px] font-semibold text-primary">
-                + {formatUGX(underReviewTotal)} filed but not supported by the books across{' '}
-                {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'} — not payable
+              <span className="mt-0.5 block text-xs font-semibold text-[#B42318]">
+                + {formatUGX(underReviewTotal)} filed but not supported by the books across {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'}. Not payable.
               </span>
             )}
           </span>
         </button>
       </div>
 
-      <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
-        <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden="true" />
+      <p className="mt-4 flex items-start gap-2 text-sm text-foreground/80">
+        <Info className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
         Only evidenced amounts included. Unverified claims remain separate.
       </p>
 
       {deficitTotal > 0 && (
-        <div className="mt-4 rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 p-3">
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+        <div className="mt-4 rounded-2xl border-2 border-dashed border-[#E8605A] bg-[#FFE6E4] p-3.5 dark:bg-red-500/15">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#B42318]" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                Hidden deficit across desks
-              </p>
-              <p className="mt-1 font-mono text-lg font-bold tabular-nums text-primary">
-                {formatUGX(deficitTotal)}
-              </p>
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                {deficitRows.length} desk{deficitRows.length === 1 ? '' : 's'} true position is negative by this amount — it can't show as a negative number, but this is real, not spendable float.
+              <p className="text-xs font-extrabold uppercase tracking-wider text-[#B42318]">Hidden deficit across desks</p>
+              <p className="mt-1 text-lg font-extrabold tabular-nums text-[#B42318]">{formatUGX(deficitTotal)}</p>
+              <p className="mt-1 text-xs text-foreground/80">
+                {deficitRows.length} desk{deficitRows.length === 1 ? '' : 's'} true position is negative by this amount. It can't show as a negative number, but this is real, not spendable float.
               </p>
             </div>
           </div>
@@ -291,74 +414,43 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
       {error && (
         <div className="mt-4 flex items-start gap-2 rounded-xl border border-border bg-muted/30 p-3">
-          <AlertTriangle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-          <p className="text-[11px] text-muted-foreground">
-            {/(not authorized|forbidden|permission)/i.test(
-              (error as { message?: string })?.message ?? '',
-            )
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">
+            {/(not authorized|forbidden|permission)/i.test((error as { message?: string })?.message ?? '')
               ? 'This board is only visible to finance roles.'
-              : `This board could not load: ${
-                  (error as { message?: string })?.message ?? 'unknown error'
-                }`}
+              : `This board could not load: ${(error as { message?: string })?.message ?? 'unknown error'}`}
           </p>
         </div>
       )}
 
-      {showDetails && (
+      {showDetails && !error && (
         <>
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={runFloatSweep}
-              disabled={sweeping}
-              className="text-[11px] font-medium text-muted-foreground hover:text-foreground hover:underline flex items-center gap-1 disabled:opacity-50"
-              title="Post the company-float deduction for any payout that completed without one (last 7 days)"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${sweeping ? 'animate-spin' : ''}`} />
-              {sweeping ? 'Repairing…' : 'Repair payout deductions'}
-            </button>
-          </div>
-      {!error && (
-        <div className="mt-4 border-t border-border pt-3 space-y-2">
-          {isLoading && <p className="text-xs text-muted-foreground">Loading merchant positions…</p>}
-          {!isLoading && rows.length === 0 && (
-            <p className="text-xs text-muted-foreground">No merchant activity in the current window.</p>
-          )}
-
+          {/* Plan today's distribution */}
           {rows.length > 0 && (
-            <div className="rounded-xl border border-primary/25 bg-primary/[0.04] p-3">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+            <section className="mt-5 rounded-2xl border border-[#B79BF2] bg-[#F7F2FF] p-4 dark:bg-violet-500/10 sm:p-5" aria-label="Plan today's distribution">
+              <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Plan today's distribution
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Enter the total you want to send out today. Each agent's share is worked out
-                    from their own verified payout record — not shared out equally.
-                  </p>
+                  <h3 className="text-xl font-bold text-foreground">Plan today's distribution</h3>
+                  <p className="mt-1 text-sm text-foreground/80">Each agent's share is based on their own verified payout record, not shared equally.</p>
                 </div>
-                <div className="flex flex-wrap items-end gap-2">
+                <div className="flex flex-wrap items-end gap-3">
                   <label className="flex flex-col gap-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Amount to distribute (UGX)
-                    </span>
+                    <span className="text-sm text-foreground">Amount to distribute (UGX)</span>
                     <input
                       type="text"
                       inputMode="numeric"
                       value={potInput}
                       onChange={(e) => setPotInput(e.target.value)}
                       placeholder="e.g. 5000000"
-                      className="h-9 w-40 rounded-lg border border-border bg-background px-2 font-mono text-sm tabular-nums outline-none focus:border-primary"
+                      className="h-11 w-48 rounded-xl border border-border bg-background px-3 text-base tabular-nums outline-none focus:border-[#6D2EE8] focus:ring-2 focus:ring-[#B79BF2]"
                     />
                   </label>
                   <label className="flex flex-col gap-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Record window
-                    </span>
+                    <span className="text-sm text-foreground">Record window</span>
                     <select
                       value={capacityWindow}
                       onChange={(e) => setCapacityWindow(Number(e.target.value))}
-                      className="h-9 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:border-primary"
+                      className="h-11 rounded-xl border border-border bg-background px-3 text-base font-medium outline-none focus:border-[#6D2EE8] focus:ring-2 focus:ring-[#B79BF2]"
                     >
                       <option value={7}>Last 7 days</option>
                       <option value={14}>Last 14 days</option>
@@ -367,364 +459,179 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                     </select>
                   </label>
                   {potInput && (
-                    <button
-                      type="button"
-                      onClick={() => setPotInput('')}
-                      className="h-9 rounded-lg border border-border px-3 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-                    >
+                    <button type="button" onClick={() => setPotInput('')} className="h-11 rounded-xl border border-border bg-background px-4 text-sm font-semibold text-muted-foreground hover:text-foreground">
                       Clear
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => setBulkOverrideOpen(true)}
-                    className="h-9 rounded-lg border border-border px-3 text-[11px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                     title="Adjust several desks' qualified capacity in one action (one reason, per-desk durations)"
+                    className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-4 text-base font-semibold text-foreground hover:bg-muted/60"
                   >
-                    <SlidersHorizontal className="h-3.5 w-3.5" /> Bulk adjust capacity
+                    <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" /> Bulk adjust capacity
                   </button>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Earned capacity today
-                  </p>
-                  <p className="font-mono text-sm font-bold tabular-nums text-primary">
-                    {perfLoading ? '—' : formatUGX(capacityTotal)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    across {eligibleDesks} qualifying desk{eligibleDesks === 1 ? '' : 's'}
-                  </p>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Earned capacity today</p>
+                  <p className="text-xl font-extrabold tabular-nums text-[#5A1FD0] dark:text-violet-300">{perfLoading ? '—' : formatUGX(capacityTotal)}</p>
+                  <p className="text-sm text-foreground/80">across {eligibleDesks} qualifying desk{eligibleDesks === 1 ? '' : 's'}</p>
                 </div>
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Recommended split
-                  </p>
-                  <p className="font-mono text-sm font-bold tabular-nums text-foreground">
-                    {pot > 0 ? formatUGX(allocatedTotal) : '—'}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {pot > 0
-                      ? `of ${formatUGX(pot)} entered`
-                      : 'enter an amount to see each agent\u2019s share'}
-                  </p>
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Recommended split</p>
+                  <p className="text-xl font-extrabold tabular-nums text-foreground">{pot > 0 ? formatUGX(allocatedTotal) : '—'}</p>
+                  <p className="text-sm text-foreground/80">{pot > 0 ? `of ${formatUGX(pot)} entered` : 'Enter an amount to see each agent’s share'}</p>
                 </div>
-                <div className="rounded-lg border border-border bg-background px-3 py-2">
-                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Already with them
-                  </p>
-                  <p className="font-mono text-sm font-bold tabular-nums text-primary">
-                    {isLoading ? '—' : formatUGX(floatTotal)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    spendable float still on their phones
-                  </p>
+                <div className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-foreground">Already with them</p>
+                  <p className="text-xl font-extrabold tabular-nums text-[#5A1FD0] dark:text-violet-300">{isLoading ? '—' : formatUGX(floatTotal)}</p>
+                  <p className="text-sm text-foreground/80">Spendable float still on their phones</p>
                 </div>
               </div>
               {pot > 0 && capacityTotal === 0 && (
-                <p className="mt-2 text-[10px] font-medium text-muted-foreground">
-                  No desk currently qualifies on record, so nothing can be recommended.
-                </p>
+                <p className="mt-3 text-sm font-medium text-foreground/80">No desk currently qualifies on record, so nothing can be recommended.</p>
               )}
+            </section>
+          )}
+
+          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+            <p className="text-foreground">Total float with merchant agents (evidenced only)</p>
+            <p className="text-lg font-extrabold tabular-nums text-foreground">{isLoading ? '—' : formatUGX(floatTotal)}</p>
+          </div>
+
+          {/* Active merchant agents */}
+          <div className="mt-4 border-t border-border pt-4">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h3 className="text-xl font-bold text-foreground">Active merchant agents</h3>
+              <span className="text-sm text-muted-foreground"><span className="mr-2 text-border">|</span>Newest movement first · {rows.length} {rows.length === 1 ? 'agent' : 'agents'}</span>
+            </div>
+
+            {isLoading && <p className="mt-3 text-sm text-muted-foreground">Loading merchant positions…</p>}
+            {!isLoading && rows.length === 0 && <p className="mt-3 text-sm text-muted-foreground">No merchant activity in the current window.</p>}
+
+            {rows.length > 0 && (
+              <>
+                {/* Wide screens: the table */}
+                <div className="mt-3 hidden overflow-hidden rounded-2xl border border-border lg:block">
+                  <table className="w-full table-fixed border-collapse">
+                    <thead className="bg-muted/50">
+                      <tr className="border-b border-border">
+                        <th className={`${th} w-[17%]`}>Agent</th>
+                        <th className={`${th} w-[24%]`}>Capacity &amp; record</th>
+                        <th className={`${th} w-[17%]`}>Recent movements</th>
+                        <th className={`${th} w-[18%]`}>Paid out / Reimbursed</th>
+                        <th className={`${th} w-[17%]`}>Float balance</th>
+                        <th className={`${th} w-[7%]`}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {rows.map((r) => (
+                        <tr key={r.deskId} className={`align-top ${isUnverified(r) ? 'bg-[#FFF3F2] dark:bg-red-500/10' : ''}`}>
+                          <td className="px-4 py-4">{agentCell(r)}</td>
+                          <td className="px-4 py-4">{capacityCell(r)}</td>
+                          <td className="px-4 py-4">{movementsCell(r)}</td>
+                          <td className="px-4 py-4">{paidCell(r)}</td>
+                          <td className="px-4 py-4">{floatCell(r)}</td>
+                          <td className="px-4 py-4">{actionsCell(r)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Phones and tablets: one card per agent */}
+                <ul className="mt-3 space-y-3 lg:hidden">
+                  {rows.map((r) => (
+                    <li key={r.deskId} className={`space-y-3 rounded-2xl border p-4 ${isUnverified(r) ? 'border-dashed border-[#E8605A] bg-[#FFF3F2] dark:bg-red-500/10' : 'border-border bg-background'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        {agentCell(r)}
+                        <div className="shrink-0 text-right">{floatCell(r)}</div>
+                      </div>
+                      {capacityCell(r)}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {movementsCell(r)}
+                        {paidCell(r)}
+                      </div>
+                      <div className="border-t border-border pt-2">{actionsCell(r)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+
+          {/* Evidence safeguards: money the books do not support stays visible, separate from float */}
+          {excludedRows.length > 0 && (
+            <div className="mt-4 rounded-xl border-2 border-dashed border-[#E8605A] bg-[#FFF0EF] p-3.5 dark:bg-red-500/10">
+              <div className="flex items-start gap-2.5">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#B42318]" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#B42318]">Unverified, excluded from float</p>
+                  <p className="mt-0.5 text-sm text-foreground/80">
+                    {formatUGX(excludedTotal)} shown on merchant desks that the books do not support. Not spendable, not owed, and not included in any figure above. Under investigation.
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {excludedRows.map((r) => (
+                  <li key={`excluded-${r.deskId}`} className="min-w-0 rounded-lg border border-border bg-background px-3 py-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <p className="min-w-0 truncate text-sm font-semibold text-foreground">{agentLabel(r)}</p>
+                      <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#B42318]">{formatUGX(excludedFloat(r))}</p>
+                    </div>
+                    {r.clampArtifactAmount > 0 && <p className="text-xs text-muted-foreground">{formatUGX(r.clampArtifactAmount)}: cache exceeds what the ledger supports</p>}
+                    {r.assertedOnlyAmount > 0 && <p className="text-xs text-muted-foreground">{formatUGX(r.assertedOnlyAmount)}: no independent evidence found</p>}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {(rows.length > 0 || isLoading) && (
-
-            <div className="flex items-center justify-between gap-3 px-3 py-2">
-              <p className="text-[10px] text-muted-foreground">
-                Total float with merchant agents (evidenced only)
-              </p>
-              <p className="font-mono text-base font-extrabold tabular-nums text-right text-foreground">
-                {isLoading ? '—' : formatUGX(floatTotal)}
-              </p>
+          {deficitRows.length > 0 && (
+            <div className="mt-4 rounded-xl border-2 border-dashed border-[#E8605A] bg-[#FFF0EF] p-3.5 dark:bg-red-500/10">
+              <div className="flex items-start gap-2.5">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-[#B42318]" aria-hidden="true" />
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold uppercase tracking-wider text-[#B42318]">Hidden deficit: the zero floor is hiding a shortfall</p>
+                  <p className="mt-0.5 text-sm text-foreground/80">
+                    {formatUGX(deficitTotal)} across {deficitRows.length} desk{deficitRows.length === 1 ? '' : 's'}. These agents have paid out more than they were ever credited. The true position is negative, but the board can never display less than UGX 0. This is money owed TO the company, not float.
+                  </p>
+                </div>
+              </div>
+              <ul className="mt-2 space-y-1.5">
+                {deficitRows.map((r) => (
+                  <li key={`deficit-${r.deskId}`} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2">
+                    <p className="min-w-0 truncate text-sm font-semibold text-foreground">{agentLabel(r)}</p>
+                    <p className="shrink-0 text-sm font-extrabold tabular-nums text-[#B42318]">−{formatUGX(r.clampedShortfall)}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-          {rows.map((r) => {
-            const holding = r.companyCashWithAgent > 0;
-            // An unattested own-money claim is still outstanding, so a desk
-            // carrying one is never "settled" no matter what the payable says.
-            const settled = !holding && r.owedToAgent <= 0 && r.ownCashUnderReview <= 0;
-            const movements = movementsFor(r);
-            const latestAt = latestMovementAt(r);
-            const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
-            const cap = capacityFor(r.agentId);
-            return (
-              <div
-                key={r.deskId}
-                className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 rounded-xl border bg-background p-3 sm:px-3.5 sm:py-2.5 min-w-0 shadow-2xs ${
-                  isUnverified(r) ? 'border-dashed border-destructive/40' : 'border-border'
-                }`}
-              >
-                <div className="min-w-0 flex-1 text-left">
-                  <div className="flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setStatementFor(r)}
-                      className="text-sm font-bold text-foreground truncate hover:text-primary hover:underline text-left"
-                    >
-                      {r.agentName || r.label || 'Merchant agent'}
-                    </button>
-                    {/* Mobile balance indicator displayed inline with name */}
-                    <p
-                      className={`sm:hidden font-mono text-sm font-bold tabular-nums shrink-0 whitespace-nowrap ${
-                        isUnverified(r)
-                          ? 'text-muted-foreground'
-                          : 'text-foreground'
-                      }`}
-                    >
-                      {formatUGX(spendableFloat(r))}
-                    </p>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <button
-                      type="button"
-                      disabled={!r.agentId}
-                      onClick={() =>
-                        r.agentId &&
-                        setHistoryFor({
-                          agentId: r.agentId,
-                          name: r.agentName || r.label || 'Merchant agent',
-                        })
-                      }
-                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition hover:brightness-110 disabled:cursor-default ${
-                        !cap || cap.earnedCapacity === 0
-                          ? 'border-border bg-muted/40 text-muted-foreground'
-                          : 'border-primary/40 bg-primary/10 text-primary'
-                      }`}
-                      title={
-                        cap?.blocker
-                          ? cap.blocker
-                          : `${cap?.reason || 'No verified payout record yet'} — tap for capacity history`
-                      }
-                    >
-                      <Gauge className="h-2.5 w-2.5" />
-                      qualifies {perfLoading ? '…' : formatUGX(cap?.earnedCapacity ?? 0)}/day
-                      <History className="h-2.5 w-2.5 opacity-70" />
-                    </button>
-                    {cap?.override && (
-                      <span
-                        className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary"
-                        title={`Override by ${cap.override.setBy || 'Financial Ops'} — ${cap.override.reason}`}
-                      >
-                        override · earned {formatUGX(cap.performanceCapacity)}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      disabled={!r.agentId}
-                      onClick={() =>
-                        r.agentId &&
-                        setOverrideFor({
-                          agentId: r.agentId,
-                          name: r.agentName || r.label || 'Merchant agent',
-                        })
-                      }
-                      className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground disabled:cursor-default"
-                      title="Temporarily adjust this desk's qualified capacity (reason required)"
-                    >
-                      <SlidersHorizontal className="h-2.5 w-2.5" /> adjust
-                    </button>
-                    {pot > 0 && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                        send {formatUGX(cap?.suggestedAllocation ?? 0)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {capacityLabel(cap)}
-                    {cap && cap.earnedCapacity > 0
-                      ? ` · avg ${formatUGX(Math.round(cap.dailyThroughput))}/day paid out`
-                      : ''}
-                  </p>
-                  {isUnverified(r) && (
-                    <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary">
-                      <ShieldAlert className="h-2.5 w-2.5" /> {evidenceLabel(r)}
-                    </span>
-                  )}
 
-                  <div className="mt-1.5 space-y-0.5">
-                    {movements.length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground">No float movements</p>
-                    ) : (
-                      movements.map((m, idx) => (
-                        <p
-                          key={`${m.agentId}-${m.date}-${idx}`}
-                          className="text-[11px] font-semibold tabular-nums text-left whitespace-nowrap text-foreground"
-                        >
-                          {m.direction === 'cash_in' ? '+' : '−'}
-                          {formatUGX(m.amount)}
-                          <span className="ml-1 font-normal text-muted-foreground">
-                            {format(new Date(m.date), 'd MMM')}
-                          </span>
-                        </p>
-                      ))
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground truncate text-left mt-1">
-                    {r.agentPhone || '—'} · they paid out {formatUGX(r.paidOut)} · we paid them back {formatUGX(r.reimbursed)}
-                  </p>
-                </div>
-                <div className="text-left sm:text-right shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
-                  <p
-                    className="hidden sm:block font-mono text-sm font-bold tabular-nums whitespace-nowrap text-foreground"
-                  >
-                    {formatUGX(spendableFloat(r))}
-                  </p>
-                  {isUnverified(r) && (
-                    <p className="text-[10px] text-primary whitespace-nowrap">
-                      {formatUGX(excludedFloat(r))} not counted as float
-                    </p>
-                  )}
-                  <p className="text-[10px] text-muted-foreground">
-                    {spendableFloat(r) > 0
-                      ? 'float balance on their phone'
-                      : holding
-                        ? 'our money still on their phone'
-                        : settled
-                          ? 'nothing outstanding either way'
-                          : 'we must send this back to them'}
-                  </p>
-                  {latestAt && (
-                    <p className="text-[10px] text-muted-foreground">
-                      last movement {format(new Date(latestAt), 'd MMM yyyy · HH:mm')}
-                    </p>
-                  )}
-                  {booksProveLess && (
-                    <p className="text-[10px] text-muted-foreground">
-                      (shown on their phone {formatUGX(Math.max(0, r.ledgerFloatHeld))} — books prove less)
-                    </p>
-                  )}
-                  {r.clampedShortfall > 0 && (
-                    <p className="text-[10px] font-semibold text-primary">
-                      hides a UGX {formatUGX(r.clampedShortfall)} deficit
-                    </p>
-                  )}
-                  {r.ownCashUnderReview > 0 && (
-                    <p className="text-[10px] font-semibold text-primary">
-                      {formatUGX(r.ownCashUnderReview)} of their own money filed but not supported by
-                      the books — not payable
-                    </p>
-                  )}
-                  {canEditFloat ? (
-                    <button
-                      type="button"
-                      onClick={() => setReconciling(r)}
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                    >
-                      <SlidersHorizontal className="h-3 w-3" /> Fix balance
-                    </button>
-                  ) : (
-                    <p className="mt-1 text-[10px] text-muted-foreground">{readOnlyReason}</p>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!error && excludedRows.length > 0 && (
-        <div className="mt-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3">
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                Unverified — excluded from float
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {formatUGX(excludedTotal)} shown on merchant desks that the books do not support.
-                Not spendable, not owed, and not included in any figure above. Under investigation.
-              </p>
-            </div>
+          {/* Rules, kept short */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl bg-muted/60 px-4 py-3 text-sm text-foreground/90">
+            <p className="flex min-w-[16rem] flex-1 items-start gap-2.5">
+              <Info className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
+              Refund only after the provider message proves the agent paid from their own phone.
+            </p>
+            <p className="flex min-w-[18rem] flex-[1.6] items-start gap-2.5 sm:border-l sm:border-border sm:pl-6">
+              <Info className="mt-0.5 h-[18px] w-[18px] shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
+              Pay merchant agents via MTN or Airtel to their float number. Confirmation is read automatically; never adjust figures by hand. Financial Ops pays agents, never customers.
+            </p>
+            <button
+              type="button"
+              onClick={runFloatSweep}
+              disabled={sweeping}
+              title="Post the company-float deduction for any payout that completed without one (last 7 days)"
+              className="inline-flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#5A1FD0] hover:underline disabled:opacity-50 dark:text-violet-300 sm:min-h-0"
+            >
+              <RefreshCw className={`h-[18px] w-[18px] ${sweeping ? 'animate-spin' : ''}`} strokeWidth={1.75} aria-hidden="true" />
+              {sweeping ? 'Repairing…' : 'Repair payout deductions'}
+            </button>
           </div>
-          <div className="mt-2 space-y-1.5">
-            {excludedRows.map((r) => (
-              <div
-                key={`excluded-${r.deskId}`}
-                className="rounded-lg border border-primary/20 bg-background px-3 py-2 min-w-0"
-              >
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <p className="text-xs font-medium text-foreground truncate min-w-0">
-                    {r.agentName || r.label || 'Merchant agent'}
-                  </p>
-                  <p className="font-mono text-xs font-bold tabular-nums text-primary shrink-0">
-                    {formatUGX(excludedFloat(r))}
-                  </p>
-                </div>
-                {r.clampArtifactAmount > 0 && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatUGX(r.clampArtifactAmount)} — cache exceeds what the ledger supports
-                  </p>
-                )}
-                {r.assertedOnlyAmount > 0 && (
-                  <p className="text-[10px] text-muted-foreground">
-                    {formatUGX(r.assertedOnlyAmount)} — no independent evidence found
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!error && deficitRows.length > 0 && (
-        <div className="mt-4 rounded-xl border-2 border-dashed border-primary/30 bg-primary/5 p-3">
-          <div className="flex items-start gap-2">
-            <ShieldAlert className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">
-                Hidden deficit — the zero floor is hiding a shortfall
-              </p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {formatUGX(deficitTotal)} across {deficitRows.length} desk
-                {deficitRows.length === 1 ? '' : 's'}. These agents have paid out more than they were
-                ever credited — the true position is negative, but the board can never display less
-                than UGX 0. This is money owed TO the company, not float.
-              </p>
-            </div>
-          </div>
-          <div className="mt-2 space-y-1.5">
-            {deficitRows.map((r) => (
-              <div
-                key={`deficit-${r.deskId}`}
-                className="rounded-lg border border-primary/20 bg-background px-3 py-2 min-w-0"
-              >
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <p className="text-xs font-medium text-foreground truncate min-w-0">
-                    {r.agentName || r.label || 'Merchant agent'}
-                  </p>
-                  <p className="font-mono text-xs font-bold tabular-nums text-primary shrink-0">
-                    −{formatUGX(r.clampedShortfall)}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 rounded-xl bg-primary/5 border border-primary/10 p-3 flex gap-2">
-        <Wallet className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          A merchant agent can only ask for a refund of money they have already sent out from their
-          own phone. We refund it only after we see the MTN or Airtel message proving what they
-          paid. If the two figures do not match, the gap must be corrected with a written reason.
-        </p>
-      </div>
-
-      <div className="mt-2 rounded-xl bg-primary/5 border border-primary/20 p-3 flex gap-2">
-        <ArrowRightLeft className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          <span className="font-semibold text-foreground">How to pay them:</span> send the money to
-          the merchant agent's float number using MTN or Airtel only. The MTN/Airtel confirmation
-          message is read automatically and the real money on our side goes down on its own — never
-          adjust these figures by hand. Financial Ops pays merchant agents only, never customers:
-          customer withdrawal requests are claimed and paid out by merchant agents.
-        </p>
-      </div>
-
         </>
       )}
 

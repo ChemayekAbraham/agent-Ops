@@ -14,8 +14,8 @@ export default function PayoutVerificationCallout({ onOpen }: { onOpen: () => vo
   const status = isLoading
     ? 'Confirm payout destinations before payment.'
     : waiting === 0
-      ? 'Everything verified — no numbers waiting.'
-      : `${formatUGX(data?.waiting_balance ?? 0)} held behind verification.`;
+      ? 'Everything is verified. No numbers are waiting.'
+      : `${waiting.toLocaleString()} payout destination${waiting === 1 ? ' is' : 's are'} waiting for verification. ${formatUGX(data?.waiting_balance ?? 0)} is held behind it.`;
 
   return (
     <div className="flex flex-wrap items-center gap-3 sm:gap-4 rounded-2xl border border-primary/25 bg-primary/10 p-4 sm:px-5 shadow-2xs">
@@ -24,12 +24,7 @@ export default function PayoutVerificationCallout({ onOpen }: { onOpen: () => vo
       </div>
       <div className="min-w-0 flex-1 basis-56">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-bold tracking-tight text-foreground">Verify payout numbers</h2>
-          {waiting > 0 && (
-            <span className="rounded-full bg-primary/15 border border-primary/25 px-2 py-0.5 text-[10px] font-bold text-primary">
-              {waiting > 999 ? '999+' : waiting} waiting
-            </span>
-          )}
+          <h2 className="text-base font-bold tracking-tight text-foreground">Verify phone numbers</h2>
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">{status}</p>
       </div>
@@ -38,7 +33,7 @@ export default function PayoutVerificationCallout({ onOpen }: { onOpen: () => vo
         onClick={onOpen}
         className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background w-full sm:w-auto"
       >
-        Review verification <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        Verify phone numbers <ArrowRight className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );
