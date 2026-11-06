@@ -12,10 +12,15 @@
 //   change_send_code  email a 6-digit code
 //   change_complete   check the current PIN AND the code, then set the new PIN
 //
-// No SMS is involved. An account without a real email can neither change nor reset a PIN: it must add one first.
+// First PIN (no PIN yet; phone code, doc 263):
+//   setup_send_code  SMS a 6-digit code to the REGISTERED phone (profiles.phone)
+//   setup_complete   check the code and create the first PIN
+//
+// Changing or resetting a PIN involves no SMS: an account without a real email can neither change nor reset a PIN.
 // Codes are generated here, only their sha256 is stored, and neither a code nor a PIN is ever logged.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isUnusableEmail, maskEmail } from "../_shared/twoFactorEmail.ts";
+import { isUgandanPhone, sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,10 +41,15 @@ function generateCode(): string {
   return String(buf[0] % 1000000).padStart(6, "0");
 }
 
-// sha256 hex of "<user id>:email:<code>".
-async function hashCode(userId: string, code: string): Promise<string> {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:email:${code}`));
+// sha256 hex of "<user id>:<channel>:<code>" (channel: email for change/reset codes, setup for a first-PIN phone code).
+async function hashCode(userId: string, code: string, channel: "email" | "setup" = "email"): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${userId}:${channel}:${code}`));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length < 6 ? "•••••" : `+••• ••• ${digits.slice(-3)}`;
 }
 
 const PIN_RE = /^\d{4}$/;
@@ -65,7 +75,7 @@ Deno.serve(async (req) => {
     // The real inbox, if any: the sign-in address first (the one the account proved), then the profile address.
     const { data: profile } = await admin
       .from("profiles")
-      .select("email, full_name")
+      .select("email, full_name, phone")
       .eq("id", userId)
       .maybeSingle();
     const candidates = [u.user.email, profile?.email as string | null | undefined];
@@ -162,6 +172,55 @@ Deno.serve(async (req) => {
       if (error) {
         console.error("[withdrawal-pin-reset] change failed", error.message);
         return json({ error: "Could not change the PIN" }, 500);
+      }
+      return json(data, data?.success === true ? 200 : 400);
+    }
+
+    // First PIN (no PIN yet): a code goes to the account's REGISTERED phone, the same channel the retired
+    // per-withdrawal OTP used (doc 263). It proves the person holds that phone, not just a session.
+    if (action === "setup_send_code") {
+      const phone = String(profile?.phone ?? "").trim();
+      if (!isUgandanPhone(phone)) return json({ success: false, code: "no_phone" }, 400);
+      const code = generateCode();
+      const issued = await admin.rpc("pin_setup_issue", {
+        p_user: userId,
+        p_code_hash: await hashCode(userId, code, "setup"),
+        p_destination_masked: maskPhone(phone),
+      });
+      if (issued.error) {
+        console.error("[withdrawal-pin-reset] setup issue failed", issued.error.message);
+        return json({ error: "Could not create the code" }, 500);
+      }
+      const data = issued.data;
+      if (data?.success !== true) return json(data, data?.code === "rate_limited" ? 429 : 400);
+      const sent = await sendSMS(
+        phone,
+        `Welile PIN code: ${code}. Valid ${data.expires_in_minutes} min. Do not share it.`,
+        {
+          admin,
+          source: "withdrawal_pin_setup",
+          reference_id: data.code_id,
+          recipient_user_id: userId,
+          requireDeliveryConfirmation: true,
+          deliveryConfirmation: { attempts: 2, delayMs: 1500 },
+        },
+      );
+      if (!sent) return json({ error: "Could not send the code. Please try again.", code: "send_failed" }, 502);
+      return json({ success: true, channel: "sms", destination_masked: maskPhone(phone), expires_in_minutes: data.expires_in_minutes });
+    }
+
+    if (action === "setup_complete") {
+      const phoneCode = String(body.phone_code ?? "");
+      const newPin = String(body.new_pin ?? "");
+      if (!CODE_RE.test(phoneCode)) return json({ success: false, code: "wrong_code", channel: "sms" }, 400);
+      const { data, error } = await admin.rpc("pin_setup_complete", {
+        p_user: userId,
+        p_code_hash: await hashCode(userId, phoneCode, "setup"),
+        p_new_pin: newPin,
+      });
+      if (error) {
+        console.error("[withdrawal-pin-reset] setup complete failed", error.message);
+        return json({ error: "Could not set the PIN" }, 500);
       }
       return json(data, data?.success === true ? 200 : 400);
     }

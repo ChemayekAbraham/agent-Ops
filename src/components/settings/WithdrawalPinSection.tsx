@@ -6,13 +6,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Label } from '@/components/ui/label';
 import { useWithdrawalPinPrompt } from '@/components/wallet/WithdrawalPinPrompt';
+import FirstPinSetup from '@/components/wallet/FirstPinSetup';
 import {
   cancelReset,
   changePin,
   fetchPinStatus,
   forgotPin,
   pinErrorMessage,
-  setFirstPin,
   type PinResult,
   type PinStatus,
 } from '@/hooks/useWithdrawalPin';
@@ -112,15 +112,6 @@ export default function WithdrawalPinSection() {
       setBusy(false);
     }
   };
-
-  const doSet = () => run(async () => {
-    if (!pinsMatch()) return;
-    const r = await setFirstPin(newPin);
-    if (!r.success) { fail(r); return; }
-    toast.success('Withdrawal PIN set', { description: 'You will need it to withdraw. Keep it secret.' });
-    close();
-    await refresh();
-  });
 
   // Change: the code goes out first, then the current PIN + code + new PIN are sent together.
   const sendChangeCode = () => run(async () => {
@@ -229,14 +220,7 @@ export default function WithdrawalPinSection() {
               )}
 
               {mode === 'set' && (
-                <div className="space-y-3">
-                  <PinInput label="New PIN" value={newPin} onChange={setNewPin} disabled={busy} />
-                  <PinInput label="Repeat the PIN" value={confirmPin} onChange={setConfirmPin} disabled={busy} />
-                  <div className="flex gap-2">
-                    <Button onClick={doSet} disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save PIN</Button>
-                    <Button variant="ghost" onClick={close} disabled={busy}>Cancel</Button>
-                  </div>
-                </div>
+                <FirstPinSetup onDone={() => { close(); void refresh(); }} onCancel={close} />
               )}
 
               {mode === 'change' && (
