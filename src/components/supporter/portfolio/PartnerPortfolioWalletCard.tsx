@@ -30,18 +30,26 @@ const isSafeMode = () =>
 const WAVE_UPPER = Array.from({ length: 9 }, (_, i) => `M ${160 + i * 7} -10 C ${215 + i * 5} 72, ${310 - i * 4} 38, 432 ${64 + i * 6}`);
 const WAVE_LOWER = Array.from({ length: 9 }, (_, i) => `M -10 ${214 + i * 6} C 118 ${172 + i * 4}, 252 ${252 - i * 3}, 432 ${188 + i * 7}`);
 
-function GoldWaves() {
+/** Engraved wave ribbons in two bands. The gold card uses a cream tint; other cards pass their own. */
+export function CardWaves({
+  stroke = 'rgba(255,246,222,0.55)',
+  fill = 'rgba(255,244,214,0.10)',
+}: { stroke?: string; fill?: string }) {
   return (
     <svg aria-hidden="true" viewBox="0 0 420 265" preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full" fill="none">
       {/* two soft satin sweeps */}
-      <path d="M0 196 C 120 150, 262 252, 420 170 L420 265 L0 265 Z" fill="rgba(255,244,214,0.10)" />
-      <path d="M150 0 C 220 80, 330 30, 420 90 L420 0 Z" fill="rgba(255,244,214,0.10)" />
-      <g stroke="rgba(255,246,222,0.55)" strokeWidth="0.8" strokeLinecap="round">
+      <path d="M0 196 C 120 150, 262 252, 420 170 L420 265 L0 265 Z" fill={fill} />
+      <path d="M150 0 C 220 80, 330 30, 420 90 L420 0 Z" fill={fill} />
+      <g stroke={stroke} strokeWidth="0.8" strokeLinecap="round">
         {WAVE_UPPER.map((d) => <path key={d} d={d} />)}
         {WAVE_LOWER.map((d) => <path key={d} d={d} />)}
       </g>
     </svg>
   );
+}
+
+function GoldWaves() {
+  return <CardWaves />;
 }
 
 /** EMV chip, contact grid and all. */

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import type { PortfolioRecord } from '@/hooks/useCapitalOpportunities';
 import { computeAccrual } from '@/lib/portfolioAccrual';
 import { usePendingTopup } from './ActivePortfolioCard';
-import { ContactlessGlyph, EmvChip, NOISE_BACKGROUND } from './PartnerPortfolioWalletCard';
+import { CardWaves, ContactlessGlyph, EmvChip, NOISE_BACKGROUND } from './PartnerPortfolioWalletCard';
 
 /**
  * Fanned stack of the partner's portfolios, each drawn as a bank card (85.6 x 54 mm proportions).
@@ -242,6 +242,8 @@ export function PortfolioCardStack({
                     }}
                   >
                     <span className="absolute inset-0 opacity-[0.12] mix-blend-overlay" style={{ backgroundImage: NOISE_BACKGROUND }} />
+                    {/* engraved ribbons, as on the gold Partner card, in white so each card keeps its colour */}
+                    <CardWaves stroke="rgba(255,255,255,0.5)" fill="rgba(255,255,255,0.10)" />
                     {/* holographic film that slides with the pointer */}
                     {!safe && (
                       <span
