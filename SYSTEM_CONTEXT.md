@@ -50,7 +50,7 @@ Regulatory terminology is mandatory (BOU/CMA) in user-facing copy: *Rent Plan* (
 | Welile Homes management fee | 10% of monthly rent (2% agent / 8% Welile) | `mem/features/welile-homes/agent-collection-model.md` |
 | Angel Pool equity | 8% pool, UGX 20,000 per share | `angel_pool_config`, `angel_pool_investments` |
 
-Costs: agent commission (10% of total repayment), verification/event bonuses, referral bonuses, payroll, telecom sending charges, Supporter Returns, write-offs.
+Costs: agent commission (8% of each collection since 2026-11-04, was 10%), verification/event bonuses, referral bonuses, payroll, telecom sending charges, Supporter Returns, write-offs.
 
 ## 1.3 Core products
 
@@ -252,7 +252,7 @@ Agent inserts into `house_listings` inside the 06:00–18:00 EAT window, with a 
 2. Insert into `rent_requests`. Gates: daily eligibility ≥ 20%, landlord registered (verification pending is queued with an explanatory message), tenant photo, duplicate check, agent capacity, formula overwrite.
 3. Pipeline: `pending` → ops/COO approval (`approve-rent-request`) → CFO funding → `funded` → `repaying` → `completed`.
 4. Disbursement ledger: wallet/float leg `rent_disbursement` out, landlord `landlord_rent_payment` in; receivable recognized via `rent_receivable_created`, revenue accrued daily by `recognize-fee-revenue-daily` into `fee_revenue_ledger`.
-5. Agent commission: 10% of collected repayment (2% source / 8% manager; recruiter override 2% reduces manager to 6%).
+5. Agent commission: 8% of each collection since 2026-11-04 (was 10%). A sub-agent keeps 6% and the verified parent gets 2%; whitelisted/elite sub-agents keep the full 8%. The fee split still funds a 10% commission budget per Rent Plan; the unpaid 2% is released to Platform Fee by `_release_unpaid_commission_budget` (Cover Pool later). Rate source: `get_agent_commission_rate`.
 
 Failures: `DAILY_ELIGIBILITY_BLOCKED`, formula drift (`rent_request_formula_drift`). Agent cancel path: status `deleted_by_agent`.
 

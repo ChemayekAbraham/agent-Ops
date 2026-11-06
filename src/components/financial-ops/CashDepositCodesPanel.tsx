@@ -4,9 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ChevronDown, ArrowLeft, BarChart3, CheckCircle2, Menu, Building2, Banknote, Mail } from 'lucide-react';
+import { KeyRound, RefreshCw, Loader2, Check, Clock, Radio, Smartphone, Search, Inbox, X, ArrowLeft, BarChart3, CheckCircle2, Building2, Banknote, Mail } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { StartCashDepositDialog } from './StartCashDepositDialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { PageHeader, StatTile, Pager } from './FinopsKit';
+
+const CASH_PAGE_SIZE = 25;
 
 interface CashCodeRow {
   verification_id: string;
@@ -396,7 +400,8 @@ export function CashDepositCodesPanel({
   const [openId, setOpenId] = useState<string | null>(null);
   const [range, setRange] = useState<'today' | '7d' | '30d' | 'all'>('today');
   const [view, setView] = useState<'inbox' | 'report'>('inbox');
-  const [navOpen, setNavOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [tab, range, cashLocation, query]);
 
   const rangeStart = (() => {
     const now = new Date();
@@ -443,12 +448,6 @@ export function CashDepositCodesPanel({
 
   const openRow = openId ? displayRows.find((r) => r.verification_id === openId) ?? null : null;
 
-  const tabs: { key: 'all' | 'awaiting' | 'verified'; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: rangeRows.length },
-    { key: 'awaiting', label: 'Awaiting', count: rangeRows.filter((r) => r.status === 'awaiting_code').length },
-    { key: 'verified', label: 'Verified', count: rangeRows.filter((r) => r.status === 'verified').length },
-  ];
-
   // Per-day rollups: verified cash actually banked vs cash still awaiting a code.
   const dayKeyOf = (iso?: string | null) => (iso ? new Date(iso).toDateString() : 'unknown');
   const dayTotals = new Map<string, { verified: number; awaiting: number; count: number }>();
@@ -471,44 +470,12 @@ export function CashDepositCodesPanel({
       count: v.count,
     }));
 
-  const navItems: { key: 'all' | 'awaiting' | 'verified' | 'report'; label: string; icon: typeof Inbox; count?: number }[] = [
-    { key: 'all', label: 'All', icon: Inbox, count: rangeRows.length },
-    { key: 'awaiting', label: 'Awaiting', icon: Clock, count: rangeRows.filter((r) => r.status === 'awaiting_code').length },
-    { key: 'verified', label: 'Verified', icon: CheckCircle2, count: rangeRows.filter((r) => r.status === 'verified').length },
-    { key: 'report', label: 'Cashflow', icon: BarChart3 },
-  ];
-
   const selectNav = (key: 'all' | 'awaiting' | 'verified' | 'report') => {
     setOpenId(null);
-    setNavOpen(false);
     if (key === 'report') { setView('report'); return; }
     setView('inbox');
     setTab(key);
   };
-
-  const sideNav = (
-    <nav className="p-2 space-y-0.5">
-      {navItems.map((n) => {
-        const active = n.key === 'report' ? view === 'report' : view === 'inbox' && tab === n.key;
-        const Icon = n.icon;
-        return (
-          <button
-            key={n.key}
-            onClick={() => selectNav(n.key)}
-            className={`w-full flex items-center gap-3 rounded-full px-3 py-2 text-sm transition-colors ${
-              active ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'
-            }`}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <span className="truncate">{n.label}</span>
-            {typeof n.count === 'number' && (
-              <span className="ml-auto text-xs tabular-nums opacity-70">{n.count}</span>
-            )}
-          </button>
-        );
-      })}
-    </nav>
-  );
 
   const ranges: { key: 'today' | '7d' | '30d' | 'all'; label: string }[] = [
     { key: 'today', label: 'Today' },
@@ -604,6 +571,22 @@ export function CashDepositCodesPanel({
     );
   };
 
+  const statusTabs: { key: 'all' | 'awaiting' | 'verified' | 'report'; label: string; count?: number }[] = [
+    { key: 'all', label: 'All', count: rangeRows.length },
+    { key: 'awaiting', label: 'Awaiting', count: rangeRows.filter((r) => r.status === 'awaiting_code').length },
+    { key: 'verified', label: 'Verified', count: rangeRows.filter((r) => r.status === 'verified').length },
+    { key: 'report', label: 'Cashflow' },
+  ];
+
+  const pillClass = (active: boolean) =>
+    `shrink-0 rounded-full px-3 py-1.5 text-xs border transition-colors ${
+      active
+        ? 'bg-primary/10 border-primary/30 text-primary font-semibold'
+        : 'bg-background border-border text-muted-foreground hover:text-foreground'
+    }`;
+
+  const pageRows = displayRows.slice(page * CASH_PAGE_SIZE, (page + 1) * CASH_PAGE_SIZE);
+
   if (denied) return null;
   return (
     <>
@@ -612,330 +595,264 @@ export function CashDepositCodesPanel({
       <div
         className={
           fullScreen
-            ? 'fixed inset-0 z-50 flex flex-col bg-background'
-            : 'rounded-xl border bg-card overflow-hidden'
+            ? 'fixed inset-0 z-50 flex flex-col bg-background overflow-y-auto overscroll-contain'
+            : 'rounded-xl border bg-card'
         }
       >
-        {/* ── Gmail-style toolbar ─────────────────────────────────────────── */}
-        <div className={`flex flex-wrap items-center gap-2 px-3 py-2.5 border-b ${fullScreen ? 'shrink-0' : ''}`}>
-          <div className="flex items-center gap-2 min-w-0">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full md:hidden"
-              aria-label="Menu"
-              onClick={() => setNavOpen((v) => !v)}
-            >
-              <Menu className="h-5 w-5" />
+        <div className="mx-auto w-full max-w-7xl space-y-5 p-4 sm:p-6">
+          {fullScreen && onClose ? (
+            <Button variant="ghost" size="sm" className="-ml-2 gap-1.5" onClick={onClose}>
+              <ArrowLeft className="h-4 w-4" /> Back to Overview
             </Button>
-            {fullScreen && onClose ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full -ml-1"
-                aria-label="Close"
-                onClick={onClose}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            ) : null}
-            <Inbox className="h-5 w-5 text-primary shrink-0" />
-            <span className="font-medium text-sm sm:text-base truncate">Cash deposit codes</span>
-            {activeCount > 0 && (
-              <span className="text-xs font-semibold text-primary">({activeCount})</span>
-            )}
+          ) : null}
+
+          <PageHeader
+            icon={Banknote}
+            title="Cash Deposit Codes"
+            description="Manage cash deposit ranges, verify codes and track cash inflows."
+            actions={
+              <>
+                <Button variant="outline" className="min-h-[44px] sm:min-h-[40px]" onClick={() => load()} aria-label="Refresh">
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
+                <Button className="min-h-[44px] sm:min-h-[40px] gap-1.5" onClick={() => setStartOpen(true)}>
+                  <Smartphone className="h-4 w-4" /> Start deposit
+                </Button>
+              </>
+            }
+          />
+
+          {/* Status tabs */}
+          <div className="flex items-center gap-1 border-b overflow-x-auto">
+            {statusTabs.map((t) => {
+              const active = t.key === 'report' ? view === 'report' : view === 'inbox' && tab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => selectNav(t.key)}
+                  className={`shrink-0 px-4 py-2.5 text-sm border-b-2 -mb-px transition-colors ${
+                    active
+                      ? 'border-primary text-primary font-semibold'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t.label}
+                  {typeof t.count === 'number' && <span className="ml-1.5 text-xs opacity-70 tabular-nums">{t.count}</span>}
+                </button>
+              );
+            })}
+            <div className="ml-auto hidden sm:flex items-center gap-1.5 pr-2 text-[11px] text-muted-foreground whitespace-nowrap">
+              <Radio className={`h-3 w-3 animate-pulse ${realtimeHealthy ? 'text-emerald-500' : 'text-amber-500'}`} />
+              {realtimeHealthy ? `Live · ${secondsToRefresh}s` : `Fallback · ${secondsToRefresh}s`}
+              <span className="ml-2">Updated {new Date(lastRefreshedAt).toLocaleTimeString()}</span>
+            </div>
           </div>
 
-          <div className="order-3 w-full sm:order-none sm:w-auto sm:flex-1 sm:max-w-md">
-            <div className="flex items-center gap-2 rounded-full bg-muted px-3 h-9 focus-within:bg-background focus-within:ring-1 focus-within:ring-border">
-              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-              <input
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {([
+                { key: 'all' as const, label: 'All cash' },
+                { key: 'cash_at_hand' as const, label: 'Cash at hand' },
+                { key: 'bank' as const, label: 'Cash banked' },
+              ]).map((loc) => (
+                <button key={loc.key} onClick={() => { setCashLocation(loc.key); setOpenId(null); }} className={pillClass(cashLocation === loc.key)}>
+                  {loc.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {ranges.map((rg) => (
+                <button key={rg.key} onClick={() => { setRange(rg.key); setOpenId(null); }} className={pillClass(range === rg.key)}>
+                  {rg.label}
+                </button>
+              ))}
+            </div>
+            <div className="relative ml-auto w-full sm:w-80">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search depositor, phone or amount"
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                placeholder="Search name, phone, amount"
+                aria-label="Search cash deposit codes"
+                className="h-10 rounded-xl pl-9 pr-9"
               />
               {query && (
-                <button aria-label="Clear search" onClick={() => setQuery('')}>
+                <button aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setQuery('')}>
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-1 ml-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9 rounded-full"
-              aria-label="Refresh"
-              title="Refresh"
-              onClick={() => load()}
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            </Button>
-            <Button size="sm" className="h-9 gap-1.5 rounded-full" onClick={() => setStartOpen(true)}>
-              <Smartphone className="h-4 w-4" />
-              <span className="hidden sm:inline">Start deposit</span>
-              <span className="sm:hidden">New</span>
-            </Button>
-          </div>
-        </div>
-
-        {/* ── Gmail-style layout: side nav + content ──────────────────────── */}
-        <div className={`flex min-h-0 ${fullScreen ? 'flex-1' : ''}`}>
-          <aside className="hidden md:block w-44 shrink-0 border-r overflow-y-auto">{sideNav}</aside>
-          {navOpen && (
-            <aside className="md:hidden absolute z-20 mt-0 w-44 border-r bg-background shadow-lg">{sideNav}</aside>
-          )}
-          <div className="flex-1 min-w-0 flex flex-col min-h-0">
-        {/* ── Gmail-style category tabs ───────────────────────────────────── */}
-        <div className={`flex items-center gap-1 px-2 border-b overflow-x-auto ${fullScreen ? 'shrink-0' : ''}`}>
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => { setTab(t.key); setOpenId(null); }}
-              className={`shrink-0 px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${
-                tab === t.key
-                  ? 'border-primary text-primary font-medium'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t.label} <span className="text-xs opacity-70">{t.count}</span>
-            </button>
-          ))}
-          <div className="ml-auto hidden sm:flex items-center gap-1.5 pr-2 text-[11px] text-muted-foreground">
-            <Radio className={`h-3 w-3 animate-pulse ${realtimeHealthy ? 'text-emerald-500' : 'text-amber-500'}`} />
-            {realtimeHealthy ? `Live · ${secondsToRefresh}s` : `Fallback · ${secondsToRefresh}s`}
-          </div>
-        </div>
-
-        {/* ── Totals strip ────────────────────────────────────────────────── */}
-        <div className={`flex flex-wrap items-center gap-2 px-3 py-2 border-b bg-muted/30 text-xs ${fullScreen ? 'shrink-0' : ''}`}>
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {ranges.map((rg) => (
-              <button
-                key={rg.key}
-                onClick={() => { setRange(rg.key); setOpenId(null); }}
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
-                  range === rg.key
-                    ? 'bg-primary/10 border-primary/30 text-primary font-medium'
-                    : 'bg-background border-border text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {rg.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 overflow-x-auto">
-            {[
-              { key: 'all' as const, label: 'All cash' },
-              { key: 'cash_at_hand' as const, label: 'Cash at hand' },
-              { key: 'bank' as const, label: 'Cash banked' },
-            ].map((loc) => (
-              <button
-                key={loc.key}
-                onClick={() => { setCashLocation(loc.key); setOpenId(null); }}
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] border transition-colors ${
-                  cashLocation === loc.key
-                    ? 'bg-primary/10 border-primary/30 text-primary font-medium'
-                    : 'bg-background border-border text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {loc.label}
-              </button>
-            ))}
-          </div>
-          <span className="text-muted-foreground">
-            Verified cash <span className="font-semibold text-emerald-600">{fmtUgx(totalVerified)}</span>
-          </span>
-          <span className="text-muted-foreground">
-            Awaiting <span className="font-semibold text-amber-600">{fmtUgx(totalPending)}</span>
-          </span>
-          <span className="ml-auto text-muted-foreground hidden sm:inline">
-            Updated {new Date(lastRefreshedAt).toLocaleTimeString()}
-          </span>
-        </div>
-
-        {/* ── Reading pane or inbox list ──────────────────────────────────── */}
-        <div className={fullScreen ? 'flex-1 min-h-0 overflow-y-auto overscroll-contain' : ''}>
-        {view === 'report' ? (
-          <div className="p-3 sm:p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <h4 className="text-sm font-semibold">Cashflow over time</h4>
-              <span className="ml-auto text-xs text-muted-foreground">{ranges.find((x) => x.key === range)?.label}</span>
+          {view === 'inbox' && (
+            <div className="grid grid-cols-2 gap-3 sm:max-w-xl">
+              <StatTile icon={CheckCircle2} tone="emerald" label="Verified cash" value={fmtUgx(totalVerified)} note={ranges.find((x) => x.key === range)?.label} />
+              <StatTile icon={Clock} tone="amber" label="Awaiting code" value={fmtUgx(totalPending)} note={`${activeCount} active`} />
             </div>
-            <div className="h-[240px] rounded-lg border bg-card p-2">
-              {chartData.length ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} width={44} tickFormatter={(v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : `${Math.round(v / 1000)}k`)} />
-                    <Tooltip formatter={(v: number) => fmtUgx(v)} contentStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="verified" name="Verified" fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="awaiting" name="Awaiting" fill="hsl(var(--chart-4))" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full grid place-items-center text-xs text-muted-foreground">No cash deposits in this range</div>
+          )}
+
+          {view === 'report' ? (
+            <div className="rounded-2xl border bg-card shadow-2xs p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-semibold">Cashflow over time</h4>
+                <span className="ml-auto text-xs text-muted-foreground">{ranges.find((x) => x.key === range)?.label}</span>
+              </div>
+              <div className="h-[260px]">
+                {chartData.length ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData} barGap={2}>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} width={44} tickFormatter={(v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : `${Math.round(v / 1000)}k`)} />
+                      <Tooltip formatter={(v: number) => fmtUgx(v)} contentStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="verified" name="Verified" fill="hsl(var(--chart-2))" radius={[3, 3, 0, 0]} />
+                      <Bar dataKey="awaiting" name="Awaiting" fill="hsl(var(--chart-4))" radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full grid place-items-center text-xs text-muted-foreground">No cash deposits in this range</div>
+                )}
+              </div>
+              <div className="rounded-lg border divide-y">
+                {chartData.length === 0 && <div className="p-3 text-xs text-muted-foreground">Nothing to show.</div>}
+                {[...chartData].reverse().map((d) => (
+                  <div key={d.label} className="flex items-center gap-3 px-3 py-2 text-xs">
+                    <span className="w-20 font-medium">{d.label}</span>
+                    <span className="text-emerald-600 font-semibold tabular-nums">{fmtUgx(d.verified)}</span>
+                    <span className="text-amber-600 tabular-nums">{fmtUgx(d.awaiting)} awaiting</span>
+                    <span className="ml-auto text-muted-foreground">{d.count} codes</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : loadError ? (
+            <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              Could not load cash deposit codes: {loadError}
+            </div>
+          ) : (
+            <div className="rounded-2xl border bg-card shadow-2xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+                    <tr>
+                      <th className="text-left p-3 font-medium">Date &amp; Time</th>
+                      <th className="text-left p-3 font-medium">Depositor</th>
+                      <th className="text-left p-3 font-medium">Phone</th>
+                      <th className="text-right p-3 font-medium">Amount (UGX)</th>
+                      <th className="text-left p-3 font-medium">Code</th>
+                      <th className="text-left p-3 font-medium">Status</th>
+                      <th className="text-left p-3 font-medium">Location</th>
+                      <th className="text-right p-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loading && displayRows.length === 0 && (
+                      <tr><td colSpan={8} className="p-8 text-center text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin inline mr-2" />Loading…</td></tr>
+                    )}
+                    {!loading && displayRows.length === 0 && (
+                      <tr><td colSpan={8} className="p-10 text-center text-muted-foreground">
+                        <Inbox className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                        {q ? 'No codes match your search.' : 'No cash deposit codes yet.'}
+                      </td></tr>
+                    )}
+                    {pageRows.map((r) => (
+                      <tr key={r.verification_id} className="border-t hover:bg-muted/30 align-middle">
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="font-medium tabular-nums">{r.created_at ? new Date(r.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</div>
+                          <div className="text-[11px] text-muted-foreground tabular-nums">{r.created_at ? new Date(r.created_at).toLocaleTimeString() : ''}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`h-8 w-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold ${toneFor(r.depositor_name || r.verification_id)}`}>
+                              {(r.depositor_name || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-medium truncate max-w-[180px]">{r.depositor_name || 'Unknown'}</div>
+                              <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                                {purposeLabel(r.deposit_purpose)}
+                                {r.wallet_holder_name && r.wallet_holder_name !== r.depositor_name ? ` · wallet: ${r.wallet_holder_name}` : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 tabular-nums whitespace-nowrap">{r.depositor_phone || '—'}</td>
+                        <td className="p-3 text-right font-semibold tabular-nums whitespace-nowrap">{r.amount == null ? '—' : Math.round(r.amount).toLocaleString()}</td>
+                        <td className="p-3">
+                          {isLive(r) ? codeEntry(r, 'row') : <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <div className="flex flex-col items-start gap-1">
+                            <StatusBadge status={r.status} />
+                            {r.status === 'awaiting_code' && <Countdown expiresAt={r.expires_at} inline />}
+                          </div>
+                        </td>
+                        <td className="p-3 whitespace-nowrap"><CashLocationBadge location={r.cash_location} /></td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button variant="outline" size="sm" className="h-8 rounded-full text-xs" onClick={() => setOpenId(r.verification_id)}>
+                              View
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {displayRows.length > CASH_PAGE_SIZE && (
+                <div className="border-t px-4 py-3">
+                  <Pager page={page} pageSize={CASH_PAGE_SIZE} total={displayRows.length} onPage={setPage} noun="deposits" />
+                </div>
               )}
             </div>
-            <div className="rounded-lg border divide-y">
-              {chartData.length === 0 && <div className="p-3 text-xs text-muted-foreground">Nothing to show.</div>}
-              {[...chartData].reverse().map((d) => (
-                <div key={d.label} className="flex items-center gap-3 px-3 py-2 text-xs">
-                  <span className="w-20 font-medium">{d.label}</span>
-                  <span className="text-emerald-600 font-semibold tabular-nums">{fmtUgx(d.verified)}</span>
-                  <span className="text-amber-600 tabular-nums">{fmtUgx(d.awaiting)} awaiting</span>
-                  <span className="ml-auto text-muted-foreground">{d.count} codes</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : openRow ? (
-          <div className="p-4 space-y-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1 rounded-full -ml-2"
-              onClick={() => setOpenId(null)}
-            >
-              <ChevronDown className="h-4 w-4 rotate-90" /> Back to inbox
-            </Button>
+          )}
+        </div>
+      </div>
 
-            <div>
-              <h4 className="text-base font-semibold">
-                Cash deposit · {fmtUgx(openRow.amount)}
-              </h4>
-              <div className="mt-2 flex items-start gap-3">
+      <Sheet open={!!openRow} onOpenChange={(v) => { if (!v) setOpenId(null); }}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+          {openRow && (
+            <div className="space-y-4">
+              <SheetHeader>
+                <SheetTitle>Cash deposit · {fmtUgx(openRow.amount)}</SheetTitle>
+              </SheetHeader>
+              <div className="flex items-start gap-3">
                 <div className={`h-10 w-10 rounded-full grid place-items-center text-sm font-semibold ${toneFor(openRow.depositor_name || openRow.verification_id)}`}>
                   {(openRow.depositor_name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium truncate">{openRow.depositor_name || 'Unknown depositor'}</div>
                   {openRow.wallet_holder_name && openRow.wallet_holder_name !== openRow.depositor_name && (
-                    <div className="text-xs text-muted-foreground truncate">
-                      Credited to wallet of {openRow.wallet_holder_name}
-                    </div>
+                    <div className="text-xs text-muted-foreground truncate">Credited to wallet of {openRow.wallet_holder_name}</div>
                   )}
                   <div className="text-xs text-muted-foreground">{openRow.depositor_phone || 'No phone on file'}</div>
                 </div>
                 <div className="text-xs text-muted-foreground whitespace-nowrap">{gmailDate(openRow.created_at)}</div>
               </div>
-            </div>
-
-            <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={openRow.status} />
-                <DeliveryBadge channel={openRow.delivery_channel} />
-                <Badge variant="outline" className="text-xs">{purposeLabel(openRow.deposit_purpose)}</Badge>
-                <CashLocationBadge location={openRow.cash_location} />
-                <Countdown expiresAt={openRow.expires_at} inline />
-              </div>
-              <p className="text-muted-foreground text-xs leading-relaxed">
-                The 4-digit code is delivered using the channel shown above and is never shown here. Ask the depositor to read it back
-                once you have received the matching cash, then enter it below. Codes expire in 10 minutes.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {isLive(openRow) && codeEntry(openRow, 'pane')}
-              {openRow.status !== 'verified' && resendButton(openRow)}
-              {bankButton(openRow, 'pane')}
-            </div>
-          </div>
-        ) : loading && displayRows.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground py-10 justify-center">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-          </div>
-        ) : loadError ? (
-          <div className="m-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
-            Could not load cash deposit codes: {loadError}
-          </div>
-        ) : displayRows.length === 0 ? (
-          <div className="py-12 text-center text-sm text-muted-foreground">
-            <Inbox className="h-8 w-8 mx-auto mb-2 opacity-40" />
-            {q ? 'No codes match your search.' : 'No cash deposit codes yet.'}
-          </div>
-        ) : (
-          <div className="divide-y">
-            {displayRows.map((r, i) => {
-              const group = dateGroupLabel(r.created_at);
-              const showGroup = i === 0 || dateGroupLabel(displayRows[i - 1].created_at) !== group;
-              const unread = r.status === 'awaiting_code';
-              return (
-                <div key={r.verification_id}>
-                  {showGroup && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-muted/40 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                      <span>{group}</span>
-                      <span className="ml-auto normal-case tracking-normal">
-                        <span className="text-emerald-600 font-semibold">{fmtUgx(dayTotals.get(dayKeyOf(r.created_at))?.verified ?? 0)}</span>
-                        {' verified · '}
-                        <span className="text-amber-600 font-semibold">{fmtUgx(dayTotals.get(dayKeyOf(r.created_at))?.awaiting ?? 0)}</span>
-                        {' awaiting'}
-                      </span>
-                    </div>
-                  )}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => setOpenId(r.verification_id)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(r.verification_id); }}
-                    className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors hover:bg-muted/50 ${
-                      unread ? 'bg-background' : 'bg-muted/10'
-                    }`}
-                  >
-                    <div className={`h-8 w-8 shrink-0 rounded-full grid place-items-center text-xs font-semibold ${toneFor(r.depositor_name || r.verification_id)}`}>
-                      {(r.depositor_name || '?').charAt(0).toUpperCase()}
-                    </div>
-
-                    <div className={`w-28 sm:w-40 shrink-0 truncate text-sm ${unread ? 'font-semibold' : 'text-muted-foreground'}`}>
-                      {r.depositor_name || 'Unknown'}
-                    </div>
-
-                    <div className="min-w-0 flex-1 flex items-baseline gap-1.5">
-                      <span className={`truncate text-sm ${unread ? 'font-semibold' : ''}`}>
-                        {fmtUgx(r.amount)}
-                      </span>
-                      <span className="hidden sm:inline text-xs text-muted-foreground truncate">
-                        — {purposeLabel(r.deposit_purpose)}
-                        {r.cash_location ? ` · ${cashLocationLabel(r.cash_location)}` : ''}
-                        {r.depositor_phone ? ` · ${r.depositor_phone}` : ''}
-                        {r.wallet_holder_name && r.wallet_holder_name !== r.depositor_name
-                          ? ` · wallet: ${r.wallet_holder_name}`
-                          : ''}
-                      </span>
-                    </div>
-
-                    <div className="hidden md:flex items-center gap-2 shrink-0">
-                      <DeliveryBadge channel={r.delivery_channel} />
-                      <CashLocationBadge location={r.cash_location} />
-                      <StatusBadge status={r.status} />
-                      <Countdown expiresAt={r.expires_at} inline />
-                    </div>
-
-                    {/* Gmail reveals row actions on hover; here they stay reachable on touch too. */}
-                    <div className="shrink-0 flex items-center gap-1.5">
-                      {isLive(r) ? (
-                        <div className="hidden lg:block">{codeEntry(r, 'row')}</div>
-                      ) : null}
-                      <div className="hidden sm:block">{bankButton(r)}</div>
-                      <span className="text-[11px] text-muted-foreground w-14 text-right group-hover:opacity-0 transition-opacity">
-                        {gmailDate(r.created_at)}
-                      </span>
-                    </div>
-                  </div>
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge status={openRow.status} />
+                  <DeliveryBadge channel={openRow.delivery_channel} />
+                  <Badge variant="outline" className="text-xs">{purposeLabel(openRow.deposit_purpose)}</Badge>
+                  <CashLocationBadge location={openRow.cash_location} />
+                  <Countdown expiresAt={openRow.expires_at} inline />
                 </div>
-              );
-            })}
-          </div>
-        )}
-        </div>
-          </div>
-        </div>
-      </div>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  The 4-digit code is delivered using the channel shown above and is never shown here. Ask the depositor to read it back
+                  once you have received the matching cash, then enter it below. Codes expire in 10 minutes.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {isLive(openRow) && codeEntry(openRow, 'pane')}
+                {openRow.status !== 'verified' && resendButton(openRow)}
+                {bankButton(openRow, 'pane')}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

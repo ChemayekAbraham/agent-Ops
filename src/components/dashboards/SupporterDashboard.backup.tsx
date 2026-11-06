@@ -35,7 +35,8 @@
 //
 // To restore: copy this file over SupporterDashboard.tsx and undo the renames.
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
+import { lazyNamed, lazyWithRetry } from '@/lib/lazyWithRetry';
 import { AngelSharesTab } from '@/components/supporter/AngelSharesTab';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -44,7 +45,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { 
-  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight
+  CreditCard, Calculator, FileText, ChevronDown, BadgeCheck, Wallet, ChevronRight, ArrowLeft
 } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
@@ -61,22 +62,13 @@ import { SupporterDashboardSkeleton } from '@/components/skeletons/DashboardSkel
 import { useWallet } from '@/hooks/useWallet';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
-import FunderWalletHubSection from '@/components/supporter/FunderWalletHubSection';
-import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
-import { InvestmentCalculator } from '@/components/supporter/InvestmentCalculator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Agreement
 import { useSupporterAgreement } from '@/hooks/useSupporterAgreement';
-import { 
-  SupporterAgreementModal, 
-  LockedOverlay,
-  AgreementAcceptedBadge
-} from '@/components/supporter/agreement';
-import { SupporterAgreementViewModal } from '@/components/supporter/agreement/SupporterAgreementCard';
+import { LockedOverlay } from '@/components/supporter/agreement/LockedOverlay';
 
 // Menu drawer
-import { SupporterMenuDrawer } from '@/components/supporter/SupporterMenuDrawer';
 import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
@@ -84,23 +76,17 @@ import { hapticTap } from '@/lib/haptics';
 import { PortfolioSummaryCards } from '@/components/supporter/PortfolioSummaryCards';
 import { VirtualHousesFeed } from '@/components/supporter/VirtualHousesFeed';
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
-import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
 import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
 import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
-import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
-import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { PartnerPortfolioSection } from '@/components/supporter/portfolio/PartnerPortfolioSection';
-import { SupportedHouseReturnsSection } from '@/components/supporter/SupportedHouseReturnsSection';
 
 import { PartnerPortfolioWalletCard } from '@/components/supporter/portfolio/PartnerPortfolioWalletCard';
 
-import { useSupportedTenants } from '@/hooks/useSupportedTenants';
+import { usePartnerPortfolios } from '@/hooks/usePartnerPortfolios';
 
-import { InvestmentAccountsDrawer } from '@/components/supporter/InvestmentAccountsDrawer';
 import { FunderApprovalBanner } from '@/components/supporter/FunderApprovalGate';
 
-import { FunderActivationModal } from '@/components/supporter/FunderActivationModal';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -115,6 +101,28 @@ import {
 } from '@/components/skeletons/SectionSkeletons';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 
+
+// Everything below the first screen, and every drawer / modal that starts closed, loads in its own
+// chunk so the wallet card and portfolio list are not waiting on code the visitor may never open.
+const FunderCapitalOpportunities = lazyNamed(() => import('@/components/supporter/FunderCapitalOpportunities'), 'FunderCapitalOpportunities');
+const SupportedHouseReturnsSection = lazyNamed(() => import('@/components/supporter/SupportedHouseReturnsSection'), 'SupportedHouseReturnsSection');
+const FunderWalletHubSection = lazyWithRetry(() => import('@/components/supporter/FunderWalletHubSection'));
+const PaymentPartnersDialog = lazyWithRetry(() => import('@/components/payments/PaymentPartnersDialog'));
+const InvestmentAccountsDrawer = lazyNamed(() => import('@/components/supporter/InvestmentAccountsDrawer'), 'InvestmentAccountsDrawer');
+const SupporterMenuDrawer = lazyNamed(() => import('@/components/supporter/SupporterMenuDrawer'), 'SupporterMenuDrawer');
+const VirtualHouseDetailsSheet = lazyNamed(() => import('@/components/supporter/VirtualHouseDetailsSheet'), 'VirtualHouseDetailsSheet');
+const InvestmentPackageSheet = lazyNamed(() => import('@/components/supporter/InvestmentPackageSheet'), 'InvestmentPackageSheet');
+const FunderActivationModal = lazyNamed(() => import('@/components/supporter/FunderActivationModal'), 'FunderActivationModal');
+const SupporterAgreementModal = lazyNamed(() => import('@/components/supporter/agreement/SupporterAgreementModal'), 'SupporterAgreementModal');
+const SupporterAgreementViewModal = lazyNamed(() => import('@/components/supporter/agreement/SupporterAgreementCard'), 'SupporterAgreementViewModal');
+const InvestmentCalculator = lazyNamed(() => import('@/components/supporter/InvestmentCalculator'), 'InvestmentCalculator');
+
+/** True from the first time `open` is true onwards, so an overlay mounts on first use and keeps its close animation. */
+function useEverOpened(open: boolean) {
+  const [ever, setEver] = useState(open);
+  if (open && !ever) setEver(true);
+  return ever || open;
+}
 
 interface SupporterDashboardBackupProps {
   user: User;
@@ -140,7 +148,6 @@ export default function SupporterDashboardBackup({
   const displayFullName = profile?.full_name?.trim() || metaFullName || emailLocal;
   const displayFirstName = displayFullName ? displayFullName.split(' ')[0] : (profileLoading ? '' : 'Supporter');
   const { isOnline } = useOffline();
-  const { count: supportedTenantCount } = useSupportedTenants();
   const [loading, setLoading] = useState(false);
   const [hasCachedData, setHasCachedData] = useState(() => {
     try { return !!localStorage.getItem(`supporter_houses_${user.id}`); } catch { return false; }
@@ -221,7 +228,6 @@ export default function SupporterDashboardBackup({
     } catch {}
     return 0;
   });
-  const [totalRoiEarned, setTotalRoiEarned] = useState(0);
 
   // Agreement
   const { hasAccepted, acceptance, loading: agreementLoading, acceptAgreement } = useSupporterAgreement();
@@ -230,6 +236,17 @@ export default function SupporterDashboardBackup({
   // Inactivity lock — only for users with active portfolios
   const hasActivePortfolios = totalRentContributed > 0;
   const { isLocked, unlock } = useInactivityLock({ enabled: hasActivePortfolios });
+
+  const mountMenu = useEverOpened(menuOpen);
+  const mountPayments = useEverOpened(showPaymentPartners);
+  const mountAgreement = useEverOpened(showAgreementModal);
+  const mountViewAgreement = useEverOpened(showViewAgreementModal);
+  const mountCalculator = useEverOpened(showCalculator);
+  const mountHouseDetails = useEverOpened(showHouseDetails);
+  const mountPackage = useEverOpened(showPackageSheet);
+  const mountHub = useEverOpened(showFunderHub);
+  const mountInvestments = useEverOpened(showInvestments);
+  const mountActivation = useEverOpened(showActivationModal);
 
   const opportunitiesRefreshRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -294,74 +311,23 @@ export default function SupporterDashboardBackup({
     } catch { /* ignore */ }
   }, []);
 
-  // Fetch total contributions from ledger + investor_portfolios (bounded query)
-  const fetchTotalContributed = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      // Fetch from general_ledger (supporter_rent_fund entries)
-      // Query portfolios by both investor_id and agent_id to cover all cases
-      const [ledgerResult, portfolioByInvestor, portfolioByAgent] = await Promise.all([
-        supabase
-          .from('general_ledger')
-          .select('amount')
-          .eq('user_id', user.id)
-          .eq('category', 'supporter_rent_fund')
-          .eq('direction', 'cash_out')
-          .limit(500),
-        supabase
-          .from('investor_portfolios')
-          .select('id, investment_amount, total_roi_earned, roi_percentage')
-          .eq('investor_id', user.id)
-          .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
-        supabase
-          .from('investor_portfolios')
-          .select('id, investment_amount, total_roi_earned, roi_percentage')
-          .eq('agent_id', user.id)
-          .is('investor_id', null)
-          .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
-      ]);
-
-      // Merge portfolios (investor_id matches + agent_id with null investor_id)
-      const allPortfolios = [
-        ...(!portfolioByInvestor.error && portfolioByInvestor.data ? portfolioByInvestor.data : []),
-        ...(!portfolioByAgent.error && portfolioByAgent.data ? portfolioByAgent.data : []),
-      ];
-      // Deduplicate by id
-      const seen = new Set<string>();
-      const portfolioResult = { data: allPortfolios.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; }), error: null };
-
-      const ledgerTotal = !ledgerResult.error && ledgerResult.data
-        ? ledgerResult.data.reduce((sum, r) => sum + Number(r.amount), 0)
-        : 0;
-
-      const portfolioTotal = !portfolioResult.error && portfolioResult.data
-        ? portfolioResult.data.reduce((sum, r) => sum + Number(r.investment_amount), 0)
-        : 0;
-
-      // Calculate expected monthly return from ROI% × capital
-      const expectedMonthly = portfolioResult.data
-        ? portfolioResult.data.reduce((sum, r) => sum + Number(r.investment_amount) * (Number(r.roi_percentage || 15) / 100), 0)
-        : 0;
-      setTotalRoiEarned(expectedMonthly);
-
-      // Use portfolio total as source of truth — only actual investments
-      // Ledger may include initial registration deposits which aren't investments
-      setTotalRentContributed(portfolioTotal);
-    } catch (err) {
-      console.error('[SupporterDashboard.backup] Failed to fetch contributions:', err);
-    }
-  }, [user?.id]);
-
-  useEffect(() => { fetchTotalContributed(); }, [fetchTotalContributed]);
-
-  // Auto-refresh when supporter contributes via Opportunity card or Categories
+  // Total deployed capital comes from the shared portfolios query (the wallet card and the portfolio
+  // list read the same one), so the shell makes no portfolio or ledger requests of its own.
+  const { portfolios: partnerPortfolios, loading: portfoliosLoading } = usePartnerPortfolios();
   useEffect(() => {
-    const handler = () => { fetchTotalContributed(); refreshWallet(); };
+    if (portfoliosLoading) return;
+    const total = partnerPortfolios
+      .filter(p => ['active', 'pending', 'pending_approval'].includes(String(p.status)))
+      .reduce((sum, p) => sum + Number(p.investment_amount || 0), 0);
+    setTotalRentContributed(total);
+  }, [partnerPortfolios, portfoliosLoading]);
+
+  // Refresh the wallet when the supporter contributes via an Opportunity card or Categories
+  useEffect(() => {
+    const handler = () => { refreshWallet(); };
     window.addEventListener('supporter-contribution-changed', handler);
     return () => window.removeEventListener('supporter-contribution-changed', handler);
-  }, [fetchTotalContributed, refreshWallet]);
+  }, [refreshWallet]);
 
   const HOUSES_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
@@ -493,17 +459,21 @@ export default function SupporterDashboardBackup({
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
         <main className="px-3 xs:px-4 py-4 xs:py-5 space-y-5 max-w-lg mx-auto">
+          <button
+            type="button"
+            onClick={() => { hapticTap(); if (window.history.length > 1) navigate(-1); else navigate('/'); }}
+            className="-mb-2 inline-flex items-center gap-1 rounded-full py-1.5 pr-3 pl-1.5 text-sm font-medium text-foreground active:bg-muted"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" />
+            Back
+          </button>
           <MissionBanner dashboardRole="supporter" />
 
 
 
           <WidgetErrorBoundary label="Portfolio card">
             <PartnerPortfolioWalletCard
-              onAddCard={() => {
-                hapticTap();
-                const el = document.getElementById('opportunities');
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
               onPortfolios={() => { hapticTap(); setInvestmentsTab('accounts'); setShowInvestments(true); }}
               onCalculator={() => { hapticTap(); setShowCalculator(true); }}
               onMore={() => { hapticTap(); setShowFunderHub(true); }}
@@ -527,7 +497,9 @@ export default function SupporterDashboardBackup({
           </WidgetErrorBoundary>
 
           <WidgetErrorBoundary label="Houses you support">
-            <SupportedHouseReturnsSection />
+            <Suspense fallback={null}>
+              <SupportedHouseReturnsSection />
+            </Suspense>
           </WidgetErrorBoundary>
 
 
@@ -549,7 +521,9 @@ export default function SupporterDashboardBackup({
               ) : (
                 <>
                   <FunderApprovalBanner className="mb-3" />
-                  <FunderCapitalOpportunities />
+                  <Suspense fallback={<WidgetCardSkeleton />}>
+                    <FunderCapitalOpportunities />
+                  </Suspense>
                 </>
               )}
             </WidgetErrorBoundary>
@@ -600,101 +574,119 @@ export default function SupporterDashboardBackup({
           {/* Houses on Welile / Available Now moved inside
               "Support Tenants Directly" in Capital Opportunities. */}
 
+          {/* Invite & Earn: the last card on the page, scrolling with it (not pinned to the bottom) */}
+          <InviteAndEarnCard variant="supporter" compact />
         </main>
       </div>
-      <SupporterMenuDrawer
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onAddInvestment={() => setShowPaymentPartners(true)}
-        onOpenCalculator={() => setShowCalculator(true)}
-        onViewAgreement={() => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); }}
-        showCreditRequests
-        isLocked={!effectiveHasAccepted}
-        onLockedClick={() => setShowAgreementModal(true)}
-        onFundCategory={(cat) => {
-          if (!effectiveHasAccepted) {
-            setShowAgreementModal(true);
-            return;
-          }
-          setSelectedPackageCategory(cat);
-          setShowPackageSheet(true);
-        }}
-        onRefreshRef={opportunitiesRefreshRef}
-      />
+      <Suspense fallback={null}>
+        {mountMenu && (
+          <SupporterMenuDrawer
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            onAddInvestment={() => setShowPaymentPartners(true)}
+            onOpenCalculator={() => setShowCalculator(true)}
+            onViewAgreement={() => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); }}
+            showCreditRequests
+            isLocked={!effectiveHasAccepted}
+            onLockedClick={() => setShowAgreementModal(true)}
+            onFundCategory={(cat) => {
+              if (!effectiveHasAccepted) {
+                setShowAgreementModal(true);
+                return;
+              }
+              setSelectedPackageCategory(cat);
+              setShowPackageSheet(true);
+            }}
+            onRefreshRef={opportunitiesRefreshRef}
+          />
+        )}
 
-      {/* Invite & Earn */}
-      <InviteAndEarnCard variant="supporter" compact />
+        {mountPayments && (
+          <PaymentPartnersDialog
+            open={showPaymentPartners}
+            onOpenChange={setShowPaymentPartners}
+            dashboardType="supporter"
+            title="Add Funds"
+          />
+        )}
 
-      <PaymentPartnersDialog 
-        open={showPaymentPartners} 
-        onOpenChange={setShowPaymentPartners}
-        dashboardType="supporter"
-        title="Add Funds"
-      />
-      
-      <SupporterAgreementModal
-        open={showAgreementModal}
-        onOpenChange={setShowAgreementModal}
-        onAccept={handleAcceptAgreement}
-        loading={agreementLoading}
-      />
-      
-      <SupporterAgreementViewModal
-        open={showViewAgreementModal}
-        onOpenChange={setShowViewAgreementModal}
-        defaultTab={viewAgreementTab}
-      />
-      
-      <Dialog open={showCalculator} onOpenChange={setShowCalculator}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 [&>button]:fixed [&>button]:right-4 [&>button]:top-4 [&>button]:z-[200] [&>button]:bg-background/90 [&>button]:shadow-md">
-          <div className="flex items-center justify-center px-4 pt-6 pb-2">
-            <img
-              src={calculatorIllustration.url}
-              alt="Earnings calculator"
-              loading="lazy"
-              className="h-28 w-auto sm:h-36"
-            />
-          </div>
-          <DialogHeader className="p-4 pb-0 pt-0">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold">
-              <Calculator className="h-4 w-4" />
-              Earnings Calculator
-            </DialogTitle>
-          </DialogHeader>
-          <div className="p-4 pt-2">
-            <InvestmentCalculator />
-          </div>
-        </DialogContent>
-      </Dialog>
-      
+        {mountAgreement && (
+          <SupporterAgreementModal
+            open={showAgreementModal}
+            onOpenChange={setShowAgreementModal}
+            onAccept={handleAcceptAgreement}
+            loading={agreementLoading}
+          />
+        )}
 
-      <VirtualHouseDetailsSheet
-        house={selectedHouse}
-        open={showHouseDetails}
-        onOpenChange={setShowHouseDetails}
-      />
-      
-      <InvestmentPackageSheet
-        open={showPackageSheet}
-        onOpenChange={setShowPackageSheet}
-        category={selectedPackageCategory}
-        onAcceptAndDeposit={() => setShowPaymentPartners(true)}
-      />
+        {mountViewAgreement && (
+          <SupporterAgreementViewModal
+            open={showViewAgreementModal}
+            onOpenChange={setShowViewAgreementModal}
+            defaultTab={viewAgreementTab}
+          />
+        )}
 
-      <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />
-      <InvestmentAccountsDrawer
-        open={showInvestments}
-        onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}
-        defaultTab={investmentsTab}
-        initialPortfolioId={focusPortfolioId}
-      />
+        {mountCalculator && (
+          <Dialog open={showCalculator} onOpenChange={setShowCalculator}>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 [&>button]:fixed [&>button]:right-4 [&>button]:top-4 [&>button]:z-[200] [&>button]:bg-background/90 [&>button]:shadow-md">
+              <div className="flex items-center justify-center px-4 pt-6 pb-2">
+                <img
+                  src={calculatorIllustration.url}
+                  alt="Earnings calculator"
+                  loading="lazy"
+                  className="h-28 w-auto sm:h-36"
+                />
+              </div>
+              <DialogHeader className="p-4 pb-0 pt-0">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                  <Calculator className="h-4 w-4" />
+                  Earnings Calculator
+                </DialogTitle>
+              </DialogHeader>
+              <div className="p-4 pt-2">
+                <InvestmentCalculator />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
-      <FunderActivationModal
-        open={showActivationModal}
-        onOpenChange={setShowActivationModal}
-        onDepositClick={handleActivationDeposit}
-        onSnooze={handleActivationSnooze}
-      />
+        {mountHouseDetails && (
+          <VirtualHouseDetailsSheet
+            house={selectedHouse}
+            open={showHouseDetails}
+            onOpenChange={setShowHouseDetails}
+          />
+        )}
+
+        {mountPackage && (
+          <InvestmentPackageSheet
+            open={showPackageSheet}
+            onOpenChange={setShowPackageSheet}
+            category={selectedPackageCategory}
+            onAcceptAndDeposit={() => setShowPaymentPartners(true)}
+          />
+        )}
+
+        {mountHub && <FunderWalletHubSection open={showFunderHub} onOpenChange={setShowFunderHub} />}
+        {mountInvestments && (
+          <InvestmentAccountsDrawer
+            open={showInvestments}
+            onOpenChange={(o) => { setShowInvestments(o); if (!o) setFocusPortfolioId(null); }}
+            defaultTab={investmentsTab}
+            initialPortfolioId={focusPortfolioId}
+          />
+        )}
+
+        {mountActivation && (
+          <FunderActivationModal
+            open={showActivationModal}
+            onOpenChange={setShowActivationModal}
+            onDepositClick={handleActivationDeposit}
+            onSnooze={handleActivationSnooze}
+          />
+        )}
+      </Suspense>
 
     </div>
   );

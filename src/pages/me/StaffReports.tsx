@@ -20,6 +20,8 @@ import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner
 import { useAuth } from '@/hooks/useAuth';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
+  addUtcDays,
+  buildCustomDaysPeriodWindow,
   buildMonthPeriodWindow,
   buildWeekPeriodWindow,
   CALLING_TEAM_STAFF,
@@ -47,15 +49,18 @@ export default function StaffReportsPage() {
   const [mode, setMode] = useState<StaffReportPeriodMode>('month');
   const [weekStart, setWeekStart] = useState<string>(() => getWedWeekStartYmd(todayYmd));
   const [yearMonth, setYearMonth] = useState<string>(() => todayYmd.slice(0, 7) || '2026-10');
+  const [customStart, setCustomStart] = useState<string>(() => addUtcDays(todayYmd, -6));
+  const [customEnd, setCustomEnd] = useState<string>(() => todayYmd);
   const [exportingAll, setExportingAll] = useState(false);
 
   // Strictly gated to HR Mark Bwayo
   const canAccess = canAccessHrStaffReports(user?.id, roles);
 
-  const periodWindow = useMemo(
-    () => (mode === 'week' ? buildWeekPeriodWindow(weekStart) : buildMonthPeriodWindow(yearMonth, todayYmd)),
-    [mode, weekStart, yearMonth, todayYmd],
-  );
+  const periodWindow = useMemo(() => {
+    if (mode === 'week') return buildWeekPeriodWindow(weekStart);
+    if (mode === 'custom') return buildCustomDaysPeriodWindow(customStart, customEnd);
+    return buildMonthPeriodWindow(yearMonth, todayYmd);
+  }, [mode, weekStart, yearMonth, customStart, customEnd, todayYmd]);
 
   const reportQ = useStaffCallingReport(periodWindow, canAccess);
 
@@ -134,7 +139,7 @@ export default function StaffReportsPage() {
           </div>
 
           <TabsContent value="call-center" className="mt-0 space-y-4 sm:space-y-5">
-            {/* Period Filter Bar (Week Wed-Tue & Specific Month) */}
+            {/* Period Filter Bar (Week Wed-Tue, Specific Month & Custom Days) */}
             <CallingReportPeriodBar
               mode={mode}
               onModeChange={setMode}
@@ -142,6 +147,12 @@ export default function StaffReportsPage() {
               onWeekStartChange={setWeekStart}
               yearMonth={yearMonth}
               onYearMonthChange={setYearMonth}
+              customStart={customStart}
+              customEnd={customEnd}
+              onCustomRangeChange={(s, e) => {
+                setCustomStart(s);
+                setCustomEnd(e);
+              }}
               periodWindow={periodWindow}
               onRefresh={() => reportQ.refetch()}
               isFetching={reportQ.isFetching}

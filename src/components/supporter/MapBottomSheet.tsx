@@ -203,7 +203,7 @@ export function MapBottomSheet({
       ref={sheetRef}
       role="region"
       aria-label="House listings panel"
-      className="fixed inset-x-0 bottom-0 z-[80] mx-auto flex w-full max-w-lg flex-col rounded-t-2xl bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.12)] border-t border-border/60"
+      className="fixed inset-x-0 bottom-0 z-[80] mx-auto flex w-full max-w-lg flex-col rounded-t-[28px] bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.12)]"
       style={{
         height: fullHeightPx(),
         transform: transformFor(snapToHeight(snap)),
@@ -223,7 +223,7 @@ export function MapBottomSheet({
         onClick={handleHandleTap}
         aria-label={`${snap === 'collapsed' ? 'Expand' : 'Collapse'} house listings`}
       >
-        <div className="h-1.5 w-12 rounded-full bg-muted-foreground/35 hover:bg-muted-foreground/50 transition-colors" />
+        <div className="h-1 w-8 rounded-full bg-muted-foreground/40 hover:bg-muted-foreground/55 transition-colors" />
       </button>
 
       {/* Header (title + chips + controls) */}

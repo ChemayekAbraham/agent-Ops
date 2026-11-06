@@ -22,10 +22,10 @@ const MONTHLY_RATE = 0.33;
 const DEFAULT_DURATIONS = [30, 60, 90] as const;
 
 // Illustrative agent commission share of the finance charge. Mirrors the
-// Agent Incentive Model (10% one-time rent commission). Shown ONLY to make the
+// Agent Incentive Model (8% rent commission; was 10% before the 8% go-live). Shown ONLY to make the
 // breakdown transparent — it is carved out of the access fee, never added on
 // top, so the canonical total (rent + accessFee + requestFee) is unchanged.
-const AGENT_COMMISSION_RATE = 0.10;
+const AGENT_COMMISSION_RATE = 0.08;
 
 // Guard rails for a compliance-safe, sensible ballpark (UGX).
 const MIN_RENT = 10_000;
@@ -41,7 +41,7 @@ function computeRentPlan(rent: number, days: number) {
 
   // Illustrative line-item breakdown of the total repayment.
   //   principalRent   — the rent amount Welile pays your landlord upfront
-  //   agentCommission — carved out of the access fee (10% of rent, capped)
+  //   agentCommission — carved out of the access fee (8% of rent, capped)
   //   accessFeeNet    — remaining finance/access charge (33% monthly compound)
   //   serviceFee      — the flat request/service fee
   // principalRent + accessFeeNet + agentCommission + serviceFee == totalRepayment

@@ -165,4 +165,25 @@
     border-radius: 0 !important;
     padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem) !important;
   }
+
+  /*
+   * On an Android phone (the default device for field/ops staff), index.css's
+   * `html.android-compositor-safe [role="dialog"].app-dialog-content` rule
+   * re-applies `transform: translate3d(-50%, -50%, 0) !important` to recentre
+   * the normal, small, centred dialog. That selector has one more class/
+   * attribute than the rule above (3 vs 2), so by plain CSS specificity it
+   * wins the `transform` property even though this file is the one that
+   * actually wants the dialog full-screen here — the box is correctly sized
+   * to fill the screen, then shifted left and up by half its own width and
+   * height, leaving only a sliver of its bottom-right corner on screen and
+   * the rest (title, most fields, actions) pushed off-screen. This is the
+   * exact "opens on one end, half the form is missing" bug reported on
+   * Landlord Ops. Re-assert `transform: none` with an equally Android-aware,
+   * strictly more specific selector so it always wins here, regardless of
+   * source order or future edits to the generic Android rule.
+   */
+  html.android-compositor-safe[data-landlord-ops] [role='dialog'].app-dialog-content {
+    transform: none !important;
+    -webkit-transform: none !important;
+  }
 }

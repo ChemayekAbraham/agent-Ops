@@ -14,6 +14,7 @@ import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
 
 
 const formatUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-UG')}`;
+import { COMMISSION_RATE } from '@/lib/rentCalculations';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
@@ -193,7 +194,8 @@ export function DailyRentReport({ mode }: Props) {
       landlord_name: rr?.landlord_id ? landlordMap[rr.landlord_id] || '—' : '—',
       property: rr?.house_listing_id ? listingMap[rr.house_listing_id] || '—' : '—',
       status,
-      commission: Math.round((Number(r.amount) || 0) * 0.1),
+      // Estimate at the current rate (8%; 10% before 2026-11-04, 6% to a sub-agent + 2% parent).
+      commission: Math.round((Number(r.amount) || 0) * COMMISSION_RATE),
       outstanding: Math.max(0, (Number(rr?.total_repayment) || 0) - (Number(rr?.amount_repaid) || 0)),
     };
   }), [rawCollections, profileMap, rentReqMap, landlordMap, listingMap]);

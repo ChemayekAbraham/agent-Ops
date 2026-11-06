@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -22,6 +24,7 @@ import {
   Clock,
   Download,
   FileDown,
+  Info,
   Loader2,
   MessageSquare,
   Phone,
@@ -44,6 +47,7 @@ import {
   listRecentWedTueWeeks,
   ROLE_LABEL,
   type IndividualStaffReportData,
+  type StaffCallStats,
   type StaffCallingPeriodWindow,
   type StaffReportPeriodMode,
   type TeamCallingReportData,
@@ -55,6 +59,18 @@ import {
 
 const PAGE_SIZE = 25;
 
+function ymdToLocalDate(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y || 2026, (m || 1) - 1, d || 1);
+}
+
+function localDateToYmd(dt: Date): string {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export interface PeriodFilterBarProps {
   mode: StaffReportPeriodMode;
   onModeChange: (mode: StaffReportPeriodMode) => void;
@@ -62,6 +78,9 @@ export interface PeriodFilterBarProps {
   onWeekStartChange: (wedYmd: string) => void;
   yearMonth: string;
   onYearMonthChange: (ym: string) => void;
+  customStart?: string;
+  customEnd?: string;
+  onCustomRangeChange?: (startYmd: string, endYmd: string) => void;
   periodWindow: StaffCallingPeriodWindow;
   onRefresh?: () => void;
   isFetching?: boolean;
@@ -75,6 +94,9 @@ export function CallingReportPeriodBar({
   onWeekStartChange,
   yearMonth,
   onYearMonthChange,
+  customStart,
+  customEnd,
+  onCustomRangeChange,
   periodWindow,
   onRefresh,
   isFetching,
@@ -83,6 +105,8 @@ export function CallingReportPeriodBar({
   const todayYmd = kampalaTodayYmd();
   const recentWeeks = useMemo(() => listRecentWedTueWeeks(20, todayYmd), [todayYmd]);
   const recentMonths = useMemo(() => listRecentMonths(15, todayYmd), [todayYmd]);
+  const effectiveCustomStart = customStart || addUtcDays(todayYmd, -6);
+  const effectiveCustomEnd = customEnd || todayYmd;
 
   const shiftWeek = (deltaWeeks: number) => {
     onWeekStartChange(addUtcDays(weekStart, deltaWeeks * 7));
@@ -101,31 +125,43 @@ export function CallingReportPeriodBar({
         <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
           {/* Left: Mode Toggle + Period Picker */}
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-            {/* Mobile-first 2-column segmented control */}
-            <div className="grid w-full grid-cols-2 rounded-xl border border-border/80 bg-muted/50 p-1 sm:inline-flex sm:w-auto">
+            {/* Mobile-first 3-column segmented control */}
+            <div className="grid w-full grid-cols-3 rounded-xl border border-border/80 bg-muted/50 p-1 sm:inline-flex sm:w-auto">
               <button
                 type="button"
                 onClick={() => onModeChange('month')}
-                className={`flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all sm:min-h-[34px] ${
+                className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:min-h-[36px] sm:px-3 ${
                   mode === 'month'
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Calendar className="h-3.5 w-3.5 shrink-0" />
-                <span>Specific Month</span>
+                <span>Month</span>
               </button>
               <button
                 type="button"
                 onClick={() => onModeChange('week')}
-                className={`flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all sm:min-h-[34px] ${
+                className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:min-h-[36px] sm:px-3 ${
                   mode === 'week'
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span>Week (Wed - Tue)</span>
+                <span>Week (Wed-Tue)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onModeChange('custom')}
+                className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all sm:min-h-[36px] sm:px-3 ${
+                  mode === 'custom'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                <span>Custom days</span>
               </button>
             </div>
 
@@ -136,7 +172,7 @@ export function CallingReportPeriodBar({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl sm:h-9 sm:w-9"
+                    className="h-11 w-11 shrink-0 rounded-xl sm:h-9 sm:w-9"
                     onClick={() => shiftWeek(-1)}
                     title="Previous Wednesday-Tuesday week"
                   >
@@ -147,7 +183,7 @@ export function CallingReportPeriodBar({
                     aria-label="Select Wednesday to Tuesday week"
                     value={weekStart}
                     onChange={(e) => onWeekStartChange(e.target.value)}
-                    className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:h-9 sm:flex-initial"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:h-9 sm:flex-initial"
                   >
                     {!recentWeeks.some((w) => w.weekStart === weekStart) && (
                       <option value={weekStart}>{periodWindow.shortLabel}</option>
@@ -163,7 +199,7 @@ export function CallingReportPeriodBar({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl sm:h-9 sm:w-9"
+                    className="h-11 w-11 shrink-0 rounded-xl sm:h-9 sm:w-9"
                     onClick={() => shiftWeek(1)}
                     title="Next Wednesday-Tuesday week"
                   >
@@ -181,19 +217,120 @@ export function CallingReportPeriodBar({
                         onWeekStartChange(getWedWeekStartYmd(e.target.value));
                       }
                     }}
-                    className="h-9 flex-1 rounded-xl text-xs sm:w-[142px] sm:flex-initial"
+                    className="h-11 flex-1 rounded-xl text-xs sm:h-9 sm:w-[142px] sm:flex-initial"
                   />
 
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
-                    className="h-9 shrink-0 rounded-xl px-3 text-xs font-medium"
+                    className="h-11 shrink-0 rounded-xl px-3 text-xs font-medium sm:h-9"
                     onClick={() => onWeekStartChange(getWedWeekStartYmd(todayYmd))}
                   >
                     This week
                   </Button>
                 </div>
+              </div>
+            ) : mode === 'custom' ? (
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 justify-start gap-2 rounded-xl border-primary/30 bg-background px-3 text-xs font-semibold text-foreground sm:h-9"
+                    >
+                      <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+                      <span>{periodWindow.shortLabel}</span>
+                      <Badge variant="secondary" className="ml-auto rounded-md px-1.5 py-0 text-[10px] font-bold">
+                        {periodWindow.days.length}d
+                      </Badge>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-3" align="start">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 border-b border-border/60 pb-2">
+                      <span className="text-xs font-semibold text-foreground">Select start &amp; end days</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 rounded-lg px-2 text-xs"
+                          onClick={() => onCustomRangeChange?.(addUtcDays(todayYmd, -6), todayYmd)}
+                        >
+                          Last 7 days
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 rounded-lg px-2 text-xs"
+                          onClick={() => onCustomRangeChange?.(addUtcDays(todayYmd, -1), todayYmd)}
+                        >
+                          Yesterday &amp; Today
+                        </Button>
+                      </div>
+                    </div>
+                    <CalendarPicker
+                      mode="range"
+                      defaultMonth={ymdToLocalDate(effectiveCustomStart)}
+                      selected={{
+                        from: ymdToLocalDate(effectiveCustomStart),
+                        to: ymdToLocalDate(effectiveCustomEnd),
+                      }}
+                      onSelect={(range) => {
+                        if (!range?.from) return;
+                        const fromYmd = localDateToYmd(range.from);
+                        const toYmd = range.to ? localDateToYmd(range.to) : fromYmd;
+                        onCustomRangeChange?.(fromYmd, toYmd);
+                      }}
+                      numberOfMonths={1}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">From</span>
+                    <Input
+                      type="date"
+                      aria-label="Custom range start date"
+                      value={effectiveCustomStart}
+                      max={effectiveCustomEnd}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          onCustomRangeChange?.(e.target.value, effectiveCustomEnd);
+                        }
+                      }}
+                      className="h-11 flex-1 rounded-xl text-xs sm:h-9 sm:w-[138px]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">To</span>
+                    <Input
+                      type="date"
+                      aria-label="Custom range end date"
+                      value={effectiveCustomEnd}
+                      min={effectiveCustomStart}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          onCustomRangeChange?.(effectiveCustomStart, e.target.value);
+                        }
+                      }}
+                      className="h-11 flex-1 rounded-xl text-xs sm:h-9 sm:w-[138px]"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-11 shrink-0 rounded-xl px-3 text-xs font-medium sm:h-9"
+                  onClick={() => onCustomRangeChange?.(addUtcDays(todayYmd, -6), todayYmd)}
+                >
+                  Last 7 days
+                </Button>
               </div>
             ) : (
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -202,7 +339,7 @@ export function CallingReportPeriodBar({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl sm:h-9 sm:w-9"
+                    className="h-11 w-11 shrink-0 rounded-xl sm:h-9 sm:w-9"
                     onClick={() => shiftMonth(-1)}
                     title="Previous month"
                   >
@@ -213,7 +350,7 @@ export function CallingReportPeriodBar({
                     aria-label="Select month"
                     value={yearMonth}
                     onChange={(e) => onYearMonthChange(e.target.value)}
-                    className="h-10 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:h-9 sm:flex-initial"
+                    className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring sm:h-9 sm:flex-initial"
                   >
                     {!recentMonths.some((m) => m.yearMonth === yearMonth) && (
                       <option value={yearMonth}>{periodWindow.shortLabel}</option>
@@ -229,7 +366,7 @@ export function CallingReportPeriodBar({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 shrink-0 rounded-xl sm:h-9 sm:w-9"
+                    className="h-11 w-11 shrink-0 rounded-xl sm:h-9 sm:w-9"
                     onClick={() => shiftMonth(1)}
                     title="Next month"
                   >
@@ -245,14 +382,14 @@ export function CallingReportPeriodBar({
                     onChange={(e) => {
                       if (e.target.value) onYearMonthChange(e.target.value);
                     }}
-                    className="h-9 flex-1 rounded-xl text-xs sm:w-[148px] sm:flex-initial"
+                    className="h-11 flex-1 rounded-xl text-xs sm:h-9 sm:w-[148px] sm:flex-initial"
                   />
 
                   <Button
                     type="button"
                     variant={yearMonth === '2026-10' ? 'secondary' : 'outline'}
                     size="sm"
-                    className="h-9 shrink-0 rounded-xl px-3 text-xs font-medium"
+                    className="h-11 shrink-0 rounded-xl px-3 text-xs font-medium sm:h-9"
                     onClick={() => onYearMonthChange('2026-10')}
                   >
                     Oct 2026
@@ -271,7 +408,7 @@ export function CallingReportPeriodBar({
                 size="sm"
                 onClick={onRefresh}
                 disabled={isFetching}
-                className="h-9 flex-1 gap-1.5 rounded-xl text-xs sm:flex-initial"
+                className="h-11 flex-1 gap-1.5 rounded-xl text-xs sm:h-9 sm:flex-initial"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
                 Refresh
@@ -305,6 +442,105 @@ export function CallingReportPeriodBar({
   );
 }
 
+// ------------------------------------------------------------------ Headline Calls Made & Plain-English Explanation Banner
+
+function CallsMadeHeadlineBanner({
+  stats,
+  excludedReveals,
+  periodWindow,
+}: {
+  stats: StaffCallStats;
+  excludedReveals?: number;
+  periodWindow: StaffCallingPeriodWindow;
+}) {
+  const crossDupes = stats.excludedCrossSourceDupes || 0;
+  const testContacts = stats.excludedTestContacts || 0;
+  const totalExcluded = Math.max(excludedReveals ?? 0, crossDupes + testContacts);
+
+  const explanationNotes: string[] = [];
+  if (stats.awaitingResultCalls > 0) {
+    explanationNotes.push(
+      `${stats.awaitingResultCalls.toLocaleString()} timestamped ${
+        stats.awaitingResultCalls === 1 ? 'dial has' : 'dials have'
+      } no saved call outcome yet — ${
+        stats.awaitingResultCalls === 1 ? 'it is' : 'they are'
+      } included in Calls made above and shown as "Awaiting result".`,
+    );
+  }
+  if (crossDupes > 0) {
+    explanationNotes.push(
+      `${crossDupes.toLocaleString()} duplicate ${
+        crossDupes === 1 ? 'log' : 'logs'
+      } where the same call was recorded in two different systems within 3 minutes ${
+        crossDupes === 1 ? 'was' : 'were'
+      } combined so each physical call is counted once.`,
+    );
+  }
+  if (testContacts > 0) {
+    explanationNotes.push(
+      `${testContacts.toLocaleString()} ${
+        testContacts === 1 ? 'call' : 'calls'
+      } to a flagged test contact (is_test_contact) ${
+        testContacts === 1 ? 'was' : 'were'
+      } excluded.`,
+    );
+  }
+  if (totalExcluded > 0 && crossDupes === 0 && testContacts === 0) {
+    explanationNotes.push(
+      `${totalExcluded.toLocaleString()} cross-system duplicate or test-contact ${
+        totalExcluded === 1 ? 'entry was' : 'entries were'
+      } excluded so each physical call is counted once.`,
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-primary/30 bg-primary/5 p-3.5 sm:p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <PhoneCall className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-sm font-extrabold tracking-tight text-foreground sm:text-base">
+              {stats.headlineCallsMadeLabel}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Built from every timestamped dial in {periodWindow.shortLabel} ({periodWindow.timeRangeLabel})
+              {stats.reviewOnly > 0
+                ? `, plus ${stats.reviewOnly.toLocaleString()} standalone Rent Plan pipeline ${
+                    stats.reviewOnly === 1 ? 'review' : 'reviews'
+                  } (${stats.total.toLocaleString()} total entries).`
+                : '.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="secondary" className="rounded-lg px-2.5 py-1 text-xs font-bold tabular-nums">
+            Recorded: {stats.recordedCalls.toLocaleString()}
+          </Badge>
+          <Badge
+            variant={stats.awaitingResultCalls > 0 ? 'default' : 'outline'}
+            className="rounded-lg px-2.5 py-1 text-xs font-bold tabular-nums"
+          >
+            Awaiting result: {stats.awaitingResultCalls.toLocaleString()}
+          </Badge>
+        </div>
+      </div>
+
+      {explanationNotes.length > 0 && (
+        <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-border/70 bg-background/85 p-2.5 text-xs leading-relaxed text-muted-foreground">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <div className="space-y-1">
+            {explanationNotes.map((note, idx) => (
+              <p key={idx}>{note}</p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------ Horizontal Bar Chart Component
 
 function HorizontalBarsCard({
@@ -315,7 +551,13 @@ function HorizontalBarsCard({
 }: {
   title: string;
   subtitle: string;
-  items: Array<{ label: string; value: number; sharePct: number; tone?: 'good' | 'warn' | 'info' | 'primary' }>;
+  items: Array<{
+    label: string;
+    value: number;
+    sharePct: number;
+    tone?: 'good' | 'warn' | 'info' | 'primary';
+    sampleNotes?: string[];
+  }>;
   total: number;
 }) {
   const max = Math.max(1, ...items.map((i) => i.value));
@@ -355,6 +597,11 @@ function HorizontalBarsCard({
                     style={{ width: `${widthPct}%` }}
                   />
                 </div>
+                {it.sampleNotes && it.sampleNotes.length > 0 && (
+                  <p className="text-[11px] leading-snug text-muted-foreground">
+                    Officer notes: {it.sampleNotes.slice(0, 2).join(' | ')}
+                  </p>
+                )}
               </div>
             );
           })
@@ -515,23 +762,26 @@ export function IndividualStaffReportPanel({
         </div>
       </div>
 
+      {/* Headline Calls Made Split & Plain-English Explanation */}
+      <CallsMadeHeadlineBanner stats={st} excludedReveals={excludedReveals} periodWindow={periodWindow} />
+
       {/* 6 KPI Summary Cards - Mobile-first 2x3 Bento Grid */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
         <Card className="rounded-2xl border-border/70 bg-card shadow-sm">
           <CardContent className="p-3.5">
             <div className="flex items-center justify-between gap-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total Calls
+                Calls Made
               </p>
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <PhoneCall className="h-3.5 w-3.5" />
               </span>
             </div>
             <p className="mt-1.5 text-xl font-extrabold tracking-tight tabular-nums sm:text-2xl">
-              {st.total.toLocaleString()}
+              {st.callsMade.toLocaleString()}
             </p>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {st.known} dialed &bull; {st.reviewOnly} reviews
+              {st.recordedCalls} recorded &bull; {st.awaitingResultCalls} awaiting
             </p>
           </CardContent>
         </Card>
@@ -1277,10 +1527,9 @@ export function IndividualStaffReportPanel({
       </Card>
 
       <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-        Methodology: Duplicate records of the same staff member phoning the same person or reviewing the same role on the
-        same Rent Plan within 15 minutes are merged into one entry so no call is double-counted and no feedback is lost.
-        Excluded: {excludedReveals} Calling Center phone-reveals and unrecorded Landlord Calling Hub dials older than 24
-        hours where no call outcome was submitted.
+        Methodology: Duplicate records where the same staff member logged the same physical call across different
+        systems within 3 minutes are merged into one entry so no call is double-counted and no feedback is lost.
+        Timestamped dials awaiting a saved outcome are included in Calls made above.
       </p>
     </div>
   );
@@ -1412,23 +1661,30 @@ export function GeneralTeamReportPanel({
         </div>
       </div>
 
+      {/* Headline Calls Made Split & Plain-English Explanation */}
+      <CallsMadeHeadlineBanner
+        stats={st}
+        excludedReveals={perStaff.reduce((sum, s) => sum + (s.excludedReveals || 0), 0)}
+        periodWindow={periodWindow}
+      />
+
       {/* 6 Team KPI Cards - Mobile-first 2x3 Bento Grid */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
         <Card className="rounded-2xl border-border/70 bg-card shadow-sm">
           <CardContent className="p-3.5">
             <div className="flex items-center justify-between gap-1">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                Total Calls
+                Calls Made
               </p>
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <PhoneCall className="h-3.5 w-3.5" />
               </span>
             </div>
             <p className="mt-1.5 text-xl font-extrabold tracking-tight tabular-nums sm:text-2xl">
-              {st.total.toLocaleString()}
+              {st.callsMade.toLocaleString()}
             </p>
             <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {st.known} dialed &bull; {st.reviewOnly} reviews
+              {st.recordedCalls} recorded &bull; {st.awaitingResultCalls} awaiting
             </p>
           </CardContent>
         </Card>
@@ -1855,7 +2111,7 @@ export function GeneralTeamReportPanel({
             5 &bull; Themes in Written Call &amp; Pipeline Feedback by Staff Member
           </CardTitle>
           <CardDescription className="text-xs">
-            What tenants and landlords told the team across {withWrittenNotesCount.toLocaleString()} entries with written notes
+            Feedback categories and written notes across {withWrittenNotesCount.toLocaleString()} entries (including Wrong number &amp; Phone off outcomes and officer notes)
           </CardDescription>
         </CardHeader>
         <CardContent className="p-3 pt-0 sm:p-5 sm:pt-0">
@@ -1883,6 +2139,11 @@ export function GeneralTeamReportPanel({
                         </span>
                       ))}
                     </div>
+                    {t.sampleNotes && t.sampleNotes.length > 0 && (
+                      <p className="mt-2 rounded-lg bg-background/80 p-2 text-xs leading-relaxed text-muted-foreground">
+                        Officer notes: {t.sampleNotes.join(' | ')}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1892,20 +2153,27 @@ export function GeneralTeamReportPanel({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Feedback Theme</TableHead>
+                      <TableHead>Feedback Theme / Category</TableHead>
                       {perStaff.map((s) => (
                         <TableHead key={s.person.id} className="text-center">
                           {s.person.short}
                         </TableHead>
                       ))}
                       <TableHead className="text-center">Team Mentions</TableHead>
-                      <TableHead className="text-center">% of Calls with Feedback</TableHead>
+                      <TableHead className="text-center">% of Feedback Entries</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {themes.map((t) => (
                       <TableRow key={t.label}>
-                        <TableCell className="font-medium">{t.label}</TableCell>
+                        <TableCell className="font-medium">
+                          <div>{t.label}</div>
+                          {t.sampleNotes && t.sampleNotes.length > 0 && (
+                            <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+                              Officer notes: {t.sampleNotes.join(' | ')}
+                            </p>
+                          )}
+                        </TableCell>
                         {perStaff.map((s) => (
                           <TableCell key={s.person.id} className="text-center tabular-nums">
                             {t.byStaff[s.person.short] || '-'}

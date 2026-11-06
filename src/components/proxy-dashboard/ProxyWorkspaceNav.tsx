@@ -59,7 +59,7 @@ export function ProxyMobileNav({ active, onHowItWorks }: { active: ProxySection;
     <>
       <nav
         aria-label="Proxy workspace"
-        className="fixed inset-x-0 bottom-0 z-40 flex border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 mx-auto flex w-full max-w-lg border-t border-border/60 bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
       >
         {MOBILE.map(({ id, label, icon: Icon }) => (
           <Link key={id} to={sectionPath(id)} aria-current={active === id ? 'page' : undefined}
@@ -72,7 +72,7 @@ export function ProxyMobileNav({ active, onHowItWorks }: { active: ProxySection;
         </button>
       </nav>
       <Sheet open={more} onOpenChange={setMore}>
-        <SheetContent side="bottom" className="rounded-t-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <SheetContent side="bottom" className="plan-detail-sheet rounded-t-[28px] pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <SheetHeader><SheetTitle>More</SheetTitle></SheetHeader>
           <div className="mt-3 grid gap-1">
             {[
@@ -80,17 +80,17 @@ export function ProxyMobileNav({ active, onHowItWorks }: { active: ProxySection;
               { id: 'reports' as const, label: 'Reports', sub: 'Performance over time', icon: BarChart3 },
               { id: 'houses' as const, label: 'All houses', sub: 'Every house you can work on', icon: Building2 },
             ].map(({ id, label, sub, icon: Icon }) => (
-              <Link key={id} to={sectionPath(id)} onClick={() => setMore(false)} className="flex items-center gap-3 rounded-lg p-3 hover:bg-muted">
-                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span>
+              <Link key={id} to={sectionPath(id)} onClick={() => setMore(false)} className="flex items-center gap-3 rounded-2xl p-3 hover:bg-muted">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground"><Icon className="h-4 w-4" /></span>
                 <span><span className="block text-sm font-semibold">{label}</span><span className="block text-xs text-muted-foreground">{sub}</span></span>
               </Link>
             ))}
-            <button type="button" onClick={() => { setMore(false); onHowItWorks(); }} className="flex items-center gap-3 rounded-lg p-3 text-left hover:bg-muted">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><HelpCircle className="h-4 w-4" /></span>
+            <button type="button" onClick={() => { setMore(false); onHowItWorks(); }} className="flex items-center gap-3 rounded-2xl p-3 text-left hover:bg-muted">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-foreground"><HelpCircle className="h-4 w-4" /></span>
               <span><span className="block text-sm font-semibold">How it works</span><span className="block text-xs text-muted-foreground">How proxy agents earn</span></span>
             </button>
-            <Link to="/dashboard/agent" className="flex items-center gap-3 rounded-lg p-3 hover:bg-muted">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-muted-foreground"><ArrowLeft className="h-4 w-4" /></span>
+            <Link to="/dashboard/agent" className="flex items-center gap-3 rounded-2xl p-3 hover:bg-muted">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground"><ArrowLeft className="h-4 w-4" /></span>
               <span className="text-sm font-semibold">Back to Agent dashboard</span>
             </Link>
           </div>

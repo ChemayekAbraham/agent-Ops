@@ -19,7 +19,7 @@ import {
  * Collapsed by default: the header row carries the title and the ON/OFF state,
  * the explanation and the switch sit behind the toggle.
  */
-export function V360StaffPricingBanner() {
+export function V360StaffPricingBanner({ sticky = true }: { sticky?: boolean } = {}) {
   const { enabledRoles, rolesResolved } = useAuth();
   const visible = !!rolesResolved && canSeeV360StaffPricingBanner(enabledRoles);
   const canChange = !!rolesResolved && canChangeV360NewPlans(enabledRoles);
@@ -34,7 +34,7 @@ export function V360StaffPricingBanner() {
 
   return (
     <section
-      className="sticky top-0 z-30 mb-4 rounded-xl border-2 border-primary/70 bg-card shadow-md ring-1 ring-primary/25"
+      className={cn(sticky && "sticky top-0 z-30", "mb-4 rounded-xl border-2 border-primary/70 bg-card shadow-md ring-1 ring-primary/25")}
       data-testid="v360-staff-pricing-banner"
       data-state={state}
       data-can-change={canChange ? 'yes' : 'no'}

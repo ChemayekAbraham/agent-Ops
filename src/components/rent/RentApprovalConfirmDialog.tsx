@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertTriangle, Calculator } from 'lucide-react';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, COMMISSION_RATE } from '@/lib/rentCalculations';
 
 interface Props {
   open: boolean;
@@ -130,7 +130,7 @@ export function RentApprovalConfirmDialog({
               const total = display.total_repayment || 0;
               const principal = request.rent_amount || 0;
               const partner = Math.round(principal * 0.15);
-              const agent = Math.round(total * 0.1);
+              const agent = Math.round(total * COMMISSION_RATE);
               const platform = Math.max(0, total - principal - partner - agent);
               const pct = (v: number) =>
                 total > 0 ? `${((v / total) * 100).toFixed(2)}%` : '0.00%';

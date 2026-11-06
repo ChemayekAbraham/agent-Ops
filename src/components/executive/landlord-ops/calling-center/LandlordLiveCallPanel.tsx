@@ -31,6 +31,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { LandlordContextPanel } from './LandlordContextPanel';
 import { LandlordTimelineDrawer } from './LandlordTimelineDrawer';
 import { LandlordForwardConcernDialog } from './LandlordForwardConcernDialog';
+import { LandlordPitchScriptBanner } from '../LandlordPitchScriptBanner';
 import type { LandlordCallCenterDialer } from './useLandlordCallCenterDialer';
 import { formatHumanLabel } from './ccUi';
 
@@ -120,6 +121,9 @@ export function LandlordLiveCallPanel({
             </label>
           </div>
         )}
+        <div className="pt-2 text-left">
+          <LandlordPitchScriptBanner />
+        </div>
       </Card>
     );
   }
@@ -337,6 +341,12 @@ export function LandlordLiveCallPanel({
           </div>
         </div>
       </Card>
+
+      {/* New Landlord Phone Opening Script */}
+      <LandlordPitchScriptBanner
+        landlordName={current.name}
+        defaultRentUgx={current.metricValue ? Number(current.metricValue) : null}
+      />
 
       {/* Live Landlord Context Panel (Houses, Tenants, Rent Plans, Payouts, Payout Number Review) */}
       <Card className="p-3 sm:p-4">

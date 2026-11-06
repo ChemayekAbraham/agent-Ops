@@ -45,7 +45,7 @@ interface WelileSignagesOpsProps {
 }
 
 export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
-  const { data: signages = [], isLoading, refetch } = useSignageOpsQueue();
+  const { data: signages = [], isLoading, isError, error, refetch, isFetching } = useSignageOpsQueue();
   const reviewMutation = useReviewSignage();
   const verifyMutation = useVerifyInstallation();
 
@@ -144,13 +144,13 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
   return (
     <div className="space-y-4 w-full pb-16">
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Button variant="ghost" size="icon" onClick={onBack} className="h-9 w-9 rounded-full">
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" />
               <h2 className="text-base font-bold text-foreground">Welile Signages Operations</h2>
               <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary font-bold">
@@ -162,8 +162,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} className="rounded-xl text-xs gap-1.5 h-9">
-          <RefreshCw className="h-3.5 w-3.5" />
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="rounded-xl text-xs gap-1.5 h-9 shrink-0">
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
           <span>Refresh</span>
         </Button>
       </div>
@@ -224,6 +224,10 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
         <div className="py-16 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span>Loading Signage Operations Queue...</span>
+        </div>
+      ) : isError ? (
+        <div role="alert" className="py-10 text-center bg-card border border-destructive/40 rounded-2xl p-6 text-xs text-destructive">
+          Could not load signage applications: {(error as Error)?.message}. Tap Refresh to try again.
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center bg-card border border-border/60 rounded-2xl p-6 space-y-2">

@@ -407,30 +407,31 @@ export async function generateIndividualStaffCallingPdfBlob(
   data: IndividualStaffReportData,
   periodWindow: StaffCallingPeriodWindow,
 ): Promise<{ blob: Blob; fileName: string }> {
-  const { person, rows: rs, stats: st, excludedReveals, channels, outcomes, themes, withWrittenNotesCount, directory } =
+  const { person, rows: rs, stats: st, channels, outcomes, themes, withWrittenNotesCount, directory } =
     data;
   const days = periodWindow.days;
+  const periodMetaKey = periodWindow.mode === 'custom' ? 'CUSTOM RANGE' : 'PERIOD';
   const ctx = await createReportDoc(`${person.short} (${person.display})  -  ${periodWindow.shortLabel} call report`);
 
   ctx.banner(
     `Call Report - ${person.short} (${person.display})`,
     `Tenant Ops  -  Landlord Ops  -  every call, phone number & pipeline feedback  -  ${periodWindow.periodLabel}`,
     'CONFIDENTIAL OPERATIONAL REPORT',
-    `${st.total.toLocaleString()} calls  -  ${st.people.toLocaleString()} people called`,
+    `${st.headlineCallsMadeLabel}  -  ${st.people.toLocaleString()} people called`,
   );
 
   ctx.meta([
     ['STAFF MEMBER', person.display],
-    ['PERIOD', periodWindow.periodLabel],
+    [periodMetaKey, periodWindow.periodLabel],
     ['SCOPE', person.roleLabel],
     ['GENERATED (KAMPALA)', stamp(new Date())],
   ]);
 
   ctx.tiles([
     {
-      label: 'Total calls & reviews',
-      value: st.total.toLocaleString(),
-      sub: `${st.known} dialed  -  ${st.reviewOnly} review notes`,
+      label: 'Calls made',
+      value: st.callsMade.toLocaleString(),
+      sub: `${st.recordedCalls.toLocaleString()} recorded  -  ${st.awaitingResultCalls.toLocaleString()} awaiting result${st.reviewOnly ? ` (+${st.reviewOnly} reviews)` : ''}`,
     },
     {
       label: 'People called',
@@ -462,6 +463,26 @@ export async function generateIndividualStaffCallingPdfBlob(
       color: ACCENT,
     },
   ]);
+
+  const headlineExplanationParts: string[] = [
+    `${st.headlineCallsMadeLabel}${st.reviewOnly > 0 ? ` plus ${st.reviewOnly.toLocaleString()} Rent Plan pipeline review${st.reviewOnly === 1 ? '' : 's'}` : ''}.`,
+  ];
+  if (st.awaitingResultCalls > 0) {
+    headlineExplanationParts.push(
+      `${st.awaitingResultCalls.toLocaleString()} timestamped dial${st.awaitingResultCalls === 1 ? ' is' : 's are'} included in Calls made and marked "Awaiting result" because the phone was dialed in the Calling Center or Calling Hub without a saved call outcome yet.`,
+    );
+  }
+  if (st.excludedCrossSourceDupes > 0) {
+    headlineExplanationParts.push(
+      `${st.excludedCrossSourceDupes.toLocaleString()} duplicate log${st.excludedCrossSourceDupes === 1 ? '' : 's'} recorded across two different systems for the same person within 3 minutes ${st.excludedCrossSourceDupes === 1 ? 'was' : 'were'} merged into one physical call so the call is counted once while keeping all notes.`,
+    );
+  }
+  if (st.excludedTestContacts > 0) {
+    headlineExplanationParts.push(
+      `${st.excludedTestContacts.toLocaleString()} internal test-contact record${st.excludedTestContacts === 1 ? ' was' : 's were'} excluded (flagged is_test_contact = true).`,
+    );
+  }
+  ctx.note(headlineExplanationParts.join(' '), 7.6, INK);
 
   // Section 1: Calls per day chart
   ctx.section(`1  -  Daily call & pipeline activity (${periodWindow.shortLabel})`);
@@ -696,7 +717,7 @@ export async function generateIndividualStaffCallingPdfBlob(
 
   ctx.section('How this report was compiled', 22);
   ctx.note(
-    `Scope: Every phone call and Rent Plan pipeline call-feedback entry recorded by ${person.display} during ${periodWindow.timeRangeLabel} (Africa/Kampala time), across Tenant Ops Calling Center, Landlord Ops Calling Center, Landlord Ops Calling Hub, Inbound Calling Center calls, Rent Plan Pipeline Awareness Calls, Landlord Ops Pre-Approval Verification & Review Feedback, Tenant Ops Pre-Approval Review Feedback, and In-App Voice Calls. Duplicate records of the same staff member phoning the same person or reviewing the same role on the same Rent Plan within 15 minutes are merged into one entry so no call is double-counted and no feedback is lost. Excluded: ${excludedReveals} Calling Center phone-reveals and unrecorded Landlord Calling Hub dials older than 24 hours where no call outcome was ever submitted.`,
+    `Scope: Every timestamped phone dial and Rent Plan pipeline call-feedback entry recorded by ${person.display} during ${periodWindow.timeRangeLabel} (Africa/Kampala time), across Tenant Ops Calling Center, Landlord Ops Calling Center, Landlord Ops Calling Hub, Inbound Calling Center calls, Rent Plan Pipeline Awareness Calls, Landlord Ops Pre-Approval Verification & Review Feedback, Tenant Ops Pre-Approval Review Feedback, and In-App Voice Calls. Every dial in the period is included in "Calls made" (${st.headlineCallsMadeLabel}). Duplicate logs recorded across two different logging systems for the same person within 3 minutes are merged into one physical call so no call is double-counted and no feedback is lost (${st.excludedCrossSourceDupes} merged in this period). Internal test contacts flagged is_test_contact = true are excluded (${st.excludedTestContacts} in this period).`,
     7.4,
   );
 
@@ -734,27 +755,28 @@ export async function generateGeneralTeamCallingPdfBlob(
     verbatimSamples,
   } = teamData;
   const days = periodWindow.days;
+  const periodMetaKey = periodWindow.mode === 'custom' ? 'CUSTOM RANGE' : 'PERIOD';
   const ctx = await createReportDoc(`Team Call & Pipeline Feedback Report  -  ${periodWindow.shortLabel}`);
 
   ctx.banner(
     'Team Call & Feedback Report - Jane, Winnie & Hanisha',
     `Tenant Ops  -  Landlord Ops  -  Calling Centers & Rent Plan Pipelines  -  ${periodWindow.periodLabel}`,
     'CONFIDENTIAL OPERATIONAL REPORT',
-    `${st.total.toLocaleString()} calls & reviews  -  ${st.people.toLocaleString()} people`,
+    `${st.headlineCallsMadeLabel}  -  ${st.people.toLocaleString()} people`,
   );
 
   ctx.meta([
     ['STAFF COVERED', 'Jane  -  Winnie  -  Hanisha (3 staff)'],
-    ['PERIOD', periodWindow.periodLabel],
+    [periodMetaKey, periodWindow.periodLabel],
     ['DEPARTMENTS', 'Tenant Ops & Landlord Ops'],
     ['GENERATED (KAMPALA)', stamp(new Date())],
   ]);
 
   ctx.tiles([
     {
-      label: 'Total calls & reviews',
-      value: st.total.toLocaleString(),
-      sub: `${st.known} dialed  -  ${st.reviewOnly} pipeline reviews`,
+      label: 'Calls made',
+      value: st.callsMade.toLocaleString(),
+      sub: `${st.recordedCalls.toLocaleString()} recorded  -  ${st.awaitingResultCalls.toLocaleString()} awaiting result${st.reviewOnly ? ` (+${st.reviewOnly} reviews)` : ''}`,
     },
     {
       label: 'People called',
@@ -786,6 +808,26 @@ export async function generateGeneralTeamCallingPdfBlob(
       color: ACCENT,
     },
   ]);
+
+  const teamHeadlineParts: string[] = [
+    `${st.headlineCallsMadeLabel}${st.reviewOnly > 0 ? ` plus ${st.reviewOnly.toLocaleString()} Rent Plan pipeline review${st.reviewOnly === 1 ? '' : 's'}` : ''}.`,
+  ];
+  if (st.awaitingResultCalls > 0) {
+    teamHeadlineParts.push(
+      `${st.awaitingResultCalls.toLocaleString()} timestamped dial${st.awaitingResultCalls === 1 ? ' is' : 's are'} included in Calls made and marked "Awaiting result" because the phone was dialed without a saved outcome yet.`,
+    );
+  }
+  if (st.excludedCrossSourceDupes > 0) {
+    teamHeadlineParts.push(
+      `${st.excludedCrossSourceDupes.toLocaleString()} duplicate log${st.excludedCrossSourceDupes === 1 ? '' : 's'} recorded across two different systems for the same person within 3 minutes ${st.excludedCrossSourceDupes === 1 ? 'was' : 'were'} merged into one physical call so the call is counted once while keeping all notes.`,
+    );
+  }
+  if (st.excludedTestContacts > 0) {
+    teamHeadlineParts.push(
+      `${st.excludedTestContacts.toLocaleString()} internal test-contact record${st.excludedTestContacts === 1 ? ' was' : 's were'} excluded (flagged is_test_contact = true).`,
+    );
+  }
+  ctx.note(teamHeadlineParts.join(' '), 7.6, INK);
 
   const sb = perStaff.map((r) => ({ p: r.person, s: r.stats, rs: r.rows }));
 
@@ -1010,13 +1052,15 @@ export async function generateGeneralTeamCallingPdfBlob(
   // Section 6: Written Feedback Themes Table
   ctx.section('6  -  Themes in written call & pipeline feedback (what tenants & landlords said)', 55);
   ctx.note(
-    `Across ${withWrittenNotesCount.toLocaleString()} calls and pipeline reviews with written feedback, the table below groups every recurring theme mentioned by tenants and landlords (one call can mention more than one theme):`,
+    `Across ${withWrittenNotesCount.toLocaleString()} calls and pipeline reviews with written feedback or Wrong number / Phone off outcomes, the table below groups every recurring theme (including officer notes on Wrong number and Phone off calls; one call can mention more than one theme):`,
   );
   ctx.table({
-    head: [['Feedback theme', ...sb.map(({ p }) => p.short), 'Team mentions', '% of calls with feedback']],
+    head: [['Feedback theme & officer notes', ...sb.map(({ p }) => p.short), 'Team mentions', '% of feedback calls']],
     body: themes.length
       ? themes.map((t) => [
-          t.label,
+          t.sampleNotes && t.sampleNotes.length > 0
+            ? `${t.label} (notes: ${t.sampleNotes.slice(0, 2).join('; ')})`
+            : t.label,
           ...sb.map(({ p }) => t.byStaff[p.short] || '-'),
           t.value,
           `${t.sharePct}%`,

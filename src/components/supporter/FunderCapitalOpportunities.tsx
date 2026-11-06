@@ -262,7 +262,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
 }) {
   const showHeader = Boolean(title) || Boolean(onBack);
   return (
-    <div className={`border border-border/80 bg-card overflow-hidden ${compactMobile ? 'shadow-none sm:shadow-sm rounded-xl sm:rounded-2xl' : 'shadow-sm rounded-2xl'}`}>
+    <div className={`overflow-hidden ${compactMobile ? 'bg-transparent' : 'border border-border/80 bg-card shadow-sm rounded-2xl'}`}>
       {showHeader && (
       <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
@@ -286,7 +286,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
         )}
       </div>
       )}
-      <div className={`${compactMobile ? 'px-3 py-3 sm:px-5 sm:py-4 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
+      <div className={`${compactMobile ? 'px-0 py-1 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
     </div>
   );
 }
@@ -605,7 +605,7 @@ export function FunderCapitalOpportunities({
         body: { amount: angelAmount },
       });
       if (error) {
-        const msg = await extractFromErrorObject(error, 'Investment failed. Please try again.');
+        const msg = await extractFromErrorObject(error, 'Support failed. Please try again.');
         toast.error(msg);
         return;
       }
@@ -617,7 +617,7 @@ export function FunderCapitalOpportunities({
       window.dispatchEvent(new CustomEvent('supporter-contribution-changed'));
       window.dispatchEvent(new CustomEvent('wallet-balance-changed'));
     } catch (err: any) {
-      toast.error(err?.message || 'Investment failed');
+      toast.error(err?.message || 'Support failed');
     } finally {
       setInvestLoading(false);
     }
@@ -629,7 +629,6 @@ export function FunderCapitalOpportunities({
 
   // ─── MENU ───
   if (view === 'menu') {
-    const activeDemand = opportunitySummary?.total_rent_requested ?? 0;
     return (
       <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
         <div className="px-5 pt-5 pb-4 space-y-4">
@@ -642,12 +641,6 @@ export function FunderCapitalOpportunities({
                 Choose how you want to deploy capital.
               </p>
             </div>
-            {activeDemand > 0 && (
-              <div className="text-right shrink-0">
-                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Active demand</p>
-                <p className="text-sm font-black text-foreground">{formatAmountCompact(activeDemand)}</p>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 gap-[clamp(8px,2vw,20px)]">
@@ -731,13 +724,6 @@ export function FunderCapitalOpportunities({
           onBack={embedded ? undefined : () => setView('menu')}
         >
           <HowItWorksSteps steps={MANAGED_FUNDING_STEPS} />
-
-          <div>
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Total Rent Demand</p>
-            <p className="text-3xl font-black text-foreground tracking-tight mt-0.5">
-              {formatAmountCompact(summary?.total_rent_requested ?? 0)}
-            </p>
-          </div>
 
           <div className="grid grid-cols-3 gap-2">
             {[

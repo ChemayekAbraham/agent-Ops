@@ -7,9 +7,9 @@ import { MemoryRouter } from "react-router-dom";
  *
  * These mount the actual agent-facing badge components and assert the rendered
  * DOM shows the canonical split:
- *   - Sub-agent (manager) keeps 8%
+ *   - Sub-agent (manager) keeps 6%
  *   - Recruiter (upline) earns a 2% override
- *   - Total system payout is 10%
+ *   - Total system payout is 8% (10% before the 2026-11-04 change)
  *
  * They render the real component tree (badges, chips, copy) rather than scanning
  * source, so a regression in any badge text or value fails the suite.
@@ -73,21 +73,26 @@ describe("EarningsRankSystemSheet commission breakdown badges", () => {
     renderWithRouter(<EarningsRankSystemSheet open onOpenChange={vi.fn()} />),
   );
 
-  it("renders the sub-agent 8% badge", () => {
+  it("renders the sub-agent 6% badge", () => {
     // Sheet renders into a portal on document.body
-    expect(screen.getByText("8%")).toBeInTheDocument();
+    expect(screen.getByText("6%")).toBeInTheDocument();
   });
 
   it("renders the recruiter 2% override badge", () => {
     expect(screen.getByText("2%")).toBeInTheDocument();
   });
 
-  it("renders the 10% total payout badge", () => {
-    expect(screen.getByText("10% (Fixed)")).toBeInTheDocument();
+  it("renders the 8% total payout badge", () => {
+    expect(screen.getByText("8% (Fixed)")).toBeInTheDocument();
   });
 
-  it("renders the full 10% for agents with no upline", () => {
-    expect(screen.getByText("10%")).toBeInTheDocument();
+  it("renders the full 8% for agents with no upline", () => {
+    expect(screen.getByText("8%")).toBeInTheDocument();
+  });
+
+  it("does not render the old 10% rate", () => {
+    expect(screen.queryByText("10%")).not.toBeInTheDocument();
+    expect(screen.queryByText("10% (Fixed)")).not.toBeInTheDocument();
   });
 
   it("does not render the stale 4% / 1% / 5% split figures", () => {
@@ -97,9 +102,9 @@ describe("EarningsRankSystemSheet commission breakdown badges", () => {
     expect(screen.queryByText("5% (Fixed)")).not.toBeInTheDocument();
   });
 
-  it("pairs the 8% badge with the sub-agent row and 2% with the upline row", () => {
+  it("pairs the 6% badge with the sub-agent row and 2% with the upline row", () => {
     const subAgentRow = screen.getByText("You (Sub-Agent) earn").closest("div")!;
-    expect(within(subAgentRow).getByText("8%")).toBeInTheDocument();
+    expect(within(subAgentRow).getByText("6%")).toBeInTheDocument();
 
     const uplineRow = screen.getByText("Your Upline earns").closest("div")!;
     expect(within(uplineRow).getByText("2%")).toBeInTheDocument();
@@ -108,6 +113,6 @@ describe("EarningsRankSystemSheet commission breakdown badges", () => {
 
 describe("Commission split invariant", () => {
   it("sub-agent share + recruiter override equals total payout", () => {
-    expect(8 + 2).toBe(10);
+    expect(6 + 2).toBe(8);
   });
 });

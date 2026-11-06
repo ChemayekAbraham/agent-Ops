@@ -12,7 +12,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
 import { type AiRole } from './roleLanding';
-import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips } from './assistantConfig';
+import { ASSISTANT_NAME, HELP_URL, VISIBLE_CHIPS, WHATSAPP_URL, orderedChips, isPartnerPath, partnerChips, PARTNER_GREETING, DEFAULT_GREETING } from './assistantConfig';
 import claraAvatar from '@/assets/clara-avatar.png';
 
 const INITIAL = ASSISTANT_NAME.charAt(0).toUpperCase();
@@ -85,7 +85,8 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const { pathname } = useLocation();
   const agentFirst = role === 'agent' || pathname.startsWith('/dashboard/agent');
-  const chips = orderedChips(agentFirst);
+  const partner = isPartnerPath(pathname);
+  const chips = partner ? partnerChips() : orderedChips(agentFirst);
   const visibleChips = Array.from({ length: Math.min(VISIBLE_CHIPS, chips.length) }, (_, i) => chips[(rotation + i) % chips.length]);
   const suggestedChips = visibleChips.slice(0, isMobile ? 4 : VISIBLE_CHIPS);
   const firstName = String(user?.user_metadata?.full_name ?? '').trim().split(/\s+/)[0] || 'there';
@@ -114,7 +115,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
   };
 
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side={isMobile ? 'bottom' : 'right'} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden bg-background p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(720px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl border border-border'}`}>
+    <SheetContent side={isMobile ? 'bottom' : 'right'} style={isMobile ? undefined : { left: 'auto', top: 'auto', right: '1rem', bottom: '1.5rem', width: 'min(420px, calc(100vw - 2rem))', maxWidth: 'min(420px, calc(100vw - 2rem))', height: 'min(720px, calc(100dvh - 3rem))' }} onOpenAutoFocus={event => { event.preventDefault(); inputRef.current?.focus(); }} className={`assistant-chat flex flex-col gap-0 overflow-hidden bg-background p-0 [&>button:last-child]:hidden ${isMobile ? 'h-[100dvh] rounded-none pt-safe pb-safe' : 'inset-y-auto bottom-6 right-4 h-[min(720px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-[420px] rounded-2xl border border-border'}`}>
       <SheetHeader className="flex flex-row items-center gap-2 space-y-0 border-b border-border px-3 py-2.5 text-left [&>button:first-child]:hidden">
         {showHistory ? <Button variant="ghost" size="icon-sm" className="rounded-full" aria-label="Back to chat" onClick={() => setShowHistory(false)}><ArrowLeft /></Button> : <Avatar size="h-8 w-8" />}
         <div className="min-w-0 flex-1 leading-tight">
@@ -132,7 +133,7 @@ export function AssistantChatSurface({ open, onOpenChange }: AssistantChatSurfac
             {messages.length === 0 && <div className="flex w-full flex-col items-center gap-6 px-1 text-center">
               <div className="flex flex-col items-center gap-2.5">
                 <p className="text-xl font-bold text-foreground">Hi {firstName} 👋</p>
-                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. How can i help you!</p>
+                <p className="max-w-[30ch] text-[17px] font-semibold leading-snug text-foreground">I'm Clara. {partner ? PARTNER_GREETING : DEFAULT_GREETING}</p>
               </div>
               <div className="flex w-full flex-col gap-2" aria-label="Suggestion questions">
                 {suggestedChips.map(chip => <button key={chip} type="button" onClick={() => submit(chip)} className="w-full rounded-full border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted">{chip}</button>)}

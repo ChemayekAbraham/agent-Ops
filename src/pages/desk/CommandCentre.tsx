@@ -7,6 +7,37 @@ import { StageFlow, actingDesk } from './StageFlow';
 import { TileGrid } from './Tiles';
 import { Skeleton, SkeletonTiles } from './Skeleton';
 import { CALM, FOCUS, LABEL, PANEL, statusDot, statusText, type Status } from './deskTheme';
+import { TodayByDesk, WentAgainstTheSystem, WhyRequestsBounce } from './PipelineCards';
+import { MorningBrief } from './MorningBrief';
+import { BudgetRoomCard } from './BudgetRoomCard';
+import { useMorningBrief } from './deskBriefApi';
+import type { Blocked } from './Tiles';
+import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
+
+/** The tile that carries today's money blocker. Matched by label, as the grid is. */
+const BUDGET_TILE = 'Daily float budget';
+
+/**
+ * What is holding money up right now, by tile.
+ *
+ * One rule today: the COO step cannot move without a CFO budget. With no daily
+ * budget set, everything waiting at that step is blocked; with one set, only
+ * the part that will not fit in the room left. Other tiles report figures, not
+ * blockages, so they stay at zero.
+ */
+function blockedByTile(kpis: Row[], pipeline: Row[], roomUgx: number | null): Record<string, Blocked> {
+  const cooRow = pipeline.find((r) => String(r.ord) === '5');
+  const cooUgx = num(cooRow?.ugx) ?? 0;
+  if (cooUgx <= 0) return {};
+
+  const budgetToday = kpis.find((r) => String(r.metric) === 'budget_today_ugx');
+  const budgetSet = budgetToday !== undefined && num(budgetToday.value) !== null;
+
+  if (!budgetSet) return { [BUDGET_TILE]: { ugx: cooUgx, who: "CFO sets today's budget" } };
+
+  const over = cooUgx - (roomUgx ?? 0);
+  return over > 0 ? { [BUDGET_TILE]: { ugx: over, who: "CFO raises today's budget" } } : {};
+}
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -114,7 +145,7 @@ function Blockers({ items, loading, board }: { items: Blocker[]; loading: boolea
             return (
               <li key={b.key}>
                 {b.to ? (
-                  <Link to={b.to} className={`flex gap-2.5 rounded-lg -m-1 p-1 ${CALM} ${FOCUS} hover:bg-white/8`}>
+                  <Link to={b.to} className={`flex gap-2.5 rounded-lg -m-1 p-1 ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)]`}>
                     {line}
                   </Link>
                 ) : (
@@ -182,7 +213,7 @@ function MoneyOut({ feed, board, limit }: { feed: FeedState; board: boolean; lim
                     {fmt('ugx', ugx)}
                   </span>
                 </div>
-                <div className="h-1 w-full overflow-hidden rounded-full bg-white/10" aria-hidden>
+                <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--desk-surface-hover)]" aria-hidden>
                   <div
                     className="h-full rounded-full bg-[hsl(var(--primary))]"
                     style={{ width: `${Math.max(2, Math.round((ugx / max) * 100))}%` }}
@@ -216,10 +247,13 @@ export function CommandCentre({
   feeds,
   board,
   tiles,
+  pipelineCards,
 }: {
   feeds: Record<string, FeedState>;
   board: boolean;
   tiles: Tile[];
+  /** The E26 cards — today by desk, overrides, and why requests bounce. Off with the flag. */
+  pipelineCards?: boolean;
 }) {
   const flow = useStageFlow();
   const kpis = feeds.coo_kpis?.rows ?? [];
@@ -228,40 +262,99 @@ export function CommandCentre({
   const loading = flow.loading || Boolean(feeds.coo_kpis?.loading);
   const blockers = loading ? [] : buildBlockers(flow.rows, kpis, care);
 
+  // The brief also carries the budget room, so the blocker figure and the
+  // budget-room card are always the same number read the same way.
+  const brief = useMorningBrief(!!pipelineCards);
+  const roomUgx = brief.data?.budget_room?.room_ugx ?? null;
+  const budgetTodayRow = kpis.find((r) => String(r.metric) === 'budget_today_ugx');
+  const budgetSetToday = feeds.coo_kpis?.loading
+    ? null
+    : budgetTodayRow !== undefined && num(budgetTodayRow.value) !== null;
+
+  const blocked = pipelineCards && !loading ? blockedByTile(kpis, feeds.pipeline?.rows ?? [], roomUgx) : undefined;
+
   // The balance strip is the six business-health figures; the COO desk keeps the full set.
   const strip = tiles.slice(0, 6);
   const stripLoading = Boolean(feeds.coo_kpis?.loading);
 
-  const balance = stripLoading ? (
-    <SkeletonTiles count={6} board={board} />
-  ) : (
-    <TileGrid tiles={strip} feeds={feeds} board={board} columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6" />
+  // The money blocker sits on the budget tile; the money line links here.
+  const balance = (
+    <div id="money-blocker" className="scroll-mt-4">
+      {stripLoading ? (
+        <SkeletonTiles count={6} board={board} />
+      ) : (
+        <TileGrid
+          tiles={strip}
+          feeds={feeds}
+          board={board}
+          columns="grid-cols-2 sm:grid-cols-3 xl:grid-cols-6"
+          blocked={blocked}
+        />
+      )}
+    </div>
   );
+  const moneyLine = pipelineCards ? <MoneyLine kpis={feeds.coo_kpis} gaps={gaps} board={board} /> : null;
 
   if (board) {
-    // One screen, no scrolling: strip, then the river, then the two panels.
+    // One screen, no scrolling: strip, then the river, then the panels. Each
+    // panel scrolls inside itself, so the wall display never grows a scrollbar.
     return (
       <div className="flex h-full min-h-0 flex-col gap-6">
+        {pipelineCards && (
+          <div className="grid shrink-0 grid-cols-1 gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <MorningBrief board enabled />
+            </div>
+            <BudgetRoomCard board enabled budgetSetToday={budgetSetToday} />
+          </div>
+        )}
+        {moneyLine && <div className="shrink-0">{moneyLine}</div>}
         <div className="shrink-0">{balance}</div>
         <div className="shrink-0">
-          <StageFlow feed={flow} board />
+          <StageFlow feed={flow} board trends={pipelineCards} />
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-3">
           <Blockers items={blockers} loading={loading} board />
           <MoneyOut feed={gaps} board limit={3} />
+          {pipelineCards && <TodayByDesk board enabled />}
         </div>
+        {pipelineCards && (
+          <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
+            <WentAgainstTheSystem board enabled />
+            <WhyRequestsBounce board enabled />
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {pipelineCards && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <MorningBrief board={false} enabled />
+          </div>
+          <BudgetRoomCard board={false} enabled budgetSetToday={budgetSetToday} />
+        </div>
+      )}
+      {moneyLine}
       {balance}
-      <StageFlow feed={flow} board={false} />
+      <StageFlow feed={flow} board={false} trends={pipelineCards} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Blockers items={blockers} loading={loading} board={false} />
         <MoneyOut feed={gaps} board={false} />
       </div>
+      {pipelineCards && (
+        <>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TodayByDesk board={false} enabled />
+            <WentAgainstTheSystem board={false} enabled />
+          </div>
+          <WhyRequestsBounce board={false} enabled />
+          <CommandAdditionCards board={false} gaps={gaps} enabled />
+        </>
+      )}
     </div>
   );
 }

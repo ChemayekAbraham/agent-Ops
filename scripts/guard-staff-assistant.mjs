@@ -527,6 +527,7 @@ export function auditStaffAssistantEdgeFile(relPath, rawCode) {
     const ALLOWED_DIRECT_RPCS = new Set([
       'staff_assistant_has_access',
       'staff_assistant_health',
+      'staff_assistant_check_model_drift',
       'staff_assistant_get_config',
       'staff_assistant_is_staff_email',
       'staff_assistant_email_recipients',

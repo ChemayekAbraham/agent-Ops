@@ -18,6 +18,7 @@ import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWor
 import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
 import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
 import { COOWelileHomesApprovalDesk } from '@/components/coo/COOWelileHomesApprovalDesk';
+import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
 import { COOAgentHub } from '@/components/coo/COOAgentHub';
@@ -173,6 +174,7 @@ export default function COODashboardPage() {
               Review agent landlord float requests cleared by Tenant Ops. Your approval forwards directly to CFO for disbursement (bypassing Partner Ops).
             </p>
             <COOWelileHomesApprovalDesk />
+            <WhHistoricalDisbursementsPanel mode="readonly" />
           </div>
         );
       case 'tenants':

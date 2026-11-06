@@ -55,6 +55,7 @@ import {
 } from '@/hooks/useLandlordCallingHub';
 import { LandlordCallingHubCard } from './LandlordCallingHubCard';
 import { LandlordCallingHubRecordDialog } from './LandlordCallingHubRecordDialog';
+import { LandlordPitchScriptBanner } from '../LandlordPitchScriptBanner';
 
 const PAGE_SIZE = 50;
 
@@ -422,6 +423,9 @@ export function LandlordCallingHub() {
           </Button>
         </div>
       </div>
+
+      {/* Calling Team New-Landlord Phone Opening Script */}
+      <LandlordPitchScriptBanner />
 
       {/* Top Strip of Clickable Stats */}
       <div

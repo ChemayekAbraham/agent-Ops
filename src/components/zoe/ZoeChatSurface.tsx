@@ -36,6 +36,7 @@ import {
   X,
   Compass,
 } from 'lucide-react';
+import zoeAvatar from '@/assets/zoe-avatar.svg';
 import { cn } from '@/lib/utils';
 import {
   evaluateZoeFileRequest,
@@ -58,9 +59,12 @@ import {
 } from '@/lib/zoe/zoeFileParser';
 import {
   formatPlainZoeErrorMessage,
+  getEmptyChatExampleQuestions,
   getRoleGalleryQuestions,
   getStarterSuggestionsForRoles,
+  isZoeManagerOrLeadRole,
   resolveSourceScreenLink,
+  ZOE_MANAGER_ADOPTION_NOTE_LINES,
   type ZoePageContext,
   type ZoeSuggestion,
 } from './zoeConfig';
@@ -425,6 +429,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
   });
 
   const roleGalleryQuestions = useMemo(() => getRoleGalleryQuestions(roles), [roles]);
+  const emptyChatExampleQuestions = useMemo(
+    () => getEmptyChatExampleQuestions(roles, 10),
+    [roles],
+  );
+  const isManagerViewer = useMemo(() => isZoeManagerOrLeadRole(roles), [roles]);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -617,7 +626,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
     if (textareaRef.current) {
       textareaRef.current.style.height = '44px';
     }
-    await onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+    if (currentAttachments.length > 0 || pageContext) {
+      await onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+    } else {
+      await onSendMessage(promptToSend);
+    }
   };
 
   const handleComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -638,7 +651,11 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
       if (textareaRef.current) {
         textareaRef.current.style.height = '44px';
       }
-      void onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+      if (currentAttachments.length > 0 || pageContext) {
+        void onSendMessage(promptToSend, { attachments: currentAttachments, pageContext });
+      } else {
+        void onSendMessage(promptToSend);
+      }
     }
   };
 
@@ -928,6 +945,14 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 <History className="h-4 w-4 shrink-0" aria-hidden="true" />
               </button>
 
+              <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-card">
+                <img
+                  src={zoeAvatar}
+                  alt="Zoe"
+                  data-testid="zoe-header-avatar"
+                  className="h-full w-full object-cover"
+                />
+              </span>
               <h2 className="truncate text-base font-semibold tracking-tight text-foreground">
                 Zoe
               </h2>
@@ -2034,8 +2059,13 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                 data-testid="zoe-empty-state"
                 className="my-auto flex flex-col items-center justify-center py-8 text-center"
               >
-                <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Sparkles className="h-5 w-5" aria-hidden="true" />
+                <div className="mb-3 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-border bg-card shadow-sm">
+                  <img
+                    src={zoeAvatar}
+                    alt="Zoe"
+                    data-testid="zoe-empty-state-avatar"
+                    className="h-full w-full object-cover"
+                  />
                 </div>
                 <h3 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
                   What would you like to check?
@@ -2060,6 +2090,53 @@ export const ZoeChatSurface: React.FC<ZoeChatSurfaceProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* Prompt 3 Deliverable (1): 8-10 example questions shown directly on Zoe's empty-chat screen
+                    pulled from what people actually ask Clara and what Zoe's unanswered-questions log showed people wanted */}
+                <div
+                  data-testid="zoe-empty-chat-examples"
+                  className="mt-5 w-full max-w-xl rounded-2xl border border-border bg-muted/20 p-3.5 text-left"
+                >
+                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-foreground">
+                      Most-asked questions (from staff requests &amp; Clara)
+                    </p>
+                    <span className="text-[11px] text-muted-foreground">
+                      Tap any question to ask Zoe
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {emptyChatExampleQuestions.map((ex, idx) => (
+                      <button
+                        key={ex.id}
+                        type="button"
+                        data-testid={`zoe-empty-example-${idx}`}
+                        onClick={() => void handleSuggestionClick(ex.prompt)}
+                        className="flex min-h-[44px] items-center rounded-xl border border-border/80 bg-background px-3 py-2 text-left text-xs text-foreground transition-colors hover:border-primary/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <span className="mr-2 font-semibold text-muted-foreground">
+                          {idx + 1}.
+                        </span>
+                        <span>{ex.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prompt 3 Deliverable (1): Two-line note to managers pointing their teams at Zoe */}
+                {isManagerViewer && (
+                  <div
+                    data-testid="zoe-empty-chat-manager-note"
+                    className="mt-4 w-full max-w-xl rounded-xl border border-primary/25 bg-primary/5 px-3.5 py-2.5 text-left text-xs leading-relaxed text-foreground"
+                  >
+                    <p className="font-medium text-foreground">
+                      {ZOE_MANAGER_ADOPTION_NOTE_LINES[0]}
+                    </p>
+                    <p className="mt-0.5 text-muted-foreground">
+                      {ZOE_MANAGER_ADOPTION_NOTE_LINES[1]}
+                    </p>
+                  </div>
+                )}
 
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                   <button

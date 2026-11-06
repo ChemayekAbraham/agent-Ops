@@ -42,7 +42,7 @@ export function AngelCalculator() {
             <div className="p-1.5 rounded-lg bg-primary/10">
               <Calculator className="h-4 w-4 text-primary" />
             </div>
-            Investment Calculator
+            Support Calculator
           </CardTitle>
           <div className="flex items-center rounded-full border border-border bg-muted/40 p-0.5">
             {(['UGX', 'USD'] as CurrencyView[]).map((c) => (
@@ -64,7 +64,7 @@ export function AngelCalculator() {
       <CardContent className="space-y-4">
         {/* Amount input */}
         <div>
-          <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Investment Amount ({view})</label>
+          <label className="text-xs text-muted-foreground font-medium mb-1.5 block">Support Amount ({view})</label>
           <Input
             type="text"
             value={(view === 'USD' ? amount / UGX_PER_USD : amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}

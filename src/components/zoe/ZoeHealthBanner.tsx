@@ -10,9 +10,20 @@ import { supabase } from '@/integrations/supabase/client';
  * the function does not answer, or answers healthily, nothing is rendered.
  * Nothing here is estimated, inferred, or filled in locally.
  */
+type ModelDriftAnswer = {
+  drift_detected?: unknown;
+  checked_count?: unknown;
+  mismatched_count?: unknown;
+  configured_model_fast?: unknown;
+  configured_model_deep?: unknown;
+  dominant_gateway_model?: unknown;
+  warning_message?: unknown;
+};
+
 type HealthAnswer = {
   database_status?: unknown;
   missing_db_objects?: unknown;
+  model_drift?: ModelDriftAnswer | null;
 };
 
 export function ZoeHealthBanner() {
@@ -30,17 +41,30 @@ export function ZoeHealthBanner() {
 
         const answer = (data ?? {}) as HealthAnswer;
         const status = typeof answer.database_status === 'string' ? answer.database_status : '';
-        if (!status || status === 'ok') return;
+        const notices: string[] = [];
 
-        const missing = Array.isArray(answer.missing_db_objects)
-          ? answer.missing_db_objects.filter((item): item is string => typeof item === 'string')
-          : [];
+        if (status && status !== 'ok') {
+          const missing = Array.isArray(answer.missing_db_objects)
+            ? answer.missing_db_objects.filter((item): item is string => typeof item === 'string')
+            : [];
+          notices.push(
+            missing.length
+              ? `The assistant's server reports "${status}" and is missing: ${missing.join(', ')}.`
+              : `The assistant's server reports "${status}".`,
+          );
+        }
 
-        setNotice(
-          missing.length
-            ? `The assistant's server reports "${status}" and is missing: ${missing.join(', ')}.`
-            : `The assistant's server reports "${status}".`,
-        );
+        const drift = answer.model_drift;
+        if (drift && drift.drift_detected === true) {
+          const driftWarning =
+            typeof drift.warning_message === 'string' && drift.warning_message.trim()
+              ? drift.warning_message.trim()
+              : `Model drift detected: live gateway replies (${String(drift.dominant_gateway_model ?? 'unknown')}) do not match staff_assistant_config (${String(drift.configured_model_fast ?? '')} / ${String(drift.configured_model_deep ?? '')}).`;
+          notices.push(driftWarning);
+        }
+
+        if (notices.length === 0) return;
+        setNotice(notices.join(' '));
       } catch {
         // No answer from the server: say nothing rather than guess.
       }

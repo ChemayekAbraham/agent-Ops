@@ -3,6 +3,16 @@ import { useSearchParams } from 'react-router-dom';
 
 export type Density = 'compact' | 'comfortable';
 
+/**
+ * The desks open light and stay light until someone says otherwise.
+ *
+ * The device setting is deliberately not consulted: the desks are a shared
+ * screen as often as a personal one, and a board that changed colour because
+ * of whose laptop it was on would be harder to talk about, not easier.
+ */
+export type Theme = 'light' | 'dark';
+export const DEFAULT_THEME: Theme = 'light';
+
 type Prefs = {
   /** Board mode: a dark, large-type wall display. Driven by ?board=1 so a screen can be bookmarked straight into it. */
   board: boolean;
@@ -12,6 +22,12 @@ type Prefs = {
   /** Auto-rotation through the desks. Off by default; only offered in board mode. */
   rotate: boolean;
   setRotate: (on: boolean) => void;
+  /**
+   * The viewer's theme. Board mode and a desk with the checklist flag off both
+   * ignore it and stay dark — see DeskPage, which owns that decision.
+   */
+  theme: Theme;
+  setTheme: (t: Theme) => void;
 };
 
 const Ctx = createContext<Prefs | null>(null);
@@ -58,9 +74,19 @@ export function DeskPrefsProvider({ children }: { children: ReactNode }) {
     store('desk-rotate', on ? 'on' : 'off');
   }, []);
 
+  // A saved choice beats the default; anything else falls back to light.
+  const [theme, setThemeState] = useState<Theme>(() =>
+    readStored('desk-theme', DEFAULT_THEME, ['light', 'dark'] as const),
+  );
+
+  const setTheme = useCallback((t: Theme) => {
+    setThemeState(t);
+    store('desk-theme', t);
+  }, []);
+
   const value = useMemo<Prefs>(
-    () => ({ board, setBoard, density, setDensity, rotate, setRotate }),
-    [board, setBoard, density, setDensity, rotate, setRotate],
+    () => ({ board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme }),
+    [board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

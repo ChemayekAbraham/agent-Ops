@@ -348,7 +348,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
               </DialogHeader>
 
               <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-3">
-                <p className="text-sm font-semibold text-foreground">To complete your investment:</p>
+                <p className="text-sm font-semibold text-foreground">To complete your support:</p>
                 <ol className="text-sm text-muted-foreground space-y-2.5 list-decimal list-inside">
                   <li>Deposit <span className="font-bold text-foreground">{formatAmount(rentAmount)}</span> via Mobile Money</li>
                   <li>Use your registered phone number</li>
@@ -379,7 +379,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
               </Button>
 
               <p className="text-[10px] text-center text-muted-foreground">
-                Your investment is protected by Welile's supporter agreement
+                Your support is protected by Welile's supporter agreement
               </p>
             </motion.div>
           )}
@@ -472,7 +472,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-foreground">Auto-Compound Rewards</p>
-                      <p className="text-[10px] text-muted-foreground">Reinvest rewards — tenants supported grow each month</p>
+                      <p className="text-[10px] text-muted-foreground">Roll over rewards — tenants supported grow each month</p>
                     </div>
                   </div>
                   <Switch checked={autoCompound} onCheckedChange={setAutoCompound} />
@@ -482,7 +482,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                   <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-2">
                     <TrendingUp className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                     <p className="text-[11px] text-muted-foreground">
-                      With compounding, your rewards are reinvested — growing your facilitation capital and <strong className="text-foreground">increasing the number of tenants you support</strong> each month.
+                      With compounding, your rewards are rolled over — growing your facilitation capital and <strong className="text-foreground">increasing the number of tenants you support</strong> each month.
                     </p>
                   </div>
                 )}
@@ -546,7 +546,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                   <ul className="text-[11px] text-muted-foreground space-y-2 pl-6 list-disc">
                     <li><strong>Renew Contract</strong> — After 90 days, renew for another cycle to keep earning</li>
                     <li><strong>Top Up</strong> — Add more funds to an existing package anytime</li>
-                    <li><strong>Multiple Accounts</strong> — Create up to <strong>12 different investment accounts</strong> across categories</li>
+                    <li><strong>Multiple Accounts</strong> — Create up to <strong>12 different support accounts</strong> across categories</li>
                   </ul>
                 </div>
 

@@ -71,11 +71,17 @@ export function landlordPayoutNumberState(i: PayoutNumberStateInput): PayoutNumb
   if (onFile && last9(onFile) !== last9(approved)) {
     // A payout may only go to the number the landlord is registered with. The database refuses it too
     // (enforce_landlord_payout_eligibility), so the screen stops before an OTP is sent.
+    //
+    // The remedy is two steps, not one: confirm_landlord_payout_number refuses any number that is not
+    // already landlords.phone ("Update the landlord record first, then confirm it"), so Landlord Ops
+    // has to correct the record before confirming. Saying only "confirm the correct number" sent
+    // agents to an action that cannot clear this state. Both numbers are named so the agent can
+    // report them without opening another screen.
     return {
       state: 'ready_differs_from_record',
       tone: 'blocked',
       title: 'The approved payout number does not match the number registered for this landlord',
-      detail: 'A payout can only go to the number the landlord is registered with. Landlord Ops must confirm the correct number before you can send the OTP.',
+      detail: `The landlord record shows ${onFile}, but the approved payout number is ${approved}. Landlord Ops must decide which one is correct, update the landlord record first, and then confirm the number — confirming on its own will not clear this. The landlord is already listed in the Payout number review.`,
       canSendOtp: false,
     };
   }

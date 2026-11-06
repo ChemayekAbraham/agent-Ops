@@ -429,15 +429,19 @@ Deno.test("tools: argument validation rejects unknown keys and maps RPC paramete
 
 // ---- Zoe system prompt ----------------------------------------------------------------------
 
-Deno.test("prompt: names Zoe, enforces source/date citations, role refusal, and Welile terms", () => {
+Deno.test("prompt: names Zoe, enforces source/date citations, role refusal, read-the-room rule, and Welile terms", () => {
   const prompt = buildSystemPrompt("2026-10-26", ["tenant_ops"], [
     "get_my_tasks (assistant_staff_my_tasks): tasks",
     "get_tops_arrears_ageing (assistant_staff_tops_arrears_ageing): arrears",
   ]);
   assert(prompt.includes("You are Zoe"));
+  assert(prompt.includes("PERSONALITY & VOICE"));
+  assert(prompt.includes("READ THE ROOM"));
   assert(prompt.includes("Source:"));
   assert(prompt.includes("Period:"));
-  assert(prompt.includes("ROLE_RESTRICTED"));
+  assert(prompt.includes("REFUSE_ROLE_RESTRICTED:"));
+  assert(prompt.includes("REFUSE_OUT_OF_SCOPE:"));
+  assert(prompt.includes("REFUSE_UNMATCHED:"));
   assert(prompt.includes("Rent Plan"));
   assert(prompt.includes("Supporter"));
   assert(prompt.includes("Returns"));
@@ -1144,7 +1148,7 @@ Deno.test("real handler: answering, refusing wrong role, two-step login, rate li
   assertEquals(directInj.json.outcome, "out_of_scope");
   assertEquals(directInj.json.reply, MSG.outOfScope);
 
-  // 7. Unmatched question
+  // 7. Unmatched question (legacy bare fallback + Clara-style REFUSE_* model-written sentences)
   const unmatched = await invokeRealHandler({
     body: { action: "message", message: "How many office chairs are on the 3rd floor?" },
     toolCalls: [],
@@ -1153,6 +1157,48 @@ Deno.test("real handler: answering, refusing wrong role, two-step login, rate li
   assertEquals(unmatched.status, 200);
   assertEquals(unmatched.json.outcome, "unmatched");
   assertEquals(unmatched.json.reply, MSG.unmatched);
+
+  const kindRoleRefusal = await invokeRealHandler({
+    body: { action: "message", message: "What is our CFO Treasury cash position right now?" },
+    roles: ["tenant_ops"],
+    toolCalls: [],
+    finalText:
+      "REFUSE_ROLE_RESTRICTED: That Treasury Cash Position report is managed by the CFO and Finance team, so I can't open it from your Tenant Ops workspace. I can check your Tenant Ops overview or First 7 Days summary instead.",
+  });
+  assertEquals(kindRoleRefusal.status, 200);
+  assertEquals(kindRoleRefusal.json.outcome, "not_staff");
+  assertEquals(
+    kindRoleRefusal.json.reply,
+    "That Treasury Cash Position report is managed by the CFO and Finance team, so I can't open it from your Tenant Ops workspace. I can check your Tenant Ops overview or First 7 Days summary instead.",
+  );
+
+  const kindOutOfScopeRefusal = await invokeRealHandler({
+    body: { action: "message", message: "Can you book a flight to Nairobi for my holiday?" },
+    roles: ["tenant_ops"],
+    toolCalls: [],
+    finalText:
+      "REFUSE_OUT_OF_SCOPE: I'm here to help with Welile work and read-only reports, so I can't book personal travel. Let me know if you need a hand with a report or your My Space tasks.",
+  });
+  assertEquals(kindOutOfScopeRefusal.status, 200);
+  assertEquals(kindOutOfScopeRefusal.json.outcome, "out_of_scope");
+  assertEquals(
+    kindOutOfScopeRefusal.json.reply,
+    "I'm here to help with Welile work and read-only reports, so I can't book personal travel. Let me know if you need a hand with a report or your My Space tasks.",
+  );
+
+  const kindUnmatchedRefusal = await invokeRealHandler({
+    body: { action: "message", message: "How many office chairs are on the 3rd floor?" },
+    roles: ["tenant_ops"],
+    toolCalls: [],
+    finalText:
+      "REFUSE_UNMATCHED: I don't have that on file in our live reports, and I won't guess a number. For office furniture and equipment counts, please check the CFO Asset Register or ask Administration.",
+  });
+  assertEquals(kindUnmatchedRefusal.status, 200);
+  assertEquals(kindUnmatchedRefusal.json.outcome, "unmatched");
+  assertEquals(
+    kindUnmatchedRefusal.json.reply,
+    "I don't have that on file in our live reports, and I won't guess a number. For office furniture and equipment counts, please check the CFO Asset Register or ask Administration.",
+  );
 
   // 8. Drafts saved server-side & draft card text checked for invented numbers
   const validDraft = await invokeRealHandler({

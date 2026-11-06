@@ -13,6 +13,7 @@ import { ProxyPartnerDepositDialog } from './ProxyPartnerDepositDialog';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { useFunderAccountsRealtime } from '@/hooks/useFunderAccountsRealtime';
+import { fetchAgentOnboardedPortfolios, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import {
   ArrowLeft, Phone, MessageSquare, Banknote, ArrowDownToLine,
   Wallet, Home, TrendingUp, Calendar, CircleDot, Loader2, Send,
@@ -65,16 +66,6 @@ interface WithdrawalRecord {
   created_at: string;
 }
 
-interface ProfileDetails {
-  full_name: string;
-  phone: string;
-  email: string | null;
-  intended_role: string | null;
-  mobile_money_number: string | null;
-  mobile_money_provider: string | null;
-  created_at: string;
-}
-
 export function FunderDetailView({
   funder, stats, onBack, onSendStatement, sendingSMS, onRefresh,
 }: FunderDetailViewProps) {
@@ -85,7 +76,6 @@ export function FunderDetailView({
   const [portfolios, setPortfolios] = useState<FunderPortfolio[]>([]);
   const [roiPayments, setROIPayments] = useState<ROIPayment[]>([]);
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
-  const [profile, setProfile] = useState<ProfileDetails | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [isManaged, setIsManaged] = useState(false);
   const [togglingManaged, setTogglingManaged] = useState(false);
@@ -114,23 +104,13 @@ export function FunderDetailView({
     if (!beneficiaryId || !user) return;
     setLoadingData(true);
     try {
-      const [profileRes, portfolioRes, roiRes, withdrawalRes, proxyRes] = await Promise.all([
-        supabase.from('profiles')
-          .select('full_name, phone, email, intended_role, mobile_money_number, mobile_money_provider, created_at')
-          .eq('id', beneficiaryId).single(),
-        supabase.from('investor_portfolios')
-          .select('id, account_name, portfolio_code, investment_amount, total_roi_earned, roi_percentage, status, duration_months, maturity_date, next_roi_date, created_at')
-          .eq('investor_id', beneficiaryId)
-          .order('created_at', { ascending: false }),
+      const [cards, withdrawals, roiRes, proxyRes] = await Promise.all([
+        fetchAgentOnboardedPortfolios().catch(() => []),
+        fetchAgentProxyWithdrawals().catch(() => []),
         supabase.from('supporter_roi_payments')
           .select('id, roi_amount, status, due_date, paid_at, payment_number')
           .eq('supporter_id', beneficiaryId)
           .order('due_date', { ascending: false })
-          .limit(20),
-        supabase.from('withdrawal_requests')
-          .select('id, amount, status, payout_method, created_at')
-          .eq('proxy_partner_id', beneficiaryId)
-          .order('created_at', { ascending: false })
           .limit(20),
         supabase.from('proxy_agent_assignments')
           .select('is_managed_account')
@@ -140,10 +120,21 @@ export function FunderDetailView({
           .maybeSingle(),
       ]);
 
-      setProfile(profileRes.data as any);
-      setPortfolios(portfolioRes.data || []);
+      setPortfolios(cards.filter(c => c.investor_id === beneficiaryId && c.portfolio_id).map(c => ({
+        id: c.portfolio_id as string,
+        account_name: null,
+        portfolio_code: c.portfolio_code_masked || 'Portfolio',
+        investment_amount: Number(c.investment_amount) || 0,
+        total_roi_earned: Number(c.total_roi_earned) || 0,
+        roi_percentage: Number(c.roi_percentage) || 0,
+        status: c.status || '',
+        duration_months: c.duration_months || 0,
+        maturity_date: c.maturity_date,
+        next_roi_date: c.next_roi_date,
+        created_at: c.created_at || '',
+      })));
       setROIPayments((roiRes.data as any) || []);
-      setWithdrawals((withdrawalRes.data as any) || []);
+      setWithdrawals(withdrawals.filter(w => w.proxy_partner_id === beneficiaryId).slice(0, 20) as any);
       setIsManaged(proxyRes.data?.is_managed_account || false);
     } catch (err) {
       console.error('Error fetching funder details:', err);
@@ -219,13 +210,7 @@ export function FunderDetailView({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-base">{funder.beneficiary?.full_name}</h3>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  {funder.beneficiary?.phone}
-                </div>
-                {profile?.email && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{profile.email}</p>
-                )}
+                <p className="text-xs text-muted-foreground">Contact details stay on the partner's own account.</p>
               </div>
               <div className="flex flex-col items-end gap-1">
                 {!isApproved ? (
@@ -348,15 +333,13 @@ export function FunderDetailView({
                   Profile Details
                 </h4>
                 <div className="space-y-1.5">
-                  <DetailRow label="Full Name" value={profile?.full_name || '—'} />
-                  <DetailRow label="Phone" value={profile?.phone || '—'} />
-                  <DetailRow label="Email" value={profile?.email || 'Not set'} />
-                  <DetailRow label="MoMo Number" value={profile?.mobile_money_number || 'Not set'} />
-                  <DetailRow label="MoMo Provider" value={profile?.mobile_money_provider?.toUpperCase() || 'Not set'} />
-                  <DetailRow label="Role" value={profile?.intended_role || 'supporter'} />
+                  <DetailRow label="Full Name" value={funder.beneficiary?.full_name || 'Partner'} />
+                  <DetailRow label="Phone" value="On file with Welile" />
+                  <DetailRow label="Payout details" value="On file with Welile" />
+                  <DetailRow label="Role" value="supporter" />
                   <DetailRow
                     label="Joined"
-                    value={profile?.created_at ? format(new Date(profile.created_at), 'dd MMM yyyy') : '—'}
+                    value={funder.created_at ? format(new Date(funder.created_at), 'dd MMM yyyy') : 'Not set'}
                   />
                   <DetailRow
                     label="Linked Since"

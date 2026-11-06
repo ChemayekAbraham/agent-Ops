@@ -44,6 +44,15 @@ interface WithdrawRequestDialogProps {
   lockPayoutDetails?: boolean;
   /** Where the locked details came from, shown to the agent for confidence. */
   payoutSourceLabel?: string;
+  /** The server copies the partner payout destination on insert. `details` is shown to the agent for confirmation only. */
+  payoutOnFile?: {
+    portfolioId: string;
+    routeKey: string;
+    summary: string;
+    details?: { mode: string; provider: string | null; name: string | null; number: string | null; bank: string | null } | null;
+  } | null;
+  /** Partner name known by the caller; the proxy agent cannot read the partner's profile. */
+  partnerDisplayName?: string;
 }
 
 type PayoutMode = 'mtn' | 'airtel' | 'bank' | 'cash';
@@ -234,7 +243,7 @@ function normalizeUgMomoNumber(raw: string): string {
   return s;
 }
 
-export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel }: WithdrawRequestDialogProps) {
+export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, onSuccess, prefillAmount, prefillReason, prefillPayout, linkedParty, lockAmount = false, lockPayoutDetails = false, payoutSourceLabel, payoutOnFile = null, partnerDisplayName }: WithdrawRequestDialogProps) {
   const { user } = useAuth();
   const [amount, setAmount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -270,7 +279,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
   const [momoNumber, setMomoNumber] = useState('');
   // Locked destination: only when the caller both asked for the lock AND
   // supplied the resolved details, so we never lock an empty form.
-  const payoutLocked = lockPayoutDetails && !!prefillPayout;
+  const payoutLocked = lockPayoutDetails && (!!prefillPayout || !!payoutOnFile);
   const [momoName, setMomoName] = useState('');
   const [bankName, setBankName] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
@@ -327,10 +336,10 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
         .select('full_name')
         .eq('id', linkedParty)
         .maybeSingle();
-      if (!cancelled) setPartnerName((data as any)?.full_name ?? null);
+      if (!cancelled) setPartnerName((data as any)?.full_name ?? partnerDisplayName ?? null);
     })();
     return () => { cancelled = true; };
-  }, [open, linkedParty]);
+  }, [open, linkedParty, partnerDisplayName]);
 
   // Restore any in-flight idempotency key for this partner on (re)open, so a
   // close-and-reopen after a network failure retries with the SAME key.
@@ -372,6 +381,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       // sourced from the portfolio's saved payment route), don't overwrite
       // them with the agent's own saved MoMo number.
       if (prefillPayout) return;
+      // Proxy withdrawal: the destination belongs to the partner and the server copies it
+      // (payoutOnFile), or no route exists. Never fall back to the agent's own saved number.
+      if (linkedParty || payoutOnFile) { if (!payoutOnFile?.details) setMomoNumber(""); return; }
       setFetchingProfile(true);
       try {
         const { data: profile } = await supabase
@@ -391,9 +403,29 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
       }
     };
     fetchSavedNumber();
-  }, [user, open, prefillPayout]);
+  }, [user, open, prefillPayout, linkedParty, payoutOnFile]);
+
+  // Proxy withdrawal: show the partner's saved destination (name + number) read-only so the agent can confirm it.
+  // Display only: the insert sends no number; the server copies it from the route.
+  useEffect(() => {
+    const d = payoutOnFile?.details;
+    if (!open || !d) return;
+    if (d.mode === 'bank_transfer') {
+      setPayoutMode('bank');
+      setBankName(d.bank ?? '');
+      setBankAccountName(d.name ?? '');
+      setBankAccountNumber(d.number ?? '');
+    } else if (d.mode === 'cash') {
+      setPayoutMode('cash');
+    } else {
+      setPayoutMode(/airtel/i.test(d.provider ?? '') ? 'airtel' : 'mtn');
+      setMomoNumber(d.number ?? '');
+      setMomoName(d.name ?? '');
+    }
+  }, [open, payoutOnFile]);
 
   const isPayoutValid = () => {
+    if (payoutOnFile) return true;
     if (!payoutMode) return false;
     if (payoutMode === 'mtn' || payoutMode === 'airtel') {
       const ugandaPhoneRegex = /^(0[0-9]{9}|\+256[0-9]{9})$/;
@@ -549,7 +581,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
 
     for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
       try {
-        const isMomo = payoutMode === 'mtn' || payoutMode === 'airtel';
+        const isMomo = !payoutOnFile && (payoutMode === 'mtn' || payoutMode === 'airtel');
         // Proxy Partner Custody v2: when this dialog is opened on behalf of a
         // partner (linkedParty set), the row is partner-owned for visibility,
         // but approval resolves `agent_id` as the funding wallet and debits
@@ -557,7 +589,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
         // that's the legacy v1 shape that pins the hold to the agent's wallet.
         const isProxy = !!linkedParty;
         let submittedWithdrawalId: string | null = null;
-        const { data: insertedWithdrawal, error } = await supabase.from('withdrawal_requests').insert({
+        const payload = {
           user_id: isProxy ? linkedParty! : user.id,
           // The raiser is ALWAYS recorded. A blank raiser used to read as
           // "raised on someone else's behalf" in the creation-time
@@ -576,25 +608,36 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
           mobile_money_number: isMomo ? momoNumber.trim() : null,
           mobile_money_provider: isMomo ? payoutMode : null,
           mobile_money_name: isMomo ? momoName.trim() : null,
-          payout_method: payoutMode === 'bank' ? 'bank_transfer' : payoutMode === 'cash' ? 'cash' : 'mobile_money',
-          bank_name: payoutMode === 'bank' ? bankName : null,
-          bank_account_name: payoutMode === 'bank' ? bankAccountName.trim() : null,
-          bank_account_number: payoutMode === 'bank' ? bankAccountNumber.trim() : null,
-          agent_location: payoutMode === 'cash'
+          // A chosen route is authoritative: send no destination fields (the display values in state must not be
+          // sent) and the route's own method; the server copies the destination from the route.
+          payout_method: payoutOnFile
+            ? (payoutOnFile.details?.mode === 'bank_transfer' ? 'bank_transfer' : payoutOnFile.details?.mode === 'cash' ? 'cash' : 'mobile_money')
+            : payoutMode === 'bank' ? 'bank_transfer' : payoutMode === 'cash' ? 'cash' : 'mobile_money',
+          bank_name: !payoutOnFile && payoutMode === 'bank' ? bankName : null,
+          bank_account_name: !payoutOnFile && payoutMode === 'bank' ? bankAccountName.trim() : null,
+          bank_account_number: !payoutOnFile && payoutMode === 'bank' ? bankAccountNumber.trim() : null,
+          agent_location: !payoutOnFile && payoutMode === 'cash'
             ? (selectedCashAgent
                 ? [selectedCashAgent.agent_name, selectedCashAgent.district]
                     .filter(Boolean).join(' · ')
                 : 'Nearest Agent')
             : null,
-          preferred_cashout_agent_id: payoutMode === 'cash' ? (selectedCashAgent?.cashout_agent_id ?? null) : null,
+          preferred_cashout_agent_id: !payoutOnFile && payoutMode === 'cash' ? (selectedCashAgent?.cashout_agent_id ?? null) : null,
           reason: isProxy
             ? `[Proxy initiated by agent ${user.id}] ${reason.trim()}`
             : reason.trim(),
           client_request_id: clientRequestId,
-          payout_route_ref: isProxy && linkedParty
+          payout_route_ref: payoutOnFile
+            ? payoutOnFile.routeKey
+            : isProxy && linkedParty
             ? derivePayoutRouteRef(reason, linkedParty)
             : null,
-        } as any).select('id').maybeSingle();
+        };
+        const inserted = payoutOnFile
+          ? await supabase.from('withdrawal_requests').insert(payload as any)
+          : await supabase.from('withdrawal_requests').insert(payload as any).select('id').maybeSingle();
+        const insertedWithdrawal = payoutOnFile ? null : (inserted as { data?: { id?: string } | null }).data;
+        const error = (inserted as { error: { code?: string; message?: string } | null }).error;
         submittedWithdrawalId = insertedWithdrawal?.id ?? null;
         if (error) {
           // 23505 = unique_violation. Means a previous attempt already committed
@@ -623,12 +666,17 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
               return;
             }
             console.info('[WithdrawRequestDialog] Duplicate suppressed by idempotency key');
-            const { data: existingWithdrawal } = await supabase
-              .from('withdrawal_requests')
-              .select('id')
-              .eq('client_request_id', clientRequestId)
-              .maybeSingle();
-            submittedWithdrawalId = existingWithdrawal?.id ?? null;
+            if (payoutOnFile) {
+              const { data: existingId } = await supabase.rpc('agent_proxy_withdrawal_id_for_client_request' as never, { p_client_request_id: clientRequestId } as never);
+              submittedWithdrawalId = typeof existingId === 'string' ? existingId : null;
+            } else {
+              const { data: existingWithdrawal } = await supabase
+                .from('withdrawal_requests')
+                .select('id')
+                .eq('client_request_id', clientRequestId)
+                .maybeSingle();
+              submittedWithdrawalId = existingWithdrawal?.id ?? null;
+            }
           } else {
             throw error;
           }
@@ -814,6 +862,9 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
                 <p className="text-3xl font-black text-primary tracking-tight">{formatCurrency(amount)}</p>
                 <p className="text-sm font-semibold text-foreground">to {recipientLabel}</p>
                 <p className="text-xs text-muted-foreground">via {destinationLine}</p>
+                {payoutOnFile?.details?.name ? (
+                  <p className="text-xs text-muted-foreground">Account name: <strong className="text-foreground">{payoutOnFile.details.name}</strong></p>
+                ) : null}
               </div>
 
               <div className="p-3 rounded-xl bg-warning/10 border border-warning/20 text-[11px] text-muted-foreground">

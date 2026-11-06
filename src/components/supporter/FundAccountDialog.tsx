@@ -75,7 +75,7 @@ export function FundAccountDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
-            Top Up Investment
+            Top Up Support
           </DialogTitle>
         </DialogHeader>
 
@@ -134,7 +134,7 @@ export function FundAccountDialog({
             <div className="space-y-3">
               <div className="flex items-center gap-2 p-3 rounded-xl bg-warning/10 border border-warning/20 text-warning text-sm">
                 <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>No funds in your wallet. Deposit money first to top up your investment.</span>
+                <span>No funds in your wallet. Deposit money first to top up your support.</span>
               </div>
               {onDeposit && (
                 <Button onClick={() => { onOpenChange(false); onDeposit(); }} className="w-full gap-2">
@@ -213,7 +213,7 @@ export function FundAccountDialog({
                 </div>
               )}
 
-              {/* ROI Preview */}
+              {/* Returns Preview */}
               <AnimatePresence mode="wait">
                 {isValid && (
                   <motion.div

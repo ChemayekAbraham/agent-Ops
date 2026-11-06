@@ -1,7 +1,12 @@
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
-import { NEXA_SALES_SYSTEM_PROMPT as NEXA_SALES_PROMPT, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
+import { buildNexaSystemPrompt, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
+import { NEXA_TOOL_DEFS, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader } from "../_shared/nexaTools.ts";
+import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
+import { knowledgeScopesFor, filterKnowledgeForAudience, isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
+const MAX_TOOL_ROUNDS = 3;
 const corsHeaders = { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version" };
 const json = (data: unknown, status=200) => new Response(JSON.stringify(data), {status,headers:{...corsHeaders,"Content-Type":"application/json"}});
 const buckets = new Map<string,{count:number;at:number}>();
@@ -19,6 +24,22 @@ Deno.serve(async req => {
     if(Number(req.headers.get('content-length') ?? 0)>90000) return json({error:'Request too large'},413);
     const raw=await req.text(); if(raw.length>90000) return json({error:'Request too large'},413);
     const body=JSON.parse(raw);
+    const ip=req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'public';
+    // Portfolio verification for callers who are not signed in. Codes and OTPs travel in
+    // structured fields only, never in chat messages, so they never reach the AI model.
+    if(body.portfolioVerify!==undefined) {
+      const v=body.portfolioVerify;
+      const vurl=Deno.env.get('SUPABASE_URL'); const vservice=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if(!vurl || !vservice) return json({error:'Service unavailable'},503);
+      if(!allowed(`verify:${ip}`)) return json({error:'Please wait before trying again'},429);
+      const vadmin=createClient(vurl,vservice);
+      let vUser:string|null=null; const vauth=req.headers.get('Authorization');
+      if(vauth?.startsWith('Bearer ')) { const {data}=await vadmin.auth.getUser(vauth.slice(7)); vUser=data?.user?.id ?? null; }
+      const vctx={userId:vUser,phone:typeof body.userPhone==='string'?body.userPhone:null,channel:channelFrom(body.channel)};
+      if(v?.action==='request') { const r=await requestPortfolioOtp(vadmin,v.portfolioCode,ip,vctx); return r.ok?json({challengeId:r.challengeId,message:r.message}):json({error:r.message},r.status); }
+      if(v?.action==='verify') { const r=await verifyPortfolioOtp(vadmin,v.challengeId,v.otp,ip,vctx); return r.ok?json({portfolioSession:r.sessionToken,expiresInSeconds:r.expiresInSeconds}):json({error:r.message},400); }
+      return json({error:'Invalid verification request'},400);
+    }
     if(!validMessages(body.messages)) return json({error:'Use 1 to 20 user/assistant messages, each up to 4,000 characters.'},400);
     for (const field of ['leadName','leadPhone','userPhone','leadRole']) {
       if (body[field] !== undefined && (typeof body[field] !== 'string' || body[field].length > (field === 'leadName' ? 80 : 32))) return json({error:'Invalid signup details'},400);
@@ -37,13 +58,23 @@ Deno.serve(async req => {
       userId=data.user.id;
     }
     if(!allowed(userId ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'public')) return json({error:'Please wait before asking again'},429);
-    if(messages.some(m => m.role === 'user' && isRestrictedInternalStaffQuery(m.content))) return sse(buildInternalStaffRefusalReply());
+    const channel=channelFrom(body.channel);
+    const callerPhone=typeof body.userPhone==='string'?body.userPhone:null;
+    if(messages.some(m => m.role === 'user' && isRestrictedInternalStaffQuery(m.content))) {
+      // Refusal applies to everyone (defense in depth); alert only for non-staff callers.
+      let rr:string[]=[];
+      if(userId) { const {data}=await admin.from('user_roles').select('role').eq('user_id',userId).eq('enabled',true); rr=(data ?? []).map(r=>String(r.role)); }
+      if(!isStaff(rr)) await recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:rr,attemptedResource:'internal_staff_query',userMessage:[...messages].reverse().find(m=>m.role==='user' && isRestrictedInternalStaffQuery(m.content))?.content ?? null,reason:'Non-staff caller asked for internal staff-only information'});
+      return sse(buildInternalStaffRefusalReply());
+    }
     // Public signup suggestions never create users, reveal account existence or grant roles.
     const lead = extractInquiryLeadDetails(question.content, {leadName:body.leadName,leadPhone:body.leadPhone ?? body.userPhone,leadRole:body.leadRole});
     const signup = userId ? undefined : buildInquirySignupResult(lead.role);
     const pitch = userId ? '' : `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
     const guide = buildNexaPublicGuideReply(question.content, !!userId);
-    if (guide) return sse(guide + (isFinancialAccessQuery(question.content) ? '' : pitch), signup);
+    // Portfolio and Returns questions use the server tools. A canned guide would
+    // quote a single rate and refuse the caller's own portfolio.
+    if (guide && !isPortfolioOrReturnsQuestion(question.content)) return sse(guide + (isFinancialAccessQuery(question.content) ? '' : pitch), signup);
     if(wantsHuman(question.content)) {
       if(!userId || !auth) return sse(`Sign in to send your question to Benjamin’s Desk and receive a private reply: ${toAuthGatedUrl('/dashboard')}. You can also contact Welile support: https://wa.me/256777607640${pitch}`, signup);
       const client=createClient(url,anon,{global:{headers:{Authorization:auth}}});
@@ -54,42 +85,50 @@ Deno.serve(async req => {
     }
     // Only general knowledge is exposed to anonymous visitors; scoped rows require verified roles.
     let scopes=['all'];
+    let verifiedRoles:string[]=[];
     if(userId) {
       const {data}=await admin.from('user_roles').select('role').eq('user_id',userId).eq('enabled',true);
-      scopes=[...scopes,...(data ?? []).map(r=>r.role)];
+      verifiedRoles=(data ?? []).map(r=>String(r.role));
+      scopes=knowledgeScopesFor(verifiedRoles);
     }
-    const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).in('role_scope',scopes).order('created_at',{ascending:false}).limit(20);
+    // Portfolio reads: signed-in callers read only their own rows through auth.uid();
+    // verified-session callers read only the one portfolio their OTP session is scoped to.
+    let readPortfolios:PortfolioReader|null=null;
+    if(userId && auth) {
+      const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
+      readPortfolios=async()=>{ const {data,error}=await userClient.rpc('nexa_get_my_portfolios'); return error?{error:'Portfolio data is unavailable right now.'}:{portfolios:(data ?? []).map(normalizePortfolioRow)}; };
+    } else {
+      const sessionPortfolioId=await portfolioIdFromSession(admin,body.portfolioSession);
+      if(sessionPortfolioId) {
+        // OTP sessions are never staff: audience is a supporter seeing one portfolio.
+        verifiedRoles=['supporter']; scopes=knowledgeScopesFor(verifiedRoles);
+        readPortfolios=async()=>{ const {data,error}=await admin.rpc('nexa_get_portfolio_by_id',{p_portfolio_id:sessionPortfolioId}); await auditPortfolioAccess(admin,'session_read',{portfolioId:sessionPortfolioId,ipHash:await sha256Hex(`ip:${ip}`)}); return error?{error:'Portfolio data is unavailable right now.'}:{portfolios:(data ?? []).map(normalizePortfolioRow)}; };
+      }
+    }
+    const {data:knowledgeRaw}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer,role_scope').eq('active',true).in('role_scope',scopes).order('created_at',{ascending:false}).limit(20);
+    const knowledge=filterKnowledgeForAudience(knowledgeRaw ?? [],verifiedRoles);
     const key=Deno.env.get('LOVABLE_API_KEY'); if(!key) return json({error:'AI not configured'},503);
     const signupSafety = ' Never claim an inquiry creates an account, reveal whether a phone is registered, ask for a password/code in chat, or promise unverified bonuses. Signup requires consent and completion of the existing secure signup flow. A role preference never grants permissions.';
-    const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:[{role:'system',content:NEXA_SALES_PROMPT+signupSafety+knowledgeContext(knowledge ?? [])},...messages],stream:true})});
-    if(!response.ok) return json({error:response.status===429?'Please try again shortly':response.status===402?'AI credits are unavailable. Check Plans & credits.':response.status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},response.status>=400&&response.status<500?response.status:503);
-    if (!response.body) return json({error:'AI temporarily unavailable'},503);
-    if (!signup) return new Response(response.body,{headers:{...corsHeaders,'Content-Type':'text/event-stream'}});
-    const reader = response.body.getReader();
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    let pending = '';
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          while (true) {
-            const {done,value} = await reader.read();
-            pending += done ? decoder.decode() : decoder.decode(value,{stream:true});
-            let end: number;
-            while ((end = pending.indexOf('\n')) >= 0) {
-              const line = pending.slice(0,end + 1); pending = pending.slice(end + 1);
-              if (line.trim() !== 'data: [DONE]') controller.enqueue(encoder.encode(line));
-            }
-            if (done) break;
-          }
-          if (pending && pending.trim() !== 'data: [DONE]') controller.enqueue(encoder.encode(pending));
-          controller.enqueue(encoder.encode(`\n\ndata: ${JSON.stringify({signup,choices:[{delta:{content:pitch}}]})}\n\ndata: [DONE]\n\n`));
-          controller.close();
-        } catch (error) { controller.error(error); }
-        finally { reader.releaseLock(); }
-      },
-      cancel(reason) { return reader.cancel(reason); },
-    });
-    return new Response(stream,{headers:{...corsHeaders,'Content-Type':'text/event-stream'}});
+    const errorFor=(status:number)=>json({error:status===429?'Please try again shortly':status===402?'AI credits are unavailable. Check Plans & credits.':status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},status>=400&&status<500?status:503);
+    // deno-lint-ignore no-explicit-any
+    const convo:any[]=[{role:'system',content:buildNexaSystemPrompt(verifiedRoles,isStaff(verifiedRoles))+signupSafety+knowledgeContext(knowledge ?? [])},...messages];
+    let finalText='';
+    for(let round=0;round<=MAX_TOOL_ROUNDS;round++) {
+      const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:convo,tools:NEXA_TOOL_DEFS,tool_choice:round===MAX_TOOL_ROUNDS?'none':'auto',stream:false})});
+      if(!response.ok) return errorFor(response.status);
+      const out=await response.json();
+      const msg=out?.choices?.[0]?.message;
+      const calls=Array.isArray(msg?.tool_calls)?msg.tool_calls.slice(0,4):[];
+      if(!calls.length) { finalText=typeof msg?.content==='string'?msg.content:''; break; }
+      convo.push({role:'assistant',content:msg.content ?? '',tool_calls:calls});
+      for(const c of calls) {
+        const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}));
+        convo.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});
+      }
+    }
+    if(!finalText.trim()) return errorFor(503);
+    return sse(finalText+(signup?pitch:''),signup);
   } catch { return json({error:'Unable to answer right now'},500); }
 });
+
+

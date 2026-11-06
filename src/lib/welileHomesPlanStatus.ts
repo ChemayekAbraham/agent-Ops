@@ -31,10 +31,12 @@ export type WhPlanStage =
   | 'approved_unconfirmed'
   | 'pending_cfo'
   | 'pending_coo'
+  | 'pending_landlord_ops'
   | 'pending_tenant_ops'
   | 'pending_agent_ops'
   | 'requested'
   | 'request_rejected'
+  | 'request_returned'
   | 'not_requested';
 
 export interface WhPlanFacts {
@@ -89,8 +91,13 @@ export const WH_STAGE_META: Record<WhPlanStage, WhStageMeta> = {
   },
   pending_coo: {
     label: 'Pending (COO Approval)',
-    description: 'Tenant Ops approved · awaiting COO approval',
+    description: 'Landlord Ops approved · awaiting COO approval',
     tone: 'info', isPending: true, canRequestFloat: false, canCollect: false,
+  },
+  pending_landlord_ops: {
+    label: 'Pending (Landlord Ops)',
+    description: 'Tenant Ops approved · awaiting Landlord Ops review',
+    tone: 'warning', isPending: true, canRequestFloat: false, canCollect: false,
   },
   pending_tenant_ops: {
     label: 'Pending (Tenant Ops)',
@@ -112,6 +119,11 @@ export const WH_STAGE_META: Record<WhPlanStage, WhStageMeta> = {
     description: 'The float request was rejected; the tenant stays enrolled',
     tone: 'destructive', isPending: false, canRequestFloat: true, canCollect: false,
   },
+  request_returned: {
+    label: 'Returned to agent – fix and request again',
+    description: 'A reviewer returned the float request with a reason; the tenant stays enrolled',
+    tone: 'warning', isPending: false, canRequestFloat: true, canCollect: false,
+  },
   not_requested: {
     label: 'Float Not Requested',
     description: 'Enrolled · ready to request float',
@@ -123,21 +135,24 @@ export const WH_STAGE_META: Record<WhPlanStage, WhStageMeta> = {
 export const WH_PENDING_STEPS: { stage: WhPlanStage; short: string }[] = [
   { stage: 'pending_agent_ops', short: '1. Agent Ops' },
   { stage: 'pending_tenant_ops', short: '2. Tenant Ops' },
-  { stage: 'pending_coo', short: '3. COO' },
-  { stage: 'pending_cfo', short: '4. CFO' },
+  { stage: 'pending_landlord_ops', short: '3. Landlord Ops' },
+  { stage: 'pending_coo', short: '4. COO' },
+  { stage: 'pending_cfo', short: '5. CFO' },
 ];
 
 function stageFromRequestStatus(status: string, fundingStatus?: string | null): WhPlanStage | null {
   switch (status) {
     case 'pending': return 'pending_agent_ops';
     case 'agent_ops_approved': return 'pending_tenant_ops';
-    case 'tenant_ops_approved': return 'pending_coo';
+    case 'tenant_ops_approved': return 'pending_landlord_ops';
+    case 'landlord_ops_approved': return 'pending_coo';
     case 'coo_approved': return 'pending_cfo';
     case 'approved':
     case 'funded':
     case 'disbursed':
       return fundingStatus === 'funded' ? 'funded' : 'approved_unconfirmed';
     case 'rejected': return 'request_rejected';
+    case 'returned_to_agent': return 'request_returned';
     default: return null;
   }
 }
@@ -150,7 +165,7 @@ export function resolveWhPlanStage(f: WhPlanFacts): WhPlanStage {
     const s = stageFromRequestStatus(f.linkedRequestStatus, f.fundingStatus);
     if (s) {
       // A rejected request releases the plan (funding_status back to 'unfunded').
-      if (s === 'request_rejected' && f.fundingStatus === 'requested') return 'requested';
+      if ((s === 'request_rejected' || s === 'request_returned') && f.fundingStatus === 'requested') return 'requested';
       return s;
     }
   }
@@ -166,7 +181,7 @@ export function isWhPlanLocked(f: WhPlanFacts): boolean {
   if (f.collectionsUnknown) return true;
   if (f.hasCollections) return true;
   if (f.fundingStatus === 'requested' || f.fundingStatus === 'funded') return true;
-  if (f.linkedRequestStatus && f.linkedRequestStatus !== 'rejected') return true;
+  if (f.linkedRequestStatus && f.linkedRequestStatus !== 'rejected' && f.linkedRequestStatus !== 'returned_to_agent') return true;
   return false;
 }
 
@@ -212,3 +227,17 @@ export async function fetchWhFloatLinks(): Promise<Map<string, string>> {
   return out;
 }
 
+
+/** Latest linked float request id per subscription (same source and order as fetchWhFloatLinks). */
+export async function fetchWhFloatLinkIds(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const { data, error } = await (supabase.from as any)('welile_homes_float_request_items')
+    .select('subscription_id, float_request_id, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) return out;
+  for (const row of (data ?? []) as { subscription_id: string; float_request_id: string }[]) {
+    if (row.subscription_id && row.float_request_id && !out.has(row.subscription_id)) out.set(row.subscription_id, row.float_request_id);
+  }
+  return out;
+}

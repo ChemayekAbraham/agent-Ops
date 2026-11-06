@@ -1,9 +1,11 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Loader2, ShieldAlert, Clock, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
+import { useQueryClient } from '@tanstack/react-query';
+import { proxyPerformanceQueryOptions } from '@/hooks/useProxyPerformanceDashboard';
 
 /**
  * Route gate for proxy-agent-only surfaces.
@@ -17,6 +19,18 @@ export default function ProxyAgentGuard({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { data, isLoading, isError, error } = useMyProxyAgentStatus(user?.id);
+  const queryClient = useQueryClient();
+
+  // Do not wait for the access check to start the rest of the work: download the dashboard code now,
+  // and read the agent's summary in parallel. The summary RPC scopes itself to the caller on the server,
+  // and nothing is shown until the check below returns "approved".
+  useEffect(() => {
+    void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (!user?.id) return;
+    void queryClient.prefetchQuery(proxyPerformanceQueryOptions(user.id, '7d')).catch(() => {});
+  }, [user?.id, queryClient]);
 
   if (authLoading) {
     return (

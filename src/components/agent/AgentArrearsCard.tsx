@@ -30,21 +30,21 @@ export function AgentArrearsCard({ agentId }: Props) {
   const behindCount = Number(totals?.tenants_behind ?? 0);
 
   return (
-    <div className="rounded-xl border border-warning/40 bg-warning/5 overflow-hidden">
+    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="w-full flex items-center gap-3 p-3.5 text-left active:scale-[0.99] transition-transform touch-manipulation"
       >
-        <div className="p-2.5 rounded-xl bg-warning/10 shrink-0">
-          <CalendarX2 className="h-5 w-5 text-warning" />
+        <div className="grid h-11 w-11 place-items-center rounded-full bg-muted shrink-0">
+          <CalendarX2 className="h-5 w-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Unpaid Days To Recover
+          <p className="text-xs font-medium text-muted-foreground">
+            Unpaid days to recover
           </p>
           <p className="font-bold text-lg tabular-nums truncate">{formatUGX(arrears)}</p>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             {behindCount} {behindCount === 1 ? 'tenant' : 'tenants'} behind · collected money clears
             the oldest day first
           </p>

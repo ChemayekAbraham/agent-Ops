@@ -1340,7 +1340,8 @@ html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="
   -webkit-backface-visibility: hidden;
 }
 
-[role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"] {
+[role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"],
+[role="dialog"].app-sheet-content.plan-detail-sheet[data-sheet-side="bottom"] {
   left: 50% !important;
   right: auto !important;
   width: min(100vw, 32rem) !important;
@@ -1350,7 +1351,8 @@ html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="
 }
 
 @media (max-width: 640px) {
-  [role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"] {
+  [role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"],
+  [role="dialog"].app-sheet-content.plan-detail-sheet[data-sheet-side="bottom"] {
     left: 0 !important;
     right: 0 !important;
     width: 100vw !important;
@@ -1470,6 +1472,9 @@ html.lite-mode .agent-dashboard-main {
   /* Floating pill nav: 64px bar + 10px bottom inset = 74px of occupied space. */
   --fab-bottom: calc(74px + env(safe-area-inset-bottom, 0px) + 12px);
   --fab-bottom-stacked: calc(74px + env(safe-area-inset-bottom, 0px) + 76px);
+  /* Just above the floating role nav, at every width (the nav is on every dashboard,
+     so this one is not reset on desktop like --fab-bottom). */
+  --fab-above-nav: calc(74px + env(safe-area-inset-bottom, 0px) + 12px);
 }
 @media (min-width: 768px) {
   /* Desktop has no bottom role switcher — anchor FABs to a small inset only. */
@@ -1809,38 +1814,43 @@ html.reduce-motion *::after {
   --success: 151 67% 52%; --primary: 260 90% 73%;
   --info: 215 95% 65%; --warning: 39 95% 62%;
 }
-.cash-position-heading { margin-bottom: 20px; }
-.cash-position-heading > div:first-child > p:first-child { letter-spacing: 0; }
-.cash-position-heading h1 { font-size: 28px; line-height: 34px; }
-.cash-position-heading h1 + p { font-size: 12px; }
-.cash-position-page > .space-y-6 > * + * { margin-top: 14px; }
-.cash-position-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.cash-position-kpis > div { border-radius: 8px; box-shadow: var(--cash-panel-shadow); }
+.cash-position-heading { margin-bottom: 24px; }
+.cash-position-heading > div:first-child > p:first-child { letter-spacing: 0.05em; }
+.cash-position-heading h1 { font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: -0.02em; }
+@media (min-width: 1024px) { .cash-position-heading h1 { font-size: 24px; line-height: 32px; } }
+.cash-position-heading h1 + p { font-size: 12px; line-height: 1.5; color: hsl(var(--muted-foreground)); }
+.cash-position-page > .space-y-6 > * + * { margin-top: 18px; }
+.cash-position-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.cash-position-kpis > div { border-radius: 12px; border: 1px solid hsl(var(--border) / 0.8); background: hsl(var(--card)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); transition: all 0.2s; }
+.cash-position-kpis > div:hover { border-color: hsl(var(--border)); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06); }
 .cash-position-kpis > div > button,
-.cash-position-kpis > div > div { padding: 14px; }
-.cash-position-kpis > div > button { border-radius: 8px; }
+.cash-position-kpis > div > div { padding: 16px; }
+.cash-position-kpis > div > button { border-radius: 12px; }
 .cash-position-kpis > div > button > div:first-child > div,
-.cash-position-kpis > div > div > button > div:first-child > div { width: 32px; height: 32px; }
+.cash-position-kpis > div > div > button > div:first-child > div { width: 32px; height: 32px; border-radius: 8px; }
+.cash-position-kpis > div > button > p:nth-of-type(1),
+.cash-position-kpis > div > div > button > p:nth-of-type(1) { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--muted-foreground)); }
 .cash-position-kpis > div > button > p:nth-of-type(2),
-.cash-position-kpis > div > div > button > p:nth-of-type(2) { font-size: 15px; white-space: normal; overflow-wrap: anywhere; line-height: 22px; }
+.cash-position-kpis > div > div > button > p:nth-of-type(2) { font-size: 16px; white-space: normal; overflow-wrap: anywhere; line-height: 22px; font-weight: 700; letter-spacing: -0.01em; }
+@media (min-width: 1024px) { .cash-position-kpis > div > button > p:nth-of-type(2), .cash-position-kpis > div > div > button > p:nth-of-type(2) { font-size: 18px; line-height: 24px; } }
 .cash-position-kpis svg[viewBox="0 0 80 32"] { width: 58px; height: 24px; }
 .cash-position-kpis > div > button > div:has(svg[viewBox="0 0 80 32"]) { gap: 4px; }
-.cash-position-kpis > div > button > div > p { font-size: 10px; }
-.cash-panel, .cash-insights-layout .rounded-md { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: 8px; box-shadow: var(--cash-panel-shadow); }
-.cash-panel { padding: 14px; min-width: 0; }
-.cash-insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.cash-position-kpis > div > button > div > p { font-size: 11px; font-weight: 500; }
+.cash-panel, .cash-insights-layout .rounded-md { background: hsl(var(--card)); border: 1px solid hsl(var(--border) / 0.8); border-radius: 12px; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04); }
+.cash-panel { padding: 16px; min-width: 0; }
+.cash-insights-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .cash-analysis-primary, .cash-analysis-secondary { display: contents; }
 .cash-flow-chart { grid-row: 1; }
-.cash-breakdowns { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.cash-breakdowns { grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .cash-account-table { grid-row: 3; }
 .cash-key-insights { grid-row: 4; }
 .cash-quick-actions { grid-row: 5; }
 .cash-analysis-heading { margin-top: 10px; }
-.cash-insights-layout .cash-quick-actions > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.cash-insights-layout .cash-quick-actions > div > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cash-quick-actions button { margin: 0; justify-content: flex-start; }
 .cash-quick-actions button > span:nth-child(2) > span:last-child,
 .cash-quick-actions button > svg:last-child { display: none; }
-.cash-quick-actions button > span:nth-child(2) > span:first-child { font-size: 10px; }
+.cash-quick-actions button > span:nth-child(2) > span:first-child { font-size: 11px; }
 .cash-key-insights button > span:nth-child(2) > span:last-child { white-space: normal; font-size: 10px; }
 .cash-dot { width: 7px; height: 7px; flex-shrink: 0; border-radius: 50%; }
 .cash-dot-primary { background: hsl(var(--primary)); }
@@ -1857,8 +1867,8 @@ html.reduce-motion *::after {
   .cash-insights-layout { grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
   .cash-flow-chart { grid-column: 1 / -1; grid-row: 1; }
   .cash-breakdowns { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .cash-account-table { grid-column: 1 / 9; grid-row: 3; }
-  .cash-key-insights { grid-column: 9 / 13; grid-row: 3; }
+  .cash-account-table { grid-column: 1 / 8; grid-row: 3; }
+  .cash-key-insights { grid-column: 8 / 13; grid-row: 3; }
   .cash-quick-actions { grid-column: 1 / -1; grid-row: 4; }
   .cash-quick-actions > div > div:last-child { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cash-decision-brief, .cash-analysis-heading { grid-column: 1 / -1; }
@@ -1917,6 +1927,22 @@ html.reduce-motion *::after {
   --desk-warn: 43 96% 56%;
   --desk-bad: 351 95% 71%;
   --desk-lavender: 253 95% 85%;
+  /* On the dark board a status colour reads the same as text and as a dot. */
+  --desk-ok-dot: var(--desk-ok);
+  --desk-warn-dot: var(--desk-warn);
+  --desk-bad-dot: var(--desk-bad);
+  --desk-live-bg: var(--desk-ok);
+  --desk-live-fg: var(--desk-ok);
+
+  /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
+     an alpha, because light does not want a translucent white — it wants a
+     solid lilac-grey line. These values are exactly the white/12, white/5,
+     white/10 and white/25 the desks used before, so dark is unchanged. */
+  --desk-line-color: rgba(255, 255, 255, 0.12);
+  --desk-line-soft: rgba(255, 255, 255, 0.06);
+  --desk-surface: rgba(255, 255, 255, 0.05);
+  --desk-surface-hover: rgba(255, 255, 255, 0.1);
+  --desk-ring: rgba(255, 255, 255, 0.25);
 
   color-scheme: dark;
   color: hsl(var(--foreground));
@@ -1927,6 +1953,90 @@ html.reduce-motion *::after {
   background-repeat: no-repeat;
   background-size: 100% 100%;
   background-attachment: fixed;
+}
+
+/* ---- The same board in daylight -------------------------------------------
+   Dark above is the baseline; this is the light set, and the desks open on it.
+   DeskPage writes the decision into data-desk-theme, so there is one light
+   block here rather than one per source of truth. Two cases never reach it:
+   board mode, and any desk with the checklist flag off — both stay dark, which
+   is why production is untouched until the flag is flipped.
+   Every colour below was checked at 4.5:1 against the surface it sits on:
+   text #17142B 16:1 on the ground, muted #5B5670 6.5:1, violet 7.1:1 on white,
+   red 6.5:1, green 5.0:1, amber 7.0:1, and the LIVE pill 6.3:1.
+   --------------------------------------------------------------------------- */
+.desk-root[data-desk-theme='light'] {
+  --background: 250 38% 97%;
+  --foreground: 248 37% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 248 37% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 248 37% 12%;
+  --muted: 250 38% 94%;
+  --muted-foreground: 252 13% 39%;
+  --border: 255 29% 92%;
+  --input: 255 29% 92%;
+  --primary: 263 70% 50%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 263 70% 50%;
+  --accent-foreground: 0 0% 100%;
+  --ring: 263 70% 50%;
+
+  /* Text weights of each status, dark enough to read as words. */
+  --desk-ok: 142 72% 29%;
+  --desk-warn: 23 83% 31%;
+  --desk-bad: 0 74% 42%;
+  --desk-lavender: 263 70% 50%;
+  /* Dot weights: brighter, for 8px circles and 2px rules. */
+  --desk-ok-dot: 142 76% 36%;
+  --desk-warn-dot: 23 83% 31%;
+  --desk-bad-dot: 0 72% 51%;
+  --desk-live-bg: 137 39% 93%;
+  --desk-live-fg: 143 64% 24%;
+
+  /* Solid lines and a faintly tinted field, so an input still reads as recessed
+     against a white card. */
+  --desk-line-color: #e7e4f0;
+  --desk-line-soft: #efedf6;
+  --desk-surface: #f7f6fb;
+  --desk-surface-hover: rgba(109, 40, 217, 0.08);
+  --desk-ring: rgba(23, 20, 43, 0.18);
+
+  color-scheme: light;
+  color: hsl(var(--foreground));
+  background-color: #f5f4fa;
+  /* No wash: on a light ground the violet gradient turned the top of the page grey. */
+  background-image: none;
+}
+
+/* Paper, not glass: a plain white card with a hairline border and the faintest
+   lift. The blur and the inset highlight only read as depth on a dark ground. */
+.desk-root[data-desk-theme='light'] .desk-panel,
+.desk-root[data-desk-theme='light'] .desk-tile {
+  background: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid #e7e4f0;
+  box-shadow: 0 1px 2px rgba(23, 20, 43, 0.04);
+}
+.desk-root[data-desk-theme='light'] .desk-thead th { background: #ffffff; }
+.desk-root[data-desk-theme='light'] .desk-row:hover { background: hsl(var(--primary) / 0.06); }
+/* The glow is a dark-board effect; in daylight it reads as a smudge. */
+.desk-root[data-desk-theme='light'] .desk-figure { text-shadow: none; }
+.desk-root[data-desk-theme='light'] .desk-shimmer {
+  background-image: linear-gradient(90deg, transparent 0%, rgba(23, 20, 43, 0.06) 50%, transparent 100%);
+}
+
+/* The LIVE pill is the one chip with its own pair of tokens, because its light
+   form is a green wash rather than the dark board's tinted glass. */
+.desk-live-pill {
+  background: hsl(var(--desk-live-bg) / 0.15);
+  border-color: hsl(var(--desk-live-fg) / 0.4);
+  color: hsl(var(--desk-live-fg));
+}
+.desk-root[data-desk-theme='light'] .desk-live-pill {
+  background: hsl(var(--desk-live-bg));
+  border-color: hsl(var(--desk-live-fg) / 0.25);
 }
 
 /* Glass surfaces: a thinner edge and a lighter fill than the first pass, so the

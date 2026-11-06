@@ -240,7 +240,9 @@ export default function Settings() {
   const fullName = joinPersonName(nameParts);
   const [phone, setPhone] = useState('');
   const otp = useOtpVerification();
-  // Second factor for a login-phone change: a code texted to the CURRENT number.
+  // Second factor for a login-phone change: a code emailed to the account's
+  // confirmed inbox (the new number is proven by its own SMS code). Accounts
+  // without an email are told by the server to add one first.
   const [oldPhoneCode, setOldPhoneCode] = useState('');
   const [oldPhoneMasked, setOldPhoneMasked] = useState<string | null>(null);
   const [requestingOldCode, setRequestingOldCode] = useState(false);
@@ -256,14 +258,19 @@ export default function Settings() {
 
   const requestOldPhoneCode = async () => {
     setRequestingOldCode(true);
-    const { data, error } = await invokeEdgeFunction<{ masked_phone?: string; not_required?: boolean }>(
+    // On failure the server's message is shown as-is: it tells a user with no
+    // email to add one, or when a newly added email becomes usable.
+    const { data, error } = await invokeEdgeFunction<{ masked_destination?: string; masked_phone?: string; not_required?: boolean }>(
       'self-update-phone',
-      { body: { action: 'request_old_phone_code', phone: phone.trim() }, silent: true, fallbackMessage: 'Could not send code to your current number' },
+      { body: { action: 'request_old_phone_code', phone: phone.trim() }, silent: true, fallbackMessage: 'Could not send your approval code' },
     );
     setRequestingOldCode(false);
-    if (error) { setResultDialog({ ok: false, title: 'Code not sent', message: error.message || 'Could not send code to your current number' }); return; }
-    setOldPhoneMasked(data?.not_required ? '' : (data?.masked_phone ?? ''));
-    if (!data?.not_required) setResultDialog({ ok: true, title: 'Code sent', message: `We texted a 6-digit code to your current number ${data?.masked_phone ?? ''}. Enter it, then tap Save.` });
+    if (error) { setResultDialog({ ok: false, title: 'Code not sent', message: error.message || 'Could not send your approval code' }); return; }
+    const masked = data?.masked_destination ?? data?.masked_phone ?? '';
+    setOldPhoneMasked(data?.not_required ? '' : masked);
+    if (!data?.not_required) {
+      setResultDialog({ ok: true, title: 'Code sent', message: `We emailed a 6-digit code to ${masked}. Enter it, then tap Save.` });
+    }
   };
 
   /** Mirrors the edge-function + DB normalizer exactly for client-side preview.
@@ -410,7 +417,7 @@ export default function Settings() {
       return;
     }
     if (phoneChanged && (profile.phone ?? '').trim() && !/^\d{6}$/.test(oldPhoneCode.trim())) {
-      fail('Enter the 6-digit code sent to your current phone number');
+      fail('Enter the 6-digit approval code we emailed you');
       setSaving(false);
       return;
     }
@@ -661,14 +668,14 @@ export default function Settings() {
                                   <div className={`space-y-2 ${otp.otpVerified ? '' : 'opacity-50'}`}>
                                     <div className="flex items-center gap-2">
                                       <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${/^\d{6}$/.test(oldPhoneCode) ? 'bg-success text-success-foreground' : 'bg-primary text-primary-foreground'}`}>{/^\d{6}$/.test(oldPhoneCode) ? <Check className="h-3 w-3" /> : '2'}</span>
-                                      <p className="text-xs font-medium text-foreground">Confirm with your current number</p>
+                                      <p className="text-xs font-medium text-foreground">Confirm it's you</p>
                                     </div>
                                     {otp.otpVerified && (oldPhoneMasked === null ? (
                                       <Button type="button" variant="outline" className="w-full h-11 rounded-xl" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
-                                        {requestingOldCode ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Send code to current number
+                                        {requestingOldCode ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Email me an approval code
                                       </Button>
                                     ) : (
-                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`Code sent to ${oldPhoneMasked || 'current number'}`} className="h-11 rounded-xl text-center tracking-[0.3em] font-mono" />
+                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`Code sent to ${oldPhoneMasked || 'you'}`} className="h-11 rounded-xl text-center tracking-[0.3em] font-mono" />
                                     ))}
                                   </div>
                                 )}

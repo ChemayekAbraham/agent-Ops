@@ -7,6 +7,7 @@ import { generateWelileAiId, getRiskTierLabel } from '@/lib/welileAiId';
 import { formatUGX, calculateRequestFee } from '@/lib/rentCalculations';
 import { getEffectiveRentRequestAmounts } from '@/lib/rentRequestAmounts';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -416,11 +417,14 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           .select('balance')
           .eq('user_id', tenantId)
           .maybeSingle(),
-        supabase
-          .from('investor_portfolios')
-          .select('investment_amount')
-          .eq('investor_id', tenantId)
-          .in('status', ['active', 'pending', 'pending_approval']),
+        fetchAgentOnboardedPortfolios()
+          .then(cards => ({
+            data: cards
+              .filter(c => c.investor_id === tenantId && ['active', 'pending', 'pending_approval'].includes(String(c.status)))
+              .map(c => ({ investment_amount: Number(c.investment_amount) || 0 })),
+            error: null,
+          }))
+          .catch(error => ({ data: [], error })),
         supabase
           .from('general_ledger')
           .select('amount, direction')
@@ -1627,7 +1631,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                   <p className="text-sm font-bold text-warning">This rent cycle was rejected</p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
                     The tenant still owes <strong className="font-mono">{formatUGX(summary.currentOutstanding)}</strong>.
-                    Reopen the cycle to collect from your float and earn 10% commission.
+                    Reopen the cycle to collect from your float and earn 8% commission.
                   </p>
                   <Button
                     onClick={handleReopenRejectedCycle}
@@ -1643,19 +1647,19 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <div className="rounded-xl border border-success/30 bg-success/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-success/80 font-semibold">Paid</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-success mt-0.5 tabular-nums">
                   {formatUGX(summary.activeRequest.amount_repaid)}
                 </p>
               </div>
-              <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-destructive/80 font-semibold">Remaining</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-destructive mt-0.5 tabular-nums">
                   {formatUGX(summary.currentOutstanding)}
                 </p>
               </div>
-              <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-center">
+              <div className="rounded-xl border border-border/60 bg-card p-3 text-center">
                 <p className="text-[11px] uppercase tracking-wider text-primary/80 font-semibold">Target</p>
                 <p className="text-base sm:text-lg font-bold font-mono text-primary mt-0.5 tabular-nums">
                   {formatUGX(summary.activeRequest.total_repayment)}
@@ -1857,7 +1861,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
             )}
 
             {!floatLoading && !floatError && agentFloatBalance < 500 && (
-              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3">
+              <div className="flex items-center gap-2 bg-card border border-border/60 rounded-xl p-3">
                 <AlertTriangle className="h-5 w-5 text-destructive shrink-0" />
                 <p className="text-sm text-destructive font-semibold">Insufficient wallet float. Top up Agent Float Allocation to collect.</p>
               </div>
@@ -1870,7 +1874,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
                 <div>
                   <p className="text-base font-bold text-success">Pay from Wallet Float</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">10% commission</strong> instantly.
+                    Deducts from <strong>your wallet float</strong>. You earn <strong className="text-success">8% commission</strong> instantly.
                   </p>
                 </div>
               </div>

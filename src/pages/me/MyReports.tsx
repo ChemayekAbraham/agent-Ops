@@ -9,6 +9,8 @@ import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner
 import { useAuth } from '@/hooks/useAuth';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import {
+  addUtcDays,
+  buildCustomDaysPeriodWindow,
   buildMonthPeriodWindow,
   buildWeekPeriodWindow,
   CALLING_TEAM_STAFF,
@@ -32,16 +34,19 @@ export default function MyReportsPage() {
   const [mode, setMode] = useState<StaffReportPeriodMode>('month');
   const [weekStart, setWeekStart] = useState<string>(() => getWedWeekStartYmd(todayYmd));
   const [yearMonth, setYearMonth] = useState<string>(() => todayYmd.slice(0, 7) || '2026-10');
+  const [customStart, setCustomStart] = useState<string>(() => addUtcDays(todayYmd, -6));
+  const [customEnd, setCustomEnd] = useState<string>(() => todayYmd);
 
   const currentStaff = useMemo(() => getCallingStaffByUserId(user?.id), [user?.id]);
   const isJaneHead = isCallingTeamHead(user?.id);
 
   const [activeTab, setActiveTab] = useState<string>('my');
 
-  const periodWindow = useMemo(
-    () => (mode === 'week' ? buildWeekPeriodWindow(weekStart) : buildMonthPeriodWindow(yearMonth, todayYmd)),
-    [mode, weekStart, yearMonth, todayYmd],
-  );
+  const periodWindow = useMemo(() => {
+    if (mode === 'week') return buildWeekPeriodWindow(weekStart);
+    if (mode === 'custom') return buildCustomDaysPeriodWindow(customStart, customEnd);
+    return buildMonthPeriodWindow(yearMonth, todayYmd);
+  }, [mode, weekStart, yearMonth, customStart, customEnd, todayYmd]);
 
   // Strictly accessible to the 3 calling staff (Jane, Winnie, Hanisha)
   const canAccessPage = Boolean(currentStaff);
@@ -95,7 +100,7 @@ export default function MyReportsPage() {
           </p>
         </div>
 
-        {/* Period Selector Bar (Week Wed-Tue & Specific Month) */}
+        {/* Period Selector Bar (Week Wed-Tue, Specific Month & Custom Days) */}
         <CallingReportPeriodBar
           mode={mode}
           onModeChange={setMode}
@@ -103,6 +108,12 @@ export default function MyReportsPage() {
           onWeekStartChange={setWeekStart}
           yearMonth={yearMonth}
           onYearMonthChange={setYearMonth}
+          customStart={customStart}
+          customEnd={customEnd}
+          onCustomRangeChange={(s, e) => {
+            setCustomStart(s);
+            setCustomEnd(e);
+          }}
           periodWindow={periodWindow}
           onRefresh={() => reportQ.refetch()}
           isFetching={reportQ.isFetching}

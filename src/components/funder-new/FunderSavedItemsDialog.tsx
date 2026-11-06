@@ -10,6 +10,7 @@ import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolio
 import { formatUGX } from '@/lib/rentCalculations';
 import { itemId, toSelectionItem } from './utils';
 import { loadFunderSavedItems, type SavedFunderEntry } from './loadFunderSavedItems';
+import { FunderBookedHousesSection } from './FunderBookedHousesSection';
 
 export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { user } = useAuth();
@@ -43,12 +44,23 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
       <DialogContent className="flex max-h-[85dvh] max-w-2xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Bookmark className="h-5 w-5 text-primary" />Saved Items</DialogTitle>
-          <DialogDescription>Saved houses and Rent Plans</DialogDescription>
+          <DialogDescription>Houses booked for you, and houses and Rent Plans you bookmarked</DialogDescription>
         </DialogHeader>
+        <div className="min-h-0 space-y-5 overflow-y-auto">
+        {open ? (
+          <FunderBookedHousesSection
+            onOpenHouse={(house) => {
+              setDetail({ category: 'empty', item: house });
+              onOpenChange(false);
+            }}
+          />
+        ) : null}
+        <section aria-labelledby="bookmarked-h" className="space-y-1">
+        <h3 id="bookmarked-h" className="font-semibold">Bookmarked</h3>
         {query.isPending || query.isFetching ? <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Checking availability</div>
           : query.isError ? <div className="space-y-3 py-6 text-center"><p className="text-sm text-destructive">Could not check availability. Your saved items have been kept.</p><Button variant="outline" onClick={() => void query.refetch()}><RefreshCw className="h-4 w-4" />Try again</Button></div>
-          : entries.length === 0 ? <div className="py-12 text-center"><Bookmark className="mx-auto h-9 w-9 text-primary/50" /><p className="mt-3 font-medium">No saved items available</p></div>
-          : <div className="min-h-0 overflow-y-auto divide-y divide-border">
+          : entries.length === 0 ? <div className="py-8 text-center"><Bookmark className="mx-auto h-9 w-9 text-primary/50" /><p className="mt-3 font-medium">No bookmarked items available</p></div>
+          : <div className="divide-y divide-border">
             {entries.map((entry) => {
               const info = toSelectionItem(entry.category, entry.item);
               return <article key={`${entry.category}:${info.id}`} className="flex items-center gap-3 py-4">
@@ -60,6 +72,8 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
               </article>;
             })}
           </div>}
+        </section>
+        </div>
       </DialogContent>
     </Dialog>
     <EmptyHouseDetailSheet house={detail?.category === 'empty' ? detail.item as Parameters<typeof EmptyHouseDetailSheet>[0]['house'] : null} open={detail?.category === 'empty'} onOpenChange={(value) => { if (!value) setDetail(null); }} isPartner />

@@ -319,7 +319,7 @@ export async function reopenBatchAsFinOps(batchId: string, note?: string) {
  * fetched via `getFieldDepositCommissionConfig()`. The UI must display a
  * warning whenever this fallback is in effect.
  */
-export const FIELD_DEPOSIT_COMMISSION_RATE_FALLBACK = 0.10;
+export const FIELD_DEPOSIT_COMMISSION_RATE_FALLBACK = 0.08;
 
 /** @deprecated Prefer `getFieldDepositCommissionConfig()`. Kept for backwards compatibility. */
 export const FIELD_DEPOSIT_COMMISSION_RATE = FIELD_DEPOSIT_COMMISSION_RATE_FALLBACK;

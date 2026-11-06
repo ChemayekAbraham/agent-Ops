@@ -11,7 +11,8 @@
  * queue and the listing "swap tenant" flow still open AgentRentRequestDialog.
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Sparkles, Square, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
+import welileLogo from '@/assets/welile-logo.png';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAssistantSpeech } from './useAssistantSpeech';
@@ -759,7 +760,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'nationalId': return `Thanks! Now the NIN from ${first}’s National ID card. It usually starts with CM or CF. 🔢`;
       case 'language': return `Which language does ${first} understand best? 🗣️ I’ll send their SMS messages in it.`;
       case 'smartphone': return `Does ${first} have a smartphone? 📲`;
-      case 'landlord': return `${first === 'the tenant' ? 'The tenant' : first} is all set ✅ Now the house. Who’s the landlord? Search by name or phone.`;
+      case 'landlord': return `${first === 'the tenant' ? 'The tenant' : first} is all set ✅ Now the house. Who’s the landlord? Search by name or phone, or register them if they’re new.`;
       case 'house': return `Which of ${landlordFirst}’s houses is it? 🏘️ Only houses with photos can be used.`;
       case 'location': return 'Where is the house? 📍 Pick the district, sub-county and village.';
       case 'address': return 'What’s the address? A plot number, road or landmark is fine. 🛣️';
@@ -836,7 +837,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </button>
         <Avatar size="lg" />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-bold leading-tight">Welile Assistant</p>
+          <p className="font-display text-base font-bold leading-tight">Post Rent Request</p>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
             {result ? 'Request posted' : 'Posting a Rent Plan with you'}
@@ -864,7 +865,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </TooltipProvider>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-primary/[0.07] px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
           <div className="px-1 pb-1 pt-2">
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
@@ -977,7 +978,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                   placeholder={placeholderOf(current)}
                   className="h-11 min-w-0 flex-1 rounded-full border border-border bg-background px-4 text-base outline-none focus:border-primary"
                 />
-                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground disabled:opacity-60">
+                <button type="submit" aria-label="Send" disabled={lc1Looking || recordChecking} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground hover:bg-success/90 disabled:opacity-60">
                   {lc1Looking || recordChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </form>
@@ -985,7 +986,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <button
                 type="button"
                 onClick={continueStep}
-                className="h-11 flex-1 rounded-full bg-primary font-semibold text-primary-foreground"
+                className="h-11 flex-1 rounded-full bg-success font-semibold text-success-foreground active:scale-[0.99] hover:bg-success/90"
               >
                 Continue
               </button>
@@ -1085,6 +1086,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
           <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2">
             <LandlordSearchSelect value={landlord} inline registeredBy={null} onChange={(l) => { setLandlord(l); setError(null); }} onAddNew={() => setShowRegisterLandlord(true)} />
             {landlord && <LandlordStatusNote status={landlordStatus} agreement={agreementOnFile} verifyReq={verifyReq} onRequest={requestLandlordVerification} name={landlord.name} />}
+            {/* The search only offers "register" when nothing matches; keep it in reach when a similar name shows up. */}
+            <button
+              type="button"
+              onClick={() => { hapticTap(); setShowRegisterLandlord(true); }}
+              className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary"
+            >
+              <UserPlus className="h-4 w-4" /> Register a new landlord
+            </button>
           </div>
         );
       case 'house':
@@ -1263,10 +1272,9 @@ function Avatar({ size = 'sm' }: { size?: 'sm' | 'lg' }) {
   return (
     <span
       aria-hidden="true"
-      className={cn('flex shrink-0 items-center justify-center rounded-full text-white', size === 'lg' ? 'h-9 w-9' : 'h-7 w-7')}
-      style={{ background: 'linear-gradient(137deg, hsl(271 85% 62%), hsl(271 81% 48%) 54%, hsl(258 72% 34%))' }}
+      className={cn('flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary', size === 'lg' ? 'h-9 w-9' : 'h-7 w-7')}
     >
-      <Sparkles className={size === 'lg' ? 'h-4 w-4' : 'h-3.5 w-3.5'} />
+      <img src={welileLogo} alt="" draggable={false} className="h-full w-full object-cover" />
     </span>
   );
 }

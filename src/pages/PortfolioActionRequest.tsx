@@ -33,7 +33,7 @@ const buildMessage = (mode: Mode, portfolioCode: string) =>
 
 I am writing regarding my partnership portfolio (${portfolioCode}).
 
-I would like to renew my partnership for a new investment cycle and continue participating in future opportunities available through the platform.
+I would like to renew my partnership for a new support cycle and continue participating in future opportunities available through the platform.
 
 Kindly advise on any additional requirements or next steps.
 

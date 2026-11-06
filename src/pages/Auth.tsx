@@ -640,7 +640,7 @@ export default function Auth() {
 
                 <div className="or-separator">
                   <span className="sep-line" />
-                  <span className="sep-text">or sign in with</span>
+                  <span className="sep-text">or login with</span>
                   <span className="sep-line" />
                 </div>
 
@@ -725,7 +725,7 @@ export default function Auth() {
                   </div>
 
                   <button type="submit" className="btn btn-primary" disabled={isLoading}>
-                    {isLoading ? <><Loader2 className="btn-spin" /> <span className="truncate">{stageText}</span></> : <span>Sign in</span>}
+                    {isLoading ? <><Loader2 className="btn-spin" /> <span className="truncate">{stageText}</span></> : <span>Login</span>}
                   </button>
                   <button type="button" onClick={() => { if (phone) setResetPhone(phone); setResetStep('phone'); setIsForgotPassword(true); }} className="btn-link-muted">
                     Forgot password? Send a reset code
@@ -863,7 +863,7 @@ export default function Auth() {
                     className="btn btn-primary"
                     disabled={emailLoginLoading || !emailLoginAddress.trim() || !password.trim()}
                   >
-                    {emailLoginLoading ? <><Loader2 className="btn-spin" /> <span>Signing in…</span></> : <span>Sign in</span>}
+                    {emailLoginLoading ? <><Loader2 className="btn-spin" /> <span>Signing in…</span></> : <span>Login</span>}
                   </button>
                   <button type="button" onClick={() => { if (phone) setResetPhone(phone); setResetStep('phone'); setIsForgotPassword(true); }} className="btn-link-muted">
                     Forgot password? Send a reset code
