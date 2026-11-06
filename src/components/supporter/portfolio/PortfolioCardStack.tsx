@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { ChevronRight, Building2, Clock, RefreshCw } from 'lucide-react';
+import { ChevronRight, Building2, Clock, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -114,6 +114,11 @@ export function PortfolioCardStack({
     [portfolios],
   );
   const byId = useMemo(() => Object.fromEntries(portfolios.map((p) => [p.id, p])), [portfolios]);
+  // Principal across every portfolio in the stack; each card shows its own when lifted out.
+  const totalPrincipal = useMemo(
+    () => portfolios.reduce((sum, p) => sum + (Number(p.investment_amount) || 0), 0),
+    [portfolios],
+  );
 
   // The shimmer is written straight to a CSS variable, so it never re-renders the cards.
   useEffect(() => {
@@ -140,6 +145,8 @@ export function PortfolioCardStack({
 
   // Tapping the front card lifts it out of the pocket so its whole face shows; tap again to tuck it back.
   const [expanded, setExpanded] = useState(false);
+  // The total stays masked until the partner taps the eye, like the balance on the gold card.
+  const [showTotal, setShowTotal] = useState(false);
 
   const frontId = order[order.length - 1];
   const front = frontId ? byId[frontId] : undefined;
@@ -353,9 +360,21 @@ export function PortfolioCardStack({
       >
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-medium text-muted-foreground">Principal</p>
+            <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              Your active portfolios
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); hapticTap(); setShowTotal((v) => !v); }}
+                onKeyDown={(e) => e.stopPropagation()}
+                aria-label={showTotal ? 'Hide total' : 'Show total'}
+                aria-pressed={showTotal}
+                className="-m-1 rounded-full p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {showTotal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              </button>
+            </p>
             <p className="mt-0.5 break-words font-mono text-2xl font-semibold leading-tight tabular-nums tracking-tight text-foreground">
-              {formatUGX(a.deployed)}
+              {showTotal ? formatUGX(totalPrincipal) : 'UGX ••••••'}
             </p>
           </div>
           <span className="mt-1 grid h-9 w-9 flex-none place-items-center rounded-full bg-muted/80 text-muted-foreground">
