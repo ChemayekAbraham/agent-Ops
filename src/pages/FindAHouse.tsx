@@ -283,7 +283,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
  * crucial because each card mounts a Google Map iframe + multiple images.
  * Heights are measured dynamically since cards vary (amenities, description, thumbnails).
  */
-function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null }) {
+function VirtualHouseList({ listings, onOpenDetails, userLat, userLng, focusId, onFocused }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null; focusId?: string | null; onFocused?: () => void }) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const virtualizer = useWindowVirtualizer({
@@ -294,6 +294,22 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
     scrollMargin: listRef.current?.offsetTop ?? 0,
     getItemKey: (index) => listings[index].id,
   });
+
+  // Coming back from a house page: bring that house's card into view once it is on this page.
+  useEffect(() => {
+    if (!focusId) return;
+    const index = listings.findIndex((l) => l.id === focusId);
+    if (index < 0) return;
+    const id = window.setTimeout(() => {
+      // Land the card's top just below the sticky header, not underneath it.
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const [offset] = virtualizer.getOffsetForIndex(index, 'start') ?? [0];
+      window.scrollTo({ top: Math.max(0, offset - headerHeight - 12) });
+      onFocused?.();
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [focusId, listings, virtualizer, onFocused]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -383,6 +399,11 @@ export default function FindAHouse() {
   // Client-side pagination over the filtered set.
   const PAGE_SIZE = 12;
   const [page, setPage] = useState(1);
+  // A house page's back arrow returns here with the house to bring back into view.
+  const [focusHouseId, setFocusHouseId] = useState<string | null>(
+    () => (location.state as { focusHouseId?: string } | null)?.focusHouseId ?? null,
+  );
+  const clearFocusHouse = useCallback(() => setFocusHouseId(null), []);
   const debouncedSearch = useDebouncedValue(searchText, 250);
   const [showMap, setShowMap] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -608,6 +629,13 @@ export default function FindAHouse() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, minPrice, maxPrice, minRooms, amenities, sortKey, selectedRegion, selectedCategory, selectedDistrict, selectedSubCounty, selectedVillage]);
+
+  // Open the page that holds the house being returned to.
+  useEffect(() => {
+    if (!focusHouseId || filtered.length === 0) return;
+    const index = filtered.findIndex((l) => l.id === focusHouseId);
+    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE) + 1);
+  }, [focusHouseId, filtered]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -1126,11 +1154,11 @@ export default function FindAHouse() {
                   </div>
                   {/* List — hidden while the map is open (toggle), at every width */}
                   <div className="hidden min-w-0">
-                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
                   </div>
                 </div>
               ) : (
-                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
               )}
 
               {/* Pagination */}
