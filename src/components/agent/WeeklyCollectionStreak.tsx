@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Flame, X, Check, Clock, CircleHelp } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
+import { useIsActiveAgent } from '@/hooks/useIsActiveAgent';
 
 export const STREAK_TIERS = [
   { active: 7, reward: 50000 },
@@ -30,29 +30,6 @@ export function useWeeklyStreak() {
       return data as unknown as Streak;
     },
     staleTime: 60_000,
-  });
-}
-
-/**
- * The streak is only for active agents: those with at least one tenant whose Rent Plan is repaying.
- * Everyone else (new agents, and the many users who simply hold the agent role) never sees it.
- */
-export function useIsActiveAgent() {
-  const { user } = useAuth();
-  const uid = user?.id;
-  return useQuery({
-    queryKey: ['agent-has-repaying-tenants', uid],
-    enabled: !!uid,
-    staleTime: 5 * 60_000,
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('rent_requests')
-        .select('id', { count: 'exact', head: true })
-        .or(`agent_id.eq.${uid},assigned_agent_id.eq.${uid}`)
-        .eq('status', 'repaying');
-      if (error) throw error;
-      return (count ?? 0) > 0;
-    },
   });
 }
 
