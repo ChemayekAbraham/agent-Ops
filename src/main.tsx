@@ -165,7 +165,7 @@ const loadApp = async () => {
     await ensureRuntimePolyfills();
 
     const importTimeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Import timeout')), 30000)
+      setTimeout(() => reject(new Error('Import timeout')), import.meta.env.DEV ? 180000 : 30000)
     );
     const importApp = Promise.all([
       import('./critical.css'),
@@ -275,6 +275,10 @@ setTimeout(() => {
     try { return (window as any).__WELILE_APP_READY__ === true; } catch { return false; }
   })();
   if (appReady || !root.innerHTML.includes('animation:')) return;
+  // Dev only: Vite compiles the ~2,400-file app on the first request, which can
+  // take well over 10s. This watchdog would then auto-reload, restarting the
+  // wait, and it looks like an endless reload loop. Production keeps it.
+  if (import.meta.env.DEV) return;
 
   const online = (() => {
     try { return navigator.onLine !== false; } catch { return true; }
