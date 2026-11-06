@@ -42022,6 +42022,35 @@ export type Database = {
           },
         ]
       }
+      payout_destination_staff_reviews: {
+        Row: {
+          destination_id: string
+          note: string | null
+          reviewed_at: string
+          reviewed_by: string
+        }
+        Insert: {
+          destination_id: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by: string
+        }
+        Update: {
+          destination_id?: string
+          note?: string | null
+          reviewed_at?: string
+          reviewed_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_destination_staff_reviews_destination_id_fkey"
+            columns: ["destination_id"]
+            isOneToOne: true
+            referencedRelation: "payout_destination_verifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payout_destination_verifications: {
         Row: {
           account_name: string | null
@@ -81859,6 +81888,38 @@ export type Database = {
         Args: { p: Json; p_collection_id: string }
         Returns: string[]
       }
+      fin_ops_cash_codes_page: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_location?: string
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_to?: string
+        }
+        Returns: {
+          amount: number
+          attempts: number
+          cash_location: string
+          cash_owner_name: string
+          created_at: string
+          deposit_purpose: string
+          deposit_request_id: string
+          depositor_name: string
+          expires_at: string
+          max_attempts: number
+          status: string
+          total_count: number
+          verification_id: string
+          wallet_holder_name: string
+          wallet_holder_phone: string
+        }[]
+      }
+      fin_ops_cash_codes_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       fin_ops_recent_cash_codes: {
         Args: { p_limit?: number }
         Returns: {
@@ -82041,6 +82102,11 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      finops_auto_verified_review_count: { Args: never; Returns: number }
+      finops_auto_verified_review_queue: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: Json
+      }
       finops_bank_account_change_requests: {
         Args: { p_status?: string }
         Returns: {
@@ -82112,6 +82178,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      finops_mark_auto_verified_reviewed: {
+        Args: { p_destination_id: string; p_note?: string }
+        Returns: undefined
       }
       finops_national_id_ocr_reads: {
         Args: { p_user_id: string }
