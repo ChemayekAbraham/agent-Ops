@@ -46,7 +46,9 @@ const PENDING_STATUSES = new Set([
 
 function formatTenantStatus(status: string) {
   if (PENDING_STATUSES.has(status)) return 'Pending approval';
-  return status.replace(/_/g, ' ');
+  // Partners must never see the underlying Rent Plan's stage — their 12-month
+  // contract keeps earning regardless. Funded items read simply "Supporting".
+  return 'Supporting';
 }
 
 interface SupportedTenantsSectionProps {
@@ -197,7 +199,7 @@ export function SupportedTenantsSection({ embedded = false }: SupportedTenantsSe
               <p className="text-sm font-black text-foreground font-mono tabular-nums">
                 {formatUGX(item.amount)}
               </p>
-              <p className="text-[10px] text-muted-foreground capitalize">{item.status}</p>
+              <p className="text-[10px] text-muted-foreground capitalize">{formatTenantStatus(item.status)}</p>
             </div>
           </div>
         ))}

@@ -38,12 +38,15 @@ import {
   Phone,
   RefreshCw,
   ClipboardList,
+  GraduationCap,
+  Stethoscope,
   Briefcase,
   Heart,
   BookOpen,
   LucideIcon,
   FileDown,
   Megaphone,
+  Activity,
 } from 'lucide-react';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
@@ -194,6 +197,9 @@ export function AgentMenuDrawer({
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
+        { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
+        { icon: Stethoscope, label: 'Welile Medicine', description: 'Clinics, pharmacies, hospitals — people IN/OUT & receipts', path: '/agent/welile-medicine', accent: 'primary' },
+        { icon: Megaphone, label: 'Welile Signages', description: 'Busy spots, billboards & signboards', path: '/agent/welile-signages', accent: 'primary', badge: 'New' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
@@ -218,6 +224,10 @@ export function AgentMenuDrawer({
       items: [
         { icon: Users, label: 'My Tenant Hub', description: 'Tenants, repayments & rent requests', onClick: onViewTenantHub, accent: 'primary' },
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
+        { icon: Home, label: 'Welile Homes', description: 'Agent-managed tenants & subscriptions', path: '/agent/welile-homes', accent: 'primary' },
+        { icon: GraduationCap, label: 'Welile Schools', description: 'Register everyone at the school gate', path: '/agent/welile-schools', accent: 'primary' },
+        { icon: Stethoscope, label: 'Welile Medicine', description: 'Clinics, pharmacies, hospitals — people IN/OUT & receipts', path: '/agent/welile-medicine', accent: 'primary' },
+        { icon: Megaphone, label: 'Welile Signages', description: 'Busy spots, billboards & signboards', path: '/agent/welile-signages', accent: 'primary', badge: 'New' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },
@@ -297,6 +307,14 @@ export function AgentMenuDrawer({
         { icon: ScrollText, label: 'Agreement', path: '/agent-agreement', accent: 'muted-foreground' },
         { icon: Settings, label: 'Settings', path: '/settings', accent: 'muted-foreground' },
         { icon: HelpCircle, label: 'Help', path: '/help', accent: 'muted-foreground' },
+      ],
+    },
+    {
+      id: 'performance',
+      icon: Activity,
+      label: '📈 Performance',
+      items: [
+        { icon: Activity, label: 'Weekly Performance', description: 'Your weekly target & progress', path: '/agent/performance', accent: 'primary', badge: 'New' },
       ],
     },
   ];
@@ -661,7 +679,7 @@ function RentPaymentGuideContent() {
       <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2">Paying Rent for a Tenant</p>
       <StepItem num="1"><p className="font-medium">Search Tenant</p><p className="text-muted-foreground">Search by name or phone number.</p></StepItem>
       <StepItem num="2"><p className="font-medium">Enter Amount</p><p className="text-muted-foreground">See outstanding balance and your wallet balance.</p></StepItem>
-      <StepItem num="3"><p className="font-medium">Instant Processing</p><p className="text-muted-foreground">Money deducted from your wallet. You earn 5% commission.</p></StepItem>
+      <StepItem num="3"><p className="font-medium">Instant Processing</p><p className="text-muted-foreground">Money deducted from your wallet. You earn 8% commission.</p></StepItem>
       <StepItem num="✓" color="success"><p className="font-medium text-success">Receivables Updated</p><p className="text-muted-foreground">Statement updates immediately.</p></StepItem>
       <div className="rounded-lg border border-warning/30 bg-warning/5 p-2 space-y-1.5 mt-2">
         <div className="flex items-center gap-2">
@@ -686,7 +704,7 @@ function TenantVerifyGuideContent() {
       <StepItem num="3"><p className="font-medium flex items-center gap-1"><Droplets className="h-3 w-3" /> Verify Water Meter</p><p className="text-muted-foreground">Check NWSC water meter.</p></StepItem>
       <StepItem num="4"><p className="font-medium flex items-center gap-1"><Phone className="h-3 w-3" /> Confirm MM Details</p><p className="text-muted-foreground">Verify MM name matches phone.</p></StepItem>
       <StepItem num="5"><p className="font-medium flex items-center gap-1"><MapPin className="h-3 w-3" /> Capture GPS</p><p className="text-muted-foreground">Pin the tenant's residence location.</p></StepItem>
-      <StepItem num="✓" color="success"><p className="font-medium text-success">Tap "Verify"</p><p className="text-muted-foreground">Earn <strong>UGX 10,000</strong> + <strong>5%</strong> ongoing commission!</p></StepItem>
+      <StepItem num="✓" color="success"><p className="font-medium text-success">Tap "Verify"</p><p className="text-muted-foreground">Earn <strong>UGX 10,000</strong> + <strong>8%</strong> ongoing commission!</p></StepItem>
     </>
   );
 }

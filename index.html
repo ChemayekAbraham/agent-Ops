@@ -72,7 +72,7 @@
     <!-- Critical: Preconnect early — full TCP+TLS handshake saved -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="preconnect" href="https://wirntoujqoyjobfhyelc.supabase.co" crossorigin />
+    <link rel="preconnect" href="__SUPABASE_ORIGIN__" crossorigin />
     <link rel="preconnect" href="https://maps.googleapis.com" />
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://api.exchangerate-api.com" />
@@ -80,14 +80,14 @@
     <!-- Fonts - Skip on save-data / slow connections -->
     <link
       id="gfonts"
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap&subset=latin"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap&subset=latin"
       rel="stylesheet"
       media="print"
       onload="this.media='all'"
     />
     <noscript
       ><link
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap&subset=latin"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap&subset=latin"
         rel="stylesheet"
     /></noscript>
     <script>
@@ -174,7 +174,7 @@
     <!-- Minimal critical CSS -->
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      html{font-family:'Plus Jakarta Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f8fafc;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+      html{font-family:'DM Sans','Plus Jakarta Sans',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f8fafc;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;text-size-adjust:100%}
       body{min-height:100vh;min-height:100dvh;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
       #root{min-height:100vh;min-height:100dvh}
       html.dark{background:#0f172a}

@@ -21,7 +21,6 @@ import { AngelPoolAgreementDialog } from './agreement/AngelPoolAgreementDialog';
 
 type ViewState = 'default' | 'investing' | 'committed';
 
-const MOCK_ACTIVE_DEMAND = 935_599_000;
 const MOCK_STATS = { activeRequests: 1901, verifiedLandlords: 1322, fieldAgents: 1006 };
 
 // ─── Shared Amount Input ───
@@ -63,10 +62,10 @@ function TenantPreview({ amount, formatAmountCompact }: { amount: number; format
   const dailyReturn = amount * 0.005;
   return (
     <div className="space-y-2 pt-2">
-      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Investment Preview</p>
+      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Support Preview</p>
       <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2.5">
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground flex items-center gap-1.5"><Coins className="h-3 w-3" /> Investment</span>
+          <span className="text-muted-foreground flex items-center gap-1.5"><Coins className="h-3 w-3" /> Support</span>
           <span className="font-black text-foreground">{formatAmountCompact(amount)}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
@@ -96,7 +95,7 @@ function AngelPreview({ amount, formatAmountCompact }: { amount: number; formatA
   const companyPct = (POOL_PERCENT / TOTAL_SHARES) * shares;
   return (
     <div className="space-y-2 pt-2">
-      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Investment Preview</p>
+      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Support Preview</p>
       <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2.5">
         <div className="grid grid-cols-3 gap-2 pb-2">
           {[{ val: shares, label: 'Shares' }, { val: `${poolPct.toFixed(2)}%`, label: 'Pool %' }, { val: `${companyPct.toFixed(4)}%`, label: 'Company %' }].map(m => (
@@ -270,9 +269,9 @@ function AngelCommittedSummary({
           </div>
         </div>
 
-        {/* Total Investment */}
+        {/* Total Support */}
         <div>
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Your Investment</p>
+          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Your Support</p>
           <p className="text-3xl font-black text-foreground tracking-tight mt-0.5">
             UGX {amount.toLocaleString()}
           </p>
@@ -316,9 +315,9 @@ function AngelCommittedSummary({
         <div className="space-y-2">
           {[
             { icon: BarChart3, label: 'Equity Pool', value: `Up to ${POOL_PERCENT}%`, valueClass: 'text-primary font-black' },
-            { icon: Lock, label: 'Investment Horizon', value: 'Long-term', valueClass: 'font-bold' },
+            { icon: Lock, label: 'Support Horizon', value: 'Long-term', valueClass: 'font-bold' },
             { icon: Shield, label: 'Structure', value: 'Share-based ownership', valueClass: 'font-bold' },
-            { icon: BadgeCheck, label: 'Status', value: 'Verified investor', valueClass: 'font-bold' },
+            { icon: BadgeCheck, label: 'Status', value: 'Verified supporter', valueClass: 'font-bold' },
           ].map(m => (
             <div key={m.label} className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground flex items-center gap-1.5">
@@ -362,9 +361,9 @@ function AngelCommittedSummary({
 // ─── DEFAULT GATEWAY CARD ───
 // ═══════════════════════════════════════════
 function DefaultEntryCard({
-  onOpenSelection, formatAmountCompact,
+  onOpenSelection,
 }: {
-  onOpenSelection: () => void; formatAmountCompact: (n: number) => string;
+  onOpenSelection: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
@@ -381,15 +380,6 @@ function DefaultEntryCard({
               Verified opportunities. Structured returns. Choose your path.
             </p>
           </div>
-        </div>
-
-        <div className="rounded-xl bg-muted/40 border border-border/40 px-4 py-3 text-center">
-          <p className="text-2xl font-black text-foreground tracking-tight">
-            {formatAmountCompact(MOCK_ACTIVE_DEMAND)}
-          </p>
-          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest mt-0.5">
-            Active Capital Demand
-          </p>
         </div>
 
         <div className="flex items-center justify-center gap-3 flex-wrap">
@@ -411,7 +401,7 @@ function DefaultEntryCard({
           onClick={() => { hapticTap(); onOpenSelection(); }}
           className="w-full h-12 rounded-2xl text-sm font-bold shadow-md gap-2"
         >
-          <Rocket className="h-4 w-4" /> Explore Investment Options
+          <Rocket className="h-4 w-4" /> Explore Support Options
           <ChevronRight className="h-4 w-4 ml-auto" />
         </Button>
       </div>
@@ -540,7 +530,7 @@ export function CapitalOpportunityEntry() {
   if (viewState === 'default') {
     return (
       <>
-        <DefaultEntryCard onOpenSelection={() => setSheetOpen(true)} formatAmountCompact={formatAmountCompact} />
+        <DefaultEntryCard onOpenSelection={() => setSheetOpen(true)} />
         <InvestmentSelectionSheet open={sheetOpen} onOpenChange={setSheetOpen} onSelect={handlePoolSelect} />
         <AngelPoolAgreementDialog
           open={showAgreementDialog}
@@ -565,7 +555,7 @@ export function CapitalOpportunityEntry() {
         </div>
         <div>
           <h3 className="font-black text-foreground text-sm tracking-tight">Grow Your Capital</h3>
-          <p className="text-[10px] text-muted-foreground font-medium leading-tight">Choose an investment pool below</p>
+          <p className="text-[10px] text-muted-foreground font-medium leading-tight">Choose a support pool below</p>
         </div>
       </div>
 

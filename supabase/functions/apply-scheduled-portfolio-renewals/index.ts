@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { evaluateRenewalPayoutGate } from "../_shared/renewalPayoutGate.ts";
+import { sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -167,6 +168,18 @@ Deno.serve(async (req) => {
           !email.endsWith("@noapp.welile.user");
         if (isRealEmail) {
           const r: any = res;
+          await sendReturnsReadyEmail({
+            admin,
+            supabaseUrl,
+            serviceKey,
+            portfolioId: row.id,
+            portfolioCode: r?.portfolio_code || row.portfolio_code,
+            portfolioName: r?.account_name || row.account_name || row.portfolio_code,
+            recipientEmail: email!,
+            partnerName: investor?.full_name || "Partner",
+            newMaturityDate: r?.new_maturity_date ? new Date(`${r.new_maturity_date}T00:00:00Z`) : null,
+            idempotencyKey: `portfolio-renewal-returns-ready-${row.id}-${todayStr}`,
+          });
           const emailRes = await fetch(
             `${supabaseUrl}/functions/v1/send-transactional-email`,
             {

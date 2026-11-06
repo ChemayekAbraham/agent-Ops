@@ -165,10 +165,6 @@ Deno.serve(async (req) => {
 
       const agentId = fa.agent_id;
 
-      // Ensure wallet exists
-      await adminClient.from('wallets')
-        .upsert({ user_id: agentId, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
       // Credit agent wallet via balanced RPC: platform cash_out + wallet cash_in
       const refId = crypto.randomUUID();
       const expTxDate = new Date().toISOString();
@@ -252,10 +248,6 @@ Deno.serve(async (req) => {
       let processed = 0;
       for (const item of items) {
         try {
-          // Ensure wallet exists
-          await adminClient.from('wallets')
-            .upsert({ user_id: item.employee_id, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
           // Detect outstanding advance and compute recovery split
           const gross = Number(item.amount);
           const { data: walletRow } = await adminClient

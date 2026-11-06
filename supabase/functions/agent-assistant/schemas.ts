@@ -49,6 +49,8 @@ export const RequestSchema = z.discriminatedUnion("action", [
     action: z.literal("message"),
     message: messageText,
     conversation_id: z.string().uuid().optional(),
+    // Which screen the chat was opened on. A tone hint only: it never widens what can be read.
+    page: z.enum(["agent_dashboard", "funder_dashboard", "other"]).optional(),
     client_context: ClientContextSchema.optional(),
   }).strict(),
   z.object({

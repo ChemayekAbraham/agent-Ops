@@ -68,6 +68,17 @@ export function isUgandanPhone(phone: string): boolean {
   const f = formatPhoneInternational(phone);
   return f.startsWith("+256") && f.length >= 13;
 }
+/**
+ * A number that is not Ugandan but is written in full international form: a leading "+", a country
+ * code that does not start with 0, 10-15 digits in all. The "+" is required on purpose: without it
+ * a short local number such as 075999766 cannot be told from a foreign one and must stay rejected.
+ * Used only by callers that opt in with `allowInternational` (the withdrawal PIN setup code).
+ */
+export function isInternationalPhone(phone: string): boolean {
+  if (isUgandanPhone(phone)) return true;
+  const compact = String(phone ?? "").replace(/[\s\-().]/g, "");
+  return /^\+[1-9][0-9]{9,14}$/.test(compact);
+}
 function toMsisdn(phone: string): string {
   return formatPhoneInternational(phone).replace(/^\+/, "");
 }
@@ -161,6 +172,12 @@ export interface SmsLogCtx {
   requireDeliveryConfirmation?: boolean;
   /** Tighten/loosen the Yoola delivery-report polling window. */
   deliveryConfirmation?: { attempts?: number; delayMs?: number };
+  /**
+   * Opt-in: also send to a non-Ugandan number written as +<country code>... (e.g. a Kenyan +254
+   * account phone). Off by default, so every other SMS keeps its Ugandan-only rule. A foreign number
+   * skips the profile-phone gate and goes through Africa's Talking only; Yoola and Lana are Uganda routes.
+   */
+  allowInternational?: boolean;
 }
 
 /**
@@ -213,7 +230,8 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
   // to be a foreign number — found 2026-09-16: this silently and permanently
   // blocked every withdrawal OTP for a user with a Kenyan account phone but a
   // valid Ugandan mobile-money payout number.
-  if (logCtx?.admin && logCtx.recipient_user_id && !isUgandanPhone(effectivePhone)) {
+  const international = !!logCtx?.allowInternational && !isUgandanPhone(effectivePhone) && isInternationalPhone(effectivePhone);
+  if (logCtx?.admin && logCtx.recipient_user_id && !isUgandanPhone(effectivePhone) && !international) {
     const gate = await resolveProfilePhoneGate(logCtx.admin, logCtx.recipient_user_id);
     if (gate.blocked) {
       const reason = "Blocked: recipient has no phone on profile (PhoneCollectionGate pending)";
@@ -260,10 +278,11 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
   let delivered = false;
   let invalid = false;
 
-  if (!isUgandanPhone(effectivePhone)) {
+  if (!isUgandanPhone(effectivePhone) && !international) {
     invalid = true;
   } else {
-    for (const send of [sendViaYoola, sendViaAT, sendViaLana]) {
+    // A foreign number goes through Africa's Talking only (Yoola and Lana are Uganda routes).
+    for (const send of international ? [sendViaAT] : [sendViaYoola, sendViaAT, sendViaLana]) {
       const r = await send(effectivePhone, message);
       if (r === null) continue;
       const providerName = providerNames[send.name] || send.name;

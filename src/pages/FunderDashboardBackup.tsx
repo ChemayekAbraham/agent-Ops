@@ -25,9 +25,11 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { roleToSlug } from '@/lib/roleRoutes';
 
-const SupporterDashboardBackup = lazyWithRetry(
-  () => import('@/components/dashboards/SupporterDashboard.backup'),
-);
+const loadDashboard = () => import('@/components/dashboards/SupporterDashboard.backup');
+const SupporterDashboardBackup = lazyWithRetry(loadDashboard);
+// Start fetching the dashboard chunk as soon as this page module loads, in parallel with the
+// session check, instead of after it. lazyWithRetry still handles a failed load when it renders.
+void loadDashboard().catch(() => undefined);
 
 export default function FunderDashboardBackup() {
   const { user, roles, role, loading, signOut, switchRole, addRole } = useAuth();

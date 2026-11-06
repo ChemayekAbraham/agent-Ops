@@ -2,6 +2,8 @@
 // timestamp so users (and support) can see WHY a Google/Apple sign-in
 // failed, not just a generic toast that disappears.
 
+import { setPendingIdentityLink } from '@/lib/pendingIdentityLink';
+
 const KEY = 'welile_oauth_error_v1';
 
 export type OAuthErrorRecord = {
@@ -58,9 +60,24 @@ export function captureOAuthRedirectError(provider: string = 'google'): OAuthErr
   if (!err) return null;
   const desc = q.get('error_description') || h.get('error_description') || '';
   const code = q.get('error_code') || h.get('error_code') || undefined;
+  const raw = decodeURIComponent(desc || err);
+  // The database refused to open a new account for this Google/Apple sign-in. The
+  // usual reason is that the email is already on an account that signs in by phone
+  // (trigger block_oauth_duplicate_signup); the device signup cap and fraud blocks
+  // surface the same way. Supabase hides the reason, so guide the person to their
+  // existing account and link the provider once they are in.
+  if (/database error saving new user/i.test(raw) && (provider === 'google' || provider === 'apple')) {
+    setPendingIdentityLink({ provider });
+    return recordOAuthError({
+      provider,
+      message: `${provider === 'google' ? 'Google' : 'Apple'} could not open a new account. If you already have a Welile account, sign in below with your phone number and password and we will connect ${provider === 'google' ? 'Google' : 'Apple'} to it automatically.`,
+      code: code || err,
+      context: 'redirect_callback',
+    });
+  }
   return recordOAuthError({
     provider,
-    message: decodeURIComponent(desc || err),
+    message: raw,
     code: code || err,
     context: 'redirect_callback',
   });

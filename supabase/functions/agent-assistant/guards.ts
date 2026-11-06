@@ -15,7 +15,23 @@ const ISO_DATE_G = /\b\d{4}-\d{2}-\d{2}\b/g;
 const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
 const BANNED_TERMS = /\b(loans?|lenders?|roi|interest)\b/i;
 
-export type GuardResult = { ok: true } | { ok: false; reason: "uuid" | "phone" | "figure" | "terminology" };
+export type GuardResult =
+  | { ok: true }
+  | { ok: false; reason: "uuid" | "phone" | "figure" | "terminology" | "admin_trail" | "signature_claim" };
+
+/**
+ * Partner persona only: a missing partnership-agreement document is not a missing contract (most
+ * partners accepted the Welile terms online), so the assistant must never tell a partner they did not
+ * sign, have not signed, or hold an unsigned agreement.
+ */
+const SIGNATURE_CLAIM = /\b(?:haven['’]?t|have\s+not|hasn['’]?t|has\s+not|didn['’]?t|did\s+not|never|not\s+yet)\s+(?:formally\s+)?sign(?:ed)?\b|\bnot\s+(?:been\s+)?signed\b|\bunsigned\b/i;
+
+/**
+ * Partner persona only: a partner never sees reversals, corrections or adjustments, so the assistant
+ * must not mention them, hint at them, or say there are none (that would be a false assurance, because
+ * the tools deliberately leave them out).
+ */
+const ADMIN_TRAIL_TERMS = /\b(revers(?:e|ed|es|ing|al|als)|corrections?|corrected|adjust(?:ment|ments|ed)|admin(?:istrative)?\s+(?:correction|adjustment|edit|change)s?)\b/i;
 
 function numericSet(texts: string[]): Set<number> {
   const out = new Set<number>();
@@ -40,8 +56,51 @@ function nationalDigits(s: string): string {
   return digitsOnly(s).replace(/^256/, "").replace(/^0/, "");
 }
 
-export function checkAnswer(answer: string, toolOutputs: string[], userMessage: string): GuardResult {
+/** What to tell the model when its draft fails the guard, so its one retry can fix the problem. */
+export const RETRY_NOTE: Record<Exclude<GuardResult, { ok: true }>["reason"], string> = {
+  terminology:
+    'Your draft used a banned word. Never write "loan", "lender", "ROI" or "interest". Say "Rent Plan", "Supporter" and "Returns", and "no extra charges" instead of "no interest". If the user used the banned word, do not repeat it: answer using the approved words.',
+  signature_claim:
+    "Your draft said or implied the partner did not sign. Never say that: a missing document is not a missing contract. Call get_partner_contract and use its state: if they accepted the Welile terms online, say so (version and latest date) and list their portfolio terms; if an agreement is awaiting Welile's countersignature, say that; only if nothing is on record say you cannot find an agreement on the account yet. Offer to pass it to support if they expect a separate signed copy.",
+  admin_trail:
+    "Your draft mentioned reversals, corrections or adjustments. Never mention them, never say there are none, and never guess. Say you can show their top-ups, renewals, Returns and wallet activity as they appear on the account, give the figures you do have, and offer to pass the question to support.",
+  figure:
+    "Your draft contained a money figure that is not in the tool results. Use only figures copied exactly from the tool results, and do no arithmetic. If a figure is not available, say you do not have it.",
+  uuid: "Your draft contained an id that is not in the tool results. Do not include ids.",
+  phone: "Your draft contained a phone number that is not in the tool results. Do not include phone numbers.",
+};
+
+/** Repairs banned wording (used only when the retry still fails); never touches figures or ids. */
+export function cleanTerms(text: string): string {
+  return text
+    .replace(/\bno interest\b/gi, "no extra charges")
+    .replace(/\binterest\b/gi, "charges")
+    .replace(/\bloans\b/gi, "Rent Plans")
+    .replace(/\bloan\b/gi, "Rent Plan")
+    .replace(/\blenders\b/gi, "Supporters")
+    .replace(/\blender\b/gi, "Supporter")
+    .replace(/\broi\b/gi, "Returns");
+}
+
+/** Cuts at the last sentence end within max characters; if there is none, at the last space. */
+export function trimToSentence(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max);
+  const end = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "), head.lastIndexOf(".\n"));
+  if (end > max * 0.5) return head.slice(0, end + 1).trim();
+  const space = head.lastIndexOf(" ");
+  return (space > 0 ? head.slice(0, space) : head).trim();
+}
+
+export function checkAnswer(
+  answer: string,
+  toolOutputs: string[],
+  userMessage: string,
+  opts: { hideAdminTrail?: boolean; noSignatureClaims?: boolean } = {},
+): GuardResult {
   if (BANNED_TERMS.test(answer)) return { ok: false, reason: "terminology" };
+  if (opts.hideAdminTrail && ADMIN_TRAIL_TERMS.test(answer)) return { ok: false, reason: "admin_trail" };
+  if (opts.noSignatureClaims && SIGNATURE_CLAIM.test(answer)) return { ok: false, reason: "signature_claim" };
 
   const sources = [...toolOutputs, userMessage];
   const haystack = sources.join("\n").toLowerCase();

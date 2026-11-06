@@ -6,6 +6,10 @@ import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 import { execSync } from "child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { manualChunkForModule } from "./src/lib/bootChunks";
+
+/** The MCP bundler only emits a correct bundle where paths are POSIX. See the plugin list below. */
+const mcpBundlerIsSafe = process.platform !== "win32" || process.env.WELILE_MCP_BUNDLE === "1";
 
 // Which revision is this bundle? Exposed as window.__WELILE_BUILD__, the
 // <html data-build> attribute and /build-info.json so the preview and
@@ -82,16 +86,95 @@ export default defineConfig(({ mode }) => {
   server: {
     host: "::",
     port: 8080,
-    // Uploaded images (MTN/Airtel logos etc.) are imported via *.asset.json
-    // pointers whose URL is /__l5e/assets-v1/... — a path only the hosted app
-    // serves. Locally it falls through to the SPA and returns index.html, so the
-    // <img> renders empty. Dev-only: forward it to production. Not in the build.
-    proxy: {
-      "/__l5e": { target: "https://welileapp.com", changeOrigin: true, secure: true },
+    watch: {
+      ignored: [
+        "**/supabase/functions/**",
+        "**/public/sitemap*.xml",
+        "**/.git/**",
+        "**/node_modules/**",
+      ],
     },
+  },
+  optimizeDeps: {
+    include: [
+      "react",
+      "react-dom",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "react-router-dom",
+      "@tanstack/react-query",
+      "@tanstack/react-virtual",
+      "lucide-react",
+      "class-variance-authority",
+      "clsx",
+      "tailwind-merge",
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-alert-dialog",
+      "@radix-ui/react-aspect-ratio",
+      "@radix-ui/react-avatar",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-collapsible",
+      "@radix-ui/react-context-menu",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-hover-card",
+      "@radix-ui/react-label",
+      "@radix-ui/react-menubar",
+      "@radix-ui/react-navigation-menu",
+      "@radix-ui/react-popover",
+      "@radix-ui/react-progress",
+      "@radix-ui/react-radio-group",
+      "@radix-ui/react-scroll-area",
+      "@radix-ui/react-select",
+      "@radix-ui/react-separator",
+      "@radix-ui/react-slider",
+      "@radix-ui/react-slot",
+      "@radix-ui/react-switch",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-toast",
+      "@radix-ui/react-toggle",
+      "@radix-ui/react-toggle-group",
+      "@radix-ui/react-tooltip",
+      "recharts",
+      "sonner",
+      "date-fns",
+      "vaul",
+      "jspdf",
+      "jspdf-autotable",
+      "html-to-image",
+      "html2canvas",
+      "xlsx",
+      "idb-keyval",
+      "boring-avatars",
+      "canvas-confetti",
+      "react-day-picker",
+      "qrcode",
+      "html5-qrcode",
+    ],
   },
   plugins: [
     react(),
+    {
+      // index.html preconnects to the API host. It used to hard-code a retired
+      // project, so the real host never got an early connection (the first call
+      // then pays DNS + TCP + TLS, about a second on a mobile network). The
+      // placeholder is replaced with the origin this build actually talks to.
+      name: "welile-supabase-preconnect",
+      transformIndexHtml: {
+        // 'pre': must run before Vite's own pass, which rewrites a relative-looking
+        // href (the placeholder) into a path and would corrupt the final value.
+        order: "pre" as const,
+        handler(html: string) {
+          let origin = "";
+          try {
+            origin = new URL(supabaseUrl).origin;
+          } catch {
+            // A malformed URL leaves the hint pointing nowhere, which is harmless.
+          }
+          return html.replaceAll("__SUPABASE_ORIGIN__", origin);
+        },
+      },
+    },
     {
       name: "welile-build-info",
       configureServer(server) {
@@ -109,8 +192,17 @@ export default defineConfig(({ mode }) => {
     } satisfies Plugin,
 
     mode === "development" && componentTagger(),
-    mcpPlugin(),
-    mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" }),
+    // @lovable.dev/mcp-js 0.26.1 does not recognise its own entry when the path
+    // has backslashes, so on Windows it marks it external and emits
+    //   import mcp from "npm:C:\\...\\src\\lib\\mcp\\index.ts";
+    // replacing both bundles with a 3-line stub that imports a package which
+    // does not exist. Every local build and dev start here rewrote
+    // supabase/functions/mcp/index.ts and mcp-public/index.ts that way; deploying
+    // one would take the MCP endpoints down. Skip the bundler where it cannot
+    // produce a correct bundle — Lovable's own Linux build still regenerates
+    // both files, so the committed output stays authoritative. Set
+    // WELILE_MCP_BUNDLE=1 to force it back on once upstream is fixed.
+    ...(mcpBundlerIsSafe ? [mcpPlugin(), mcpPlugin({ mcpEntry: "src/lib/mcp-public/index.ts", functionName: "mcp-public" })] : []),
   ].filter(Boolean),
   resolve: {
     alias: {
@@ -130,48 +222,12 @@ export default defineConfig(({ mode }) => {
       // split every node_modules dependency into its own vendor chunk.
       maxParallelFileOps: 2,
       output: {
-        // Split every node_modules dependency into its own vendor chunk so
-        // rollup never has to hold one enormous chunk in memory during the
-        // render/minify phase (that was OOM-killing the production build).
-        manualChunks(id) {
-          // Vite's lazy-load helper is needed by the app shell. Left alone,
-          // rollup parked it inside the PDF chunk, so every app open
-          // downloaded the whole PDF library. Give it its own tiny chunk.
-          if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers')) {
-            return 'vite-runtime';
-          }
-          if (!id.includes('node_modules')) return undefined;
-          const parts = id.split('node_modules/').pop()!.split('/');
-          const pkg = parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
-          // Keep the React runtime in a single chunk to avoid duplicate copies.
-          if (['react', 'react-dom', 'react-router', 'react-router-dom', 'scheduler'].includes(pkg)) {
-            return 'vendor-react';
-          }
-          // Group tightly-coupled families into ONE chunk each. Dozens of
-          // tiny sibling chunks cost more in rollup bookkeeping, deployed
-          // file count and HTTP requests than they save in memory.
-          if (pkg.startsWith('@radix-ui')) return 'vendor-radix';
-          if (pkg.startsWith('@tiptap') || pkg.startsWith('prosemirror')) return 'vendor-tiptap';
-          if (pkg.startsWith('@tanstack')) return 'vendor-tanstack';
-          if (pkg === 'leaflet' || pkg.startsWith('leaflet.') || pkg === 'react-leaflet' || pkg.startsWith('@react-leaflet')) {
-            return 'vendor-leaflet';
-          }
-          if (pkg.startsWith('@babel') || pkg.startsWith('@swc')) return 'vendor-babel';
-          // Heavy, lazily-used libraries keep their own chunk so they never
-          // load with the shell. Everything else collapses into one shared
-          // vendor chunk: hundreds of tiny sibling chunks cost more in rollup
-          // bookkeeping (and publish-container memory) than they save.
-          const HEAVY = [
-            'xlsx', 'jspdf', 'jspdf-autotable', 'pptxgenjs', 'html5-qrcode',
-            'recharts', 'html2canvas', 'jszip', 'framer-motion', 'motion',
-            'motion-dom', 'lucide-react', 'canvg', 'africastalking-client',
-            'react-markdown', 'country-state-city', 'qrcode',
-          ];
-          if (HEAVY.includes(pkg)) return `vendor-${pkg}`;
-          if (pkg.startsWith('@supabase')) return 'vendor-supabase';
-          return 'vendor-common';
-
-        },
+        // Group node_modules so rollup never minifies one 8 MB+ entry chunk
+        // (that OOM-killed the production build). The shell-linked packages
+        // are split out of the catch-all in manualChunkForModule — sharing
+        // `tslib` / radix helpers with every other dependency made the boot
+        // path download ~1.4 MB before React could mount.
+        manualChunks: manualChunkForModule,
       },
     },
     // es2015 (ES6) is the widest safe syntax floor: it runs on very old

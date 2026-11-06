@@ -15,7 +15,7 @@ const stateStyles: Record<PortfolioState, { label: string; text: string; dot: st
   withdrawn: { label: 'WITHDRAWN', text: 'text-muted-foreground', dot: 'bg-muted-foreground/40' },
 };
 
-function usePendingTopup(portfolioId: string | undefined) {
+export function usePendingTopup(portfolioId: string | undefined) {
   const [amount, setAmount] = useState(0);
   useEffect(() => {
     if (!portfolioId) { setAmount(0); return; }

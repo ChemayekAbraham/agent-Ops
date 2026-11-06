@@ -3,6 +3,7 @@ import { z } from "zod";
 import { buildSignupLinks } from "../links";
 import { enforceRateLimit } from "../rateLimit";
 import { publicToolResult, pointRange, spanRange, ugx, type EstimateRange } from "../response";
+import { V360_MODEL_A_EXAMPLE } from "../../contractEngine360";
 
 // PUBLIC, no-auth tool. Returns an INDICATIVE rent-access ballpark so a
 // prospective tenant can get a real number inside a chat before signing up,
@@ -21,10 +22,10 @@ const MONTHLY_RATE = 0.33;
 const DEFAULT_DURATIONS = [30, 60, 90] as const;
 
 // Illustrative agent commission share of the finance charge. Mirrors the
-// Agent Incentive Model (10% one-time rent commission). Shown ONLY to make the
+// Agent Incentive Model (8% rent commission; was 10% before the 8% go-live). Shown ONLY to make the
 // breakdown transparent — it is carved out of the access fee, never added on
 // top, so the canonical total (rent + accessFee + requestFee) is unchanged.
-const AGENT_COMMISSION_RATE = 0.10;
+const AGENT_COMMISSION_RATE = 0.08;
 
 // Guard rails for a compliance-safe, sensible ballpark (UGX).
 const MIN_RENT = 10_000;
@@ -40,7 +41,7 @@ function computeRentPlan(rent: number, days: number) {
 
   // Illustrative line-item breakdown of the total repayment.
   //   principalRent   — the rent amount Welile pays your landlord upfront
-  //   agentCommission — carved out of the access fee (10% of rent, capped)
+  //   agentCommission — carved out of the access fee (8% of rent, capped)
   //   accessFeeNet    — remaining finance/access charge (33% monthly compound)
   //   serviceFee      — the flat request/service fee
   // principalRent + accessFeeNet + agentCommission + serviceFee == totalRepayment
@@ -185,7 +186,7 @@ export default defineTool({
       assumptions: [
         `Access fee compounds at ${MONTHLY_RATE * 100}% a month over the plan length.`,
         `Service fee is ${ugx(10_000)} for rent up to ${ugx(200_000)}, otherwise ${ugx(20_000)}.`,
-        `Agent commission shown is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee — it is never added on top, so the total is unchanged.`,
+        `Agent commission on this current Rent Plan estimate is ${AGENT_COMMISSION_RATE * 100}% of rent, carved out of the access fee. It is never added on top, so the total is unchanged. A 360-day Rent Plan, only when that pricing is on, uses 8% of Gross (6% sub-agent and 2% general agent).`,
         plans.length > 1
           ? `No plan length was given, so ${DEFAULT_DURATIONS.join("/")}-day options are compared.`
           : `Plan length of ${plans[0].durationDays} days as requested.`,
@@ -200,6 +201,14 @@ export default defineTool({
       data: {
         rent: roundedRent,
         monthly_rate_pct: MONTHLY_RATE * 100,
+        v360_new_quote_example: {
+          principal: V360_MODEL_A_EXAMPLE.principal,
+          gross: V360_MODEL_A_EXAMPLE.gross,
+          daily: V360_MODEL_A_EXAMPLE.daily,
+          partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
+          partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
+        },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
           daily_repayment: p.dailyRepayment,
@@ -217,6 +226,7 @@ export default defineTool({
       },
       disclaimers: [
         "Line items are illustrative only — the service/access/agent-commission split is shown for transparency and does not change the total.",
+        `A separate illustrative 360-day example for rent ${ugx(V360_MODEL_A_EXAMPLE.principal)} is Gross ${ugx(V360_MODEL_A_EXAMPLE.gross)} and Daily ${ugx(V360_MODEL_A_EXAMPLE.daily)}. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.`,
         ...DISCLAIMERS,
       ],
       next_steps: [

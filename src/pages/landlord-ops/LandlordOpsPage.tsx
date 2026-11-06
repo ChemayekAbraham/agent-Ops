@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, Suspense } from 'react';
+import { useCallback, useMemo, useRef, useState, Suspense } from 'react';
 import { useLocation, useNavigate, useSearchParams, Outlet } from 'react-router-dom';
 import { Loader2, UserCheck } from 'lucide-react';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
@@ -8,6 +8,8 @@ import { LandlordOpsDecisionDrawer } from '@/components/executive/landlord-ops/L
 import { Button } from '@/components/ui/button';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { ReceivablesSummaryGate } from '@/components/receivables/ReceivablesSummaryGate';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
+import { useLandlordOpsMobile } from '@/components/executive/landlord-ops/mobile/landlordOpsPhone';
 
 /**
  * Layout route for Landlord Ops.
@@ -22,6 +24,8 @@ import { ReceivablesSummaryGate } from '@/components/receivables/ReceivablesSumm
  * are fetched once for the whole console.
  */
 export default function LandlordOpsPage() {
+  const shellRef = useRef<HTMLDivElement>(null);
+  useLandlordOpsMobile(shellRef);
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,7 +87,7 @@ export default function LandlordOpsPage() {
   const hasDecisionDrawer = !!searchParams.get('decide');
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background">
+    <div ref={shellRef} className="landlord-ops-shell flex h-screen flex-col overflow-hidden overflow-x-clip bg-background">
       <LandlordOpsTopBar activePath={path} onNavigate={handleNavigate} badges={badges} />
 
       <div className="flex flex-1 overflow-hidden relative">
@@ -96,7 +100,8 @@ export default function LandlordOpsPage() {
           />
         </aside>
 
-        <main className="flex-1 overflow-y-auto p-2.5 pb-24 sm:p-4 sm:pb-24 lg:p-6 min-w-0 overscroll-contain">
+        <main className="min-w-0 flex-1 overflow-x-clip overflow-y-auto overscroll-contain p-2.5 pb-28 sm:p-4 sm:pb-24 lg:p-6">
+          <V360StaffPricingBanner />
           <TutorialVideosButton />
           {isHome ? (
             <ReceivablesSummaryGate startOpen={hasExtraParams} onVisibilityChange={setHomeOpen}>

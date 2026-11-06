@@ -1,5 +1,8 @@
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
+import { agentNotVettedReason } from '@/lib/agentVetting';
 import { safeUUID } from '@/lib/safeUUID';
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef, Suspense } from 'react';
+import { lazyNamed, lazyWithRetry } from '@/lib/lazyWithRetry';
 import { addDays, format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import PersonNameFields from '@/components/shared/PersonNameFields';
@@ -14,8 +17,6 @@ import {
 import { archiveToDrive } from '@/lib/archiveToDrive';
 import { GuarantorConsentCheckbox } from '@/components/agent/GuarantorConsentCheckbox';
 import { LandlordSearchSelect, type LandlordOption } from '@/components/agent/LandlordSearchSelect';
-import RegisterLandlordDialog from '@/components/agent/RegisterLandlordDialog';
-import { ListEmptyHouseDialog } from '@/components/agent/ListEmptyHouseDialog';
 import { listingHasRealPhoto } from '@/hooks/useHouseListings';
 import { ExistingTenantPhoneNotice } from '@/components/agent/ExistingTenantPhoneNotice';
 import { TenantDuplicateNotice } from '@/components/agent/TenantDuplicateNotice';
@@ -30,7 +31,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap, DAILY_ELIGIBILITY_THRESHOLD } from '@/hooks/useAgentCapacityMap';
 import { useListingDaytimeGuard } from '@/hooks/useListingDaytimeGuard';
 import { DailyRatingThresholdPopover } from '@/components/shared/DailyRatingThresholdPopover';
-import { EntityDetailSheet } from '@/components/executive/EntityDetailSheet';
 import {
   Dialog,
   DialogContent,
@@ -98,9 +98,41 @@ import { normalizeDistrict, districtWarning } from '@/lib/ugandaDistricts';
 import { validateUgandaPhone } from '@/lib/ugandaPhone';
 import { generateRentRequestFormPdf } from '@/lib/rentRequestFormPdf';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AgentEditRentRequestDialog } from '@/components/agent/AgentEditRentRequestDialog';
 import { STAGE_LABEL, type AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import {
+  BEAT_LABEL,
+  BEAT_PROMPT,
+  beatsFor,
+  detailStepForBeat,
+  isOfficialBeat,
+  isPropertyBeat,
+  isReviewBeat,
+  isSkippableBeat,
+  isTenantBeat,
+  type ChatBeatId,
+} from '@/components/agent/rentRequestChat/chatBeats';
+import {
+  RentRequestChatBubble,
+  RentRequestChatFooter,
+  RentRequestChatHeader,
+  RentRequestChatProgress,
+} from '@/components/agent/rentRequestChat/AgentRentRequestChatChrome';
+
+// Rarely-opened sub-dialogs stay out of the first-open download of this dialog;
+// each loads the first time it is opened and then stays mounted (so close
+// animations still play).
+const RegisterLandlordDialog = lazyWithRetry(() => import('@/components/agent/RegisterLandlordDialog'));
+const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
+const EntityDetailSheet = lazyNamed(() => import('@/components/executive/EntityDetailSheet'), 'EntityDetailSheet');
+const AgentEditRentRequestDialog = lazyNamed(() => import('@/components/agent/AgentEditRentRequestDialog'), 'AgentEditRentRequestDialog');
+
+function useMountedOnce(flag: boolean): boolean {
+  const [seen, setSeen] = useState(flag);
+  if (flag && !seen) setSeen(true);
+  return seen || flag;
+}
+
 
 interface AgentRentRequestDialogProps {
   open: boolean;
@@ -119,6 +151,11 @@ interface AgentRentRequestDialogProps {
   /** When provided, the dialog opens with this house already selected (used by
    *  the "Swap tenant" flow after the previous tenant is moved out) so the
    *  agent goes straight to linking the new tenant — no re-search needed. */
+  /**
+   * `chat` is the agent post-rent-request conversation (WhatsApp-style).
+   * Other callers keep the classic wizard dialog.
+   */
+  presentation?: 'dialog' | 'chat';
   preselectHouse?: {
     id: string;
     title: string;
@@ -306,6 +343,11 @@ function AgentCapacityBanner({ agentId }: { agentId?: string }) {
 
 function humanizeCapacityError(message: string): string | null {
   const m = (message || '').toLowerCase();
+  if (m.includes('weekly_eligibility_blocked')) {
+    // The weekly posting rule's reason is already plain language (week, amounts, % needed).
+    return message.replace(/^.*WEEKLY_ELIGIBILITY_BLOCKED:\s*/i, '').trim()
+      || 'Your collections last week were below the target. You cannot post a new rent request this week.';
+  }
   if (m.includes('100,000,000') || m.includes('exposure cap')) {
     return 'You have reached your UGX 100,000,000 active rent exposure cap. Collect on existing rent requests to free up headroom.';
   }
@@ -562,7 +604,7 @@ function QueuedSubmitBanner({ status }: { status: 'idle' | 'queued' | 'cancellin
   );
 }
 
-export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, prefillTenantName, prefillTenantPhone, prefillRentAmount, prefillDraft, draftId, preselectHouse }: AgentRentRequestDialogProps) {
+export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, prefillTenantName, prefillTenantPhone, prefillRentAmount, prefillDraft, draftId, preselectHouse, presentation = 'dialog' }: AgentRentRequestDialogProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
@@ -595,6 +637,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
    * only, and reusing it for yesterday would misstate a day when the book moved.
    */
   const blockedReason = (c: NonNullable<typeof myCap>) => {
+    // Weekly rule: the server writes the reason (week, amounts, percentage needed).
+    if (c.posting_rule === 'weekly') {
+      return c.weekly_posting?.reason
+        ?? 'Your collections last week were below the target. You can post new Rent Plans again when a week meets it.';
+    }
     const needed = Math.max(
       0,
       Math.ceil(c.tenants_due * DAILY_ELIGIBILITY_THRESHOLD) - c.tenants_paid_today,
@@ -613,7 +660,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   useEffect(() => {
     if (!open || capLoading || !postingBlockedToday || !myCap) return;
     onOpenChange(false);
-    toast.error('You cannot post a rent request today', {
+    toast.error(myCap.posting_rule === 'weekly' ? 'You cannot post a rent request this week' : 'You cannot post a rent request today', {
       description: blockedReason(myCap),
       duration: 9000,
     });
@@ -654,6 +701,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const [step, setStep] = useState<'type' | 'details' | 'confirm'>('type');
   // Current sub-step inside the standard flow's guided wizard (0-based).
   const [detailStep, setDetailStep] = useState(0);
+  const chatMode = presentation === 'chat';
+  const [chatBeat, setChatBeat] = useState(0);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Persisted open/closed state for the "posting cap" details section so it
   // stays collapsed (or expanded) across page refreshes.
@@ -1082,6 +1133,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const [outstandingRentAmount, setOutstandingRentAmount] = useState('');
   const [outstandingDaysRemaining, setOutstandingDaysRemaining] = useState('');
   const [showRegisterLandlord, setShowRegisterLandlord] = useState(false);
+  const mountRegisterLandlord = useMountedOnce(showRegisterLandlord);
+  const mountListHouse = useMountedOnce(showListHouse);
+  const mountLandlordProfile = useMountedOnce(!!landlordProfile);
+  const mountResubmit = useMountedOnce(!!resubmitTarget);
   const [landlordPickerKey, setLandlordPickerKey] = useState(0);
   const [landlordSearchOpenSignal, setLandlordSearchOpenSignal] = useState(0);
   const [showLinkedBanner, setShowLinkedBanner] = useState(false);
@@ -1560,8 +1615,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     if (p.outstandingHouseCategory) setOutstandingHouseCategory(p.outstandingHouseCategory);
     if (p.outstandingRentAmount) setOutstandingRentAmount(p.outstandingRentAmount);
     if (p.outstandingDaysRemaining) setOutstandingDaysRemaining(p.outstandingDaysRemaining);
-    if (p.incomeType && p.incomeType !== 'type') setStep('details');
-  }, [open, prefillDraft]);
+    if (p.incomeType && p.incomeType !== 'type') {
+      setStep('details');
+      if (presentation === 'chat') setChatBeat(1);
+    }
+  }, [open, prefillDraft, presentation]);
 
   const buildDraftPayload = () => ({
     incomeType, tenantName, tenantPhone, tenantNationalId, preferredLanguage,
@@ -1645,20 +1703,25 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           setDetailStep(Math.min(Math.max(0, p.detailStep), DETAIL_STEPS.length - 1));
         }
       }
+      if (presentation === 'chat' && p.incomeType) {
+        setStep('details');
+        if (typeof p.chatBeat === 'number' && p.chatBeat >= 0) setChatBeat(p.chatBeat);
+        else setChatBeat(1);
+      }
       if (hasSaved) toast.info('We brought back your saved progress.');
     } catch { /* ignore corrupt storage */ }
-  }, [open, prefillDraft, prefillTenantName, prefillRentAmount, draftStorageKey]);
+  }, [open, prefillDraft, prefillTenantName, prefillRentAmount, draftStorageKey, presentation]);
 
   // Persist on every change (only while the dialog is open and not yet submitted).
   useEffect(() => {
     if (!open || success) return;
     if (!restoredRef.current) return;
     try {
-      localStorage.setItem(draftStorageKey, JSON.stringify({ ...buildDraftPayload(), detailStep }));
+      localStorage.setItem(draftStorageKey, JSON.stringify({ ...buildDraftPayload(), detailStep, chatBeat }));
     } catch { /* storage full / unavailable */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    open, success, draftStorageKey, detailStep,
+    open, success, draftStorageKey, detailStep, chatBeat,
     incomeType, tenantName, tenantPhone, tenantNationalId, preferredLanguage,
     rentAmount, outstandingBalance, duration, repaymentPeriod, landlordName, landlordPhone,
     propertyAddress, lc1Name, lc1Phone, lc1Village, propertyCity,
@@ -1996,7 +2059,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     }
     setHousePhotos(prev => {
       const next = [...prev];
-      if (next[index]) URL.revokeObjectURL(next[index].preview);
+      if (next[index]) URL.revokeObjectURL(next[index]?.preview ?? "");
       next[index] = { file: stored, preview: previewUrl };
       return next;
     });
@@ -2005,7 +2068,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   const removePhoto = useCallback((index: number) => {
     setHousePhotos(prev => {
       const next = [...prev];
-      if (next[index]) URL.revokeObjectURL(next[index].preview);
+      if (next[index]) URL.revokeObjectURL(next[index]?.preview ?? "");
       next.splice(index, 1);
       return next;
     });
@@ -2046,7 +2109,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       previewUrl = URL.createObjectURL(file);
     }
     setTenantPhoto(prev => {
-      if (prev) URL.revokeObjectURL(prev.preview);
+      if (prev?.preview) URL.revokeObjectURL(prev.preview);
       return { file: stored, preview: previewUrl };
     });
     void runFaceCheck(stored);
@@ -2054,7 +2117,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
   const removeTenantPhoto = useCallback(() => {
     setTenantPhoto(prev => {
-      if (prev) URL.revokeObjectURL(prev.preview);
+      if (prev?.preview) URL.revokeObjectURL(prev.preview);
       return null;
     });
     setFaceCheck(null);
@@ -2159,6 +2222,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     const urls: string[] = [];
     for (let i = 0; i < housePhotos.length; i++) {
       try {
+        if (!housePhotos[i]?.file) continue;
         const optimized = await optimizeImage(housePhotos[i].file, { maxWidth: 1200, quality: 0.8 });
         const ext = optimized.file.name.split('.').pop() || 'webp';
         const path = `${user.id}/${requestId}/photo_${i}.${ext}`;
@@ -2266,11 +2330,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setGpsLoading(false);
     // Photos can be taken out of slot order, so the array may hold undefined
     // entries (`[...prev]` turns holes into undefined). Skip them.
-    housePhotos.forEach(p => { if (p) URL.revokeObjectURL(p.preview); });
+    housePhotos.forEach(p => { if (p?.preview) URL.revokeObjectURL(p.preview); });
     setHousePhotos([]);
     setRenewDocs(null);
     setRenewDocsLoading(false);
-    if (tenantPhoto) URL.revokeObjectURL(tenantPhoto.preview);
+    if (tenantPhoto?.preview) URL.revokeObjectURL(tenantPhoto.preview);
     setTenantPhoto(null);
     setFaceCheck(null);
     setGuarantorConsent(false);
@@ -2283,6 +2347,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     setActivationLink(null);
     setStep('type');
     setDetailStep(0);
+    setChatBeat(0);
+    setChatError(null);
     setAutoDraftId(null);
     setAutoDraftStatus('idle');
     setSelectedHouse(null);
@@ -2513,6 +2579,61 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     return fieldErrors[fieldName] || null;
   };
 
+  const chatBeats = beatsFor(incomeType);
+  const beat: ChatBeatId = chatBeats[Math.min(chatBeat, chatBeats.length - 1)] ?? 'type';
+  const showBeat = (id: ChatBeatId) => !chatMode || beat === id;
+
+  const syncChatToWizardStep = (wizardStep: number) => {
+    if (!chatMode) return;
+    const id = incomeType === 'outstanding'
+      ? (wizardStep <= 2 ? 'osLandlord' : 'osReview')
+      : (wizardStep <= 0 ? 'rent' : wizardStep === 1 ? 'tenantName' : wizardStep === 2 ? 'landlord' : wizardStep === 3 ? 'lc1' : 'review');
+    const idx = (chatBeats as readonly string[]).indexOf(id);
+    if (idx >= 0) setChatBeat(idx);
+  };
+
+  // A restored draft jumps straight to details. Keep the chat on a real question.
+  useEffect(() => {
+    if (!chatMode || !open) return;
+    if (step === 'details' && chatBeat === 0 && incomeType) setChatBeat(1);
+  }, [chatMode, open, step, chatBeat, incomeType]);
+
+  useLayoutEffect(() => {
+    if (!chatMode || !open) return;
+    const node = chatScrollRef.current;
+    const dlg = node?.closest('[role="dialog"]') as HTMLElement | null;
+    // The chat owns its own geometry: on a phone it takes the whole screen, on
+    // a desktop it floats as a dialog. !important is required because the base
+    // dialog centres itself with classes that would otherwise win.
+    if (dlg) {
+      const force = (prop: string, value: string) => {
+        dlg.style.removeProperty(prop);
+        dlg.style.setProperty(prop, value, 'important');
+      };
+      if (isMobile) {
+        dlg.classList.remove('translate-x-[-50%]', 'translate-y-[-50%]', 'left-[50%]', 'top-[50%]');
+        force('transform', 'none');
+        force('left', '0px');
+        force('top', '0px');
+        force('width', '100vw');
+        force('max-width', '100vw');
+        force('height', '100dvh');
+        force('max-height', '100dvh');
+        force('animation', 'none');
+      } else {
+        force('transform', 'translate(-50%, -50%)');
+        force('left', '50%');
+        force('top', '50%');
+        force('width', 'min(440px, calc(100vw - 2rem))');
+        force('max-width', 'none');
+        force('height', 'min(760px, calc(100dvh - 3rem))');
+        force('max-height', 'none');
+        force('animation', 'none');
+      }
+    }
+    if (typeof node?.scrollTo === 'function') node.scrollTo({ top: node.scrollHeight });
+  });
+
   const handleSubmit = async () => {
     setSubmissionError(null);
     setErrorDetails(null);
@@ -2533,9 +2654,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     // (reached the tenant threshold). New agents are exempt and gated only
     // by the per-tenant cap. `can_post_rent_today` already encodes this.
     if (myCap && !myCap.can_post_rent_today) {
-      const msg = `Blocked from posting new Rent Plans today. ${blockedReason(myCap)}`;
+      const weekly = myCap.posting_rule === 'weekly';
+      const msg = `Blocked from posting new Rent Plans ${weekly ? 'this week' : 'today'}. ${blockedReason(myCap)}`;
       setSubmissionError(msg);
-      toast.error('Blocked today', { description: msg });
+      toast.error(weekly ? 'Blocked this week' : 'Blocked today', { description: msg });
       return;
     }
     if (!fees) {
@@ -2680,6 +2802,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           setRequestState('idle');
           submitLockRef.current = false;
           setDetailStep(2);
+          syncChatToWizardStep(2);
           return;
         }
         // Posting is allowed even if the landlord is not yet verified. The
@@ -2788,6 +2911,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               setRequestState('idle');
               submitLockRef.current = false;
               setDetailStep(3);
+              syncChatToWizardStep(3);
               return;
             }
           } else {
@@ -2887,6 +3011,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           setRequestState('idle');
           submitLockRef.current = false;
           setDetailStep(2);
+          syncChatToWizardStep(2);
           return;
         }
       } catch (verifyErr) {
@@ -3141,7 +3266,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       const existingId = isDuplicateAfterRejection
         ? (uuidRe.exec(error?.hint || '')?.[0] ?? uuidRe.exec(msg)?.[0] ?? null)
         : null;
-      if (isDuplicateAfterRejection) {
+      if (promptIfNotVetted(error, msg)) {
+        setSubmissionError(agentNotVettedReason(error) ?? agentNotVettedReason(msg));
+      } else if (isDuplicateAfterRejection) {
         const friendly = 'This tenant already has a rejected rent request. Fix the flagged detail on that request and resubmit it — creating a new one would duplicate the tenant.';
         setSubmissionError(friendly);
         toast.error('Duplicate blocked — resubmit instead', { description: friendly });
@@ -3182,7 +3309,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         setSubmissionError(friendly);
         toast.error('Landlord not registered', { description: friendly });
         // Jump the wizard back to the Property/landlord step so the fix is obvious.
-        if (incomeType !== 'outstanding') setDetailStep(2);
+        if (incomeType !== 'outstanding') {
+          setDetailStep(2);
+          syncChatToWizardStep(2);
+        }
       } else if (capacityMsg) {
         setSubmissionError(capacityMsg);
         toast.error('Rent capacity reached', { description: capacityMsg });
@@ -3365,10 +3495,263 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
     }
   }, [fieldFormPreviewUrl, downloadFieldForm]);
 
+  const phonesClash = (): string | null => {
+    const cleanTenantPhone = tenantPhone.replace(/\s/g, '');
+    const cleanLandlordPhone = landlordPhone.replace(/\s/g, '');
+    const cleanLc1Phone = lc1Phone.replace(/\s/g, '');
+    const tOk = !!cleanTenantPhone && isValidUgPhone(cleanTenantPhone);
+    const lOk = !!cleanLandlordPhone && isValidUgPhone(cleanLandlordPhone);
+    const cOk = !!cleanLc1Phone && isValidUgPhone(cleanLc1Phone);
+    if (tOk && lOk && cleanTenantPhone === cleanLandlordPhone) return 'Tenant and Landlord phones must be different numbers';
+    if (tOk && cOk && cleanTenantPhone === cleanLc1Phone) return 'Tenant and LC1 phones must be different numbers';
+    if (lOk && cOk && cleanLandlordPhone === cleanLc1Phone) return 'Landlord and LC1 phones must be different numbers';
+    return null;
+  };
+
+  const chatBeatError = (id: ChatBeatId): string | null => {
+    const cleanNationalId = tenantNationalId.trim().toUpperCase();
+    const landlordRegistered = !!selectedLandlord || !!selectedHouse?.landlord_id;
+    switch (id) {
+      case 'type':
+        return incomeType ? null : 'Choose Daily, Weekly, Monthly, or Outstanding';
+      case 'rent': {
+        if (!amount) return 'Type the rent amount';
+        if (amount < 50000) return 'Rent amount must be at least UGX 50,000';
+        const weeklyNeed = isWeeklyEarner ? vRentNeed(rentAmount) : null;
+        return weeklyNeed;
+      }
+      case 'noPhone':
+      case 'osDuration':
+      case 'osCategory':
+      case 'lcLetter':
+        return null;
+      case 'tenantName':
+      case 'osTenantName':
+        if (!tenantName.trim()) return "Type the tenant's full name";
+        return vName(tenantName);
+      case 'tenantPhone':
+      case 'osTenantPhone':
+        if (!tenantPhone.trim()) return "Type the tenant's phone number";
+        if (!isValidUgPhone(tenantPhone.replace(/\s/g, ''))) return 'Tenant phone looks wrong — use a number like 0783 123 456';
+        return phonesClash();
+      case 'nationalId':
+        if (!cleanNationalId || cleanNationalId.length < 10 || cleanNationalId.length > 14 || !/^[A-Z0-9]+$/.test(cleanNationalId)) {
+          return "Enter the tenant's National ID (the long number/letters on their ID card)";
+        }
+        return null;
+      case 'osNationalId':
+        if (!cleanNationalId) return null;
+        if (cleanNationalId.length < 10 || cleanNationalId.length > 14 || !/^[A-Z0-9]+$/.test(cleanNationalId)) {
+          return "Enter the tenant's National ID (the long number/letters on their ID card)";
+        }
+        return null;
+      case 'language':
+      case 'osLanguage':
+        return preferredLanguage ? null : 'Choose the language the tenant speaks';
+      case 'category':
+        return houseCategory ? null : 'Choose the house type';
+      case 'osLandlord':
+        if (!selectedLandlord) return 'Pick the landlord from the list';
+        if (landlordCheck === 'missing') return 'This landlord is no longer in the system. Pick another or register them again.';
+        return null;
+      case 'landlord':
+        if (!landlordRegistered) return 'Pick or register the landlord first';
+        if (landlordCheck === 'missing') return 'This landlord is no longer in the system. Pick another or register them again.';
+        if (selectedHouse && !listingHasRealPhoto(selectedHouse)) return "This landlord's house has no photos — pick a house that shows photos";
+        return null;
+      case 'place':
+        return propertyAddress.trim() ? null : 'Choose the village where the house is';
+      case 'gps':
+        return gpsLocation ? null : 'Capture the property GPS at the house';
+      case 'housePhotos':
+      case 'osPhotos':
+        return HOUSE_PHOTO_SLOTS.some((_, i) => !housePhotos[i])
+          ? 'Take all 4 house photos (front, back, left and right)'
+          : null;
+      case 'passport':
+      case 'osPassport':
+        if (!tenantPhoto) return "Take the tenant's passport photo";
+        return faceCheckBlocker(faceCheck);
+      case 'lc1':
+        if (!lc1Name.trim()) return "Type the LC1 chairperson's name";
+        if (!lc1Phone.trim()) return 'Type the LC1 phone number';
+        if (!isValidUgPhone(lc1Phone.replace(/\s/g, ''))) return 'LC1 phone looks wrong — use a valid Ugandan number';
+        if (!lc1Village.trim()) return 'Type the LC1 village';
+        return phonesClash();
+      case 'placeMeta': {
+        if (!propertyCity.trim()) return 'Type the town / city';
+        const day = parseInt(landlordPayoutDay, 10);
+        if (!day || day < 1 || day > 28) return 'Landlord payout day must be from 1 to 28';
+        return null;
+      }
+      case 'osRentAmount':
+        if (!outstandingRentAmount || parseInt(outstandingRentAmount.replace(/,/g, ''), 10) <= 0) return 'Type the rent amount';
+        return null;
+      case 'osBalance':
+        if (outstandingBalance === '' || Number.isNaN(parseInt(outstandingBalance.replace(/,/g, ''), 10))) return 'Type the outstanding balance';
+        return null;
+      case 'osDays':
+        if (outstandingDaysRemaining === '' || Number.isNaN(parseInt(outstandingDaysRemaining, 10))) return 'Type the days remaining';
+        return null;
+      case 'review':
+      case 'osReview':
+        return guarantorConsent ? null : 'Tick the box to accept guarantor responsibility';
+      default:
+        return null;
+    }
+  };
+
+  const advanceChat = () => {
+    const err = chatBeatError(beat);
+    if (err) {
+      setChatError(err);
+      toast.error(err);
+      return;
+    }
+    setChatError(null);
+    setValidationErrors([]);
+    setFieldErrors({});
+    const next = Math.min(chatBeat + 1, chatBeats.length - 1);
+    setChatBeat(next);
+    setStep('details');
+    setDetailStep(detailStepForBeat(chatBeats[next]));
+  };
+
+  const retreatChat = () => {
+    setChatError(null);
+    setValidationErrors([]);
+    setFieldErrors({});
+    if (chatBeat <= 0) {
+      handleOpenChange(false);
+      return;
+    }
+    const next = chatBeat - 1;
+    setChatBeat(next);
+    if (next === 0) setStep('type');
+    else {
+      setStep('details');
+      setDetailStep(detailStepForBeat(chatBeats[next]));
+    }
+  };
+
+  const chooseIncome = (kind: 'daily' | 'weekly' | 'monthly' | 'outstanding') => {
+    if (kind === 'daily') setIncomeType('daily');
+    else if (kind === 'weekly') {
+      setIncomeType('weekly-monthly');
+      setEarnerCycle('weekly');
+      setRepaymentPeriod('7');
+    } else if (kind === 'monthly') {
+      setIncomeType('weekly-monthly');
+      setEarnerCycle('monthly');
+      setRepaymentPeriod('30');
+    } else setIncomeType('outstanding');
+    setDetailStep(0);
+    setValidationErrors([]);
+    setFieldErrors({});
+    setChatError(null);
+    setStep('details');
+    setChatBeat(1);
+  };
+
+  const chatAnswer = (id: ChatBeatId): string => {
+    const catLabel = (value: string) => HOUSE_CATEGORIES.find((c) => c.value === value)?.label || value;
+    switch (id) {
+      case 'type':
+        if (incomeType === 'daily') return 'Daily';
+        if (incomeType === 'outstanding') return 'Outstanding';
+        return earnerCycle === 'monthly' ? 'Monthly' : 'Weekly';
+      case 'rent':
+        return `${amount ? formatUGX(amount) : '—'} · ${incomeType === 'daily' ? `${duration} days` : getPeriodLabel(repaymentPeriod)}${fees ? ` · you pay ${formatUGX(fees.dailyRepayment)}/day` : ''}`;
+      case 'noPhone':
+        return noSmartphone ? 'No smartphone' : 'Has a smartphone';
+      case 'tenantName':
+      case 'osTenantName':
+        return tenantName || '—';
+      case 'tenantPhone':
+      case 'osTenantPhone':
+        return tenantPhone || '—';
+      case 'nationalId':
+      case 'osNationalId':
+        return tenantNationalId ? formatNationalIdDisplay(tenantNationalId) : 'Skipped';
+      case 'language':
+      case 'osLanguage':
+        return preferredLanguage || '—';
+      case 'category':
+        return houseCategory ? catLabel(houseCategory) : '—';
+      case 'osCategory':
+        return outstandingHouseCategory ? catLabel(outstandingHouseCategory) : 'Skipped';
+      case 'landlord':
+      case 'osLandlord':
+        return landlordName || selectedLandlord?.name || 'Landlord selected';
+      case 'place':
+        return propertyAddress || '—';
+      case 'gps':
+        return gpsLocation ? `GPS ${gpsLocation.lat.toFixed(5)}, ${gpsLocation.lng.toFixed(5)}` : '—';
+      case 'housePhotos':
+      case 'osPhotos':
+        return `${housePhotos.filter(Boolean).length} house photos`;
+      case 'passport':
+      case 'osPassport':
+        return tenantPhoto ? 'Passport photo attached' : '—';
+      case 'lcLetter':
+        return lcLetter ? 'LC letter attached' : 'Skipped';
+      case 'lc1':
+        return [lc1Name, lc1Phone, lc1Village].filter(Boolean).join(' · ') || '—';
+      case 'placeMeta':
+        return [propertyCity, propertyDistrict, `payout day ${landlordPayoutDay}`].filter(Boolean).join(' · ');
+      case 'osRentAmount':
+        return outstandingRentAmount ? formatUGX(parseInt(outstandingRentAmount.replace(/,/g, ''), 10) || 0) : '—';
+      case 'osDuration':
+        return `${duration} days`;
+      case 'osBalance':
+        return outstandingBalance === '' ? '—' : formatUGX(parseInt(outstandingBalance.replace(/,/g, ''), 10) || 0);
+      case 'osDays':
+        return outstandingDaysRemaining === '' ? '—' : `${outstandingDaysRemaining} days left`;
+      default:
+        return '';
+    }
+  };
+
+  const savedHint = tenantName.trim() && amount > 0
+    ? (autoDraftStatus === 'saved' ? 'Draft saved' : autoDraftStatus === 'error' ? 'Draft not saved yet' : autoDraftStatus === 'saving' ? 'Saving draft…' : null)
+    : null;
+
   return (
     <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain">
+      <DialogContent
+        data-rent-chat-text={chatMode ? 'medium' : undefined}
+        style={chatMode
+          ? (isMobile
+            ? { left: 0, top: 0, transform: 'none', animation: 'none', width: '100vw', maxWidth: '100vw', height: '100dvh', maxHeight: '100dvh' }
+            : { left: '50%', top: '50%', transform: 'translate(-50%, -50%)', animation: 'none', width: 'min(440px, calc(100vw - 2rem))', maxWidth: 'none', height: 'min(760px, calc(100dvh - 3rem))', maxHeight: 'none' })
+          : undefined}
+        className={chatMode
+        ? (isMobile
+          ? "!left-0 !top-0 !translate-x-0 !translate-y-0 flex h-[100dvh] max-h-[100dvh] w-screen !max-w-none flex-col gap-0 overflow-hidden rounded-none border-0 bg-primary/10 p-0 sm:max-w-none sm:rounded-none [&>button.absolute]:hidden"
+          : "flex h-full max-h-none w-full max-w-none flex-col gap-0 overflow-hidden rounded-3xl border border-border bg-primary/10 p-0 shadow-2xl sm:rounded-3xl [&>button.absolute]:hidden")
+        : "w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] sm:w-full sm:max-w-md max-h-[88vh] overflow-x-hidden overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+96px)] sm:pb-6 overscroll-contain"}>
+        {chatMode ? (
+          <>
+            <DialogHeader className="sr-only">
+              <DialogTitle>Post a rent request</DialogTitle>
+              <DialogDescription>Answer one question at a time to post a rent request</DialogDescription>
+            </DialogHeader>
+            <RentRequestChatHeader
+              onClose={retreatChat}
+              onForm={openFieldFormPreview}
+              formBusy={fieldFormGenerating}
+              savedHint={savedHint}
+            />
+            {!success && (
+              <RentRequestChatProgress
+                index={Math.min(chatBeat, chatBeats.length - 1)}
+                total={chatBeats.length}
+                label={BEAT_LABEL[beat]}
+              />
+            )}
+          </>
+        ) : (
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -3395,6 +3778,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
             Preview blank field form
           </Button>
         </DialogHeader>
+        )}
 
         <RequestStateBanner state={requestState} />
 
@@ -3410,6 +3794,22 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           </div>
         )}
 
+        <div
+          ref={chatScrollRef}
+          data-rrc-scroll={chatMode ? '' : undefined}
+          className={chatMode ? "min-h-0 flex-1 overflow-y-auto px-3 py-3 space-y-2" : "min-w-0"}
+        >
+        {chatMode && !success && chatBeat > 0 && chatBeats.slice(0, chatBeat).map((id) => (
+          <div key={id} className="space-y-2">
+            <RentRequestChatBubble from="bot">{BEAT_PROMPT[id]}</RentRequestChatBubble>
+            {id !== 'review' && id !== 'osReview' && (
+              <RentRequestChatBubble from="me">{chatAnswer(id)}</RentRequestChatBubble>
+            )}
+          </div>
+        ))}
+        {chatMode && !success && (
+          <RentRequestChatBubble from="bot">{BEAT_PROMPT[beat]}</RentRequestChatBubble>
+        )}
         <AnimatePresence mode="wait">
           {success ? (
             <motion.div
@@ -3522,6 +3922,26 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               animate={{ opacity: 1 }}
               className="space-y-4 py-2"
             >
+              {chatMode ? (
+                <div className="flex flex-wrap gap-2" role="group" aria-label="How does this tenant pay rent?">
+                  {([
+                    ['daily', 'Daily'],
+                    ['weekly', 'Weekly'],
+                    ['monthly', 'Monthly'],
+                    ['outstanding', 'Outstanding'],
+                  ] as const).map(([kind, label]) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => chooseIncome(kind)}
+                      className="rounded-full border border-primary/25 bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm active:scale-95"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+              <>
               <p className="text-sm text-muted-foreground text-center">
                 How does this tenant earn income?
               </p>
@@ -3595,16 +4015,18 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 </button>
 
               </div>
+              </>
+              )}
             </motion.div>
           ) : step === 'details' ? (
             <motion.div
               key="details"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="min-w-0 break-words space-y-4 [&_label]:text-[15px] [&_label]:font-bold [&_input]:h-12 [&_input]:text-base [&_[role=combobox]]:h-12 [&_[role=combobox]]:text-base"
+              className={`min-w-0 break-words space-y-4 [&_label]:text-[15px] [&_label]:font-bold [&_input]:h-12 [&_input]:text-base [&_[role=combobox]]:h-12 [&_[role=combobox]]:text-base ${chatMode ? 'rounded-2xl rounded-tl-md bg-white p-3 shadow-sm' : ''}`}
             >
               {/* Guided wizard progress (standard flow only) */}
-              {incomeType !== 'outstanding' && (
+              {incomeType !== 'outstanding' && !chatMode && (
                 <div className="space-y-4 select-none">
                   {/* Clean step rail — one refined icon per step, joined by a thin track */}
                   <div className="flex items-start">
@@ -3687,14 +4109,14 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               )}
 
               {/* Agent rent exposure capacity (100M UGX cap) */}
-              {(incomeType === 'outstanding' || detailStep === 0) && (
+              {((!chatMode && (incomeType === 'outstanding' || detailStep === 0)) || (chatMode && (beat === 'rent' || beat === 'osRentAmount'))) && (
                 <AgentCapacityBanner agentId={user?.id} />
               )}
 
               {/* Auto-capture status — confirms the request is saved the moment
                   tenant name + amount exist, so the agent never has to wonder
                   whether their submit went through. */}
-              {tenantName.trim() && amount > 0 && (
+              {!chatMode && tenantName.trim() && amount > 0 && (
                 <div
                   className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold ${
                     autoDraftStatus === 'error'
@@ -3727,6 +4149,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               {/* ===== 1. RENT DETAILS — PRIMARY SECTION ===== */}
               {incomeType === 'outstanding' ? (
                 <>
+                  {showBeat('osLandlord') && (<>
                   {/* Warning banner */}
                   <div className="p-3 rounded-xl border border-primary/20 bg-primary/5">
                     <p className="text-xs font-medium text-primary">
@@ -3776,14 +4199,16 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       </Button>
                     </div>
                   </div>
+                  </>)}
 
-                  {/* 👤 Tenant Personal Information */}
+                  {(showBeat('osTenantName') || showBeat('osTenantPhone') || showBeat('osLanguage') || (chatMode && showBeat('osNationalId'))) && (
                   <div className="space-y-3 p-4 rounded-2xl border border-border/60 bg-muted/30">
                     <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                       <User className="h-4 w-4 text-primary" />
                       👤 Personal Information
                     </h4>
                     <div className="space-y-3">
+                      {showBeat('osTenantName') && (
                       <div className="space-y-1">
                         <Label >Tenant Name *</Label>
                         <p className="text-xs text-muted-foreground leading-snug">The tenant's name as on their ID.</p>
@@ -3801,6 +4226,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           onUse={useExistingTenantMatch}
                         />
                       </div>
+                      )}
+                      {showBeat('osTenantPhone') && (
                       <div className="space-y-1">
                         <Label >Tenant Phone *</Label>
 
@@ -3822,10 +4249,41 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           onRenew={renewExistingTenant}
                         />
                       </div>
+                      )}
                     </div>
 
+                    {chatMode && showBeat('osNationalId') && (
+                      <div className="space-y-1">
+                        <Label>National ID</Label>
+                        <Input
+                          value={formatNationalIdDisplay(tenantNationalId)}
+                          onChange={(e) => setTenantNationalId(cleanNationalIdInput(e.target.value))}
+                          placeholder="e.g. CM12 3456 7890 12"
+                          className="font-mono uppercase tracking-wider"
+                          maxLength={17}
+                        />
+                        <FieldError message={vNationalId(tenantNationalId)} />
+                      </div>
+                    )}
+
+                    {showBeat('osLanguage') && (
                     <div className="space-y-1">
                       <Label >Preferred Language *</Label>
+                      {chatMode ? (
+                        <div className="flex flex-wrap gap-2">
+                          {PREFERRED_LANGUAGES.map((l) => (
+                            <button
+                              key={l.value}
+                              type="button"
+                              onClick={() => { setPreferredLanguage(l.value); setChatError(null); setChatBeat((b) => b + 1); }}
+                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${preferredLanguage === l.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
+                            >
+                              {l.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                      <>
                       <p className="text-xs text-muted-foreground leading-snug">The language the tenant understands best.</p>
                       <p className="text-[11px] text-muted-foreground">e.g. Luganda</p>
                       <Select value={preferredLanguage} onValueChange={setPreferredLanguage}>
@@ -3839,10 +4297,14 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         </SelectContent>
                       </Select>
                       <FieldError message={getFieldError('preferredLanguage')} />
+                      </>
+                      )}
                     </div>
+                    )}
                   </div>
+                  )}
 
-                  {/* 💰 Rent Information */}
+                  {(showBeat('osRentAmount') || showBeat('osDuration') || showBeat('osBalance') || showBeat('osDays') || showBeat('osCategory')) && (
                   <div className="space-y-3 p-4 rounded-2xl border border-border/60 bg-muted/30">
                     <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
                       <Banknote className="h-4 w-4 text-primary" />
@@ -3850,6 +4312,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     </h4>
 
                     <div className="space-y-3">
+                      {showBeat('osRentAmount') && (
                       <div className="space-y-1">
                         <Label className="font-semibold">Rent Amount (UGX) *</Label>
                         <p className="text-xs text-muted-foreground leading-snug">The full monthly rent for this house.</p>
@@ -3863,6 +4326,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         />
                         <FieldError message={vAmount(outstandingRentAmount) || getFieldError('outstandingRentAmount')} />
                       </div>
+                      )}
+                      {showBeat('osDuration') && (
                       <div className="space-y-1">
                         <Label className="font-semibold">Repayment Duration *</Label>
                         <p className="text-xs text-muted-foreground leading-snug">How many days the tenant has to pay it back.</p>
@@ -3878,8 +4343,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           </SelectContent>
                         </Select>
                       </div>
+                      )}
                     </div>
 
+                    {showBeat('osBalance') && (
                     <div className="space-y-1">
                       <Label className="font-semibold">Outstanding Balance (UGX) *</Label>
                       <p className="text-xs text-muted-foreground leading-snug">How much rent the tenant still owes right now.</p>
@@ -3898,7 +4365,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         </p>
                       )}
                     </div>
+                    )}
 
+                    {showBeat('osDays') && (
                     <div className="space-y-1">
                       <Label className="font-semibold">Days Remaining *</Label>
                       <Input
@@ -3913,9 +4382,26 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       />
                       <FieldError message={vDays(outstandingDaysRemaining) || getFieldError('outstandingDaysRemaining')} />
                     </div>
+                    )}
 
+                    {showBeat('osCategory') && (
                     <div className="space-y-1">
-                      <Label className="font-semibold">House Type *</Label>
+                      <Label className="font-semibold">House Type</Label>
+                      {chatMode ? (
+                        <div className="flex flex-wrap gap-2">
+                          {HOUSE_CATEGORIES.map((cat) => (
+                            <button
+                              key={cat.value}
+                              type="button"
+                              onClick={() => setOutstandingHouseCategory(cat.value)}
+                              className={`rounded-full border px-3 py-2 text-sm font-semibold ${outstandingHouseCategory === cat.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
+                            >
+                              {cat.label}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                      <>
                       <Select value={outstandingHouseCategory} onValueChange={setOutstandingHouseCategory}>
                         <SelectTrigger className={`${hasFieldError('outstandingHouseCategory') ? 'border-destructive border-2' : ''}`}>
                           <SelectValue placeholder="Select house type" />
@@ -3929,11 +4415,53 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                         </SelectContent>
                       </Select>
                       <FieldError message={getFieldError('outstandingHouseCategory')} />
+                      </>
+                      )}
                     </div>
+                    )}
                   </div>
+                  )}
 
+                  {chatMode && (showBeat('osPhotos') || showBeat('osPassport')) && (
+                    <div className="space-y-3">
+                      {showBeat('osPhotos') && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {HOUSE_PHOTO_SLOTS.map((slot, idx) => {
+                            const photo = housePhotos[idx];
+                            return (
+                              <label key={slot.key} className="aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-center text-xs overflow-hidden relative bg-white">
+                                {photo ? <img src={photo.preview} alt={slot.label} className="absolute inset-0 h-full w-full object-cover" /> : <span>{slot.label}</span>}
+                                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handlePhotoAddAt(idx, e)} />
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {showBeat('osPassport') && (
+                        <label className="flex items-center gap-3 rounded-xl border-2 border-dashed bg-white p-3 text-sm">
+                          {tenantPhoto ? <img src={tenantPhoto.preview} alt="Tenant" className="h-16 w-14 rounded-lg object-cover" /> : <span>Attach passport photo</span>}
+                          <input type="file" accept="image/*" capture="user" className="hidden" onChange={handleTenantPhoto} />
+                          {faceCheck?.status === 'checking' && <span className="text-xs">Checking the face…</span>}
+                          {faceCheck?.status === 'no_face' && <span className="text-xs text-red-700">No face found. Retake the photo.</span>}
+                        </label>
+                      )}
+                    </div>
+                  )}
+
+                  {showBeat('osReview') && (
+                  <>
+                  {chatMode && (
+                    <div className="space-y-1 rounded-2xl bg-white p-3 text-xs">
+                      <div className="flex justify-between gap-2"><span>Tenant</span><span className="font-semibold">{tenantName || '—'}</span></div>
+                      <div className="flex justify-between gap-2"><span>Outstanding</span><span className="font-semibold">{outstandingBalance ? formatUGX(parseInt(outstandingBalance.replace(/,/g, ''), 10) || 0) : '—'}</span></div>
+                      <div className="flex justify-between gap-2"><span>Duration</span><span className="font-semibold">{duration} days</span></div>
+                      <div className="flex justify-between gap-2"><span>Landlord</span><span className="font-semibold">{selectedLandlord?.name || landlordName || '—'}</span></div>
+                    </div>
+                  )}
                   {/* FIX #2: Add GuarantorConsentCheckbox to outstanding flow */}
                   <GuarantorConsentCheckbox checked={guarantorConsent} onCheckedChange={setGuarantorConsent} />
+                  </>
+                  )}
 
                   {/* Validation Error Summary */}
                   {validationErrors.length > 0 && (
@@ -4022,6 +4550,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   )}
 
                   {/* Submit button for outstanding mode */}
+                  {!chatMode && (
                   <div className="flex gap-3 pt-2">
                     <Button 
                       type="button" 
@@ -4052,6 +4581,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       )}
                     </Button>
                   </div>
+                  )}
                   {loading && (
                     <p
                       role="status"
@@ -4063,7 +4593,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     </p>
                   )}
                 </>
-              ) : detailStep === 0 ? (
+              ) : ((!chatMode && detailStep === 0) || (chatMode && beat === 'rent')) ? (
               <>
               <div className="space-y-3 p-4 rounded-2xl bg-primary/10 border-2 border-primary/40">
                 <h4 className="text-base font-extrabold text-primary flex items-center gap-2">
@@ -4220,16 +4750,24 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
               {incomeType !== 'outstanding' && (
               <>
-              {detailStep === 1 && (
+              {((!chatMode && detailStep === 1) || (chatMode && isTenantBeat(beat))) && (
               <>
               {/* ===== 2. TENANT DETAILS ===== */}
               <div className="space-y-3">
+                {!chatMode && (
                 <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                   <User className="h-3 w-3" />
                   Tenant Details
                 </h4>
+                )}
 
                 {/* No Smartphone Toggle */}
+                {showBeat('noPhone') && (chatMode ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground" onClick={() => { setNoSmartphone(false); setChatError(null); setChatBeat((b) => b + 1); }}>Has a smartphone</button>
+                    <button type="button" className="rounded-full border border-primary/25 bg-card px-4 py-2 text-sm font-semibold text-foreground" onClick={() => { setNoSmartphone(true); setChatError(null); setChatBeat((b) => b + 1); }}>No smartphone</button>
+                  </div>
+                ) : (
                 <button
                   type="button"
                   onClick={() => setNoSmartphone(!noSmartphone)}
@@ -4253,8 +4791,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     </p>
                   </div>
                 </button>
+                ))}
 
                 <div className="space-y-3">
+                  {showBeat('tenantName') && (
                   <div className="space-y-1">
                     <Label htmlFor="tenantName" >Full Name *</Label>
                     <p className="text-xs text-muted-foreground leading-snug">Write the tenant's name as it is on their ID.</p>
@@ -4272,6 +4812,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       onUse={useExistingTenantMatch}
                     />
                   </div>
+                  )}
+                  {showBeat('tenantPhone') && (
                   <div className="space-y-1">
                     <Label htmlFor="tenantPhone" >Phone *</Label>
 
@@ -4294,8 +4836,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       onRenew={renewExistingTenant}
                     />
                   </div>
+                  )}
                 </div>
 
+                {showBeat('nationalId') && (
                 <div className="space-y-1">
                   <Label htmlFor="tenantNationalId" >National ID *</Label>
                   <p className="text-xs text-muted-foreground leading-snug">Copy the long number from their national ID card.</p>
@@ -4319,10 +4863,27 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     onUse={useExistingTenantMatch}
                   />
                 </div>
+                )}
 
+                {showBeat('language') && (
                 <div className="space-y-1">
 
                   <Label >Preferred Language *</Label>
+                  {chatMode ? (
+                    <div className="flex flex-wrap gap-2">
+                      {PREFERRED_LANGUAGES.map((l) => (
+                        <button
+                          key={l.value}
+                          type="button"
+                          onClick={() => { setPreferredLanguage(l.value); setChatError(null); setChatBeat((b) => b + 1); }}
+                          className={`rounded-full px-3 py-2 text-sm font-semibold border ${preferredLanguage === l.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
+                        >
+                          {l.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                  <>
                   <p className="text-xs text-muted-foreground leading-snug">The language the tenant understands best.</p>
                       <p className="text-[11px] text-muted-foreground">e.g. Luganda</p>
                   <Select value={preferredLanguage} onValueChange={setPreferredLanguage}>
@@ -4335,20 +4896,41 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       ))}
                     </SelectContent>
                   </Select>
+                  </>
+                  )}
                   <FieldError message={getFieldError('preferredLanguage')} />
                 </div>
+                )}
               </div>
               </>
               )}
 
-              {detailStep === 2 && (
+              {((!chatMode && detailStep === 2) || (chatMode && isPropertyBeat(beat))) && (
               <>
               {/* ===== 3. HOUSE CATEGORY ===== */}
+              {showBeat('category') && (
               <div className="space-y-3">
+                {!chatMode && (
                 <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-1">
                   <Home className="h-3 w-3" />
                   House Category *
                 </h4>
+                )}
+                {chatMode ? (
+                  <div className="flex flex-wrap gap-2">
+                    {HOUSE_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => { setHouseCategory(cat.value); setChatError(null); setChatBeat((b) => b + 1); }}
+                        className={`rounded-full border px-3 py-2 text-sm font-semibold ${houseCategory === cat.value ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-primary/25'}`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                <>
                 <p className="text-xs text-muted-foreground leading-snug">Pick what kind of house this is (single room, two rooms, etc.).</p>
                 <p className="text-[11px] text-muted-foreground">e.g. Single Room</p>
                 <Select value={houseCategory} onValueChange={setHouseCategory}>
@@ -4363,13 +4945,17 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     ))}
                   </SelectContent>
                 </Select>
+                </>
+                )}
                 <FieldError message={getFieldError('houseCategory')} />
               </div>
+              )}
 
-              <Separator />
+              {!chatMode && <Separator />}
 
               {/* ===== 4. LANDLORD — search-first, big & clear ===== */}
               <div ref={landlordSectionRef} className="space-y-4">
+                {showBeat('landlord') && (<>
                 {/* Friendly section title — large, no jargon */}
                 <div className="flex items-center gap-2">
                   <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -4560,7 +5146,9 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 {selectedLandlord && landlordCheck === 'checking' && (
                   <FieldError message="Confirming the landlord is registered — please wait a moment before submitting" />
                 )}
+                </>)}
 
+                {showBeat('place') && (
                 <div className="space-y-1.5">
                   <UgLocationPicker
                     value={ugLocation}
@@ -4571,7 +5159,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   />
                   <FieldError message={vPlace(propertyAddress, 'Kira Town, near Total') || getFieldError('propertyAddress')} />
                 </div>
+                )}
 
+                {showBeat('gps') && (
+                <>
                 {/* GPS Capture */}
                 <div className="space-y-1">
                   <Label className="flex items-center gap-1">
@@ -4622,7 +5213,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   )}
                   {!gpsLocation && <FieldError message={getFieldError('gpsLocation')} />}
                 </div>
+                </>
+                )}
 
+                {showBeat('housePhotos') && (
+                <>
                 {/* House Photos — 4 outside views */}
                 <div className="space-y-2">
                   {/* Renewal document prompt — states plainly whether this
@@ -4668,10 +5263,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           {photo ? (
                             <div className="relative aspect-square rounded-lg overflow-hidden border border-border group">
                               <img
-                                src={photo.preview}
+                                src={photo?.preview}
                                 alt={slot.label}
                                 className="w-full h-full object-cover cursor-pointer"
-                                onClick={() => { setPreviewUrl(photo.preview); setPreviewLabel(slot.label); }}
+                                onClick={() => { setPreviewUrl(photo?.preview ?? null); setPreviewLabel(slot.label); }}
                               />
                               <button
                                 type="button"
@@ -4711,7 +5306,11 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     })}
                   </div>
                 </div>
+                </>
+                )}
 
+                {showBeat('passport') && (
+                <>
                 {/* Tenant passport photo (optional — submitted last with the other photos) */}
                 <div className="space-y-1">
                   <Label className="flex items-center gap-1">
@@ -4721,10 +5320,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     {tenantPhoto ? (
                       <div className="relative h-24 w-20 rounded-lg overflow-hidden border border-border shrink-0 group">
                         <img
-                          src={tenantPhoto.preview}
+                          src={tenantPhoto?.preview}
                           alt="Tenant"
                           className="w-full h-full object-cover cursor-pointer"
-                          onClick={() => { setPreviewUrl(tenantPhoto.preview); setPreviewLabel("Tenant Passport Photo"); }}
+                          onClick={() => { setPreviewUrl(tenantPhoto?.preview ?? null); setPreviewLabel("Tenant Passport Photo"); }}
                         />
                         <button
                           type="button"
@@ -4804,11 +5403,15 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     </p>
                   )}
                 </div>
+                </>
+                )}
               </div>
               </>
               )}
 
-              {detailStep === 3 && (
+              {((!chatMode && detailStep === 3) || (chatMode && isOfficialBeat(beat))) && (
+              <>
+              {showBeat('lcLetter') && (
               <>
               {/* ===== LC LETTER UPLOAD ===== */}
               <div className="space-y-2">
@@ -4818,7 +5421,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                 </h4>
                 {lcLetter ? (
                   <div className="flex items-center gap-3 rounded-xl border border-border p-2.5">
-                    <img src={lcLetter.preview} alt="LC letter" className="h-16 w-16 rounded-lg object-cover" />
+                    <img src={lcLetter?.preview} alt="LC letter" className="h-16 w-16 rounded-lg object-cover" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{lcLetter.file.name}</p>
                       <p className="text-xs text-muted-foreground">
@@ -4845,9 +5448,13 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   One image only — JPG, JPEG or PNG, up to 10 MB. Kept private and visible to Welile operations.
                 </p>
               </div>
+              </>
+              )}
 
               {/* ===== 5. LC1 DETAILS ===== */}
               <div ref={lc1SectionRef} className="space-y-3">
+                {showBeat('lc1') && (
+                <>
                 <h4 className="text-base font-bold text-foreground flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   LC1 Chairperson Details
@@ -5051,6 +5658,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   )}
                 </div>
 
+                </>
+                )}
+                {showBeat('placeMeta') && (
+                <>
                 {/* Town/City + District — filled automatically from the official
                     village the agent picked, and only edited when the house sits
                     somewhere other than the chairperson's village. */}
@@ -5097,8 +5708,12 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                     )}
                   </div>
                 </div>
+                </>
+                )}
               </div>
 
+              {showBeat('placeMeta') && (
+              <>
               {/* Landlord auto-payout day */}
               <div className="space-y-1 rounded-xl border border-primary/30 bg-primary/5 p-3">
                 <Label className="flex items-center gap-1 font-semibold">
@@ -5123,8 +5738,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               </div>
               </>
               )}
+              </>
+              )}
 
-              {detailStep === 4 && (
+              {((!chatMode && detailStep === 4) || (chatMode && beat === 'review')) && (
               <>
               {/* ===== 6. REVIEW & CONFIRM ===== */}
               <div className="space-y-2 p-4 rounded-2xl bg-muted/40 border border-border">
@@ -5250,7 +5867,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
               {/* Real-time cap breakdown — always visible once an amount is
                   entered. Shows the agent's tier, per-tenant posting cap and
                   whether the typed amount passes the threshold, live. */}
-              {amount > 0 && (() => {
+              {amount > 0 && (!chatMode || beat === 'review') && (() => {
                 // Weekly Good-Standing unlock takes over the whole panel: no
                 // cap, no meter — just a clear "you can post anything" message.
                 if (unlimitedPosting) {
@@ -5514,6 +6131,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           type="button"
                           onClick={() => {
                             setDetailStep(2);
+                            syncChatToWizardStep(2);
                             requestAnimationFrame(() => {
                               landlordSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                             });
@@ -5532,6 +6150,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                           type="button"
                           onClick={() => {
                             setDetailStep(3);
+                            syncChatToWizardStep(3);
                             requestAnimationFrame(() => {
                               lc1SectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                             });
@@ -5553,6 +6172,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
 
 
               {/* Wizard navigation */}
+              {!chatMode && (
               <div className="flex gap-3 pt-2">
                 <Button
                   type="button"
@@ -5603,6 +6223,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   </Button>
                 )}
               </div>
+              )}
               {detailStep === DETAIL_STEPS.length - 1 && amount > 0 && amount < 50000 && (
                 <p className="text-xs font-semibold text-warning text-center -mt-1">
                   Rent amount must be at least UGX 50,000 to post.
@@ -5628,6 +6249,27 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
             </motion.div>
           ) : null}
         </AnimatePresence>
+        </div>
+        {chatMode && !success && (
+          <RentRequestChatFooter
+            onBack={retreatChat}
+            onSend={isReviewBeat(beat)
+              ? (incomeType !== 'outstanding' && amount > perTenantMax ? handleSaveForLater : requestSubmit)
+              : advanceChat}
+            onSkip={isSkippableBeat(beat) ? () => {
+              setChatError(null);
+              const next = Math.min(chatBeat + 1, chatBeats.length - 1);
+              setChatBeat(next);
+              setStep('details');
+              setDetailStep(detailStepForBeat(chatBeats[next]));
+            } : undefined}
+            sendLabel={isReviewBeat(beat)
+              ? (incomeType !== 'outstanding' && amount > perTenantMax ? 'Save for later' : 'Submit')
+              : 'Send'}
+            error={chatError}
+            busy={loading || requestState === 'submitting'}
+          />
+        )}
       </DialogContent>
       {/* Photo preview lightbox */}
       {previewUrl && (
@@ -5654,6 +6296,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           </div>
         </div>
       )}
+      {mountRegisterLandlord && (
+      <Suspense fallback={null}>
       <RegisterLandlordDialog
         open={showRegisterLandlord}
         onOpenChange={setShowRegisterLandlord}
@@ -5672,6 +6316,10 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           }
         }}
       />
+      </Suspense>
+      )}
+      {mountListHouse && (
+      <Suspense fallback={null}>
       <ListEmptyHouseDialog
         open={showListHouse}
         onOpenChange={setShowListHouse}
@@ -5692,6 +6340,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
           toast.success('House listed — landlord & LC1 registered. They must be verified before you can post.');
         }}
       />
+      </Suspense>
+      )}
       <AlertDialog open={confirmCloseDialog} onOpenChange={setConfirmCloseDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -5813,6 +6463,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         </div>
       </DialogContent>
     </Dialog>
+    {mountLandlordProfile && (
+    <Suspense fallback={null}>
     <EntityDetailSheet
       open={!!landlordProfile}
       onClose={() => setLandlordProfile(null)}
@@ -5849,8 +6501,12 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         Confirm and select landlord
       </Button>
     </EntityDetailSheet>
+    </Suspense>
+    )}
 
     {/* Duplicate blocked → resubmit the existing rejected request instead */}
+    {mountResubmit && (
+    <Suspense fallback={null}>
     <AgentEditRentRequestDialog
       request={resubmitTarget}
       open={!!resubmitTarget}
@@ -5861,6 +6517,8 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
         onOpenChange(false);
       }}
     />
+    </Suspense>
+    )}
     </>
   );
 }

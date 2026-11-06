@@ -1,3 +1,4 @@
+import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
 // This is the agent dashboard exactly as it stood at commit 16c8eb552c (12 Oct 2026, 13:30 UTC),
@@ -21,6 +22,14 @@ import { normalizeCashoutAgentConfig, buildQueueCategoryOrClause } from '@/lib/c
 // hidden for now (2026-10-16): the signature rent-request card is the single
 // entry point on this dashboard. Flip to true to bring them back.
 const SHOW_LEGACY_RENT_REQUEST_CARD = false;
+/**
+ * The dashboard's "Post rent request" flow. 'assistant' is the guided chat
+ * (RentRequestAssistant), the flow for all agents since 2026-11-03. 'classic' is
+ * the old AgentRentRequestDialog chat, parked here until Pius says to delete it;
+ * switch back by setting this to 'classic'. (Renew, the tenant intake queue and
+ * the listing "swap tenant" flow still use AgentRentRequestDialog directly.)
+ */
+const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 
 import AiIdButton from '@/components/ai-id/AiIdButton';
@@ -67,7 +76,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, Loader2 } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
@@ -94,6 +103,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
+import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
@@ -171,12 +181,10 @@ import { RecentAutoCharges } from '@/components/wallet/RecentAutoCharges';
 import { StuckDepositsRepairPanel } from '@/components/wallet/StuckDepositsRepairPanel';
 import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentRequestsList';
 
-import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
-import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -204,7 +212,24 @@ const AgentMenuDrawer = lazyNamed(() => import('@/components/agent-bk/AgentMenuD
 const RentPosterDialog = lazy(() => import('@/components/agent/RentPosterDialog'));
 const RegFormActionDialog = lazy(() => import('@/components/agent/RegFormActionDialog'));
 const AgentDepositDialog = lazyNamed(() => import('@/components/agent/AgentDepositDialog'), 'AgentDepositDialog');
-const AgentRentRequestDialog = lazy(() => import('@/components/agent/AgentRentRequestDialog'));
+// One shared loader so the chunk can be fetched ahead of the first tap
+// (idle time, or the moment a finger lands on the card) and React.lazy reuses it.
+const loadAgentRentRequestDialog = () => import('@/components/agent/AgentRentRequestDialog');
+const AgentRentRequestDialog = lazy(loadAgentRentRequestDialog);
+const loadRentRequestAssistant = () => import('@/components/agent/rentRequestAssistant/RentRequestAssistant');
+const RentRequestAssistant = lazy(loadRentRequestAssistant);
+
+/** Fetch the active rent-request flow ahead of time; safe to call repeatedly. */
+function preloadAgentRentRequestDialog() {
+  void (DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? loadRentRequestAssistant() : loadAgentRentRequestDialog()).catch(() => {});
+}
+
+/** Skip speculative downloads on Data Saver or very slow connections. */
+function shouldPrefetchOnIdle(): boolean {
+  const conn = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (conn?.saveData) return false;
+  return !(conn?.effectiveType && /(^|-)2g$/.test(conn.effectiveType));
+}
 const BusinessAdvanceRequestDialog = lazy(() => import('@/components/agent/BusinessAdvanceRequestDialog'));
 const CommissionCelebrationModal = lazyNamed(() => import('@/components/agent/CommissionCelebrationModal'), 'CommissionCelebrationModal');
 const EarningsRankSystemSheet = lazyNamed(() => import('@/components/agent/EarningsRankSystemSheet'), 'EarningsRankSystemSheet');
@@ -254,9 +279,29 @@ const FieldCollectDailyTotals = lazyNamed(() => import('@/components/agent/Field
 
 // Renders a lazy modal only while `when` is truthy, so its chunk stays
 // unloaded and it is absent from the render tree until first opened.
-function LazyModal({ when, children }: { when: unknown; children: ReactNode }) {
+function LazyModal({ when, children, fallback = null }: { when: unknown; children: ReactNode; fallback?: ReactNode }) {
   if (!when) return null;
-  return <Suspense fallback={null}>{children}</Suspense>;
+  return <Suspense fallback={fallback}>{children}</Suspense>;
+}
+
+// Shown for the instant between the tap and the dialog's first paint when its
+// chunk is still downloading, so the tap never looks ignored.
+function RentRequestLoadingShell() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="fixed inset-0 z-[150] flex flex-col bg-background"
+    >
+      <div className="shrink-0 bg-primary px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-primary-foreground">
+        <p className="text-[15px] font-semibold leading-tight">Rent request</p>
+        <p className="text-[11px] text-primary-foreground/80">Getting your form ready…</p>
+      </div>
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+      </div>
+    </div>
+  );
 }
 
 interface AgentDashboardProps {
@@ -269,6 +314,8 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboardBk({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  // Agent Ops approval (agent vetting), never profiles.verified.
+  const agentVerifiedState = useAgentVerifiedState();
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
@@ -980,16 +1027,29 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     };
   }, [guardMerchant, guardListingHours, searchParams, setSearchParams]);
 
+  // Rent request is the dashboard's main action: fetch its dialog once the page
+  // has settled, so the first tap opens instantly instead of waiting on the download.
+  useEffect(() => {
+    if (!shouldPrefetchOnIdle()) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (h: number) => void };
+    if (typeof w.requestIdleCallback === 'function') {
+      const h = w.requestIdleCallback(preloadAgentRentRequestDialog, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(h);
+    }
+    const t = window.setTimeout(preloadAgentRentRequestDialog, 2500);
+    return () => window.clearTimeout(t);
+  }, []);
+
   // Warm up menu route bundles during browser idle time so menu navigation is instant
   useEffect(() => {
     const timer = setTimeout(() => {
-      void import('@/pages/YourProfile');
-      void import('@/pages/AgentServiceCenter');
-      void import('@/components/auth/ProxyAgentGuard');
-      void import('@/pages/agent/ProxyPerformanceDashboard');
-      void import('@/pages/AgentCommissionBenefits');
-      void import('@/pages/MerchandiseStore');
-      void import('@/pages/Settings');
+      void import('@/pages/YourProfile').catch(() => {});
+      void import('@/pages/AgentServiceCenter').catch(() => {});
+      void import('@/components/auth/ProxyAgentGuard').catch(() => {});
+      void import('@/pages/agent/ProxyPerformanceDashboard').catch(() => {});
+      void import('@/pages/AgentCommissionBenefits').catch(() => {});
+      void import('@/pages/MerchandiseStore').catch(() => {});
+      void import('@/pages/Settings').catch(() => {});
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
@@ -1114,14 +1174,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
       icon: ShoppingBag,
       label: 'Buy Merchandise',
       onClick: () => { hapticTap(); navigate('/merchandise'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
     {
       icon: Package,
       label: 'My Orders',
       badge: myOrdersCount > 0 ? myOrdersCount : null,
       onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
-      onPointerEnter: () => void import('@/pages/MerchandiseStore'),
+      onPointerEnter: () => void import('@/pages/MerchandiseStore').catch(() => {}),
     },
   ];
 
@@ -1167,6 +1227,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         )}
 
         <AgentAgreementBanner />
+        <AgentVettingBanner />
         <MissionBanner dashboardRole="agent" />
         <AgentPaymentEditAlert agentId={user.id} />
         {!isMerchant && <AgentReturnedInactivationsPanel />}
@@ -1201,7 +1262,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   phone={(profile as any)?.phone}
                   email={(profile as any)?.email}
                   location={(profile as any)?.territory ?? (profile as any)?.location}
-                  verified={profile?.verified}
+                  verified={agentVerifiedState === 'verified'}
+                  agentVerifiedState={agentVerifiedState}
                   roleLabel="Welile Agent"
                   triggerSize="lg"
                   eliteTier={myEliteRank?.tier_name}
@@ -1210,7 +1272,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <h1 className="font-bold text-xl leading-tight">
                     <span className="break-words">
                       {profile?.full_name || 'Agent'}
-                      {profile?.verified && (
+                      {agentVerifiedState === 'verified' && (
                         <BadgeCheck className="inline-block h-3.5 w-3.5 text-primary fill-primary/20 align-top -translate-y-1 ml-1 shrink-0" />
                       )}
                     </span>
@@ -1319,8 +1381,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               <SignatureRentRequestCard
                 fullName={profile?.full_name}
                 onPostRequest={() => { setRentRequestOpen(true); }}
+                onIntent={preloadAgentRentRequestDialog}
               />
-              <AgentNudgePreviewButton userId={user?.id} />
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                   (2026-10-16). The signature card above is the entry point. */}
               {SHOW_LEGACY_RENT_REQUEST_CARD && (
@@ -1476,30 +1538,30 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
           <div className={cn("space-y-5", tabAnimClass)}>
             {/* Prominent Agent Advance promo — high-visibility entry point so
                 agents always see the cash they can access instantly. */}
-            <div className="relative w-full overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-5 text-card-foreground shadow-lg ring-1 ring-primary/20">
+            <div className="relative w-full overflow-hidden rounded-3xl border border-border/60 bg-card p-5 text-card-foreground">
               <div className="relative">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary/15 p-1.5 text-primary">
+                  <div className="rounded-full bg-muted p-1.5 text-muted-foreground">
                     <Briefcase className="h-4 w-4" strokeWidth={2.2} />
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-primary dark:text-white">Agent Advance</span>
+                  <span className="text-sm font-medium text-muted-foreground">Agent Advance</span>
                 </div>
-                <p className="mt-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground dark:text-white">You can access now</p>
-                <p className="mt-1 text-3xl font-black leading-none text-primary dark:text-white whitespace-pre-line">
+                <p className="mt-4 text-sm text-muted-foreground">You can access now</p>
+                <p className="mt-1 text-3xl font-bold leading-none text-foreground whitespace-pre-line">
                   {formatCreditAmount(advanceLimit?.totalLimit || 30000)}
                 </p>
-                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary dark:text-white">
+                <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
                   <TrendingUp className="h-3.5 w-3.5" strokeWidth={2.4} />
                   Grow up to UGX 30,000,000 as you perform better
                 </div>
-                <p className="mt-2 text-[13px] font-medium text-foreground dark:text-white leading-snug">
+                <p className="mt-3 text-sm text-muted-foreground leading-snug">
                   Cash straight to your wallet · repay over up to 12 months. Clear it early to unlock a bigger advance.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => { hapticTap(); setAdvanceRequestOpen(true); }}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground shadow-sm active:scale-[0.97] transition-transform touch-manipulation"
+                    className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground active:scale-[0.97] transition-transform touch-manipulation"
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     Request advance <ChevronRight className="h-3.5 w-3.5" />
@@ -1507,7 +1569,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <button
                     type="button"
                     onClick={() => { hapticTap(); setAdvanceGuideOpen(true); }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/5 px-3.5 py-1.5 text-xs font-bold text-primary dark:text-white active:scale-[0.97] transition-transform touch-manipulation"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-transparent px-4 h-10 text-sm font-medium text-foreground active:scale-[0.97] transition-transform touch-manipulation"
                     style={{ WebkitTapHighlightColor: 'transparent' }}
                   >
                     <Sparkles className="h-3.5 w-3.5" /> How to increase my limit
@@ -1589,15 +1651,15 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             {!isMerchant && isLandlordReceiptConfirmationEffective() && (
               <button
                 onClick={() => { hapticTap(); setReceiptCheckOpen(true); }}
-                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 ring-1 ring-[#9234EA]/30 active:scale-[0.98] transition-all touch-manipulation"
+                className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
-                <div className="p-2.5 rounded-xl bg-[#9234EA]/10">
-                  <Receipt className="h-5 w-5 text-[#9234EA]" strokeWidth={2.2} />
+                <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted">
+                  <Receipt className="h-5 w-5 text-foreground" strokeWidth={2} />
                 </div>
                 <div className="flex-1 text-left">
-                  <div className="font-bold text-sm text-foreground">Confirm landlord payment</div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="font-semibold text-sm text-foreground">Confirm landlord payment</div>
+                  <div className="text-xs text-muted-foreground">
                     Enter the receipt number the landlord received by SMS to confirm the landlord float payment
                   </div>
                 </div>
@@ -1606,49 +1668,49 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             )}
             <button
               onClick={() => { hapticTap(); setBusinessAdvanceOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-primary/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-primary text-primary-foreground shadow-md">
-                <Briefcase className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <Briefcase className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Business Advance</div>
-                <div className="text-[11px] text-muted-foreground">Request advance for tenant's business · Earn 4% on every repayment</div>
+                <div className="font-semibold text-sm text-foreground">Business Advance</div>
+                <div className="text-xs text-muted-foreground">Request advance for tenant's business · Earn 4% on every repayment</div>
               </div>
-              <span className="text-xs font-bold text-primary">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <button
               onClick={() => { hapticTap(); setLendingAgentOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-emerald-500/10 to-primary/5 ring-1 ring-emerald-500/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-md">
-                <Banknote className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <Banknote className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Lending Agent</div>
-                <div className="text-[11px] text-muted-foreground">Lend to Welile users from your wallet · Earn interest</div>
-                <div className="mt-1 inline-flex items-center gap-1 rounded-md bg-emerald-600/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                <div className="font-semibold text-sm text-foreground">Lending Agent</div>
+                <div className="text-xs text-muted-foreground">Lend to Welile users from your wallet · Earn returns</div>
+                <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                   <ShieldCheck className="h-3 w-3" strokeWidth={2.4} />
                   Principal 100% protected by Welile
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-700">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <button
               onClick={() => { hapticTap(); setBorrowOpen(true); }}
-              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-primary/15 via-primary/10 to-emerald-500/5 ring-1 ring-primary/30 active:scale-[0.98] transition-all touch-manipulation"
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 active:scale-[0.98] transition-all touch-manipulation"
               style={{ WebkitTapHighlightColor: 'transparent' }}
             >
-              <div className="p-2.5 rounded-xl bg-primary text-white shadow-md">
-                <HandCoins className="h-5 w-5" strokeWidth={2.2} />
+              <div className="grid h-10 w-10 flex-none place-items-center rounded-full bg-muted text-foreground">
+                <HandCoins className="h-5 w-5" strokeWidth={2} />
               </div>
               <div className="flex-1 text-left">
-                <div className="font-bold text-sm text-foreground">Borrow a Loan</div>
-                <div className="text-[11px] text-muted-foreground">Browse lending agents' offers · Request a loan</div>
+                <div className="font-semibold text-sm text-foreground">Borrow a Loan</div>
+                <div className="text-xs text-muted-foreground">Browse lending agents' offers · Request a loan</div>
               </div>
-              <span className="text-xs font-bold text-primary">→</span>
+              <ChevronRight className="h-4 w-4 flex-none text-muted-foreground" />
             </button>
             <RecentAutoCharges />
             <StuckDepositsRepairPanel agentId={user.id} />
@@ -1659,22 +1721,14 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground">My Tenants</h2>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  variant="outline"
-                  onClick={() => { hapticTap(); setWelileHomesOpen(true); }}
-                  className="h-9 sm:h-11 px-2.5 sm:px-3 text-xs sm:text-sm font-bold rounded-xl gap-1.5"
-                >
-                  <Home className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Welile Homes
-                </Button>
-                <Button
                   onClick={() => { hapticTap(); setRentRequestOpen(true); }}
-                  className="h-9 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm font-bold rounded-xl gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
+                  className="h-11 rounded-full px-5 text-sm font-semibold gap-2 bg-primary text-primary-foreground hover:bg-primary/90 dark:text-white"
                 >
-                  <UserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <UserPlus className="h-4 w-4" />
                   Add Tenant
                 </Button>
               </div>
@@ -1690,33 +1744,33 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 AgentTenantInlineList, right above the tenant list. */}
             <div
               className={cn(
-                "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
-                submissionsExpanded && "pb-2.5"
+                "rounded-2xl border border-border/60 bg-card px-4",
+                submissionsExpanded && "pb-3"
               )}
             >
               <button
                 onClick={() => setSubmissionsExpanded((v) => !v)}
-                className="w-full flex items-center justify-between py-2 text-left"
+                className="w-full flex items-center justify-between py-3.5 text-left active:opacity-70 transition-opacity"
                 style={{ touchAction: 'manipulation' }}
               >
-                <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                <h3 className="text-sm font-semibold text-foreground">
                   Submissions
                 </h3>
                 <div className="flex items-center gap-1.5">
                   {!submissionsExpanded && (
                     <div className="flex items-center gap-1">
                       {submittedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-amber-600 text-[11px] font-semibold flex items-center justify-center">
                           {submittedCount}
                         </span>
                       )}
                       {approvedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-emerald-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-emerald-600 text-[11px] font-semibold flex items-center justify-center">
                           {approvedCount}
                         </span>
                       )}
                       {rejectedCount > 0 && (
-                        <span className="h-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center">
+                        <span className="h-5 min-w-5 px-1.5 rounded-full border border-border text-destructive text-[11px] font-semibold flex items-center justify-center">
                           {rejectedCount}
                         </span>
                       )}
@@ -1736,7 +1790,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </div>
               )}
             </div>
-            <h3 className="text-[11px] sm:text-sm font-bold uppercase tracking-wide text-muted-foreground">My Tenants</h3>
+            <h3 className="px-1 text-sm font-semibold text-muted-foreground">My Tenants</h3>
             <AgentTenantInlineList
               onOpenTenantSheet={(tenantId) => { setTenantProfileId(tenantId); setTenantsSheetOpen(true); }}
               onAddTenant={() => setRentRequestOpen(true)}
@@ -1772,8 +1826,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
-                { icon: ShieldCheck, label: 'My National ID', onClick: () => setNationalIdGroupOpen(true) },
-                { icon: Menu, label: 'All Menu', onClick: handleOpenMenu },
               ].map((a) => (
                 <button
                   key={a.label}
@@ -1788,7 +1840,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 </button>
               ))}
             </div>
-            <ShareRentRecorderCard />
           </div>
         )}
 
@@ -1961,7 +2012,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
               navigator.share({ title: 'Back the Welile Angel Pool', text: shareText, url: investorLink }).catch(() => {});
             } else {
               await navigator.clipboard.writeText(investorLink);
-              toast.success('Angel investor signup link copied!');
+              toast.success('Angel supporter signup link copied!');
             }
           } catch (err: any) {
             const { toast } = await import('sonner');
@@ -2000,7 +2051,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly ROI! Register here: ${partnerFormLink}`;
+            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {
@@ -2055,12 +2106,18 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
         onOpenChange={setTenantInviteOpen}
       />
       </LazyModal>
-      <LazyModal when={rentRequestOpen}>
-      <AgentRentRequestDialog 
-        open={rentRequestOpen} 
-        onOpenChange={setRentRequestOpen} 
-        onSuccess={() => setRentRequestOpen(false)}
-      />
+      <LazyModal when={rentRequestOpen} fallback={<RentRequestLoadingShell />}>
+      {DASHBOARD_RENT_REQUEST_FLOW === 'assistant' ? (
+        // Stays open on success: it shows "Posted" with "Post another" / "Back to dashboard".
+        <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
+      ) : (
+        <AgentRentRequestDialog
+          presentation="chat"
+          open={rentRequestOpen}
+          onOpenChange={setRentRequestOpen}
+          onSuccess={() => setRentRequestOpen(false)}
+        />
+      )}
       </LazyModal>
       <LazyModal when={businessAdvanceOpen}>
       <BusinessAdvanceRequestDialog

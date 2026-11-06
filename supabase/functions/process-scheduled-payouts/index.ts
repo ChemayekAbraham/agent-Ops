@@ -1,4 +1,6 @@
+import { isLunchDaily, isEatWeekend, nextLunchWeekdaySlot } from "./lunchWeekdays.ts";
 import "../_shared/smsFooterInterceptor.ts";
+import { SCHEDULED_PAYOUT_CATEGORIES } from "./categories.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
@@ -55,6 +57,11 @@ async function sendSMS(phone: string, message: string): Promise<boolean> {
 
 // Compute the next run timestamp from the current run time + recurrence config.
 function computeNextRun(from: Date, payout: any): Date {
+  // Lunch allowance: Monday to Friday only, never catch up missed days.
+  if (isLunchDaily(payout)) {
+    const base = new Date(Math.max(from.getTime(), Date.now() - 6 * 3600_000));
+    return nextLunchWeekdaySlot(base);
+  }
   const next = new Date(from);
   switch (payout.frequency) {
     case "daily":
@@ -126,6 +133,13 @@ Deno.serve(async (req) => {
 
     for (const payout of duePays) {
       try {
+        // Lunch allowance never pays on Saturday or Sunday (EAT): move to next weekday, no missed record.
+        if (isLunchDaily(payout) && isEatWeekend(new Date(payout.next_run_at))) {
+          await adminClient.from("scheduled_payouts")
+            .update({ next_run_at: nextLunchWeekdaySlot(new Date(Math.max(new Date(payout.next_run_at).getTime(), Date.now() - 6 * 3600_000))).toISOString() })
+            .eq("id", payout.id);
+          continue;
+        }
         // ── Per-cycle idempotency ────────────────────────────────────────
         // A cycle is identified by its scheduled next_run_at. If a successful
         // run already exists at/after that timestamp, the cycle is paid and
@@ -147,24 +161,7 @@ Deno.serve(async (req) => {
         }
 
         // Look up category config to get wallet/platform categories
-        const catMap: Record<string, { walletCat: string; platformCat: string; impact: string }> = {
-          roi_payout: { walletCat: 'roi_wallet_credit', platformCat: 'roi_expense', impact: 'expense' },
-          agent_commission: { walletCat: 'agent_commission_earned', platformCat: 'agent_commission_earned', impact: 'expense' },
-          payroll: { walletCat: 'salary_payout', platformCat: 'payroll_expense', impact: 'expense' },
-          // Wallet leg uses `wallet_deposit` (user-visible), NOT
-          // `system_balance_correction` — that category is excluded from the
-          // nightly `reconcile_wallet_cache_to_ledger` reconciliation, which
-          // wipes it back out of withdrawable_balance every night at 02:15
-          // UTC. `system_balance_correction` is reserved for one-off admin
-          // corrections/write-offs, not recurring operational payouts. The
-          // platform leg keeps `system_balance_correction` — it's the
-          // company's own ledger, not a user wallet, and isn't affected.
-          marketing_expenses: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
-          research_development: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
-          operational_expense: { walletCat: 'wallet_deposit', platformCat: 'system_balance_correction', impact: 'expense' },
-          correction_credit: { walletCat: 'system_balance_correction', platformCat: 'system_balance_correction', impact: 'neutral' },
-          wallet_transfer_out: { walletCat: 'wallet_transfer', platformCat: 'wallet_transfer', impact: 'neutral' },
-        };
+        const catMap = SCHEDULED_PAYOUT_CATEGORIES;
 
         const catConfig = catMap[payout.category_id] || catMap['operational_expense'];
         const subLabel = payout.sub_category ? ` → ${payout.sub_category}` : '';

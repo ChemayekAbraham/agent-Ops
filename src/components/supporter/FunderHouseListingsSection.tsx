@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
-import DepositFlow from '@/components/payments/DepositFlow';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { useMountedOnce } from '@/hooks/useMountedOnce';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,40 +34,10 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
-
-/** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
-const SAVED_KEY = 'rentflow:funder-new:saved:v1';
-
-interface SavedState {
-  empty: string[];
-  ready: string[];
-}
-
-const DEFAULT_SAVED: SavedState = { empty: [], ready: [] };
-
-function readSaved(): SavedState {
-  try {
-    const raw = window.localStorage.getItem(SAVED_KEY);
-    if (!raw) return DEFAULT_SAVED;
-    const parsed = JSON.parse(raw) as Partial<SavedState>;
-    return {
-      empty: Array.isArray(parsed.empty) ? parsed.empty.filter((id): id is string => typeof id === 'string') : [],
-      ready: Array.isArray(parsed.ready) ? parsed.ready.filter((id): id is string => typeof id === 'string') : [],
-    };
-  } catch {
-    return DEFAULT_SAVED;
-  }
-}
-
-function saveSaved(value: SavedState) {
-  try {
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(value));
-  } catch {
-    // Route-scoped browsing aid only.
-  }
-}
+import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
 interface FeedEntry {
   category: FunderNewCategory;
@@ -77,7 +49,22 @@ interface FeedEntry {
  * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
  * There are no tabs: one feed, one list.
  */
-export function FunderHouseListingsSection() {
+// The top-up dialog is only needed after a tap; keep its (large) code out of opening the list.
+const DepositFlow = lazyWithRetry(() => import('@/components/payments/DepositFlow'));
+
+export type FunderListMapFilters = Pick<FunderNewFilters, 'search' | 'location' | 'amount'>;
+
+export function FunderHouseListingsSection({
+  searchOnMap = false,
+  onFiltersChange,
+  onResultsFocus,
+}: {
+  searchOnMap?: boolean;
+  /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
+  onFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** With a search typed, reports where the matching empty houses are so the map can move to them. */
+  onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
+} = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
@@ -95,7 +82,7 @@ export function FunderHouseListingsSection() {
     withinFloat: false,
   });
   const [sortTouched, setSortTouched] = useState(false);
-  const [saved, setSaved] = useState<SavedState>(() => readSaved());
+  const { saved, toggleSave } = useFunderSavedItems();
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -105,6 +92,7 @@ export function FunderHouseListingsSection() {
   // Top-up launched from the detail sheet's Fund button when the balance
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+  const mountDeposit = useMountedOnce(topUpAmount !== null);
 
   // Quick search bar next to the Filters button. Debounced so the listing
   // queries don't refetch on every keystroke. The same text feeds BOTH the
@@ -121,8 +109,8 @@ export function FunderHouseListingsSection() {
   }, [debouncedSearch]);
 
   useEffect(() => {
-    saveSaved(saved);
-  }, [saved]);
+    onFiltersChange?.({ search: filters.search, location: filters.location, amount: filters.amount });
+  }, [filters.search, filters.location, filters.amount, onFiltersChange]);
 
   /**
    * Single origin for distance labels and the nearest-first sort: the device
@@ -166,12 +154,35 @@ export function FunderHouseListingsSection() {
     [readyQuery.data],
   );
 
+  // Like a maps app, a search moves the map to what it found. Only the first
+  // page of matches is used, and only when the set of places actually changes.
+  const focusSignatureRef = useRef('');
+  useEffect(() => {
+    if (!onResultsFocus) return;
+    if (!filters.search.trim()) {
+      focusSignatureRef.current = '';
+      return;
+    }
+    if (emptyQuery.isFetching) return;
+    const points = emptyItems
+      .slice(0, 12)
+      .map((house) => {
+        const record = house as unknown as Record<string, unknown>;
+        return { lat: Number(record.latitude), lng: Number(record.longitude) };
+      })
+      .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng) && (point.lat !== 0 || point.lng !== 0));
+    const signature = `${filters.search.trim()}|${points.map((point) => `${point.lat.toFixed(4)},${point.lng.toFixed(4)}`).join(';')}`;
+    if (points.length === 0 || signature === focusSignatureRef.current) return;
+    focusSignatureRef.current = signature;
+    onResultsFocus(points);
+  }, [emptyItems, emptyQuery.isFetching, filters.search, onResultsFocus]);
+
   /** Rent Plans first, empty houses below — one list, no tabs. */
   const loadedItems = useMemo<FeedEntry[]>(
-    () => [
+    () => sortFunderFeedEntries([
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
-    ],
+    ]),
     [readyItems, emptyItems],
   );
 
@@ -230,14 +241,10 @@ export function FunderHouseListingsSection() {
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
-  const filtersActive =
-    filters.search.trim() !== '' ||
-    filters.location.trim() !== '' ||
-    filters.amount !== 'all' ||
-    filters.rentMin !== null ||
-    filters.rentMax !== null ||
-    filters.radiusKm !== 'all' ||
-    filters.withinFloat;
+  // How many filters the funder has actually switched on. The Filters button
+  // badges this number and turns purple while it is above zero.
+  const activeFilterCount = countActiveFunderFilters(filters);
+  const filtersActive = activeFilterCount > 0;
 
   const resetFilters = () => {
     setFilters((current) => ({
@@ -255,14 +262,6 @@ export function FunderHouseListingsSection() {
   const changeSort = (value: FunderNewSort) => {
     setSortTouched(true);
     setFilters((current) => ({ ...current, sort: value }));
-  };
-
-  const toggleSave = (category: FunderNewCategory, id: string) => {
-    setSaved((current) => {
-      const list = current[category];
-      const nextList = list.includes(id) ? list.filter((savedId) => savedId !== id) : [...list, id];
-      return { ...current, [category]: nextList };
-    });
   };
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
@@ -297,8 +296,61 @@ export function FunderHouseListingsSection() {
 
   return (
     <section className="space-y-3">
+      {/* On the full screen map the search floats at the top, like a maps app. */}
+      {searchOnMap && typeof document !== 'undefined' && createPortal(
+        <div
+          className="pointer-events-none fixed inset-x-0 top-0 z-[90] mx-auto max-w-lg px-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
+          // This bar renders in a portal but is still a React child of the bottom
+          // sheet, so its presses would otherwise reach the sheet's drag handlers.
+          onMouseDown={(event) => event.stopPropagation()}
+          onPointerDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
+        >
+          <div className="pointer-events-auto mx-auto flex h-12 w-full max-w-lg items-center gap-2 rounded-full bg-card pl-4 pr-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.25)] ring-1 ring-black/5">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search house type or location…"
+              aria-label="Search houses and rent plans by type or location"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+            {searchInput ? (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearchInput('')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              aria-label={filtersActive ? `Filters, ${activeFilterCount} applied` : 'Filters'}
+              onClick={() => setFiltersOpen(true)}
+              className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-muted ${filtersActive ? 'text-primary' : 'text-muted-foreground'}`}
+            >
+              <Filter className="h-5 w-5" aria-hidden />
+              {filtersActive ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground" aria-hidden>
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+      {!searchOnMap && (
+      <>
       {/* Search + compact filters row */}
-      <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-card p-2.5 sm:p-3 sm:shadow-sm">
         <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -324,8 +376,10 @@ export function FunderHouseListingsSection() {
         </div>
         <Button
           variant="outline"
-          aria-label="Filters"
-          className="relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4"
+          aria-label={filtersActive ? `Filters, ${activeFilterCount} applied` : 'Filters'}
+          className={`relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4 ${
+            filtersActive ? 'border-primary text-primary md:border-primary' : 'border-transparent md:border-input'
+          }`}
           onClick={() => setFiltersOpen(true)}
         >
           {/* Phones: funnel icon only. Tablets and up: the original labelled button. */}
@@ -333,10 +387,27 @@ export function FunderHouseListingsSection() {
           <ListFilter className="hidden h-4 w-4 md:block" aria-hidden />
           <span className="hidden md:inline">Filters</span>
           {filtersActive ? (
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary md:right-2 md:top-2" aria-hidden />
+            <>
+              {/* Phones: the count rides on the corner of the icon button. */}
+              <span
+                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground md:hidden"
+                aria-hidden
+              >
+                {activeFilterCount}
+              </span>
+              {/* Tablet and up: the count sits beside the label. */}
+              <span
+                className="ml-1.5 hidden h-4 min-w-4 items-center justify-center rounded-full bg-primary/10 px-1 text-[10px] font-bold leading-none text-primary md:inline-flex"
+                aria-hidden
+              >
+                {activeFilterCount}
+              </span>
+            </>
           ) : null}
         </Button>
       </div>
+      </>
+      )}
 
       <FunderNewFilterDrawer
         open={filtersOpen}
@@ -364,7 +435,7 @@ export function FunderHouseListingsSection() {
 
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
         {effectiveSort === 'nearest' && origin ? (
           <span>
             Within {origin.radiusKm} km of {origin.label}
@@ -415,8 +486,8 @@ export function FunderHouseListingsSection() {
           <div
             className={
               feedFetching && !feedFetchingNext
-                ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
-                : 'grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
+                ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3'
+                : 'grid gap-0 sm:grid-cols-2 sm:gap-3'
             }
           >
             {items.map((entry) => {
@@ -556,7 +627,6 @@ export function FunderHouseListingsSection() {
               if (!note) throw new Error('Booking was not created');
               const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
                 p_house_ids: ids,
-                p_term_months: 1,
                 p_idempotency_key: `fund-${note.id}`,
               });
               if (fundErr) throw fundErr;
@@ -570,7 +640,6 @@ export function FunderHouseListingsSection() {
               const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
                 p_rent_request_ids: ids,
                 p_promised_deposit_date: null,
-                p_term_months: 1,
               });
               if (error) throw error;
               const payload = (data ?? {}) as { commitment_id?: string; portfolio_id?: string };
@@ -597,13 +666,17 @@ export function FunderHouseListingsSection() {
         }}
         onReview={() => setReviewOpen(true)}
       />
-      <DepositFlow
-        open={topUpAmount !== null}
-        onOpenChange={(open) => {
-          if (!open) setTopUpAmount(null);
-        }}
-        defaultAmount={topUpAmount ?? undefined}
-      />
+      {mountDeposit && (
+        <Suspense fallback={null}>
+          <DepositFlow
+            open={topUpAmount !== null}
+            onOpenChange={(open) => {
+              if (!open) setTopUpAmount(null);
+            }}
+            defaultAmount={topUpAmount ?? undefined}
+          />
+        </Suspense>
+      )}
     </section>
   );
 }

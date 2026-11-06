@@ -664,7 +664,7 @@ export function AgentPerformanceReport() {
                   </span>
                 </th>
                 <th className="bg-purple-600 px-2 py-2 text-right font-semibold">
-                  <span className="inline-flex items-center gap-1.5 justify-end">10% Commission<br/>(UGX)
+                  <span className="inline-flex items-center gap-1.5 justify-end">Commission<br/>(UGX)
                     <HeaderFilter active={isRangeActive(colFilters.ranges.commission)} align="end" onClear={() => setRange('commission', undefined)}>
                       <NumericRangeFilter label="Commission (UGX)" value={colFilters.ranges.commission} onChange={(r) => setRange('commission', r)} />
                     </HeaderFilter>

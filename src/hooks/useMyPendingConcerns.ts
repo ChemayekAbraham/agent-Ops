@@ -8,6 +8,12 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 
 export interface PendingConcern {
   concern_id: string;
@@ -32,12 +38,16 @@ const anyDb = supabase as any;
 export const MY_PENDING_CONCERNS_KEY = ['cc-my-pending-concerns'];
 
 export function useMyPendingConcerns(enabled = true) {
+  const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: MY_PENDING_CONCERNS_KEY,
-    enabled,
+    enabled: enabled && signedIn,
     staleTime: 60 * 1000,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async (): Promise<PendingConcern[]> => {
+      await requireUserSession();
       const { data, error } = await anyDb.rpc('cc_my_pending_concerns');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw new Error(error.message);
       return (data ?? []) as PendingConcern[];
     },

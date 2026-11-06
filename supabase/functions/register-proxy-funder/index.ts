@@ -162,15 +162,8 @@ Deno.serve(async (req) => {
       console.error("Role insert error:", roleError);
     }
 
-    // Create wallet
-    const { error: walletError } = await supabase.from("wallets").insert({
-      user_id: userId,
-      balance: 0,
-    });
-
-    if (walletError) {
-      console.error("Wallet insert error:", walletError);
-    }
+    // Wallet identity is created by the signup trigger on wallets_physical.
+    // public.wallets is a read-only view, so do not insert here.
 
     // Create proxy assignment (pending approval)
     const { error: proxyError } = await supabase.from("proxy_agent_assignments").insert({

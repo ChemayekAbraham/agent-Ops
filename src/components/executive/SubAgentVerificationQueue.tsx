@@ -13,6 +13,12 @@ import { toast } from 'sonner';
 import { UsersRound, CheckCircle, XCircle, Loader2, Phone, Calendar, Clock, Search, ArrowLeftRight, UserPlus, Unlink } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  cancelDebounceKeyed,
+  debounceKeyed,
+  PROFILE_TYPEAHEAD_MIN_CHARS,
+  searchProfilesTypeahead,
+} from '@/lib/profileTypeahead';
 
 interface SubAgentRecord {
   id: string;
@@ -72,16 +78,15 @@ export function SubAgentVerificationQueue() {
     excludeId?: string | null,
   ) => {
     const t = term.trim();
-    if (t.length < 2) { setResults([]); return; }
+    if (t.length < PROFILE_TYPEAHEAD_MIN_CHARS) { setResults([]); return; }
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${t}%,phone.ilike.%${t}%`)
-        .limit(15);
-      if (error) throw error;
-      setResults((data || []).filter(p => !excludeId || p.id !== excludeId));
+      const { rows, error } = await searchProfilesTypeahead(t, {
+        limit: 15,
+        columns: 'id, full_name, phone',
+      });
+      if (error) throw new Error(error);
+      setResults((rows as { id: string; full_name: string; phone: string | null }[]).filter(p => !excludeId || p.id !== excludeId));
     } catch (err: any) {
       toast.error(err.message || 'Search failed');
     } finally {
@@ -138,17 +143,15 @@ export function SubAgentVerificationQueue() {
       const term = debouncedSearch.trim();
       let rows: any[] = [];
 
-      if (term.length >= 2) {
-        // Server-side search: match profiles by name/phone across the ENTIRE
-        // set, then pull the sub-agent rows linked to those people. Avoids the
-        // 1000-row client window that made search miss most records.
-        const { data: matched, error: pErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .or(`full_name.ilike.%${term}%,phone.ilike.%${term}%`)
-          .limit(300);
-        if (pErr) throw pErr;
-        const ids = (matched || []).map((p) => p.id);
+      if (term.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        // Indexed name/phone lookup, then the sub-agent rows for those people.
+        // A two-column ILIKE over every profile timed out under statement_timeout.
+        const { rows: matched, error: pErr } = await searchProfilesTypeahead(term, {
+          limit: 50,
+          columns: 'id',
+        });
+        if (pErr) throw new Error(pErr);
+        const ids = matched.map((p) => p.id);
         if (ids.length === 0) return [];
         const { data, error } = await supabase
           .from('agent_subagents' as any)
@@ -276,25 +279,32 @@ export function SubAgentVerificationQueue() {
     }
   };
 
-  const searchParents = async (term: string) => {
+  const searchParents = (term: string) => {
     setTransferSearch(term);
     setNewParent(null);
     const t = term.trim();
-    if (t.length < 2) { setParentResults([]); return; }
-    setSearchingParents(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${t}%,phone.ilike.%${t}%`)
-        .limit(15);
-      if (error) throw error;
-      setParentResults((data || []).filter(p => p.id !== transferRecord?.sub_agent_id && p.id !== transferRecord?.parent_agent_id));
-    } catch (err: any) {
-      toast.error(err.message || 'Search failed');
-    } finally {
-      setSearchingParents(false);
+    if (t.length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+      cancelDebounceKeyed('subagent-transfer-parent');
+      setParentResults([]);
+      return;
     }
+    debounceKeyed('subagent-transfer-parent', () => {
+      void (async () => {
+        setSearchingParents(true);
+        try {
+          const { rows, error } = await searchProfilesTypeahead(t, {
+            limit: 15,
+            columns: 'id, full_name, phone',
+          });
+          if (error) throw new Error(error);
+          setParentResults((rows as { id: string; full_name: string; phone: string | null }[]).filter(p => p.id !== transferRecord?.sub_agent_id && p.id !== transferRecord?.parent_agent_id));
+        } catch (err: any) {
+          toast.error(err.message || 'Search failed');
+        } finally {
+          setSearchingParents(false);
+        }
+      })();
+    });
   };
 
   const handleTransfer = async () => {
@@ -653,7 +663,7 @@ export function SubAgentVerificationQueue() {
                           </button>
                         ))}
                       </div>
-                    ) : transferSearch.trim().length >= 2 ? (
+                    ) : transferSearch.trim().length >= PROFILE_TYPEAHEAD_MIN_CHARS ? (
                       <p className="text-xs text-muted-foreground text-center py-2">No matching agents.</p>
                     ) : null}
                   </>
@@ -718,8 +728,16 @@ export function SubAgentVerificationQueue() {
                     placeholder="Search by name or phone…"
                     value={assignSubSearch}
                     onChange={(e) => {
-                      setAssignSubSearch(e.target.value);
-                      searchAgents(e.target.value, setAssignSubResults, setAssignSearchingSub, assignParent?.id);
+                      const value = e.target.value;
+                      setAssignSubSearch(value);
+                      if (value.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+                        cancelDebounceKeyed('subagent-assign-sub');
+                        setAssignSubResults([]);
+                        return;
+                      }
+                      debounceKeyed('subagent-assign-sub', () => {
+                        void searchAgents(value, setAssignSubResults, setAssignSearchingSub, assignParent?.id);
+                      });
                     }}
                   />
                   {assignSearchingSub && <p className="text-xs text-muted-foreground">Searching…</p>}
@@ -757,8 +775,16 @@ export function SubAgentVerificationQueue() {
                     placeholder="Search by name or phone…"
                     value={assignParentSearch}
                     onChange={(e) => {
-                      setAssignParentSearch(e.target.value);
-                      searchAgents(e.target.value, setAssignParentResults, setAssignSearchingParent, assignSub?.id);
+                      const value = e.target.value;
+                      setAssignParentSearch(value);
+                      if (value.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS) {
+                        cancelDebounceKeyed('subagent-assign-parent');
+                        setAssignParentResults([]);
+                        return;
+                      }
+                      debounceKeyed('subagent-assign-parent', () => {
+                        void searchAgents(value, setAssignParentResults, setAssignSearchingParent, assignSub?.id);
+                      });
                     }}
                   />
                   {assignSearchingParent && <p className="text-xs text-muted-foreground">Searching…</p>}

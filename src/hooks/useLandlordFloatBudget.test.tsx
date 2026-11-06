@@ -49,8 +49,9 @@ describe('useLandlordFloatBudget', () => {
     const qc = makeClient();
     qc.setQueryData([...LANDLORD_FLOAT_BUDGET_KEY, 'status'], { ...position(5_000_000), can_approve: true, pending_misc: [] });
     rpcMock.mockResolvedValue({
-      data: { approved: [{ id: 'a', rent_amount: 3_000_000 }], over_cap: [{ id: 'b', rent_amount: 4_000_000, room: 2_000_000 }],
-              skipped: [], approved_total: 3_000_000, room_left: 2_000_000, status: position(2_000_000) },
+      data: { decision: 'approve', done: 1, not_followed: 0, items: [{ id: 'a', ok: true, followed: true, recommended: 'fund',
+        result: { approved: [{ id: 'a', rent_amount: 3_000_000 }], over_cap: [{ id: 'b', rent_amount: 4_000_000, room: 2_000_000 }],
+              skipped: [], approved_total: 3_000_000, room_left: 2_000_000, status: position(2_000_000) } }] },
       error: null,
     });
     const { result } = renderHook(() => useLandlordFloatBudgetActions(), { wrapper: wrapperFor(qc) });
@@ -58,7 +59,7 @@ describe('useLandlordFloatBudget', () => {
       await result.current.approveAtCoo.mutateAsync({ requestIds: ['a', 'b'], comment: '  ok  ' });
     });
     expect(rpcMock).toHaveBeenCalledTimes(1);
-    expect(rpcMock).toHaveBeenCalledWith('coo_approve_rent_requests', { p_request_ids: ['a', 'b'], p_comment: 'ok' });
+    expect(rpcMock).toHaveBeenCalledWith('coo_decide_rent_requests', { p_request_ids: ['a', 'b'], p_decision: 'approve', p_reason_text: 'ok' });
     const cached = qc.getQueryData<{ room: number; can_approve: boolean }>([...LANDLORD_FLOAT_BUDGET_KEY, 'status']);
     expect(cached?.room).toBe(2_000_000);
     expect(cached?.can_approve).toBe(true); // viewer fields survive the merge

@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState, type ComponentType } from 'react';
+import { Suspense, useState, type ComponentType } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useSearchParams } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';

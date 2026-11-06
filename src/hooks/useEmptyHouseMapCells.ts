@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
-import { useQueries, type UseQueryResult } from '@tanstack/react-query';
+import { useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { isUnauthenticatedRpcError, requireUserSession, useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { mapPerf } from '@/lib/mapPerf';
 import { mapRegionFor } from '@/lib/mapRegions';
 import type { SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
@@ -159,6 +160,7 @@ const fetchTile = async (
   zoom: number,
   filters: MapCellFilters,
   signal: AbortSignal | undefined,
+  limit: number = SERVER_CELL_LIMIT,
 ): Promise<EmptyHouseMapCells> => {
   const startedAt = performance.now();
   // Stale-result protection: a superseded tile read is aborted, so a slow
@@ -173,7 +175,7 @@ const fetchTile = async (
     p_district: filters.district?.trim() ? filters.district.trim() : null,
     p_min_rent: filters.minRent ?? null,
     p_max_rent: filters.maxRent ?? null,
-    p_limit: SERVER_CELL_LIMIT,
+    p_limit: limit,
     p_max_age_days: filters.maxAgeDays ?? null,
   }).abortSignal(signal);
   if (signal?.aborted) throw new Error('aborted');
@@ -191,6 +193,98 @@ const fetchTile = async (
   return result;
 };
 
+/** Half-width of the "closest to the user" box, in degrees (about 1.5 km). */
+export const NEAR_BOX_DEGREES = 0.0135;
+/** The near box asks for far fewer cells than a full tile, so it comes back fast. */
+export const NEAR_CELL_LIMIT = 80;
+/** Snap the user's position so GPS jitter never changes the query key. */
+const NEAR_SNAP_DEGREES = 0.005;
+
+export interface MapNearPoint {
+  lat: number;
+  lng: number;
+}
+
+/** The near box around a position, or null when that position is not in the viewport. */
+export function nearBoxFor(point: MapNearPoint | null | undefined, viewport: MapViewport | null) {
+  if (!point || !viewport) return null;
+  if (
+    point.lat < viewport.minLat || point.lat > viewport.maxLat ||
+    point.lng < viewport.minLng || point.lng > viewport.maxLng
+  ) {
+    return null; // the person panned away: the full tiles are all that matter
+  }
+  const lat = Math.round(point.lat / NEAR_SNAP_DEGREES) * NEAR_SNAP_DEGREES;
+  const lng = Math.round(point.lng / NEAR_SNAP_DEGREES) * NEAR_SNAP_DEGREES;
+  return {
+    minLat: Math.max(lat - NEAR_BOX_DEGREES, viewport.minLat),
+    maxLat: Math.min(lat + NEAR_BOX_DEGREES, viewport.maxLat),
+    minLng: Math.max(lng - NEAR_BOX_DEGREES, viewport.minLng),
+    maxLng: Math.min(lng + NEAR_BOX_DEGREES, viewport.maxLng),
+  };
+}
+
+/**
+ * Merges the per-tile results with the early "near the user" result.
+ *
+ * Tile cells always win: a cell on the edge of the near box is built from only
+ * the houses inside that box, so its count can be partial. The near cells just
+ * fill in whatever the tiles have not delivered yet, which is what makes the
+ * closest houses appear first. Counts are never added together twice: the
+ * homes-in-view figure comes from the tiles, and only falls back to the near
+ * result while no tile has arrived.
+ */
+export function mergeTileResults(
+  tileResults: Array<EmptyHouseMapCells | undefined>,
+  near: EmptyHouseMapCells | undefined,
+  viewport: MapViewport | null,
+  cellLimit: number = SERVER_CELL_LIMIT,
+): EmptyHouseMapCells {
+  const byKey = new Map<string, EmptyHouseMapCell>();
+  let housesInView = 0;
+  let scanCapped = false;
+  let cellSize = 0;
+  let haveTile = false;
+  for (const tileData of tileResults) {
+    if (!tileData) continue;
+    haveTile = true;
+    housesInView += tileData.housesInView;
+    scanCapped = scanCapped || tileData.scanCapped;
+    if (!cellSize && tileData.cellSize) cellSize = tileData.cellSize;
+    for (const cell of tileData.cells) {
+      if (!byKey.has(cell.key)) byKey.set(cell.key, cell);
+    }
+  }
+  if (near) {
+    for (const cell of near.cells) {
+      if (!byKey.has(cell.key)) byKey.set(cell.key, cell);
+    }
+    if (!haveTile) {
+      housesInView = near.housesInView;
+      scanCapped = near.scanCapped;
+      cellSize = near.cellSize;
+    }
+  }
+  let cells = [...byKey.values()];
+  // The render budget still holds for the merged view: under cap pressure the
+  // cells nearest the middle of the screen win.
+  if (cells.length > cellLimit && viewport) {
+    const midLat = (viewport.minLat + viewport.maxLat) / 2;
+    const midLng = (viewport.minLng + viewport.maxLng) / 2;
+    cells = cells
+      .map((cell, index) => ({
+        cell,
+        index,
+        distance: (cell.latitude - midLat) ** 2 + (cell.longitude - midLng) ** 2,
+      }))
+      .sort((a, b) => a.distance - b.distance || a.index - b.index)
+      .slice(0, cellLimit)
+      .sort((a, b) => a.index - b.index)
+      .map((entry) => entry.cell);
+  }
+  return { cells, housesInView, scanCapped, cellSize };
+}
+
 const EMPTY_RESULT: EmptyHouseMapCells = { cells: [], housesInView: 0, scanCapped: false, cellSize: 0 };
 
 export interface EmptyHouseMapCellsQuery {
@@ -204,7 +298,11 @@ export function useEmptyHouseMapCells(
   viewport: MapViewport | null,
   filters: MapCellFilters = {},
   enabled = true,
+  /** The user's position: houses right around it are fetched first, in a small fast request. */
+  nearPoint: MapNearPoint | null = null,
 ): EmptyHouseMapCellsQuery {
+  const signedIn = useAuthenticatedAudience();
+  const canQuery = enabled && signedIn;
   const step = viewport ? 360 / Math.pow(2, Math.min(Math.max(viewport.zoom, 1), 20) + 6) : 0;
   const key = viewport
     ? {
@@ -229,9 +327,9 @@ export function useEmptyHouseMapCells(
   // Classify each viewport read: a key we already requested is served from cache.
   const viewportKey = key ? JSON.stringify([key, filters]) : null;
   useEffect(() => {
-    if (!viewportKey || !enabled) return;
+    if (!viewportKey || !canQuery) return;
     mapPerf.noteViewportKey(viewportKey);
-  }, [viewportKey, enabled]);
+  }, [viewportKey, canQuery]);
 
   const tiles = useMemo(() => (key && step > 0 ? buildTiles(key, step) : []), [key, step]);
   const tilesSignature = tiles.map((tile) => JSON.stringify(tile.key)).join('|');
@@ -242,7 +340,7 @@ export function useEmptyHouseMapCells(
   const tileQueries = useQueries({
     queries: stableTiles.map((tile) => ({
       queryKey: ['empty-house-map-cells', tile.key, filters] as const,
-      enabled: enabled && !!viewport,
+      enabled: canQuery && !!viewport,
       // A tile that was on screen a moment ago stays visible while its
       // replacement loads, so panning never blanks the map.
       placeholderData: (previous: EmptyHouseMapCells | undefined) => previous,
@@ -250,59 +348,63 @@ export function useEmptyHouseMapCells(
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       // A flaky mobile network is the norm in the field: retry with backoff, and
-      // only surface a failure once the retries are exhausted.
-      retry: 2,
+      // only surface a failure once the retries are exhausted. A missing user
+      // JWT is not retried — that call would be anonymous and log 42501.
+      retry: (failureCount: number, error: unknown) => failureCount < 2 && !isUnauthenticatedRpcError(error),
       retryDelay: (attempt: number) => Math.min(4000, 600 * 2 ** attempt),
-      queryFn: ({ signal }: { signal?: AbortSignal }) =>
-        fetchTile(tile, tile.key.zoom, filters, signal),
+      queryFn: async ({ signal }: { signal?: AbortSignal }) => {
+        await requireUserSession();
+        return fetchTile(tile, tile.key.zoom, filters, signal);
+      },
     })),
+  });
+
+  // The houses around the user, fetched alongside the full tiles as one small
+  // request (about 1.5 km, at most 80 cells) so they can be on the map after a
+  // single round trip instead of waiting for the full viewport.
+  const nearBox = useMemo(() => nearBoxFor(nearPoint, viewport), [nearPoint?.lat, nearPoint?.lng, viewport]);
+  const nearKey = nearBox
+    ? {
+        minLat: quantize(nearBox.minLat, step),
+        minLng: quantize(nearBox.minLng, step),
+        maxLat: quantize(nearBox.maxLat, step),
+        maxLng: quantize(nearBox.maxLng, step),
+        zoom: viewport ? viewport.zoom : 0,
+      }
+    : null;
+  const nearQuery = useQuery<EmptyHouseMapCells>({
+    queryKey: ['empty-house-map-cells-near', nearKey, filters] as const,
+    enabled: canQuery && !!nearKey,
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: (failureCount: number, error: unknown) => failureCount < 1 && !isUnauthenticatedRpcError(error),
+    queryFn: async ({ signal }) => {
+      await requireUserSession();
+      const key = nearKey!;
+      return fetchTile({ key, bounds: key }, key.zoom, filters, signal, NEAR_CELL_LIMIT);
+    },
   });
 
   /**
    * Progressive merge: as each tile resolves its cells join the map, so the
    * funder sees houses arrive one area at a time instead of waiting for the
    * slowest part of the view. A failed tile leaves the rest of the map intact.
+   * The near-the-user result lands first and is superseded tile by tile.
    */
   const data = useMemo<EmptyHouseMapCells>(() => {
     if (stableTiles.length === 0) return EMPTY_RESULT;
-    const byKey = new Map<string, EmptyHouseMapCell>();
-    let housesInView = 0;
-    let scanCapped = false;
-    let cellSize = 0;
-    for (const query of tileQueries as UseQueryResult<EmptyHouseMapCells>[]) {
-      const tileData = query.data;
-      if (!tileData) continue;
-      housesInView += tileData.housesInView;
-      scanCapped = scanCapped || tileData.scanCapped;
-      if (!cellSize && tileData.cellSize) cellSize = tileData.cellSize;
-      for (const cell of tileData.cells) {
-        if (!byKey.has(cell.key)) byKey.set(cell.key, cell);
-      }
-    }
-    let cells = [...byKey.values()];
-    // The 400-cell render budget still holds for the merged view: under cap
-    // pressure the cells nearest the middle of the screen win.
-    if (cells.length > SERVER_CELL_LIMIT && viewport) {
-      const midLat = (viewport.minLat + viewport.maxLat) / 2;
-      const midLng = (viewport.minLng + viewport.maxLng) / 2;
-      cells = cells
-        .map((cell, index) => ({
-          cell,
-          index,
-          distance: (cell.latitude - midLat) ** 2 + (cell.longitude - midLng) ** 2,
-        }))
-        .sort((a, b) => a.distance - b.distance || a.index - b.index)
-        .slice(0, SERVER_CELL_LIMIT)
-        .sort((a, b) => a.index - b.index)
-        .map((entry) => entry.cell);
-    }
-    return { cells, housesInView, scanCapped, cellSize };
+    return mergeTileResults(
+      (tileQueries as UseQueryResult<EmptyHouseMapCells>[]).map((query) => query.data),
+      nearKey ? nearQuery.data : undefined,
+      viewport,
+    );
     // tileQueries is a fresh array each render; the merge is cheap and keyed on
     // the underlying per-tile data.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stableTiles, viewport, ...tileQueries.map((query) => (query as UseQueryResult<EmptyHouseMapCells>).data)]);
+  }, [stableTiles, viewport, nearKey ? nearQuery.data : undefined, ...tileQueries.map((query) => (query as UseQueryResult<EmptyHouseMapCells>).data)]);
 
-  const hasData = stableTiles.length > 0 && tileQueries.some((query) => query.data);
+  const hasData = stableTiles.length > 0 && (tileQueries.some((query) => query.data) || (!!nearKey && !!nearQuery.data));
   return {
     data: hasData || stableTiles.length === 0 ? data : undefined,
     isFetching: tileQueries.some((query) => query.isFetching),

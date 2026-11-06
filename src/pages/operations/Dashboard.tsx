@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Users, Home, Building2, Handshake, Banknote, Briefcase, Clapperboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import ScreenLoader from '@/components/common/ScreenLoader';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 const departmentConfig = {
   financial: { label: 'Financial Ops', icon: Banknote, route: '/admin/financial-ops' },
@@ -57,6 +58,7 @@ export default function OperationsDashboard() {
 
   return (
     <div className="min-h-screen bg-background p-6 space-y-6">
+      <V360StaffPricingBanner />
       <div>
         <h1 className="text-2xl font-black text-foreground">Operations Dashboard</h1>
         <p className="text-sm text-muted-foreground mt-1">Select a department to manage</p>

@@ -1,11 +1,12 @@
 import {
   BarChart3, Shield, Banknote, ClipboardList, BookOpen, Server, Code, Lock, Wrench,
-  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2,
+  TrendingUp, Users, Home, Building2, Handshake, Activity, Megaphone, Target, Share2, Coins,
   MessageSquare, HeadphonesIcon, AlertTriangle, Scale, UserCheck, FileText, Wallet,
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
+  Sparkles, ScrollText, ClipboardCheck,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -126,8 +127,10 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
         { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },
         { label: 'Salary Advances', icon: HandCoins, id: 'cfo-pay-advances' },
+        { label: 'Payroll History & Advances', icon: History, id: 'cfo-payroll-history', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
+        { label: 'General Payout Activity', icon: ClipboardCheck, id: 'general-payout-activity' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
@@ -141,6 +144,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Advances Overview', icon: BarChart3, id: 'advances-analytics' },
         { label: 'Advance Requests', icon: HandCoins, id: 'advances' },
+        { label: 'Special Transactions', icon: Sparkles, id: 'special-advances' },
         { label: 'Disbursed Advances', icon: Banknote, id: 'advances-disbursed' },
         { label: 'Advance Repayments', icon: Receipt, id: 'advance-repayments' },
         {
@@ -169,6 +173,9 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       { label: 'Rent Payouts', icon: Banknote, id: 'rent-payouts' },
         { label: 'Approved Rent Requests', icon: ClipboardList, id: 'approved-rent-payouts' },
         { label: 'Landlord Payout Float', icon: Home, id: 'landlord-payout-float' },
+        { label: 'Tenant Balance Changes', icon: ScrollText, id: 'tenant-balance-changes', access: CFO_ACCESS },
+        { label: 'Welile Homes Float Payouts', icon: Home, id: 'welile-homes-payouts' },
+        { label: 'Welile Signages', icon: Megaphone, id: 'signages' },
         { label: 'Landlord Float Budget', icon: Gauge, id: 'landlord-float-budget' },
         { label: 'Float Timeline', icon: History, id: 'landlord-float-timeline' },
         { label: 'Already Funded Landlords', icon: Landmark, id: 'already-funded-landlords' },
@@ -206,12 +213,20 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
     },
 
     {
+      title: 'Assets',
+      items: [
+        { label: 'Asset Register', icon: Boxes, id: 'asset-register', access: CFO_ACCESS },
+      ],
+    },
+
+    {
       title: 'Accounting',
       items: [
         { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
         { label: 'Bucket A Posting', icon: ShieldCheck, id: 'bucket-a-posting', route: '/cfo/bucket-a-posting', access: CFO_ACCESS },
         { label: 'Correction 5.3M Posting', icon: ShieldCheck, id: 'correction-5300000-posting', route: '/cfo/correction-5300000-posting', access: CFO_ACCESS },
         { label: 'Redemptions', icon: ShieldCheck, id: 'redemption-approvals', access: CFO_ACCESS },
+        { label: 'Compound Requests', icon: ShieldCheck, id: 'compound-requests', access: CFO_ACCESS },
       ],
     },
 
@@ -226,6 +241,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Expense Report', icon: FileText, id: 'expense-report' },
         { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
         { label: 'Payout Reports', icon: Banknote, id: 'payout-reports' },
+        { label: 'Money Out', icon: Coins, id: 'paid-by-category' },
+        { label: 'Money In', icon: Coins, id: 'received-by-category' },
         { label: 'All Advances Report', icon: HandCoins, id: 'advances-report' },
         { label: 'House Listing Commission', icon: Home, id: 'house-listing-commission' },
         { label: 'Safety Buffer', icon: Shield, id: 'solvency' },
@@ -249,6 +266,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Overview', icon: Activity, id: 'overview' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
+        { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },
         { label: 'Transactions', icon: ClipboardList, id: 'transactions' },
         { label: 'Agent Collections', icon: Users, id: 'collections' },
@@ -346,6 +364,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'SMS Campaigns', icon: Megaphone, id: 'sms-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Customer Leads', icon: Megaphone, id: 'customer-leads', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Agent Assistant', icon: Bot, id: 'assistant-conversations', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Zoe Conversations', icon: Bot, id: 'zoe-conversations', access: { roles: ['crm', 'cto', 'manager', 'coo', 'ceo', 'super_admin'] } },
         {
           label: 'User Behaviour',
           icon: Activity,

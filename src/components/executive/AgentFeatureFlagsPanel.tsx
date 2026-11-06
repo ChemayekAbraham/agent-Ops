@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_DEBOUNCE_MS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -80,6 +82,7 @@ interface DirRow {
 export function AgentFeatureFlagsPanel({ onBack }: { onBack?: () => void }) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, PROFILE_TYPEAHEAD_DEBOUNCE_MS);
   const [tierFilter, setTierFilter] = useState<Tier | 'all'>('all');
   const [frozenOnly, setFrozenOnly] = useState(false);
   const [page, setPage] = useState(0);
@@ -89,8 +92,12 @@ export function AgentFeatureFlagsPanel({ onBack }: { onBack?: () => void }) {
 
   // ----- Directory query -----
   const { data: rows = [], isLoading, refetch } = useQuery<DirRow[]>({
-    queryKey: ['ops-agent-directory', { search, tierFilter, frozenOnly, page }],
+    queryKey: ['ops-agent-directory', { search: debouncedSearch, tierFilter, frozenOnly, page }],
     queryFn: async () => {
+      const term = debouncedSearch.trim();
+      // 1–2 characters cannot use a trigram index. Skip the query rather than
+      // OR-ing full_name, phone and email (that plan times out on profiles).
+      if (term.length > 0 && term.length < 3) return [];
       let q = supabase
         .from('vw_agent_ops_directory')
         .select('*')
@@ -98,9 +105,10 @@ export function AgentFeatureFlagsPanel({ onBack }: { onBack?: () => void }) {
         .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1);
       if (tierFilter !== 'all') q = q.eq('agent_tier', tierFilter);
       if (frozenOnly) q = q.eq('is_frozen', true);
-      if (search.trim()) {
-        const s = `%${search.trim()}%`;
-        q = q.or(`full_name.ilike.${s},phone.ilike.${s},email.ilike.${s}`);
+      if (term.length >= 3) {
+        const clause = profileTypeaheadFilter(term);
+        if (!clause) return [];
+        q = q.ilike(clause.column, clause.pattern);
       }
       const { data, error } = await q;
       if (error) throw error;

@@ -15,67 +15,41 @@ const corsHeaders = {
 // deno-lint-ignore no-explicit-any
 type AdminClient = any;
 
-// Flat 10% commission credit for agent-collection paths that don't go
-// through `credit_agent_rent_commission` (no active rent_request, or
-// overflow above outstanding balance). Posts an idempotent balanced pair
-// using allowlisted ledger categories.
+// Commission credit for agent-collection paths that don't go through
+// `credit_agent_rent_commission` (no active rent_request, or overflow above the
+// outstanding balance). Uses the shared rate server-side: 8% of the collection,
+// or 6% to a sub-agent plus 2% to the parent. Idempotent on the reference.
 async function creditFlatAgentCommission(
   adminClient: AdminClient,
   agentId: string,
   rentAmount: number,
   contextRef: string,
 ) {
-  const commission = Math.round(rentAmount * 0.10);
-  if (commission <= 0) return 0;
+  if (!(rentAmount > 0)) return 0;
   const ref = `agent-collection-comm-${contextRef}`;
-  const { error } = await adminClient.rpc('create_ledger_transaction', {
-    entries: [
-      {
-        user_id: agentId,
-        amount: commission,
-        direction: 'cash_in',
-        category: 'agent_commission_earned',
-        ledger_scope: 'wallet',
-        classification: 'production',
-        description: `10% commission on rent collection (${contextRef})`,
-        reference_id: ref,
-        recipient_type: 'user',
-      },
-      {
-        user_id: agentId,
-        amount: commission,
-        direction: 'cash_out',
-        category: 'marketing_expense',
-        ledger_scope: 'platform',
-        classification: 'production',
-        description: 'Platform marketing expense: 10% rent collection commission',
-        reference_id: ref,
-      },
-    ],
-    idempotency_key: ref,
+  const { data, error } = await adminClient.rpc('credit_collection_commission', {
+    p_agent_id: agentId,
+    p_amount: rentAmount,
+    p_source_table: 'agent_deposits',
+    p_source_id: null,
+    p_context: `rent collection (${contextRef})`,
+    p_idempotency_key: ref,
   });
   if (error) {
     // Idempotent retry — duplicate key means we already paid this one
     if (!String(error?.message ?? '').toLowerCase().includes('duplicate')) {
-      console.error('[agent-deposit] Flat commission credit failed:', error);
+      console.error('[agent-deposit] Commission credit failed:', error);
       throw error;
     }
+    return 0;
   }
-  return commission;
+  // The collecting agent's own share (a sub-agent's parent override is not theirs).
+  return Number(data?.agent_commission ?? 0);
 }
 
 function toNumber(value: unknown): number {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
-}
-
-async function ensureWalletExists(adminClient: AdminClient, userId: string) {
-  // Only ensures a wallet row exists — balance is managed exclusively by sync_wallet_from_ledger trigger
-  const { error } = await adminClient
-    .from('wallets')
-    .upsert({ user_id: userId, balance: 0 }, { onConflict: 'user_id', ignoreDuplicates: true });
-
-  if (error) throw error;
 }
 
 async function applyRepaymentForRepayingRequest(
@@ -331,30 +305,6 @@ Deno.serve(async (req) => {
       tenantFullName = tProfile?.full_name || '';
     }
 
-    // Get user's wallet
-    let { data: userWallet } = await adminClient
-      .from('wallets')
-      .select('*')
-      .eq('user_id', targetUserId)
-      .maybeSingle();
-
-    if (!userWallet) {
-      const { data: newWallet, error: createError } = await adminClient
-        .from('wallets')
-        .insert({ user_id: targetUserId, balance: 0 })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('[agent-deposit] Create wallet error:', createError);
-        return new Response(
-          JSON.stringify({ error: 'Failed to create wallet' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      userWallet = newWallet;
-    }
-
     // Check if user has active rent request that needs repayment
     // FIX: Check multiple valid statuses, not just 'disbursed'
     const { data: activeRentRequest } = await adminClient
@@ -512,7 +462,7 @@ Deno.serve(async (req) => {
         // Path A overflow: if the agent paid MORE than the outstanding rent
         // (e.g. amount=100K but only 60K was owed), the overflow lands in
         // the tenant's wallet but the agent's float was still debited for
-        // the full amount. Pay 10% on the overflow too — every shilling the
+        // the full amount. Pay commission (8%) on the overflow too — every shilling the
         // agent moves out of float earns commission.
         if (depositAmount > 0) {
           try {
@@ -530,8 +480,6 @@ Deno.serve(async (req) => {
 
         // Credit landlord wallet (using resolved user ID)
         if (landlordUserId && landlordPayment > 0) {
-          await ensureWalletExists(adminClient, landlordUserId);
-
           const { error: landlordLedgerError } = await adminClient.rpc('create_ledger_transaction', {
             entries: [
               {
@@ -623,7 +571,7 @@ Deno.serve(async (req) => {
       }
 
       // Path B (no active rent_request): the agent still moved float to a
-      // tenant on behalf of rent collection. Credit the same flat 10%
+      // tenant on behalf of rent collection. Credit the same 8%
       // commission so we don't silently lose it.
       try {
         actualCommission = await creditFlatAgentCommission(
@@ -639,8 +587,6 @@ Deno.serve(async (req) => {
 
     // Add remaining amount to user's wallet
     if (depositAmount > 0) {
-      await ensureWalletExists(adminClient, targetUserId!);
-
       const { error: tenantLedgerError } = await adminClient.rpc('create_ledger_transaction', {
         entries: [
           {

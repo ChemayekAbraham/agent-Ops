@@ -7,7 +7,12 @@ export interface AgentProductKpis {
   in_field_agents: number;
   in_field_amount: number;
   in_field_outstanding: number;
+  /** The receivable the books carry for these orders (A12 / A13, principal), as on the balance sheet. */
+  in_field_ledger_receivable?: number;
   in_field_repaid: number;
+  /** Repaid + outstanding: what the plans add up to, markup included. */
+  in_field_repayable?: number;
+  in_field_fully_paid?: number;
   purchased_qty: number;
   purchased_value: number;
   stock_qty: number;

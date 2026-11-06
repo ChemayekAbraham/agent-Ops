@@ -38,6 +38,9 @@ interface StepperModalProps {
   hideProgress?: boolean;
   customStepIndicator?: ReactNode;
   customSubtitle?: ReactNode;
+  /** How many of `steps` the user sees in the progress bar, dots and "Step X of N" label. Defaults to all of them.
+   *  Lets a flow keep a trailing processing/receipt screen in `steps` without it counting as a step. */
+  visibleSteps?: number;
 }
 
 export default function StepperModal({
@@ -61,8 +64,10 @@ export default function StepperModal({
   hideProgress = false,
   customStepIndicator,
   customSubtitle,
+  visibleSteps,
 }: StepperModalProps) {
-  const progress = ((currentStep + 1) / steps.length) * 100;
+  const shown = Math.min(visibleSteps ?? steps.length, steps.length);
+  const progress = (Math.min(currentStep + 1, shown) / shown) * 100;
   const isLastStep = currentStep === steps.length - 1;
   const currentStepData = steps[currentStep];
 
@@ -117,9 +122,9 @@ export default function StepperModal({
               <DialogTitle className="text-lg">{title}</DialogTitle>
               {customSubtitle ? (
                 <div className="mt-0.5">{customSubtitle}</div>
-              ) : currentStepData ? (
+              ) : currentStepData && currentStep < shown ? (
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Step {currentStep + 1} of {steps.length}: {currentStepData.title}
+                  Step {currentStep + 1} of {shown}: {currentStepData.title}
                 </p>
               ) : null}
             </div>
@@ -140,7 +145,7 @@ export default function StepperModal({
         {/* Step indicators */}
         {!hideProgress && !isComplete && !customStepIndicator && (
           <div className="flex justify-center gap-2 p-3 bg-muted/30">
-            {steps.map((step, index) => (
+            {steps.slice(0, shown).map((step, index) => (
               <div 
                 key={step.id}
                 className={cn(

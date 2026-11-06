@@ -183,9 +183,9 @@ beforeEach(() => {
     if (fn === 'get_landlord_float_budget_status') {
       return Promise.resolve({ data: budgetStatus(1_000_000), error: null });
     }
-    if (fn === 'coo_approve_rent_requests') {
+    if (fn === 'coo_decide_rent_requests') {
       return Promise.resolve({
-        data: {
+        data: { decision: 'approve', done: 2, not_followed: 0, items: [{ id: 'r600', ok: true, followed: true, result: {
           approved: [
             { id: 'r600', rent_amount: 600_000 },
             { id: 'r400', rent_amount: 400_000 },
@@ -195,7 +195,7 @@ beforeEach(() => {
           approved_total: 1_000_000,
           room_left: 0,
           status: position(0),
-        },
+        } }] },
         error: null,
       });
     }
@@ -217,13 +217,13 @@ describe('COO bulk approve under the landlord float budget', () => {
     fireEvent.click(approve);
 
     await waitFor(() =>
-      expect(rpcMock).toHaveBeenCalledWith('coo_approve_rent_requests', {
+      expect(rpcMock).toHaveBeenCalledWith('coo_decide_rent_requests', {
         p_request_ids: ['r600', 'r400'],
-        p_comment: null,
+        p_decision: 'approve',
       }),
     );
     // The over-budget request was never offered to the server.
-    const sent = rpcMock.mock.calls.find(call => call[0] === 'coo_approve_rent_requests')?.[1] as {
+    const sent = rpcMock.mock.calls.find(call => call[0] === 'coo_decide_rent_requests')?.[1] as {
       p_request_ids: string[];
     };
     expect(sent.p_request_ids).not.toContain('r500');

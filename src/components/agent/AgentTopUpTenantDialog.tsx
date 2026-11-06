@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Wallet, Search, User, TrendingUp, ArrowLeft, UserPlus } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useMyCommissionRate } from '@/hooks/useMyCommissionRate';
 import ConfirmSummaryCard from '@/components/payments/ConfirmSummaryCard';
 import { QuickRegisterTenantDialog } from './QuickRegisterTenantDialog';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
@@ -35,6 +36,8 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
   const [showQuickRegister, setShowQuickRegister] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+  // The agent's real share (8%, or 6% for a sub-agent) from get_my_commission_rate.
+  const commissionRate = useMyCommissionRate();
   const queryClient = useQueryClient();
   const { floatBalance, isLoading: balancesLoading, refetch: refetchBalances } = useAgentBalances();
 
@@ -44,8 +47,8 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
 
   const searchTenant = async () => {
     const q = searchQuery.trim();
-    if (q.length < 2) {
-      toast({ title: 'Enter at least 2 characters to search', variant: 'destructive' });
+    if (q.length < 3) {
+      toast({ title: 'Enter at least 3 characters to search', variant: 'destructive' });
       return;
     }
     setSearching(true);
@@ -107,7 +110,7 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
   };
 
   const amountNum = parseFloat(amount) || 0;
-  const commission = Math.round(amountNum * 0.10);
+  const commission = Math.round(amountNum * commissionRate.agentRate);
   const landlordPortion = amountNum - commission;
 
   const handleProceedToConfirm = () => {
@@ -219,7 +222,7 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
                    <TrendingUp className="h-5 w-5 text-success" />
                    <span className="font-bold text-success text-lg">{formatUGX(commissionEarned)}</span>
                  </div>
-                 <p className="text-xs text-muted-foreground">10% commission credited to your wallet</p>
+                 <p className="text-xs text-muted-foreground">{commissionRate.label} commission credited to your wallet</p>
                </div>
              )}
              
@@ -235,7 +238,7 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
               ]}
               fees={[
                 { label: 'Applied to tenant rent', value: formatUGX(landlordPortion) },
-                { label: 'Your commission (10%)', value: formatUGX(commission) },
+                { label: `Your commission (${commissionRate.label})`, value: formatUGX(commission) },
               ]}
               total={{ label: 'Deducted from Operational Float', value: formatUGX(amountNum) }}
               confirmText="I confirm this rent payment is correct"
@@ -359,7 +362,7 @@ export function AgentTopUpTenantDialog({ open, onOpenChange, onSuccess }: AgentT
                  {amountNum > 0 && (
                    <div className="bg-muted/50 rounded-lg p-3 text-sm space-y-1">
                      <div className="flex justify-between text-muted-foreground">
-                       <span>Your commission (10%)</span>
+                       <span>Your commission ({commissionRate.label})</span>
                        <span className="font-semibold text-success">{formatUGX(commission)}</span>
                      </div>
                      <div className="flex justify-between text-muted-foreground">

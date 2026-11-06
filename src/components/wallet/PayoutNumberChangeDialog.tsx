@@ -25,6 +25,8 @@ import {
   usePayoutNumberAvailability,
 } from '@/hooks/usePayoutNumberChange';
 import { useAuth } from '@/hooks/useAuth';
+import { useWithdrawalPinPrompt } from '@/components/wallet/WithdrawalPinPrompt';
+import { isPinProofError, pinErrorMessage } from '@/hooks/useWithdrawalPin';
 
 type Provider = 'mtn' | 'airtel';
 
@@ -49,6 +51,8 @@ export default function PayoutNumberChangeDialog({
   const { user } = useAuth();
   const otp = useOtpVerification();
   const request = useRequestNumberChange();
+  // Withdrawal PIN (docs 258 to 260): needed for accounts that have one; shows nothing for accounts without.
+  const { askPin, pinPrompt } = useWithdrawalPinPrompt();
 
   const [number, setNumber] = useState('');
   const [name, setName] = useState('');
@@ -114,6 +118,8 @@ export default function PayoutNumberChangeDialog({
       toast.error('Explain in at least 10 characters why the number must change.');
       return;
     }
+    // The PIN proof lives 5 minutes and is spent by the request insert, so ask right before it.
+    if (!(await askPin('payout_number_change'))) return;
     setBusy(true);
     try {
       await request.mutateAsync({
@@ -133,13 +139,16 @@ export default function PayoutNumberChangeDialog({
       setCodeOk(false);
       otp.resetOtp();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send the request.');
+      const msg = String((e as { message?: string } | null)?.message ?? '');
+      toast.error(isPinProofError(msg) ? pinErrorMessage({ code: 'withdrawal_pin_proof_required' }) : msg || 'Could not send the request.');
     } finally {
       setBusy(false);
     }
   };
 
   return (
+    <>
+    {pinPrompt}
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -284,5 +293,6 @@ export default function PayoutNumberChangeDialog({
         </div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

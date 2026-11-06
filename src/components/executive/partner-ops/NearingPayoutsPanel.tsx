@@ -16,6 +16,7 @@ import {
   ArrowDown, ArrowUp, CalendarClock, CheckCircle2, Clock, Layers, Loader2, RefreshCw, Repeat, Scissors, Search, Users,
 } from 'lucide-react';
 import { NearingPayoutsDialog } from '@/components/coo/COOPartnersPage';
+import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
 
 const isCompounding = (mode: string) => /compound/i.test(mode || '');
 
@@ -88,6 +89,10 @@ export function NearingPayoutsPanel() {
   const [sortKey, setSortKey] = useState<SortKey>('daysUntil');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
+  // Smartphone arrears the company holds back from each Returns payment, so the officer pays Returns minus arrears.
+  const arrearsQuery = usePartnerReturnsArrears((rows ?? []).filter((r) => !r.compounding).map((r) => r.portfolioId));
+  const arrears = arrearsQuery.data;
+
   const rangeTest = RANGES.find((r) => r.key === range)?.test ?? (() => true);
 
   const scoped = useMemo(
@@ -102,7 +107,8 @@ export function NearingPayoutsPanel() {
     paid: scoped.filter((r) => r.state === 'paid').length,
     pending: scoped.filter((r) => r.state === 'pending').length,
     expected: scoped.reduce((s, r) => s + r.expected, 0),
-  }), [scoped]);
+    arrears: scoped.reduce((s, r) => s + (r.state === 'paid' ? 0 : arrears?.get(r.portfolioId)?.arrearsDeduction ?? 0), 0),
+  }), [scoped, arrears]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -242,6 +248,12 @@ export function NearingPayoutsPanel() {
           </CardTitle>
           <p className="text-xs text-muted-foreground">
             Expected returns: <span className="font-bold text-foreground">{formatUGX(kpis.expected)}</span>
+            {kpis.arrears > 0 && (
+              <>
+                {' · '}Company arrears taken on approval: <span className="font-bold text-amber-700">{formatUGX(kpis.arrears)}</span>
+                {' · '}Partners keep: <span className="font-bold text-foreground">{formatUGX(kpis.expected - kpis.arrears)}</span>
+              </>
+            )}
           </p>
         </CardHeader>
         <CardContent className="space-y-2">
@@ -272,7 +284,20 @@ export function NearingPayoutsPanel() {
                   </div>
                   <p className="col-span-1 truncate text-[11px] text-muted-foreground md:col-span-2">{r.portfolioName}</p>
                   <p className="col-span-1 text-[11px] font-semibold md:col-span-2">{formatUGX(r.principal)}</p>
-                  <p className="col-span-1 text-[11px] font-black md:col-span-2">{formatUGX(r.expected)}</p>
+                  <div className="col-span-1 md:col-span-2">
+                    <p className="text-[11px] font-black">{formatUGX(r.expected)}</p>
+                    {(() => {
+                      const a = arrears?.get(r.portfolioId);
+                      if (!a || a.arrearsDeduction <= 0 || r.compounding) return null;
+                      return (
+                        <p className="text-[10px] leading-snug text-amber-700">
+                          − {formatUGX(a.arrearsDeduction)} company arrears
+                          <br />
+                          <span className="font-bold">Partner keeps {formatUGX(a.netPayout)}</span>
+                        </p>
+                      );
+                    })()}
+                  </div>
                   <div className="col-span-1 md:col-span-2">
                     <p className="text-[11px] font-semibold">{formatDateOnlyForDisplay(r.dueDate)}</p>
                     <p className="text-[10px] text-muted-foreground">

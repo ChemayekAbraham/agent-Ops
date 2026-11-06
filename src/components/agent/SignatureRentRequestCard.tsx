@@ -3,26 +3,33 @@ import { ArrowUpRight, Asterisk, CalendarCheck2, Percent, Wallet } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { FadedHouseIllustration } from '@/components/common/FadedHouseIllustration';
 import './SignatureRentRequestCard.css';
 
 interface SignatureRentRequestCardProps {
   fullName?: string | null;
   onPostRequest: () => void;
+  /** Fired when a finger or pointer reaches the card, before the click lands. */
+  onIntent?: () => void;
 }
 
-export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureRentRequestCardProps) {
+export function SignatureRentRequestCard({ fullName, onPostRequest, onIntent }: SignatureRentRequestCardProps) {
   const [earningsOpen, setEarningsOpen] = useState(false);
   const firstName = fullName?.trim().split(/\s+/)[0] || 'Agent';
 
   return (
     <>
       <section className="signature-rent-card" aria-labelledby="signature-rent-title">
+        <FadedHouseIllustration opacity={0.2} />
         <button
           type="button"
           className="signature-rent-open"
           aria-label="Open rent request form"
           tabIndex={-1}
           onClick={onPostRequest}
+          onPointerEnter={onIntent}
+          onPointerDown={onIntent}
+          onTouchStart={onIntent}
         />
         <div className="signature-rent-content">
           <p className="signature-rent-greeting">
@@ -37,16 +44,12 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
           </h2>
           <div className="signature-rent-earnings">
             <p className="signature-rent-subtle text-xs font-bold">Earn up to</p>
-            <p className="mt-0.5 text-[28px] font-black leading-tight">{formatUGX(40000)}<sup className="ml-0.5 text-sm">*</sup></p>
+            <p className="mt-0.5 text-[28px] font-black leading-tight text-green-300">{formatUGX(40000)}<sup className="ml-0.5 text-sm">*</sup></p>
             <p className="signature-rent-subtle mt-0.5 text-[11px] font-bold leading-snug">in commissions</p>
             <Button variant="link" className="signature-rent-how" onClick={() => setEarningsOpen(true)}>
               How do I earn? <ArrowUpRight className="!h-3 !w-3" aria-hidden="true" />
             </Button>
           </div>
-          <Button className="signature-rent-post" onClick={onPostRequest}>
-            <span>Post rent request</span>
-            <span className="signature-rent-arrow" aria-hidden="true"><ArrowUpRight className="!h-5 !w-5" /></span>
-          </Button>
         </div>
       </section>
       <Dialog open={earningsOpen} onOpenChange={setEarningsOpen}>
@@ -62,7 +65,7 @@ export function SignatureRentRequestCard({ fullName, onPostRequest }: SignatureR
             {[
               { Icon: Wallet, amount: formatUGX(5000), description: 'For an eligible posted rent request' },
               { Icon: Percent, amount: '1%', description: 'Of a qualifying landlord payout' },
-              { Icon: CalendarCheck2, amount: '10%', description: 'On qualifying rent repayments' },
+              { Icon: CalendarCheck2, amount: '8%', description: 'On qualifying rent repayments' },
             ].map(({ Icon, amount, description }, index) => (
               <div key={amount} className="signature-earnings-row">
                 <span className="signature-earnings-icon" aria-hidden="true">

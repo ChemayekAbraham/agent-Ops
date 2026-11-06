@@ -72,6 +72,25 @@ function convert(amountInUGX: number, code: string, rates: Record<string, number
   return amountInUGX * rate;
 }
 
+// Building an Intl.NumberFormat is far costlier than using one, and lists and maps
+// format hundreds of amounts per render, so each combination is built once.
+const currencyFormatters = new Map<string, Intl.NumberFormat>();
+function getCurrencyFormatter(locale: string, code: string, decimals: number): Intl.NumberFormat {
+  const key = `${locale}|${code}|${decimals}`;
+  let formatter = currencyFormatters.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: code === 'UGX' ? 'code' : 'symbol',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    currencyFormatters.set(key, formatter);
+  }
+  return formatter;
+}
+
 /**
  * Format an amount (in UGX) using the user's selected currency.
  */
@@ -87,13 +106,7 @@ export function formatDynamic(amountInUGX: unknown): string {
   const decimals = ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2;
 
   try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: code,
-      currencyDisplay: code === 'UGX' ? 'code' : 'symbol',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(converted);
+    return getCurrencyFormatter(locale, code, decimals).format(converted);
   } catch {
     const symbol = currencySymbols[code] || code;
     return `${symbol}${converted.toFixed(decimals)}`;

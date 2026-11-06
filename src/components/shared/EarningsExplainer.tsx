@@ -32,7 +32,7 @@ const PAGE = 1000;
 
 // Human-friendly labels + which top-level bucket each category rolls up to.
 const CATEGORY_META: Record<string, { label: string; bucket: string; note?: string }> = {
-  agent_commission: { label: '10% Rent Collection Commission', bucket: 'Agent Commissions', note: 'Instant 10% of every tenant rent slice the agent collected.' },
+  agent_commission: { label: 'Rent Collection Commission', bucket: 'Agent Commissions', note: 'Instant 8% of every tenant rent slice the agent collected (6% for a sub-agent, whose parent agent gets 2%; 10% on older collections).' },
   agent_commission_earned: { label: 'Listing / Verification / Referral Bonuses', bucket: 'Agent Commissions', note: 'House listing 2k, landlord verified 2k, LC1 chairperson verified, sub-agent registration bonuses, recruiter overrides.' },
   partner_commission: { label: 'Partner Commission (2%)', bucket: 'Agent Commissions', note: '2% commission on proxy agent deposits routed to partners.' },
   tenant_placement_bonus: { label: 'Tenant Placement Bonus (10k)', bucket: 'Agent Commissions', note: 'Paid when an empty listing gets its first tenant assigned.' },

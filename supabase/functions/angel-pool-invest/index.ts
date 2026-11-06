@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
     const { amount } = body as { amount?: number };
 
     if (!amount || typeof amount !== "number" || amount < PRICE_PER_SHARE) {
-      return new Response(JSON.stringify({ error: `Minimum investment is UGX ${PRICE_PER_SHARE.toLocaleString()}` }),
+      return new Response(JSON.stringify({ error: `Minimum support is UGX ${PRICE_PER_SHARE.toLocaleString()} (one share)` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
 
     if (available < actualAmount) {
       return new Response(JSON.stringify({
-        error: `Insufficient available balance. You need UGX ${actualAmount.toLocaleString()} but only UGX ${available.toLocaleString()} is available to invest.`,
+        error: `Insufficient available balance. You need UGX ${actualAmount.toLocaleString()} but only UGX ${available.toLocaleString()} is available for support.`,
       }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
           category: 'share_capital',
           source_table: 'angel_pool_investments',
           source_id: wallet.id,
-          description: `Angel Pool investment: ${shares} shares @ UGX ${PRICE_PER_SHARE.toLocaleString()}/share`,
+          description: `Angel Pool support: ${shares} shares @ UGX ${PRICE_PER_SHARE.toLocaleString()}/share`,
           currency: 'UGX',
           reference_id: referenceId,
           transaction_date: txDate,
@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       // surface a readable message instead of a generic 500.
       if (rpcErr.code === "P0001" && /insufficient ledger balance/i.test(rpcErr.message ?? "")) {
         return new Response(JSON.stringify({
-          error: `Insufficient available balance to invest UGX ${actualAmount.toLocaleString()}. Please refresh your wallet and try again.`,
+          error: `Insufficient available balance for UGX ${actualAmount.toLocaleString()} of support. Please refresh your wallet and try again.`,
         }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }

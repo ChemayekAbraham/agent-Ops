@@ -8,6 +8,7 @@ import { resolveManagedProxy } from "../_shared/partnership-emails.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
+import { isPartnerReturnCredit } from "../_shared/returnCycleGuard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -552,6 +553,17 @@ Deno.serve(async (req) => {
       }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // ── Partner Return guard (migration 20261024140000_return_cycle_guard) ──
+    // A Partner Return credit must go through the Return payout flow, which
+    // reserves the portfolio's cycle so it can never be paid twice. A direct
+    // (or scheduled) credit names no portfolio or cycle, so it would bypass
+    // that guard: refuse it here. Debits/recoveries are unaffected.
+    if (isPartnerReturnCredit(op, walletCat, platformCat)) {
+      return new Response(JSON.stringify({
+        error: 'RETURN_CREDIT_NOT_ALLOWED_HERE: Partner Returns are paid through the Partner Return payout flow (one Return per portfolio cycle). Request the payout from the Partners page.',
+      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Validate inputs — shadow on failure paths
     if (!target_user_id || typeof target_user_id !== "string") {
       if (shouldSample(shadowConfig)) {
@@ -599,16 +611,13 @@ Deno.serve(async (req) => {
       ? `${managedProxy.agentName || "Proxy Agent"} for ${targetProfile.full_name || "partner"}`
       : targetProfile.full_name;
 
-    // Ensure wallet exists
+    // Read-only. A missing wallets view row is balance 0; the signup trigger
+    // owns wallets_physical and the view cannot be inserted into.
     const { data: existingWallet } = await adminClient
       .from("wallets")
       .select("id, balance, withdrawable_balance, float_balance")
       .eq("user_id", walletUserId)
-      .single();
-
-    if (!existingWallet) {
-      await adminClient.from("wallets").insert({ user_id: walletUserId, balance: 0 });
-    }
+      .maybeSingle();
 
     // CFO has authority to debit regardless of balance (corrections, clawbacks)
     // Log a warning if balance is insufficient for audit trail

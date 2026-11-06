@@ -11,6 +11,7 @@ import { CurrencySwitcher } from '@/components/CurrencySwitcher';
 import IncomeTypeSelector, { IncomeType } from './IncomeTypeSelector';
 import WeeklyMonthlyCalculator from './WeeklyMonthlyCalculator';
 import { RentCalculatorShareButton } from './RentCalculatorShareButton';
+import { V360IllustrativeExample } from '@/components/v360/V360IllustrativeExample';
 
 interface RentCalculatorProps {
   onProceed: () => void;
@@ -109,6 +110,7 @@ export default function RentCalculator({ onProceed }: RentCalculatorProps) {
         <Button onClick={handleCalculate} className="w-full h-12 text-base font-semibold rounded-xl">
           Calculate
         </Button>
+        <V360IllustrativeExample />
 
         {calculation && (
           <div className="mt-4 p-4 rounded-lg bg-secondary/50 space-y-3">

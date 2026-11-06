@@ -32,7 +32,7 @@ export function ProxyAgentOnboardedEmail({
           <Section style={infoBox}>
             <Text style={infoLabel}>What this role lets you do</Text>
             <Text style={bullet}>• Register and support partners in the field on Welile's behalf.</Text>
-            <Text style={bullet}>• Capture partner deposits and investments directly in the app.</Text>
+            <Text style={bullet}>• Capture partner deposits and support directly in the app.</Text>
             <Text style={bullet}>• Receive and deliver partner payouts you are authorised to handle.</Text>
             <Text style={bullet}>• Access the Proxy Agent tools inside your Welile dashboard.</Text>
           </Section>

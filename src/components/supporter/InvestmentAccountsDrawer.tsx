@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useCapitalOpportunities, PortfolioRecord } from '@/hooks/useCapitalOpportunities';
@@ -14,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import {
   Loader2, TrendingUp, Briefcase, Wallet, Sparkles,
   ArrowDownToLine, ChevronRight, ArrowUpRight, RefreshCw, Calendar, Clock, Hash,
-  Pencil, Check, X, Download, Share2, FileText, AlertTriangle, MessageCircle
+  Pencil, Check, X, Download, Share2, FileText, AlertTriangle, MessageCircle, ArrowLeft
 
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -40,7 +41,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   withdrawn: { label: 'Withdrawn', variant: 'muted', dot: 'bg-muted-foreground/40' },
 };
 
-/** Returns days until next ROI date, or null if not available */
+/** Returns days until next Returns date, or null if not available */
 function daysUntilNextRoi(nextRoiDate: string | null | undefined): number | null {
   const dateOnly = extractDateOnly(nextRoiDate);
   if (!dateOnly) return null;
@@ -63,6 +64,21 @@ function runningDurationLabel(fundedAt: string | null | undefined): string | nul
   return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
+/** Self-support portfolios (WSP/WSH codes) run on a 12-month contract that
+ *  keeps earning even when the underlying Rent Plan completes. Shows which
+ *  contract month the partner is in; "Contract ended" once matured. */
+function contractMonthLabel(p: PortfolioRecord): string | null {
+  const code = p.portfolio_code || '';
+  if (!code.startsWith('WSP') && !code.startsWith('WSH')) return null;
+  if (p.status === 'matured') return 'Contract ended';
+  if (!p.created_at) return null;
+  const start = new Date(p.created_at);
+  if (isNaN(start.getTime())) return null;
+  const cap = Math.max(1, Number(p.duration_months) || 12);
+  const n = Math.min(cap, Math.max(0, differenceInCalendarMonths(new Date(), start)) + 1);
+  return `Month ${n} of ${cap}`;
+}
+
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
   const days = daysUntilNextRoi(nextRoiDate);
   if (days === null) return null;
@@ -70,74 +86,74 @@ function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefi
   return (
     <span className={`text-[10px] font-semibold flex items-center gap-1 ${isUrgent ? 'text-destructive' : 'text-success'}`}>
       <Calendar className={`h-2.5 w-2.5 ${isUrgent ? 'animate-pulse' : ''}`} />
-      {days <= 0 ? 'Due today' : `${days}d to ROI`}
+      {days <= 0 ? 'Due today' : `${days}d to Returns`}
     </span>
   );
 }
 
+/** One account as a list tile: name and amount on top, code and monthly Returns under, status and next Returns last. */
 function PortfolioRow({ p, onTap }: { p: PortfolioRecord; onTap: () => void }) {
   const roi = (Number(p.investment_amount) * Number(p.roi_percentage)) / 100;
   const cfg = statusConfig[p.status] || { label: p.status, variant: 'outline' as const, dot: 'bg-muted-foreground/40' };
-  const name = p.account_name || p.portfolio_code || 'Investment Account';
+  const name = p.account_name || p.portfolio_code || 'Support Account';
   const matDate = p.maturity_date ? new Date(p.maturity_date) : null;
   const isExpired = !!matDate && differenceInCalendarDays(matDate, new Date()) < 0 && p.status === 'active';
 
   return (
     <button
       onClick={() => { hapticTap(); onTap(); }}
-      className="w-full text-left active:scale-[0.98] transition-transform"
+      className={cn(
+        'flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors active:bg-muted/70',
+        isExpired && 'bg-destructive/5',
+      )}
     >
-      <Card className={`p-3.5 flex items-center gap-3 hover:bg-accent/30 transition-colors ${isExpired ? 'border-2 border-destructive/60 ring-1 ring-destructive/20' : 'border-border/60'}`}>
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-          <Wallet className="h-4.5 w-4.5 text-primary" />
-        </div>
+      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10">
+        <Wallet className="h-5 w-5 text-primary" />
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold truncate">{name}</span>
-            {isExpired ? (
-              <Badge variant="destructive" size="sm" className="shrink-0 gap-1">
-                <AlertTriangle className="h-2.5 w-2.5" /> Expired
-              </Badge>
-            ) : (
-              <Badge variant={cfg.variant} size="sm" className="shrink-0">{cfg.label}</Badge>
-            )}
-          </div>
-          {p.portfolio_code && (
-            <p className="text-[10px] text-muted-foreground/60 font-mono mt-0.5 flex items-center gap-1">
-              <Hash className="h-2.5 w-2.5" />{p.portfolio_code}
-            </p>
-          )}
-          <div className="flex items-center justify-between mt-1">
-            <span className="text-xs font-semibold">{formatUGX(Number(p.investment_amount))}</span>
-            <span className="text-[11px] text-success font-semibold flex items-center gap-1">
-              <TrendingUp className="h-3 w-3" />
-              {p.roi_percentage}% → {formatUGX(roi)}/mo
-            </span>
-          </div>
-          <div className="flex items-center justify-between mt-0.5">
-            {Number(p.total_roi_earned) > 0 && (
-              <p className="text-[10px] text-success">
-                Earned: {formatUGX(Number(p.total_roi_earned))}
-              </p>
-            )}
-            <NextRoiIndicator nextRoiDate={p.next_roi_date} />
-          </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[15px] font-semibold">{name}</span>
+          <span className="shrink-0 text-[15px] font-semibold tabular-nums">{formatUGX(Number(p.investment_amount))}</span>
         </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-      </Card>
+        <div className="mt-0.5 flex items-center justify-between gap-2">
+          {p.portfolio_code ? (
+            <span className="flex min-w-0 items-center gap-1 truncate font-mono text-[11px] text-muted-foreground">
+              <Hash className="h-2.5 w-2.5 shrink-0" />{p.portfolio_code}
+            </span>
+          ) : <span />}
+          <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-success">
+            <TrendingUp className="h-3 w-3" />
+            {p.roi_percentage}% · {formatUGX(roi)}/mo
+          </span>
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          {isExpired ? (
+            <Badge variant="destructive" size="sm" className="gap-1">
+              <AlertTriangle className="h-2.5 w-2.5" /> Expired
+            </Badge>
+          ) : (
+            <Badge variant={cfg.variant} size="sm">{cfg.label}</Badge>
+          )}
+          <NextRoiIndicator nextRoiDate={p.next_roi_date} />
+          {Number(p.total_roi_earned) > 0 && (
+            <span className="text-[10px] text-success">Earned {formatUGX(Number(p.total_roi_earned))}</span>
+          )}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
     </button>
   );
 }
 
 function DetailRow({ label, value, icon: Icon, valueClassName }: { label: string; value: string; icon?: React.ElementType; valueClassName?: string }) {
   return (
-    <div className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0">
-      <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
-        {Icon && <Icon className="h-3.5 w-3.5" />}
+    <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+      <span className="flex items-center gap-3 text-sm text-muted-foreground">
+        {Icon && <Icon className="h-[18px] w-[18px] shrink-0" />}
         {label}
       </span>
-      <span className={`text-xs font-bold text-foreground ${valueClassName || ''}`}>{value}</span>
+      <span className={cn('text-right text-sm font-semibold text-foreground', valueClassName)}>{value}</span>
     </div>
   );
 }
@@ -219,7 +235,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   const totalEarned = Number(portfolio.total_roi_earned);
   const totalValue = amount + totalEarned;
   const cfg = statusConfig[portfolio.status] || { label: portfolio.status, variant: 'outline' as const, dot: 'bg-muted-foreground/40' };
-  const name = portfolio.account_name || portfolio.portfolio_code || 'Investment Account';
+  const name = portfolio.account_name || portfolio.portfolio_code || 'Support Account';
   const isActive = portfolio.status === 'active';
 
   // Next ROI date urgency
@@ -316,13 +332,13 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   };
 
   const handleShare = () => {
-    const displayName = portfolio.account_name || portfolio.portfolio_code || 'Investment Account';
+    const displayName = portfolio.account_name || portfolio.portfolio_code || 'Support Account';
     const monthlyROI = Math.round(amount * (roiPct / 100));
     const message = [
-      `📊 *Investment Portfolio: ${displayName}*`,
+      `📊 *Support Portfolio: ${displayName}*`,
       ``,
       `💰 Capital: ${formatUGX(amount)}`,
-      `📈 ROI Rate: ${roiPct}% per month`,
+      `📈 Returns Rate: ${roiPct}% per month`,
       `💵 Monthly Return: ${formatUGX(monthlyROI)}`,
       `📅 Duration: ${portfolio.duration_months || '—'} months`,
       `🔄 Mode: ${portfolio.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Monthly Payout'}`,
@@ -343,78 +359,100 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
   const autoReinvestValue = localAutoReinvest ?? portfolio.auto_reinvest ?? false;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="px-5 pt-5 pb-3">
-          <DialogTitle className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary shadow-lg">
-              <Wallet className="h-5 w-5 text-primary-foreground" />
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {/* Full mobile screen, like the accounts list it opens from: app bar, scrolling body, bottom action bar. */}
+      <SheetContent
+        side="bottom"
+        className="plan-detail-sheet flex h-[100dvh] flex-col gap-0 rounded-none bg-background p-0 sm:h-[94dvh] sm:rounded-t-[28px] [&>div.sticky:first-child]:hidden"
+      >
+        {/* App bar */}
+        <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border/60 px-1 pt-[env(safe-area-inset-top)]">
+          <button
+            type="button"
+            onClick={() => { hapticTap(); onOpenChange(false); }}
+            aria-label="Back"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-foreground transition-colors active:bg-muted"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          {isRenaming ? (
+            <div className="flex min-w-0 flex-1 items-center gap-1 pr-1">
+              <SheetTitle className="sr-only">Rename {name}</SheetTitle>
+              <Input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="New account name"
+                className="h-10 text-base"
+                autoFocus
+                onKeyDown={(e) => e.key === 'Enter' && handleRename()}
+              />
+              <button
+                type="button"
+                onClick={handleRename}
+                disabled={saving || !newName.trim()}
+                aria-label="Save name"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full active:bg-muted disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-5 w-5 text-success" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsRenaming(false)}
+                aria-label="Cancel rename"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full active:bg-muted"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              {isRenaming ? (
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="New account name"
-                    className="h-8 text-sm"
-                    autoFocus
-                    onKeyDown={(e) => e.key === 'Enter' && handleRename()}
-                  />
-                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={handleRename} disabled={saving || !newName.trim()}>
-                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-success" />}
-                  </Button>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => setIsRenaming(false)}>
-                    <X className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-black block truncate">{name}</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 shrink-0"
-                    onClick={() => { setNewName(portfolio.account_name || ''); setIsRenaming(true); }}
-                  >
-                    <Pencil className="h-3 w-3 text-muted-foreground" />
-                  </Button>
-                </div>
-              )}
-              <div className="flex items-center gap-2 mt-0.5">
-                {portfolio.portfolio_code && (
-                  <span className="text-[10px] font-mono text-muted-foreground">{portfolio.portfolio_code}</span>
-                )}
-                <Badge variant={cfg.variant} size="sm">{cfg.label}</Badge>
-              </div>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+          ) : (
+            <>
+              <SheetTitle className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">{name}</SheetTitle>
+              <button
+                type="button"
+                onClick={() => { setNewName(portfolio.account_name || ''); setIsRenaming(true); }}
+                aria-label="Rename account"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-foreground transition-colors active:bg-muted"
+              >
+                <Pencil className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                type="button"
+                onClick={handleShare}
+                aria-label="Share"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-foreground transition-colors active:bg-muted"
+              >
+                <Share2 className="h-[18px] w-[18px]" />
+              </button>
+            </>
+          )}
+        </div>
 
-        <div className="space-y-4 px-5 pb-5">
-          {/* Total Value Hero */}
-          <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Total Value</p>
-              {pendingTopup > 0 && (
-                <Badge variant="warning" size="sm" className="gap-1">
-                  <Clock className="h-3 w-3" />
-                  +{formatUGX(pendingTopup)} being added
-                </Badge>
-              )}
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30">
+        <div className="space-y-4 px-4 pb-6 pt-4">
+          {/* Total value */}
+          <div className="rounded-[20px] bg-primary p-5 text-primary-foreground">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium opacity-80">Total value</p>
+              <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold">{cfg.label}</span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-black">{formatUGX(totalValue)}</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2">
+              <p className="text-[28px] font-bold leading-tight tabular-nums">{formatUGX(totalValue)}</p>
               {totalEarned > 0 && (
-                <span className="flex items-center gap-0.5 text-sm font-bold text-success">
+                <span className="flex items-center gap-0.5 text-sm font-semibold text-green-200">
                   <ArrowUpRight className="h-4 w-4" />
                   +{formatUGX(totalEarned)}
                 </span>
               )}
             </div>
+            {portfolio.portfolio_code && (
+              <p className="mt-1 font-mono text-xs opacity-80">{portfolio.portfolio_code}</p>
+            )}
             {pendingTopup > 0 && (
-              <p className="text-[11px] text-muted-foreground mt-1.5">
-                Your top-up of <span className="font-bold text-warning">{formatUGX(pendingTopup)}</span> is pending and will be added right after your next returns payout.
+              <p className="mt-3 flex items-start gap-1.5 rounded-xl bg-white/15 px-3 py-2 text-[11px]">
+                <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Your top-up of <span className="font-bold">{formatUGX(pendingTopup)}</span> is pending and will be added right after your next returns payout.
+                </span>
               </p>
             )}
           </div>
@@ -452,22 +490,23 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
 
           {/* Key Metrics */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-xl bg-muted/50 border border-border/60">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Principal</p>
-              <p className="font-bold text-lg">{formatUGX(amount)}</p>
+            <div className="rounded-[20px] bg-card p-4">
+              <p className="text-xs text-muted-foreground">Principal</p>
+              <p className="mt-1 text-lg font-bold tabular-nums">{formatUGX(amount)}</p>
             </div>
-            <div className="p-4 rounded-xl bg-success/10 border border-success/20">
-              <p className="text-[10px] uppercase tracking-wider text-success/80 font-semibold mb-1">Monthly Return</p>
-              <p className="font-bold text-lg text-success">{formatUGX(monthlyReturn)}</p>
+            <div className="rounded-[20px] bg-card p-4">
+              <p className="text-xs text-muted-foreground">Monthly Return</p>
+              <p className="mt-1 text-lg font-bold tabular-nums text-success">{formatUGX(monthlyReturn)}</p>
             </div>
           </div>
 
           {/* Detail Rows */}
-          <div className="rounded-xl border border-border/60 px-3.5">
-            <DetailRow label="ROI Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
-            <DetailRow label="Total ROI Earned" value={formatUGX(totalEarned)} icon={Wallet} />
+          <p className="px-1 pt-1 text-xs font-semibold text-muted-foreground">Details</p>
+          <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
+            <DetailRow label="Returns Rate" value={`${roiPct}% / month`} icon={TrendingUp} />
+            <DetailRow label="Total Returns Earned" value={formatUGX(totalEarned)} icon={Wallet} />
             {portfolio.roi_mode && (
-              <DetailRow label="ROI Mode" value={portfolio.roi_mode} icon={RefreshCw} />
+              <DetailRow label="Returns Mode" value={portfolio.roi_mode} icon={RefreshCw} />
             )}
             {(() => {
               const running = runningDurationLabel(portfolio.funded_at);
@@ -479,12 +518,18 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
                 />
               ) : null;
             })()}
+            {(() => {
+              const contractMonth = contractMonthLabel(portfolio);
+              return contractMonth !== null ? (
+                <DetailRow label="Contract" value={contractMonth} icon={Clock} />
+              ) : null;
+            })()}
             {portfolio.maturity_date && (
               <DetailRow label="Maturity Date" value={formatDateOnlyForDisplay(portfolio.maturity_date)} icon={Calendar} />
             )}
             {portfolio.next_roi_date && (
               <DetailRow
-                label="Next ROI Date"
+                label="Next Returns Date"
                 value={formatDateOnlyForDisplay(portfolio.next_roi_date)}
                 icon={Calendar}
                 valueClassName={roiUrgent ? 'text-destructive font-black' : 'text-success'}
@@ -503,27 +548,42 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             )}
           </div>
 
-          {/* Share & Download */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 h-10 gap-2 text-xs font-semibold"
+          {/* Settings and documents, as list tiles */}
+          <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
+            {isActive && (
+              <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+                <span className="flex items-center gap-3">
+                  <RefreshCw className={cn('h-[18px] w-[18px] shrink-0', autoReinvestValue ? 'text-primary' : 'text-muted-foreground')} />
+                  <span>
+                    <span className="block text-sm font-medium">Auto-Support</span>
+                    <span className="block text-xs text-muted-foreground">Automatically compound your returns</span>
+                  </span>
+                </span>
+                {togglingReinvest
+                  ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  : (
+                    <Switch
+                      checked={autoReinvestValue}
+                      onCheckedChange={() => handleToggleAutoReinvest()}
+                      aria-label="Auto-Support"
+                    />
+                  )}
+              </div>
+            )}
+            <button
+              type="button"
               onClick={() => { hapticTap(); setReportChoiceOpen(true); }}
               disabled={downloading || downloadingStatement}
+              className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors active:bg-muted/70 disabled:opacity-60"
             >
-              {(downloading || downloadingStatement)
-                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                : <Download className="h-3.5 w-3.5" />}
-              Download report
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 h-10 gap-2 text-xs font-semibold"
-              onClick={handleShare}
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              Share
-            </Button>
+              <span className="flex items-center gap-3 text-sm font-medium">
+                {(downloading || downloadingStatement)
+                  ? <Loader2 className="h-[18px] w-[18px] animate-spin text-muted-foreground" />
+                  : <Download className="h-[18px] w-[18px] text-muted-foreground" />}
+                Download report
+              </span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+            </button>
           </div>
 
           {/* Which report? The two answer different questions, so the choice is
@@ -568,65 +628,46 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             </DialogContent>
           </Dialog>
 
-           {/* Auto-Support Toggle */}
-          {isActive && (
-            <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/30">
-              <div className="flex items-center gap-2">
-                <RefreshCw className={`h-4 w-4 ${autoReinvestValue ? 'text-primary' : 'text-muted-foreground'}`} />
-                <div>
-                   <p className="text-xs font-bold">Auto-Support</p>
-                  <p className="text-[10px] text-muted-foreground">Automatically compound your returns</p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant={autoReinvestValue ? 'default' : 'outline'}
-                className="h-8 text-xs font-semibold min-w-[70px]"
-                onClick={handleToggleAutoReinvest}
-                disabled={togglingReinvest}
-              >
-                {togglingReinvest ? <Loader2 className="h-3 w-3 animate-spin" /> : autoReinvestValue ? 'On' : 'Off'}
-              </Button>
-            </div>
-          )}
-          {isActive && (
-            <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  onTopUp?.(portfolio);
-                  onOpenChange(false);
-                }}
-                className="flex-1 h-11 font-semibold gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Top Up
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent('open-withdrawal', {
-                    detail: { portfolioId: portfolio.id, portfolioCode: portfolio.portfolio_code }
-                  }));
-                  onOpenChange(false);
-                }}
-                className="flex-1 h-11 font-semibold gap-2 border-destructive/30 text-destructive hover:bg-destructive/10"
-              >
-                <ArrowDownToLine className="h-4 w-4" />
-                Withdraw
-              </Button>
-            </div>
-          )}
-
           {/* Info Hint */}
-          <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-2">
+          <div className="flex items-start gap-2 px-1">
             <TrendingUp className="h-4 w-4 text-primary mt-0.5 shrink-0" />
             <p className="text-[11px] text-muted-foreground">
               Your capital earns <strong className="text-foreground">{roiPct}% monthly</strong>. Returns are credited automatically each cycle. Top up anytime to grow your portfolio.
             </p>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+        </div>
+
+        {/* Bottom action bar */}
+        {isActive && (
+          <div className="flex shrink-0 gap-3 border-t border-border/60 bg-background px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+            <Button
+              onClick={() => {
+                onTopUp?.(portfolio);
+                onOpenChange(false);
+              }}
+              className="h-12 flex-1 gap-2 rounded-full font-semibold"
+            >
+              <Sparkles className="h-4 w-4" />
+              Top Up
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-withdrawal', {
+                  detail: { portfolioId: portfolio.id, portfolioCode: portfolio.portfolio_code }
+                }));
+                onOpenChange(false);
+              }}
+              className="h-12 flex-1 gap-2 rounded-full border-destructive/30 font-semibold text-destructive hover:bg-destructive/10"
+            >
+              <ArrowDownToLine className="h-4 w-4" />
+              Withdraw
+            </Button>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -677,44 +718,55 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl p-0 flex flex-col">
-          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border/60 shrink-0">
-            <SheetTitle className="flex items-center justify-between gap-2.5">
-              <span className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-primary/10">
-                  <Briefcase className="h-4 w-4 text-primary" />
-                </span>
-                <span className="text-base font-black">My Support</span>
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 text-[11px] font-semibold shrink-0"
-                onClick={handleExportAll}
-                disabled={exportingAll}
+        {/* A full mobile screen: app bar, tab bar, then the scrolling body. The sheet's drag handle is hidden. */}
+        <SheetContent
+          side="bottom"
+          className="plan-detail-sheet flex h-[100dvh] flex-col gap-0 rounded-none bg-background p-0 sm:h-[94dvh] sm:rounded-t-[28px] [&>div.sticky:first-child]:hidden"
+        >
+          {/* App bar */}
+          <div className="flex h-14 shrink-0 items-center gap-1 px-1 pt-[env(safe-area-inset-top)]">
+            <button
+              type="button"
+              onClick={() => { hapticTap(); onOpenChange(false); }}
+              aria-label="Back"
+              className="grid h-11 w-11 place-items-center rounded-full text-foreground transition-colors active:bg-muted"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <SheetTitle className="flex-1 truncate text-lg font-semibold tracking-tight">My Support</SheetTitle>
+            <button
+              type="button"
+              onClick={handleExportAll}
+              disabled={exportingAll}
+              aria-label="Download full statement"
+              title="Full statement"
+              className="grid h-11 w-11 place-items-center rounded-full text-foreground transition-colors active:bg-muted disabled:opacity-50"
+            >
+              {exportingAll ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileText className="h-5 w-5" />}
+            </button>
+          </div>
+
+          <Tabs defaultValue={defaultTab} className="flex min-h-0 flex-1 flex-col">
+            {/* Tab bar */}
+            <TabsList variant="underline" className="grid h-12 w-full shrink-0 grid-cols-2 gap-0">
+              <TabsTrigger
+                value="accounts"
+                variant="underline"
+                className="h-12 pb-0 text-sm data-[state=active]:text-primary"
               >
-                {exportingAll
-                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  : <FileText className="h-3.5 w-3.5" />}
-                Full statement
-              </Button>
-            </SheetTitle>
-          </SheetHeader>
+                Support Accounts
+              </TabsTrigger>
+              <TabsTrigger
+                value="angel"
+                variant="underline"
+                className="h-12 pb-0 text-sm data-[state=active]:text-primary"
+              >
+                Angel Shares
+              </TabsTrigger>
+            </TabsList>
 
-          <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 pt-3 shrink-0">
-              <TabsList className="w-full grid grid-cols-2 h-10">
-                <TabsTrigger value="accounts" className="text-xs font-bold" type="button">
-                  Support Accounts
-                </TabsTrigger>
-                <TabsTrigger value="angel" className="text-xs font-bold" type="button">
-                  Angel Shares
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            <ScrollArea className="flex-1 min-h-0">
-              <div className="px-4 pb-6 pt-3">
+            <ScrollArea className="min-h-0 flex-1 bg-muted/30">
+              <div className="px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-4">
                 {/* Support Accounts Tab */}
                 <TabsContent value="accounts" className="space-y-3 mt-0">
                   {loading ? (
@@ -727,17 +779,18 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                         <Wallet className="h-6 w-6 text-muted-foreground/50" />
                       </div>
 
-                      <p className="text-sm font-semibold">No investment accounts yet</p>
+                      <p className="text-sm font-semibold">No support accounts yet</p>
                       <p className="text-xs text-muted-foreground">Fund an opportunity to create your first account</p>
                     </div>
                   ) : (
                     <>
-                      <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Total Deployed</p>
-                        <p className="text-2xl font-black">{formatUGX(totalInvested)}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{portfolios.length} account{portfolios.length !== 1 ? 's' : ''}</p>
+                      <div className="rounded-[20px] bg-primary p-5 text-primary-foreground">
+                        <p className="text-xs font-medium opacity-80">Total deployed</p>
+                        <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{formatUGX(totalInvested)}</p>
+                        <p className="mt-1 text-xs opacity-80">{portfolios.length} account{portfolios.length !== 1 ? 's' : ''}</p>
                       </div>
-                      <div className="space-y-2">
+                      <p className="px-1 pt-2 text-xs font-semibold text-muted-foreground">Accounts</p>
+                      <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
                         {portfolios.map(p => (
                           <PortfolioRow
                             key={p.id}
@@ -761,25 +814,26 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                         <Briefcase className="h-6 w-6 text-[hsl(270,70%,50%)]/50" />
                       </div>
                       <p className="text-sm font-semibold">No angel shares yet</p>
-                      <p className="text-xs text-muted-foreground">Invest in the angel pool to own company equity</p>
+                      <p className="text-xs text-muted-foreground">Support the angel pool to own company equity</p>
                     </div>
                   ) : (
                     <>
-                      <div className="p-4 rounded-2xl bg-[hsl(270,60%,97%)] dark:bg-[hsl(270,30%,15%)] border border-[hsl(270,70%,50%)]/20">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Total Angel Investment</p>
-                        <p className="text-2xl font-black">{formatAmount(angelInvested)}</p>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-[11px] text-[hsl(270,70%,50%)] font-semibold">{totalShares} shares</span>
-                          <span className="text-[11px] text-muted-foreground">{companyOwnershipPct.toFixed(4)}% equity</span>
-                          <span className="text-[11px] text-muted-foreground">{poolOwnershipPct.toFixed(2)}% pool</span>
+                      <div className="rounded-[20px] bg-primary p-5 text-primary-foreground">
+                        <p className="text-xs font-medium opacity-80">Total angel support</p>
+                        <p className="mt-1 text-[28px] font-bold leading-tight tabular-nums">{formatAmount(angelInvested)}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 text-xs opacity-80">
+                          <span className="font-semibold">{totalShares} shares</span>
+                          <span>{companyOwnershipPct.toFixed(4)}% equity</span>
+                          <span>{poolOwnershipPct.toFixed(2)}% pool</span>
                         </div>
                       </div>
 
                       {valuations.length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Your Share Value At</p>
+                          <p className="px-1 pt-2 text-xs font-semibold text-muted-foreground">Your share value at</p>
+                          <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
                           {valuations.map(v => (
-                            <Card key={v.label} className="p-3 border-border/60">
+                            <div key={v.label} className="px-4 py-3.5">
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="text-xs text-muted-foreground">{v.label}</p>
@@ -790,16 +844,18 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                                   <p className="text-[10px] text-muted-foreground">{formatUGX(v.myValueUGX)}</p>
                                 </div>
                               </div>
-                            </Card>
+                            </div>
                           ))}
+                          </div>
                         </div>
                       )}
 
                       {records.length > 0 && (
                         <div className="space-y-2">
-                          <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">Transaction History</p>
+                          <p className="px-1 pt-2 text-xs font-semibold text-muted-foreground">Transaction history</p>
+                          <div className="divide-y divide-border/60 overflow-hidden rounded-[20px] bg-card">
                           {records.map(r => (
-                            <Card key={r.id} className="p-3 border-border/60">
+                            <div key={r.id} className="px-4 py-3.5">
                               <div className="flex items-center justify-between">
                                 <div>
                                   <p className="text-sm font-bold">{r.shares} shares</p>
@@ -817,8 +873,9 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
                                   </Badge>
                                 </div>
                               </div>
-                            </Card>
+                            </div>
                           ))}
+                          </div>
                         </div>
                       )}
                     </>
@@ -842,7 +899,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
         <FundAccountDialog
           open={!!topUpTarget}
           onOpenChange={(open) => { if (!open) setTopUpTarget(null); }}
-          accountName={topUpTarget.account_name || topUpTarget.portfolio_code || 'Investment Account'}
+          accountName={topUpTarget.account_name || topUpTarget.portfolio_code || 'Support Account'}
           accountId={topUpTarget.id}
           walletBalance={wallet?.balance || 0}
           currentBalance={Number(topUpTarget.investment_amount) || 0}

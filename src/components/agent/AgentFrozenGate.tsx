@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AuthRequiredError,
+  isUnauthenticatedRpcError,
+  requireUserSession,
+  useAuthenticatedAudience,
+} from '@/hooks/useAuthenticatedPoll';
 import { ShieldAlert, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -16,11 +22,16 @@ interface ListingBlock {
  * UI. Server-side triggers enforce the same rule on every agent write table.
  */
 export function AgentFrozenGate({ children }: { children: React.ReactNode }) {
+  const signedIn = useAuthenticatedAudience();
   const { data, isLoading } = useQuery({
     queryKey: ['my-listing-block-gate'],
+    enabled: signedIn,
+    retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async () => {
+      await requireUserSession();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any).rpc('get_my_listing_block');
+      if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw error;
       return (data as ListingBlock) ?? { blocked: false };
     },

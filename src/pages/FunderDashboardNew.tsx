@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { AlertTriangle, Bookmark, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import DashboardHeader from '@/components/DashboardHeader';
@@ -46,40 +46,14 @@ import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDr
 
 import { formatDynamic } from '@/lib/currencyFormat';
 import { toast } from 'sonner';
+import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
+import { FunderSavedItemsDialog } from '@/components/funder-new/FunderSavedItemsDialog';
+export { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 
-const SAVED_KEY = 'rentflow:funder-new:saved:v1';
 /** Default search radius applied when an origin exists. */
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
-
-interface SavedState {
-  empty: string[];
-  ready: string[];
-}
-
-const DEFAULT_SAVED: SavedState = { empty: [], ready: [] };
-
-function readSaved(): SavedState {
-  try {
-    const raw = window.localStorage.getItem(SAVED_KEY);
-    if (!raw) return DEFAULT_SAVED;
-    const parsed = JSON.parse(raw) as Partial<SavedState>;
-    return {
-      empty: Array.isArray(parsed.empty) ? parsed.empty.filter((id): id is string => typeof id === 'string') : [],
-      ready: Array.isArray(parsed.ready) ? parsed.ready.filter((id): id is string => typeof id === 'string') : [],
-    };
-  } catch {
-    return DEFAULT_SAVED;
-  }
-}
-
-function saveSaved(value: SavedState) {
-  try {
-    window.localStorage.setItem(SAVED_KEY, JSON.stringify(value));
-  } catch {
-    // Route-scoped browsing aid only.
-  }
-}
 
 export default function FunderDashboardNew() {
   const navigate = useNavigate();
@@ -117,7 +91,8 @@ export default function FunderDashboardNew() {
 
   const [sortTouched, setSortTouched] = useState(false);
   const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
-  const [saved, setSaved] = useState<SavedState>(() => readSaved());
+  const { saved, toggleSave, count: savedCount } = useFunderSavedItems();
+  const [savedOpen, setSavedOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
@@ -127,10 +102,6 @@ export default function FunderDashboardNew() {
   const [howOpen, setHowOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-
-  useEffect(() => {
-    saveSaved(saved);
-  }, [saved]);
 
   // Debounced text search; typing never fires a request per keystroke.
   useEffect(() => {
@@ -201,14 +172,37 @@ export default function FunderDashboardNew() {
 
   /** Houses first, Rent Plans last. Each entry carries its own category. */
   const loadedItems = useMemo<FeedEntry[]>(
-    () => [
+    () => sortFunderFeedEntries([
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
-    ],
+    ]),
     [emptyItems, readyItems],
   );
 
   const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+
+  // Shared link: ?plan=<category>:<id> opens that home's Support Plan once, if it is in the loaded list.
+  const [searchParams] = useSearchParams();
+  const sharedPlanHandled = useRef(false);
+  useEffect(() => {
+    if (sharedPlanHandled.current || feedLoading) return;
+    const raw = searchParams.get('plan');
+    if (!raw) { sharedPlanHandled.current = true; return; }
+    sharedPlanHandled.current = true;
+    const sep = raw.indexOf(':');
+    const category = sep >= 1 ? raw.slice(0, sep) : '';
+    const id = sep >= 1 ? raw.slice(sep + 1) : raw;
+    if (!id) return;
+    // Match by category:id when a category is given, otherwise by id alone
+    // across every loaded category (public share links carry no category).
+    const found = category
+      ? loadedItems.find((e) => e.category === category && itemId(e.category, e.item) === id)
+      : loadedItems.find((e) => itemId(e.category, e.item) === id);
+    if (!found) return;
+    setSelectedCategory(found.category);
+    setSelectedItems([toSelectionItem(found.category, found.item)]);
+    setReviewOpen(true);
+  }, [feedLoading, loadedItems, searchParams]);
   const feedError = emptyQuery.error || readyQuery.error;
   const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
   const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
@@ -290,14 +284,6 @@ export default function FunderDashboardNew() {
   };
 
 
-  const toggleSave = (category: FunderNewCategory, id: string) => {
-    setSaved((current) => {
-      const list = current[category];
-      const nextList = list.includes(id) ? list.filter((savedId) => savedId !== id) : [...list, id];
-      return { ...current, [category]: nextList };
-    });
-  };
-
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     const next = toSelectionItem(category, item);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
@@ -363,6 +349,7 @@ export default function FunderDashboardNew() {
         availableRoles={roles}
         onRoleChange={handleRoleSwitch}
         onSignOut={signOut}
+        menuItems={[{ icon: Bookmark, label: 'Saved Items', onClick: () => setSavedOpen(true), badge: savedCount || undefined }]}
         headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
         compactInstallPrompt
       />
@@ -595,6 +582,7 @@ export default function FunderDashboardNew() {
         </section>
       </main>
 
+      <FunderSavedItemsDialog open={savedOpen} onOpenChange={setSavedOpen} />
       <EmptyHouseDetailSheet
         house={detailHouse}
         open={!!detailHouse}

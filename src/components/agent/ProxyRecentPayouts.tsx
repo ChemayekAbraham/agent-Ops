@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Receipt, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentOnboardedPortfolios, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
 import { useCurrency } from '@/hooks/useCurrency';
 import { toast } from 'sonner';
@@ -72,20 +73,12 @@ export function ProxyRecentPayouts() {
   const load = useCallback(async (offset: number) => {
     if (!user?.id) return;
     try {
-      const { data, error: qErr } = await supabase
-        .from('withdrawal_requests')
-        .select(
-          'id, amount, status, payout_method, processed_at, created_at, proxy_partner_id, linked_party, user_id, mobile_money_number, mobile_money_provider, mobile_money_name, bank_name, bank_account_number, bank_account_name',
-        )
-        .not('proxy_partner_id', 'is', null)
-        .or(`agent_id.eq.${user.id},initiated_by.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1);
-
+      const all = await fetchAgentProxyWithdrawals();
+      const list = all.slice(offset, offset + PAGE_SIZE + 1);
+      const qErr = null;
       if (qErr) throw qErr;
 
-      const list = data || [];
-      const mapped: PayoutRow[] = list.map((w: any) => {
+      const mapped: PayoutRow[] = list.slice(0, PAGE_SIZE).map((w) => {
         const isBank = (w.payout_method || '').toLowerCase().includes('bank');
         return {
           id: w.id,
@@ -96,20 +89,19 @@ export function ProxyRecentPayouts() {
           created_at: w.created_at,
           partnerId: w.proxy_partner_id || w.linked_party || w.user_id || null,
           destinationLabel: isBank ? 'Bank account' : 'Mobile money',
-          destinationValue: isBank
-            ? [w.bank_name, w.bank_account_number, w.bank_account_name].filter(Boolean).join(' · ')
-            : [w.mobile_money_provider, w.mobile_money_number, w.mobile_money_name].filter(Boolean).join(' · '),
+          destinationValue: 'On file',
         };
       });
+      setHasMore(list.length > PAGE_SIZE);
 
       const partnerIds = Array.from(new Set(mapped.map(r => r.partnerId).filter(Boolean))) as string[];
       const missing = partnerIds.filter(id => !profiles[id]);
       if (missing.length) {
-        const { data: profRows } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone')
-          .in('id', missing);
-        if (profRows?.length) {
+        const cards = await fetchAgentOnboardedPortfolios().catch(() => []);
+        const profRows = cards
+          .filter(c => c.investor_id && missing.includes(c.investor_id))
+          .map(c => ({ id: c.investor_id as string, full_name: c.partner_name, phone: '' }));
+        if (profRows.length) {
           setProfiles(prev => {
             const next = { ...prev };
             profRows.forEach((p: any) => {
@@ -121,7 +113,6 @@ export function ProxyRecentPayouts() {
       }
 
       setRows(prev => (offset === 0 ? mapped : [...prev, ...mapped]));
-      setHasMore(list.length === PAGE_SIZE);
       setError(null);
     } catch (e: any) {
       setError(e?.message || 'Unable to load recent payouts');

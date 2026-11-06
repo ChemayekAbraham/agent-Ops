@@ -1,5 +1,6 @@
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
-import { useEffect, useRef, useState, lazy, Suspense, useMemo } from 'react';
+import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -75,6 +76,9 @@ import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOver
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
 import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
+import { WelileSchoolsOps } from './agent-ops-v2/WelileSchoolsOps';
+import { WelileMedicineOps } from './agent-ops-v2/WelileMedicineOps';
+import { WelileSignagesOps } from './agent-ops-v2/WelileSignagesOps';
 import { CallingHub } from '@/components/ops/calling';
 import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
@@ -91,7 +95,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout, Network, GraduationCap, Stethoscope
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -121,6 +125,9 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'business-advance', icon: Briefcase, label: 'Welile Business Advance', color: 'bg-primary' },
   { key: 'agent-marketplace', icon: Store, label: 'Welile Marketplace', color: 'bg-primary' },
   { key: 'welile-homes', icon: Building2, label: 'Welile Homes', color: 'bg-primary' },
+  { key: 'welile-schools', icon: GraduationCap, label: 'Welile Schools', color: 'bg-primary' },
+  { key: 'welile-medicine', icon: Stethoscope, label: 'Welile Medicine', color: 'bg-primary' },
+  { key: 'welile-signages', icon: Megaphone, label: 'Welile Signages', color: 'bg-primary' },
   { key: 'agents-hope', icon: Sparkles, label: 'Welile Agents Hope', color: 'bg-primary' },
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
@@ -152,6 +159,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'subagent-commission-whitelist', icon: ShieldCheck, label: 'Sub-Agent Commission Whitelist', color: 'bg-emerald-700', priority: true },
   { key: 'promote-tenant', icon: ArrowLeftRight, label: 'Tenant → Sub-Agent', color: 'bg-fuchsia-600', priority: true },
   { key: 'directory', icon: Search, label: 'Directory', color: 'bg-blue-500', priority: true },
+  { key: 'agent-verification', icon: ShieldCheck, label: 'Agent Verification', color: 'bg-blue-600', priority: true },
   { key: 'rent-capacity', icon: Gauge, label: 'Rent Capacity', color: 'bg-cyan-500', priority: true },
   { key: 'rent-behaviour', icon: Clock3, label: 'Rent Behaviour', color: 'bg-teal-600', priority: true },
   { key: 'tasks', icon: ClipboardList, label: 'Tasks', color: 'bg-emerald-500', priority: true },
@@ -183,11 +191,11 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
 type CategoryId = 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports' | 'first7' | 'network' | 'metrics';
 
 const CATEGORIES: { id: CategoryId; label: string; count: number; icon?: typeof Sprout }[] = [
-  { id: 'all', label: 'All', count: 14 },
+  { id: 'all', label: 'All', count: BUSINESS_AREAS.length },
   { id: 'advances', label: 'Advances', count: 4 },
   { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
   { id: 'commerce', label: 'Commerce & Float', count: 3 },
-  { id: 'field', label: 'Field & Hubs', count: 4 },
+  { id: 'field', label: 'Field & Hubs', count: 5 },
   { id: 'reports', label: 'Ranks & Reports', count: 1 },
   { id: 'first7', label: 'First 7 Days', count: 1, icon: Sprout },
   { id: 'network', label: 'Agent Network', count: 1, icon: Network },
@@ -207,7 +215,7 @@ export function AgentOpsDashboard() {
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
-  const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
+  const [sidebarWidth, setSidebarWidth] = useState(260); // default w-64
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   // A shared First 7 Days link (?f7from=... and so on) opens straight on that tab.
@@ -428,7 +436,10 @@ export function AgentOpsDashboard() {
           <Button variant="outline" asChild><Link to="/marketplace">Open Welile Marketplace</Link></Button>
         </div>
       );
-      case 'welile-homes': return <WelileHomesAdminPanel />;
+      case 'welile-homes': return <WelileHomesAdminPanel onBack={() => setActiveView(null)} />;
+      case 'welile-schools': return <WelileSchoolsOps onBack={() => setActiveView(null)} />;
+      case 'welile-medicine': return <WelileMedicineOps onBack={() => setActiveView(null)} />;
+      case 'welile-signages': return <WelileSignagesOps onBack={() => setActiveView(null)} />;
       case 'agents-hope': return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
@@ -560,12 +571,22 @@ export function AgentOpsDashboard() {
       navigate('/agent-ops/products/motor-bikes');
       return;
     }
+    // Agent vetting review lives on its own page, not as an inline view.
+    if (key === 'agent-verification') {
+      navigate('/agent-ops/agent-verification');
+      return;
+    }
     setActiveView(key);
   };
 
   const handleOpenSection = (key: string) => {
     if (key === 'agents-bikes') {
       navigate('/agent-ops/products/motor-bikes');
+      return;
+    }
+    // Agent vetting review lives on its own page, not as an inline view.
+    if (key === 'agent-verification') {
+      navigate('/agent-ops/agent-verification');
       return;
     }
     const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
@@ -575,7 +596,7 @@ export function AgentOpsDashboard() {
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: "Agents' Space", keys: ['agents-space'] },
-    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
+    { title: 'Agents', keys: ['directory', 'agent-verification', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
@@ -666,7 +687,7 @@ export function AgentOpsDashboard() {
                 Core Business Areas ({matchingBusinessAreas.length})
               </p>
               <Badge variant="outline" className="text-[10px] py-0 px-1.5 text-primary border-primary/30">
-                14 Business Areas
+                {BUSINESS_AREAS.length} Business Areas
               </Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
@@ -824,7 +845,7 @@ export function AgentOpsDashboard() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            placeholder={`Search all ${BUSINESS_AREAS.length} business areas, advances, bikes, rent, tools, reports...`}
             className="h-9 pl-9 pr-8 text-xs bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40"
           />
           {searchQuery && (
@@ -871,11 +892,11 @@ export function AgentOpsDashboard() {
         <div>
           <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">
-            Instant search engine across all 14 business areas and operational tools.
+            Instant search engine across all {BUSINESS_AREAS.length} business areas and operational tools.
           </p>
         </div>
         <Badge variant="secondary" className="shrink-0 text-xs font-medium">
-          {searchQuery.trim() ? `${totalResultsCount} found` : '14 Business Areas'}
+          {searchQuery.trim() ? `${totalResultsCount} found` : `${BUSINESS_AREAS.length} Business Areas`}
         </Badge>
       </div>
 
@@ -888,7 +909,7 @@ export function AgentOpsDashboard() {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            placeholder={`Search all ${BUSINESS_AREAS.length} business areas, advances, bikes, rent, tools, reports...`}
             className="h-11 pl-10 pr-10 text-sm bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40 mb-0"
           />
           {searchQuery && (
@@ -1102,24 +1123,42 @@ export function AgentOpsDashboard() {
       </div>
 
       {/* Body: persistent left sidebar (desktop) + content */}
-      <div className="lg:flex lg:items-start">
-        <div className="hidden lg:block shrink-0">
-          <Button variant="ghost" size="icon-sm" title={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-label={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}>
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-          {sidebarOpen && <AgentOpsSideNav
-            activeView={activeView}
-            onSelect={(k) => selectView(k)}
-            onHome={() => { setBottomTab('home'); setActiveView(null); }}
-            style={{ width: sidebarWidth }}
-          />}
+      <div className="lg:flex lg:items-start gap-1">
+        <div className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start z-10">
+          <div className="flex items-center justify-between pb-1.5 mb-1 border-b border-border/40">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+              title={sidebarOpen ? 'Collapse sidebar' : 'Open sidebar'}
+              aria-label={sidebarOpen ? 'Collapse sidebar' : 'Open sidebar'}
+              aria-expanded={sidebarOpen}
+              onClick={() => setSidebarOpen((open) => !open)}
+            >
+              <LayoutGrid className="h-3.5 w-3.5 text-primary" />
+              <span>{sidebarOpen ? 'Collapse' : 'Sections'}</span>
+            </Button>
+          </div>
+          {sidebarOpen && (
+            <AgentOpsSideNav
+              activeView={activeView}
+              onSelect={(k) => selectView(k)}
+              onHome={() => {
+                setBottomTab('home');
+                setActiveView(null);
+              }}
+              style={{ width: sidebarWidth }}
+            />
+          )}
         </div>
-        {sidebarOpen && <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />}
+        {sidebarOpen && <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} min={200} />}
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
       {/* Mobile bottom nav */}
-      <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
+      {activeView !== 'welile-homes' && activeView !== 'welile-schools' && activeView !== 'welile-medicine' && (
+        <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
+      )}
 
       <UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} />
     </div>
@@ -1133,7 +1172,7 @@ export function AgentOpsDashboard() {
 function SidebarResizer({
   currentWidth,
   onChange,
-  min = 180,
+  min = 200,
   max = 480,
 }: {
   currentWidth: number;
@@ -1195,7 +1234,7 @@ function SidebarResizer({
 /* ===================================================================
  * AgentOpsSideNav — persistent desktop left navigation for the Agent
  * Ops Dashboard. Mirrors the mobile "All sections" menu but always
- * visible on lg+. Advances is pinned to the top (Priority group).
+ * visible on lg+. Business Areas and Priority are easily accessible.
  * =================================================================== */
 function AgentOpsSideNav({
   activeView,
@@ -1209,33 +1248,58 @@ function AgentOpsSideNav({
   style?: React.CSSProperties;
 }) {
   const pendingAdvanceCount = usePendingAdvanceCount();
-  // Priority stays pinned & always exposed on top. Every other group is
-  // collapsible so the nav never over-scrolls. Agent Network sits right
-  // below Priority and is open by default (this dashboard is agent-centric).
+  const [filterText, setFilterText] = useState('');
+
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
-    { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
+    {
+      title: 'Business Areas',
+      defaultOpen: true,
+      keys: [
+        'general-activities',
+        'agents-rent',
+        'agents-bikes',
+        'welile-merchandise',
+        'shopping-advance',
+        'business-advance',
+        'agent-marketplace',
+        'welile-homes',
+        'welile-schools',
+        'welile-medicine',
+        'welile-signages',
+        'agents-hope',
+      ],
+    },
+    { title: 'Agents', defaultOpen: false, keys: ['directory', 'agent-verification', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
-    { title: 'Reports', defaultOpen: true, keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
+    { title: 'Reports', defaultOpen: false, keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
   const sideKeys = new Set(SIDE_GROUPS.flatMap((group) => group.keys));
-  SIDE_GROUPS.push({ title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !sideKeys.has(key)) });
+  const remainingKeys = NAV_ITEMS.map((item) => item.key).filter((key) => !sideKeys.has(key));
+  if (remainingKeys.length > 0) {
+    SIDE_GROUPS.push({ title: 'Additional tools', keys: remainingKeys });
+  }
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    SIDE_GROUPS.forEach((g) => { init[g.title] = false; });
+    SIDE_GROUPS.forEach((g) => {
+      init[g.title] = !!g.defaultOpen;
+    });
     return init;
   });
   const toggleGroup = (title: string) =>
     setOpenGroups((prev) => ({ ...prev, [title]: !prev[title] }));
 
+  const q = filterText.trim().toLowerCase();
+
   const renderItem = (key: ActiveView) => {
     const item = NAV_ITEMS.find((n) => n.key === key);
     if (!item) return null;
+    if (q && !item.label.toLowerCase().includes(q)) return null;
     const Icon = item.icon;
     const active = activeView === key;
     const showBadge = item.key === 'advance-requests' && pendingAdvanceCount > 0;
@@ -1244,17 +1308,18 @@ function AgentOpsSideNav({
         key={key as string}
         type="button"
         onClick={() => onSelect(key)}
+        title={item.label}
         className={cn(
-          'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-          active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
+          'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs sm:text-sm font-medium transition-colors text-left',
+          active ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground hover:bg-muted',
         )}
       >
-        <span className={cn('h-6 w-6 rounded-md flex items-center justify-center shrink-0', item.color)}>
+        <span className={cn('h-6 w-6 rounded-md flex items-center justify-center shrink-0 shadow-2xs', item.color)}>
           <Icon className="h-3.5 w-3.5 text-white" />
         </span>
-        <span className="truncate">{item.label}</span>
+        <span className="truncate flex-1 min-w-0" title={item.label}>{item.label}</span>
         {showBadge && (
-          <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">
+          <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
             {pendingAdvanceCount > 99 ? '99+' : pendingAdvanceCount}
           </span>
         )}
@@ -1265,8 +1330,29 @@ function AgentOpsSideNav({
   return (
     <aside
       style={style}
-      className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
+      className="flex flex-col shrink-0 max-h-[calc(100dvh-5.5rem)] overflow-y-auto overscroll-contain pr-2 pb-24 scrollbar-thin"
     >
+      {/* Quick search inside sidebar to find any section instantly */}
+      <div className="relative mb-2 shrink-0">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+        <Input
+          type="text"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          placeholder="Filter sections..."
+          className="h-8 pl-8 pr-7 text-xs bg-muted/40 border-border/70 rounded-lg shadow-none focus-visible:ring-primary/40"
+        />
+        {filterText && (
+          <button
+            type="button"
+            onClick={() => setFilterText('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-2.5 w-2.5" />
+          </button>
+        )}
+      </div>
+
       <nav className="space-y-3 py-1">
         <Button variant="ghost"
           type="button"
@@ -1283,15 +1369,24 @@ function AgentOpsSideNav({
         </Button>
 
         {SIDE_GROUPS.map((group) => {
+          const matchingKeys = q
+            ? group.keys.filter((k) => {
+                const item = NAV_ITEMS.find((n) => n.key === k);
+                return item && item.label.toLowerCase().includes(q);
+              })
+            : group.keys;
+
+          if (q && matchingKeys.length === 0) return null;
+
           const containsActive = group.keys.includes(activeView as ActiveView);
-          const open = group.pinned || openGroups[group.title] || containsActive;
+          const open = Boolean(q || group.pinned || openGroups[group.title] || containsActive);
           if (group.pinned) {
             return (
               <div key={group.title} className="space-y-1">
                 <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-primary/80">
                   {group.title}
                 </p>
-                {group.keys.map(renderItem)}
+                {matchingKeys.map(renderItem)}
               </div>
             );
           }
@@ -1308,7 +1403,7 @@ function AgentOpsSideNav({
                 </span>
                 <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', open ? '' : '-rotate-90')} />
               </button>
-              {open && <div className="space-y-1">{group.keys.map(renderItem)}</div>}
+              {open && <div className="space-y-1">{matchingKeys.map(renderItem)}</div>}
             </div>
           );
         })}

@@ -152,7 +152,7 @@ const MAX_DEPOSIT = 1_000_000_000;
 
 export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowedPurposes, lockPurpose, requirePurposeChoice, editRequestId, prefillFromMatch, defaultAmount, defaultChannel, defaultMomoProvider }: DepositFlowProps) {
   const navigate = useNavigate();
-  const { roles } = useAuth();
+  const { roles, user: authUser } = useAuth();
   /**
    * Agents are field cash collectors first. Per company policy, a deposit
    * landing in their wallet should be Operational Float (company money,
@@ -399,17 +399,13 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
     return () => URL.revokeObjectURL(url);
   }, [bankSlipFile]);
 
-  // Resolve the current user once so the allocator can scope its tenant
-  // search without each render hitting auth.getUser().
+  // The signed-in user's id, for scoping the allocator's tenant search. It comes
+  // from the auth context: this used to call auth.getUser() on every mount (a
+  // network round trip), and since that call holds the shared auth lock, it
+  // stalled every other request on the page behind it, even with the dialog closed.
   useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled) setCurrentUserId(data?.user?.id ?? null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    setCurrentUserId(authUser?.id ?? null);
+  }, [authUser?.id]);
 
   /* ─── Draft autosave / restore ───
    * Smartphone users frequently background the app (incoming call, SMS to

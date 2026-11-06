@@ -28,6 +28,8 @@ import { optimizeImage } from '@/lib/imageOptimizer';
 import { MerchandiseLiveOrders } from './MerchandiseLiveOrders';
 import { FulfilmentBadge, FulfilmentTypeSelect } from '@/components/merchandise/fulfilmentType';
 import { MerchandiseHandoverQueue } from '@/components/merchandise/MerchandiseHandoverQueue';
+import { MerchandiseReceivablesReconciliation } from '@/components/merchandise/MerchandiseReceivablesReconciliation';
+import { useMerchandiseReceivablesReconciliation } from '@/hooks/useMerchandiseReceivablesReconciliation';
 
 // The merchandise tables are new; the generated Supabase types don't include
 // them yet, so we reach them through an untyped client alias.
@@ -113,6 +115,12 @@ const PAGE_SIZE = 10;
 const OUTLIER_QTY = 20;
 const OUTLIER_VALUE = 2_000_000;
 
+// Issued = the merchandise has gone out (issued, approved, completed; no status = an old direct sale). Only issued
+// orders are revenue and receivables, whatever their size: they are on the balance sheet (A12 / A13). Orders still
+// in approval are shown apart and never counted.
+const ISSUED_STATUSES = new Set(['issued', 'approved', 'completed']);
+const isIssuedSale = (s: { order_status?: string | null }) => ISSUED_STATUSES.has(String(s.order_status ?? 'issued').toLowerCase());
+
 const isVoidSale = (s: { order_status?: OrderStatus }) =>
   s.order_status === 'rejected' || s.order_status === 'failed';
 
@@ -153,6 +161,9 @@ export function MerchandiseManager() {
   const [toDate, setToDate] = useState('');
   const [productFilter, setProductFilter] = useState('all');
   const [clientFilter, setClientFilter] = useState('all');
+  // Moving one end past the other moves the other end too, instead of silently emptying every table.
+  const changeFromDate = (v: string) => { setFromDate(v); if (v && toDate && v > toDate) setToDate(v); };
+  const changeToDate = (v: string) => { setToDate(v); if (v && fromDate && v < fromDate) setFromDate(v); };
 
   const { data: purchases = [], isLoading: loadingPurchases } = useQuery<Purchase[]>({
     queryKey: ['merchandise-purchases'],
@@ -245,12 +256,54 @@ export function MerchandiseManager() {
   );
 
   // ---- Financial roll-ups ----
-  // Cancelled/rejected orders and sanity-check outliers never count towards
-  // revenue, stock, COGS or receivables — they only appear in the sales table.
+  // Only issued orders count towards revenue, stock, COGS and receivables (they are what the books carry). Orders
+  // still in approval, rejected or failed only appear in the sales table; large issued orders still count.
   const countableSales = useMemo(
-    () => filteredSales.filter((s) => !isVoidSale(s) && !isOutlierSale(s)),
+    () => filteredSales.filter((s) => !isVoidSale(s) && isIssuedSale(s)),
     [filteredSales],
   );
+  const awaitingSales = useMemo(
+    () => filteredSales.filter((s) => !isVoidSale(s) && !isIssuedSale(s) && String(s.order_status ?? '') !== 'cancelled'),
+    [filteredSales],
+  );
+
+  // Receivables as the balance sheet carries them (A12 + A13), per order - not the order's own outstanding field,
+  // which includes future monthly charges that are income only when collected.
+  const { data: recon, isLoading: loadingRecon } = useMerchandiseReceivablesReconciliation();
+  const filtersActive = Boolean(fromDate || toDate || productFilter !== 'all' || clientFilter !== 'all');
+  const ledgerReceivables = useMemo(() => {
+    const bySale = new Map((recon?.orders ?? []).map((o) => [o.sale_id, o]));
+    let ledger = 0;
+    let plan = 0;
+    const clients = new Map<string, { name: string; phone: string; outstanding: number; planBalance: number; count: number }>();
+    countableSales.forEach((s) => {
+      const o = bySale.get(s.id);
+      if (!o) return;
+      ledger += o.ledger_receivable;
+      plan += o.plan_balance;
+      if (o.ledger_receivable === 0 && o.plan_balance === 0) return;
+      const key = (o.customer_id || s.client_phone || s.client_name || 'Unknown').trim();
+      const e = clients.get(key) || { name: o.customer || s.client_name || 'Unknown', phone: o.phone || s.client_phone || '', outstanding: 0, planBalance: 0, count: 0 };
+      e.outstanding += o.ledger_receivable;
+      e.planBalance += o.plan_balance;
+      e.count += 1;
+      clients.set(key, e);
+    });
+    // plans with a receivable but no order record belong to no filter - counted on the unfiltered view only
+    if (!filtersActive) {
+      (recon?.orphan_plans ?? []).forEach((p) => {
+        ledger += p.ledger_receivable;
+        plan += p.plan_balance;
+        const key = (p.customer_id || p.plan_id).trim();
+        const e = clients.get(key) || { name: p.customer || 'Unknown', phone: '', outstanding: 0, planBalance: 0, count: 0 };
+        e.outstanding += p.ledger_receivable;
+        e.planBalance += p.plan_balance;
+        e.count += 1;
+        clients.set(key, e);
+      });
+    }
+    return { ledger, plan, clients: Array.from(clients.values()).sort((a, b) => b.outstanding - a.outstanding) };
+  }, [recon, countableSales, filtersActive]);
 
   const totals = useMemo(() => {
     const totalInvested = filteredPurchases.reduce((s, p) => s + Number(p.total_cost), 0);
@@ -259,8 +312,16 @@ export function MerchandiseManager() {
     const totalQtySold = countableSales.reduce((s, x) => s + Number(x.quantity), 0);
     const cogs = countableSales.reduce((s, x) => s + Number(x.unit_cost) * Number(x.quantity), 0);
     const grossProfit = totalRevenue - cogs;
-    const outstanding = countableSales.reduce((s, x) => s + Number(x.amount_outstanding), 0);
+    const outstanding = ledgerReceivables.ledger;
     const currentStock = totalQtyPurchased - totalQtySold;
+
+    // Orders still in approval: shown apart, never in revenue or receivables (an implausible order, e.g. 45,000 IDs,
+    // is left out of this note too). Sales with no unit cost count as 100% margin.
+    const awaiting = awaitingSales.filter((x) => !isOutlierSale(x));
+    const awaitingRevenue = awaiting.reduce((s, x) => s + Number(x.total_revenue), 0);
+    // plan balances beyond the receivable: future monthly charges (and stock awaiting recognition)
+    const awaitingOutstanding = ledgerReceivables.plan - ledgerReceivables.ledger;
+    const missingCostSales = countableSales.filter((x) => Number(x.unit_cost) <= 0 && Number(x.total_revenue) > 0).length;
 
     // Weighted average unit cost across all purchases (for inventory valuation).
     const allInvested = purchases.reduce((s, p) => s + Number(p.total_cost), 0);
@@ -271,8 +332,9 @@ export function MerchandiseManager() {
     return {
       totalInvested, totalQtyPurchased, totalRevenue, totalQtySold,
       cogs, grossProfit, outstanding, currentStock, inventoryValue,
+      awaitingCount: awaiting.length, awaitingRevenue, awaitingOutstanding, missingCostSales,
     };
-  }, [filteredPurchases, countableSales, purchases]);
+  }, [filteredPurchases, countableSales, awaitingSales, ledgerReceivables, purchases]);
 
   // ---- Per-item inventory table ----
   const inventoryByItem = useMemo(() => {
@@ -295,23 +357,8 @@ export function MerchandiseManager() {
   }, [filteredPurchases, countableSales]);
 
   // ---- Accounts receivable (clients who owe) ----
-  const receivables = useMemo(() => {
-    const map = new Map<string, { name: string; phone: string; outstanding: number; count: number }>();
-    countableSales.forEach((s) => {
-      if (Number(s.amount_outstanding) <= 0) return;
-      const key = (s.client_phone || s.client_name || 'Unknown').trim();
-      const e = map.get(key) || {
-        name: s.client_name || 'Unknown',
-        phone: s.client_phone || '',
-        outstanding: 0,
-        count: 0,
-      };
-      e.outstanding += Number(s.amount_outstanding);
-      e.count += 1;
-      map.set(key, e);
-    });
-    return Array.from(map.values()).sort((a, b) => b.outstanding - a.outstanding);
-  }, [countableSales]);
+  // What each client owes as the books carry it (A12 / A13), with the plan balance (future charges included) beside it.
+  const receivables = ledgerReceivables.clients;
 
   const clearFilters = () => {
     setFromDate(''); setToDate(''); setProductFilter('all'); setClientFilter('all');
@@ -384,11 +431,11 @@ export function MerchandiseManager() {
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-border bg-card p-3">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">From</Label>
-          <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-40" />
+          <Input type="date" value={fromDate} onChange={(e) => changeFromDate(e.target.value)} className="w-40" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">To</Label>
-          <Input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-40" />
+          <Input type="date" value={toDate} onChange={(e) => changeToDate(e.target.value)} className="w-40" />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Product</Label>
@@ -416,26 +463,29 @@ export function MerchandiseManager() {
       {/* Financial summary KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <KPICard title="Total Invested" value={formatUGX(totals.totalInvested)} icon={Wallet} loading={loadingPurchases} color="bg-blue-500/10 text-blue-600" />
-        <KPICard title="Total Revenue" value={formatUGX(totals.totalRevenue)} icon={Coins} loading={loadingSales} color="bg-green-500/10 text-green-600" />
-        <KPICard title="Gross Profit" value={formatUGX(totals.grossProfit)} icon={TrendingUp} loading={loadingSales} color={totals.grossProfit >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'} />
-        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales} color="bg-amber-500/10 text-amber-600" subtitle={`${receivables.length} client${receivables.length === 1 ? '' : 's'} owing`} />
+        <KPICard title="Total Revenue" value={formatUGX(totals.totalRevenue)} icon={Coins} loading={loadingSales} color="bg-green-500/10 text-green-600" subtitle={`Issued orders only${totals.awaitingCount > 0 ? ` · ${formatUGX(totals.awaitingRevenue)} awaiting approval not included (${totals.awaitingCount} orders)` : ''}`} />
+        <KPICard title="Gross Profit" value={formatUGX(totals.grossProfit)} icon={TrendingUp} loading={loadingSales} color={totals.grossProfit >= 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'} subtitle={totals.missingCostSales > 0 ? `${totals.missingCostSales} sale${totals.missingCostSales === 1 ? '' : 's'} have no unit cost recorded, so profit is overstated` : undefined} />
+        <KPICard title="Outstanding Receivables" value={formatUGX(totals.outstanding)} icon={HandCoins} loading={loadingSales || loadingRecon || !recon} color="bg-amber-500/10 text-amber-600" subtitle={`Balance sheet (A12 + A13) · ${receivables.length} client${receivables.length === 1 ? '' : 's'} owing${totals.awaitingOutstanding > 0 ? ` · ${formatUGX(totals.awaitingOutstanding)} more on plans (future charges, not yet due)` : ''}`} />
       </div>
 
       {/* Inventory KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KPICard title="Quantity Purchased" value={totals.totalQtyPurchased.toLocaleString()} icon={ArrowDownCircle} color="bg-blue-500/10 text-blue-600" />
-        <KPICard title="Quantity Sold" value={totals.totalQtySold.toLocaleString()} icon={ArrowUpCircle} color="bg-purple-500/10 text-purple-600" />
-        <KPICard title="Current Stock" value={totals.currentStock.toLocaleString()} icon={Boxes} color="bg-indigo-500/10 text-indigo-600" />
-        <KPICard title="Inventory Value" value={formatUGX(totals.inventoryValue)} icon={Package} color="bg-cyan-500/10 text-cyan-600" subtitle="Stock at avg cost" />
+        <KPICard title="Quantity Purchased" value={totals.totalQtyPurchased.toLocaleString()} icon={ArrowDownCircle} loading={loadingPurchases} color="bg-blue-500/10 text-blue-600" />
+        <KPICard title="Quantity Sold" value={totals.totalQtySold.toLocaleString()} icon={ArrowUpCircle} loading={loadingSales} color="bg-purple-500/10 text-purple-600" />
+        <KPICard title="Current Stock" value={totals.currentStock.toLocaleString()} icon={Boxes} loading={loadingPurchases || loadingSales} color="bg-indigo-500/10 text-indigo-600" subtitle={totals.currentStock < 0 ? 'Sales exceed recorded purchases' : undefined} />
+        <KPICard title="Inventory Value" value={formatUGX(totals.inventoryValue)} icon={Package} loading={loadingPurchases || loadingSales} color="bg-cyan-500/10 text-cyan-600" subtitle="Stock at avg cost" />
       </div>
+
+      {/* How the receivables above tie to the balance sheet */}
+      <MerchandiseReceivablesReconciliation />
 
       {/* Live customer orders + realtime pop-ups */}
       <MerchandiseLiveOrders />
 
       {/* Cost of goods sold callout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <KPICard title="Cost of Merchandise Sold" value={formatUGX(totals.cogs)} icon={Receipt} color="bg-orange-500/10 text-orange-600" />
-        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} color="bg-amber-500/10 text-amber-600" />
+        <KPICard title="Cost of Merchandise Sold" value={formatUGX(totals.cogs)} icon={Receipt} loading={loadingSales} color="bg-orange-500/10 text-orange-600" />
+        <KPICard title="Total Accounts Receivable" value={formatUGX(totals.outstanding)} icon={Users} loading={loadingSales || loadingRecon || !recon} color="bg-amber-500/10 text-amber-600" subtitle="As on the balance sheet (A12 + A13)" />
       </div>
 
       {/* Wallet-recovery KPIs */}
@@ -636,7 +686,8 @@ export function MerchandiseManager() {
                   <th className="py-2 pr-3">Client</th>
                   <th className="py-2 px-3">Phone</th>
                   <th className="py-2 px-3 text-right">Credit Sales</th>
-                  <th className="py-2 pl-3 text-right">Outstanding</th>
+                  <th className="py-2 px-3 text-right">Owed (books)</th>
+                  <th className="py-2 pl-3 text-right">Plan balance incl. future charges</th>
                 </tr>
               </thead>
               <tbody>
@@ -645,7 +696,8 @@ export function MerchandiseManager() {
                     <td className="py-2 pr-3 font-medium">{r.name}</td>
                     <td className="py-2 px-3 text-muted-foreground">{r.phone || '—'}</td>
                     <td className="py-2 px-3 text-right">{r.count}</td>
-                    <td className="py-2 pl-3 text-right font-semibold text-amber-600">{formatUGX(r.outstanding)}</td>
+                    <td className="py-2 px-3 text-right font-semibold text-amber-600">{formatUGX(r.outstanding)}</td>
+                    <td className="py-2 pl-3 text-right text-muted-foreground">{formatUGX(r.planBalance)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -686,7 +738,7 @@ export function MerchandiseManager() {
                         {isOutlierSale(s) && (
                           <span
                             className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600"
-                            title="Outside normal order size — excluded from the metrics above"
+                            title={isIssuedSale(s) ? 'Outside normal order size — issued, so it is counted above; check the order' : 'Outside normal order size — check it before it is issued'}
                           >
                             Outlier
                           </span>

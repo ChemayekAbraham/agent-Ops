@@ -15,6 +15,8 @@ import { MerchantReconcileDialog } from './MerchantReconcileDialog';
 import { useFinancialOpsEditAccess } from '@/hooks/useFinancialOpsEditAccess';
 import { MerchantFloatStatementDialog } from './MerchantFloatStatementDialog';
 import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
+import { MerchantDeskStatementDialog } from './MerchantDeskStatementDialog';
+import { CompanyReceiptsToPlacePanel } from './CompanyReceiptsToPlacePanel';
 import { MerchantDeskFundingSummaryCard } from './MerchantDeskFundingSummaryCard';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
@@ -45,6 +47,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
   const { data: variance } = useMerchantFloatLedgerVariance();
   const [reconciling, setReconciling] = useState<MerchantFloatPosition | null>(null);
   const [statementFor, setStatementFor] = useState<MerchantFloatPosition | null>(null);
+  const [deskSheetFor, setDeskSheetFor] = useState<MerchantFloatPosition | null>(null);
   const qc = useQueryClient();
   const [sweeping, setSweeping] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(false);
@@ -194,6 +197,15 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
       >
         {agentLabel(r)}
       </button>
+      {r.agentId && (
+        <button
+          type="button"
+          onClick={() => setDeskSheetFor(r)}
+          className="ml-2 rounded-md border border-[#C9CFDA] px-2 py-0.5 align-middle text-xs font-semibold text-slate-600 hover:border-[#6D2EE8] hover:text-[#5A1FD0] dark:border-slate-600 dark:text-slate-300"
+        >
+          Desk sheet
+        </button>
+      )}
       <p className="mt-1 flex items-center gap-1.5 text-sm text-foreground">
         <Smartphone className="h-4 w-4 shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
         {r.agentPhone || '—'}
@@ -647,6 +659,12 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         onOpenChange={(v) => !v && setStatementFor(null)}
       />
 
+      <MerchantDeskStatementDialog
+        position={deskSheetFor}
+        open={!!deskSheetFor}
+        onOpenChange={(v) => !v && setDeskSheetFor(null)}
+      />
+
       <MerchantDebtSettlementDialog
         open={debtsOpen}
         onOpenChange={setDebtsOpen}
@@ -689,6 +707,18 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
       {showDetails && (
         <>
+          <div className="mt-4">
+            <CompanyReceiptsToPlacePanel
+              desks={rows
+                .filter((r) => !!r.agentId)
+                .map((r) => ({
+                  agentId: r.agentId as string,
+                  name: r.agentName || r.label || 'Merchant agent',
+                  float: Math.max(0, r.ledgerFloatHeld),
+                }))}
+            />
+          </div>
+
           <div className="mt-4">
             <MerchantOwnMoneyReviewPanel />
           </div>

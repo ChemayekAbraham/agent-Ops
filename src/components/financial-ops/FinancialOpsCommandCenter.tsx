@@ -1,4 +1,7 @@
-import { Component, useEffect, useState, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
+import { Button } from '@/components/ui/button';
+import { FinOpsScope } from './FinOpsScope';
+import { Component, useEffect, useState, Suspense, type ComponentType, type ReactNode } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 // Eagerly imported: only what's needed on the Home view.
 import { WalletOverviewCard } from './WalletOverviewCard';
 import { MomoFeedSilenceAlert } from './MomoFeedSilenceAlert';
@@ -10,7 +13,6 @@ import { MerchantAgentFloatAllocationPanel } from './MerchantAgentFloatAllocatio
 import { MerchantBalanceDisputesPanel } from './MerchantBalanceDisputesPanel';
 import { PhonePlatformReconciliationCard } from './PhonePlatformReconciliationCard';
 import { AutoCreditSuccessRateTile } from './AutoCreditSuccessRateTile';
-
 // Everything below is code-split — a panel's JS is only fetched when its
 // tool/view is opened. Keeps /admin/financial-ops first paint fast.
 const lz = (
@@ -309,7 +311,11 @@ function setStoredAccordionOpen(key: string, userId: string, open: boolean) {
 const getStoredOpen = (userId?: string) => getStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId);
 const setStoredOpen = (userId: string, open: boolean) => setStoredAccordionOpen(WALLET_BREAKDOWN_KEY, userId, open);
 
-export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymentRef?: boolean } = {}) {
+export function FinancialOpsCommandCenter(props: { requirePaymentRef?: boolean } = {}) {
+  return <FinOpsScope><FinancialOpsWorkspace {...props} /></FinOpsScope>;
+}
+
+function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: boolean } = {}) {
   const { user } = useAuth();
   const userId = user?.id;
   // The URL is the single source of truth for which panel is open.
@@ -836,7 +842,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       {/* Mobile Drawer Navigation (Slide-out menu on mobile & tablet) */}
       <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
         <SheetContent side="left" className="w-[85vw] max-w-sm p-0 flex flex-col overflow-hidden bg-card border-r border-border">
-          <SheetHeader className="px-4 pt-4 pb-3 border-b border-border bg-gradient-to-br from-primary/5 via-card to-card text-left">
+          <SheetHeader className="px-4 pt-4 pb-3 border-b border-border bg-card text-left">
             <div className="flex items-center gap-2.5">
               <span className="text-xl font-black tracking-tight text-primary font-display">
                 welile<span className="text-primary text-2xl leading-none">.</span>
@@ -940,7 +946,7 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
       {/* Persistent sidebar (desktop) — always visible matching 11 mockup boards */}
       <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-16' : 'w-64 xl:w-72'} shrink-0 self-start sticky top-4 h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] flex-col rounded-2xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
         {/* Sidebar header */}
-        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border`}>
+        <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-card`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
             <div className={`min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
               <span className="text-2xl font-black tracking-tight text-primary font-display flex items-center gap-0.5">
@@ -1322,7 +1328,7 @@ function FinOpsHome({
           side="right"
           className="w-full sm:max-w-md p-0 flex flex-col overflow-hidden"
         >
-          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border bg-gradient-to-br from-primary/5 via-card to-card text-left">
+          <SheetHeader className="px-5 pt-5 pb-3 border-b border-border bg-card text-left">
             <SheetTitle>Explore Tools</SheetTitle>
             <SheetDescription>Everything beyond verifying deposits and approving withdrawals</SheetDescription>
             <div className="mt-3 relative">
@@ -1383,11 +1389,13 @@ function ActionStatTile({
   countLabel: string;
   title: string;
 }) {
+  const gradientBg = 'bg-card hover:border-primary/50';
+
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group flex items-center gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5 text-left shadow-2xs transition-all hover:border-primary/40 hover:shadow-md min-h-[96px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className={`group relative text-left rounded-xl border border-border/80 p-4 sm:p-5 hover:shadow-md hover:-translate-y-0.5 transition-all min-h-[140px] sm:min-h-[160px] flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs ${gradientBg}`}
     >
       <span className="h-14 w-14 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
         <Icon className="h-7 w-7" aria-hidden="true" />
@@ -1442,3 +1450,66 @@ function QuickLink({
     </button>
   );
 }
+
+function MajorActionButton({
+  onClick, icon: Icon, tone, title, desc, badgeCount,
+}: {
+  onClick: () => void;
+  icon: typeof KeyRound;
+  tone: 'amber' | 'blue' | 'primary' | 'rose';
+  title: string;
+  desc: string;
+  badgeCount?: number;
+}) {
+  const toneBadge =
+    tone === 'amber'
+      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25'
+      : tone === 'primary'
+      ? 'bg-primary/10 text-primary border-primary/25'
+      : tone === 'rose'
+      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25'
+      : 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/25';
+
+  const accentBorder =
+    tone === 'amber'
+      ? 'hover:border-amber-500/50'
+      : tone === 'primary'
+      ? 'hover:border-primary/50'
+      : tone === 'rose'
+      ? 'hover:border-rose-500/50'
+      : 'hover:border-sky-500/50';
+
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative text-left rounded-xl border border-border/80 bg-card p-3.5 sm:p-5 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex flex-col justify-between focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[105px] sm:min-h-[128px] shadow-2xs ${accentBorder}`}
+    >
+      <div className="flex items-start justify-between gap-2.5 w-full">
+        <div className={`h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center shrink-0 border ${toneBadge}`}>
+          <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {typeof badgeCount === 'number' && badgeCount > 0 && (
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold tabular-nums border ${
+              tone === 'amber' ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30' :
+              tone === 'primary' ? 'bg-primary/15 text-primary border-primary/30' :
+              tone === 'rose' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30' :
+              'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
+            }`}>
+              {badgeCount}
+            </span>
+          )}
+          <div className="h-6 w-6 rounded-full flex items-center justify-center text-muted-foreground/60 group-hover:text-foreground group-hover:bg-muted/80 transition-colors">
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-3">
+        <p className="font-bold text-sm sm:text-base tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-1">{title}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 leading-relaxed line-clamp-2">{desc}</p>
+      </div>
+    </button>
+  );
+}
+
+

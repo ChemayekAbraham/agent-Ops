@@ -260,6 +260,11 @@ verify_jwt = false
 [functions.staff-requisition-decide]
 verify_jwt = false
 
+# Reads stored receipt files and records the gap. Auth is checked inside.
+# Does not credit a wallet.
+[functions.staff-requisition-read-receipt]
+verify_jwt = false
+
 [functions.tenant-self-onboarding]
 verify_jwt = false
 
@@ -288,4 +293,8 @@ verify_jwt = false
 # NOTE: neexa-api is deliberately NOT listed. It is staff-initiated and keeps
 # verify_jwt = true plus its own cmo/super_admin/cto role check.
 [functions.neexa-webhook]
+verify_jwt = false
+
+# Meta webhook requests authenticate through X-Hub-Signature-256, not app JWTs.
+[functions.whatsapp-webhook]
 verify_jwt = false

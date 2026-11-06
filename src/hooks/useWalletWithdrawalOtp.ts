@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isPinProofError, pinErrorMessage } from '@/hooks/useWithdrawalPin';
 
 const DEFAULT_COOLDOWN_SECONDS = 30;
 
@@ -163,12 +164,17 @@ export function useWalletWithdrawalOtp() {
         const body = await readErrorPayload(error);
         const msg = body?.error || error.message;
         if (typeof body?.attempts_left === 'number') setAttemptsLeft(body.attempts_left);
+        // The PIN proof expired between the PIN prompt and the submit: say so instead of "Verification failed".
+        if (isPinProofError(msg)) {
+          setOtpError(pinErrorMessage({ code: 'withdrawal_pin_proof_required' }));
+          return null;
+        }
         setOtpError(body?.error ? msg : friendlyOtpError(error.message, 'Verification failed.'));
         return null;
       }
       if (data?.error) {
         if (typeof data?.attempts_left === 'number') setAttemptsLeft(data.attempts_left);
-        setOtpError(data.error);
+        setOtpError(isPinProofError(data.error) ? pinErrorMessage({ code: 'withdrawal_pin_proof_required' }) : data.error);
         return null;
       }
       return data as SubmitWithdrawalResult;

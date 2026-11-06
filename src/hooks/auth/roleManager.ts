@@ -22,6 +22,33 @@ function pickFallbackRole(userRoles: AppRole[]): AppRole {
 }
 
 /**
+ * Split a user's role rows into the list the app shows and the list the
+ * server will accept.
+ *
+ * `clientRoles` keeps today's behaviour: every account with a visible role
+ * also shows `agent`, so the agent dashboard stays reachable. That insert is
+ * not a `user_roles` row. `enabledRoles` is only `enabled = true`, which is
+ * what `_has_enabled_role` checks. `crm_communication_inbox` must use
+ * `enabledRoles` — sending the synthetic agent raises
+ * "An enabled dashboard role is required".
+ */
+export function splitDashboardRoles(rows: readonly { role: string; enabled: boolean | null }[]): {
+  clientRoles: AppRole[];
+  enabledRoles: AppRole[];
+} {
+  const visible = rows
+    .filter((r) => r.enabled === null || r.enabled === true)
+    .map((r) => r.role as AppRole);
+  const enabledRoles = rows
+    .filter((r) => r.enabled === true)
+    .map((r) => r.role as AppRole)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const clientRoles = [...visible];
+  if (visible.length > 0 && !clientRoles.includes('agent')) clientRoles.unshift('agent');
+  return { clientRoles, enabledRoles };
+}
+
+/**
  * Outcome of a role lookup.
  *
  *   'resolved'   — the database gave a definitive answer (roles, or genuinely none).
@@ -34,9 +61,11 @@ function pickFallbackRole(userRoles: AppRole[]): AppRole {
 export type RoleFetchStatus = 'resolved' | 'unresolved';
 
 /**
- * Fetch roles from DB, always ensuring 'agent' is included. Auto-creates roles
- * if missing. Retries once on a transient/unresolved outcome, and never blanks
- * the caller's role list on a failure it cannot explain.
+ * Fetch roles from DB. The list passed to setRoles includes `agent` whenever
+ * the account has any visible role, so the agent dashboard stays reachable.
+ * setEnabledRoles receives only rows with enabled = true (no synthetic agent).
+ * Auto-creates roles if missing. Retries once on a transient/unresolved
+ * outcome, and never blanks the caller's role list on a failure it cannot explain.
  */
 export async function fetchUserRoles(
   userId: string,
@@ -44,12 +73,13 @@ export async function fetchUserRoles(
   setRoles: (r: AppRole[]) => void,
   setRole: (r: AppRole) => void,
   setResolved?: (resolved: boolean) => void,
+  setEnabledRoles?: (r: AppRole[]) => void,
 ): Promise<RoleFetchStatus> {
-  let status = await fetchUserRolesOnce(userId, currentRole, setRoles, setRole);
+  let status = await fetchUserRolesOnce(userId, currentRole, setRoles, setRole, setEnabledRoles);
   if (status === 'unresolved') {
     setResolved?.(false);
     await new Promise((r) => setTimeout(r, 900));
-    status = await fetchUserRolesOnce(userId, currentRole, setRoles, setRole);
+    status = await fetchUserRolesOnce(userId, currentRole, setRoles, setRole, setEnabledRoles);
   }
   setResolved?.(status === 'resolved');
   return status;
@@ -60,6 +90,7 @@ async function fetchUserRolesOnce(
   currentRole: AppRole | null,
   setRoles: (r: AppRole[]) => void,
   setRole: (r: AppRole) => void,
+  setEnabledRoles?: (r: AppRole[]) => void,
 ): Promise<RoleFetchStatus> {
   try {
     // First verify the user still exists (prevents re-provisioning deleted accounts)
@@ -82,17 +113,15 @@ async function fetchUserRolesOnce(
       return 'unresolved';
     }
 
-    // Filter to only enabled roles for display
-    const data = (allRolesData || []).filter(r => r.enabled === null || r.enabled === true);
     const hasAnyRolesInDb = (allRolesData || []).length > 0;
+    const { clientRoles: userRoles, enabledRoles } = splitDashboardRoles(allRolesData || []);
 
-    if (data && data.length > 0) {
-      const userRoles = data.map(r => r.role as AppRole);
+    if (userRoles.length > 0) {
       // Note: link-onboarded users now receive all 4 public roles at activation,
       // so we no longer special-case supporter-only accounts here.
-      if (!userRoles.includes('agent')) {
-        userRoles.unshift('agent');
-      }
+      // Publish the real enabled list before the client list, which may
+      // contain a synthetic agent the inbox RPC will reject.
+      setEnabledRoles?.(enabledRoles);
       setRoles(userRoles);
       setCachedRoles(userRoles);
       
@@ -202,6 +231,7 @@ async function fetchUserRolesOnce(
         .insert(inserts);
 
       if (!insertError) {
+        setEnabledRoles?.(rolesToCreate);
         setRoles(rolesToCreate);
         setCachedRoles(rolesToCreate);
         const defaultRole = intendedRole === 'supporter' ? 'supporter' : 'agent';
@@ -216,6 +246,7 @@ async function fetchUserRolesOnce(
       // All roles exist but are disabled — user has been fully restricted.
       // This is the ONE case where an empty role list is the truth.
       console.warn('[RoleManager] All roles disabled for user:', userId);
+      setEnabledRoles?.([]);
       setRoles([]);
       setRole(null as unknown as AppRole);
       setCachedRoles([]);
@@ -236,7 +267,7 @@ export async function addRoleForUser(
   setRoles: (r: AppRole[]) => void,
   setRole: (r: AppRole) => void,
 ) {
-  if (currentRoles.includes(newRole)) return { error: null };
+  if (currentRoles.includes(newRole)) return { error: null, granted: false };
 
   // Try to re-enable an existing disabled role first
   const { data: existing } = await supabase
@@ -264,6 +295,7 @@ export async function addRoleForUser(
     const updated = [...currentRoles, newRole];
     setRoles(updated);
     if (!currentRole) setRole(newRole);
+    return { error: null, granted: true };
   }
-  return { error: error as Error | null };
+  return { error: error as Error | null, granted: false };
 }

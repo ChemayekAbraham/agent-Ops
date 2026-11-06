@@ -100,6 +100,27 @@ export type Database = {
           },
         ]
       }
+      account_links: {
+        Row: {
+          created_at: string
+          linked_user_id: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          linked_user_id: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          linked_user_id?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       advance_deduction_sms_summary_log: {
         Row: {
           agent_id: string
@@ -292,6 +313,27 @@ export type Database = {
           },
         ]
       }
+      agent_advance_exception_runs: {
+        Row: {
+          counts: Json
+          exceptions: Json
+          id: string
+          run_at: string
+        }
+        Insert: {
+          counts: Json
+          exceptions: Json
+          id?: string
+          run_at?: string
+        }
+        Update: {
+          counts?: Json
+          exceptions?: Json
+          id?: string
+          run_at?: string
+        }
+        Relationships: []
+      }
       agent_advance_ledger: {
         Row: {
           adjustment_amount: number
@@ -364,6 +406,27 @@ export type Database = {
           },
         ]
       }
+      agent_advance_op_guard: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          key: string
+          op: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          key: string
+          op: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          key?: string
+          op?: string
+        }
+        Relationships: []
+      }
       agent_advance_pause_events: {
         Row: {
           acted_by: string
@@ -411,6 +474,54 @@ export type Database = {
           },
           {
             foreignKeyName: "agent_advance_pause_events_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
+      agent_advance_payment_requests: {
+        Row: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at: string
+          expected_paid_today: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Insert: {
+          advance_id: string
+          agent_id: string
+          amount: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key: string
+          pay_date: string
+          result: Json
+        }
+        Update: {
+          advance_id?: string
+          agent_id?: string
+          amount?: number
+          created_at?: string
+          expected_paid_today?: number | null
+          idempotency_key?: string
+          pay_date?: string
+          result?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_payment_requests_advance_id_fkey"
             columns: ["advance_id"]
             isOneToOne: false
             referencedRelation: "v_advance_gate_overrides"
@@ -1067,6 +1178,164 @@ export type Database = {
           },
         ]
       }
+      agent_advance_transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          cross_account_reason: string | null
+          destination_type: string
+          from_advance_id: string
+          from_agent_id: string
+          from_outstanding_after: number
+          from_outstanding_before: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string | null
+          moved_a10: number
+          moved_a11: number
+          moved_a20: number
+          not_previously_booked: number
+          reason: string
+          source_closed: boolean
+          to_advance_id: string
+          to_agent_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          cross_account_reason?: string | null
+          destination_type: string
+          from_advance_id: string
+          from_agent_id: string
+          from_outstanding_after: number
+          from_outstanding_before: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id?: string | null
+          moved_a10?: number
+          moved_a11?: number
+          moved_a20?: number
+          not_previously_booked?: number
+          reason: string
+          source_closed: boolean
+          to_advance_id: string
+          to_agent_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          cross_account_reason?: string | null
+          destination_type?: string
+          from_advance_id?: string
+          from_agent_id?: string
+          from_outstanding_after?: number
+          from_outstanding_before?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string | null
+          moved_a10?: number
+          moved_a11?: number
+          moved_a20?: number
+          not_previously_booked?: number
+          reason?: string
+          source_closed?: boolean
+          to_advance_id?: string
+          to_agent_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_transfers_from_advance_id_fkey"
+            columns: ["from_advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_from_advance_id_fkey"
+            columns: ["from_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_to_advance_id_fkey"
+            columns: ["to_advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_transfers_to_advance_id_fkey"
+            columns: ["to_advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
+      agent_advance_write_off_requests: {
+        Row: {
+          advance_id: string
+          amount: number
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          ledger_group_id: string | null
+          reason: string
+          requested_at: string
+          requested_by: string
+          status: string
+          used_at: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          reason: string
+          requested_at?: string
+          requested_by: string
+          status?: string
+          used_at?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_advance_write_off_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_advance_write_off_requests_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       agent_advances: {
         Row: {
           access_fee: number | null
@@ -1084,6 +1353,7 @@ export type Database = {
           daily_rate: number
           deduction_paused: boolean
           expires_at: string
+          funding_type: string
           gate_override: boolean
           id: string
           installment_amount: number | null
@@ -1110,6 +1380,8 @@ export type Database = {
           reversed_by: string | null
           roi_recovery_percent: number
           status: string
+          transfer_id: string | null
+          transferred_from_advance_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1128,6 +1400,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          funding_type?: string
           gate_override?: boolean
           id?: string
           installment_amount?: number | null
@@ -1154,6 +1427,8 @@ export type Database = {
           reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
+          transfer_id?: string | null
+          transferred_from_advance_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1172,6 +1447,7 @@ export type Database = {
           daily_rate?: number
           deduction_paused?: boolean
           expires_at?: string
+          funding_type?: string
           gate_override?: boolean
           id?: string
           installment_amount?: number | null
@@ -1198,6 +1474,8 @@ export type Database = {
           reversed_by?: string | null
           roi_recovery_percent?: number
           status?: string
+          transfer_id?: string | null
+          transferred_from_advance_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2917,6 +3195,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at: string
+          currency: string
           description: string | null
           earning_type: string
           id: string
@@ -2927,6 +3206,7 @@ export type Database = {
           agent_id: string
           amount: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type: string
           id?: string
@@ -2937,6 +3217,7 @@ export type Database = {
           agent_id?: string
           amount?: number
           created_at?: string
+          currency?: string
           description?: string | null
           earning_type?: string
           id?: string
@@ -3326,6 +3607,33 @@ export type Database = {
           day?: string
           expected_ugx?: number
           rent_request_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      agent_expected_day_plans_backup_20261023: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string | null
+          expected_ugx: number | null
+          rent_request_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string | null
+          expected_ugx?: number | null
+          rent_request_id?: string | null
           tenant_id?: string | null
         }
         Relationships: []
@@ -4262,6 +4570,54 @@ export type Database = {
           target_activations?: number | null
           target_registrations?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_grade_daily: {
+        Row: {
+          agent_id: string
+          c_collection: number | null
+          c_float: number | null
+          c_portfolio: number | null
+          c_quality: number | null
+          computed_at: string
+          day: string
+          detail: Json
+          flags: string[]
+          grade: string
+          open_requests: number | null
+          plans: number | null
+          score: number | null
+        }
+        Insert: {
+          agent_id: string
+          c_collection?: number | null
+          c_float?: number | null
+          c_portfolio?: number | null
+          c_quality?: number | null
+          computed_at?: string
+          day: string
+          detail?: Json
+          flags?: string[]
+          grade: string
+          open_requests?: number | null
+          plans?: number | null
+          score?: number | null
+        }
+        Update: {
+          agent_id?: string
+          c_collection?: number | null
+          c_float?: number | null
+          c_portfolio?: number | null
+          c_quality?: number | null
+          computed_at?: string
+          day?: string
+          detail?: Json
+          flags?: string[]
+          grade?: string
+          open_requests?: number | null
+          plans?: number | null
+          score?: number | null
         }
         Relationships: []
       }
@@ -5779,6 +6135,36 @@ export type Database = {
           },
         ]
       }
+      agent_posting_rule_settings: {
+        Row: {
+          all_expired_required_pct: number
+          enforce_weekly: boolean
+          expired_required_pct: number
+          id: boolean
+          in_window_required_pct: number
+          updated_at: string
+          week_start_isodow: number
+        }
+        Insert: {
+          all_expired_required_pct?: number
+          enforce_weekly?: boolean
+          expired_required_pct?: number
+          id?: boolean
+          in_window_required_pct?: number
+          updated_at?: string
+          week_start_isodow?: number
+        }
+        Update: {
+          all_expired_required_pct?: number
+          enforce_weekly?: boolean
+          expired_required_pct?: number
+          id?: boolean
+          in_window_required_pct?: number
+          updated_at?: string
+          week_start_isodow?: number
+        }
+        Relationships: []
+      }
       agent_proxy_card_dismissals: {
         Row: {
           agent_id: string
@@ -6835,6 +7221,537 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_vetting: {
+        Row: {
+          agent_id: string
+          created_at: string
+          email: string | null
+          email_verified_at: string | null
+          gps1_accuracy_m: number | null
+          gps1_captured_at: string | null
+          gps1_lat: number | null
+          gps1_lng: number | null
+          gps2_accuracy_m: number | null
+          gps2_captured_at: string | null
+          gps2_lat: number | null
+          gps2_lng: number | null
+          id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
+          id_front_path: string | null
+          id_holder_id: string | null
+          id_link_request_id: string | null
+          id_name: string | null
+          id_nin_masked: string | null
+          id_source: string | null
+          in_scope: boolean
+          nok_agent_id: string | null
+          nok_name: string | null
+          nok_phone: string | null
+          nok_relationship: string | null
+          nok_source: string | null
+          passport_photo_check: Json | null
+          passport_photo_path: string | null
+          phone: string | null
+          phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
+          residence: Json | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          email?: string | null
+          email_verified_at?: string | null
+          gps1_accuracy_m?: number | null
+          gps1_captured_at?: string | null
+          gps1_lat?: number | null
+          gps1_lng?: number | null
+          gps2_accuracy_m?: number | null
+          gps2_captured_at?: string | null
+          gps2_lat?: number | null
+          gps2_lng?: number | null
+          id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
+          id_front_path?: string | null
+          id_holder_id?: string | null
+          id_link_request_id?: string | null
+          id_name?: string | null
+          id_nin_masked?: string | null
+          id_source?: string | null
+          in_scope?: boolean
+          nok_agent_id?: string | null
+          nok_name?: string | null
+          nok_phone?: string | null
+          nok_relationship?: string | null
+          nok_source?: string | null
+          passport_photo_check?: Json | null
+          passport_photo_path?: string | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
+          residence?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          email?: string | null
+          email_verified_at?: string | null
+          gps1_accuracy_m?: number | null
+          gps1_captured_at?: string | null
+          gps1_lat?: number | null
+          gps1_lng?: number | null
+          gps2_accuracy_m?: number | null
+          gps2_captured_at?: string | null
+          gps2_lat?: number | null
+          gps2_lng?: number | null
+          id_back_path?: string | null
+          id_captured_at?: string | null
+          id_changed_at?: string | null
+          id_front_path?: string | null
+          id_holder_id?: string | null
+          id_link_request_id?: string | null
+          id_name?: string | null
+          id_nin_masked?: string | null
+          id_source?: string | null
+          in_scope?: boolean
+          nok_agent_id?: string | null
+          nok_name?: string | null
+          nok_phone?: string | null
+          nok_relationship?: string | null
+          nok_source?: string | null
+          passport_photo_check?: Json | null
+          passport_photo_path?: string | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          prev_id_back_path?: string | null
+          prev_id_captured_at?: string | null
+          prev_id_front_path?: string | null
+          prev_id_name?: string | null
+          prev_id_nin_masked?: string | null
+          prev_id_source?: string | null
+          residence?: Json | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: true
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_id_holder_id_fkey"
+            columns: ["id_holder_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_nok_agent_id_fkey"
+            columns: ["nok_agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      agent_vetting_events: {
+        Row: {
+          actor_id: string | null
+          agent_id: string
+          created_at: string
+          detail: Json
+          event: string
+          id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          agent_id: string
+          created_at?: string
+          detail?: Json
+          event: string
+          id?: string
+        }
+        Update: {
+          actor_id?: string | null
+          agent_id?: string
+          created_at?: string
+          detail?: Json
+          event?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_vetting_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
+      agent_vetting_settings: {
+        Row: {
+          enforce: boolean
+          enforce_from: string | null
+          gps_max_accuracy_m: number
+          gps_max_age_minutes: number
+          gps_max_drift_m: number
+          id: boolean
+          otp_max_age_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          enforce?: boolean
+          enforce_from?: string | null
+          gps_max_accuracy_m?: number
+          gps_max_age_minutes?: number
+          gps_max_drift_m?: number
+          id?: boolean
+          otp_max_age_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          enforce?: boolean
+          enforce_from?: string | null
+          gps_max_accuracy_m?: number
+          gps_max_age_minutes?: number
+          gps_max_drift_m?: number
+          id?: boolean
+          otp_max_age_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      agent_vetting_settings_audit: {
+        Row: {
+          application_name: string | null
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[] | null
+          client_addr: unknown
+          db_role: string
+          id: string
+          jwt_role: string | null
+          new_row: Json | null
+          old_row: Json | null
+          operation: string
+          session_role: string
+        }
+        Insert: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation: string
+          session_role?: string
+        }
+        Update: {
+          application_name?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[] | null
+          client_addr?: unknown
+          db_role?: string
+          id?: string
+          jwt_role?: string | null
+          new_row?: Json | null
+          old_row?: Json | null
+          operation?: string
+          session_role?: string
+        }
+        Relationships: []
+      }
       agent_visits: {
         Row: {
           accuracy: number | null
@@ -7061,6 +7978,288 @@ export type Database = {
           week_start?: string
         }
         Relationships: []
+      }
+      agent_weekly_posting_eligibility: {
+        Row: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          agent_id: string
+          book: string
+          computed_at?: string
+          expired_collected?: number
+          expired_due?: number
+          expired_pct?: number | null
+          expired_plans?: number
+          expired_required_pct?: number | null
+          in_window_collected?: number
+          in_window_due?: number
+          in_window_pct?: number | null
+          in_window_plans?: number
+          in_window_required_pct?: number | null
+          passes: boolean
+          reason?: string | null
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          agent_id?: string
+          book?: string
+          computed_at?: string
+          expired_collected?: number
+          expired_due?: number
+          expired_pct?: number | null
+          expired_plans?: number
+          expired_required_pct?: number | null
+          in_window_collected?: number
+          in_window_due?: number
+          in_window_pct?: number | null
+          in_window_plans?: number
+          in_window_required_pct?: number | null
+          passes?: boolean
+          reason?: string | null
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
+      agreement_check_findings: {
+        Row: {
+          check_code: string
+          created_at: string
+          detail: Json
+          finding_kind: string
+          id: string
+          message: string
+          register_codes: string[]
+          run_id: string
+          severity: string
+        }
+        Insert: {
+          check_code: string
+          created_at?: string
+          detail?: Json
+          finding_kind: string
+          id?: string
+          message: string
+          register_codes?: string[]
+          run_id: string
+          severity: string
+        }
+        Update: {
+          check_code?: string
+          created_at?: string
+          detail?: Json
+          finding_kind?: string
+          id?: string
+          message?: string
+          register_codes?: string[]
+          run_id?: string
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_check_findings_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_check_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_check_rules: {
+        Row: {
+          active: boolean
+          applies_to: string[]
+          assert_patterns: string[] | null
+          code: string
+          created_at: string
+          deny_patterns: string[] | null
+          description: string
+          kind: string
+          severity: string
+          value_patterns: string[] | null
+        }
+        Insert: {
+          active?: boolean
+          applies_to: string[]
+          assert_patterns?: string[] | null
+          code: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description: string
+          kind: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Update: {
+          active?: boolean
+          applies_to?: string[]
+          assert_patterns?: string[] | null
+          code?: string
+          created_at?: string
+          deny_patterns?: string[] | null
+          description?: string
+          kind?: string
+          severity?: string
+          value_patterns?: string[] | null
+        }
+        Relationships: []
+      }
+      agreement_check_runs: {
+        Row: {
+          documents_checked: number | null
+          error: string | null
+          findings_count: number | null
+          finished_at: string | null
+          id: string
+          started_at: string
+          status: string
+          trigger_source: string
+        }
+        Insert: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Update: {
+          documents_checked?: number | null
+          error?: string | null
+          findings_count?: number | null
+          finished_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
+      agreement_register: {
+        Row: {
+          acceptance_table: string | null
+          acceptance_version_column: string | null
+          code: string
+          created_at: string
+          current_version_id: string | null
+          id: string
+          notes: string | null
+          party: string
+          source_kind: string
+          source_ref: string | null
+          status: string
+          title: string
+          updated_at: string
+          upload_order: number
+        }
+        Insert: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party: string
+          source_kind: string
+          source_ref?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          upload_order: number
+        }
+        Update: {
+          acceptance_table?: string | null
+          acceptance_version_column?: string | null
+          code?: string
+          created_at?: string
+          current_version_id?: string | null
+          id?: string
+          notes?: string | null
+          party?: string
+          source_kind?: string
+          source_ref?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          upload_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_current_version_fk"
+            columns: ["current_version_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agreement_register_versions: {
+        Row: {
+          body_sha256: string | null
+          body_text: string
+          effective_from: string | null
+          id: string
+          notes: string | null
+          register_id: string
+          retired_at: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          version_label: string
+        }
+        Insert: {
+          body_sha256?: string | null
+          body_text: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label: string
+        }
+        Update: {
+          body_sha256?: string | null
+          body_text?: string
+          effective_from?: string | null
+          id?: string
+          notes?: string | null
+          register_id?: string
+          retired_at?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version_label?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agreement_register_versions_register_id_fkey"
+            columns: ["register_id"]
+            isOneToOne: false
+            referencedRelation: "agreement_register"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ai_chat_messages: {
         Row: {
@@ -7412,6 +8611,237 @@ export type Database = {
           },
         ]
       }
+      asset_events: {
+        Row: {
+          actor_id: string
+          asset_id: string
+          batch_id: string | null
+          changed_fields: string[]
+          created_at: string
+          event_type: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          reason: string | null
+        }
+        Insert: {
+          actor_id: string
+          asset_id: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Update: {
+          actor_id?: string
+          asset_id?: string
+          batch_id?: string | null
+          changed_fields?: string[]
+          created_at?: string
+          event_type?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_events_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_events_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_import_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          errors: Json
+          file_name: string
+          file_sha256: string
+          id: string
+          inserted_count: number
+          rejected_count: number
+          row_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          errors?: Json
+          file_name: string
+          file_sha256: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count: number
+          status: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          errors?: Json
+          file_name?: string
+          file_sha256?: string
+          id?: string
+          inserted_count?: number
+          rejected_count?: number
+          row_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
+      asset_sites: {
+        Row: {
+          active: boolean
+          created_at: string
+          key: string
+          name: string
+          tag_code: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          key: string
+          name: string
+          tag_code: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          key?: string
+          name?: string
+          tag_code?: string
+        }
+        Relationships: []
+      }
+      assets: {
+        Row: {
+          asset_code: string
+          asset_tag: string | null
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          quantity: number
+          serial_number: string | null
+          serial_number_norm: string | null
+          site_key: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          asset_code: string
+          asset_tag?: string | null
+          brand?: string | null
+          category: string
+          condition?: string
+          created_at?: string
+          created_by: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          quantity?: number
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          site_key?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          asset_code?: string
+          asset_tag?: string | null
+          brand?: string | null
+          category?: string
+          condition?: string
+          created_at?: string
+          created_by?: string
+          currency?: string
+          custodian_name?: string | null
+          custodian_user_id?: string | null
+          department_key?: string | null
+          evidence_paths?: string[]
+          id?: string
+          import_batch_id?: string | null
+          invoice_reference?: string | null
+          location?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          photo_paths?: string[]
+          purchase_cost?: number | null
+          purchase_date?: string | null
+          quantity?: number
+          serial_number?: string | null
+          serial_number_norm?: string | null
+          site_key?: string | null
+          status?: string
+          supplier?: string | null
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "asset_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assets_site_key_fkey"
+            columns: ["site_key"]
+            isOneToOne: false
+            referencedRelation: "asset_sites"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       assistant_access_allowlist: {
         Row: {
           created_at: string
@@ -7582,6 +9012,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at: string
+          guard_reason: string | null
           id: string
           latency_ms: number | null
           model: string | null
@@ -7594,6 +9025,7 @@ export type Database = {
           content: string
           conversation_id: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -7606,6 +9038,7 @@ export type Database = {
           content?: string
           conversation_id?: string
           created_at?: string
+          guard_reason?: string | null
           id?: string
           latency_ms?: number | null
           model?: string | null
@@ -7628,45 +9061,66 @@ export type Database = {
         Row: {
           action: string | null
           action_type: string
+          actor_id: string | null
+          audit_reason: string | null
           created_at: string | null
+          details: Json | null
           id: string
           ip_address: string | null
+          is_proxy: boolean | null
           metadata: Json | null
+          new_data: Json | null
           new_values: Json | null
           old_values: Json | null
+          performed_by: string | null
           reason: string | null
           record_id: string | null
           table_name: string | null
+          target_user_id: string | null
           user_agent: string | null
           user_id: string | null
         }
         Insert: {
           action?: string | null
           action_type: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
         Update: {
           action?: string | null
           action_type?: string
+          actor_id?: string | null
+          audit_reason?: string | null
           created_at?: string | null
+          details?: Json | null
           id?: string
           ip_address?: string | null
+          is_proxy?: boolean | null
           metadata?: Json | null
+          new_data?: Json | null
           new_values?: Json | null
           old_values?: Json | null
+          performed_by?: string | null
           reason?: string | null
           record_id?: string | null
           table_name?: string | null
+          target_user_id?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
@@ -7950,6 +9404,54 @@ export type Database = {
             referencedColumns: ["plan_id"]
           },
         ]
+      }
+      bike_lease_value_corrections: {
+        Row: {
+          amount_already_paid: number
+          corrected_at: string
+          corrected_by: string
+          id: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding: number | null
+          old_total_repayable: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Insert: {
+          amount_already_paid: number
+          corrected_at?: string
+          corrected_by: string
+          id?: string
+          lease_id: string
+          new_outstanding: number
+          new_total_repayable: number
+          new_value: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value: number
+          reason: string
+          sale_id: string
+        }
+        Update: {
+          amount_already_paid?: number
+          corrected_at?: string
+          corrected_by?: string
+          id?: string
+          lease_id?: string
+          new_outstanding?: number
+          new_total_repayable?: number
+          new_value?: number
+          old_outstanding?: number | null
+          old_total_repayable?: number | null
+          old_value?: number
+          reason?: string
+          sale_id?: string
+        }
+        Relationships: []
       }
       blocked_signup_ips: {
         Row: {
@@ -10721,6 +12223,8 @@ export type Database = {
       }
       cc_cycle_rows: {
         Row: {
+          assigned_at: string | null
+          assigned_caller_id: string | null
           attempts_made: number
           callback_due_at: string | null
           closed_at: string | null
@@ -10737,6 +12241,8 @@ export type Database = {
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
         }
         Insert: {
+          assigned_at?: string | null
+          assigned_caller_id?: string | null
           attempts_made?: number
           callback_due_at?: string | null
           closed_at?: string | null
@@ -10753,6 +12259,8 @@ export type Database = {
           subject_type: Database["public"]["Enums"]["cc_subject_type"]
         }
         Update: {
+          assigned_at?: string | null
+          assigned_caller_id?: string | null
           attempts_made?: number
           callback_due_at?: string | null
           closed_at?: string | null
@@ -11768,6 +13276,30 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_lunch_reclass_log: {
+        Row: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at: string
+        }
+        Insert: {
+          amount: number
+          approved_by: string
+          correction_group_id: string
+          original_leg_id: string
+          posted_at?: string
+        }
+        Update: {
+          amount?: number
+          approved_by?: string
+          correction_group_id?: string
+          original_leg_id?: string
+          posted_at?: string
+        }
+        Relationships: []
+      }
       cfo_reporting_cost_tags: {
         Row: {
           amount: number
@@ -12577,6 +14109,109 @@ export type Database = {
         }
         Relationships: []
       }
+      company_receipt_dismissals: {
+        Row: {
+          dismissed_at: string
+          dismissed_by: string | null
+          gmail_transaction_id: string
+          reason: string
+        }
+        Insert: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          gmail_transaction_id: string
+          reason: string
+        }
+        Update: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          gmail_transaction_id?: string
+          reason?: string
+        }
+        Relationships: []
+      }
+      compound_reversal_requests: {
+        Row: {
+          amount: number
+          created_at: string
+          cycle_date: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          override_id: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          reinvestment_ledger_id: string
+          requested_by: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          cycle_date?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          override_id?: string | null
+          partner_id?: string
+          portfolio_id?: string
+          reason?: string
+          reinvested_at?: string
+          reinvestment_ledger_id?: string
+          requested_by?: string
+          reversal_group_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "compound_reversal_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -13368,6 +15003,105 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      cto_controlled_rent_plans: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          note: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          note?: string | null
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "cto_controlled_rent_plans_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
       }
       daily_platform_stats: {
         Row: {
@@ -14689,6 +16423,36 @@ export type Database = {
           transaction_id?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      desk_stage_snapshots: {
+        Row: {
+          done_24h: number | null
+          done_7d: number | null
+          snap_at: string
+          stage: string
+          stage_ord: string
+          waiting: number | null
+          waiting_ugx: number | null
+        }
+        Insert: {
+          done_24h?: number | null
+          done_7d?: number | null
+          snap_at: string
+          stage: string
+          stage_ord: string
+          waiting?: number | null
+          waiting_ugx?: number | null
+        }
+        Update: {
+          done_24h?: number | null
+          done_7d?: number | null
+          snap_at?: string
+          stage?: string
+          stage_ord?: string
+          waiting?: number | null
+          waiting_ugx?: number | null
         }
         Relationships: []
       }
@@ -16909,6 +18673,60 @@ export type Database = {
         }
         Relationships: []
       }
+      exception_approval_codes: {
+        Row: {
+          approver_email: string
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          detail: string
+          expires_at: string
+          failure_reason: string | null
+          fingerprint: string
+          id: string
+          kind: string
+          max_attempts: number
+          requested_by: string
+          scope_fp: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          approver_email: string
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          detail?: string
+          expires_at: string
+          failure_reason?: string | null
+          fingerprint: string
+          id?: string
+          kind: string
+          max_attempts?: number
+          requested_by: string
+          scope_fp?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          approver_email?: string
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          detail?: string
+          expires_at?: string
+          failure_reason?: string | null
+          fingerprint?: string
+          id?: string
+          kind?: string
+          max_attempts?: number
+          requested_by?: string
+          scope_fp?: string | null
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       fee_revenue_ledger: {
         Row: {
           created_at: string
@@ -18486,6 +20304,32 @@ export type Database = {
         }
         Relationships: []
       }
+      finance_authority_positions: {
+        Row: {
+          created_at: string
+          note: string | null
+          position_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          position_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_authority_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: true
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_agents: {
         Row: {
           agent_id: string
@@ -18635,6 +20479,63 @@ export type Database = {
           },
         ]
       }
+      financial_ops_features: {
+        Row: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
+        }
+        Insert: {
+          enforced?: boolean
+          grp: string
+          key: string
+          label: string
+          sort?: number
+        }
+        Update: {
+          enforced?: boolean
+          grp?: string
+          key?: string
+          label?: string
+          sort?: number
+        }
+        Relationships: []
+      }
+      financial_ops_restrictions: {
+        Row: {
+          area: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lifted_at: string | null
+          lifted_by: string | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_ops_security_violations: {
         Row: {
           attempted_action: string
@@ -18740,9 +20641,11 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string
+          disbursed_ledger_txn: string | null
           expected_recipient_phone: string | null
           float_delivery_tid: string | null
           id: string
+          product: string
           reason: string | null
           rejection_reason: string | null
           requested_amount: number
@@ -18759,9 +20662,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount: number
@@ -18778,9 +20683,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string
+          disbursed_ledger_txn?: string | null
           expected_recipient_phone?: string | null
           float_delivery_tid?: string | null
           id?: string
+          product?: string
           reason?: string | null
           rejection_reason?: string | null
           requested_amount?: number
@@ -21316,6 +23223,39 @@ export type Database = {
             referencedColumns: ["requisition_id"]
           },
         ]
+      }
+      help_center_articles: {
+        Row: {
+          body: string
+          changed_at: string
+          content_hash: string
+          fetched_at: string
+          path: string
+          title: string
+          tsv: unknown
+          url: string
+        }
+        Insert: {
+          body: string
+          changed_at?: string
+          content_hash: string
+          fetched_at?: string
+          path: string
+          title: string
+          tsv?: unknown
+          url: string
+        }
+        Update: {
+          body?: string
+          changed_at?: string
+          content_hash?: string
+          fetched_at?: string
+          path?: string
+          title?: string
+          tsv?: unknown
+          url?: string
+        }
+        Relationships: []
       }
       house_assignment_audit: {
         Row: {
@@ -26295,6 +28235,7 @@ export type Database = {
           principal_allocated: number
           principal_unallocated: number
           receipt_file_url: string | null
+          return_fields_edit_token: string | null
           roi_mode: string
           roi_percentage: number
           status: string
@@ -26345,6 +28286,7 @@ export type Database = {
           principal_allocated?: number
           principal_unallocated?: number
           receipt_file_url?: string | null
+          return_fields_edit_token?: string | null
           roi_mode?: string
           roi_percentage?: number
           status?: string
@@ -26395,6 +28337,7 @@ export type Database = {
           principal_allocated?: number
           principal_unallocated?: number
           receipt_file_url?: string | null
+          return_fields_edit_token?: string | null
           roi_mode?: string
           roi_percentage?: number
           status?: string
@@ -27325,6 +29268,96 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_call_amendments: {
+        Row: {
+          call_id: string
+          edited_at: string
+          edited_by: string
+          id: string
+          new_values: Json
+          old_values: Json
+          reason: string
+        }
+        Insert: {
+          call_id: string
+          edited_at?: string
+          edited_by: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason: string
+        }
+        Update: {
+          call_id?: string
+          edited_at?: string
+          edited_by?: string
+          id?: string
+          new_values?: Json
+          old_values?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_amendments_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landlord_call_dials: {
+        Row: {
+          call_id: string | null
+          caller_id: string
+          expires_at: string
+          id: string
+          landlord_key: string
+          phone: string
+          started_at: string
+        }
+        Insert: {
+          call_id?: string | null
+          caller_id: string
+          expires_at?: string
+          id?: string
+          landlord_key: string
+          phone: string
+          started_at?: string
+        }
+        Update: {
+          call_id?: string | null
+          caller_id?: string
+          expires_at?: string
+          id?: string
+          landlord_key?: string
+          phone?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_call_dials_call_id_fkey"
+            columns: ["call_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calls_effective"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       landlord_call_reports: {
         Row: {
           called_at: string
@@ -27396,6 +29429,164 @@ export type Database = {
             referencedColumns: ["landlord_id"]
           },
         ]
+      }
+      landlord_calls: {
+        Row: {
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string
+          caller_team: string | null
+          dial_started_at: string
+          explained: string | null
+          feedback_category: string | null
+          id: string
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string
+          landlord_name: string | null
+          note: string | null
+          phone_dialed: string
+          recorded_at: string
+          result: string
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id: string
+          caller_team?: string | null
+          dial_started_at: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed: string
+          recorded_at?: string
+          result: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          aware_30m?: string | null
+          aware_payout_otp?: string | null
+          call_back_at?: string | null
+          caller_id?: string
+          caller_team?: string | null
+          dial_started_at?: string
+          explained?: string | null
+          feedback_category?: string | null
+          id?: string
+          landlord_consent?: string | null
+          landlord_id?: string | null
+          landlord_key?: string
+          landlord_name?: string | null
+          note?: string | null
+          phone_dialed?: string
+          recorded_at?: string
+          result?: string
+          severity?: string | null
+          tenants_discussed?: string[] | null
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
+      landlord_cc_row_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          caller_id: string
+          cycle_id: string
+          cycle_row_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          caller_id: string
+          cycle_id: string
+          cycle_row_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          caller_id?: string
+          cycle_id?: string
+          cycle_row_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_cc_row_assignments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "cc_call_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_cc_row_assignments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_cycle_progress"
+            referencedColumns: ["cycle_id"]
+          },
+          {
+            foreignKeyName: "landlord_cc_row_assignments_cycle_row_id_fkey"
+            columns: ["cycle_row_id"]
+            isOneToOne: true
+            referencedRelation: "cc_cycle_rows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_cc_row_assignments_cycle_row_id_fkey"
+            columns: ["cycle_row_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_call_queue"
+            referencedColumns: ["cycle_row_id"]
+          },
+        ]
+      }
+      landlord_cc_saved_queues: {
+        Row: {
+          created_at: string
+          filters: Json
+          id: string
+          name: string
+          owner: string
+          shared: boolean
+          sort_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          name: string
+          owner?: string
+          shared?: boolean
+          sort_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          name?: string
+          owner?: string
+          shared?: boolean
+          sort_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       landlord_float_budget_allocations: {
         Row: {
@@ -27946,6 +30137,7 @@ export type Database = {
           full_name: string
           guaranteed_12m_income: number | null
           id: string
+          is_test_contact: boolean
           number_of_units: number
           phone: string
           property_location: string
@@ -27960,6 +30152,7 @@ export type Database = {
           full_name: string
           guaranteed_12m_income?: number | null
           id?: string
+          is_test_contact?: boolean
           number_of_units?: number
           phone: string
           property_location: string
@@ -27974,6 +30167,7 @@ export type Database = {
           full_name?: string
           guaranteed_12m_income?: number | null
           id?: string
+          is_test_contact?: boolean
           number_of_units?: number
           phone?: string
           property_location?: string
@@ -29343,6 +31537,57 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_rejected_number_locks: {
+        Row: {
+          created_at: string
+          landlord_id: string
+        }
+        Insert: {
+          created_at?: string
+          landlord_id: string
+        }
+        Update: {
+          created_at?: string
+          landlord_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_rejected_number_locks_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
       landlord_verification_events: {
         Row: {
           actor_id: string | null
@@ -29485,6 +31730,7 @@ export type Database = {
           id: string
           is_agent_managed: boolean | null
           is_occupied: boolean
+          is_test_contact: boolean
           latitude: number | null
           location_captured_at: string | null
           location_captured_by: string | null
@@ -29497,6 +31743,7 @@ export type Database = {
           name: string
           number_of_houses: number | null
           number_of_rooms: number | null
+          payout_day: number | null
           phone: string
           property_address: string
           ready_to_receive: boolean | null
@@ -29523,6 +31770,8 @@ export type Database = {
           service_center_status: string
           sub_county: string | null
           tenant_id: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
           tin: string | null
           town_council: string | null
           ug_village_id: number | null
@@ -29563,6 +31812,7 @@ export type Database = {
           id?: string
           is_agent_managed?: boolean | null
           is_occupied?: boolean
+          is_test_contact?: boolean
           latitude?: number | null
           location_captured_at?: string | null
           location_captured_by?: string | null
@@ -29575,6 +31825,7 @@ export type Database = {
           name: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone: string
           property_address: string
           ready_to_receive?: boolean | null
@@ -29601,6 +31852,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -29641,6 +31894,7 @@ export type Database = {
           id?: string
           is_agent_managed?: boolean | null
           is_occupied?: boolean
+          is_test_contact?: boolean
           latitude?: number | null
           location_captured_at?: string | null
           location_captured_by?: string | null
@@ -29653,6 +31907,7 @@ export type Database = {
           name?: string
           number_of_houses?: number | null
           number_of_rooms?: number | null
+          payout_day?: number | null
           phone?: string
           property_address?: string
           ready_to_receive?: boolean | null
@@ -29679,6 +31934,8 @@ export type Database = {
           service_center_status?: string
           sub_county?: string | null
           tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
           tin?: string | null
           town_council?: string | null
           ug_village_id?: number | null
@@ -30073,6 +32330,165 @@ export type Database = {
           short_code?: string
         }
         Relationships: []
+      }
+      learned_payer_auto_routes: {
+        Row: {
+          amount: number
+          created_at: string
+          deposit_request_id: string | null
+          gmail_transaction_id: string
+          id: string
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
+          transaction_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          deposit_request_id?: string | null
+          gmail_transaction_id: string
+          id?: string
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
+          transaction_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          deposit_request_id?: string | null
+          gmail_transaction_id?: string
+          id?: string
+          key_type?: string
+          payer_key?: string
+          route?: string
+          target_user_id?: string
+          transaction_id?: string | null
+        }
+        Relationships: []
+      }
+      learned_payer_route_settings: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          max_amount: number
+          name_keys_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          max_amount?: number
+          name_keys_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          max_amount?: number
+          name_keys_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      learned_payer_routes: {
+        Row: {
+          disabled: boolean
+          first_history_id: string | null
+          hits: number
+          id: string
+          key_type: string
+          last_routed_at: string
+          learned_at: string
+          payer_key: string
+          route: string
+          target_user_id: string
+        }
+        Insert: {
+          disabled?: boolean
+          first_history_id?: string | null
+          hits?: number
+          id?: string
+          key_type: string
+          last_routed_at?: string
+          learned_at?: string
+          payer_key: string
+          route: string
+          target_user_id: string
+        }
+        Update: {
+          disabled?: boolean
+          first_history_id?: string | null
+          hits?: number
+          id?: string
+          key_type?: string
+          last_routed_at?: string
+          learned_at?: string
+          payer_key?: string
+          route?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "learned_payer_routes_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
       }
       leave_balances: {
         Row: {
@@ -32474,6 +34890,30 @@ export type Database = {
         }
         Relationships: []
       }
+      merchandise_accounting_controls: {
+        Row: {
+          auto_derecognition_counterpart: string | null
+          id: boolean
+          stock_issue_counterpart: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_derecognition_counterpart?: string | null
+          id?: boolean
+          stock_issue_counterpart?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_derecognition_counterpart?: string | null
+          id?: boolean
+          stock_issue_counterpart?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       merchandise_catalog: {
         Row: {
           created_at: string
@@ -32573,38 +35013,125 @@ export type Database = {
         }
         Relationships: []
       }
+      merchandise_receivable_derecognitions: {
+        Row: {
+          a12_net: number
+          a13_net: number
+          cash_collected_net: number
+          counterpart: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          events: Json
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          is_bike: boolean
+          item_name: string | null
+          ledger_group_id: string | null
+          plan_ids: string[]
+          sale_id: string | null
+          status: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          a12_net?: number
+          a13_net?: number
+          cash_collected_net?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          events?: Json
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          is_bike?: boolean
+          item_name?: string | null
+          ledger_group_id?: string | null
+          plan_ids?: string[]
+          sale_id?: string | null
+          status?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          a12_net?: number
+          a13_net?: number
+          cash_collected_net?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          events?: Json
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          is_bike?: boolean
+          item_name?: string | null
+          ledger_group_id?: string | null
+          plan_ids?: string[]
+          sale_id?: string | null
+          status?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       merchandise_recovery_deductions: {
         Row: {
           amount: number
+          collection_mode: string | null
           created_at: string
           customer_id: string
           id: string
           item_name: string | null
           outstanding_after: number
           plan_id: string
+          reference: string | null
           transaction_ref: string | null
+          trigger_amount: number | null
+          trigger_category: string | null
+          trigger_ledger_id: string | null
           withdrawable_before: number
         }
         Insert: {
           amount: number
+          collection_mode?: string | null
           created_at?: string
           customer_id: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Update: {
           amount?: number
+          collection_mode?: string | null
           created_at?: string
           customer_id?: string
           id?: string
           item_name?: string | null
           outstanding_after?: number
           plan_id?: string
+          reference?: string | null
           transaction_ref?: string | null
+          trigger_amount?: number | null
+          trigger_category?: string | null
+          trigger_ledger_id?: string | null
           withdrawable_before?: number
         }
         Relationships: [
@@ -32636,6 +35163,9 @@ export type Database = {
           fee_recovered: number
           fee_total: number | null
           id: string
+          instant_sweep_set_at: string | null
+          instant_sweep_set_by: string | null
+          instant_wallet_sweep: boolean
           is_bike_lease: boolean
           item_name: string
           last_attempt_on: string | null
@@ -32679,6 +35209,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name: string
           last_attempt_on?: string | null
@@ -32722,6 +35255,9 @@ export type Database = {
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          instant_sweep_set_at?: string | null
+          instant_sweep_set_by?: string | null
+          instant_wallet_sweep?: boolean
           is_bike_lease?: boolean
           item_name?: string
           last_attempt_on?: string | null
@@ -33022,6 +35558,150 @@ export type Database = {
           share_code?: string | null
           source?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      merchandise_stock_recognitions: {
+        Row: {
+          account: string
+          amount: number
+          amount_paid: number
+          counterpart: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          delivery_evidence: string | null
+          evidence_kind: string | null
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          item_name: string | null
+          ledger_group_id: string | null
+          origin: string
+          plan_ids: string[]
+          principal: number
+          sale_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account: string
+          amount: number
+          amount_paid?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          delivery_evidence?: string | null
+          evidence_kind?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          item_name?: string | null
+          ledger_group_id?: string | null
+          origin: string
+          plan_ids?: string[]
+          principal: number
+          sale_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account?: string
+          amount?: number
+          amount_paid?: number
+          counterpart?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          delivery_evidence?: string | null
+          evidence_kind?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          item_name?: string | null
+          ledger_group_id?: string | null
+          origin?: string
+          plan_ids?: string[]
+          principal?: number
+          sale_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merchandise_unrecorded_sales: {
+        Row: {
+          amount_paid: number | null
+          client_name: string | null
+          created_at: string
+          customer_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          flags: string[]
+          id: string
+          item_name: string | null
+          order_status: string | null
+          payment_plan: string | null
+          quantity: number | null
+          recorded_by: string | null
+          sale_date: string | null
+          sale_id: string
+          status: string
+          total_revenue: number | null
+          unit_cost: number | null
+          updated_at: string
+        }
+        Insert: {
+          amount_paid?: number | null
+          client_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          flags?: string[]
+          id?: string
+          item_name?: string | null
+          order_status?: string | null
+          payment_plan?: string | null
+          quantity?: number | null
+          recorded_by?: string | null
+          sale_date?: string | null
+          sale_id: string
+          status?: string
+          total_revenue?: number | null
+          unit_cost?: number | null
+          updated_at?: string
+        }
+        Update: {
+          amount_paid?: number | null
+          client_name?: string | null
+          created_at?: string
+          customer_id?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          flags?: string[]
+          id?: string
+          item_name?: string | null
+          order_status?: string | null
+          payment_plan?: string | null
+          quantity?: number | null
+          recorded_by?: string | null
+          sale_date?: string | null
+          sale_id?: string
+          status?: string
+          total_revenue?: number | null
+          unit_cost?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -33552,6 +36232,33 @@ export type Database = {
           id?: string
           note?: string | null
           rule_kind?: string
+        }
+        Relationships: []
+      }
+      merchant_desk_phone_numbers: {
+        Row: {
+          agent_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          phone9: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          phone9: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          phone9?: string
         }
         Relationships: []
       }
@@ -34956,6 +37663,185 @@ export type Database = {
         }
         Relationships: []
       }
+      nexa_access_alerts: {
+        Row: {
+          attempted_resource: string
+          channel: string
+          created_at: string
+          id: string
+          notified_founder: boolean
+          phone: string | null
+          reason: string
+          roles: string[]
+          user_id: string | null
+          user_message: string | null
+        }
+        Insert: {
+          attempted_resource: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Update: {
+          attempted_resource?: string
+          channel?: string
+          created_at?: string
+          id?: string
+          notified_founder?: boolean
+          phone?: string | null
+          reason?: string
+          roles?: string[]
+          user_id?: string | null
+          user_message?: string | null
+        }
+        Relationships: []
+      }
+      nexa_portfolio_access_audit: {
+        Row: {
+          challenge_id: string | null
+          code_hash: string | null
+          created_at: string
+          detail: string | null
+          event: string
+          id: number
+          ip_hash: string | null
+          portfolio_id: string | null
+        }
+        Insert: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Update: {
+          challenge_id?: string | null
+          code_hash?: string | null
+          created_at?: string
+          detail?: string | null
+          event?: string
+          id?: number
+          ip_hash?: string | null
+          portfolio_id?: string | null
+        }
+        Relationships: []
+      }
+      nexa_portfolio_otp_challenges: {
+        Row: {
+          attempts: number
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          ip_hash: string | null
+          locked_until: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Insert: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash: string
+          portfolio_id: string
+        }
+        Update: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_hash?: string | null
+          locked_until?: string | null
+          otp_hash?: string
+          portfolio_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_otp_challenges_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      nexa_portfolio_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          portfolio_id: string
+          revoked_at: string | null
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          portfolio_id: string
+          revoked_at?: string | null
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          portfolio_id?: string
+          revoked_at?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "nexa_portfolio_sessions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       nfc_cards: {
         Row: {
           card_id: string
@@ -35338,6 +38224,482 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_action_aliases: {
+        Row: {
+          action: string | null
+          raw_name: string
+          source: string
+        }
+        Insert: {
+          action?: string | null
+          raw_name: string
+          source: string
+        }
+        Update: {
+          action?: string | null
+          raw_name?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_aliases_action_fkey"
+            columns: ["action"]
+            isOneToOne: false
+            referencedRelation: "ontology_action_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_action_types: {
+        Row: {
+          evidence_column: string | null
+          from_states: string[] | null
+          name: string
+          object_type: string
+          owner_desk: string | null
+          since_version: string
+          status: string
+          to_state: string | null
+        }
+        Insert: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name: string
+          object_type: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Update: {
+          evidence_column?: string | null
+          from_states?: string[] | null
+          name?: string
+          object_type?: string
+          owner_desk?: string | null
+          since_version?: string
+          status?: string
+          to_state?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_action_types_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_authorities: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          function_code: string
+          id: number
+          position_id: string
+          reason: string | null
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code: string
+          id?: never
+          position_id: string
+          reason?: string | null
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          function_code?: string
+          id?: never
+          position_id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_authorities_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ontology_boards: {
+        Row: {
+          actions: string[]
+          data_rpc: string | null
+          name: string
+          notes: string | null
+          ord: number
+          owner_roles: string[]
+          purpose: string
+          route: string | null
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          actions?: string[]
+          data_rpc?: string | null
+          name: string
+          notes?: string | null
+          ord: number
+          owner_roles?: string[]
+          purpose: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          actions?: string[]
+          data_rpc?: string | null
+          name?: string
+          notes?: string | null
+          ord?: number
+          owner_roles?: string[]
+          purpose?: string
+          route?: string | null
+          since_version?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_capture: {
+        Row: {
+          enabled: boolean
+          key_column: string
+          link_columns: Json
+          object_type: string | null
+          personal_columns: string[]
+          table_name: string
+          tier: string
+        }
+        Insert: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name: string
+          tier: string
+        }
+        Update: {
+          enabled?: boolean
+          key_column?: string
+          link_columns?: Json
+          object_type?: string | null
+          personal_columns?: string[]
+          table_name?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ontology_capture_object_type_fkey"
+            columns: ["object_type"]
+            isOneToOne: false
+            referencedRelation: "ontology_object_types"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      ontology_changes: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decided_position_id: string | null
+          decided_staff_ref: string | null
+          decision_reason: string | null
+          evidence: Json
+          id: number
+          kind: string
+          payload: Json
+          proposed_at: string
+          source: string
+          status: string
+          target: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind: string
+          payload?: Json
+          proposed_at?: string
+          source: string
+          status?: string
+          target: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_position_id?: string | null
+          decided_staff_ref?: string | null
+          decision_reason?: string | null
+          evidence?: Json
+          id?: never
+          kind?: string
+          payload?: Json
+          proposed_at?: string
+          source?: string
+          status?: string
+          target?: string
+        }
+        Relationships: []
+      }
+      ontology_daily_map: {
+        Row: {
+          generated_at: string
+          map_date: string
+          ontology_version: string | null
+          payload: Json
+        }
+        Insert: {
+          generated_at?: string
+          map_date: string
+          ontology_version?: string | null
+          payload: Json
+        }
+        Update: {
+          generated_at?: string
+          map_date?: string
+          ontology_version?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
+      ontology_doc_snapshots: {
+        Row: {
+          added: Json
+          doc: string
+          id: number
+          inventory: Json
+          retired: Json
+          taken_at: string
+          version: string | null
+        }
+        Insert: {
+          added?: Json
+          doc: string
+          id?: number
+          inventory: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Update: {
+          added?: Json
+          doc?: string
+          id?: number
+          inventory?: Json
+          retired?: Json
+          taken_at?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
+      ontology_link_types: {
+        Row: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version: string | null
+          status: string
+          to_object: string
+          via: string
+        }
+        Insert: {
+          from_object: string
+          meaning: string
+          name: string
+          since_version?: string | null
+          status?: string
+          to_object: string
+          via: string
+        }
+        Update: {
+          from_object?: string
+          meaning?: string
+          name?: string
+          since_version?: string | null
+          status?: string
+          to_object?: string
+          via?: string
+        }
+        Relationships: []
+      }
+      ontology_meta: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      ontology_object_types: {
+        Row: {
+          description: string | null
+          family: string
+          name: string
+          since_version: string
+          sot: string | null
+          status: string
+        }
+        Insert: {
+          description?: string | null
+          family: string
+          name: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Update: {
+          description?: string | null
+          family?: string
+          name?: string
+          since_version?: string
+          sot?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_reason_codes: {
+        Row: {
+          code: string
+          desks: string[] | null
+          meaning: string
+          requires_text: boolean
+          status: string
+        }
+        Insert: {
+          code: string
+          desks?: string[] | null
+          meaning: string
+          requires_text?: boolean
+          status?: string
+        }
+        Update: {
+          code?: string
+          desks?: string[] | null
+          meaning?: string
+          requires_text?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_rules: {
+        Row: {
+          action: string | null
+          automation: string
+          basis: string
+          board: string
+          condition: string
+          decision: string
+          notes: string | null
+          owner: string | null
+          reason_code: string | null
+          rule_id: string
+          since_version: string | null
+          status: string
+        }
+        Insert: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board: string
+          condition: string
+          decision: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id: string
+          since_version?: string | null
+          status?: string
+        }
+        Update: {
+          action?: string | null
+          automation?: string
+          basis?: string
+          board?: string
+          condition?: string
+          decision?: string
+          notes?: string | null
+          owner?: string | null
+          reason_code?: string | null
+          rule_id?: string
+          since_version?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_system_actors: {
+        Row: {
+          kind: string
+          owner: string | null
+          purpose: string | null
+          ref: string
+          status: string
+        }
+        Insert: {
+          kind: string
+          owner?: string | null
+          purpose?: string | null
+          ref: string
+          status?: string
+        }
+        Update: {
+          kind?: string
+          owner?: string | null
+          purpose?: string | null
+          ref?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      ontology_table_activity: {
+        Row: {
+          del: number | null
+          ins: number | null
+          snap_at: string
+          table_name: string
+          upd: number | null
+        }
+        Insert: {
+          del?: number | null
+          ins?: number | null
+          snap_at: string
+          table_name: string
+          upd?: number | null
+        }
+        Update: {
+          del?: number | null
+          ins?: number | null
+          snap_at?: string
+          table_name?: string
+          upd?: number | null
+        }
+        Relationships: []
+      }
       operational_float_audit_log: {
         Row: {
           action: string
@@ -35462,6 +38824,357 @@ export type Database = {
           total_rent_requested?: number
           total_requests?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_case_digests: {
+        Row: {
+          cleared_at_source_7d: number
+          closed_by_staff_7d: number
+          desk: string
+          generated_at: string
+          id: string
+          oldest_overdue_days: number | null
+          open_count: number
+          opened_7d: number
+          overdue_count: number
+          top_overdue: Json
+          week_start: string
+        }
+        Insert: {
+          cleared_at_source_7d: number
+          closed_by_staff_7d: number
+          desk: string
+          generated_at?: string
+          id?: string
+          oldest_overdue_days?: number | null
+          open_count: number
+          opened_7d: number
+          overdue_count: number
+          top_overdue?: Json
+          week_start: string
+        }
+        Update: {
+          cleared_at_source_7d?: number
+          closed_by_staff_7d?: number
+          desk?: string
+          generated_at?: string
+          id?: string
+          oldest_overdue_days?: number | null
+          open_count?: number
+          opened_7d?: number
+          overdue_count?: number
+          top_overdue?: Json
+          week_start?: string
+        }
+        Relationships: []
+      }
+      ops_case_events: {
+        Row: {
+          actor: string
+          actor_name: string | null
+          actor_role: string | null
+          actor_staff_id: string | null
+          actor_user: string | null
+          at: string
+          case_id: string
+          detail: Json
+          event: string
+          id: string
+          reason: string | null
+        }
+        Insert: {
+          actor: string
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_staff_id?: string | null
+          actor_user?: string | null
+          at?: string
+          case_id: string
+          detail?: Json
+          event: string
+          id?: string
+          reason?: string | null
+        }
+        Update: {
+          actor?: string
+          actor_name?: string | null
+          actor_role?: string | null
+          actor_staff_id?: string | null
+          actor_user?: string | null
+          at?: string
+          case_id?: string
+          detail?: Json
+          event?: string
+          id?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_case_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ops_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_case_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "ops_cases_overdue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_case_sources: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          desk: string
+          enabled: boolean
+          last_error: string | null
+          last_sync_at: string | null
+          last_sync_open: number | null
+          severity: string
+          source_sql: string
+          source_table: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description: string
+          desk: string
+          enabled?: boolean
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_open?: number | null
+          severity: string
+          source_sql: string
+          source_table: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          desk?: string
+          enabled?: boolean
+          last_error?: string | null
+          last_sync_at?: string | null
+          last_sync_open?: number | null
+          severity?: string
+          source_sql?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
+      ops_cases: {
+        Row: {
+          assigned_name: string | null
+          assigned_staff_id: string | null
+          assigned_to: string | null
+          case_ref: string
+          detail: Json
+          due_at: string | null
+          first_run_id: string | null
+          id: string
+          last_run_id: string | null
+          last_synced_at: string | null
+          opened_at: string
+          opened_by: string
+          owner_desk: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_name: string | null
+          resolved_role: string | null
+          resolved_staff_id: string | null
+          severity: string
+          source_key: string
+          source_kind: string
+          source_opened_at: string | null
+          status: string
+          still_found: boolean
+          times_seen: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_name?: string | null
+          assigned_staff_id?: string | null
+          assigned_to?: string | null
+          case_ref?: string
+          detail?: Json
+          due_at?: string | null
+          first_run_id?: string | null
+          id?: string
+          last_run_id?: string | null
+          last_synced_at?: string | null
+          opened_at?: string
+          opened_by: string
+          owner_desk?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_name?: string | null
+          resolved_role?: string | null
+          resolved_staff_id?: string | null
+          severity: string
+          source_key: string
+          source_kind: string
+          source_opened_at?: string | null
+          status?: string
+          still_found?: boolean
+          times_seen?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_name?: string | null
+          assigned_staff_id?: string | null
+          assigned_to?: string | null
+          case_ref?: string
+          detail?: Json
+          due_at?: string | null
+          first_run_id?: string | null
+          id?: string
+          last_run_id?: string | null
+          last_synced_at?: string | null
+          opened_at?: string
+          opened_by?: string
+          owner_desk?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_name?: string | null
+          resolved_role?: string | null
+          resolved_staff_id?: string | null
+          severity?: string
+          source_key?: string
+          source_kind?: string
+          source_opened_at?: string | null
+          status?: string
+          still_found?: boolean
+          times_seen?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_event_objects: {
+        Row: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Insert: {
+          event_id: number
+          object_id: string
+          object_type: string
+          role: string
+        }
+        Update: {
+          event_id?: number
+          object_id?: string
+          object_type?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "ops_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ops_event_objects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_stage_events_v"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ops_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_kind: string
+          actor_ref: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          changed: Json
+          channel: string | null
+          correlation_id: string | null
+          explained: boolean
+          followed: boolean | null
+          from_state: string | null
+          id: number
+          object_id: string
+          object_type: string
+          occurred_at: string
+          op: string
+          reason_code: string | null
+          reason_text: string | null
+          recommended: string | null
+          rule_id: string | null
+          rule_inputs: Json | null
+          to_state: string | null
+          txid: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_kind: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id: string
+          object_type: string
+          occurred_at?: string
+          op: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_kind?: string
+          actor_ref?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          changed?: Json
+          channel?: string | null
+          correlation_id?: string | null
+          explained?: boolean
+          followed?: boolean | null
+          from_state?: string | null
+          id?: never
+          object_id?: string
+          object_type?: string
+          occurred_at?: string
+          op?: string
+          reason_code?: string | null
+          reason_text?: string | null
+          recommended?: string | null
+          rule_id?: string | null
+          rule_inputs?: Json | null
+          to_state?: string | null
+          txid?: number
         }
         Relationships: []
       }
@@ -35597,6 +39310,69 @@ export type Database = {
           scope?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      ops_system_changes: {
+        Row: {
+          approved_by: string | null
+          areas: string[]
+          built_by: string | null
+          change_ref: string
+          channel: string | null
+          evidence: Json
+          explained: boolean | null
+          happened_at: string
+          id: number
+          kind: string
+          published_at: string | null
+          published_by: string | null
+          recorded_at: string
+          recorded_by: string
+          requested_by: string | null
+          status: string
+          title: string
+          why: string | null
+        }
+        Insert: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at: string
+          id?: never
+          kind: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title: string
+          why?: string | null
+        }
+        Update: {
+          approved_by?: string | null
+          areas?: string[]
+          built_by?: string | null
+          change_ref?: string
+          channel?: string | null
+          evidence?: Json
+          explained?: boolean | null
+          happened_at?: string
+          id?: never
+          kind?: string
+          published_at?: string | null
+          published_by?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          requested_by?: string | null
+          status?: string
+          title?: string
+          why?: string | null
         }
         Relationships: []
       }
@@ -36099,6 +39875,54 @@ export type Database = {
         }
         Relationships: []
       }
+      owner_security_alerts: {
+        Row: {
+          actor_id: string | null
+          actor_name: string | null
+          actor_phone: string | null
+          actor_roles: string[] | null
+          attempted: string
+          blocked: boolean
+          detail: Json | null
+          emailed: boolean
+          id: string
+          ip_address: string | null
+          occurred_at: string
+          target: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted: string
+          blocked: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string | null
+          actor_phone?: string | null
+          actor_roles?: string[] | null
+          attempted?: string
+          blocked?: boolean
+          detail?: Json | null
+          emailed?: boolean
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          target?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       partner_agreement_company_defaults: {
         Row: {
           created_at: string
@@ -36417,6 +40241,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      partner_float_landlord_notices: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          amount: number
+          attempts: number
+          commitment_id: string
+          created_at: string
+          id: string
+          landlord_id: string | null
+          landlord_name: string
+          landlord_phone: string | null
+          last_error: string | null
+          partner_id: string
+          provider: string | null
+          rent_request_ids: string[]
+          sent_at: string | null
+          status: string
+          tenant_count: number
+          tenant_first_names: string[]
+          topup_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_name?: string | null
+          amount: number
+          attempts?: number
+          commitment_id: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          amount?: number
+          attempts?: number
+          commitment_id?: string
+          created_at?: string
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string
+          landlord_phone?: string | null
+          last_error?: string | null
+          partner_id?: string
+          provider?: string | null
+          rent_request_ids?: string[]
+          sent_at?: string | null
+          status?: string
+          tenant_count?: number
+          tenant_first_names?: string[]
+          topup_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       partner_funding_backfill_log: {
         Row: {
@@ -36864,10 +40757,12 @@ export type Database = {
           committed_at: string
           completed_at: string | null
           created_at: string
+          end_reason: string | null
           id: string
           live_at: string | null
           monthly_rate: number
           partner_id: string
+          plan_closed_at: string | null
           principal: number
           rent_request_id: string
           status: string
@@ -36881,10 +40776,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id: string
+          plan_closed_at?: string | null
           principal: number
           rent_request_id: string
           status?: string
@@ -36898,10 +40795,12 @@ export type Database = {
           committed_at?: string
           completed_at?: string | null
           created_at?: string
+          end_reason?: string | null
           id?: string
           live_at?: string | null
           monthly_rate?: number
           partner_id?: string
+          plan_closed_at?: string | null
           principal?: number
           rent_request_id?: string
           status?: string
@@ -38256,8 +42155,11 @@ export type Database = {
           decided_at: string | null
           decided_by: string | null
           decision_reason: string | null
+          device_fp: string | null
+          device_trusted: boolean | null
           id: string
           ownership_code_confirmed_at: string | null
+          pin_verified: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -38272,8 +42174,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason: string
           requested_name: string
           requested_number: string
@@ -38288,8 +42193,11 @@ export type Database = {
           decided_at?: string | null
           decided_by?: string | null
           decision_reason?: string | null
+          device_fp?: string | null
+          device_trusted?: boolean | null
           id?: string
           ownership_code_confirmed_at?: string | null
+          pin_verified?: boolean
           request_reason?: string
           requested_name?: string
           requested_number?: string
@@ -38824,6 +42732,36 @@ export type Database = {
           },
         ]
       }
+      payroll_loyalty_bonus_reversals: {
+        Row: {
+          created_at: string
+          credited: number
+          id: string
+          ledger_group: string | null
+          reversed: number
+          still_owed: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credited: number
+          id?: string
+          ledger_group?: string | null
+          reversed: number
+          still_owed: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credited?: number
+          id?: string
+          ledger_group?: string | null
+          reversed?: number
+          still_owed?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_wallet_operations: {
         Row: {
           account: string | null
@@ -39049,6 +42987,366 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_auto_forwards: {
+        Row: {
+          error: string | null
+          forwarded_at: string
+          original_funder_visible: boolean | null
+          original_reason: string | null
+          rent_request_id: string
+          result: string
+        }
+        Insert: {
+          error?: string | null
+          forwarded_at?: string
+          original_funder_visible?: boolean | null
+          original_reason?: string | null
+          rent_request_id: string
+          result?: string
+        }
+        Update: {
+          error?: string | null
+          forwarded_at?: string
+          original_funder_visible?: boolean | null
+          original_reason?: string | null
+          rent_request_id?: string
+          result?: string
+        }
+        Relationships: []
+      }
+      pipeline_call_links: {
+        Row: {
+          call_session_id: string
+          created_at: string
+          created_by: string
+          desk: string
+          id: string
+          rent_request_id: string
+          subject: string
+        }
+        Insert: {
+          call_session_id: string
+          created_at?: string
+          created_by: string
+          desk: string
+          id?: string
+          rent_request_id: string
+          subject: string
+        }
+        Update: {
+          call_session_id?: string
+          created_at?: string
+          created_by?: string
+          desk?: string
+          id?: string
+          rent_request_id?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      pipeline_check_catalog: {
+        Row: {
+          assumption: string | null
+          auto_source: string | null
+          code: string
+          created_at: string
+          fail_reason_code: string | null
+          label: string
+          method: string
+          on_fail: string
+          question: string
+          required: boolean
+          sort: number
+          source: string
+          stage: string
+          status: string
+          value_kind: string | null
+          version: string
+          weight: number
+        }
+        Insert: {
+          assumption?: string | null
+          auto_source?: string | null
+          code: string
+          created_at?: string
+          fail_reason_code?: string | null
+          label: string
+          method: string
+          on_fail: string
+          question: string
+          required?: boolean
+          sort: number
+          source?: string
+          stage: string
+          status?: string
+          value_kind?: string | null
+          version?: string
+          weight?: number
+        }
+        Update: {
+          assumption?: string | null
+          auto_source?: string | null
+          code?: string
+          created_at?: string
+          fail_reason_code?: string | null
+          label?: string
+          method?: string
+          on_fail?: string
+          question?: string
+          required?: boolean
+          sort?: number
+          source?: string
+          stage?: string
+          status?: string
+          value_kind?: string | null
+          version?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      pipeline_check_results: {
+        Row: {
+          check_code: string
+          id: number
+          note: string | null
+          recorded_at: string
+          rent_request_id: string
+          result: string
+          review_id: number
+          reviewer_id: string
+          stage: string
+          system_said: string | null
+          value: Json | null
+        }
+        Insert: {
+          check_code: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          rent_request_id: string
+          result: string
+          review_id: number
+          reviewer_id: string
+          stage: string
+          system_said?: string | null
+          value?: Json | null
+        }
+        Update: {
+          check_code?: string
+          id?: never
+          note?: string | null
+          recorded_at?: string
+          rent_request_id?: string
+          result?: string
+          review_id?: number
+          reviewer_id?: string
+          stage?: string
+          system_said?: string | null
+          value?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_check_results_check_code_fkey"
+            columns: ["check_code"]
+            isOneToOne: false
+            referencedRelation: "pipeline_check_catalog"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "pipeline_check_results_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stage_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_intake_details: {
+        Row: {
+          captured_at: string
+          captured_by: string
+          family_size: number | null
+          id: number
+          lc1_phone_confirmation: string | null
+          rent_request_id: string
+          source: string
+          work_business: string | null
+          work_location: string | null
+        }
+        Insert: {
+          captured_at?: string
+          captured_by: string
+          family_size?: number | null
+          id?: never
+          lc1_phone_confirmation?: string | null
+          rent_request_id: string
+          source: string
+          work_business?: string | null
+          work_location?: string | null
+        }
+        Update: {
+          captured_at?: string
+          captured_by?: string
+          family_size?: number | null
+          id?: never
+          lc1_phone_confirmation?: string | null
+          rent_request_id?: string
+          source?: string
+          work_business?: string | null
+          work_location?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_stage_reviews: {
+        Row: {
+          authority: string
+          decision: string
+          failed_checks: string[]
+          followed: boolean
+          funder_board: boolean | null
+          id: number
+          note: string | null
+          reason_code: string | null
+          recommended: string
+          recommended_reason_code: string | null
+          rent_request_id: string
+          request_score: number | null
+          reviewed_at: string
+          reviewer_id: string
+          reviewer_roles: string[] | null
+          reviewer_staff_ref: string | null
+          round: number
+          stage: string
+          stage_score: number | null
+          status_at_review: string
+          target_agent_id: string | null
+        }
+        Insert: {
+          authority?: string
+          decision: string
+          failed_checks?: string[]
+          followed: boolean
+          funder_board?: boolean | null
+          id?: never
+          note?: string | null
+          reason_code?: string | null
+          recommended: string
+          recommended_reason_code?: string | null
+          rent_request_id: string
+          request_score?: number | null
+          reviewed_at?: string
+          reviewer_id: string
+          reviewer_roles?: string[] | null
+          reviewer_staff_ref?: string | null
+          round?: number
+          stage: string
+          stage_score?: number | null
+          status_at_review: string
+          target_agent_id?: string | null
+        }
+        Update: {
+          authority?: string
+          decision?: string
+          failed_checks?: string[]
+          followed?: boolean
+          funder_board?: boolean | null
+          id?: never
+          note?: string | null
+          reason_code?: string | null
+          recommended?: string
+          recommended_reason_code?: string | null
+          rent_request_id?: string
+          request_score?: number | null
+          reviewed_at?: string
+          reviewer_id?: string
+          reviewer_roles?: string[] | null
+          reviewer_staff_ref?: string | null
+          round?: number
+          stage?: string
+          stage_score?: number | null
+          status_at_review?: string
+          target_agent_id?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_switches: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          is_on: boolean
+          key: string
+          note: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          is_on?: boolean
+          key: string
+          note?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          is_on?: boolean
+          key?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
+      pipeline_waiting: {
+        Row: {
+          cleared_at: string | null
+          cleared_by: string | null
+          cleared_reason: string | null
+          desk: string
+          id: string
+          note: string | null
+          owner_kind: string
+          owner_user_id: string | null
+          reason_code: string
+          rent_request_id: string
+          rule_id: string | null
+          set_at: string
+          set_by: string
+          set_by_staff_ref: string | null
+          until_at: string
+        }
+        Insert: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          cleared_reason?: string | null
+          desk: string
+          id?: string
+          note?: string | null
+          owner_kind: string
+          owner_user_id?: string | null
+          reason_code: string
+          rent_request_id: string
+          rule_id?: string | null
+          set_at?: string
+          set_by: string
+          set_by_staff_ref?: string | null
+          until_at: string
+        }
+        Update: {
+          cleared_at?: string | null
+          cleared_by?: string | null
+          cleared_reason?: string | null
+          desk?: string
+          id?: string
+          note?: string | null
+          owner_kind?: string
+          owner_user_id?: string | null
+          reason_code?: string
+          rent_request_id?: string
+          rule_id?: string | null
+          set_at?: string
+          set_by?: string
+          set_by_staff_ref?: string | null
+          until_at?: string
+        }
+        Relationships: []
+      }
       plan_balance_duplicate_correction_20260929: {
         Row: {
           amount_repaid_after: number | null
@@ -39249,6 +43547,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_owner: {
+        Row: {
+          created_at: string
+          email: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       platform_wallet_corrections: {
         Row: {
@@ -39995,6 +44311,226 @@ export type Database = {
           },
         ]
       }
+      portfolio_return_cycle_claims: {
+        Row: {
+          claim_seq: number
+          claimed_by: string | null
+          created_at: string
+          cycle_date: string
+          cycle_month: string
+          cycle_return_cap: number
+          id: string
+          kind: string
+          override_id: string | null
+          pending_operation_id: string | null
+          portfolio_id: string
+          reference: string | null
+          release_reason: string | null
+          released_at: string | null
+          released_by: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          claim_seq?: number
+          claimed_by?: string | null
+          created_at?: string
+          cycle_date: string
+          cycle_month: string
+          cycle_return_cap: number
+          id?: string
+          kind: string
+          override_id?: string | null
+          pending_operation_id?: string | null
+          portfolio_id: string
+          reference?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          source: string
+          status?: string
+        }
+        Update: {
+          claim_seq?: number
+          claimed_by?: string | null
+          created_at?: string
+          cycle_date?: string
+          cycle_month?: string
+          cycle_return_cap?: number
+          id?: string
+          kind?: string
+          override_id?: string | null
+          pending_operation_id?: string | null
+          portfolio_id?: string
+          reference?: string | null
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_override_id_fkey"
+            columns: ["override_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_return_cycle_overrides"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_claims_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_return_cycle_overrides: {
+        Row: {
+          authorised_at: string
+          authorised_by: string
+          consumed_at: string | null
+          consumed_claim_id: string | null
+          cycle_month: string
+          cycle_return_at_authorisation: number
+          expires_at: string
+          id: string
+          max_amount: number
+          portfolio_id: string
+          reason: string
+          requester_id: string
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          authorised_at?: string
+          authorised_by: string
+          consumed_at?: string | null
+          consumed_claim_id?: string | null
+          cycle_month: string
+          cycle_return_at_authorisation: number
+          expires_at?: string
+          id?: string
+          max_amount: number
+          portfolio_id: string
+          reason: string
+          requester_id: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          authorised_at?: string
+          authorised_by?: string
+          consumed_at?: string | null
+          consumed_claim_id?: string | null
+          cycle_month?: string
+          cycle_return_at_authorisation?: number
+          expires_at?: string
+          id?: string
+          max_amount?: number
+          portfolio_id?: string
+          reason?: string
+          requester_id?: string
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_cycle_overrides_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_return_holds: {
+        Row: {
+          held_at: string
+          held_by: string
+          id: string
+          portfolio_id: string
+          reason: string
+          release_reason: string | null
+          released_at: string | null
+          released_by: string | null
+        }
+        Insert: {
+          held_at?: string
+          held_by: string
+          id?: string
+          portfolio_id: string
+          reason: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Update: {
+          held_at?: string
+          held_by?: string
+          id?: string
+          portfolio_id?: string
+          reason?: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_return_holds_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       pre_registered_tids: {
         Row: {
           amount: number
@@ -40455,6 +44991,7 @@ export type Database = {
           is_frozen: boolean
           is_seller: boolean
           is_test: boolean
+          is_test_contact: boolean
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
@@ -40574,6 +45111,7 @@ export type Database = {
           is_frozen?: boolean
           is_seller?: boolean
           is_test?: boolean
+          is_test_contact?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -40693,6 +45231,7 @@ export type Database = {
           is_frozen?: boolean
           is_seller?: boolean
           is_test?: boolean
+          is_test_contact?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -41094,6 +45633,84 @@ export type Database = {
             referencedColumns: ["note_id"]
           },
         ]
+      }
+      promissory_note_derecognitions: {
+        Row: {
+          a7_derecognised: number
+          a7_recognised: number
+          agent_id: string | null
+          approval_bonus_paid: boolean | null
+          bonus_net: number
+          created_at: string
+          delete_action: string | null
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          flags: string[]
+          id: string
+          idempotency_key: string | null
+          ledger_group_id: string | null
+          note_amount: number | null
+          note_id: string
+          note_status: string | null
+          origin: string
+          partner_name: string | null
+          partner_user_id: string | null
+          recognition_group_id: string | null
+          review_status: string
+          total_collected: number | null
+        }
+        Insert: {
+          a7_derecognised?: number
+          a7_recognised?: number
+          agent_id?: string | null
+          approval_bonus_paid?: boolean | null
+          bonus_net?: number
+          created_at?: string
+          delete_action?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          ledger_group_id?: string | null
+          note_amount?: number | null
+          note_id: string
+          note_status?: string | null
+          origin: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          recognition_group_id?: string | null
+          review_status?: string
+          total_collected?: number | null
+        }
+        Update: {
+          a7_derecognised?: number
+          a7_recognised?: number
+          agent_id?: string | null
+          approval_bonus_paid?: boolean | null
+          bonus_net?: number
+          created_at?: string
+          delete_action?: string | null
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          flags?: string[]
+          id?: string
+          idempotency_key?: string | null
+          ledger_group_id?: string | null
+          note_amount?: number | null
+          note_id?: string
+          note_status?: string | null
+          origin?: string
+          partner_name?: string | null
+          partner_user_id?: string | null
+          recognition_group_id?: string | null
+          review_status?: string
+          total_collected?: number | null
+        }
+        Relationships: []
       }
       promissory_note_fulfilment_notices: {
         Row: {
@@ -41945,6 +46562,108 @@ export type Database = {
             referencedColumns: ["landlord_id"]
           },
         ]
+      }
+      protected_function_changes: {
+        Row: {
+          app_name: string | null
+          at: string
+          client_addr: string | null
+          command: string | null
+          db_user: string | null
+          detail: string | null
+          id: string
+          identity: string | null
+          jwt_role: string | null
+          jwt_sub: string | null
+          new_md5: string | null
+          notified: boolean
+          old_md5: string | null
+          outcome: string
+          session_usr: string | null
+        }
+        Insert: {
+          app_name?: string | null
+          at?: string
+          client_addr?: string | null
+          command?: string | null
+          db_user?: string | null
+          detail?: string | null
+          id?: string
+          identity?: string | null
+          jwt_role?: string | null
+          jwt_sub?: string | null
+          new_md5?: string | null
+          notified?: boolean
+          old_md5?: string | null
+          outcome: string
+          session_usr?: string | null
+        }
+        Update: {
+          app_name?: string | null
+          at?: string
+          client_addr?: string | null
+          command?: string | null
+          db_user?: string | null
+          detail?: string | null
+          id?: string
+          identity?: string | null
+          jwt_role?: string | null
+          jwt_sub?: string | null
+          new_md5?: string | null
+          notified?: boolean
+          old_md5?: string | null
+          outcome?: string
+          session_usr?: string | null
+        }
+        Relationships: []
+      }
+      protected_function_settings: {
+        Row: {
+          id: boolean
+          set_at: string | null
+          unlock_hash: string | null
+        }
+        Insert: {
+          id?: boolean
+          set_at?: string | null
+          unlock_hash?: string | null
+        }
+        Update: {
+          id?: boolean
+          set_at?: string | null
+          unlock_hash?: string | null
+        }
+        Relationships: []
+      }
+      protected_functions: {
+        Row: {
+          definition: string
+          definition_md5: string
+          func_name: string
+          identity: string
+          protected_at: string
+          schema_name: string
+          updated_at: string
+        }
+        Insert: {
+          definition: string
+          definition_md5: string
+          func_name: string
+          identity: string
+          protected_at?: string
+          schema_name: string
+          updated_at?: string
+        }
+        Update: {
+          definition?: string
+          definition_md5?: string
+          func_name?: string
+          identity?: string
+          protected_at?: string
+          schema_name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       proxy_agent_assignments: {
         Row: {
@@ -44818,6 +49537,45 @@ export type Database = {
         }
         Relationships: []
       }
+      rent_balance_correction_20261023: {
+        Row: {
+          amount_repaid: number | null
+          balance_after: number | null
+          balance_before: number | null
+          corrected_at: string
+          old_daily_repayment: number | null
+          old_initial_outstanding: number | null
+          old_total_repayment: number | null
+          registration_type: string | null
+          rent_request_id: string
+          tenant_name: string | null
+        }
+        Insert: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id: string
+          tenant_name?: string | null
+        }
+        Update: {
+          amount_repaid?: number | null
+          balance_after?: number | null
+          balance_before?: number | null
+          corrected_at?: string
+          old_daily_repayment?: number | null
+          old_initial_outstanding?: number | null
+          old_total_repayment?: number | null
+          registration_type?: string | null
+          rent_request_id?: string
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       rent_day_settlements: {
         Row: {
           amount: number
@@ -45922,6 +50680,7 @@ export type Database = {
           pending_window_reset_by: string | null
           pending_window_reset_count: number
           preferred_language: string | null
+          pricing_version: string
           proxy_agent_id: string | null
           registration_type: string
           rejected_at: string | null
@@ -45973,10 +50732,18 @@ export type Database = {
           tenant_ops_reviewed_at: string | null
           tenant_ops_reviewed_by: string | null
           tenant_photo_url: string | null
+          tenant_self_applied: boolean
           tenant_water_meter: string | null
           total_repayment: number
           total_roi_paid: number | null
           updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
         }
         Insert: {
           access_fee: number
@@ -46067,6 +50834,7 @@ export type Database = {
           pending_window_reset_by?: string | null
           pending_window_reset_count?: number
           preferred_language?: string | null
+          pricing_version?: string
           proxy_agent_id?: string | null
           registration_type?: string
           rejected_at?: string | null
@@ -46118,10 +50886,18 @@ export type Database = {
           tenant_ops_reviewed_at?: string | null
           tenant_ops_reviewed_by?: string | null
           tenant_photo_url?: string | null
+          tenant_self_applied?: boolean
           tenant_water_meter?: string | null
           total_repayment: number
           total_roi_paid?: number | null
           updated_at?: string
+          v360_daily_rate?: number | null
+          v360_gross?: number | null
+          v360_missed_days?: number
+          v360_paid_days?: number
+          v360_receivable?: number | null
+          v360_started_on?: string | null
+          v360_vacant_days?: number
         }
         Update: {
           access_fee?: number
@@ -46212,6 +50988,7 @@ export type Database = {
           pending_window_reset_by?: string | null
           pending_window_reset_count?: number
           preferred_language?: string | null
+          pricing_version?: string
           proxy_agent_id?: string | null
           registration_type?: string
           rejected_at?: string | null
@@ -46263,10 +51040,18 @@ export type Database = {
           tenant_ops_reviewed_at?: string | null
           tenant_ops_reviewed_by?: string | null
           tenant_photo_url?: string | null
+          tenant_self_applied?: boolean
           tenant_water_meter?: string | null
           total_repayment?: number
           total_roi_paid?: number | null
           updated_at?: string
+          v360_daily_rate?: number | null
+          v360_gross?: number | null
+          v360_missed_days?: number
+          v360_paid_days?: number
+          v360_receivable?: number | null
+          v360_started_on?: string | null
+          v360_vacant_days?: number
         }
         Relationships: [
           {
@@ -48761,7 +53546,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_amount: number | null
+          description: string | null
+          highlights: string[] | null
           id: string
+          image_url: string | null
           is_active: boolean
           model_name: string | null
           more_specifications: string | null
@@ -48777,7 +53565,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_amount?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
@@ -48793,7 +53584,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           default_amount?: number | null
+          description?: string | null
+          highlights?: string[] | null
           id?: string
+          image_url?: string | null
           is_active?: boolean
           model_name?: string | null
           more_specifications?: string | null
@@ -49467,6 +54261,652 @@ export type Database = {
         }
         Relationships: []
       }
+      special_advance_corrections: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string
+          proof_path: string
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          repayment_id: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string
+          proof_path: string
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          repayment_id?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string
+          proof_path?: string
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          repayment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_corrections_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_corrections_repayment_id_fkey"
+            columns: ["repayment_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_events: {
+        Row: {
+          actor_id: string
+          advance_id: string
+          created_at: string
+          details: Json | null
+          event_type: string
+          from_status: string | null
+          id: string
+          reason: string | null
+          to_status: string
+        }
+        Insert: {
+          actor_id: string
+          advance_id: string
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          to_status: string
+        }
+        Update: {
+          actor_id?: string
+          advance_id?: string
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          from_status?: string | null
+          id?: string
+          reason?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_events_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_external_borrowers: {
+        Row: {
+          borrower_type: string
+          created_at: string
+          created_by: string
+          full_name: string
+          id: string
+          national_id: string | null
+          notes: string | null
+          organization: string | null
+          phone: string
+          registration_number: string | null
+        }
+        Insert: {
+          borrower_type: string
+          created_at?: string
+          created_by: string
+          full_name: string
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          organization?: string | null
+          phone: string
+          registration_number?: string | null
+        }
+        Update: {
+          borrower_type?: string
+          created_at?: string
+          created_by?: string
+          full_name?: string
+          id?: string
+          national_id?: string | null
+          notes?: string | null
+          organization?: string | null
+          phone?: string
+          registration_number?: string | null
+        }
+        Relationships: []
+      }
+      special_advance_instalments: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          amount: number
+          due_date: string | null
+          due_offset_days: number
+          id: string
+          number: number
+          principal: number
+          registration_fee: number
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          amount: number
+          due_date?: string | null
+          due_offset_days: number
+          id?: string
+          number: number
+          principal: number
+          registration_fee: number
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          amount?: number
+          due_date?: string | null
+          due_offset_days?: number
+          id?: string
+          number?: number
+          principal?: number
+          registration_fee?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_instalments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_provision_lines: {
+        Row: {
+          advance_id: string
+          applied_rate: number
+          days_past_due: number
+          delta: number
+          gross_outstanding: number
+          held_before: number
+          id: string
+          individual_rate: number | null
+          ledger_group_id: string | null
+          minimum_rate: number
+          required_allowance: number
+          review_id: string
+        }
+        Insert: {
+          advance_id: string
+          applied_rate: number
+          days_past_due: number
+          delta: number
+          gross_outstanding: number
+          held_before: number
+          id?: string
+          individual_rate?: number | null
+          ledger_group_id?: string | null
+          minimum_rate: number
+          required_allowance: number
+          review_id: string
+        }
+        Update: {
+          advance_id?: string
+          applied_rate?: number
+          days_past_due?: number
+          delta?: number
+          gross_outstanding?: number
+          held_before?: number
+          id?: string
+          individual_rate?: number | null
+          ledger_group_id?: string | null
+          minimum_rate?: number
+          required_allowance?: number
+          review_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_provision_lines_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_provision_lines_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_provision_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_provision_reviews: {
+        Row: {
+          as_of_date: string
+          id: string
+          idempotency_key: string
+          note: string | null
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          total_delta: number
+        }
+        Insert: {
+          as_of_date: string
+          id?: string
+          idempotency_key: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          total_delta: number
+        }
+        Update: {
+          as_of_date?: string
+          id?: string
+          idempotency_key?: string
+          note?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          total_delta?: number
+        }
+        Relationships: []
+      }
+      special_advance_recoveries: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note: string | null
+          proof_path: string
+          received_date: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note?: string | null
+          proof_path: string
+          received_date: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          method?: string
+          note?: string | null
+          proof_path?: string
+          received_date?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_recoveries_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_repayment_allocations: {
+        Row: {
+          access_fee: number
+          advance_id: string
+          instalment_number: number
+          principal: number
+          registration_fee: number
+          repayment_id: string
+        }
+        Insert: {
+          access_fee: number
+          advance_id: string
+          instalment_number: number
+          principal: number
+          registration_fee: number
+          repayment_id: string
+        }
+        Update: {
+          access_fee?: number
+          advance_id?: string
+          instalment_number?: number
+          principal?: number
+          registration_fee?: number
+          repayment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_repayment_allocations_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_repayment_allocations_repayment_id_fkey"
+            columns: ["repayment_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_repayments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_repayments: {
+        Row: {
+          advance_id: string
+          amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note: string | null
+          proof_path: string
+          received_date: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          method: string
+          note?: string | null
+          proof_path: string
+          received_date: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+          reversed_by_correction?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          method?: string
+          note?: string | null
+          proof_path?: string
+          received_date?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+          reversed_by_correction?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_repayments_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "special_advance_repayments_reversed_by_correction_fkey"
+            columns: ["reversed_by_correction"]
+            isOneToOne: false
+            referencedRelation: "special_advance_corrections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advance_settings: {
+        Row: {
+          id: boolean
+          issuance_enabled: boolean
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          issuance_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          issuance_enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      special_advance_write_offs: {
+        Row: {
+          advance_id: string
+          allowance_released: number
+          gross_amount: number
+          id: string
+          idempotency_key: string
+          ledger_group_id: string
+          net_loss: number
+          proof_path: string
+          reason: string
+          recorded_at: string
+          recorded_by: string
+          reference: string
+        }
+        Insert: {
+          advance_id: string
+          allowance_released: number
+          gross_amount: number
+          id?: string
+          idempotency_key: string
+          ledger_group_id: string
+          net_loss: number
+          proof_path: string
+          reason: string
+          recorded_at?: string
+          recorded_by: string
+          reference: string
+        }
+        Update: {
+          advance_id?: string
+          allowance_released?: number
+          gross_amount?: number
+          id?: string
+          idempotency_key?: string
+          ledger_group_id?: string
+          net_loss?: number
+          proof_path?: string
+          reason?: string
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advance_write_offs_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "special_advances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      special_advances: {
+        Row: {
+          access_fee: number
+          approved_at: string | null
+          approved_by: string | null
+          borrower_kind: string
+          borrower_user_id: string | null
+          calc_version: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          decision_reason: string | null
+          disbursed_at: string | null
+          disbursed_by: string | null
+          external_borrower_id: string | null
+          frequency: string
+          id: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date: string | null
+          payout_ledger_group_id: string | null
+          payout_method: string | null
+          payout_proof_path: string | null
+          payout_reference: string | null
+          planned_payout_date: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at: string | null
+          rejected_by: string | null
+          settled_at: string | null
+          status: string
+          term_days: number
+          total_repayable: number
+          updated_at: string
+        }
+        Insert: {
+          access_fee: number
+          approved_at?: string | null
+          approved_by?: string | null
+          borrower_kind: string
+          borrower_user_id?: string | null
+          calc_version: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by: string
+          decision_reason?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          external_borrower_id?: string | null
+          frequency: string
+          id?: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date?: string | null
+          payout_ledger_group_id?: string | null
+          payout_method?: string | null
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          planned_payout_date?: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          settled_at?: string | null
+          status?: string
+          term_days: number
+          total_repayable: number
+          updated_at?: string
+        }
+        Update: {
+          access_fee?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          borrower_kind?: string
+          borrower_user_id?: string | null
+          calc_version?: string
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          created_by?: string
+          decision_reason?: string | null
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          external_borrower_id?: string | null
+          frequency?: string
+          id?: string
+          idempotency_key?: string
+          instalment_amount?: number
+          instalments?: number
+          payout_date?: string | null
+          payout_ledger_group_id?: string | null
+          payout_method?: string | null
+          payout_proof_path?: string | null
+          payout_reference?: string | null
+          planned_payout_date?: string | null
+          principal?: number
+          purpose?: string
+          rate_basis?: string
+          rate_percent?: number
+          reference?: string
+          registration_fee?: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          settled_at?: string | null
+          status?: string
+          term_days?: number
+          total_repayable?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "special_advances_external_borrower_id_fkey"
+            columns: ["external_borrower_id"]
+            isOneToOne: false
+            referencedRelation: "special_advance_external_borrowers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_access_attempts: {
         Row: {
           at: string
@@ -49514,6 +54954,1358 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      staff_assistant_config: {
+        Row: {
+          enabled: boolean
+          history_days: number
+          id: boolean
+          max_cost_usd_per_question: number
+          max_deep_model_rounds: number
+          max_deep_tool_calls: number
+          max_emails_per_day: number
+          max_model_rounds: number
+          max_notifications_per_day: number
+          max_questions_per_day: number
+          max_tokens: number
+          max_tool_calls: number
+          model_deep: string
+          model_fast: string
+          temperature: number
+          updated_at: string
+          updated_by: string | null
+          web_research_enabled: boolean
+        }
+        Insert: {
+          enabled?: boolean
+          history_days?: number
+          id?: boolean
+          max_cost_usd_per_question?: number
+          max_deep_model_rounds?: number
+          max_deep_tool_calls?: number
+          max_emails_per_day?: number
+          max_model_rounds?: number
+          max_notifications_per_day?: number
+          max_questions_per_day?: number
+          max_tokens?: number
+          max_tool_calls?: number
+          model_deep?: string
+          model_fast?: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          web_research_enabled?: boolean
+        }
+        Update: {
+          enabled?: boolean
+          history_days?: number
+          id?: boolean
+          max_cost_usd_per_question?: number
+          max_deep_model_rounds?: number
+          max_deep_tool_calls?: number
+          max_emails_per_day?: number
+          max_model_rounds?: number
+          max_notifications_per_day?: number
+          max_questions_per_day?: number
+          max_tokens?: number
+          max_tool_calls?: number
+          model_deep?: string
+          model_fast?: string
+          temperature?: number
+          updated_at?: string
+          updated_by?: string | null
+          web_research_enabled?: boolean
+        }
+        Relationships: []
+      }
+      staff_assistant_conversations: {
+        Row: {
+          closed_at: string | null
+          conversation_summary: Json
+          created_at: string
+          device_browser: string | null
+          device_class: string | null
+          device_os: string | null
+          hidden_at: string | null
+          hidden_by_user: boolean
+          id: string
+          ip_address: string | null
+          last_active_at: string
+          last_message_at: string
+          message_count: number
+          persona: string
+          project_id: string | null
+          rolling_summary: string
+          started_at: string
+          status: string
+          title: string | null
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          conversation_summary?: Json
+          created_at?: string
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          last_message_at?: string
+          message_count?: number
+          persona?: string
+          project_id?: string | null
+          rolling_summary?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Update: {
+          closed_at?: string | null
+          conversation_summary?: Json
+          created_at?: string
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          last_message_at?: string
+          message_count?: number
+          persona?: string
+          project_id?: string | null
+          rolling_summary?: string
+          started_at?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_conversations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_data_catalog: {
+        Row: {
+          columns: Json
+          created_at: string
+          description: string
+          do_not_use_for: string
+          official_source: string
+          requires_aal2: boolean
+          role_area: string
+          title: string
+          use_for: string
+          view_name: string
+        }
+        Insert: {
+          columns?: Json
+          created_at?: string
+          description: string
+          do_not_use_for: string
+          official_source: string
+          requires_aal2?: boolean
+          role_area: string
+          title: string
+          use_for: string
+          view_name: string
+        }
+        Update: {
+          columns?: Json
+          created_at?: string
+          description?: string
+          do_not_use_for?: string
+          official_source?: string
+          requires_aal2?: boolean
+          role_area?: string
+          title?: string
+          use_for?: string
+          view_name?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_drafts: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          payload: Json
+          payload_hash: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind: string
+          payload?: Json
+          payload_hash: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          payload?: Json
+          payload_hash?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_drafts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_eval_candidates: {
+        Row: {
+          added_by: string | null
+          cleaned_question: string
+          created_at: string
+          expected_tool: string | null
+          expected_topic: string
+          id: string
+          is_active: boolean
+          outcome_before: string | null
+          reviewer_notes: string | null
+          source_id: string | null
+          source_kind: string
+          updated_at: string
+        }
+        Insert: {
+          added_by?: string | null
+          cleaned_question: string
+          created_at?: string
+          expected_tool?: string | null
+          expected_topic?: string
+          id?: string
+          is_active?: boolean
+          outcome_before?: string | null
+          reviewer_notes?: string | null
+          source_id?: string | null
+          source_kind: string
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string | null
+          cleaned_question?: string
+          created_at?: string
+          expected_tool?: string | null
+          expected_topic?: string
+          id?: string
+          is_active?: boolean
+          outcome_before?: string | null
+          reviewer_notes?: string | null
+          source_id?: string | null
+          source_kind?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_feedback: {
+        Row: {
+          comment: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string
+          rating: string
+          report_kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          message_id: string
+          rating: string
+          report_kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          comment?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+          rating?: string
+          report_kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_glossary: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_active: boolean
+          keywords: string[]
+          measurement_gotcha: string
+          official_source: string
+          plain_definition: string
+          screen_path: string
+          slug: string
+          term: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          measurement_gotcha?: string
+          official_source?: string
+          plain_definition: string
+          screen_path?: string
+          slug: string
+          term: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keywords?: string[]
+          measurement_gotcha?: string
+          official_source?: string
+          plain_definition?: string
+          screen_path?: string
+          slug?: string
+          term?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      staff_assistant_ideas: {
+        Row: {
+          category: string
+          conversation_id: string | null
+          created_at: string
+          created_by: string
+          draft_id: string | null
+          evidence_summary: string
+          figures: Json
+          id: string
+          message_id: string | null
+          period_label: string
+          screen_path: string
+          source_label: string
+          status: string
+          status_note: string | null
+          status_updated_at: string | null
+          status_updated_by: string | null
+          suggestion: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          draft_id?: string | null
+          evidence_summary: string
+          figures?: Json
+          id?: string
+          message_id?: string | null
+          period_label: string
+          screen_path?: string
+          source_label: string
+          status?: string
+          status_note?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+          suggestion: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          conversation_id?: string | null
+          created_at?: string
+          created_by?: string
+          draft_id?: string | null
+          evidence_summary?: string
+          figures?: Json
+          id?: string
+          message_id?: string | null
+          period_label?: string
+          screen_path?: string
+          source_label?: string
+          status?: string
+          status_note?: string | null
+          status_updated_at?: string | null
+          status_updated_by?: string | null
+          suggestion?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_ideas_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_insights: {
+        Row: {
+          category: string
+          created_at: string
+          current_value: number
+          direction: string
+          evidence: Json
+          four_week_avg: number
+          id: string
+          is_notable: boolean
+          kampala_date: string
+          metric_name: string
+          min_role_scope: string
+          pct_change: number
+          period_label: string
+          scope_key: string
+          screen_path: string
+          source_function: string
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          current_value?: number
+          direction?: string
+          evidence?: Json
+          four_week_avg?: number
+          id?: string
+          is_notable?: boolean
+          kampala_date?: string
+          metric_name: string
+          min_role_scope?: string
+          pct_change?: number
+          period_label: string
+          scope_key: string
+          screen_path?: string
+          source_function: string
+          summary: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          current_value?: number
+          direction?: string
+          evidence?: Json
+          four_week_avg?: number
+          id?: string
+          is_notable?: boolean
+          kampala_date?: string
+          metric_name?: string
+          min_role_scope?: string
+          pct_change?: number
+          period_label?: string
+          scope_key?: string
+          screen_path?: string
+          source_function?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_kb_zero_hits: {
+        Row: {
+          caller_roles: string[]
+          created_at: string
+          hit_count: number
+          id: string
+          last_seen_at: string
+          routed_department: string
+          sanitized_query: string
+          user_id: string
+        }
+        Insert: {
+          caller_roles?: string[]
+          created_at?: string
+          hit_count?: number
+          id?: string
+          last_seen_at?: string
+          routed_department?: string
+          sanitized_query: string
+          user_id: string
+        }
+        Update: {
+          caller_roles?: string[]
+          created_at?: string
+          hit_count?: number
+          id?: string
+          last_seen_at?: string
+          routed_department?: string
+          sanitized_query?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_knowledge_base: {
+        Row: {
+          approved_by: string | null
+          body: string
+          category: string
+          created_at: string
+          created_by: string | null
+          department: string
+          expires_at: string
+          id: string
+          keywords: string[]
+          last_used_at: string | null
+          measurement_gotcha: string | null
+          official_source: string
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_by_name: string
+          screen_path: string | null
+          search_tsv: unknown
+          slug: string
+          source_unanswered_id: string | null
+          summary: string
+          synonyms: string[]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          usage_count: number
+        }
+        Insert: {
+          approved_by?: string | null
+          body: string
+          category: string
+          created_at?: string
+          created_by?: string | null
+          department?: string
+          expires_at?: string
+          id?: string
+          keywords?: string[]
+          last_used_at?: string | null
+          measurement_gotcha?: string | null
+          official_source?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string
+          screen_path?: string | null
+          search_tsv?: unknown
+          slug: string
+          source_unanswered_id?: string | null
+          summary: string
+          synonyms?: string[]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          usage_count?: number
+        }
+        Update: {
+          approved_by?: string | null
+          body?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          department?: string
+          expires_at?: string
+          id?: string
+          keywords?: string[]
+          last_used_at?: string | null
+          measurement_gotcha?: string | null
+          official_source?: string
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_by_name?: string
+          screen_path?: string | null
+          search_tsv?: unknown
+          slug?: string
+          source_unanswered_id?: string | null
+          summary?: string
+          synonyms?: string[]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          usage_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_knowledge_base_source_unanswered_id_fkey"
+            columns: ["source_unanswered_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_unanswered"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_learning_log: {
+        Row: {
+          analyst_used: boolean
+          caller_roles: string[]
+          conversation_id: string | null
+          cost_usd: number
+          created_at: string
+          error_code: string | null
+          feedback_rating: number | null
+          feedback_theme: string | null
+          gateway_model: string | null
+          id: string
+          latency_ms: number | null
+          message_id: string | null
+          model_tier: string | null
+          outcome: string
+          requested_model: string | null
+          research_used: boolean
+          tool_used: string | null
+          topic: string
+          ttfb_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          analyst_used?: boolean
+          caller_roles?: string[]
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          error_code?: string | null
+          feedback_rating?: number | null
+          feedback_theme?: string | null
+          gateway_model?: string | null
+          id?: string
+          latency_ms?: number | null
+          message_id?: string | null
+          model_tier?: string | null
+          outcome?: string
+          requested_model?: string | null
+          research_used?: boolean
+          tool_used?: string | null
+          topic: string
+          ttfb_ms?: number | null
+          user_id: string
+        }
+        Update: {
+          analyst_used?: boolean
+          caller_roles?: string[]
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          error_code?: string | null
+          feedback_rating?: number | null
+          feedback_theme?: string | null
+          gateway_model?: string | null
+          id?: string
+          latency_ms?: number | null
+          message_id?: string | null
+          model_tier?: string | null
+          outcome?: string
+          requested_model?: string | null
+          research_used?: boolean
+          tool_used?: string | null
+          topic?: string
+          ttfb_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_learning_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_messages: {
+        Row: {
+          analyst_used: boolean
+          content: string
+          conversation_id: string
+          cost_usd: number | null
+          created_at: string
+          error_code: string | null
+          gateway_model: string | null
+          hidden_at: string | null
+          hidden_by_user: boolean
+          id: string
+          latency_ms: number | null
+          model: string | null
+          outcome: string | null
+          period_label: string | null
+          report_payload: Json | null
+          requested_model: string | null
+          research_used: boolean
+          role: string
+          source_label: string | null
+          tools_called: string[]
+          ttfb_ms: number | null
+          user_id: string
+        }
+        Insert: {
+          analyst_used?: boolean
+          content: string
+          conversation_id: string
+          cost_usd?: number | null
+          created_at?: string
+          error_code?: string | null
+          gateway_model?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          report_payload?: Json | null
+          requested_model?: string | null
+          research_used?: boolean
+          role: string
+          source_label?: string | null
+          tools_called?: string[]
+          ttfb_ms?: number | null
+          user_id?: string
+        }
+        Update: {
+          analyst_used?: boolean
+          content?: string
+          conversation_id?: string
+          cost_usd?: number | null
+          created_at?: string
+          error_code?: string | null
+          gateway_model?: string | null
+          hidden_at?: string | null
+          hidden_by_user?: boolean
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          report_payload?: Json | null
+          requested_model?: string | null
+          research_used?: boolean
+          role?: string
+          source_label?: string | null
+          tools_called?: string[]
+          ttfb_ms?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_notes: {
+        Row: {
+          created_at: string
+          id: string
+          is_deleted: boolean
+          note_text: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          note_text: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          note_text?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_preferences: {
+        Row: {
+          created_at: string
+          dismissed_brief_kampala_date: string | null
+          dismissed_memory_prompts: string[]
+          has_completed_tour: boolean
+          last_brief_kampala_date: string | null
+          memory_enabled: boolean
+          morning_brief_enabled: boolean
+          morning_brief_time: string
+          updated_at: string
+          user_id: string
+          voice_disclosure_acknowledged_at: string | null
+          web_push_enabled: boolean
+          web_push_morning_brief_topic: boolean
+          web_push_muted: boolean
+          web_push_sent_kampala_date: string | null
+          web_push_sent_today_count: number
+          web_push_soft_prompt_dismissed: boolean
+          web_push_taught_updates_topic: boolean
+        }
+        Insert: {
+          created_at?: string
+          dismissed_brief_kampala_date?: string | null
+          dismissed_memory_prompts?: string[]
+          has_completed_tour?: boolean
+          last_brief_kampala_date?: string | null
+          memory_enabled?: boolean
+          morning_brief_enabled?: boolean
+          morning_brief_time?: string
+          updated_at?: string
+          user_id?: string
+          voice_disclosure_acknowledged_at?: string | null
+          web_push_enabled?: boolean
+          web_push_morning_brief_topic?: boolean
+          web_push_muted?: boolean
+          web_push_sent_kampala_date?: string | null
+          web_push_sent_today_count?: number
+          web_push_soft_prompt_dismissed?: boolean
+          web_push_taught_updates_topic?: boolean
+        }
+        Update: {
+          created_at?: string
+          dismissed_brief_kampala_date?: string | null
+          dismissed_memory_prompts?: string[]
+          has_completed_tour?: boolean
+          last_brief_kampala_date?: string | null
+          memory_enabled?: boolean
+          morning_brief_enabled?: boolean
+          morning_brief_time?: string
+          updated_at?: string
+          user_id?: string
+          voice_disclosure_acknowledged_at?: string | null
+          web_push_enabled?: boolean
+          web_push_morning_brief_topic?: boolean
+          web_push_muted?: boolean
+          web_push_sent_kampala_date?: string | null
+          web_push_sent_today_count?: number
+          web_push_soft_prompt_dismissed?: boolean
+          web_push_taught_updates_topic?: boolean
+        }
+        Relationships: []
+      }
+      staff_assistant_projects: {
+        Row: {
+          created_at: string
+          id: string
+          instructions: string
+          is_archived: boolean
+          name: string
+          pinned_file_ids: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          is_archived?: boolean
+          name: string
+          pinned_file_ids?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          instructions?: string
+          is_archived?: boolean
+          name?: string
+          pinned_file_ids?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_queries: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_message: string | null
+          executed_sql: string
+          id: string
+          question: string
+          role_areas: string[]
+          row_count: number
+          sql_text: string
+          status: string
+          truncated: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          executed_sql: string
+          id?: string
+          question?: string
+          role_areas?: string[]
+          row_count?: number
+          sql_text: string
+          status?: string
+          truncated?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_message?: string | null
+          executed_sql?: string
+          id?: string
+          question?: string
+          role_areas?: string[]
+          row_count?: number
+          sql_text?: string
+          status?: string
+          truncated?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_assistant_reminders: {
+        Row: {
+          cancelled_at: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          note: string | null
+          notified_at: string | null
+          remind_at: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          remind_at: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          notified_at?: string | null
+          remind_at?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_reminders_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_research_logs: {
+        Row: {
+          conversation_id: string | null
+          cost_usd: number
+          created_at: string
+          id: string
+          kampala_date: string
+          provider: string
+          query_text: string
+          source_count: number
+          urls_fetched: string[]
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kampala_date?: string
+          provider?: string
+          query_text: string
+          source_count?: number
+          urls_fetched?: string[]
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          cost_usd?: number
+          created_at?: string
+          id?: string
+          kampala_date?: string
+          provider?: string
+          query_text?: string
+          source_count?: number
+          urls_fetched?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_research_logs_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_schedules: {
+        Row: {
+          cancelled_at: string | null
+          conversation_id: string | null
+          created_at: string
+          custom_message: string | null
+          day_of_week: number | null
+          frequency: string
+          id: string
+          last_run_at: string | null
+          last_run_status: string | null
+          mfa_confirmed_at: string | null
+          next_run_at: string
+          recipient_emails: string[]
+          recipient_names: string[]
+          report_args: Json
+          report_rpc: string
+          report_tool: string
+          run_count: number
+          send_time_kampala: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          custom_message?: string | null
+          day_of_week?: number | null
+          frequency: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          mfa_confirmed_at?: string | null
+          next_run_at: string
+          recipient_emails: string[]
+          recipient_names?: string[]
+          report_args?: Json
+          report_rpc: string
+          report_tool: string
+          run_count?: number
+          send_time_kampala?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          custom_message?: string | null
+          day_of_week?: number | null
+          frequency?: string
+          id?: string
+          last_run_at?: string | null
+          last_run_status?: string | null
+          mfa_confirmed_at?: string | null
+          next_run_at?: string
+          recipient_emails?: string[]
+          recipient_names?: string[]
+          report_args?: Json
+          report_rpc?: string
+          report_tool?: string
+          run_count?: number
+          send_time_kampala?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_schedules_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_unanswered: {
+        Row: {
+          asker_notified_at: string | null
+          asker_seen_at: string | null
+          caller_roles: string[]
+          conversation_id: string | null
+          created_at: string
+          error_code: string | null
+          error_detail: string | null
+          id: string
+          message_id: string | null
+          question_text: string
+          reason: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          routed_department: string
+          status: string
+          taught_at: string | null
+          taught_by_name: string | null
+          taught_knowledge_id: string | null
+          user_id: string
+        }
+        Insert: {
+          asker_notified_at?: string | null
+          asker_seen_at?: string | null
+          caller_roles?: string[]
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          message_id?: string | null
+          question_text: string
+          reason?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          routed_department?: string
+          status?: string
+          taught_at?: string | null
+          taught_by_name?: string | null
+          taught_knowledge_id?: string | null
+          user_id?: string
+        }
+        Update: {
+          asker_notified_at?: string | null
+          asker_seen_at?: string | null
+          caller_roles?: string[]
+          conversation_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
+          id?: string
+          message_id?: string | null
+          question_text?: string
+          reason?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          routed_department?: string
+          status?: string
+          taught_at?: string | null
+          taught_by_name?: string | null
+          taught_knowledge_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_unanswered_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "v_staff_assistant_crm_messages_redacted"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_unanswered_taught_knowledge_id_fkey"
+            columns: ["taught_knowledge_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_knowledge_base"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_assistant_uploads: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          expires_at: string
+          extracted_summary: string
+          file_name: string
+          has_pii_warning: boolean
+          id: string
+          mime_type: string
+          pii_warning_types: string[]
+          project_id: string | null
+          size_bytes: number
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          extracted_summary?: string
+          file_name: string
+          has_pii_warning?: boolean
+          id?: string
+          mime_type: string
+          pii_warning_types?: string[]
+          project_id?: string | null
+          size_bytes: number
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          expires_at?: string
+          extracted_summary?: string
+          file_name?: string
+          has_pii_warning?: boolean
+          id?: string
+          mime_type?: string
+          pii_warning_types?: string[]
+          project_id?: string | null
+          size_bytes?: number
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_uploads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_assistant_uploads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_facilitation_notes: {
         Row: {
@@ -49938,18 +56730,21 @@ export type Database = {
       }
       staff_mfa_config: {
         Row: {
+          force_enrol_from: string | null
           id: boolean
           mode: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          force_enrol_from?: string | null
           id?: boolean
           mode?: string
           updated_at?: string
@@ -57485,6 +64280,526 @@ export type Database = {
         }
         Relationships: []
       }
+      user_withdrawal_pins: {
+        Row: {
+          created_at: string
+          failed_attempts: number
+          locked_until: string | null
+          number_change_hold_until: string | null
+          pin_hash: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          failed_attempts?: number
+          locked_until?: string | null
+          number_change_hold_until?: string | null
+          pin_hash?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      v360_buffer_pool: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          movement: string
+          note: string
+          operating_unit: string
+          rent_request_id: string | null
+          schedule_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement: string
+          note: string
+          operating_unit?: string
+          rent_request_id?: string | null
+          schedule_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movement?: string
+          note?: string
+          operating_unit?: string
+          rent_request_id?: string | null
+          schedule_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "v360_buffer_pool_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "v360_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v360_daily_allocations: {
+        Row: {
+          agent: number
+          cash: number
+          created_at: string
+          created_by: string | null
+          id: string
+          landlord_principal: number
+          operating_unit: string
+          paid_on: string
+          partner_escrow: number
+          rail: number
+          rent_request_id: string
+          welile: number
+        }
+        Insert: {
+          agent: number
+          cash: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          landlord_principal: number
+          operating_unit?: string
+          paid_on: string
+          partner_escrow: number
+          rail: number
+          rent_request_id: string
+          welile: number
+        }
+        Update: {
+          agent?: number
+          cash?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          landlord_principal?: number
+          operating_unit?: string
+          paid_on?: string
+          partner_escrow?: number
+          rail?: number
+          rent_request_id?: string
+          welile?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_daily_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      v360_guest_tenants: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          guest_tenant_id: string
+          id: string
+          reason: string
+          remaining_days: number
+          rent_request_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          guest_tenant_id: string
+          id?: string
+          reason: string
+          remaining_days: number
+          rent_request_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          guest_tenant_id?: string
+          id?: string
+          reason?: string
+          remaining_days?: number
+          rent_request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_guest_tenants_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      v360_schedules: {
+        Row: {
+          amount: number
+          buffer_amount: number
+          created_at: string
+          due_on: string
+          id: string
+          kind: string
+          month_no: number
+          rent_request_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          buffer_amount?: number
+          created_at?: string
+          due_on: string
+          id?: string
+          kind: string
+          month_no: number
+          rent_request_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          buffer_amount?: number
+          created_at?: string
+          due_on?: string
+          id?: string
+          kind?: string
+          month_no?: number
+          rent_request_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "v360_schedules_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      v360_settings: {
+        Row: {
+          id: boolean
+          new_plans_enabled: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: boolean
+          new_plans_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: boolean
+          new_plans_enabled?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           active: boolean
@@ -57807,6 +65122,7 @@ export type Database = {
           last_render_at: string | null
           max_attempts: number
           next_attempt_at: string
+          notified_at: string | null
           outcome: string | null
           person_id: string | null
           person_name: string | null
@@ -57849,6 +65165,7 @@ export type Database = {
           last_render_at?: string | null
           max_attempts?: number
           next_attempt_at?: string
+          notified_at?: string | null
           outcome?: string | null
           person_id?: string | null
           person_name?: string | null
@@ -57891,6 +65208,7 @@ export type Database = {
           last_render_at?: string | null
           max_attempts?: number
           next_attempt_at?: string
+          notified_at?: string | null
           outcome?: string | null
           person_id?: string | null
           person_name?: string | null
@@ -58158,6 +65476,7 @@ export type Database = {
           balance_amount: number | null
           balance_checked_at: string | null
           balance_currency: string | null
+          call_notify_phones: string[]
           channels: number | null
           configured: boolean
           human_calling_pause_reason: string | null
@@ -58169,12 +65488,14 @@ export type Database = {
           last_tick_at: string | null
           last_tick_result: Json | null
           low_balance: boolean
+          staff_reserved_until: string | null
           updated_at: string
         }
         Insert: {
           balance_amount?: number | null
           balance_checked_at?: string | null
           balance_currency?: string | null
+          call_notify_phones?: string[]
           channels?: number | null
           configured?: boolean
           human_calling_pause_reason?: string | null
@@ -58186,12 +65507,14 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Update: {
           balance_amount?: number | null
           balance_checked_at?: string | null
           balance_currency?: string | null
+          call_notify_phones?: string[]
           channels?: number | null
           configured?: boolean
           human_calling_pause_reason?: string | null
@@ -58203,6 +65526,7 @@ export type Database = {
           last_tick_at?: string | null
           last_tick_result?: Json | null
           low_balance?: boolean
+          staff_reserved_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -58794,6 +66118,48 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_reversal_links: {
+        Row: {
+          advance_id: string | null
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          original_group_id: string
+          posted_at: string | null
+          reference: string
+          reversal_group_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          advance_id?: string | null
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          original_group_id: string
+          posted_at?: string | null
+          reference: string
+          reversal_group_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          advance_id?: string | null
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          original_group_id?: string
+          posted_at?: string | null
+          reference?: string
+          reversal_group_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       wallet_routing_v2_corrections: {
         Row: {
           amount_moved: number
@@ -59311,6 +66677,47 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_homes_collection_requests: {
+        Row: {
+          caller_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Insert: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          requested_amount: number
+          response: Json
+          source: string
+          subscription_id: string
+        }
+        Update: {
+          caller_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          requested_amount?: number
+          response?: Json
+          source?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_collection_requests_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_enrollment_audit: {
         Row: {
           agent_id: string | null
@@ -59352,6 +66759,48 @@ export type Database = {
           },
         ]
       }
+      welile_homes_float_request_items: {
+        Row: {
+          amount: number
+          created_at: string
+          float_request_id: string
+          id: string
+          released_at: string | null
+          subscription_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          float_request_id: string
+          id?: string
+          released_at?: string | null
+          subscription_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          float_request_id?: string
+          id?: string
+          released_at?: string | null
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_float_request_items_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_float_request_items_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "welile_homes_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_homes_monthly_dues: {
         Row: {
           agent_commission: number
@@ -59359,7 +66808,9 @@ export type Database = {
           amount_collected: number
           amount_due: number
           collection_status: string
+          commission_paid: number
           created_at: string
+          due_month_index: number
           id: string
           landlord_fee: number
           landlord_id: string | null
@@ -59379,7 +66830,9 @@ export type Database = {
           amount_collected?: number
           amount_due?: number
           collection_status?: string
+          commission_paid?: number
           created_at?: string
+          due_month_index: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
@@ -59399,7 +66852,9 @@ export type Database = {
           amount_collected?: number
           amount_due?: number
           collection_status?: string
+          commission_paid?: number
           created_at?: string
+          due_month_index?: number
           id?: string
           landlord_fee?: number
           landlord_id?: string | null
@@ -59426,14 +66881,18 @@ export type Database = {
       welile_homes_subscriptions: {
         Row: {
           agent_id: string | null
+          archive_reason: string | null
+          archived_at: string | null
           created_at: string
           email_statements_enabled: boolean | null
           enrolled_by: string | null
+          funding_status: string
           has_smartphone: boolean
           id: string
           landlord_id: string | null
           landlord_name: string | null
           landlord_phone: string | null
+          landlord_ref_id: string | null
           landlord_registered: boolean
           landlord_uses_wallet: boolean
           last_interest_applied_at: string | null
@@ -59454,14 +66913,18 @@ export type Database = {
         }
         Insert: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -59482,14 +66945,18 @@ export type Database = {
         }
         Update: {
           agent_id?: string | null
+          archive_reason?: string | null
+          archived_at?: string | null
           created_at?: string
           email_statements_enabled?: boolean | null
           enrolled_by?: string | null
+          funding_status?: string
           has_smartphone?: boolean
           id?: string
           landlord_id?: string | null
           landlord_name?: string | null
           landlord_phone?: string | null
+          landlord_ref_id?: string | null
           landlord_registered?: boolean
           landlord_uses_wallet?: boolean
           last_interest_applied_at?: string | null
@@ -59508,7 +66975,373 @@ export type Database = {
           total_savings?: number
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "welile_homes_subscriptions_landlord_ref_id_fkey"
+            columns: ["landlord_ref_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
+      welile_medical_facilities: {
+        Row: {
+          approx_daily_patients: number | null
+          cell_or_village: string | null
+          country: string
+          created_at: string
+          district: string | null
+          entry_point_name: string
+          facility_name: string
+          facility_type: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_source: string | null
+          id: string
+          in_charge_name: string | null
+          in_charge_phone: string | null
+          ownership: string
+          parish_or_ward: string | null
+          region: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          sub_county_or_town: string | null
+          updated_at: string
+        }
+        Insert: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approx_daily_patients?: number | null
+          cell_or_village?: string | null
+          country?: string
+          created_at?: string
+          district?: string | null
+          entry_point_name?: string
+          facility_name?: string
+          facility_type?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_source?: string | null
+          id?: string
+          in_charge_name?: string | null
+          in_charge_phone?: string | null
+          ownership?: string
+          parish_or_ward?: string | null
+          region?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          sub_county_or_town?: string | null
+          updated_at?: string
+        }
         Relationships: []
+      }
+      welile_medical_gate_logs: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          attendant_or_kin_name: string | null
+          attendant_or_kin_phone: string | null
+          client_ref: string | null
+          department_or_ward: string | null
+          direction: string
+          entry_point_name: string | null
+          facility_id: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          person_name: string
+          phone: string | null
+          profile_id: string | null
+          recorded_at: string
+          role_type: string
+          visit_purpose_or_note: string | null
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction: string
+          entry_point_name?: string | null
+          facility_id: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type: string
+          visit_purpose_or_note?: string | null
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          attendant_or_kin_name?: string | null
+          attendant_or_kin_phone?: string | null
+          client_ref?: string | null
+          department_or_ward?: string | null
+          direction?: string
+          entry_point_name?: string | null
+          facility_id?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name?: string
+          phone?: string | null
+          profile_id?: string | null
+          recorded_at?: string
+          role_type?: string
+          visit_purpose_or_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_gate_logs_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_gate_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_profiles: {
+        Row: {
+          asset_category: string | null
+          asset_quantity: number | null
+          client_ref: string | null
+          created_at: string
+          department_or_ward: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          has_smartphone: boolean | null
+          id: string
+          next_of_kin_name: string | null
+          next_of_kin_phone: string | null
+          notes: string | null
+          phone: string | null
+          registered_by_agent_id: string
+          registered_by_agent_name: string | null
+          registered_by_agent_phone: string | null
+          role_type: string
+          signup_channel: string | null
+          signup_link_sent: boolean
+          smartphone_queue_status: string
+        }
+        Insert: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id: string
+          full_name: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Update: {
+          asset_category?: string | null
+          asset_quantity?: number | null
+          client_ref?: string | null
+          created_at?: string
+          department_or_ward?: string | null
+          facility_id?: string
+          full_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          has_smartphone?: boolean | null
+          id?: string
+          next_of_kin_name?: string | null
+          next_of_kin_phone?: string | null
+          notes?: string | null
+          phone?: string | null
+          registered_by_agent_id?: string
+          registered_by_agent_name?: string | null
+          registered_by_agent_phone?: string | null
+          role_type?: string
+          signup_channel?: string | null
+          signup_link_sent?: boolean
+          smartphone_queue_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_profiles_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_medical_transactions: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          amount_ugx: number
+          category: string
+          client_ref: string | null
+          facility_id: string
+          gate_log_id: string | null
+          id: string
+          items_or_description: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone: string | null
+          payment_method: string
+          profile_id: string | null
+          receipt_number: string
+          recorded_at: string
+          tx_direction: string
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category: string
+          client_ref?: string | null
+          facility_id: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number: string
+          recorded_at?: string
+          tx_direction: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_ugx?: number
+          category?: string
+          client_ref?: string | null
+          facility_id?: string
+          gate_log_id?: string | null
+          id?: string
+          items_or_description?: string | null
+          payer_or_payee_name?: string
+          payer_or_payee_phone?: string | null
+          payment_method?: string
+          profile_id?: string | null
+          receipt_number?: string
+          recorded_at?: string
+          tx_direction?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_medical_transactions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_gate_log_id_fkey"
+            columns: ["gate_log_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_gate_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_medical_transactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_medical_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       welile_payout_source_accounts: {
         Row: {
@@ -59591,6 +67424,523 @@ export type Database = {
           source_table?: string
           unlisted_landlord_count?: number
           unlisted_receivable_total?: number
+        }
+        Relationships: []
+      }
+      welile_school_gate_logs: {
+        Row: {
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          class_or_department: string | null
+          client_ref: string | null
+          created_at: string
+          direction: string
+          gate_name: string
+          gps_accuracy_m: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          person_name: string
+          phone: string | null
+          pickup_guardian_name: string | null
+          pickup_guardian_phone: string | null
+          profile_id: string | null
+          purpose_or_note: string | null
+          recorded_at: string
+          role_type: string
+          school_id: string
+        }
+        Insert: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          class_or_department?: string | null
+          client_ref?: string | null
+          created_at?: string
+          direction: string
+          gate_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name: string
+          phone?: string | null
+          pickup_guardian_name?: string | null
+          pickup_guardian_phone?: string | null
+          profile_id?: string | null
+          purpose_or_note?: string | null
+          recorded_at?: string
+          role_type: string
+          school_id: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          class_or_department?: string | null
+          client_ref?: string | null
+          created_at?: string
+          direction?: string
+          gate_name?: string
+          gps_accuracy_m?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          person_name?: string
+          phone?: string | null
+          pickup_guardian_name?: string | null
+          pickup_guardian_phone?: string | null
+          profile_id?: string | null
+          purpose_or_note?: string | null
+          recorded_at?: string
+          role_type?: string
+          school_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_gate_logs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "welile_school_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "welile_school_gate_logs_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_school_profiles: {
+        Row: {
+          age: number | null
+          boarding_status: string | null
+          class_grade: string | null
+          client_ref: string | null
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          facility_capacity: number | null
+          facility_condition: string | null
+          facility_type: string | null
+          fee_support_need: boolean | null
+          full_name: string | null
+          gender: string | null
+          guardian_name: string | null
+          guardian_occupation: string | null
+          guardian_phone: string | null
+          guardian_whatsapp: string | null
+          has_smartphone: boolean | null
+          id: string
+          id_number: string | null
+          needs_free_smartphone: boolean
+          next_of_kin: string | null
+          phone: string | null
+          registered_by: string
+          residence_village: string | null
+          role: string
+          school_id: string
+          signup_link_channel: string | null
+          signup_link_sent: boolean
+          signup_link_sent_at: string | null
+          smartphone_contact_phone: string | null
+          smartphone_handover_point: string | null
+          smartphone_status: string | null
+          smartphone_verification_status: string | null
+          staff_id: string | null
+          stream: string | null
+          subject_department: string | null
+          updated_at: string
+          whatsapp: string | null
+          years_at_school: number | null
+        }
+        Insert: {
+          age?: number | null
+          boarding_status?: string | null
+          class_grade?: string | null
+          client_ref?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          facility_capacity?: number | null
+          facility_condition?: string | null
+          facility_type?: string | null
+          fee_support_need?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          guardian_name?: string | null
+          guardian_occupation?: string | null
+          guardian_phone?: string | null
+          guardian_whatsapp?: string | null
+          has_smartphone?: boolean | null
+          id?: string
+          id_number?: string | null
+          needs_free_smartphone?: boolean
+          next_of_kin?: string | null
+          phone?: string | null
+          registered_by?: string
+          residence_village?: string | null
+          role: string
+          school_id: string
+          signup_link_channel?: string | null
+          signup_link_sent?: boolean
+          signup_link_sent_at?: string | null
+          smartphone_contact_phone?: string | null
+          smartphone_handover_point?: string | null
+          smartphone_status?: string | null
+          smartphone_verification_status?: string | null
+          staff_id?: string | null
+          stream?: string | null
+          subject_department?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+          years_at_school?: number | null
+        }
+        Update: {
+          age?: number | null
+          boarding_status?: string | null
+          class_grade?: string | null
+          client_ref?: string | null
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          facility_capacity?: number | null
+          facility_condition?: string | null
+          facility_type?: string | null
+          fee_support_need?: boolean | null
+          full_name?: string | null
+          gender?: string | null
+          guardian_name?: string | null
+          guardian_occupation?: string | null
+          guardian_phone?: string | null
+          guardian_whatsapp?: string | null
+          has_smartphone?: boolean | null
+          id?: string
+          id_number?: string | null
+          needs_free_smartphone?: boolean
+          next_of_kin?: string | null
+          phone?: string | null
+          registered_by?: string
+          residence_village?: string | null
+          role?: string
+          school_id?: string
+          signup_link_channel?: string | null
+          signup_link_sent?: boolean
+          signup_link_sent_at?: string | null
+          smartphone_contact_phone?: string | null
+          smartphone_handover_point?: string | null
+          smartphone_status?: string | null
+          smartphone_verification_status?: string | null
+          staff_id?: string | null
+          stream?: string | null
+          subject_department?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+          years_at_school?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_school_profiles_school_id_fkey"
+            columns: ["school_id"]
+            isOneToOne: false
+            referencedRelation: "welile_schools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_schools: {
+        Row: {
+          country: string
+          created_at: string
+          created_by: string
+          district: string | null
+          estimated_enrollment: number | null
+          gate_name: string | null
+          gps_accuracy_m: number | null
+          gps_source: string | null
+          head_name: string | null
+          head_phone: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          name: string
+          ownership: string | null
+          parish: string | null
+          region: string | null
+          school_level: string
+          sub_county: string | null
+          town: string | null
+          updated_at: string
+          village: string | null
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          created_by?: string
+          district?: string | null
+          estimated_enrollment?: number | null
+          gate_name?: string | null
+          gps_accuracy_m?: number | null
+          gps_source?: string | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name: string
+          ownership?: string | null
+          parish?: string | null
+          region?: string | null
+          school_level: string
+          sub_county?: string | null
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          created_by?: string
+          district?: string | null
+          estimated_enrollment?: number | null
+          gate_name?: string | null
+          gps_accuracy_m?: number | null
+          gps_source?: string | null
+          head_name?: string | null
+          head_phone?: string | null
+          id?: string
+          latitude?: number | null
+          longitude?: number | null
+          name?: string
+          ownership?: string | null
+          parish?: string | null
+          region?: string | null
+          school_level?: string
+          sub_county?: string | null
+          town?: string | null
+          updated_at?: string
+          village?: string | null
+        }
+        Relationships: []
+      }
+      welile_signage_status_events: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: string | null
+          id: string
+          note: string | null
+          signage_id: string
+          to_status: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          signage_id: string
+          to_status: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          signage_id?: string
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_signage_status_events_signage_id_fkey"
+            columns: ["signage_id"]
+            isOneToOne: false
+            referencedRelation: "welile_signages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      welile_signages: {
+        Row: {
+          accessibility_notes: string | null
+          activated_at: string | null
+          agent_id: string
+          agent_name: string | null
+          agent_phone: string | null
+          agent_reward_disbursed_at: string | null
+          agent_reward_disbursed_by: string | null
+          agent_reward_status: string
+          agent_reward_tx_ref: string | null
+          business_category: string | null
+          consenting_relation: string
+          county_name: string | null
+          created_at: string
+          district_name: string
+          foot_traffic: string
+          gps_accuracy_meters: number
+          gps_captured_at: string
+          gps_latitude: number
+          gps_longitude: number
+          id: string
+          installation_photos: Json
+          installed_at: string | null
+          installer_name: string | null
+          nearby_landmarks: string | null
+          operating_hours: string | null
+          owner_alt_phone: string | null
+          owner_full_name: string
+          owner_payment_method: string
+          owner_payment_name: string
+          owner_payment_number: string
+          owner_phone: string
+          owner_rent_disbursed_at: string | null
+          owner_rent_disbursed_by: string | null
+          owner_rent_status: string
+          owner_rent_tx_ref: string | null
+          parish_name: string | null
+          permission_confirmed: boolean
+          photos: Json
+          plot_or_landmark: string | null
+          property_name: string
+          property_type: string
+          proposed_dimensions: string | null
+          proposed_surface: string | null
+          reference_no: string | null
+          rejection_reason: string | null
+          removal_effective_at: string | null
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          road_visibility: string | null
+          status: string
+          sub_county_name: string | null
+          updated_at: string
+          verification_notes: string | null
+          verified_at: string | null
+          verified_by: string | null
+          village_name: string
+        }
+        Insert: {
+          accessibility_notes?: string | null
+          activated_at?: string | null
+          agent_id: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          agent_reward_disbursed_at?: string | null
+          agent_reward_disbursed_by?: string | null
+          agent_reward_status?: string
+          agent_reward_tx_ref?: string | null
+          business_category?: string | null
+          consenting_relation: string
+          county_name?: string | null
+          created_at?: string
+          district_name: string
+          foot_traffic?: string
+          gps_accuracy_meters: number
+          gps_captured_at?: string
+          gps_latitude: number
+          gps_longitude: number
+          id?: string
+          installation_photos?: Json
+          installed_at?: string | null
+          installer_name?: string | null
+          nearby_landmarks?: string | null
+          operating_hours?: string | null
+          owner_alt_phone?: string | null
+          owner_full_name: string
+          owner_payment_method?: string
+          owner_payment_name: string
+          owner_payment_number: string
+          owner_phone: string
+          owner_rent_disbursed_at?: string | null
+          owner_rent_disbursed_by?: string | null
+          owner_rent_status?: string
+          owner_rent_tx_ref?: string | null
+          parish_name?: string | null
+          permission_confirmed?: boolean
+          photos?: Json
+          plot_or_landmark?: string | null
+          property_name: string
+          property_type: string
+          proposed_dimensions?: string | null
+          proposed_surface?: string | null
+          reference_no?: string | null
+          rejection_reason?: string | null
+          removal_effective_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          road_visibility?: string | null
+          status?: string
+          sub_county_name?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          village_name: string
+        }
+        Update: {
+          accessibility_notes?: string | null
+          activated_at?: string | null
+          agent_id?: string
+          agent_name?: string | null
+          agent_phone?: string | null
+          agent_reward_disbursed_at?: string | null
+          agent_reward_disbursed_by?: string | null
+          agent_reward_status?: string
+          agent_reward_tx_ref?: string | null
+          business_category?: string | null
+          consenting_relation?: string
+          county_name?: string | null
+          created_at?: string
+          district_name?: string
+          foot_traffic?: string
+          gps_accuracy_meters?: number
+          gps_captured_at?: string
+          gps_latitude?: number
+          gps_longitude?: number
+          id?: string
+          installation_photos?: Json
+          installed_at?: string | null
+          installer_name?: string | null
+          nearby_landmarks?: string | null
+          operating_hours?: string | null
+          owner_alt_phone?: string | null
+          owner_full_name?: string
+          owner_payment_method?: string
+          owner_payment_name?: string
+          owner_payment_number?: string
+          owner_phone?: string
+          owner_rent_disbursed_at?: string | null
+          owner_rent_disbursed_by?: string | null
+          owner_rent_status?: string
+          owner_rent_tx_ref?: string | null
+          parish_name?: string | null
+          permission_confirmed?: boolean
+          photos?: Json
+          plot_or_landmark?: string | null
+          property_name?: string
+          property_type?: string
+          proposed_dimensions?: string | null
+          proposed_surface?: string | null
+          reference_no?: string | null
+          rejection_reason?: string | null
+          removal_effective_at?: string | null
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          road_visibility?: string | null
+          status?: string
+          sub_county_name?: string | null
+          updated_at?: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+          village_name?: string
         }
         Relationships: []
       }
@@ -59692,6 +68042,343 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      wh_declined_deletion_log: {
+        Row: {
+          agent_id: string | null
+          deleted_at: string
+          deleted_by: string
+          deleted_items: Json
+          id: string
+          landlord_name: string | null
+          monthly_rent: number | null
+          subscription_id: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          deleted_at?: string
+          deleted_by?: string
+          deleted_items?: Json
+          id?: string
+          landlord_name?: string | null
+          monthly_rent?: number | null
+          subscription_id?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      wh_float_request_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          float_request_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          stage: string | null
+          to_status: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          float_request_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          stage?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_float_request_events_float_request_id_fkey"
+            columns: ["float_request_id"]
+            isOneToOne: false
+            referencedRelation: "float_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_fresh_start: {
+        Row: {
+          archived_at: string
+          cutoff: string
+          id: boolean
+          note: string
+        }
+        Insert: {
+          archived_at?: string
+          cutoff: string
+          id?: boolean
+          note: string
+        }
+        Update: {
+          archived_at?: string
+          cutoff?: string
+          id?: boolean
+          note?: string
+        }
+        Relationships: []
+      }
+      wh_historical_disbursements: {
+        Row: {
+          agent_id: string | null
+          amount: number | null
+          channel: string | null
+          client_ref: string
+          evidence_path: string | null
+          id: string
+          kind: string
+          landlord_id: string | null
+          notes: string | null
+          paid_on: string | null
+          reason: string | null
+          recorded_at: string
+          recorded_by: string
+          reference: string | null
+          reverses_id: string | null
+          subscription_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          amount?: number | null
+          channel?: string | null
+          client_ref: string
+          evidence_path?: string | null
+          id?: string
+          kind: string
+          landlord_id?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          reason?: string | null
+          recorded_at?: string
+          recorded_by: string
+          reference?: string | null
+          reverses_id?: string | null
+          subscription_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number | null
+          channel?: string | null
+          client_ref?: string
+          evidence_path?: string | null
+          id?: string
+          kind?: string
+          landlord_id?: string | null
+          notes?: string | null
+          paid_on?: string | null
+          reason?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          reference?: string | null
+          reverses_id?: string | null
+          subscription_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wh_historical_disbursements_reverses_id_fkey"
+            columns: ["reverses_id"]
+            isOneToOne: true
+            referencedRelation: "wh_historical_disbursements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wh_landlord_portfolio_verifications: {
+        Row: {
+          agent_id: string
+          archived_at: string | null
+          created_at: string
+          id: string
+          landlord_name: string | null
+          landlord_phone_key: string
+          landlord_phone_sent: string
+          subscription_ids: string[]
+          tenant_count: number
+          total_monthly_rent: number
+          verified_at: string
+          verified_by: string
+        }
+        Insert: {
+          agent_id: string
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          landlord_name?: string | null
+          landlord_phone_key: string
+          landlord_phone_sent: string
+          subscription_ids: string[]
+          tenant_count: number
+          total_monthly_rent?: number
+          verified_at?: string
+          verified_by: string
+        }
+        Update: {
+          agent_id?: string
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          landlord_name?: string | null
+          landlord_phone_key?: string
+          landlord_phone_sent?: string
+          subscription_ids?: string[]
+          tenant_count?: number
+          total_monthly_rent?: number
+          verified_at?: string
+          verified_by?: string
+        }
+        Relationships: []
+      }
+      wh_nin_check_log: {
+        Row: {
+          agent_id: string
+          archived_at: string | null
+          checked_at: string
+          id: number
+          result: string
+          source: string
+        }
+        Insert: {
+          agent_id: string
+          archived_at?: string | null
+          checked_at?: string
+          id?: number
+          result: string
+          source: string
+        }
+        Update: {
+          agent_id?: string
+          archived_at?: string | null
+          checked_at?: string
+          id?: number
+          result?: string
+          source?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_draft_cleanup_log: {
+        Row: {
+          drafts_deleted: number
+          id: number
+          photos_deleted: number
+          photos_failed: number
+          reminders_sent: number
+          run_at: string
+          run_date: string
+        }
+        Insert: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Update: {
+          drafts_deleted?: number
+          id?: number
+          photos_deleted?: number
+          photos_failed?: number
+          reminders_sent?: number
+          run_at?: string
+          run_date?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_drafts: {
+        Row: {
+          agent_id: string
+          archived_at: string | null
+          created_at: string
+          form: Json
+          id: string
+          landlord_id: string | null
+          landlord_name: string | null
+          landlord_phone: string | null
+          landlord_snapshot: Json
+          photo_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          archived_at?: string | null
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          archived_at?: string | null
+          created_at?: string
+          form?: Json
+          id?: string
+          landlord_id?: string | null
+          landlord_name?: string | null
+          landlord_phone?: string | null
+          landlord_snapshot?: Json
+          photo_path?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      wh_tenant_identity: {
+        Row: {
+          created_at: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          nin: string
+          photo_path: string
+          recorded_by: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          nin?: string
+          photo_path?: string
+          recorded_by?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       wishlists: {
         Row: {
@@ -60131,6 +68818,200 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      withdrawal_pin_challenges: {
+        Row: {
+          attempts: number
+          channel: string
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          purpose: string
+          reset_id: string | null
+          user_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          purpose?: string
+          reset_id?: string | null
+          user_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          purpose?: string
+          reset_id?: string | null
+          user_id?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_pin_challenges_reset_id_fkey"
+            columns: ["reset_id"]
+            isOneToOne: false
+            referencedRelation: "withdrawal_pin_resets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_pin_config: {
+        Row: {
+          challenge_max_attempts: number
+          challenge_ttl_minutes: number
+          enforce_mode: string
+          id: boolean
+          lockout_minutes: number
+          max_codes_per_hour: number
+          max_failed_attempts: number
+          number_change_hold_hours: number
+          proof_ttl_seconds: number
+          reset_cooloff_hours: number
+          updated_at: string
+        }
+        Insert: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Update: {
+          challenge_max_attempts?: number
+          challenge_ttl_minutes?: number
+          enforce_mode?: string
+          id?: boolean
+          lockout_minutes?: number
+          max_codes_per_hour?: number
+          max_failed_attempts?: number
+          number_change_hold_hours?: number
+          proof_ttl_seconds?: number
+          reset_cooloff_hours?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_proofs: {
+        Row: {
+          created_at: string
+          device_fp: string | null
+          device_trusted: boolean | null
+          expires_at: string
+          id: string
+          purpose: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at: string
+          id?: string
+          purpose: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_fp?: string | null
+          device_trusted?: boolean | null
+          expires_at?: string
+          id?: string
+          purpose?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_resets: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          release_at: string
+          requested_at: string
+          required_factors: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          release_at?: string
+          requested_at?: string
+          required_factors?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      withdrawal_pin_setup_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          destination_masked: string | null
+          expires_at: string
+          id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          destination_masked?: string | null
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       withdrawal_release_events: {
         Row: {
@@ -61597,14 +70478,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -62025,6 +70906,42 @@ export type Database = {
         }
         Relationships: []
       }
+      mv_landlord_hub_registry: {
+        Row: {
+          active_rent_plans: number | null
+          check_flags: string[] | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          is_flagged: boolean | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_key_text: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_check: boolean | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          plan_stage: string | null
+          plans_live: number | null
+          plans_total: number | null
+          region: string | null
+          registered_at: string | null
+          registered_by: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          registrar_is_agent_now: boolean | null
+          service_center_status: string | null
+          tenants_count: number | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
+        }
+        Relationships: []
+      }
       mv_ops_daily_summary: {
         Row: {
           active_24h: number | null
@@ -62076,6 +70993,69 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_case_scorecard_desk: {
+        Row: {
+          cleared_at_source_30d: number | null
+          closed_by_staff_30d: number | null
+          closed_on_time_share_30d: number | null
+          desk: string | null
+          median_hours_to_close_30d: number | null
+          oldest_open_days: number | null
+          open_now: number | null
+          overdue_now: number | null
+        }
+        Relationships: []
+      }
+      ops_case_scorecard_staff: {
+        Row: {
+          assigned_open: number | null
+          assigned_overdue: number | null
+          dismissed_30d: number | null
+          median_hours_to_close: number | null
+          on_time_share: number | null
+          resolved_30d: number | null
+          role: string | null
+          staff_id: string | null
+          staff_name: string | null
+        }
+        Relationships: []
+      }
+      ops_cases_overdue: {
+        Row: {
+          case_ref: string | null
+          days_overdue: number | null
+          due_at: string | null
+          id: string | null
+          owner: string | null
+          owner_desk: string | null
+          severity: string | null
+          source_kind: string | null
+          title: string | null
+        }
+        Insert: {
+          case_ref?: string | null
+          days_overdue?: never
+          due_at?: string | null
+          id?: string | null
+          owner?: never
+          owner_desk?: string | null
+          severity?: string | null
+          source_kind?: string | null
+          title?: string | null
+        }
+        Update: {
+          case_ref?: string | null
+          days_overdue?: never
+          due_at?: string | null
+          id?: string | null
+          owner?: never
+          owner_desk?: string | null
+          severity?: string | null
+          source_kind?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       platform_stats: {
         Row: {
           active_disbursements: number | null
@@ -62118,6 +71098,48 @@ export type Database = {
           stored_total_repayment: number | null
           tenant_id: string | null
           total_drift_ugx: number | null
+        }
+        Relationships: []
+      }
+      rent_request_stage_events_v: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          actor_kind: string | null
+          actor_staff_ref: string | null
+          causation_id: number | null
+          from_state: string | null
+          id: number | null
+          occurred_at: string | null
+          reason: string | null
+          rent_request_id: string | null
+          to_state: string | null
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          actor_kind?: string | null
+          actor_staff_ref?: string | null
+          causation_id?: number | null
+          from_state?: string | null
+          id?: number | null
+          occurred_at?: string | null
+          reason?: never
+          rent_request_id?: string | null
+          to_state?: string | null
         }
         Relationships: []
       }
@@ -62538,6 +71560,8 @@ export type Database = {
           advance_outstanding: number | null
           agent_tier: Database["public"]["Enums"]["agent_tier"] | null
           arrears_amount: number | null
+          assigned_caller_id: string | null
+          assigned_caller_name: string | null
           attempts_made: number | null
           booked_by_name: string | null
           callback_due_at: string | null
@@ -62554,6 +71578,7 @@ export type Database = {
           houses_monthly_rent: number | null
           last_active_at: string | null
           last_attempt_at: string | null
+          last_called_at: string | null
           last_paid_at: string | null
           last_payment_at: string | null
           linked_agent_name: string | null
@@ -62569,6 +71594,8 @@ export type Database = {
           preferred_language: string | null
           priority_value: number | null
           region: string | null
+          registered_at: string | null
+          registering_agent_name: string | null
           routed_to_name: string | null
           schedule_delta_days: number | null
           severity: Database["public"]["Enums"]["hr_ticket_severity"] | null
@@ -63066,6 +72093,37 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_calls_effective: {
+        Row: {
+          amended_at: string | null
+          amended_by: string | null
+          amendment_reason: string | null
+          aware_30m: string | null
+          aware_payout_otp: string | null
+          call_back_at: string | null
+          caller_id: string | null
+          caller_team: string | null
+          dial_started_at: string | null
+          explained: string | null
+          feedback_category: string | null
+          id: string | null
+          is_amended: boolean | null
+          landlord_consent: string | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_name: string | null
+          latest_amendment_id: string | null
+          note: string | null
+          phone_dialed: string | null
+          recorded_at: string | null
+          result: string | null
+          severity: string | null
+          tenants_discussed: string[] | null
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Relationships: []
+      }
       v_landlord_float_payables: {
         Row: {
           allowance: number | null
@@ -63330,6 +72388,31 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      v_landlord_registry_all: {
+        Row: {
+          active_rent_plans: number | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          landlord_id: string | null
+          landlord_key: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          region: string | null
+          registered_at: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
+        }
+        Relationships: []
       }
       v_lc1_phone_duplicates: {
         Row: {
@@ -63944,6 +73027,25 @@ export type Database = {
           row_count: number | null
           statuses: string[] | null
           user_ids: string[] | null
+        }
+        Relationships: []
+      }
+      v_partner_commission_payable_lines: {
+        Row: {
+          category_key: string | null
+          category_label: string | null
+          counterparty_id: string | null
+          counterparty_name: string | null
+          created_at: string | null
+          daily_amount: number | null
+          due_date: string | null
+          due_kind: string | null
+          item_id: string | null
+          outstanding_amount: number | null
+          product_key: string | null
+          product_label: string | null
+          source_table: string | null
+          status: string | null
         }
         Relationships: []
       }
@@ -64848,6 +73950,59 @@ export type Database = {
         }
         Relationships: []
       }
+      v_staff_assistant_crm_messages_redacted: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string | null
+          latency_ms: number | null
+          model: string | null
+          outcome: string | null
+          period_label: string | null
+          question_text: string | null
+          role: string | null
+          source_label: string | null
+          tools_called: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          question_text?: never
+          role?: string | null
+          source_label?: string | null
+          tools_called?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          period_label?: string | null
+          question_text?: never
+          role?: string | null
+          source_label?: string | null
+          tools_called?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "staff_assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_staff_requisition_budget_context: {
         Row: {
           approved_budget: number | null
@@ -65455,6 +74610,106 @@ export type Database = {
       }
     }
     Functions: {
+      _advance_day_figures: {
+        Args: { p_advance_id: string }
+        Returns: Record<string, unknown>
+      }
+      _agent_advance_assert_new_money: {
+        Args: {
+          p_agent: string
+          p_amount: number
+          p_exclude: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      _agent_advance_book_balance: {
+        Args: { p_advance: string }
+        Returns: Json
+      }
+      _agent_advance_guard: {
+        Args: { p_op: string; p_parts: string }
+        Returns: undefined
+      }
+      _agent_advance_post_write_off: {
+        Args: { p_actor: string; p_request_id: string }
+        Returns: string
+      }
+      _agent_advance_transfer_lookalike: {
+        Args: { p_agent: string; p_amount: number; p_exclude: string }
+        Returns: Json
+      }
+      _agent_collections_app_error_included: {
+        Args: {
+          p_component_stack: string
+          p_context: string
+          p_message: string
+          p_role: string
+          p_route: string
+        }
+        Returns: boolean
+      }
+      _agent_daily_eligibility_for: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          active_count: number
+          agent_id: string
+          coverage_today: number
+          coverage_yesterday: number
+          effective_coverage: number
+          effective_pct: number
+          expected_daily: number
+          paid_today: number
+          paid_yesterday: number
+          raw_today_pct: number
+          raw_yesterday_pct: number
+          tenants_due: number
+          tenants_paid_today: number
+          tenants_paid_yesterday: number
+          today_pct: number
+          weekly_expected_week: number
+          weekly_lapsed_count: number
+          weekly_plan_count: number
+          yesterday_pct: number
+        }[]
+      }
+      _agent_expected_effective: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_expected_effective__impl: {
+        Args: { p_agent_ids: string[]; p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          day: string
+          expected_ugx: number
+          is_normal_day: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_grade_now: { Args: { p_agent: string }; Returns: Json }
+      _agent_kyc_identity_members: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          agent_id: string
+          has_vetting: boolean
+          is_holder: boolean
+          masked_nin: string
+          name: string
+          phone: string
+          relation: string
+          status: string
+          subject_id: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -65464,10 +74719,162 @@ export type Database = {
         Returns: boolean
       }
       _agent_products_authorized: { Args: never; Returns: boolean }
+      _agent_rule_judged_week_start: { Args: never; Returns: string }
+      _agent_rule_week_start: { Args: { p_day: string }; Returns: string }
+      _agent_vetting_ensure: {
+        Args: { p_uid: string }
+        Returns: {
+          agent_id: string
+          created_at: string
+          email: string | null
+          email_verified_at: string | null
+          gps1_accuracy_m: number | null
+          gps1_captured_at: string | null
+          gps1_lat: number | null
+          gps1_lng: number | null
+          gps2_accuracy_m: number | null
+          gps2_captured_at: string | null
+          gps2_lat: number | null
+          gps2_lng: number | null
+          id_back_path: string | null
+          id_captured_at: string | null
+          id_changed_at: string | null
+          id_front_path: string | null
+          id_holder_id: string | null
+          id_link_request_id: string | null
+          id_name: string | null
+          id_nin_masked: string | null
+          id_source: string | null
+          in_scope: boolean
+          nok_agent_id: string | null
+          nok_name: string | null
+          nok_phone: string | null
+          nok_relationship: string | null
+          nok_source: string | null
+          passport_photo_check: Json | null
+          passport_photo_path: string | null
+          phone: string | null
+          phone_verified_at: string | null
+          prev_id_back_path: string | null
+          prev_id_captured_at: string | null
+          prev_id_front_path: string | null
+          prev_id_name: string | null
+          prev_id_nin_masked: string | null
+          prev_id_source: string | null
+          residence: Json | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+          updated_at: string
+          verified_at: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_vetting"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _agent_vetting_id_details: { Args: { p_uid: string }; Returns: Json }
+      _agent_vetting_id_status: {
+        Args: { p_source: string; p_uid: string }
+        Returns: Json
+      }
+      _agent_vetting_log: {
+        Args: { p_agent: string; p_detail?: Json; p_event: string }
+        Returns: undefined
+      }
+      _agent_vetting_name_on_id: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_parent: { Args: { p_uid: string }; Returns: string }
+      _agent_vetting_photo_uploaded_at: {
+        Args: { p_path: string }
+        Returns: string
+      }
+      _agent_vetting_reopen: {
+        Args: { p_uid: string; p_what: string }
+        Returns: undefined
+      }
+      _agent_vetting_require_agent: { Args: never; Returns: string }
+      _agent_vetting_take_id_snapshot: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
       _agent_week_active_days: {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _agent_weekly_plan_lines: {
+        Args: { p_agent_id: string; p_through: string; p_week_start: string }
+        Returns: {
+          billed_days: number
+          collected: number
+          due: number
+          expired: boolean
+          last_day_due: number
+          paid_raw: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _agent_weekly_posting_compute: {
+        Args: { p_agent_ids?: string[]; p_week_start: string }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_weekly_posting_eligibility"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      _agent_weekly_posting_result: {
+        Args: { p_agent_id: string }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          expired_collected: number
+          expired_due: number
+          expired_pct: number | null
+          expired_plans: number
+          expired_required_pct: number | null
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number | null
+          in_window_plans: number
+          in_window_required_pct: number | null
+          passes: boolean
+          reason: string | null
+          week_end: string
+          week_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agent_weekly_posting_eligibility"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _agent_weekly_shortfall: { Args: { p_agent_id: string }; Returns: number }
       _am_plan_arrears_core: {
         Args: { p_as_at: string; p_rent_request_ids: string[] }
         Returns: {
@@ -65533,6 +74940,103 @@ export type Database = {
           id: string
         }[]
       }
+      _asset_register_category_code: {
+        Args: { p_category: string }
+        Returns: string
+      }
+      _asset_register_insert: {
+        Args: {
+          p_actor: string
+          p_batch: string
+          p_event: string
+          p_value: Json
+        }
+        Returns: {
+          asset_code: string
+          asset_tag: string | null
+          brand: string | null
+          category: string
+          condition: string
+          created_at: string
+          created_by: string
+          currency: string
+          custodian_name: string | null
+          custodian_user_id: string | null
+          department_key: string | null
+          evidence_paths: string[]
+          id: string
+          import_batch_id: string | null
+          invoice_reference: string | null
+          location: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          photo_paths: string[]
+          purchase_cost: number | null
+          purchase_date: string | null
+          quantity: number
+          serial_number: string | null
+          serial_number_norm: string | null
+          site_key: string | null
+          status: string
+          supplier: string | null
+          updated_at: string
+          updated_by: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "assets"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _asset_register_make_tag: {
+        Args: { p_asset_code: string; p_category: string; p_site_key: string }
+        Returns: string
+      }
+      _asset_register_require: { Args: { p_write: boolean }; Returns: string }
+      _asset_register_row_json: {
+        Args: { a: Database["public"]["Tables"]["assets"]["Row"] }
+        Returns: Json
+      }
+      _asset_register_serial_owner: {
+        Args: { p_category: string; p_exclude: string; p_serial: string }
+        Returns: string
+      }
+      _asset_register_validate: {
+        Args: { p: Json; p_partial: boolean }
+        Returns: Json
+      }
+      _bike_advance_priority_active: {
+        Args: { p_agent: string }
+        Returns: boolean
+      }
+      _bike_instant_sweep: {
+        Args: {
+          p_agent: string
+          p_trigger_amount: number
+          p_trigger_cat: string
+          p_trigger_id: string
+        }
+        Returns: number
+      }
+      _bike_priority_remaining: {
+        Args: { p_agent: string; p_day: string }
+        Returns: number
+      }
+      _bike_priority_split: {
+        Args: {
+          p_available: number
+          p_outstanding: number
+          p_paid: number
+          p_quota: number
+        }
+        Returns: {
+          bike: number
+          surplus: number
+        }[]
+      }
+      _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -65579,6 +75083,12 @@ export type Database = {
       }
       _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
+      _cfo_meter: { Args: never; Returns: Json }
+      _cfo_paid_category_for: { Args: { p_category: string }; Returns: string }
+      _cfo_paid_lunch_correction_ok: {
+        Args: { p_amount: number; p_group: string; p_id: string; p_ts: string }
+        Returns: boolean
+      }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
@@ -65598,6 +75108,14 @@ export type Database = {
           ts: string
         }[]
       }
+      _cfo_received_agent_product_for: {
+        Args: {
+          p_category: string
+          p_is_bike_lease: boolean
+          p_source_table: string
+        }
+        Returns: string
+      }
       _cfo_received_base: {
         Args: {
           p_from: string
@@ -65613,6 +75131,26 @@ export type Database = {
           status: string
           ts: string
         }[]
+      }
+      _cfo_received_category_for:
+        | { Args: { p_category: string }; Returns: string }
+        | {
+            Args: { p_category: string; p_source_table: string }
+            Returns: string
+          }
+      _claim_return_cycle: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_cycle_date: string
+          p_kind: string
+          p_override_id: string
+          p_pending_operation_id: string
+          p_portfolio_id: string
+          p_reference: string
+          p_source: string
+        }
+        Returns: string
       }
       _classify_daily_rating:
         | { Args: { p_active_count: number; p_ratio: number }; Returns: string }
@@ -65645,7 +75183,27 @@ export type Database = {
         }
         Returns: string
       }
+      _credit_limit_subagent_counts: {
+        Args: { p_user_id: string }
+        Returns: {
+          active_subagents: number
+          registered_subagents: number
+        }[]
+      }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
+      _desk_stage_counts: {
+        Args: never
+        Returns: {
+          done_24h: number
+          done_7d: number
+          stage: string
+          stage_ord: string
+          waiting: number
+          waiting_ugx: number
+        }[]
+      }
+      _desk_take_stage_snapshot: { Args: never; Returns: number }
+      _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
       _dormant_bike_leases: {
         Args: { p_agent?: string }
@@ -65661,6 +75219,11 @@ export type Database = {
           lease_days_remaining: number
           lease_id: string
         }[]
+      }
+      _e28_phone9: { Args: { p: string }; Returns: string }
+      _file_allocation_return_for_rejected_payout: {
+        Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
+        Returns: string
       }
       _food_default_period: { Args: never; Returns: string }
       _food_list_meal_on_day: {
@@ -65694,6 +75257,35 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _is_landlord_payout_owner: { Args: never; Returns: boolean }
+      _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
+      _landlord_cc_events_in_window: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          call_id: string
+          called_at: string
+          caller_id: string
+          caller_name: string
+          category_code: string
+          category_label: string
+          cycle_row_id: string
+          direction: string
+          feedback_id: string
+          is_callback: boolean
+          is_engaged: boolean
+          is_reached: boolean
+          is_unreachable: boolean
+          kampala_day: string
+          landlord_key: string
+          landlord_name: string
+          note: string
+          outcome: string
+          raw_phone: string
+          received_call_id: string
+          source: string
+        }[]
+      }
+      _landlord_cc_staff_ok: { Args: never; Returns: boolean }
       _landlord_float_coo_step_problem: {
         Args: {
           p_row: Database["public"]["Tables"]["rent_requests"]["Row"]
@@ -65723,6 +75315,8 @@ export type Database = {
       }
       _landlord_float_position: { Args: { p_day: string }; Returns: Json }
       _landlord_float_ugx: { Args: { p_amount: number }; Returns: string }
+      _landlord_hub_can_read: { Args: never; Returns: boolean }
+      _landlord_hub_can_record: { Args: never; Returns: boolean }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -65754,12 +75348,128 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      _merch_manual_split_safe: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
+      }
+      _merch_order_marked_issued: {
+        Args: { p_channel: string; p_status: string }
+        Returns: boolean
+      }
+      _merch_post_derecognition: {
+        Args: {
+          p_actor: string
+          p_counterpart: string
+          p_note: string
+          p_review: string
+        }
+        Returns: Json
+      }
+      _merch_post_stock_recognition: {
+        Args: {
+          p_actor: string
+          p_evidence: string
+          p_evidence_kind: string
+          p_review: string
+        }
+        Returns: Json
+      }
+      _merch_receivable_event: {
+        Args: { p_event: string; p_plan: string; p_sale: string }
+        Returns: undefined
+      }
+      _merch_receivable_net: {
+        Args: { p_bike: boolean; p_plans: string[]; p_sale: string }
+        Returns: Json
+      }
+      _merch_release_receivable_category: {
+        Args: { p_item_name: string }
+        Returns: string
+      }
+      _merch_stock_on_handover: { Args: { p_sale: string }; Returns: undefined }
+      _merch_stock_on_issue: { Args: { p_sale: string }; Returns: undefined }
+      _merch_stock_queue: {
+        Args: { p_origin: string; p_sale: string }
+        Returns: string
+      }
+      _merch_stock_receivable_due: { Args: { p_sale: string }; Returns: Json }
+      _merch_unrecorded_sale_check: {
+        Args: { p_origin: string; p_sale: string }
+        Returns: string
+      }
+      _ontology_board_stage: { Args: { p_board: string }; Returns: string }
+      _ontology_document_text: { Args: never; Returns: string }
+      _ontology_inventory: { Args: never; Returns: Json }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
           existing_count: number
           existing_total: number
         }[]
+      }
+      _partner_receivable_derecognise_deleted: {
+        Args: {
+          p_note_id: string
+          p_partner_name: string
+          p_reason: string
+          p_status: string
+        }
+        Returns: Json
+      }
+      _partner_statement_build: { Args: { p_user_id: string }; Returns: Json }
+      _pf_identity: { Args: { p_oid: unknown }; Returns: string }
+      _pf_log: {
+        Args: {
+          p_command: string
+          p_detail?: string
+          p_identity: string
+          p_new_md5: string
+          p_old_md5: string
+          p_outcome: string
+        }
+        Returns: string
+      }
+      _pf_restore: { Args: { p_definition: string }; Returns: undefined }
+      _pf_unlocked: { Args: never; Returns: boolean }
+      _pipeline_auto_checks: {
+        Args: { p_request_id: string }
+        Returns: {
+          code: string
+          detail: string
+          system_said: string
+        }[]
+      }
+      _pipeline_can_act_desk: {
+        Args: { p_desk: string; p_request_id: string; p_uid: string }
+        Returns: boolean
+      }
+      _pipeline_can_review: {
+        Args: { p_request_id: string; p_stage: string; p_uid: string }
+        Returns: boolean
+      }
+      _pipeline_can_view: {
+        Args: { p_request_id: string; p_uid: string }
+        Returns: boolean
+      }
+      _pipeline_desk_ratings: {
+        Args: { p_auto?: Json; p_request_id: string }
+        Returns: Json
+      }
+      _pipeline_my_roles: { Args: { p_uid: string }; Returns: string[] }
+      _pipeline_sc_decide: {
+        Args: { p_auto: Json; p_request_id: string }
+        Returns: Json
+      }
+      _pipeline_staff_ref: { Args: { p_uid: string }; Returns: string }
+      _pipeline_stage_rating: {
+        Args: { p_auto: Json; p_request_id: string; p_stage: string }
+        Returns: number
+      }
+      _pipeline_stage_status: { Args: { p_stage: string }; Returns: string }
+      _pipeline_switch_on: { Args: { p_key: string }; Returns: boolean }
+      _pipeline_tenant_flags: {
+        Args: { p_auto?: Json; p_request_id: string }
+        Returns: Json
       }
       _post_four_part_fee_split: {
         Args: {
@@ -65784,10 +75494,37 @@ export type Database = {
         }
         Returns: Json
       }
+      _post_portfolio_roi_ledger_core: {
+        Args: {
+          p_amount: number
+          p_apply_portfolio: boolean
+          p_cycle_date: string
+          p_description_in: string
+          p_description_out: string
+          p_operation: string
+          p_override_id: string
+          p_portfolio_id: string
+          p_reference: string
+        }
+        Returns: string
+      }
       _post_rent_fee_collection_legacy: {
         Args: {
           p_payment_amount: number
           p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
+      _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
+      _release_unpaid_commission_budget: {
+        Args: {
+          p_budget: number
+          p_idempotency_key: string
+          p_offset_category: string
+          p_paid: number
+          p_reference_id: string
           p_source_id: string
           p_source_table: string
         }
@@ -65844,6 +75581,18 @@ export type Database = {
         }
         Returns: Json
       }
+      _return_cycle_can_request: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
+      _return_cycle_claim_for_operation_row: {
+        Args: {
+          p_at_approval?: boolean
+          p_op: Database["public"]["Tables"]["pending_wallet_operations"]["Row"]
+        }
+        Returns: string
+      }
+      _return_cycle_posted_total: { Args: { p_claim: string }; Returns: number }
       _rt_compute: {
         Args: { e: Json; p_as_of: string; p_with_visits?: boolean }
         Returns: Json
@@ -65869,6 +75618,146 @@ export type Database = {
           user_id: string
         }[]
       }
+      _smartphone_recovery_split: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
+      }
+      _smartphone_recovery_split_safe: {
+        Args: { p_amount: number; p_on: string; p_plan_id: string }
+        Returns: Json
+      }
+      _special_advance_allocate: {
+        Args: { p_amount: number; p_due: Json }
+        Returns: Json
+      }
+      _special_advance_allowance_held: {
+        Args: { p_id: string }
+        Returns: number
+      }
+      _special_advance_check_proof: {
+        Args: { p_advance: string; p_path: string }
+        Returns: string
+      }
+      _special_advance_correction_json: {
+        Args: { p_id: string }
+        Returns: Json
+      }
+      _special_advance_eligibility: {
+        Args: {
+          p_exclude: string
+          p_kind: string
+          p_national_id: string
+          p_phone: string
+          p_registration_number: string
+          p_user: string
+        }
+        Returns: string[]
+      }
+      _special_advance_issuance_enabled: { Args: never; Returns: boolean }
+      _special_advance_json: { Args: { p_id: string }; Returns: Json }
+      _special_advance_kampala_today: { Args: never; Returns: string }
+      _special_advance_lock: {
+        Args: { p_expected_updated_at: string; p_id: string }
+        Returns: {
+          access_fee: number
+          approved_at: string | null
+          approved_by: string | null
+          borrower_kind: string
+          borrower_user_id: string | null
+          calc_version: string
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          created_by: string
+          decision_reason: string | null
+          disbursed_at: string | null
+          disbursed_by: string | null
+          external_borrower_id: string | null
+          frequency: string
+          id: string
+          idempotency_key: string
+          instalment_amount: number
+          instalments: number
+          payout_date: string | null
+          payout_ledger_group_id: string | null
+          payout_method: string | null
+          payout_proof_path: string | null
+          payout_reference: string | null
+          planned_payout_date: string | null
+          principal: number
+          purpose: string
+          rate_basis: string
+          rate_percent: number
+          reference: string
+          registration_fee: number
+          rejected_at: string | null
+          rejected_by: string | null
+          settled_at: string | null
+          status: string
+          term_days: number
+          total_repayable: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "special_advances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _special_advance_minimum_rate: {
+        Args: { p_days_past_due: number }
+        Returns: number
+      }
+      _special_advance_norm_phone: { Args: { p: string }; Returns: string }
+      _special_advance_parse_borrower: { Args: { p: Json }; Returns: Json }
+      _special_advance_parse_terms: {
+        Args: { p: Json; p_start: string }
+        Returns: Json
+      }
+      _special_advance_position: { Args: { p_id: string }; Returns: Json }
+      _special_advance_provision_line: {
+        Args: { p_id: string; p_individual: number }
+        Returns: Json
+      }
+      _special_advance_provision_proposal: {
+        Args: { p_individual: Json }
+        Returns: Json
+      }
+      _special_advance_provision_review_json: {
+        Args: { p_id: string }
+        Returns: Json
+      }
+      _special_advance_reason: {
+        Args: { p: string; p_required: boolean }
+        Returns: string
+      }
+      _special_advance_require_cfo: { Args: never; Returns: string }
+      _special_advance_require_mfa: { Args: never; Returns: undefined }
+      _special_advance_schedule: {
+        Args: {
+          p_frequency: string
+          p_principal: number
+          p_rate_basis: string
+          p_rate_percent: number
+          p_start_date: string
+          p_term_days: number
+        }
+        Returns: Json
+      }
+      _special_advance_sofp_memo: { Args: { p_as_at: string }; Returns: Json }
+      _special_advance_term_errors: {
+        Args: {
+          p_frequency: string
+          p_principal: number
+          p_rate_basis: string
+          p_rate_percent: number
+          p_start_date: string
+          p_term_days: number
+        }
+        Returns: string[]
+      }
+      _special_advance_write_off_json: { Args: { p_id: string }; Returns: Json }
       _spiro_lease_fee_total: {
         Args: { p_base: number; p_term: number }
         Returns: number
@@ -66063,6 +75952,23 @@ export type Database = {
         }
         Returns: Json
       }
+      _v360_activate_core: {
+        Args: { p_rent_request_id: string; p_start: string }
+        Returns: Json
+      }
+      _v360_maturity: {
+        Args: { r: Database["public"]["Tables"]["rent_requests"]["Row"] }
+        Returns: string
+      }
+      _v360_waterfall_core: {
+        Args: {
+          p_by: string
+          p_cash: number
+          p_paid_on: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       _wallet_strict_for_users_impl: {
         Args: { p_ids: string[] }
         Returns: {
@@ -66076,6 +75982,32 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      _wh_archive_viewer: { Args: never; Returns: boolean }
+      _wh_declined_block_reason: { Args: { p_id: string }; Returns: string }
+      _wh_float_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      _wh_float_stage_of: { Args: { p_status: string }; Returns: string }
+      _wh_hist_can_read: { Args: never; Returns: boolean }
+      _wh_hist_can_write: { Args: never; Returns: boolean }
+      _wh_is_tenant_agent: {
+        Args: { p_tenant: string; p_uid: string }
+        Returns: boolean
+      }
+      _wh_nin_checks_last_hour: { Args: { p_agent: string }; Returns: number }
+      _wh_owns_landlord_key: {
+        Args: { p_agent: string; p_key: string }
+        Returns: boolean
+      }
+      _wh_phone_key: { Args: { p: string }; Returns: string }
+      _wh_portfolio_subs: {
+        Args: { p_agent: string; p_key: string }
+        Returns: string[]
+      }
+      _wh_resolve_landlord_ref: {
+        Args: { p_agent: string; p_landlord_id: string; p_phone: string }
+        Returns: string
+      }
+      _wh_sub_archived: { Args: { p_sub: string }; Returns: boolean }
+      _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -66206,6 +76138,20 @@ export type Database = {
         }
         Returns: number
       }
+      advance_pay_now: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_expected_paid_today?: number
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      advance_pay_now_preview: {
+        Args: { p_advance_id: string; p_agent_id: string }
+        Returns: Json
+      }
       advance_period_days: { Args: { _frequency: string }; Returns: number }
       advance_reversal_plan: { Args: { p_advance_id: string }; Returns: Json }
       advance_reversal_plan_batch: {
@@ -66284,6 +76230,10 @@ export type Database = {
       }
       agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_bike_advance_priority: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       agent_can_view_trust: { Args: { _user_id: string }; Returns: boolean }
       agent_cancel_merchandise_order: {
         Args: { p_reason?: string; p_sale_id: string }
@@ -66448,6 +76398,20 @@ export type Database = {
         Args: { p_agent_id: string }
         Returns: boolean
       }
+      agent_grade_of: { Args: { p_agent: string }; Returns: Json }
+      agent_grade_refresh: { Args: { p_day?: string }; Returns: number }
+      agent_kyc_identity_group: {
+        Args: { p_agent_id: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      agent_kyc_identity_summary: {
+        Args: { p_agent_ids: string[] }
+        Returns: Json
+      }
+      agent_kyc_overview: {
+        Args: { p_days?: number; p_in_scope_only?: boolean }
+        Returns: Json
+      }
       agent_league_heat_level: {
         Args: { p_collected: number; p_expected: number }
         Returns: string
@@ -66497,6 +76461,23 @@ export type Database = {
       agent_list_subagent_tenant_transfers: {
         Args: { p_limit?: number }
         Returns: Json
+      }
+      agent_onboarded_portfolios: {
+        Args: never
+        Returns: {
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          investor_id: string
+          maturity_date: string
+          next_roi_date: string
+          partner_name: string
+          portfolio_code_masked: string
+          portfolio_id: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
       }
       agent_ops_approve_merchandise_order: {
         Args: { p_sale_id: string }
@@ -66941,6 +76922,39 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_own_promissory_notes: {
+        Args: never
+        Returns: {
+          amount: number
+          contribution_type: string
+          created_at: string
+          deduction_day: number
+          id: string
+          next_deduction_date: string
+          partner_name: string
+          status: string
+          total_collected: number
+        }[]
+      }
+      agent_partner_payout_destination: {
+        Args: { p_partner_id: string; p_route_key: string }
+        Returns: {
+          out_bank: string
+          out_mode: string
+          out_name: string
+          out_number: string
+          out_provider: string
+        }[]
+      }
+      agent_partner_payout_routes: {
+        Args: { p_partner_id: string }
+        Returns: {
+          label: string
+          payout_mode: string
+          portfolio_id: string
+          route_key: string
+        }[]
+      }
       agent_pay_merchandise_plan: {
         Args: { p_amount: number; p_plan_id: string }
         Returns: Json
@@ -66957,12 +76971,56 @@ export type Database = {
           week_start: string
         }[]
       }
+      agent_payout_weekly_performance: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          book: string
+          collected: number
+          expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
+          passes: boolean
+          rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       agent_per_tenant_max: { Args: { _agent_id: string }; Returns: number }
       agent_performance_home_basis_range: {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
       agent_product_category: { Args: { p_item_name: string }; Returns: string }
+      agent_proxy_withdrawal_id_for_client_request: {
+        Args: { p_client_request_id: string }
+        Returns: string
+      }
+      agent_proxy_withdrawal_summaries: {
+        Args: never
+        Returns: {
+          agent_id: string
+          amount: number
+          created_at: string
+          id: string
+          linked_party: string
+          payout_method: string
+          processed_at: string
+          proxy_partner_id: string
+          reason: string
+          rejection_reason: string
+          status: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       agent_purchase_merchandise: {
         Args: {
           p_catalog_id: string
@@ -67081,6 +77139,15 @@ export type Database = {
         Args: { p_collection_id: string; p_reason: string }
         Returns: Json
       }
+      agent_save_intake_details: {
+        Args: {
+          p_family_size: number
+          p_request_id: string
+          p_work_business: string
+          p_work_location?: string
+        }
+        Returns: Json
+      }
       agent_set_own_contact_email: {
         Args: { p_email: string }
         Returns: string
@@ -67176,6 +77243,7 @@ export type Database = {
           pending_window_reset_by: string | null
           pending_window_reset_count: number
           preferred_language: string | null
+          pricing_version: string
           proxy_agent_id: string | null
           registration_type: string
           rejected_at: string | null
@@ -67227,10 +77295,18 @@ export type Database = {
           tenant_ops_reviewed_at: string | null
           tenant_ops_reviewed_by: string | null
           tenant_photo_url: string | null
+          tenant_self_applied: boolean
           tenant_water_meter: string | null
           total_repayment: number
           total_roi_paid: number | null
           updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
         }
         SetofOptions: {
           from: "*"
@@ -67267,6 +77343,63 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_vetting_capture_gps: {
+        Args: { p_accuracy_m: number; p_lat: number; p_lng: number }
+        Returns: Json
+      }
+      agent_vetting_confirm_email: { Args: never; Returns: Json }
+      agent_vetting_confirm_phone: { Args: never; Returns: Json }
+      agent_vetting_detail: { Args: { p_agent_id: string }; Returns: Json }
+      agent_vetting_distance_m: {
+        Args: { p_lat1: number; p_lat2: number; p_lng1: number; p_lng2: number }
+        Returns: number
+      }
+      agent_vetting_gate_status: { Args: { p_agent_id: string }; Returns: Json }
+      agent_vetting_in_scope: { Args: { p_uid: string }; Returns: boolean }
+      agent_vetting_is_real_email: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
+      agent_vetting_parent_id_link_state: { Args: never; Returns: Json }
+      agent_vetting_queue: {
+        Args: {
+          p_in_scope_only?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      agent_vetting_request_id_reupload: {
+        Args: { p_agent_id: string; p_reason: string }
+        Returns: Json
+      }
+      agent_vetting_request_parent_id_link: { Args: never; Returns: Json }
+      agent_vetting_save_details: {
+        Args: {
+          p_id_source?: string
+          p_nok_name?: string
+          p_nok_phone?: string
+          p_nok_relationship?: string
+          p_nok_use_parent?: boolean
+          p_passport_photo_check?: Json
+          p_passport_photo_path?: string
+        }
+        Returns: Json
+      }
+      agent_vetting_save_residence: {
+        Args: {
+          p_city?: string
+          p_district: string
+          p_parish: string
+          p_region: string
+          p_sub_county: string
+          p_town?: string
+          p_village: string
+        }
+        Returns: Json
+      }
       agent_wallet_network_ids: { Args: { _agent: string }; Returns: string[] }
       agent_weekly_performance: {
         Args: { p_agent_id: string; p_week_start?: string }
@@ -67282,6 +77415,19 @@ export type Database = {
           week_end: string
           week_start: string
         }[]
+      }
+      agreement_findings_to_cases: { Args: { p_run: string }; Returns: number }
+      agreement_register_can_read: { Args: never; Returns: boolean }
+      agreement_register_can_write: { Args: never; Returns: boolean }
+      agreement_register_upload: {
+        Args: {
+          p_body: string
+          p_code: string
+          p_effective_from?: string
+          p_notes?: string
+          p_version_label: string
+        }
+        Returns: string
       }
       allocate_company_managed_portfolio: {
         Args: { p_portfolio_id: string }
@@ -67302,7 +77448,15 @@ export type Database = {
         Args: { p_agent_id: string; p_reason: string }
         Returns: string
       }
+      allow_agent_landlord_float_withdrawal_unchecked: {
+        Args: { p_agent_id: string; p_reason: string }
+        Returns: string
+      }
       allow_landlord_payouts_with_exception: {
+        Args: { p_reason: string; p_withdrawal_ids: string[] }
+        Returns: number
+      }
+      allow_landlord_payouts_with_exception_unchecked: {
         Args: { p_reason: string; p_withdrawal_ids: string[] }
         Returns: number
       }
@@ -67615,6 +77769,10 @@ export type Database = {
         Returns: string
       }
       assert_agent_collections_report_access: { Args: never; Returns: boolean }
+      assert_financial_ops_area: {
+        Args: { p_area: string }
+        Returns: undefined
+      }
       assert_funding_treasury_recognised: {
         Args: { p_rent_request_id: string }
         Returns: undefined
@@ -67663,6 +77821,42 @@ export type Database = {
         }
         Returns: undefined
       }
+      asset_register_add_evidence: {
+        Args: { p_id: string; p_kind: string; p_path: string }
+        Returns: Json
+      }
+      asset_register_check_duplicates: { Args: { p_rows: Json }; Returns: Json }
+      asset_register_create: { Args: { p_asset: Json }; Returns: Json }
+      asset_register_get: { Args: { p_id: string }; Returns: Json }
+      asset_register_import_commit: {
+        Args: { p_file_name: string; p_file_sha256: string; p_rows: Json }
+        Returns: Json
+      }
+      asset_register_list: {
+        Args: {
+          p_category?: string
+          p_condition?: string
+          p_department?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: Json
+      }
+      asset_register_read_ok: { Args: never; Returns: boolean }
+      asset_register_reference_data: { Args: never; Returns: Json }
+      asset_register_summary: { Args: never; Returns: Json }
+      asset_register_update: {
+        Args: {
+          p_changes: Json
+          p_expected_updated_at: string
+          p_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      asset_register_write_ok: { Args: never; Returns: boolean }
       assign_bike_lease_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
@@ -67691,13 +77885,33 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_agent_help_search: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: Json
+      }
+      assistant_agent_houses: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
+      assistant_agent_landlord_float: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
       assistant_agent_landlords: {
         Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_agent_leaderboard: {
+        Args: { p_week_start?: string }
         Returns: Json
       }
       assistant_agent_my_profile: { Args: never; Returns: Json }
       assistant_agent_subagent_detail: {
         Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_subagent_tenants: {
+        Args: { p_limit?: number; p_plan?: string; p_search: string }
         Returns: Json
       }
       assistant_agent_subagents: {
@@ -67708,6 +77922,11 @@ export type Database = {
           p_search?: string
           p_to?: string
         }
+        Returns: Json
+      }
+      assistant_agent_target_progress: { Args: never; Returns: Json }
+      assistant_agent_team_summary: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
         Returns: Json
       }
       assistant_agent_tenant_detail: {
@@ -67726,14 +77945,300 @@ export type Database = {
         Returns: Json
       }
       assistant_clean_phone: { Args: { p_phone: string }; Returns: string }
+      assistant_clean_terms: { Args: { p_text: string }; Returns: string }
       assistant_clean_text: {
         Args: { p_address?: boolean; p_max?: number; p_text: string }
         Returns: string
       }
       assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_is_partner: { Args: never; Returns: boolean }
+      assistant_mask_tail: { Args: { p_value: string }; Returns: string }
+      assistant_my_messages: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_contract: { Args: never; Returns: Json }
+      assistant_partner_overview: { Args: never; Returns: Json }
+      assistant_partner_portfolio_detail: {
+        Args: { p_code: string }
+        Returns: Json
+      }
+      assistant_partner_portfolios: {
+        Args: { p_limit?: number; p_search?: string; p_status?: string }
+        Returns: Json
+      }
+      assistant_partner_requests: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_returns: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_partner_topups: { Args: { p_limit?: number }; Returns: Json }
+      assistant_partner_upcoming: { Args: { p_days?: number }; Returns: Json }
+      assistant_partner_wallet_activity: {
+        Args: {
+          p_direction?: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_partner_withdrawals: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
+      assistant_require_partner: { Args: never; Returns: undefined }
+      assistant_staff_aops_listing_quality_and_risk: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_agents: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_staff_aops_metrics_totals: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_network_overview: {
+        Args: { p_from?: string; p_min_expected?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_aops_silent_collectors: {
+        Args: { p_limit?: number; p_min_days_silent?: number }
+        Returns: Json
+      }
+      assistant_staff_aops_subagent_teams: {
+        Args: { p_from?: string; p_limit?: number; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_ceo_growth_and_approvals: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_budget_revised_position: {
+        Args: never
+        Returns: Json
+      }
+      assistant_staff_cfo_money_flow_summary: { Args: never; Returns: Json }
+      assistant_staff_cfo_receivables_and_payables: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
+      assistant_staff_cfo_seven_day_expenses: { Args: never; Returns: Json }
+      assistant_staff_cfo_treasury_cash_position: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
+      assistant_staff_coo_overview: {
+        Args: { p_days?: number; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_data_catalog: { Args: { p_area?: string }; Returns: Json }
+      assistant_staff_fops_disbursements: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_fops_merchant_cashouts: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_fops_verification_and_requisitions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_get_data_catalog: {
+        Args: { p_area?: string }
+        Returns: Json
+      }
+      assistant_staff_get_glossary: {
+        Args: { p_category?: string; p_search?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_calling_detailed_report: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_hr_contracts_and_birthdays: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_hr_payroll_cost_by_department: {
+        Args: { p_period_code?: string }
+        Returns: Json
+      }
+      assistant_staff_insight_calling_reach_and_themes: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_insight_collection_coverage_trends: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_desk_wait_times: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_payout_delays: {
+        Args: { p_weeks?: number }
+        Returns: Json
+      }
+      assistant_staff_insight_zoe_feedback_themes: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      assistant_staff_lops_calling_coverage: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_calling_summary: {
+        Args: { p_from?: string; p_to?: string; p_week_start?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_home_range: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_paid_lists: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_tab?: string
+        }
+        Returns: Json
+      }
+      assistant_staff_lops_principal_comparison: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_lops_verification_queue: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      assistant_staff_morning_brief_what_changed: { Args: never; Returns: Json }
+      assistant_staff_my_advances: { Args: never; Returns: Json }
+      assistant_staff_my_calls: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_my_canteen: {
+        Args: { p_service_date?: string }
+        Returns: Json
+      }
+      assistant_staff_my_payslips: { Args: never; Returns: Json }
+      assistant_staff_my_pending_concerns: { Args: never; Returns: Json }
+      assistant_staff_my_profile: { Args: never; Returns: Json }
+      assistant_staff_my_reminders_and_schedules: {
+        Args: { p_include_cancelled?: boolean }
+        Returns: Json
+      }
+      assistant_staff_my_requisitions: { Args: never; Returns: Json }
+      assistant_staff_my_tasks: { Args: { p_status?: string }; Returns: Json }
+      assistant_staff_my_taught_updates: { Args: never; Returns: Json }
+      assistant_staff_my_tickets: { Args: never; Returns: Json }
+      assistant_staff_my_wallet: { Args: never; Returns: Json }
+      assistant_staff_my_work_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_personalised_starters: { Args: never; Returns: Json }
+      assistant_staff_pops_pending_summary: {
+        Args: { p_month?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_report_overview: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_returns_due: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_search_supporters: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_staff_pops_topups_and_withdrawals_waiting: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      assistant_staff_pso_cohort_performance: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_run_query: {
+        Args: { p_question?: string; p_sql: string }
+        Returns: Json
+      }
+      assistant_staff_search_knowledge_base: {
+        Args: { p_category?: string; p_limit?: number; p_query?: string }
+        Returns: Json
+      }
+      assistant_staff_team_work_summary: {
+        Args: { p_department?: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_arrears_ageing: {
+        Args: {
+          p_as_at?: string
+          p_bucket?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      assistant_staff_tops_awareness_calls: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_find_tenant: {
+        Args: { p_limit?: number; p_search: string }
+        Returns: Json
+      }
+      assistant_staff_tops_first_seven_summary: {
+        Args: { p_frequency?: string; p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_landlord_not_paid: {
+        Args: { p_as_at?: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      assistant_staff_tops_no_payment_report: {
+        Args: { p_min_days?: number }
+        Returns: Json
+      }
+      assistant_staff_tops_rent_request_lifetime: { Args: never; Returns: Json }
+      assistant_staff_tops_rent_requests_by_stage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_smartphone_usage: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_tenant_classification: { Args: never; Returns: Json }
+      assistant_staff_tops_time_on_desk: {
+        Args: { p_limit?: number; p_stage?: string }
+        Returns: Json
+      }
+      assistant_staff_tops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
@@ -67768,6 +78273,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      authorise_return_cycle_override: {
+        Args: {
+          p_cycle_date: string
+          p_max_amount: number
+          p_portfolio_id: string
+          p_reason: string
+          p_requester: string
+        }
+        Returns: string
+      }
       auto_activate_merchant_referral: {
         Args: { p_referrer: string }
         Returns: {
@@ -67781,6 +78296,10 @@ export type Database = {
         Returns: {
           closed_count: number
         }[]
+      }
+      auto_create_deposit_from_gmail_row: {
+        Args: { p_gmail_transaction_id: string }
+        Returns: number
       }
       auto_create_deposits_from_gmail: {
         Args: { p_window_hours?: number }
@@ -68519,6 +79038,10 @@ export type Database = {
         Returns: boolean
       }
       can_review_bike_leases: { Args: { _user_id: string }; Returns: boolean }
+      can_review_landlord_payout_numbers: {
+        Args: { p_user: string }
+        Returns: boolean
+      }
       can_review_smartphone_orders: {
         Args: { _user_id: string }
         Returns: boolean
@@ -68575,6 +79098,10 @@ export type Database = {
       }
       cancel_tenant_repayment_pause: {
         Args: { p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      cancel_withdrawal_pin_reset: {
+        Args: { p_request_id: string }
         Returns: Json
       }
       capture_db_stat_hourly: { Args: never; Returns: Json }
@@ -69032,8 +79559,37 @@ export type Database = {
         }[]
       }
       ceo_valuation_baseline: { Args: never; Returns: Json }
+      cfo_advance_status: {
+        Args: never
+        Returns: {
+          approved_at: string
+          balance: number
+          borrower_name: string
+          disbursed_at: string
+          history: Json
+          is_closed: boolean
+          plan: string
+          principal: number
+          purpose: string
+          record_id: string
+          recovered: number
+          reference: string
+          repayment_tracked: boolean
+          requested_at: string
+          source: string
+          source_label: string
+          staff_ref: string
+          state: string
+          status: string
+          total_repayable: number
+        }[]
+      }
       cfo_agent_lending_summary: { Args: never; Returns: Json }
       cfo_allow_rent_disbursement_exception: {
+        Args: { p_reason: string; p_rent_request_ids: string[] }
+        Returns: number
+      }
+      cfo_allow_rent_disbursement_exception_unchecked: {
         Args: { p_reason: string; p_rent_request_ids: string[] }
         Returns: number
       }
@@ -69075,10 +79631,12 @@ export type Database = {
         Returns: Json
       }
       cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_budget_meter: { Args: never; Returns: Json }
       cfo_cancel_bike_lease: {
         Args: { p_reason: string; p_sale_id: string }
         Returns: Json
       }
+      cfo_check_selection: { Args: { p_ids: string[] }; Returns: Json }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
@@ -69137,6 +79695,10 @@ export type Database = {
         Returns: Json
       }
       cfo_corr_5300000_preflight: { Args: never; Returns: Json }
+      cfo_correct_bike_lease_value: {
+        Args: { p_lease_id: string; p_new_value: number; p_reason: string }
+        Returns: Json
+      }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
@@ -69251,6 +79813,7 @@ export type Database = {
         Args: { p_amount?: number; p_note?: string; p_sale_id: string }
         Returns: Json
       }
+      cfo_funder_board: { Args: never; Returns: Json }
       cfo_issue_boutique_order: { Args: { p_sale_id: string }; Returns: string }
       cfo_list_redemptions: {
         Args: { p_status?: string }
@@ -69280,6 +79843,42 @@ export type Database = {
       cfo_notify_agent_rent_not_disbursed: {
         Args: { p_message?: string; p_rent_request_ids: string[] }
         Returns: number
+      }
+      cfo_payroll_history: {
+        Args: never
+        Returns: {
+          approved_at: string
+          approved_by_name: string
+          locked_at: string
+          paid_amount: number
+          paid_at: string
+          paid_count: number
+          period_code: string
+          period_month: string
+          prepared_at: string
+          prepared_by_name: string
+          run_id: string
+          run_type: string
+          staff_count: number
+          status: string
+          total_advance_recovered: number
+          total_employer_cost: number
+          total_gross: number
+          total_lst: number
+          total_net: number
+          total_nssf_employee: number
+          total_nssf_employer: number
+          total_paye: number
+          total_reinvest: number
+        }[]
+      }
+      cfo_post_merchandise_derecognition: {
+        Args: { p_counterpart: string; p_note: string; p_review_id: string }
+        Returns: Json
+      }
+      cfo_post_merchandise_stock_recognition: {
+        Args: { p_delivery_evidence: string; p_review_id: string }
+        Returns: Json
       }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
@@ -69437,6 +80036,10 @@ export type Database = {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
       }
+      cfo_set_bike_instant_sweep: {
+        Args: { p_enabled: boolean; p_plan_id: string; p_reason: string }
+        Returns: Json
+      }
       cfo_set_landlord_float_budget: {
         Args: {
           p_amount: number
@@ -69508,6 +80111,22 @@ export type Database = {
           tin: string
           user_id: string
         }[]
+      }
+      cfo_transfer_agent_advance: {
+        Args: {
+          p_amount?: number
+          p_cross_account_reason?: string
+          p_destination: string
+          p_from_advance: string
+          p_idempotency_key: string
+          p_new_agent_id?: string
+          p_new_cycle_days?: number
+          p_new_recovery_source?: string
+          p_new_roi_percent?: number
+          p_reason: string
+          p_to_advance?: string
+        }
+        Returns: Json
       }
       cfo_welile_homes_day_report: { Args: { p_day: string }; Returns: Json }
       change_wallet_transfer_schedule_recipient: {
@@ -69699,6 +80318,10 @@ export type Database = {
         Returns: Json
       }
       claim_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      claim_return_cycle_for_operation: {
+        Args: { p_operation_id: string }
+        Returns: Json
+      }
       claim_tenant_referrer: { Args: { p_referrer_id: string }; Returns: Json }
       claim_withdrawal_verified: {
         Args: {
@@ -69719,6 +80342,7 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: undefined }
       cleanup_mcp_public_rate_limits: { Args: never; Returns: undefined }
       cleanup_old_system_events: { Args: never; Returns: undefined }
+      cmo_referral_access_ok: { Args: { _uid: string }; Returns: boolean }
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
@@ -69785,6 +80409,16 @@ export type Database = {
         Args: { p_portfolio_id: string; p_raw_token: string }
         Returns: string
       }
+      compound_reversal_candidates: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          amount: number
+          description: string
+          ledger_id: string
+          reference_id: string
+          reinvested_at: string
+        }[]
+      }
       compute_agent_performance: {
         Args: { p_agent_id: string }
         Returns: {
@@ -69840,6 +80474,10 @@ export type Database = {
           total_repayment: number
         }[]
       }
+      compute_rent_repayment_v360: {
+        Args: { p_months?: number; p_principal: number }
+        Returns: Json
+      }
       compute_wallet_ledger_total: {
         Args: { _user_id: string }
         Returns: number
@@ -69873,6 +80511,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_landlord_payout_number: {
+        Args: { p_landlord_id: string; p_number: string; p_reason: string }
+        Returns: Json
+      }
       confirm_merchandise_handover: {
         Args: { p_note: string; p_sale_id: string }
         Returns: string
@@ -69902,6 +80544,10 @@ export type Database = {
           label: string
           link_id: string
         }[]
+      }
+      consume_withdrawal_pin_proof: {
+        Args: { p_purpose: string; p_user: string }
+        Returns: Json
       }
       continent_for_country: { Args: { p_country: string }; Returns: string }
       coo_approve_bike_lease: {
@@ -69935,6 +80581,20 @@ export type Database = {
         }
         Returns: Json
       }
+      coo_decide_rent_requests: {
+        Args: {
+          p_decision: string
+          p_reason_code?: string
+          p_reason_text?: string
+          p_request_ids: string[]
+        }
+        Returns: Json
+      }
+      coo_push_to_funders: {
+        Args: { p_comment?: string; p_n: number }
+        Returns: Json
+      }
+      coo_reason_codes: { Args: never; Returns: Json }
       coo_request_landlord_float_misc: {
         Args: { p_items: Json }
         Returns: Json
@@ -70194,6 +80854,19 @@ export type Database = {
       credit_agent_tid_backed_float: {
         Args: { p_agent_id: string; p_delta: number }
         Returns: undefined
+      }
+      credit_collection_commission: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_commission_budget?: number
+          p_context: string
+          p_idempotency_key: string
+          p_offset_category?: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
       }
       credit_merchant_payout_commission: {
         Args: { p_awarded_via?: string; p_withdrawal_id: string }
@@ -70473,6 +81146,10 @@ export type Database = {
           schedule: string
         }[]
       }
+      cto_add_controlled_plans: {
+        Args: { p_note?: string; p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
       cto_cron_jobs_overview: { Args: never; Returns: Json }
       cto_fake_account_base: {
@@ -70525,6 +81202,10 @@ export type Database = {
         Args: { p_reason: string; p_user_id: string }
         Returns: string
       }
+      cto_remove_controlled_plans: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: number
+      }
       cto_revoke_id_verification_exception: {
         Args: { p_reason: string; p_user_id: string }
         Returns: undefined
@@ -70549,6 +81230,19 @@ export type Database = {
           id: string
           match_rank: number
           phone: string
+        }[]
+      }
+      cto_search_rent_plans: {
+        Args: { p_limit?: number; p_term: string }
+        Returns: {
+          agent_name: string
+          controlled: boolean
+          funded_on: string
+          rent_amount: number
+          rent_request_id: string
+          status: string
+          tenant_name: string
+          tenant_phone: string
         }[]
       }
       cto_set_kyc_level: {
@@ -70591,6 +81285,18 @@ export type Database = {
       current_welile_week_start: { Args: { p_ts?: string }; Returns: string }
       dashboard_access_keys: { Args: never; Returns: string[] }
       dashboard_key_for_role: { Args: { p_role: string }; Returns: string }
+      decide_agent_advance_write_off: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: Json
+      }
+      decide_agent_vetting: {
+        Args: { p_agent_id: string; p_approve: boolean; p_note?: string }
+        Returns: Json
+      }
+      decide_compound_reversal: {
+        Args: { p_approve: boolean; p_note: string; p_request_id: string }
+        Returns: Json
+      }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
@@ -70610,6 +81316,15 @@ export type Database = {
       }
       decide_national_id_unlink: {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
+        Returns: Json
+      }
+      decide_ontology_changes: {
+        Args: {
+          p_decision: string
+          p_ids: number[]
+          p_override?: Json
+          p_reason?: string
+        }
         Returns: Json
       }
       decrement_rent_requested: {
@@ -70649,6 +81364,10 @@ export type Database = {
         Args: { p_subscription_id: string }
         Returns: boolean
       }
+      delete_welile_homes_landlord: {
+        Args: { p_landlord_id: string }
+        Returns: Json
+      }
       deposit_bridge_ledger_present: {
         Args: {
           p_amount: number
@@ -70670,6 +81389,38 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_budget_burn: { Args: never; Returns: Json }
+      desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_morning_brief: { Args: never; Returns: Json }
+      desk_my_sc_scope: { Args: never; Returns: Json }
+      desk_sc_people: {
+        Args: never
+        Returns: {
+          has_desk_role: boolean
+          has_staff_id: boolean
+          name: string
+          oldest_new_days: number
+          open_batch: number
+          open_new: number
+          person_id: string
+          phone: string
+        }[]
+      }
+      desk_stage_flow: { Args: never; Returns: Json }
+      desk_stage_trend: {
+        Args: never
+        Returns: {
+          arrow: string
+          change: number
+          compared_at: string
+          days_to_clear: number
+          stage: string
+          stage_ord: string
+          waiting_24h_ago: number
+          waiting_now: number
+          waiting_ugx_now: number
+        }[]
+      }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {
@@ -70767,6 +81518,10 @@ export type Database = {
           p_roi_recovery_percent?: number
           p_skip_reason?: string
         }
+        Returns: Json
+      }
+      dismiss_company_receipt: {
+        Args: { p_gmail_transaction_id: string; p_reason: string }
         Returns: Json
       }
       dismiss_in_app_notification: {
@@ -71082,6 +81837,14 @@ export type Database = {
       evaluate_kyc_upgrade_eligibility: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      exception_otp_fingerprint: {
+        Args: { p_ids: string[]; p_kind: string; p_reason: string }
+        Returns: string
+      }
+      exception_otp_scope: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
+        Returns: string
       }
       expire_landlord_number_change_requests: { Args: never; Returns: number }
       expire_partner_self_claims: { Args: never; Returns: Json }
@@ -71946,6 +82709,7 @@ export type Database = {
           village: string
         }[]
       }
+      funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funding_commission_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -72096,6 +82860,7 @@ export type Database = {
           visits_count: number
         }[]
       }
+      get_agent_advance_exceptions: { Args: never; Returns: Json }
       get_agent_advance_limits: {
         Args: { _limit?: number; _offset?: number; _search?: string }
         Returns: {
@@ -72636,6 +83401,10 @@ export type Database = {
           with_withdrawable: number
         }[]
       }
+      get_agent_partnership_summary: {
+        Args: { p_agent_id: string }
+        Returns: Json
+      }
       get_agent_product_detail: {
         Args: { p_agent_id: string; p_category?: string }
         Returns: Json
@@ -72804,6 +83573,29 @@ export type Database = {
         Args: { p_ref?: string }
         Returns: Json
       }
+      get_agent_weekly_posting_eligibility: {
+        Args: { p_agent_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          computed_at: string
+          enforced: boolean
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_plans: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_plans: number
+          in_window_required_pct: number
+          passes: boolean
+          reason: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_agent_workload_summary: { Args: never; Returns: Json }
       get_agent_workload_summary__impl: { Args: never; Returns: Json }
       get_agents_hub:
@@ -72901,6 +83693,7 @@ export type Database = {
           run_date: string
         }[]
       }
+      get_applicant_partnership: { Args: { p_user_id: string }; Returns: Json }
       get_approximate_user_count: { Args: never; Returns: number }
       get_approximate_user_count__impl: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
@@ -73121,6 +83914,16 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_lunch_unlisted_recipients: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          full_name: string
+          payments: number
+          phone: string
+          user_id: string
+        }[]
+      }
       get_cfo_money_drilldown_totals: {
         Args: {
           p_from: string
@@ -73328,6 +84131,45 @@ export type Database = {
           status: string
         }[]
       }
+      get_cfo_paid_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+        }
+        Returns: {
+          amount: number
+          approved_by: string
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_paid_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          pct: number
+          sort_order: number
+          tx_count: number
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -73344,6 +84186,56 @@ export type Database = {
           category: string
           direction: string
           pool: string
+        }[]
+      }
+      get_cfo_received_agent_products_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          product_key: string
+          product_label: string
+          tx_count: number
+        }[]
+      }
+      get_cfo_received_by_category_page: {
+        Args: {
+          p_category?: string
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          approved_by: string
+          category_key: string
+          category_label: string
+          classification: string
+          counterparty: string
+          counterparty_phone: string
+          created_at: string
+          description: string
+          id: string
+          ledger_category: string
+          reference_id: string
+          source_table: string
+          total_matched: number
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
+      get_cfo_received_by_category_totals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category_key: string
+          category_label: string
+          nature: string
+          pct: number
+          sort_order: number
+          tx_count: number
         }[]
       }
       get_cfo_rent_fee_collections: {
@@ -73485,6 +84377,14 @@ export type Database = {
           without_landlord: number
         }[]
       }
+      get_cmo_referral_lists: {
+        Args: { p_end: string; p_start: string; p_status?: string }
+        Returns: Json
+      }
+      get_cmo_referral_totals: {
+        Args: { p_end: string; p_months?: Json; p_start: string }
+        Returns: Json
+      }
       get_cohort_retention: {
         Args: {
           p_bucket?: string
@@ -73497,6 +84397,25 @@ export type Database = {
           cohort_date: string
           cohort_size: number
           period_number: number
+        }[]
+      }
+      get_company_receipts_to_place: {
+        Args: { p_days?: number }
+        Returns: {
+          amount: number
+          booked_agent_id: string
+          booked_agent_name: string
+          channel: string
+          counterparty: string
+          counterparty_name: string
+          excess_amount: number
+          gmail_transaction_id: string
+          kind: string
+          received_at: string
+          suggested_agent_id: string
+          suggested_agent_name: string
+          times_seen: number
+          transaction_id: string
         }[]
       }
       get_coo_command_center: { Args: never; Returns: Json }
@@ -73591,6 +84510,35 @@ export type Database = {
         Args: { p_history_days?: number }
         Returns: Json
       }
+      get_cto_controlled_plan_collections: {
+        Args: never
+        Returns: {
+          agent_commission: number
+          agent_id: string
+          agent_name: string
+          collection_count: number
+          collections_sum: number
+          counter_mismatch: boolean
+          days_overdue: number
+          duration_days: number
+          expected_agent: number
+          expected_partner: number
+          fees_drawn: number
+          formula_due: number
+          funded_on: string
+          given: number
+          last_collection_on: string
+          partner_earned: number
+          plans_count: number
+          platform_earned: number
+          principal_back: number
+          recovered: number
+          rent_request_id: string
+          row_kind: string
+          status: string
+          tenant_name: string
+        }[]
+      }
       get_cto_daily_addendum: { Args: { p_date?: string }; Returns: Json }
       get_cto_daily_report: { Args: { p_date?: string }; Returns: Json }
       get_cto_diagnostics: { Args: { p_date?: string }; Returns: Json }
@@ -73632,6 +84580,7 @@ export type Database = {
         Args: { p_bypass_roles: string[]; p_rules: Json }
         Returns: Json
       }
+      get_data_catalog: { Args: { p_area?: string }; Returns: Json }
       get_deferred_fee_breakdown: {
         Args: { p_as_at: string }
         Returns: {
@@ -73899,6 +84848,11 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_growth_snapshot_live: { Args: never; Returns: Json }
+      get_growth_sources_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_house_activity_timeline: {
         Args: { p_house_id: string }
         Returns: {
@@ -73918,6 +84872,10 @@ export type Database = {
           n: number
           value: string
         }[]
+      }
+      get_install_funnel_summary: {
+        Args: { p_end: string; p_platform?: string; p_start: string }
+        Returns: Json
       }
       get_kyc_effective_limits: {
         Args: { p_user_id: string }
@@ -73980,6 +84938,22 @@ export type Database = {
         Returns: Json
       }
       get_landlord_float_due_today: { Args: never; Returns: Json }
+      get_landlord_float_gate: {
+        Args: { p_agent_id?: string }
+        Returns: {
+          agent_id: string
+          basis: string
+          block_reason: string
+          collected: number
+          exception_reason: string
+          expected: number
+          locked: boolean
+          rate_pct: number
+          shortfall_to_50: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_landlord_float_management_split:
         | {
             Args: { p_as_at?: string }
@@ -74140,10 +85114,23 @@ export type Database = {
         Args: never
         Returns: {
           agent_id: string
+          basis: string
+          book: string
           collected: number
           expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          in_window_required_pct: number
           meets_minimum: boolean
           rate_pct: number
+          reason: string
+          week_end: string
+          week_start: string
         }[]
       }
       get_landlord_payout_block_queue: {
@@ -74178,7 +85165,36 @@ export type Database = {
           started_at: string
         }[]
       }
+      get_landlord_payout_number_review: {
+        Args: { p_kind?: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          approved_number: string
+          approved_set_at: string
+          approved_source: string
+          kind: string
+          landlord_id: string
+          landlord_name: string
+          last_verified_request_number: string
+          on_file_number: string
+          open_allocations: number
+          open_float_remaining: number
+          phone: string
+          verification_status: string
+        }[]
+      }
       get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
+      get_landlord_payout_renewals: {
+        Args: never
+        Returns: {
+          is_renewal: boolean
+          new_days: number
+          new_rent: number
+          previous_days: number
+          previous_rent: number
+          tenant_name: string
+          withdrawal_id: string
+        }[]
+      }
       get_landlord_verification_actors: {
         Args: { p_from?: string; p_to?: string }
         Returns: {
@@ -74194,6 +85210,21 @@ export type Database = {
         Returns: {
           exists_flag: boolean
           verified: boolean
+        }[]
+      }
+      get_learned_payer_suggestions: {
+        Args: never
+        Returns: {
+          amount: number
+          gmail_transaction_id: string
+          payer_name: string
+          payer_phone: string
+          reason: string
+          received_at: string
+          route: string
+          suggested_name: string
+          suggested_user_id: string
+          transaction_id: string
         }[]
       }
       get_ledger_balance: { Args: { p_user_id: string }; Returns: number }
@@ -74303,6 +85334,10 @@ export type Database = {
       }
       get_map_query_metrics: { Args: { p_hours?: number }; Returns: Json }
       get_maps_browser_key: { Args: never; Returns: string }
+      get_merchandise_receivables_reconciliation: {
+        Args: { p_with_balance_sheet?: boolean }
+        Returns: Json
+      }
       get_merchandise_share_code: {
         Args: { p_catalog_id: string }
         Returns: string
@@ -74340,6 +85375,10 @@ export type Database = {
           taken_back: number
           used: number
         }[]
+      }
+      get_merchant_desk_statement: {
+        Args: { p_agent_id: string; p_day?: string }
+        Returns: Json
       }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
@@ -74444,6 +85483,7 @@ export type Database = {
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
       get_my_agent_collections_today: { Args: never; Returns: Json }
+      get_my_agent_vetting: { Args: never; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_borrowed_loans: {
         Args: never
@@ -74488,7 +85528,18 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_my_expected_days: {
+        Args: { p_agent_id?: string; p_from: string; p_to: string }
+        Returns: {
+          day: string
+          expected_ugx: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      get_my_financial_ops_restrictions: { Args: never; Returns: string[] }
       get_my_landlord_properties: { Args: never; Returns: Json }
+      get_my_landlord_tenants: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_overdue_bike_asset_details: {
         Args: never
@@ -74597,6 +85648,32 @@ export type Database = {
           requisition_code: string
           requisition_id: string
           title: string
+        }[]
+      }
+      get_my_weekly_performance: {
+        Args: { p_agent_id?: string; p_weeks?: number }
+        Returns: Json
+      }
+      get_my_welile_homes_landlords: {
+        Args: { p_limit?: number }
+        Returns: {
+          cell: string
+          county: string
+          created_at: string
+          description: string
+          district: string
+          id: string
+          latitude: number
+          location_captured_by: string
+          longitude: number
+          name: string
+          phone: string
+          property_address: string
+          receipt_request_channel: string
+          registered_by: string
+          sub_county: string
+          ug_village_id: number
+          village: string
         }[]
       }
       get_nearby_cashout_agents: {
@@ -74726,6 +85803,21 @@ export type Database = {
         Args: { p_bucket?: string; p_days?: number; p_months?: number }
         Returns: Json
       }
+      get_partner_commission_contingent: {
+        Args: never
+        Returns: {
+          base_amount: number
+          commission_kind: string
+          item_id: string
+          kind: string
+          occurred_at: string
+          partner_id: string
+          partner_name: string
+          potential_commission: number
+          reason: string
+          source_status: string
+        }[]
+      }
       get_partner_forward_schedule: {
         Args: { p_days?: number; p_streams?: string[] }
         Returns: Json
@@ -74752,6 +85844,20 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: Json
       }
+      get_partner_ops_returns_arrears: {
+        Args: { p_portfolio_ids: string[] }
+        Returns: {
+          arrears_deduction: number
+          expected_returns: number
+          investor_id: string
+          net_payout: number
+          plan_outstanding: number
+          plan_overdue: number
+          pledge_mode: string
+          pledge_value: number
+          portfolio_id: string
+        }[]
+      }
       get_partner_ops_returns_forecast: {
         Args: {
           p_bucket?: string
@@ -74772,6 +85878,26 @@ export type Database = {
         }
         Returns: Json
       }
+      get_partner_paid_outstanding: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      get_partner_paid_outstanding_items: {
+        Args: {
+          p_component: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_status?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_partner_promissory_commissions: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      get_partner_statement: { Args: { p_user_id: string }; Returns: Json }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
       get_partner_wallet_hub: {
         Args: { p_limit?: number; p_offset?: number; p_user_id: string }
@@ -74897,6 +86023,7 @@ export type Database = {
           withdrawal_id: string
         }[]
       }
+      get_payroll_loyalty_bonus_status: { Args: never; Returns: Json }
       get_pending_wallet_ops: {
         Args: { p_page?: number; p_page_size?: number }
         Returns: Json
@@ -74977,6 +86104,22 @@ export type Database = {
           subagent_count: number
           total_matched: number
           verified: boolean
+        }[]
+      }
+      get_portfolio_by_activation_token: {
+        Args: { p_token: string }
+        Returns: {
+          agent_name: string
+          created_at: string
+          duration_months: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
         }[]
       }
       get_promissory_ops_report: {
@@ -75104,6 +86247,10 @@ export type Database = {
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_performance_rows: {
         Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
+      get_referral_performance_summary: {
+        Args: { p_end: string; p_granularity?: string; p_start: string }
         Returns: Json
       }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
@@ -76452,7 +87599,12 @@ export type Database = {
         Returns: Json
       }
       get_withdrawal_history: {
-        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_roi_only?: boolean
+          p_search?: string
+        }
         Returns: {
           amount: number
           balance_after: number
@@ -76460,6 +87612,7 @@ export type Database = {
           bank_account_number: string
           bank_name: string
           created_at: string
+          is_roi_payout: boolean
           mobile_money_number: string
           mobile_money_provider: string
           payout_method: string
@@ -76538,6 +87691,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      holds_finance_office: { Args: { _user_id: string }; Returns: boolean }
       house_has_live_claim: { Args: { p_house_id: string }; Returns: boolean }
       house_listing_protected_unchanged: {
         Args: {
@@ -77136,6 +88290,8 @@ export type Database = {
         Returns: boolean
       }
       is_agent_perf_gate_disabled: { Args: never; Returns: boolean }
+      is_agent_vetted: { Args: { p_agent_id: string }; Returns: boolean }
+      is_agent_vetting_reviewer: { Args: { p_uid: string }; Returns: boolean }
       is_approved_proxy_agent: {
         Args: { p_user_id?: string }
         Returns: boolean
@@ -77177,6 +88333,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      is_financial_ops_area_blocked: {
+        Args: { p_area: string }
+        Returns: boolean
+      }
       is_financial_ops_staff: { Args: { p_user: string }; Returns: boolean }
       is_food_coordinator: { Args: { _user_id: string }; Returns: boolean }
       is_four_part_waterfall_eligible: {
@@ -77197,8 +88357,14 @@ export type Database = {
       is_partner_not_agent: { Args: { p_user_id: string }; Returns: boolean }
       is_partner_ops: { Args: { _uid: string }; Returns: boolean }
       is_payout_ops_staff: { Args: { _user_id: string }; Returns: boolean }
+      is_payroll_loyalty_owner: { Args: never; Returns: boolean }
       is_phone_available: { Args: { p_phone: string }; Returns: boolean }
+      is_platform_owner: { Args: never; Returns: boolean }
       is_platform_user_admin: { Args: { _user_id?: string }; Returns: boolean }
+      is_portfolio_on_hold: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
       is_proxy_agent_for_partner: {
         Args: { _agent: string; _partner: string }
         Returns: boolean
@@ -77213,7 +88379,9 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_refund_requisition: { Args: { p_category: string }; Returns: boolean }
       is_requisition_office_holder: { Args: { _uid: string }; Returns: boolean }
+      is_same_person: { Args: { _a: string; _b: string }; Returns: boolean }
       is_sensitive_field_editor: { Args: { _uid: string }; Returns: boolean }
       is_service_center_manager: {
         Args: { p_agent_id: string }
@@ -77304,6 +88472,134 @@ export type Database = {
           witness_name: string
           witness_signed_on: string
         }[]
+      }
+      landlord_cc_assign_callers: {
+        Args: { p_cycle_id: string; p_staff_ids: string[] }
+        Returns: Json
+      }
+      landlord_cc_concerns_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      landlord_cc_coverage: {
+        Args: { p_as_at?: string }
+        Returns: {
+          active_rent_plans_count: number
+          called_but_unreached: number
+          district: string
+          ever_reached: number
+          needs_review_count: number
+          never_called: number
+          reached_this_month: number
+          reached_this_round: number
+          region: string
+          registry_total: number
+        }[]
+      }
+      landlord_cc_daily_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          callback_calls: number
+          engaged_calls: number
+          kampala_day: string
+          made_calls: number
+          reached_calls: number
+          received_calls: number
+          staff_id: string
+          staff_name: string
+          total_calls: number
+          unreachable_calls: number
+        }[]
+      }
+      landlord_cc_landlord_call_log: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: {
+          call_id: string
+          called_at: string
+          caller_id: string
+          caller_name: string
+          category_code: string
+          category_label: string
+          direction: string
+          is_reached: boolean
+          kampala_day: string
+          landlord_key: string
+          landlord_name: string
+          note: string
+          outcome: string
+          phone: string
+          phone_masked: boolean
+          source: string
+          total_count: number
+        }[]
+      }
+      landlord_cc_list_queues: {
+        Args: never
+        Returns: {
+          created_at: string
+          filters: Json
+          id: string
+          is_mine: boolean
+          name: string
+          owner: string
+          owner_name: string
+          shared: boolean
+          sort_key: string
+          updated_at: string
+        }[]
+      }
+      landlord_cc_round_report: { Args: { p_cycle_id?: string }; Returns: Json }
+      landlord_cc_save_queue: {
+        Args: {
+          p_filters?: Json
+          p_name: string
+          p_queue_id?: string
+          p_shared?: boolean
+          p_sort_key?: string
+        }
+        Returns: {
+          created_at: string
+          filters: Json
+          id: string
+          name: string
+          owner: string
+          shared: boolean
+          sort_key: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "landlord_cc_saved_queues"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      landlord_cc_staff_performance: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          active_hours: number
+          callback_calls: number
+          calls_per_active_hour: number
+          engaged_calls: number
+          followups_overdue: number
+          followups_owed: number
+          reach_rate_pct: number
+          reached_calls: number
+          staff_id: string
+          staff_name: string
+          total_calls: number
+          unique_landlords: number
+          unreachable_calls: number
+        }[]
+      }
+      landlord_cc_weekly_report: {
+        Args: { p_week_start?: string }
+        Returns: Json
       }
       landlord_directory_browse: {
         Args: { p_limit?: number }
@@ -77400,6 +88696,10 @@ export type Database = {
         Args: { p_limit?: number; p_scope?: string }
         Returns: Json
       }
+      landlord_float_lock_message: {
+        Args: { p_agent_id: string }
+        Returns: string
+      }
       landlord_float_recall_go_live: { Args: never; Returns: string }
       landlord_float_week_start: { Args: { p_day: string }; Returns: string }
       landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
@@ -77407,6 +88707,99 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: boolean
       }
+      landlord_hub_agents: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          is_agent_now: boolean
+          landlord_count: number
+          live_landlord_count: number
+        }[]
+      }
+      landlord_hub_amend_call: {
+        Args: { p_call_id: string; p_changes: Json; p_reason: string }
+        Returns: Json
+      }
+      landlord_hub_detail: { Args: { p_landlord_key: string }; Returns: Json }
+      landlord_hub_list: {
+        Args: {
+          p_agent?: string
+          p_district?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_scope?: string
+          p_search?: string
+          p_sort?: string
+          p_stage?: string
+          p_status?: string
+          p_tab?: string
+          p_verified?: string
+        }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          being_called_by: string
+          being_called_by_id: string
+          being_called_since: string
+          call_back_due_at: string
+          call_back_overdue: boolean
+          check_flags: string[]
+          district: string
+          houses_count: number
+          hub_status: string
+          landlord_id: string
+          landlord_key: string
+          landlord_name: string
+          last_call_at: string
+          last_caller_id: string
+          last_caller_name: string
+          last_result: string
+          live_rent_plans: number
+          needs_check: boolean
+          needs_review: boolean
+          phone: string
+          phone_masked: boolean
+          plan_stage: string
+          plans_total: number
+          region: string
+          registrar_is_agent_now: boolean
+          rent_plan_value: number
+          service_center_status: string
+          tenants_count: number
+          total_count: number
+          user_id: string
+          verification_status: string
+          verified: boolean
+        }[]
+      }
+      landlord_hub_record_call: {
+        Args: {
+          p_aware_30m?: string
+          p_aware_payout_otp?: string
+          p_call_back_at?: string
+          p_dial_id?: string
+          p_dial_started_at: string
+          p_explained?: string
+          p_feedback_category?: string
+          p_landlord_consent?: string
+          p_landlord_id?: string
+          p_landlord_key: string
+          p_landlord_name?: string
+          p_note?: string
+          p_phone_dialed: string
+          p_result: string
+          p_severity?: string
+          p_tenants_discussed?: string[]
+        }
+        Returns: Json
+      }
+      landlord_hub_start_dial: {
+        Args: { p_landlord_key: string; p_phone: string }
+        Returns: Json
+      }
+      landlord_hub_stats: { Args: never; Returns: Json }
       landlord_number_norm: { Args: { p: string }; Returns: string }
       landlord_ops_approved_districts: { Args: never; Returns: Json }
       landlord_ops_bind_tenant_to_house: {
@@ -77574,6 +88967,10 @@ export type Database = {
       landlord_payout_allowed_today: { Args: never; Returns: number }
       landlord_payout_goal_allowed: { Args: never; Returns: number }
       landlord_payout_goal_started_at: { Args: never; Returns: string }
+      landlord_payout_is_renewal: {
+        Args: { p_landlord_payout_id: string }
+        Returns: boolean
+      }
       landlord_payout_queue_blocked: {
         Args: { p_exempt_at: string; p_landlord_payout_id: string }
         Returns: boolean
@@ -77673,6 +89070,15 @@ export type Database = {
           tenant_name: string
           tenant_phone: string
           total_repayment: number
+        }[]
+      }
+      learned_payer_target: {
+        Args: { p_gmail_id: string; p_ignore_limit?: boolean }
+        Returns: {
+          key_type: string
+          payer_key: string
+          route: string
+          target_user_id: string
         }[]
       }
       ledger_category_allowlist: { Args: never; Returns: string[] }
@@ -77832,6 +89238,29 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      list_compound_reversal_requests: {
+        Args: { p_status?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          current_principal: number
+          cycle_date: string
+          decided_at: string
+          decided_by_name: string
+          decision_note: string
+          id: string
+          override_id: string
+          partner_id: string
+          partner_name: string
+          portfolio_code: string
+          portfolio_id: string
+          reason: string
+          reinvested_at: string
+          requested_by: string
+          requested_by_name: string
+          status: string
+        }[]
+      }
       list_eligible_landlords_for_rent_request: {
         Args: { p_limit?: number; p_rent_request_id: string; p_search?: string }
         Returns: {
@@ -77845,6 +89274,28 @@ export type Database = {
           property_address: string
           verified: boolean
           village: string
+        }[]
+      }
+      list_financial_ops_features: {
+        Args: never
+        Returns: {
+          enforced: boolean
+          grp: string
+          key: string
+          label: string
+          sort: number
+        }[]
+      }
+      list_financial_ops_restrictions: {
+        Args: never
+        Returns: {
+          areas: string[]
+          full_name: string
+          phone: string
+          reason: string
+          set_at: string
+          set_by_name: string
+          user_id: string
         }[]
       }
       list_joined_partners: {
@@ -77870,6 +89321,20 @@ export type Database = {
           sale_id: string
           selected_size: string
           total_revenue: number
+        }[]
+      }
+      list_owner_security_alerts: {
+        Args: { p_limit?: number }
+        Returns: {
+          actor_name: string
+          actor_phone: string
+          actor_roles: string[]
+          attempted: string
+          blocked: boolean
+          detail: Json
+          ip_address: string
+          occurred_at: string
+          target: string
         }[]
       }
       list_proxy_agent_partners: {
@@ -78015,6 +89480,15 @@ export type Database = {
         Returns: undefined
       }
       log_overdue_vetting_alert_shown: { Args: never; Returns: boolean }
+      log_owner_tamper: {
+        Args: {
+          p_attempted: string
+          p_blocked: boolean
+          p_detail: Json
+          p_target: string
+        }
+        Returns: undefined
+      }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -78080,6 +89554,7 @@ export type Database = {
         }[]
       }
       lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
+      lunch_next_weekday_slot: { Args: { p_after: string }; Returns: string }
       manager_vendor_pin_flags: {
         Args: never
         Returns: {
@@ -78520,6 +89995,8 @@ export type Database = {
         }[]
       }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
+      my_staff_mfa_status: { Args: never; Returns: Json }
+      my_withdrawal_pin_status: { Args: never; Returns: Json }
       national_id_group_view: { Args: never; Returns: Json }
       national_id_holder_hint: { Args: { p_nin: string }; Returns: Json }
       national_id_link_expire_stale: { Args: never; Returns: undefined }
@@ -78636,8 +90113,51 @@ export type Database = {
         }
         Returns: undefined
       }
+      neexabot_ensure_partner_note: {
+        Args: { p_partner: string; p_trigger: string }
+        Returns: Json
+      }
+      neexabot_profile_id: { Args: never; Returns: string }
+      nexa_get_my_portfolios: {
+        Args: never
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_get_portfolio_by_id: {
+        Args: { p_portfolio_id: string }
+        Returns: {
+          current_value: number
+          investment_amount: number
+          maturity_date: string
+          next_roi_date: string
+          portfolio_code: string
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+      }
+      nexa_portfolio_otp_target: {
+        Args: { p_portfolio_code: string }
+        Returns: {
+          investor_id: string
+          phone: string
+          portfolio_id: string
+        }[]
+      }
       normalize_district_name: { Args: { p_input: string }; Returns: string }
       normalize_e164_phone: { Args: { raw: string }; Returns: string }
+      normalize_email_for_match: { Args: { p_email: string }; Returns: string }
+      normalize_landlord_phone_256: { Args: { raw: string }; Returns: string }
       normalize_momo_tid: { Args: { p_tid: string }; Returns: string }
       normalize_national_id_fuzzy: {
         Args: { p_value: string }
@@ -78655,6 +90175,23 @@ export type Database = {
         Args: { p_landlord_id: string }
         Returns: undefined
       }
+      oauth_signup_duplicate_of: {
+        Args: { p_email: string; p_new_id: string }
+        Returns: string
+      }
+      ontology_can_read: { Args: never; Returns: boolean }
+      ontology_changes_feed: {
+        Args: { p_day?: string; p_feed: string }
+        Returns: Json
+      }
+      ontology_desk_view: { Args: { p_days?: number }; Returns: Json }
+      ontology_doc_snapshot: { Args: never; Returns: number }
+      ontology_document: { Args: never; Returns: string }
+      ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
+      ontology_map_day: { Args: { p_day?: string }; Returns: Json }
+      ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_rules_for_desk: { Args: { p_desk: string }; Returns: Json }
+      ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
         Args: { p_notes?: string; p_rent_request_id: string }
         Returns: {
@@ -78703,6 +90240,26 @@ export type Database = {
         Returns: Json
       }
       ops_caller_is_ops: { Args: never; Returns: boolean }
+      ops_case_actor: {
+        Args: { p_desk: string }
+        Returns: Record<string, unknown>
+      }
+      ops_case_assign: {
+        Args: { p_case: string; p_reason: string; p_staff_id: string }
+        Returns: undefined
+      }
+      ops_case_close: {
+        Args: { p_case: string; p_outcome: string; p_reason: string }
+        Returns: undefined
+      }
+      ops_case_due: { Args: { p_severity: string }; Returns: string }
+      ops_case_note: {
+        Args: { p_case: string; p_note: string }
+        Returns: undefined
+      }
+      ops_case_weekly_digest: { Args: never; Returns: number }
+      ops_case_window: { Args: { p_severity: string }; Returns: string }
+      ops_cases_sync_sources: { Args: never; Returns: Json }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
@@ -79281,6 +90838,7 @@ export type Database = {
         }
         Returns: Json
       }
+      ops_set_context: { Args: { p: Json }; Returns: undefined }
       ops_set_rent_plan_frequency: {
         Args: {
           p_frequency: string
@@ -79693,6 +91251,27 @@ export type Database = {
         Args: { p_edit_id: string }
         Returns: Json
       }
+      otp_check_code: {
+        Args: { p_code: string; p_phone: string }
+        Returns: Json
+      }
+      otp_reserve_send: {
+        Args: {
+          p_always_new?: boolean
+          p_cooldown_seconds: number
+          p_ip: string
+          p_max_ip_day: number
+          p_max_ip_hour: number
+          p_max_phone_hour: number
+          p_max_user_day: number
+          p_max_user_hour: number
+          p_new_code: string
+          p_phone: string
+          p_ttl_seconds: number
+          p_user_id: string
+        }
+        Returns: Json
+      }
       partner_house_placement_status: {
         Args: { p_partner_id?: string }
         Returns: {
@@ -80003,6 +91582,8 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_watch: { Args: never; Returns: Json }
+      partner_record_staff_ok: { Args: never; Returns: boolean }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
         Returns: Json
@@ -80062,7 +91643,111 @@ export type Database = {
             Returns: Json
           }
       partner_supported_house_returns: { Args: never; Returns: Json }
+      partner_tenant_backup_collections: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          agent_id: string
+          amount: number
+          arrears_amount: number | null
+          client_ref: string | null
+          collection_channel: string
+          created_at: string
+          deposit_request_id: string | null
+          expected_amount: number | null
+          float_after: number
+          float_before: number
+          id: string
+          initiated_by: string | null
+          is_partial: boolean
+          location_name: string | null
+          momo_payer_name: string | null
+          momo_phone: string | null
+          momo_provider: string | null
+          momo_transaction_id: string | null
+          notes: string | null
+          partial_reason: string | null
+          payment_method: Database["public"]["Enums"]["collection_payment_method"]
+          performance_weight: number
+          rent_request_id: string | null
+          reversed_at: string | null
+          shortfall_amount: number | null
+          sms_sent_agent: boolean | null
+          sms_sent_tenant: boolean | null
+          tenant_id: string
+          token_id: string | null
+          total_due_amount: number | null
+          tracking_id: string | null
+          visit_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_collections"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_manifest: { Args: never; Returns: Json }
+      partner_tenant_backup_partner_ids: { Args: never; Returns: string[] }
+      partner_tenant_backup_portfolios: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          account_name: string | null
+          account_number: string | null
+          activation_token: string
+          agent_id: string
+          allocation_note: string | null
+          auto_reinvest: boolean
+          bank_account_name: string | null
+          bank_name: string | null
+          cfo_rejection_reason: string | null
+          cfo_verified: boolean | null
+          cfo_verified_at: string | null
+          cfo_verified_by: string | null
+          created_at: string
+          display_currency: string
+          duration_months: number
+          houses_claimed_count: number
+          id: string
+          investment_amount: number
+          investment_reference: string | null
+          investor_id: string | null
+          invite_id: string | null
+          lock_reason: string | null
+          locked_at: string | null
+          locked_by: string | null
+          locked_from_portfolio_id: string | null
+          maturity_alert_30d: boolean
+          maturity_alert_7d: boolean
+          maturity_date: string | null
+          mobile_money_number: string | null
+          mobile_network: string | null
+          next_roi_date: string | null
+          payment_method: string | null
+          payout_day: number | null
+          pending_renewal_duration_months: number | null
+          pending_renewal_effective_date: string | null
+          pending_renewal_request_id: string | null
+          plans_claimed_count: number
+          pool_eligible: boolean
+          pool_origin: string | null
+          portfolio_code: string
+          portfolio_pin: string
+          principal_allocated: number
+          principal_unallocated: number
+          receipt_file_url: string | null
+          return_fields_edit_token: string | null
+          roi_mode: string
+          roi_percentage: number
+          status: string
+          total_roi_earned: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "investor_portfolios"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       partner_tenant_backup_profiles: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -80114,6 +91799,7 @@ export type Database = {
           is_frozen: boolean
           is_seller: boolean
           is_test: boolean
+          is_test_contact: boolean
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
@@ -80191,6 +91877,191 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      partner_tenant_backup_rent_plans: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          access_fee: number
+          agent_guarantor_consent: boolean
+          agent_guarantor_consent_at: string | null
+          agent_guarantor_consent_version: string | null
+          agent_id: string | null
+          agent_liability_amount: number | null
+          agent_liability_reason: string | null
+          agent_liability_triggered: boolean
+          agent_liability_triggered_at: string | null
+          agent_ops_comment: string | null
+          agent_ops_reviewed_at: string | null
+          agent_ops_reviewed_by: string | null
+          agent_payment_status: string
+          agent_payment_status_reason: string | null
+          agent_payment_status_set_at: string | null
+          agent_payment_status_set_by: string | null
+          agent_verified: boolean | null
+          agent_verified_at: string | null
+          agent_verified_by: string | null
+          amount_repaid: number
+          approval_comment: string | null
+          approved_at: string | null
+          approved_by: string | null
+          assigned_agent_id: string | null
+          cfo_reviewed_at: string | null
+          cfo_reviewed_by: string | null
+          collection_lock_days: number | null
+          collection_locked_at: string | null
+          collection_locked_reason: string | null
+          coo_reviewed_at: string | null
+          coo_reviewed_by: string | null
+          created_at: string
+          daily_repayment: number
+          disbursed_at: string | null
+          duration_days: number
+          fund_recipient_id: string | null
+          fund_recipient_name: string | null
+          fund_recipient_type: string | null
+          fund_routed_at: string | null
+          funded_at: string | null
+          funder_visibility_decided_at: string | null
+          funder_visibility_decided_by: string | null
+          funder_visibility_reason: string | null
+          funder_visible: boolean
+          house_category: string | null
+          house_image_urls: string[] | null
+          house_listing_id: string | null
+          id: string
+          initial_outstanding_balance: number | null
+          landlord_acknowledged: boolean | null
+          landlord_call_notes: string | null
+          landlord_called: boolean | null
+          landlord_id: string
+          landlord_ops_comment: string | null
+          landlord_ops_reviewed_at: string | null
+          landlord_ops_reviewed_by: string | null
+          landlord_payout_day: number | null
+          landlord_payout_enabled: boolean
+          landlord_payout_last_run_at: string | null
+          landlord_payout_next_run_at: string | null
+          landlord_verification_method: string | null
+          last_payment_amount: number | null
+          last_payment_recipient_name: string | null
+          last_payment_recipient_role: string | null
+          last_resubmitted_at: string | null
+          latest_rent_receipt_uploaded_at: string | null
+          latest_rent_receipt_url: string | null
+          lc_letter_bucket: string | null
+          lc_letter_path: string | null
+          lc1_id: string | null
+          manager_verified: boolean | null
+          manager_verified_at: string | null
+          manager_verified_by: string | null
+          next_roi_due_date: string | null
+          nin_photo_bucket: string | null
+          nin_photo_path: string | null
+          number_of_payments: number | null
+          outstanding_at_end: number | null
+          outstanding_grace_days: number | null
+          partner_ops_comment: string | null
+          partner_ops_reviewed_at: string | null
+          partner_ops_reviewed_by: string | null
+          payout_method: string | null
+          payout_transaction_reference: string | null
+          pending_window_reset_at: string | null
+          pending_window_reset_by: string | null
+          pending_window_reset_count: number
+          preferred_language: string | null
+          pricing_version: string
+          proxy_agent_id: string | null
+          registration_type: string
+          rejected_at: string | null
+          rejected_at_stage: string | null
+          rejected_reason: string | null
+          renewal_above_by: number | null
+          renewal_above_suggestion: boolean | null
+          renewal_advice_snapshot: Json | null
+          renewal_change_explanation: string | null
+          renewal_change_reason_code: string | null
+          renewal_evidence_url: string | null
+          renewal_previous_days: number | null
+          renewal_previous_rent: number | null
+          rent_amount: number
+          reopen_count: number
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
+          repayment_frequency: string
+          repayment_frequency_locked: boolean
+          repayment_starts_on: string | null
+          request_city: string | null
+          request_country: string | null
+          request_fee: number
+          request_latitude: number | null
+          request_longitude: number | null
+          resubmission_count: number
+          resubmitted_at: string | null
+          resubmitted_note: string | null
+          returned_at: string | null
+          roi_payments_count: number | null
+          schedule_status: string | null
+          self_funding_line_id: string | null
+          self_funding_partner_id: string | null
+          service_center_comment: string | null
+          service_center_manager_id: string | null
+          service_center_reviewed_at: string | null
+          service_center_reviewed_by: string | null
+          status: string | null
+          supporter_id: string | null
+          tenancy_continuity: string | null
+          tenancy_end_reason: string | null
+          tenancy_ended_at: string | null
+          tenancy_status: string
+          tenant_electricity_meter: string | null
+          tenant_id: string
+          tenant_no_smartphone: boolean
+          tenant_ops_comment: string | null
+          tenant_ops_reviewed_at: string | null
+          tenant_ops_reviewed_by: string | null
+          tenant_photo_url: string | null
+          tenant_self_applied: boolean
+          tenant_water_meter: string | null
+          total_repayment: number
+          total_roi_paid: number | null
+          updated_at: string
+          v360_daily_rate: number | null
+          v360_gross: number | null
+          v360_missed_days: number
+          v360_paid_days: number
+          v360_receivable: number | null
+          v360_started_on: string | null
+          v360_vacant_days: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "rent_requests"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_repayments: {
+        Args: { p_after?: string; p_limit?: number; p_through?: string }
+        Returns: {
+          amount: number
+          created_at: string
+          deposit_request_id: string | null
+          external_reference: string | null
+          id: string
+          initiated_by: string | null
+          paid_by: string | null
+          payment_method: string | null
+          rent_request_id: string
+          tenant_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "repayments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      partner_tenant_backup_tenant_ids: { Args: never; Returns: string[] }
       partner_tenant_backup_wallets: {
         Args: { p_after?: string; p_limit?: number; p_through?: string }
         Returns: {
@@ -80239,6 +92110,8 @@ export type Database = {
         }[]
       }
       payables_guard: { Args: never; Returns: undefined }
+      payer_name_key: { Args: { p_value: string }; Returns: string }
+      payer_phone_key: { Args: { p_value: string }; Returns: string }
       payout_auto_verify_ready: {
         Args: { p_destination_id: string }
         Returns: boolean
@@ -80299,6 +92172,66 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      pin_challenge_check: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_reset_id: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_challenge_issue: {
+        Args: {
+          p_channel: string
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_complete: {
+        Args: {
+          p_current_pin: string
+          p_email_code_hash: string
+          p_new_pin: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_change_issue: {
+        Args: {
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_reset_begin: {
+        Args: { p_email_usable: boolean; p_user: string }
+        Returns: Json
+      }
+      pin_reset_complete: {
+        Args: {
+          p_email_code_hash: string
+          p_new_pin: string
+          p_sms_code_hash: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      pin_setup_complete: {
+        Args: { p_code_hash: string; p_new_pin: string; p_user: string }
+        Returns: Json
+      }
+      pin_setup_issue: {
+        Args: {
+          p_code_hash: string
+          p_destination_masked?: string
+          p_user: string
+        }
+        Returns: Json
+      }
       pin_tenant_ops_weekly_metrics: {
         Args: { p_anchor?: string }
         Returns: number
@@ -80314,6 +92247,199 @@ export type Database = {
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
         Returns: Json
+      }
+      pipeline_auto_forward_run: {
+        Args: { p_limit?: number; p_only?: string }
+        Returns: Json
+      }
+      pipeline_clear_waiting: {
+        Args: { p_desk: string; p_reason?: string; p_request_id: string }
+        Returns: boolean
+      }
+      pipeline_coo_board: { Args: never; Returns: Json }
+      pipeline_coo_funding_plan: {
+        Args: never
+        Returns: {
+          agent_name: string
+          confirmed_by_people_pct: number
+          cumulative_ugx: number
+          failed: Json
+          landlord_name: string
+          landlord_verified: boolean
+          reason: string
+          recommendation: string
+          rent_amount: number
+          rent_request_id: string
+          room_ugx: number
+          score: number
+          tenant_name: string
+          waiting_days: number
+        }[]
+      }
+      pipeline_desk_board: {
+        Args: { p_limit?: number; p_stage: string }
+        Returns: Json
+      }
+      pipeline_desk_daily: {
+        Args: { p_date?: string }
+        Returns: {
+          call_again: number
+          calls_logged: number
+          dashboards_activated: number
+          day: string
+          followed_pct: number
+          overrides: number
+          passed: number
+          rejected: number
+          reviews: number
+          sent_back: number
+          stage: string
+          top_override_reason: string
+          transferred: number
+        }[]
+      }
+      pipeline_desk_ratings: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_funder_board_preview: {
+        Args: never
+        Returns: {
+          area: string
+          duration_days: number
+          photos: number
+          photos_confirmed_by: string
+          rent_amount: number
+          rent_request_id: string
+          score: number
+          status: string
+          tenant_first_name: string
+        }[]
+      }
+      pipeline_i_can_view: { Args: { p_request_id: string }; Returns: boolean }
+      pipeline_link_call: {
+        Args: {
+          p_call_session_id: string
+          p_desk: string
+          p_request_id: string
+          p_subject: string
+        }
+        Returns: string
+      }
+      pipeline_overrides: {
+        Args: { p_date?: string }
+        Returns: {
+          decision: string
+          note: string
+          reason_code: string
+          recommended: string
+          rent_request_id: string
+          reviewed_at: string
+          reviewer_name: string
+          staff_ref: string
+          stage: string
+          tenant_name: string
+        }[]
+      }
+      pipeline_recommend: {
+        Args: { p_request_id: string; p_results: Json; p_stage: string }
+        Returns: Json
+      }
+      pipeline_record_review: {
+        Args: {
+          p_decision: string
+          p_note?: string
+          p_reason_code?: string
+          p_request_id: string
+          p_results: Json
+          p_stage: string
+          p_target_agent_id?: string
+        }
+        Returns: Json
+      }
+      pipeline_request_calls: {
+        Args: { p_request_id: string }
+        Returns: {
+          answered: boolean
+          call_session_id: string
+          desk: string
+          duration_seconds: number
+          recording: boolean
+          staff_name: string
+          started_at: string
+          status: string
+          subject: string
+        }[]
+      }
+      pipeline_request_score: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
+      pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_send_back_reasons: {
+        Args: { p_agent_id?: string; p_days?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          check_code: string
+          check_label: string
+          requests_reviewed: number
+          share_pct: number
+          times: number
+        }[]
+      }
+      pipeline_set_waiting: {
+        Args: {
+          p_desk: string
+          p_hours?: number
+          p_note?: string
+          p_owner_kind: string
+          p_owner_user_id?: string
+          p_reason_code: string
+          p_request_id: string
+          p_rule_id?: string
+        }
+        Returns: string
+      }
+      pipeline_suggest_agents: {
+        Args: { p_limit?: number; p_request_id: string }
+        Returns: {
+          active_tenants: number
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          in_window_pct: number
+          km: number
+          week_start: string
+        }[]
+      }
+      pipeline_tenant_flags: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_waiting_list: {
+        Args: { p_desk: string }
+        Returns: {
+          expired: boolean
+          hours_left: number
+          note: string
+          owner_kind: string
+          owner_name: string
+          reason_code: string
+          rent_request_id: string
+          req: string
+          set_at: string
+          set_by_name: string
+          set_by_staff_ref: string
+          tenant: string
+          until_at: string
+          waiting_id: string
+        }[]
+      }
+      place_company_receipt_as_float_return: {
+        Args: {
+          p_agent_id: string
+          p_gmail_transaction_id: string
+          p_note?: string
+          p_remember_number?: boolean
+        }
+        Returns: Json
+      }
+      place_portfolio_return_hold: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
       }
       plan_reversed_money_still_held: {
         Args: { p_since: string }
@@ -80332,6 +92458,10 @@ export type Database = {
         Returns: {
           inserted_count: number
         }[]
+      }
+      portfolio_compound_email_facts: {
+        Args: { p_portfolio_id: string; p_reference?: string }
+        Returns: Json
       }
       post_instalment_waterfall: {
         Args: {
@@ -80374,16 +92504,39 @@ export type Database = {
         }
         Returns: Json
       }
-      post_portfolio_roi_ledger: {
+      post_portfolio_roi_ledger:
+        | {
+            Args: {
+              p_amount: number
+              p_description_in: string
+              p_description_out: string
+              p_operation: string
+              p_portfolio_id: string
+              p_reference: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_amount: number
+              p_cycle_date: string
+              p_description_in: string
+              p_description_out: string
+              p_operation: string
+              p_override_id?: string
+              p_portfolio_id: string
+              p_reference: string
+            }
+            Returns: string
+          }
+      post_rent_facilitation_reward: {
         Args: {
-          p_amount: number
-          p_description_in: string
-          p_description_out: string
-          p_operation: string
-          p_portfolio_id: string
-          p_reference: string
+          p_payment_number: number
+          p_reinvest_portfolio_id?: string
+          p_rent_request_id: string
+          p_wallet_description?: string
         }
-        Returns: string
+        Returns: Json
       }
       post_rent_fee_collection: {
         Args: {
@@ -80394,8 +92547,24 @@ export type Database = {
         }
         Returns: Json
       }
+      post_return_payout: {
+        Args: {
+          p_amount: number
+          p_entries: Json
+          p_ledger_key: string
+          p_operation_id: string
+          p_payment_method?: string
+          p_payment_reference?: string
+          p_reviewed_by: string
+        }
+        Returns: Json
+      }
       post_treasury_fee_cash_transfer: {
         Args: { p_collection_id: string }
+        Returns: Json
+      }
+      post_v360_daily_waterfall: {
+        Args: { p_cash: number; p_paid_on: string; p_rent_request_id: string }
         Returns: Json
       }
       preview_business_advance_limit: {
@@ -80456,6 +92625,13 @@ export type Database = {
       promissory_fuzzy_arrival_suggestions: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
+      }
+      promissory_note_same_partner: {
+        Args: {
+          p_a: Database["public"]["Tables"]["promissory_notes"]["Row"]
+          p_b: Database["public"]["Tables"]["promissory_notes"]["Row"]
+        }
+        Returns: boolean
       }
       promissory_ops_analytics: { Args: { p_days?: number }; Returns: Json }
       promissory_ops_assignees: {
@@ -80520,6 +92696,12 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: undefined
       }
+      protect_function: { Args: { p_name: string }; Returns: number }
+      protect_set_unlock_token: {
+        Args: { p_new: string; p_old?: string }
+        Returns: string
+      }
+      protected_functions_check: { Args: never; Returns: number }
       proxy_agent_partner_rows: {
         Args: { p_agent_id: string }
         Returns: {
@@ -80610,6 +92792,7 @@ export type Database = {
         }
         Returns: Json
       }
+      psm_contract_term_months: { Args: never; Returns: number }
       psm_disburse_landlord_float: {
         Args: {
           p_commitment_id: string
@@ -80620,6 +92803,7 @@ export type Database = {
       }
       psm_is_partner: { Args: { p_user: string }; Returns: boolean }
       psm_is_topup_reviewer: { Args: { p_uid: string }; Returns: boolean }
+      psm_mature_self_support_portfolios: { Args: never; Returns: Json }
       psm_plan_booked_for_other: {
         Args: { p_partner: string; p_rent_request_id: string }
         Returns: boolean
@@ -80859,6 +93043,7 @@ export type Database = {
       }
       pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
+      public_support_plan: { Args: { p_plan_id: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       purge_login_device_network_data: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
@@ -81529,11 +93714,13 @@ export type Database = {
         Returns: Json
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
+      redact_sms_codes: { Args: { p_message: string }; Returns: string }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
       refresh_mv_identity_double_users: { Args: never; Returns: undefined }
+      refresh_mv_landlord_hub_registry: { Args: never; Returns: undefined }
       refresh_mv_ops_daily_summary: { Args: never; Returns: undefined }
       refresh_tenant_idle_states: { Args: never; Returns: number }
       refresh_ug_geo_alias: { Args: never; Returns: undefined }
@@ -81544,6 +93731,32 @@ export type Database = {
       refresh_wallet_totals_cache: { Args: never; Returns: undefined }
       refund_agent_float_for_payout: {
         Args: { p_payout_id: string; p_reason: string }
+        Returns: Json
+      }
+      register_landlord_property: {
+        Args: {
+          p_caretaker_name?: string
+          p_caretaker_phone?: string
+          p_county: string
+          p_district: string
+          p_electricity_meter?: string
+          p_latitude?: number
+          p_lc1_name?: string
+          p_lc1_phone?: string
+          p_longitude?: number
+          p_monthly_rent: number
+          p_number_of_houses?: number
+          p_payout_day?: number
+          p_property_address: string
+          p_property_status?: string
+          p_region: string
+          p_subcounty: string
+          p_tenant_name?: string
+          p_tenant_phone?: string
+          p_ug_village_id: number
+          p_village: string
+          p_water_meter?: string
+        }
         Returns: Json
       }
       register_login_device: {
@@ -81557,6 +93770,11 @@ export type Database = {
         }
         Returns: Json
       }
+      register_merchant_desk_number: {
+        Args: { p_agent_id: string; p_label?: string; p_phone: string }
+        Returns: Json
+      }
+      register_otp_attempt: { Args: { p_otp_id: string }; Returns: number }
       register_tenant_document: {
         Args: {
           p_bucket: string
@@ -81634,6 +93852,10 @@ export type Database = {
         Args: { _amount: number; _reason: string; _user_id: string }
         Returns: Json
       }
+      release_portfolio_return_hold: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
       release_stale_cashout_claims: {
         Args: never
         Returns: {
@@ -81660,6 +93882,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      remove_merchant_desk_number: { Args: { p_phone: string }; Returns: Json }
       renew_expired_rent_request: {
         Args: { p_reason?: string; p_request_id: string }
         Returns: Json
@@ -81852,6 +94075,30 @@ export type Database = {
         }
         Returns: boolean
       }
+      rent_request_agent_week_pct: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          agent_id: string
+          book: string
+          expired_collected: number
+          expired_due_so_far: number
+          expired_plans: number
+          expired_required_pct: number
+          in_window_collected: number
+          in_window_due_so_far: number
+          in_window_plans: number
+          in_window_required_pct: number
+          last_book: string
+          last_expired_pct: number
+          last_in_window_pct: number
+          last_passes: boolean
+          last_week_end: string
+          last_week_start: string
+          through_day: string
+          week_end: string
+          week_start: string
+        }[]
+      }
       rent_request_balance_unchanged: {
         Args: { _amount_repaid: number; _id: string }
         Returns: boolean
@@ -81904,6 +94151,19 @@ export type Database = {
       rent_request_timing_history: {
         Args: { p_request_id: string }
         Returns: Json
+      }
+      rent_reward_posting_gaps: {
+        Args: never
+        Returns: {
+          last_recorded_at: string
+          posted_amount: number
+          posted_legs: number
+          recorded_amount: number
+          recorded_rows: number
+          rent_request_id: string
+          rows_without_posting: number
+          supporter_id: string
+        }[]
       }
       rent_sweep_unapplied_collections: { Args: never; Returns: Json }
       reopen_deposit_for_repair: {
@@ -81970,6 +94230,10 @@ export type Database = {
         Args: { p_message: string; p_withdrawal_id: string }
         Returns: string
       }
+      request_agent_advance_write_off: {
+        Args: { p_advance_id: string; p_reason: string }
+        Returns: Json
+      }
       request_agent_unallocation: {
         Args: {
           p_agent_id: string
@@ -81992,12 +94256,29 @@ export type Database = {
         }
         Returns: Json
       }
+      request_compound_reversal: {
+        Args: { p_ledger_id: string; p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
+      request_exception_otp: {
+        Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
+        Returns: Json
+      }
       request_landlord_number_change: {
         Args: {
           p_field: string
           p_landlord_id: string
           p_new_value: string
           p_note?: string
+        }
+        Returns: Json
+      }
+      request_landlord_payout_change_otp: {
+        Args: {
+          p_detail: string
+          p_kind: string
+          p_reason: string
+          p_target_ids: string[]
         }
         Returns: Json
       }
@@ -82019,6 +94300,7 @@ export type Database = {
         Args: { _dead_letter_id: number }
         Returns: undefined
       }
+      require_staff_aal2: { Args: never; Returns: undefined }
       requisition_budget_line_committed: {
         Args: {
           p_exclude_id?: string
@@ -82084,6 +94366,16 @@ export type Database = {
         Args: { p_agent_id?: string; p_withdrawal_id: string }
         Returns: Json
       }
+      reserve_wallet_reversal: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_original_group: string
+          p_reference: string
+          p_user: string
+        }
+        Returns: Json
+      }
       reset_agent_float_if_stale: {
         Args: { p_agent_id: string }
         Returns: undefined
@@ -82096,6 +94388,13 @@ export type Database = {
       resolve_campaign_short_code: {
         Args: { p_short_code: string }
         Returns: Json
+      }
+      resolve_learned_payer_route: {
+        Args: { p_key_type: string; p_payer_key: string }
+        Returns: {
+          route: string
+          target_user_id: string
+        }[]
       }
       resolve_owned_notification_email: {
         Args: { p_user_id: string }
@@ -82286,6 +94585,15 @@ export type Database = {
         Returns: Json
       }
       revoke_partner_lead_invite: { Args: { p_code: string }; Returns: Json }
+      revoke_return_cycle_override: {
+        Args: { p_override_id: string; p_reason: string }
+        Returns: undefined
+      }
+      run_agent_advance_reconciliation: { Args: never; Returns: string }
+      run_agreement_contradiction_check: {
+        Args: { p_trigger?: string }
+        Returns: string
+      }
       run_email_auto_match_retry: {
         Args: { p_window_hours?: number }
         Returns: number
@@ -82609,11 +94917,23 @@ export type Database = {
         }
         Returns: Json
       }
+      set_financial_ops_restriction: {
+        Args: { p_areas: string[]; p_reason: string; p_user_id: string }
+        Returns: string[]
+      }
       set_landlord_payout_block_exemption: {
         Args: { p_allow: boolean; p_withdrawal_ids: string[] }
         Returns: number
       }
+      set_landlord_payout_block_exemption_unchecked: {
+        Args: { p_allow: boolean; p_withdrawal_ids: string[] }
+        Returns: number
+      }
       set_landlord_payout_budget: {
+        Args: { p_budget: number; p_restart?: boolean }
+        Returns: number
+      }
+      set_landlord_payout_budget_unchecked: {
         Args: { p_budget: number; p_restart?: boolean }
         Returns: number
       }
@@ -82659,6 +94979,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_payroll_loyalty_bonus: {
+        Args: { p_enabled: boolean; p_reason?: string }
+        Returns: Json
+      }
       set_portfolio_payout_destinations: {
         Args: { p_destinations: Json; p_portfolio_id: string }
         Returns: Json
@@ -82694,6 +95018,10 @@ export type Database = {
       set_staff_access_password: {
         Args: { p_new_password: string; p_user_id: string }
         Returns: boolean
+      }
+      set_staff_mfa_force_enrol: {
+        Args: { p_from: string; p_reason: string }
+        Returns: string
       }
       set_staff_mfa_mode: {
         Args: { p_mode: string; p_reason: string }
@@ -82751,12 +95079,20 @@ export type Database = {
         Args: { p_name: string; p_number: string; p_provider: string }
         Returns: Json
       }
+      set_withdrawal_pin: {
+        Args: { p_current_pin?: string; p_new_pin: string }
+        Returns: Json
+      }
       settle_merchant_out_of_pocket: {
         Args: { p_advance_ids: string[]; p_note?: string }
         Returns: Json
       }
       settle_tenant_rent_from_deposit: {
         Args: { p_deposit_request_id: string }
+        Returns: Json
+      }
+      settle_wallet_reversal: {
+        Args: { p_link_id: string; p_reversal_group: string }
         Returns: Json
       }
       share_onboarding_get: {
@@ -82896,6 +95232,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: number
       }
+      snapshot_agent_weekly_posting_eligibility: {
+        Args: { p_week_start?: string }
+        Returns: number
+      }
       snapshot_wallet_ledger_baseline: {
         Args: never
         Returns: {
@@ -82917,6 +95257,56 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      special_advance_approve: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
+        Returns: Json
+      }
+      special_advance_cancel: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason: string }
+        Returns: Json
+      }
+      special_advance_cfo_ok: { Args: never; Returns: boolean }
+      special_advance_create: { Args: { p_request: Json }; Returns: Json }
+      special_advance_disburse: {
+        Args: { p_expected_updated_at: string; p_id: string; p_payout: Json }
+        Returns: Json
+      }
+      special_advance_get: { Args: { p_id: string }; Returns: Json }
+      special_advance_list: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
+        Returns: Json
+      }
+      special_advance_post_provision_review: {
+        Args: { p_request: Json }
+        Returns: Json
+      }
+      special_advance_provision_preview: {
+        Args: { p_request?: Json }
+        Returns: Json
+      }
+      special_advance_quote: { Args: { p_request: Json }; Returns: Json }
+      special_advance_reconciliation: { Args: never; Returns: Json }
+      special_advance_record_correction: {
+        Args: { p_id: string; p_request: Json }
+        Returns: Json
+      }
+      special_advance_record_recovery: {
+        Args: { p_id: string; p_recovery: Json }
+        Returns: Json
+      }
+      special_advance_record_repayment: {
+        Args: { p_id: string; p_repayment: Json }
+        Returns: Json
+      }
+      special_advance_reject: {
+        Args: { p_expected_updated_at: string; p_id: string; p_reason: string }
+        Returns: Json
+      }
+      special_advance_statement: { Args: { p_id: string }; Returns: Json }
+      special_advance_write_off: {
+        Args: { p_id: string; p_request: Json }
+        Returns: Json
+      }
       split_portfolio_principal: {
         Args: {
           p_portfolio_id: string
@@ -82937,6 +95327,373 @@ export type Database = {
           password_change_recorded: boolean
           roles: string[]
           user_id: string
+        }[]
+      }
+      staff_assistant_can_manage_ideas: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      staff_assistant_can_send_web_push: {
+        Args: { p_topic?: string; p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_can_user_read_report: {
+        Args: { p_owner_id?: string; p_report_rpc: string; p_user_id: string }
+        Returns: boolean
+      }
+      staff_assistant_can_view_pii: {
+        Args: { p_scope?: string }
+        Returns: boolean
+      }
+      staff_assistant_cancel_reminder: {
+        Args: { p_reminder_id: string }
+        Returns: Json
+      }
+      staff_assistant_cancel_schedule: {
+        Args: { p_schedule_id: string }
+        Returns: Json
+      }
+      staff_assistant_check_email_budget: {
+        Args: { p_recipient_count?: number; p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_check_model_drift: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      staff_assistant_check_owner_access: {
+        Args: { p_owner_id: string }
+        Returns: boolean
+      }
+      staff_assistant_check_question_rate_limit: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      staff_assistant_compute_draft_hash: {
+        Args: { p_kind: string; p_payload: Json }
+        Returns: string
+      }
+      staff_assistant_compute_next_run: {
+        Args: {
+          p_day_of_week?: number
+          p_frequency: string
+          p_from?: string
+          p_send_time_kampala?: string
+        }
+        Returns: string
+      }
+      staff_assistant_confirm_schedule_mfa: {
+        Args: { p_schedule_id: string }
+        Returns: Json
+      }
+      staff_assistant_consume_draft: {
+        Args: { p_draft_id: string; p_kind: string; p_payload: Json }
+        Returns: Json
+      }
+      staff_assistant_create_reminder: {
+        Args: {
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_note?: string
+          p_remind_at: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_create_schedule: {
+        Args: {
+          p_conversation_id?: string
+          p_custom_message?: string
+          p_day_of_week?: number
+          p_draft_id?: string
+          p_frequency?: string
+          p_recipient_emails?: string[]
+          p_report_args?: Json
+          p_report_rpc: string
+          p_report_tool: string
+          p_send_time_kampala?: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_crm_can_review: { Args: never; Returns: boolean }
+      staff_assistant_crm_conversation_thread: {
+        Args: { p_conversation_id: string }
+        Returns: Json
+      }
+      staff_assistant_crm_review_dashboard:
+        | {
+            Args: {
+              p_limit?: number
+              p_only_thumbs_down?: boolean
+              p_only_unanswered?: boolean
+              p_role_filter?: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_days?: number
+              p_limit?: number
+              p_role_filter?: string
+              p_search?: string
+              p_thumbs_down?: boolean
+              p_unanswered_only?: boolean
+            }
+            Returns: Json
+          }
+      staff_assistant_crm_weekly_learning_report: {
+        Args: { p_days?: number; p_role_filter?: string }
+        Returns: Json
+      }
+      staff_assistant_delete_project: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
+      staff_assistant_department_teaching_queue: {
+        Args: { p_department?: string; p_limit?: number; p_status?: string }
+        Returns: Json
+      }
+      staff_assistant_dispatch_due_reminders: { Args: never; Returns: number }
+      staff_assistant_email_recipients: {
+        Args: { p_search?: string }
+        Returns: {
+          email: string
+          full_name: string
+          roles: string[]
+          staff_user_id: string
+        }[]
+      }
+      staff_assistant_error_summary: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_get_config: { Args: never; Returns: Json }
+      staff_assistant_get_memory_prefs: { Args: never; Returns: Json }
+      staff_assistant_has_access: { Args: never; Returns: boolean }
+      staff_assistant_health: { Args: never; Returns: Json }
+      staff_assistant_hide_my_history: {
+        Args: { p_conversation_id?: string; p_user_id?: string }
+        Returns: Json
+      }
+      staff_assistant_is_crm_reviewer: { Args: never; Returns: boolean }
+      staff_assistant_is_staff_email: {
+        Args: { p_email: string }
+        Returns: boolean
+      }
+      staff_assistant_is_valid_link_path: {
+        Args: { p_link_path: string }
+        Returns: boolean
+      }
+      staff_assistant_list_ideas: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: Json
+      }
+      staff_assistant_list_projects: { Args: never; Returns: Json }
+      staff_assistant_log_query: {
+        Args: {
+          p_duration_ms: number
+          p_error_message?: string
+          p_executed_sql: string
+          p_question: string
+          p_role_areas: string[]
+          p_row_count: number
+          p_sql: string
+          p_status?: string
+          p_truncated: boolean
+        }
+        Returns: string
+      }
+      staff_assistant_mask_nin: {
+        Args: { p_allow_full?: boolean; p_nin: string }
+        Returns: string
+      }
+      staff_assistant_mask_phone: {
+        Args: { p_allow_full?: boolean; p_phone: string }
+        Returns: string
+      }
+      staff_assistant_promote_to_eval_set: {
+        Args: {
+          p_cleaned_question: string
+          p_expected_tool?: string
+          p_expected_topic?: string
+          p_notes?: string
+          p_source_id: string
+          p_source_kind: string
+        }
+        Returns: Json
+      }
+      staff_assistant_purge_expired_uploads: { Args: never; Returns: number }
+      staff_assistant_purge_old_history: { Args: never; Returns: number }
+      staff_assistant_real_use_dashboard: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_refresh_daily_insights: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
+      staff_assistant_rename_conversation: {
+        Args: { p_conversation_id: string; p_title: string }
+        Returns: Json
+      }
+      staff_assistant_require_staff: { Args: never; Returns: undefined }
+      staff_assistant_role_goals_and_measures: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_run_scheduled_report_as_owner: {
+        Args: { p_owner_id: string; p_report_args?: Json; p_report_rpc: string }
+        Returns: Json
+      }
+      staff_assistant_sanitize_jsonb: {
+        Args: { p_allow_phones?: boolean; p_data: Json; p_max_rows?: number }
+        Returns: Json
+      }
+      staff_assistant_save_draft: {
+        Args: { p_conversation_id?: string; p_kind: string; p_payload: Json }
+        Returns: Json
+      }
+      staff_assistant_save_idea: {
+        Args: {
+          p_category?: string
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_evidence_summary: string
+          p_figures?: Json
+          p_message_id?: string
+          p_period_label?: string
+          p_screen_path?: string
+          p_source_label?: string
+          p_suggestion: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_send_colleague_notification: {
+        Args: {
+          p_conversation_id?: string
+          p_draft_id?: string
+          p_link_path?: string
+          p_message: string
+          p_recipient_email: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_set_memory_prefs: {
+        Args: { p_dismiss_preference_key?: string; p_memory_enabled?: boolean }
+        Returns: Json
+      }
+      staff_assistant_set_morning_brief_prefs: {
+        Args: {
+          p_brief_time?: string
+          p_dismiss_today?: boolean
+          p_enabled: boolean
+        }
+        Returns: Json
+      }
+      staff_assistant_teach_from_review_queue: {
+        Args: {
+          p_body?: string
+          p_category?: string
+          p_department?: string
+          p_keywords?: string[]
+          p_measurement_gotcha?: string
+          p_official_source?: string
+          p_screen_path?: string
+          p_slug?: string
+          p_summary?: string
+          p_synonyms?: string[]
+          p_title?: string
+          p_unanswered_id?: string
+        }
+        Returns: Json
+      }
+      staff_assistant_update_idea_status: {
+        Args: { p_idea_id: string; p_status: string; p_status_note?: string }
+        Returns: Json
+      }
+      staff_assistant_update_note: {
+        Args: { p_note_id: string; p_note_text: string }
+        Returns: Json
+      }
+      staff_assistant_update_push_and_voice_prefs: {
+        Args: {
+          p_acknowledge_voice_disclosure?: boolean
+          p_morning_brief_topic?: boolean
+          p_taught_updates_topic?: boolean
+          p_web_push_enabled?: boolean
+          p_web_push_muted?: boolean
+        }
+        Returns: Json
+      }
+      staff_assistant_upsert_knowledge_entry: {
+        Args: {
+          p_body: string
+          p_category: string
+          p_keywords?: string[]
+          p_measurement_gotcha?: string
+          p_official_source?: string
+          p_review_status?: string
+          p_screen_path?: string
+          p_slug: string
+          p_summary: string
+          p_title: string
+        }
+        Returns: Json
+      }
+      staff_assistant_upsert_project: {
+        Args: {
+          p_instructions?: string
+          p_name?: string
+          p_pinned_file_ids?: string[]
+          p_project_id?: string
+        }
+        Returns: Json
+      }
+      staff_assistant_weekly_look_at_summary: {
+        Args: { p_as_of?: string }
+        Returns: Json
+      }
+      staff_assistant_weekly_manager_learning_view: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_weekly_unanswered_list: {
+        Args: { p_days?: number }
+        Returns: Json
+      }
+      staff_assistant_write_or_read_roles_list: {
+        Args: never
+        Returns: string[]
+      }
+      staff_authority_position: {
+        Args: { p_function: string; p_user: string }
+        Returns: string
+      }
+      staff_calling_detailed_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          answered: boolean
+          day: string
+          excluded_reveals: number
+          extra: Json
+          feedback: string
+          hhmm: string
+          name: string
+          outcome: string
+          person_id: string
+          phone: string
+          phone9: string
+          prio: number
+          role: string
+          rr_id: string
+          short_name: string
+          source: string
+          staff_id: string
+          staff_name: string
+          ts: string
         }[]
       }
       staff_create_redemption_request: {
@@ -83311,9 +96068,23 @@ export type Database = {
         Args: { p_reference: string; p_request_id: string }
         Returns: undefined
       }
+      standing_order_set_amount: {
+        Args: {
+          p_expected_amount: number
+          p_expected_updated_at: string
+          p_new_amount: number
+          p_order_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       subagent_listing_count: {
         Args: { p_sub_agent_id: string }
         Returns: number
+      }
+      submit_agent_vetting: {
+        Args: { p_accuracy_m: number; p_lat: number; p_lng: number }
+        Returns: Json
       }
       submit_identity_photos:
         | {
@@ -83681,6 +96452,16 @@ export type Database = {
           unmapped: boolean
         }[]
       }
+      tlb_log_location_pdf_export: {
+        Args: {
+          p_place_labels?: string[]
+          p_places: number
+          p_reason: string
+          p_status: string
+          p_tenants: number
+        }
+        Returns: string
+      }
       tlb_search_locations: {
         Args: { p_limit?: number; p_query: string; p_status?: string }
         Returns: {
@@ -83720,6 +96501,28 @@ export type Database = {
           is_active: boolean
           latest_status: string
           legacy_location: string
+          parish_name: string
+          region: string
+          subcounty_name: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_count: number
+          village_name: string
+        }[]
+      }
+      tlb_tenants_multi: {
+        Args: { p_limit?: number; p_paths: Json; p_status?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          county_name: string
+          depth: number
+          district_name: string
+          is_active: boolean
+          latest_status: string
+          legacy_location: string
+          matched_path_index: number
           parish_name: string
           region: string
           subcounty_name: string
@@ -85420,6 +98223,7 @@ export type Database = {
         Args: { p_portfolio_id: string; p_reason: string }
         Returns: Json
       }
+      unprotect_function: { Args: { p_name: string }; Returns: number }
       update_agent_advance_terms: {
         Args: {
           p_advance_id: string
@@ -85456,6 +98260,14 @@ export type Database = {
       use_device_alert_token: {
         Args: { p_peek?: boolean; p_token_hash: string }
         Returns: Json
+      }
+      use_verified_exception_approval: {
+        Args: { p_kind: string; p_reason: string; p_target_ids: string[] }
+        Returns: string
+      }
+      use_verified_scope_approval: {
+        Args: { p_detail: string; p_ids: string[]; p_kind: string }
+        Returns: string
       }
       user_can_access_landlord: {
         Args: { _landlord_id: string; _user_id: string }
@@ -85512,6 +98324,41 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      user_wallet_strict_for: {
+        Args: { p_user_id: string }
+        Returns: {
+          advance_balance: number
+          float_balance: number
+          float_balance_signed: number
+          pending_holds: number
+          restricted_held: number
+          total_visible: number
+          user_id: string
+          withdrawable: number
+        }[]
+      }
+      v360_activate: {
+        Args: { p_rent_request_id: string; p_start?: string }
+        Returns: Json
+      }
+      v360_day30_settle: { Args: { p_as_of?: string }; Returns: Json }
+      v360_guest_tenant: {
+        Args: {
+          p_guest_tenant_id: string
+          p_reason: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      v360_mark_day: {
+        Args: { p_kind: string; p_reason: string; p_rent_request_id: string }
+        Returns: Json
+      }
+      v360_plan_summary: { Args: { p_rent_request_id: string }; Returns: Json }
+      v360_set_new_plans_enabled: {
+        Args: { p_enabled: boolean }
+        Returns: Json
+      }
       validate_and_record_collection: {
         Args: {
           p_agent_id: string
@@ -85530,6 +98377,15 @@ export type Database = {
       }
       validate_wallet_against_pivot: {
         Args: { p_threshold?: number; p_user_id: string }
+        Returns: Json
+      }
+      verify_exception_otp: {
+        Args: {
+          p_kind: string
+          p_otp: string
+          p_reason: string
+          p_target_ids: string[]
+        }
         Returns: Json
       }
       verify_landlord_on_landlord_review: {
@@ -85575,6 +98431,10 @@ export type Database = {
         }[]
       }
       verify_payout_code_throttled: { Args: { p_code: string }; Returns: Json }
+      verify_portfolio_pin: {
+        Args: { p_pin: string; p_portfolio_id: string }
+        Returns: boolean
+      }
       verify_staff_access_password: {
         Args: { p_password: string; p_user_id: string }
         Returns: Json
@@ -85585,6 +98445,10 @@ export type Database = {
           _record_id: string
           _rejection_reason?: string
         }
+        Returns: Json
+      }
+      verify_withdrawal_pin: {
+        Args: { p_device_fp?: string; p_pin: string; p_purpose: string }
         Returns: Json
       }
       voice_autocall_add_people: {
@@ -85689,6 +98553,7 @@ export type Database = {
           last_render_at: string | null
           max_attempts: number
           next_attempt_at: string
+          notified_at: string | null
           outcome: string | null
           person_id: string | null
           person_name: string | null
@@ -85819,6 +98684,9 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      voice_line_robot_state: { Args: never; Returns: Json }
+      voice_line_staff_busy: { Args: never; Returns: boolean }
+      voice_line_try_staff: { Args: { p_bridging?: boolean }; Returns: Json }
       void_ledger_entry: {
         Args: { p_ledger_id: string; p_reason: string }
         Returns: undefined
@@ -85906,8 +98774,9 @@ export type Database = {
       welile_home_record_collection: {
         Args: {
           p_amount: number
+          p_idempotency_key: string
           p_notes?: string
-          p_source?: string
+          p_source: string
           p_subscription_id: string
         }
         Returns: Json
@@ -86183,11 +99052,185 @@ export type Database = {
           unit_id: string
         }[]
       }
+      welile_schools_agent_ok: { Args: never; Returns: boolean }
+      welile_schools_ops_ok: { Args: never; Returns: boolean }
+      welile_signages_ops_ok: { Args: never; Returns: boolean }
       welile_telecom_sending_charge: {
         Args: { p_amount: number }
         Returns: number
       }
       welile_transfer_items: { Args: never; Returns: string[] }
+      wh_archive_declined_subscription: {
+        Args: { p_reason?: string; p_subscription_id: string }
+        Returns: Json
+      }
+      wh_cfo_disburse_float: { Args: { p_request_id: string }; Returns: Json }
+      wh_declined_delete_check: {
+        Args: { p_subscription_ids: string[] }
+        Returns: {
+          reason: string
+          subscription_id: string
+        }[]
+      }
+      wh_delete_declined_applications: {
+        Args: { p_subscription_ids: string[] }
+        Returns: Json
+      }
+      wh_enroll_tenant_with_identity: {
+        Args: {
+          p_agent_id: string
+          p_draft_id?: string
+          p_has_smartphone: boolean
+          p_landlord_id: string
+          p_landlord_name: string
+          p_landlord_phone: string
+          p_landlord_uses_wallet: boolean
+          p_monthly_rent: number
+          p_nin: string
+          p_notes: string
+          p_payout_day: number
+          p_photo_path: string
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      wh_float_advance: {
+        Args: {
+          p_action: string
+          p_expected_status: string
+          p_note?: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
+      wh_float_request_history: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          action: string
+          actor_id: string
+          actor_name: string
+          created_at: string
+          float_request_id: string
+          from_status: string
+          note: string
+          stage: string
+          to_status: string
+        }[]
+      }
+      wh_float_request_tenant_ids: {
+        Args: { p_request_id: string }
+        Returns: {
+          nin: string
+          photo_path: string
+          subscription_id: string
+          tenant_id: string
+          tenant_name: string
+        }[]
+      }
+      wh_float_review_queue: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          created_at: string
+          expected_recipient_phone: string
+          id: string
+          reason: string
+          rejection_reason: string
+          requested_amount: number
+          status: string
+          tenant_count: number
+          updated_at: string
+        }[]
+      }
+      wh_hist_overview: {
+        Args: {
+          p_agent_id?: string
+          p_channel?: string
+          p_from?: string
+          p_subscription_id?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      wh_hist_record: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_channel: string
+          p_client_ref: string
+          p_confirm_duplicate?: boolean
+          p_evidence_path?: string
+          p_notes?: string
+          p_paid_on: string
+          p_reference: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
+      wh_hist_reverse: {
+        Args: { p_client_ref: string; p_entry_id: string; p_reason: string }
+        Returns: Json
+      }
+      wh_hist_search_agents: { Args: { p_search: string }; Returns: Json }
+      wh_hist_search_plans: { Args: { p_search: string }; Returns: Json }
+      wh_landlord_delete_blockers: {
+        Args: { p_landlord_id: string }
+        Returns: Json
+      }
+      wh_my_portfolio_status: {
+        Args: never
+        Returns: {
+          current_count: number
+          landlord_phone_key: string
+          phone_sent: string
+          verified: boolean
+          verified_at: string
+        }[]
+      }
+      wh_nin_check: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: Json
+      }
+      wh_nin_check_activity: {
+        Args: { p_hours?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          blocked: number
+          checks: number
+          enrol_duplicates: number
+          in_use: number
+          last_check: string
+        }[]
+      }
+      wh_nin_in_use: {
+        Args: { p_nin: string; p_tenant_id?: string }
+        Returns: boolean
+      }
+      wh_portfolio_verify_landlord: {
+        Args: { p_code: string; p_landlord_phone: string }
+        Returns: Json
+      }
+      wh_request_float: {
+        Args: {
+          p_notes?: string
+          p_recipient_phone?: string
+          p_subscription_ids: string[]
+        }
+        Returns: Json
+      }
+      wh_set_tenant_identity: {
+        Args: { p_nin: string; p_photo_path: string; p_tenant_id: string }
+        Returns: Json
+      }
+      wh_tenant_drafts_cleanup: { Args: never; Returns: Json }
+      wh_touch_tenant_draft: {
+        Args: { p_draft_id: string }
+        Returns: undefined
+      }
       withdrawal_destination_gate: {
         Args: { p_withdrawal_id: string }
         Returns: Json
@@ -86204,6 +99247,11 @@ export type Database = {
         Args: { p_withdrawal_id: string }
         Returns: Json
       }
+      withdrawal_pin_check: {
+        Args: { p_pin: string; p_user: string }
+        Returns: Json
+      }
+      withdrawal_pin_format_ok: { Args: { p: string }; Returns: boolean }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json
@@ -86224,6 +99272,28 @@ export type Database = {
         Args: { p_amount: number; p_reason: string; p_review_id: string }
         Returns: string
       }
+      zoe_glossary_can_manage: {
+        Args: { p_user_id?: string }
+        Returns: boolean
+      }
+      zoe_glossary_upsert_entry: {
+        Args: {
+          p_category: string
+          p_is_active?: boolean
+          p_keywords?: string[]
+          p_measurement_gotcha?: string
+          p_official_source?: string
+          p_plain_definition: string
+          p_screen_path?: string
+          p_slug: string
+          p_term: string
+        }
+        Returns: Json
+      }
+      zoe_ro_area_allowed: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_area_requires_aal2: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_require_area: { Args: { p_area: string }; Returns: boolean }
+      zoe_ro_validate_query: { Args: { p_sql: string }; Returns: Json }
     }
     Enums: {
       agent_tier:

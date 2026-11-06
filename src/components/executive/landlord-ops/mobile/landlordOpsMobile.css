@@ -1,0 +1,189 @@
+/*
+ * Phone presentation for the Landlord Ops console only.
+ * Desktop (768px and up) is left to the existing Tailwind classes.
+ * Dialogs and sheets portal to document.body, so those rules key off
+ * html[data-landlord-ops], which the console sets while it is mounted.
+ */
+
+.landlord-ops-shell {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+@media (max-width: 767px) {
+  .landlord-ops-shell {
+    font-size: 15px;
+  }
+
+  .landlord-ops-shell .text-\[9px\],
+  .landlord-ops-shell .text-\[10px\],
+  .landlord-ops-shell .text-\[11px\] {
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+  }
+
+  .landlord-ops-shell button:not([role='checkbox']):not([role='radio']):not([role='switch']),
+  .landlord-ops-shell [role='tab'],
+  .landlord-ops-shell input:not([type='checkbox']):not([type='radio']),
+  .landlord-ops-shell select,
+  .landlord-ops-shell textarea,
+  html[data-landlord-ops] .app-dialog-content button:not([role='checkbox']):not([role='radio']):not([role='switch']),
+  html[data-landlord-ops] .app-dialog-content input:not([type='checkbox']):not([type='radio']),
+  html[data-landlord-ops] .app-dialog-content select,
+  html[data-landlord-ops] .app-dialog-content textarea,
+  html[data-landlord-ops] .app-sheet-content button:not([role='checkbox']):not([role='radio']):not([role='switch']),
+  html[data-landlord-ops] .landlord-ops-filter-sheet input,
+  html[data-landlord-ops] .landlord-ops-filter-sheet select,
+  html[data-landlord-ops] [role='alertdialog'] button {
+    min-height: 44px;
+  }
+
+  .landlord-ops-shell .recharts-wrapper button,
+  .landlord-ops-shell .recharts-wrapper input {
+    min-height: 0;
+    min-width: 0;
+  }
+
+  .landlord-ops-shell [role='tablist'] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-start !important;
+    width: 100%;
+    max-width: 100%;
+    height: auto !important;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .landlord-ops-shell [role='tablist']::-webkit-scrollbar {
+    display: none;
+  }
+
+  .landlord-ops-shell [role='tab'] {
+    flex: 0 0 auto !important;
+  }
+
+  .landlord-ops-shell .lo-sticky-search {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+    background: hsl(var(--background) / 0.96);
+    backdrop-filter: blur(8px);
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  /* Wide data tables become stacked cards. Page-level horizontal scroll stays off. */
+  .landlord-ops-shell table.lo-card-table {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .landlord-ops-shell .overflow-x-auto:has(> table.lo-card-table),
+  .landlord-ops-shell .overflow-x-auto:has(table.lo-card-table) {
+    overflow-x: visible;
+  }
+
+  .landlord-ops-shell table.lo-card-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody tr {
+    display: block;
+    margin: 0.5rem;
+    padding: 0.35rem 0.85rem 0.7rem;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.75rem;
+    background: hsl(var(--card));
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody td,
+  .landlord-ops-shell table.lo-card-table tbody td.hidden {
+    display: flex !important;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    width: 100% !important;
+    min-height: 44px;
+    padding: 0.55rem 0 !important;
+    border: 0 !important;
+    white-space: normal !important;
+    text-align: right;
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody td::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    text-align: left;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody td[data-label='']::before {
+    content: none;
+    flex-basis: 0;
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody td[colspan] {
+    display: block !important;
+    text-align: center !important;
+  }
+
+  .landlord-ops-shell table.lo-card-table tbody td[colspan]::before {
+    content: none !important;
+  }
+
+  html[data-landlord-ops] .app-dialog-content,
+  html[data-landlord-ops] [role='alertdialog'] {
+    position: fixed !important;
+    inset: 0 !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    transform: none !important;
+    border-radius: 0 !important;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem) !important;
+  }
+
+  /*
+   * On an Android phone (the default device for field/ops staff), index.css's
+   * `html.android-compositor-safe [role="dialog"].app-dialog-content` rule
+   * re-applies `transform: translate3d(-50%, -50%, 0) !important` to recentre
+   * the normal, small, centred dialog. That selector has one more class/
+   * attribute than the rule above (3 vs 2), so by plain CSS specificity it
+   * wins the `transform` property even though this file is the one that
+   * actually wants the dialog full-screen here — the box is correctly sized
+   * to fill the screen, then shifted left and up by half its own width and
+   * height, leaving only a sliver of its bottom-right corner on screen and
+   * the rest (title, most fields, actions) pushed off-screen. This is the
+   * exact "opens on one end, half the form is missing" bug reported on
+   * Landlord Ops. Re-assert `transform: none` with an equally Android-aware,
+   * strictly more specific selector so it always wins here, regardless of
+   * source order or future edits to the generic Android rule.
+   */
+  html.android-compositor-safe[data-landlord-ops] [role='dialog'].app-dialog-content {
+    transform: none !important;
+    -webkit-transform: none !important;
+  }
+}

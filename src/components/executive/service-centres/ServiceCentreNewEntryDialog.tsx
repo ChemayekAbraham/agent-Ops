@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,19 +59,29 @@ export function ServiceCentreNewEntryDialog() {
     queryFn: async () => {
       const term = debouncedSearch;
 
-      // Live search straight against profiles so partial names / phones match
-      // every registered person, then decorate with their role.
-      let query = (supabase.from('profiles') as any)
-        .select('id, full_name, phone, email')
-        .order('full_name', { ascending: true, nullsFirst: false })
-        .limit(40);
-      if (term) {
-        const like = `%${term}%`;
-        query = query.or(
-          `full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`,
-        );
+      // One- and two-character terms cannot use the trigram indexes. Leave
+      // the picker empty until the officer has typed enough.
+      if (term.length > 0 && term.length < PROFILE_TYPEAHEAD_MIN_CHARS) return [] as AgentRow[];
+
+      // Live search through the indexed typeahead, then decorate with role.
+      // An empty box still shows a short alphabetical page, with no ILIKE.
+      let profiles: any[] = [];
+      let error: { message?: string; code?: string } | null = null;
+      if (term.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const found = await searchProfilesTypeahead(term, {
+          limit: 40,
+          columns: 'id, full_name, phone, email',
+        });
+        profiles = found.rows;
+        error = found.error ? { message: found.error } : null;
+      } else {
+        const page = await (supabase.from('profiles') as any)
+          .select('id, full_name, phone, email')
+          .order('full_name', { ascending: true, nullsFirst: false })
+          .limit(40);
+        profiles = page.data || [];
+        error = page.error;
       }
-      const { data: profiles, error } = await query;
 
       if (error) {
         // Fall back to the privileged RPC when RLS blocks direct profile reads.

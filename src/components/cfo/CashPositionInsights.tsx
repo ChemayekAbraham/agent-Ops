@@ -1,35 +1,36 @@
 import { useState } from 'react';
+import { cfoReportRetry } from '@/hooks/cfoReportRetry';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
+  ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import {
-  LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
-  TrendingUp, TrendingDown, AlertTriangle, Info, CheckCircle2, Landmark, Gauge, ArrowRight,
+  LineChart as LineIcon, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
+  TrendingUp, TrendingDown, AlertTriangle, Info, ArrowUpRight, ArrowDownLeft
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CashPositionAccounts } from './CashPositionAccounts';
+import { CashPositionBreakdowns } from './CashPositionBreakdowns';
+import { CashPositionDownloadReports } from './CashPositionDownloadReports';
+import type { ActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
+import type { PhoneMoneyLine } from '@/components/financial-ops/PhoneMoneyStatementSheet';
 
 const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
-const short = (n: number) => {
+const axisShort = (n: number) => {
   const a = Math.abs(n);
   if (a >= 1e9) return `${(n / 1e9).toFixed(1)}B`;
-  if (a >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e6) return `${(n / 1e6).toFixed(a % 1e6 === 0 ? 0 : 1)}M`;
   if (a >= 1e3) return `${(n / 1e3).toFixed(0)}K`;
   return String(Math.round(n));
 };
 const kampalaToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(new Date());
-const fmtDate = (d?: string | null) => {
-  if (!d) return '—';
-  const key = d.slice(0, 10);
-  if (key === kampalaToday()) return 'Today';
-  return new Date(`${key}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-const label = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 interface Props {
+  receivablesReady?: boolean;
+  moneyReady?: boolean;
   totalReceivables: number;
   receivablesCategories: Array<{ key: string; label: string; outstanding: number }>;
   moneyWeHave: number;
@@ -37,16 +38,21 @@ interface Props {
   moneyWeOwe: number;
   bankReconciled?: boolean;
   onNavigate?: (section: string) => void;
+  accountMoney?: ActualMoneyHeld;
+  accountUpdatedAt?: number;
+  onSelectAccount?: (line: PhoneMoneyLine) => void;
 }
 
 function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: string; sub?: string; right?: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-2 mb-3">
-      <div className="flex items-start gap-2.5 min-w-0">
-        <span className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">{icon}</span>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5 mb-3.5">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          {icon}
+        </span>
         <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{title}</p>
-          {sub && <p className="text-[11px] text-muted-foreground truncate">{sub}</p>}
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground truncate">{title}</h2>
+          {sub && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</p>}
         </div>
       </div>
       {right}
@@ -55,19 +61,33 @@ function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: strin
 }
 
 export function CashPositionInsights({
-  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate,
+  totalReceivables,
+  receivablesCategories,
+  moneyWeHave,
+  moneyWeCanUse,
+  moneyWeOwe,
+  bankReconciled,
+  onNavigate,
+  receivablesReady = true,
+  moneyReady = true,
+  accountMoney,
+  accountUpdatedAt = 0,
+  onSelectAccount,
 }: Props) {
   const [days, setDays] = useState(30);
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   const flow = useQuery({
     queryKey: ['cfo-cash-flow-trend', days],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_cfo_daily_cash_flow', { p_days: days });
       if (error) throw error;
-      return ((data as any[]) || []).map((r) => {
+      return ((data as Array<Record<string, unknown>>) || []).map((r) => {
         const inflow = Number(r.inflow) || 0;
         const outflow = Number(r.outflow) || 0;
-        return { label: String(r.day).slice(5, 10), inflow, outflow, net: inflow - outflow };
+        const dayLabel = new Date(`${String(r.day).slice(0, 10)}T00:00:00`)
+          .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        return { label: dayLabel, inflow, outflow, net: inflow - outflow };
       });
     },
     staleTime: 60_000,
@@ -75,61 +95,39 @@ export function CashPositionInsights({
 
   const rp = useQuery({
     queryKey: ['cfo-cash-position-payables-by-source-v2'],
+    retry: cfoReportRetry,
     queryFn: async () => {
       const today = kampalaToday();
-      const to = new Date(); to.setDate(to.getDate() + 30);
+      const to = new Date();
+      to.setDate(to.getDate() + 30);
       const toKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(to);
-      const { data, error } = await (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey });
+      const callRpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: Error | null }>;
+      const [{ data, error }, { data: src, error: e2 }] = await Promise.all([
+        callRpc('get_payables_due_range', { p_from: today, p_to: toKey }),
+        callRpc('get_payables_by_source', { p_from: today, p_to: toKey }),
+      ]);
       if (error) throw error;
-      const d = (data || {}) as any;
-      const { data: src, error: e2 } = await (supabase.rpc as any)('get_payables_by_source', { p_from: today, p_to: toKey });
       if (e2) throw e2;
-      const top = ((src || []) as any[]).slice(0, 5).map((r) => ({
-        id: String(r.source), name: String(r.source), amount: Number(r.amount || 0),
-        due_date: r.due_date ?? null, count: Number(r.count || 0),
+      const d = (data || {}) as Record<string, unknown>;
+      const top = ((src as Array<Record<string, unknown>>) || []).slice(0, 5).map((r) => ({
+        id: String(r.source),
+        name: String(r.source),
+        amount: Number(r.amount || 0),
+        due_date: (r.due_date as string | null) ?? null,
+        count: Number(r.count || 0),
       }));
-      const all = { length: ((src || []) as any[]).reduce((n, r) => n + Number(r.count || 0), 0) };
-      return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
+      const all = { length: ((src as Array<Record<string, unknown>>) || []).reduce((n, r) => n + Number(r.count || 0), 0) };
+      return {
+        outstanding: Number(d.outstanding || 0),
+        dueInRange: Number(d.due_in_range || 0),
+        count: all.length,
+        top,
+      };
     },
     staleTime: 300_000,
     gcTime: 600_000,
     refetchOnWindowFocus: false,
   });
-
-  const recent = useQuery({
-    queryKey: ['cfo-cash-position-recent-tx'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('general_ledger')
-        .select('id, transaction_date, description, category, amount, direction')
-        .eq('ledger_scope', 'platform')
-        .in('classification', ['production', 'legacy_real'])
-        .order('transaction_date', { ascending: false })
-        .limit(5);
-      if (error) throw error;
-      return data || [];
-    },
-    staleTime: 60_000,
-  });
-
-  const payablesTotal = rp.data?.outstanding ?? 0; // receivables show immediately; payables fill in when ready
-  const outstanding = totalReceivables + payablesTotal;
-  const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
-  const pie = [
-    { name: 'Receivables', value: totalReceivables, color: 'hsl(var(--success))' },
-    { name: 'Payables', value: payablesTotal, color: 'hsl(var(--destructive))' },
-  ];
-
-  const topPayables = rp.data?.top ?? [];
-  const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
-  const liquidityCoverage = payablesTotal > 0 ? moneyWeCanUse / payablesTotal : null;
-  const netOutstanding = totalReceivables - payablesTotal;
-  const obligationsShare = moneyWeHave > 0 ? (moneyWeOwe / moneyWeHave) * 100 : 0;
-  const liquidityState = liquidityCoverage === null
-    ? { label: 'No payables recorded', tone: 'text-muted-foreground', surface: 'bg-muted' }
-    : liquidityCoverage >= 1
-      ? { label: 'Covered', tone: 'text-success', surface: 'bg-success/10' }
-      : { label: 'Attention required', tone: 'text-destructive', surface: 'bg-destructive/10' };
 
   const series = flow.data ?? [];
   const half = Math.floor(series.length / 2);
@@ -137,229 +135,229 @@ export function CashPositionInsights({
   const priorIn = series.slice(0, half).reduce((s, d) => s + d.inflow, 0);
   const inChange = priorIn > 0 ? ((recentIn - priorIn) / priorIn) * 100 : null;
   const netAll = series.reduce((s, d) => s + d.net, 0);
-  
+  const totalInflow = series.reduce((s, d) => s + d.inflow, 0);
+  const totalOutflow = series.reduce((s, d) => s + d.outflow, 0);
+
   const insights = [
     inChange !== null && {
       icon: inChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />,
-      tone: inChange >= 0 ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground',
+      tone: inChange >= 0 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       title: `Money received is ${inChange >= 0 ? 'up' : 'down'} ${Math.abs(inChange).toFixed(0)}%`,
       sub: `${fmt(recentIn)} vs ${fmt(priorIn)} in the previous ${series.length - half} days`,
       go: 'cash-position',
     },
     {
-      icon: <AlertTriangle className="h-4 w-4" />, tone: 'bg-destructive text-destructive-foreground',
+      icon: <AlertTriangle className="h-4 w-4" />,
+      tone: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
       title: 'Payables due soon',
       sub: `${rp.data?.count ?? 0} items due in 30 days, totalling ${fmt(rp.data?.dueInRange ?? 0)}`,
       go: 'withdrawals',
     },
     {
-      icon: <Info className="h-4 w-4" />, tone: 'bg-info text-info-foreground',
+      icon: <Info className="h-4 w-4" />,
+      tone: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
-      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} over the last ${days} days`,
+      sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} ${days === 1 ? 'today' : `over the last ${days} days`}`,
       go: 'cash-position',
     },
   ].filter(Boolean) as Array<{ icon: React.ReactNode; tone: string; title: string; sub: string; go: string }>;
 
-  const actions = [
+  const actions: Array<{ icon: React.ReactNode; title: string; sub: string; go?: string; onClick?: () => void }> = [
     { icon: <FileText className="h-4 w-4" />, title: 'View Detailed Reports', sub: 'Financial, collections, payables & more', go: 'statements' },
     { icon: <Scale className="h-4 w-4" />, title: 'Reconcile Accounts', sub: 'Check balances and resolve discrepancies', go: 'reconciliation' },
-    { icon: <Download className="h-4 w-4" />, title: 'Download Reports', sub: 'Export payout reports (PDF)', go: 'payout-reports' },
+    { icon: <Download className="h-4 w-4" />, title: 'Money Reports', sub: 'Payout & received reports with breakdown', onClick: () => setReportsOpen(true) },
     { icon: <ShieldCheck className="h-4 w-4" />, title: 'Audit Log', sub: 'View recent approvals history', go: 'approval-audit' },
   ];
 
-  const statusBadge = (due?: string | null) => {
-    const today = kampalaToday();
-    const key = due?.slice(0, 10);
-    if (!key || key <= today) return <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive text-[10px]">Due</Badge>;
-    return <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning text-[10px]">Upcoming</Badge>;
-  };
-
   return (
-    <div className="space-y-5">
-      <section aria-labelledby="executive-brief-title" className="border-y border-border/70 bg-muted/20 py-4">
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Decision brief</p>
-            <h2 id="executive-brief-title" className="font-serif text-xl font-semibold">Liquidity at a glance</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Figures reconcile the live cash, receivables and payables shown below.</p>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-border/70 border border-border/70 bg-card sm:grid-cols-4 sm:divide-y-0">
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Gauge className="h-4 w-4" /><span className="text-[11px] font-semibold">Payables coverage</span></div>
-            <p className="mt-2 text-lg font-bold tabular-nums">{liquidityCoverage === null ? '—' : `${liquidityCoverage.toFixed(2)}×`}</p>
-            <p className={`mt-1 text-[11px] font-semibold ${liquidityState.tone}`}>{liquidityState.label}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Landmark className="h-4 w-4" /><span className="text-[11px] font-semibold">Net outstanding</span></div>
-            <p className={`mt-2 truncate text-lg font-bold tabular-nums ${netOutstanding < 0 ? 'text-destructive' : 'text-success'}`}>{netOutstanding >= 0 ? '+' : '−'}{fmt(Math.abs(netOutstanding))}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Receivables less payables</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><AlertTriangle className="h-4 w-4" /><span className="text-[11px] font-semibold">Due within 30 days</span></div>
-            <p className="mt-2 truncate text-lg font-bold tabular-nums">{rp.isLoading ? '—' : fmt(rp.data?.dueInRange ?? 0)}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{rp.isLoading ? 'Checking obligations' : `${rp.data?.count ?? 0} payable items`}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4" /><span className="text-[11px] font-semibold">Control status</span></div>
-            <p className={`mt-2 text-sm font-bold ${bankReconciled === false ? 'text-warning' : 'text-success'}`}>{bankReconciled === false ? 'Review bank variance' : 'Bank reconciled'}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">External money owed: {obligationsShare.toFixed(1)}% of cash</p>
-          </div>
-        </div>
-      </section>
+    <div className="cash-insights-layout space-y-5">
+      {/* Treasury & Banking Accounts */}
+      {onSelectAccount && (
+        <CashPositionAccounts
+          money={accountMoney}
+          updatedAt={accountUpdatedAt}
+          onSelect={onSelectAccount}
+        />
+      )}
 
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Analysis</p>
-          <h2 className="font-serif text-xl font-semibold">Cash movement and obligations</h2>
-        </div>
-        {onNavigate && (
-          <Button variant="ghost" size="sm" className="hidden rounded-md sm:inline-flex" onClick={() => onNavigate('statements')}>
-            Financial reports <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-      {/* Row 1 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.4fr_1fr_1.1fr_1.1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<LineIcon className="h-4 w-4" />} title="Cash Flow Trend" sub="Money in, money out and net movement"
-            right={
-              <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-                className="h-9 rounded-md border border-border bg-card px-2 text-xs">
-                <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
-              </select>
-            } />
-          <div className="h-56">
-            {flow.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={series} margin={{ left: 0, right: 8, top: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} minTickGap={20} />
-                  <YAxis tick={{ fontSize: 10 }} width={44} tickFormatter={short} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
-                  <Area type="monotone" dataKey="inflow" name="Money Received" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.12)" />
-                  <Area type="monotone" dataKey="outflow" name="Money Paid Out" stroke="hsl(var(--destructive))" fill="hsl(var(--destructive) / 0.08)" />
-                  <Area type="monotone" dataKey="net" name="Net Movement" stroke="hsl(var(--info))" fill="hsl(var(--info) / 0.08)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-          <div className="flex flex-wrap justify-center gap-4 text-[11px] mt-2">
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-success" />Money Received</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-destructive" />Money Paid Out</span>
-            <span className="flex items-center gap-1"><i className="h-2 w-2 rounded-full bg-info" />Net Movement</span>
-          </div>
-        </CardContent></Card>
+      {/* Row 1: Flow Trend Chart & Breakdowns */}
+      <div className="cash-analysis-primary space-y-5">
+        <Card className="cash-flow-chart rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head
+              icon={<LineIcon className="h-4 w-4" />}
+              title="Cash Flow & Net Movement"
+              sub="Money received, money paid out and net liquidity velocity"
+              right={
+                <select
+                  value={days}
+                  onChange={(e) => setDays(Number(e.target.value))}
+                  className="h-8 rounded-lg border border-border/80 bg-muted/40 px-3 text-xs font-medium text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer shadow-2xs"
+                >
+                  <option value={1}>Today</option>
+                  <option value={7}>Last 7 days</option>
+                  <option value={30}>Last 30 days</option>
+                  <option value={90}>Last 90 days</option>
+                </select>
+              }
+            />
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Scale className="h-4 w-4" />} title="Receivables vs Payables" sub="Outstanding amounts" />
-          {outstanding <= 0 && rp.isLoading ? <p className="text-xs text-muted-foreground animate-pulse">Loading…</p> : outstanding <= 0 ? (
-            <p className="text-xs text-muted-foreground">No data yet.</p>
-          ) : (
-            <div className="flex flex-col sm:flex-row 2xl:flex-col items-center gap-3">
-              <div className="relative h-44 w-44 shrink-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart><Pie data={pie} dataKey="value" innerRadius={58} outerRadius={78} startAngle={90} endAngle={-270} stroke="none">
-                    {pie.map((p) => <Cell key={p.name} fill={p.color} />)}
-                  </Pie><Tooltip formatter={(v: number) => fmt(v)} /></PieChart>
-                </ResponsiveContainer>
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                  <span className="text-[10px] text-muted-foreground">Total Outstanding</span>
-                  <span className="text-xs font-bold tabular-nums">{fmt(outstanding)}</span>
+            <div className="h-72 w-full pt-1">
+              {flow.isLoading ? (
+                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                  Loading flow trend…
                 </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={series}
+                    margin={{ left: 0, right: 8, top: 4, bottom: 4 }}
+                    barCategoryGap="22%"
+                    barGap={4}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      minTickGap={24}
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                      width={48}
+                      tickFormatter={axisShort}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip formatter={(v: number) => fmt(v)} cursor={{ fill: 'hsl(var(--muted) / 0.4)' }} />
+                    <Legend
+                      verticalAlign="top"
+                      align="right"
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 11, paddingBottom: 10 }}
+                    />
+                    <Bar
+                      dataKey="inflow"
+                      name="Money Received"
+                      fill="#10b981"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={32}
+                    />
+                    <Bar
+                      dataKey="outflow"
+                      name="Money Paid Out"
+                      fill="#f43f5e"
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={32}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="net"
+                      name="Net Movement"
+                      stroke="#3b82f6"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#3b82f6', strokeWidth: 0 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* Velocity Summary Strip */}
+            <div className="mt-3.5 grid grid-cols-3 gap-2.5 border-t border-border/40 pt-3 text-xs">
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400 block">
+                  Total Received
+                </span>
+                <span className="text-xs sm:text-sm font-bold tabular-nums text-foreground mt-0.5 block">
+                  {fmt(totalInflow)}
+                </span>
               </div>
-              <div className="space-y-3 text-xs">
-                <div><p className="flex items-center gap-1.5 text-muted-foreground"><i className="h-2 w-2 rounded-full bg-success" />Receivables</p>
-                  <p className="font-bold tabular-nums">{fmt(totalReceivables)}</p><p className="text-muted-foreground">{recvPct.toFixed(1)}%</p></div>
-                <div><p className="flex items-center gap-1.5 text-muted-foreground"><i className="h-2 w-2 rounded-full bg-destructive" />Payables</p>
-                  <p className="font-bold tabular-nums">{fmt(payablesTotal)}</p><p className="text-muted-foreground">{(100 - recvPct).toFixed(1)}%</p></div>
+              <div className="rounded-lg bg-rose-500/5 border border-rose-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-rose-600 dark:text-rose-400 block">
+                  Total Paid Out
+                </span>
+                <span className="text-xs sm:text-sm font-bold tabular-nums text-foreground mt-0.5 block">
+                  {fmt(totalOutflow)}
+                </span>
+              </div>
+              <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-2.5">
+                <span className="text-[10px] uppercase font-semibold text-blue-600 dark:text-blue-400 block">
+                  Net Movement
+                </span>
+                <span className={`text-xs sm:text-sm font-bold tabular-nums mt-0.5 block ${netAll >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                  {netAll >= 0 ? `+${fmt(netAll)}` : fmt(netAll)}
+                </span>
               </div>
             </div>
-          )}
-        </CardContent></Card>
+          </CardContent>
+        </Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest sources due now or within 30 days"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
-          {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Source</th><th className="font-medium">Amount</th><th className="font-medium">Next Due</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{topPayables.map((p) => (
-                <tr key={p.id} className="border-t border-border/60">
-                  <td className="py-2 pr-2 max-w-[160px] truncate">{p.name}<span className="block text-[10px] text-muted-foreground truncate">{p.count} payment{p.count === 1 ? '' : 's'}</span></td>
-                  <td className="pr-2 tabular-nums whitespace-nowrap">{fmt(p.amount)}</td>
-                  <td className="pr-2 whitespace-nowrap">{fmtDate(p.due_date)}</td>
-                  <td>{statusBadge(p.due_date)}</td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
-
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Receivables" sub="Largest outstanding sources"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('reconciliation')}>View All</button>} />
-          {topReceivables.length === 0 ? <p className="text-xs text-muted-foreground">No data yet.</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Source</th><th className="font-medium">Amount</th><th className="font-medium">Share</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{topReceivables.map((r) => (
-                <tr key={r.key} className="border-t border-border/60">
-                  <td className="py-2 pr-2 max-w-[130px] truncate">{r.label}</td>
-                  <td className="pr-2 tabular-nums whitespace-nowrap">{fmt(r.outstanding)}</td>
-                  <td className="pr-2">{totalReceivables > 0 ? `${((r.outstanding / totalReceivables) * 100).toFixed(1)}%` : '—'}</td>
-                  <td><Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px]">Outstanding</Badge></td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
+        {/* Source Breakdowns */}
+        <CashPositionBreakdowns />
       </div>
 
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.8fr_1fr_1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm lg:col-span-2 2xl:col-span-1"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Recent Transactions" sub="Latest financial activity"
-            right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('ledger')}>View All</button>} />
-          {(recent.data ?? []).length === 0 ? <p className="text-xs text-muted-foreground">{recent.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
-            <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Date & Time</th><th className="font-medium">Description</th><th className="font-medium">Category</th><th className="font-medium">Amount</th><th className="font-medium">Status</th></tr></thead>
-              <tbody>{(recent.data ?? []).map((t: any) => (
-                <tr key={t.id} className="border-t border-border/60">
-                  <td className="py-2 pr-2 whitespace-nowrap">{new Date(t.transaction_date).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className="pr-2 max-w-[220px] truncate">{t.description || label(t.category)}</td>
-                  <td className="pr-2 whitespace-nowrap">{label(t.category)}</td>
-                  <td className={`pr-2 tabular-nums whitespace-nowrap ${t.direction === 'cash_in' ? 'text-success' : 'text-destructive'}`}>{t.direction === 'cash_in' ? '+' : '−'}{fmt(Number(t.amount))}</td>
-                  <td><Badge variant="outline" className="border-success/30 bg-success/10 text-success text-[10px]">Posted</Badge></td>
-                </tr>))}</tbody>
-            </table></div>
-          )}
-        </CardContent></Card>
+      {/* Row 2: Insights & Actions */}
+      <div className="cash-analysis-secondary grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Key Insights Card */}
+        <Card className="cash-key-insights rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" sub="Automated treasury observations" />
+            <div className="divide-y divide-border/40">
+              {insights.map((i) => (
+                <button
+                  key={i.title}
+                  type="button"
+                  onClick={() => onNavigate?.(i.go)}
+                  className="w-full flex items-center gap-3 py-3 px-1 text-left hover:bg-muted/40 rounded-lg transition-colors group"
+                >
+                  <span className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${i.tone}`}>
+                    {i.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                      {i.title}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground truncate">{i.sub}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" />
-          <div className="divide-y divide-border/60">
-            {insights.map((i) => (
-              <button key={i.title} type="button" onClick={() => onNavigate?.(i.go)} className="w-full flex items-center gap-3 py-2.5 text-left">
-                <span className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 ${i.tone}`}>{i.icon}</span>
-                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{i.title}</span><span className="block text-[11px] text-muted-foreground truncate">{i.sub}</span></span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
-        </CardContent></Card>
-
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
-          <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" />
-          <div className="space-y-2">
-            {actions.map((a) => (
-              <button key={a.title} type="button" onClick={() => onNavigate?.(a.go)}
-                className="w-full flex items-center gap-3 rounded-lg border border-border/70 px-3 py-2.5 text-left hover:bg-muted/50 min-h-11">
-                <span className="text-primary shrink-0">{a.icon}</span>
-                <span className="min-w-0 flex-1"><span className="block text-xs font-semibold">{a.title}</span><span className="block text-[11px] text-muted-foreground truncate">{a.sub}</span></span>
-                <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-              </button>
-            ))}
-          </div>
-        </CardContent></Card>
+        {/* Quick Actions Card */}
+        <Card className="cash-quick-actions rounded-xl border border-border/80 bg-card shadow-xs min-w-0">
+          <CardContent className="p-4">
+            <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" sub="Frequently used CFO tools and audits" />
+            <div className="space-y-2">
+              {actions.map((a) => (
+                <Button
+                  key={a.title}
+                  variant="outline"
+                  type="button"
+                  onClick={() => (a.onClick ? a.onClick() : onNavigate?.(a.go!))}
+                  className="w-full flex h-auto items-center gap-2.5 rounded-lg border border-border/70 p-3 text-left hover:bg-muted/50 transition-colors justify-start"
+                >
+                  <span className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    {a.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold text-foreground">{a.title}</span>
+                    <span className="block text-[10px] text-muted-foreground truncate">{a.sub}</span>
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <CashPositionDownloadReports open={reportsOpen} onOpenChange={setReportsOpen} />
     </div>
   );
 }

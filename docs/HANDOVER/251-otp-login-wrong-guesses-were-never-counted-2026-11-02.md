@@ -15,5 +15,5 @@
 - 5 guesses allowed per code; the 6th gets 429.
 
 ## Not done
-- Per-phone and per-IP lockout across codes (an attacker can still request fresh codes). `sms-otp` and `password-reset-sms` have not been checked for the same flaw.
+- Per-phone and per-IP lockout across codes (an attacker can still request fresh codes). `sms-otp` was reviewed in doc 255 (its `verify` race was already fixed upstream); `password-reset-sms` has not been checked.
 - Deploy order: the function already exists in production, so deploying `otp-login` is safe at any time. Roll back by redeploying the previous `otp-login` (the function can stay).

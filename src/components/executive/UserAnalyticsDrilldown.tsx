@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, profileTypeaheadFilter } from '@/lib/profileTypeahead';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +15,7 @@ export type DrilldownScope =
   | { kind: 'login_attempts'; start: string; end: string }
   | { kind: 'login_success'; start: string; end: string }
   | { kind: 'login_failed'; start: string; end: string }
-  | { kind: 'total_users' }
+  | { kind: 'total_users'; end?: string }
   | { kind: 'role'; role: string };
 
 const PAGE_SIZE = 25;
@@ -25,7 +27,7 @@ function scopeTitle(scope: DrilldownScope) {
     case 'login_attempts': return 'Users with Login Attempts';
     case 'login_success': return 'Users with Successful Logins';
     case 'login_failed': return 'Users with Failed Logins';
-    case 'total_users': return 'All Users';
+    case 'total_users': return scope.end ? 'All Users (registered by end of range)' : 'All Users';
     case 'role': return `Users with role: ${scope.role}`;
   }
 }
@@ -97,7 +99,7 @@ export function UserAnalyticsDrilldown({
   });
 
   const ids = idQuery.data ?? null;
-  const term = search.trim();
+  const term = useDebouncedValue(search.trim(), 300);
 
   const usersQuery = useQuery({
     queryKey: ['drill-users', scope, ids?.length, term, page],
@@ -115,15 +117,20 @@ export function UserAnalyticsDrilldown({
       if (scope.kind === 'signups') {
         q = q.gte('created_at', scope.start).lte('created_at', scope.end);
       }
+      if (scope.kind === 'total_users' && scope.end) {
+        q = q.lte('created_at', scope.end);
+      }
       if (ids && ids.length > 0) {
         // Supabase .in() supports up to ~1000 items reliably.
         q = q.in('id', ids.slice(0, 1000));
       } else if (ids && ids.length === 0 && scope.kind !== 'signups' && scope.kind !== 'total_users') {
         return { rows: [], total: 0 };
       }
-      if (term) {
-        const like = `%${term}%`;
-        q = q.or(`full_name.ilike.${like},email.ilike.${like},phone.ilike.${like}`);
+      if (term.length >= PROFILE_TYPEAHEAD_MIN_CHARS) {
+        const clause = profileTypeaheadFilter(term);
+        if (clause) q = q.ilike(clause.column, clause.pattern);
+      } else if (term.length > 0) {
+        return { rows: [], total: 0 };
       }
       const { data, count } = await q;
       return { rows: data || [], total: count || 0 };

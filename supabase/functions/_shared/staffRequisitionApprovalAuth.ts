@@ -57,7 +57,8 @@ export function authorizeStaffRequisitionDecision(i: ApprovalAuthInput): Approva
   if (row.requester_id === actorId && (isSixEyes || !roles.some((r) => OVERRIDE_ROLES.has(r)))) {
     return { allowed: false, error: "self_approval_blocked", message: "You cannot decide your own requisition." };
   }
-  if (isSixEyes && approving) {
+  // CEO-approved exception (2026-10-26): the CEO stage skips the prior-signer check; office holding is still enforced.
+  if (isSixEyes && approving && row.stage !== "ceo") {
     const prior = SIX_EYES_ORDER.slice(0, SIX_EYES_ORDER.indexOf(row.stage));
     const signed = prior.find((s) => row[DECIDED_BY_COL[s]] === actorId);
     if (signed) {

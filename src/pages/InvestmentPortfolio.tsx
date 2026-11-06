@@ -257,7 +257,7 @@ export default function InvestmentPortfolio() {
               </div>
               <p className="font-bold text-base mb-1.5">No Portfolios Yet</p>
               <p className="text-sm text-muted-foreground mb-5 max-w-[240px] mx-auto">
-                Start supporting tenants to build your investment portfolio
+                Start supporting tenants to build your support portfolio
               </p>
               <Button size="lg" className="min-h-[48px] text-sm font-bold rounded-xl px-6" onClick={() => navigate(roleToSlug(role))}>
                 <Target className="h-4 w-4 mr-2" />
@@ -394,7 +394,7 @@ export default function InvestmentPortfolio() {
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Summary</p>
               </div>
               {[
-                { l: 'Total Invested', v: formatAmount(totalBalance), c: 'text-foreground' },
+                { l: 'Total Support', v: formatAmount(totalBalance), c: 'text-foreground' },
                 { l: 'Total Rewards', v: `+${formatAmount(totalRoiEarned)}`, c: 'text-success' },
                 { l: 'Monthly Return', v: formatAmount(expectedMonthlyRoi), c: 'text-primary' },
               ].map(r => (

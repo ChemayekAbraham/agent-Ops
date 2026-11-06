@@ -16,6 +16,7 @@ import {
   Users,
   Table2,
   PhoneCall,
+  Headphones,
   Globe,
   Download,
   Wallet,
@@ -55,6 +56,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     title: 'PIPELINE',
     items: [
       { key: 'pipeline-rent-requests', label: 'Rent Requests', path: 'pipeline/rent-requests', icon: GitBranch, badgeKey: 'pipeline' },
+      { key: 'pipeline-welile-homes-float', label: 'Welile Homes Float', path: 'pipeline/welile-homes-float', icon: Building2 },
       { key: 'pipeline-advances', label: 'Business Advances', path: 'pipeline/advances', icon: Banknote },
     ],
   },
@@ -91,6 +93,7 @@ export const LANDLORD_OPS_SECTIONS: LandlordOpsNavSection[] = [
     title: 'ACROSS EVERYTHING',
     items: [
       { key: 'calling', label: 'Calling Hub', path: 'calling', icon: PhoneCall },
+      { key: 'calling-center', label: 'Calling Center', path: 'calling-center', icon: Headphones },
       { key: 'coverage', label: 'Coverage', path: 'coverage', icon: Globe },
       { key: 'agent-capacity', label: 'Agent Capacity', path: 'agent-capacity', icon: Users },
       { key: 'service-centres', label: 'Service Centres', path: 'service-centres', icon: Building2 },

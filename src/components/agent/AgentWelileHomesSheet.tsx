@@ -1,11 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
@@ -19,9 +22,30 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
-import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, Pencil, History, Trash2, ChevronDown } from 'lucide-react';
+import { ACTIVE_RENT_STATUSES } from '@/hooks/useAgentCapacityMap';
+import { Home, Loader2, Plus, Banknote, TrendingUp, Users, Clock, Search, CheckCircle2, ShieldCheck, RefreshCw, ArrowLeft, ArrowRight, Pencil, History, Trash2, ChevronDown, Building2, UserCheck, UserPlus, AlertCircle, Receipt, XCircle, Lock, Camera, Upload, Navigation, MapPin, X, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { z } from 'zod';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import { requestWelileHomesFloat, WH_REASON_ILIKE } from '@/lib/welileHomesFloat';
+import { fetchMyPortfolioStatus, landlordPhoneKey, type PortfolioStatus } from '@/lib/welileHomesLandlordVerify';
+import { WhLandlordPortfolioAction, hasPendingLandlordCode } from './WhLandlordPortfolioAction';
+import { WhTenantIdBadge, WhTenantIdDialog } from '@/components/welile-homes/WhTenantIdentity';
+import { fetchTenantIdentities, isIdComplete, isValidNin, normalizeNin, tenantPhotoUrl, type WhTenantIdentity } from '@/lib/welileHomesTenantId';
+import {
+  deleteTenantDraft, enrollTenantWithIdentity, enrollmentIdBlockers, fetchMyTenantDrafts, draftDaysLeft, touchTenantDraft, checkNin, NIN_RATE_LIMIT_MESSAGE,
+  saveTenantDraft, uploadDraftTenantPhoto, type WhTenantDraft,
+} from '@/lib/welileHomesTenantDrafts';
+import { useWhFloatHistory, WhFloatStageTrail } from '@/components/welile-homes/WhFloatStageTrail';
+import {
+  resolveWhPlanStage, isWhPlanLocked, dueHasCollection, fetchWhFloatLinks, fetchWhFloatLinkIds,
+  WH_STAGE_META, type WhPlanStage, type WhStageMeta,
+} from '@/lib/welileHomesPlanStatus';
+import { UgLocationPicker } from '@/components/location/UgLocationPicker';
+import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { captureGps, type CapturedGps } from '@/lib/captureGps';
+import { optimizeImage } from '@/lib/imageOptimizer';
+import { promptIfNotVetted } from '@/components/agent-vetting/notVettedPrompt';
 
 // Shared client-side validation for the core enrollment fields. Kept strict so
 // agents cannot submit invalid or internally conflicting values (e.g. decimal
@@ -72,12 +96,17 @@ interface WHSubscription {
   payout_day: number;
   next_due_date: string | null;
   landlord_name: string | null;
+  landlord_phone?: string | null;
   created_at?: string;
   tenant_name?: string;
   tenant_phone?: string;
   tenant_verified?: boolean;
   tenant_last_active?: string | null;
   newly_created?: boolean;
+  subscription_status?: string | null;
+  notes?: string | null;
+  agent_id?: string | null;
+  landlord_id?: string | null;
 }
 
 type EnrollStatus = {
@@ -214,18 +243,52 @@ function formatAuditValue(field: string, value: any): string {
 
 // Derive an enrollment verification / readiness status for the agent's list.
 function getEnrollStatus(s: WHSubscription): EnrollStatus {
-  if (s.tenant_verified) {
-    return { label: 'Verified', ready: true, className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' };
+  if (s.subscription_status === 'cancelled') {
+    return { label: 'Declined', ready: false, className: 'border-destructive/40 bg-destructive/10 text-destructive font-semibold' };
   }
-  return { label: 'Unverified', ready: false, className: 'border-amber-500/40 bg-amber-500/10 text-amber-600' };
+  return { label: 'Enrolled', ready: true, className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600' };
 }
+
+const STAGE_TONE_CLASS: Record<WhStageMeta['tone'], string> = {
+  destructive: 'border-destructive/40 bg-destructive/10 text-destructive font-medium',
+  success: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold',
+  warning: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium',
+  info: 'border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-300 font-medium',
+  violet: 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium',
+  neutral: 'border-amber-500/30 text-amber-600 bg-amber-500/5',
+};
+
+interface FloatPipelineInfo extends WhStageMeta {
+  stage: WhPlanStage;
+  badgeClass: string;
+  /** Delete is withheld (money or a live request is attached). Server enforces the same. */
+  isLocked: boolean;
+}
+
+function pipelineInfo(stage: WhPlanStage, isLocked: boolean, description?: string): FloatPipelineInfo {
+  const meta = WH_STAGE_META[stage];
+  return {
+    ...meta,
+    description: description || meta.description,
+    stage,
+    badgeClass: STAGE_TONE_CLASS[meta.tone],
+    isLocked,
+  };
+}
+
 
 interface AgentWelileHomesSheetProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  isPage?: boolean;
 }
 
-export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSheetProps) {
+function draftLandlordKey(name?: string | null, phone?: string | null): string {
+  return landlordPhoneKey(phone ?? '') ?? `name:${(name ?? '').trim().toLowerCase()}`;
+}
+
+export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = false }: AgentWelileHomesSheetProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -233,26 +296,91 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
   const [earned, setEarned] = useState(0);
   const [pendingPayouts, setPendingPayouts] = useState(0);
   const [recentPayments, setRecentPayments] = useState<RecentRentPayment[]>([]);
+  // Welile Homes-only collections summary; never merged into capacity or collection registers.
+  const [whCollections, setWhCollections] = useState<
+    { total: number; paidMonths: number; partialMonths: number; commission: number; tenants: number } | null | undefined
+  >(undefined);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [enrollInitialMode, setEnrollInitialMode] = useState<'choose' | 'register'>('choose');
+  // Register Tenant drafts: owner-only, never enrolled, never in totals or float requests.
+  const [drafts, setDrafts] = useState<WhTenantDraft[]>([]);
+  const [resumeDraft, setResumeDraft] = useState<WhTenantDraft | null>(null);
+  const [deleteDraftFor, setDeleteDraftFor] = useState<WhTenantDraft | null>(null);
+  const loadDrafts = useCallback(async () => {
+    if (!user?.id) return;
+    try { setDrafts(await fetchMyTenantDrafts(user.id)); } catch { /* keep current */ }
+  }, [user?.id]);
+  useEffect(() => { loadDrafts(); }, [loadDrafts]);
+
+  const handleOpenEnroll = (mode: 'choose' | 'register' = 'choose') => {
+    setResumeDraft(null);
+    setEnrollInitialMode(mode);
+    setEnrollOpen(true);
+  };
+  const continueDraft = (d: WhTenantDraft) => {
+    setResumeDraft(d);
+    setEnrollOpen(true);
+    touchTenantDraft(d.id).then(loadDrafts).catch(() => {});
+  };
+  const renderDraftRow = (d: WhTenantDraft) => (
+    <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-amber-500/50 bg-amber-500/5 p-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium truncate">{d.form?.newName || d.form?.existingTenantName || d.form?.phone || 'Unnamed tenant'}</p>
+        <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0 font-normal border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+          {(() => { const left = draftDaysLeft(d.updated_at); return left == null ? 'Draft – incomplete' : `Draft – deletes in ${left} day${left === 1 ? '' : 's'}`; })()}
+        </Badge>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button type="button" size="sm" className="h-8 text-xs" onClick={() => continueDraft(d)}>Continue</Button>
+        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10"
+          aria-label="Delete draft" onClick={() => setDeleteDraftFor(d)}>
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
   const [allocFor, setAllocFor] = useState<WHSubscription | null>(null);
   const [editFor, setEditFor] = useState<WHSubscription | null>(null);
-  const [verifyFor, setVerifyFor] = useState<WHSubscription | null>(null);
   const [deleteFor, setDeleteFor] = useState<WHSubscription | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletePortfolioFor, setDeletePortfolioFor] = useState<{ name: string; tenants: WHSubscription[] } | null>(null);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+
+  // Grouping and multi-landlord float selection
+  const [selectedTenantIds, setSelectedTenantIds] = useState<Set<string>>(new Set());
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [requestFloatOpen, setRequestFloatOpen] = useState(false);
+  const [floatRequests, setFloatRequests] = useState<any[]>([]);
+  // Recorded facts behind each plan's stage and delete lock (see src/lib/welileHomesPlanStatus.ts).
+  const [floatLinks, setFloatLinks] = useState<Map<string, string>>(new Map());
+  const [floatLinkIds, setFloatLinkIds] = useState<Map<string, string>>(new Map());
+  const { data: floatHistory } = useWhFloatHistory(Array.from(new Set(floatLinkIds.values())));
+  const [collectedSubIds, setCollectedSubIds] = useState<Set<string>>(new Set());
+  const [collectionsUnknown, setCollectionsUnknown] = useState(true);
+  // Landlord OTP state per landlord phone key (server-decided, see wh_my_portfolio_status).
+  const [portfolioStatus, setPortfolioStatus] = useState<Map<string, PortfolioStatus>>(new Map());
+  const [identities, setIdentities] = useState<Map<string, WhTenantIdentity>>(new Map());
+  const [idFor, setIdFor] = useState<{ tenantId: string; name?: string } | null>(null);
+  const refreshIdentities = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('welile_homes_subscriptions').select('tenant_id').eq('agent_id', user?.id ?? '');
+      const ids = ((data ?? []) as { tenant_id: string }[]).map((r) => r.tenant_id);
+      setIdentities(await fetchTenantIdentities(ids));
+    } catch { /* keep current */ }
+  }, [user?.id]);
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const { data: rows, error } = await supabase
+      // No funding_status: that column is not on welile_homes_subscriptions.
+      const { data: subRows, error: subErr } = await supabase
         .from('welile_homes_subscriptions')
-        .select('id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, created_at')
-        .eq('agent_id', user.id)
-        .eq('mode', 'agent_collection')
+        .select('id, tenant_id, monthly_rent, outstanding_balance, receivable_total, has_smartphone, landlord_uses_wallet, payout_day, next_due_date, landlord_name, landlord_phone, created_at, subscription_status, notes')
+        .or(`agent_id.eq.${user.id},enrolled_by.eq.${user.id}`)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      const list = (rows ?? []) as WHSubscription[];
+      if (subErr) throw new Error(subErr.message);
+      const list = (subRows ?? []) as WHSubscription[];
       const tenantIds = list.map((s) => s.tenant_id);
       if (tenantIds.length) {
         const { data: profs } = await supabase
@@ -270,19 +398,85 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
         });
       }
       setSubs(list);
+      fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => setPortfolioStatus(new Map()));
+      fetchTenantIdentities(list.map((s) => s.tenant_id)).then(setIdentities).catch(() => setIdentities(new Map()));
+
+      // Which plans have collections or landlord payouts recorded (locks Delete).
+      // A failed read locks every plan rather than offering Delete on unknown history.
+      const subIds = list.map((s) => s.id);
+      if (subIds.length) {
+        const { data: dueRows, error: duesErr } = await supabase
+          .from('welile_homes_monthly_dues')
+          .select('subscription_id, amount_collected, collection_status, payout_status')
+          .in('subscription_id', subIds)
+          .or('amount_collected.gt.0,collection_status.eq.collected,payout_status.neq.unpaid')
+          .limit(1000);
+        // An error or a possibly truncated page locks every plan rather than guessing.
+        if (duesErr || (dueRows?.length ?? 0) >= 1000) {
+          setCollectionsUnknown(true);
+        } else {
+          setCollectedSubIds(new Set((dueRows ?? []).filter(dueHasCollection).map((d: any) => d.subscription_id)));
+          setCollectionsUnknown(false);
+        }
+      } else {
+        setCollectedSubIds(new Set());
+        setCollectionsUnknown(false);
+      }
+
+      // Float request linked to each subscription (empty until the float-link migration).
+      try {
+        const dbLinks = await fetchWhFloatLinks();
+        fetchWhFloatLinkIds().then(setFloatLinkIds).catch(() => {});
+        // Resilient fallback: merge with locally recorded pending float links for this agent
+        const localKey = `wh_pending_float_subs_${user.id}`;
+        let localSaved: Record<string, string> = {};
+        try {
+          localSaved = JSON.parse(localStorage.getItem(localKey) || '{}');
+        } catch { }
+        const merged = new Map(dbLinks);
+        for (const [subId, status] of Object.entries(localSaved)) {
+          if (!merged.has(subId)) {
+            merged.set(subId, status);
+          }
+        }
+        setFloatLinks(merged);
+      } catch (linkErr) {
+        console.warn('Welile Homes float links unavailable:', linkErr);
+        try {
+          const localKey = `wh_pending_float_subs_${user.id}`;
+          const localSaved = JSON.parse(localStorage.getItem(localKey) || '{}');
+          setFloatLinks(new Map(Object.entries(localSaved)));
+        } catch {
+          setFloatLinks(new Map());
+        }
+      }
 
       // Agent 2% earnings + pending landlord payouts
-      const { data: dues } = await supabase
+      const { data: dues, error: duesSummaryErr } = await supabase
         .from('welile_homes_monthly_dues')
-        .select('agent_commission, collection_status, payout_status, landlord_net')
-        .eq('agent_id', user.id);
+        .select('agent_commission, commission_paid, amount_collected, collection_status, payout_status, landlord_net, tenant_id')
+        .eq('agent_id', user.id)
+        .limit(5000);
       let e = 0, p = 0;
+      const summary = { total: 0, paidMonths: 0, partialMonths: 0, commission: 0, tenants: new Set<string>() };
       (dues ?? []).forEach((d: any) => {
         if (d.collection_status === 'collected') e += Number(d.agent_commission) || 0;
         if (d.collection_status === 'collected' && d.payout_status === 'unpaid') p += Number(d.landlord_net) || 0;
+        const got = Number(d.amount_collected) || 0;
+        if (got > 0) {
+          summary.total += got;
+          summary.commission += Number(d.commission_paid) || 0;
+          if (d.tenant_id) summary.tenants.add(d.tenant_id);
+          if (d.collection_status === 'collected') summary.paidMonths += 1;
+          else summary.partialMonths += 1;
+        }
       });
       setEarned(e);
       setPendingPayouts(p);
+      setWhCollections(duesSummaryErr ? null : {
+        total: summary.total, paidMonths: summary.paidMonths, partialMonths: summary.partialMonths,
+        commission: summary.commission, tenants: summary.tenants.size,
+      });
 
       // Recent rent payments (collected dues) with their month
       const { data: paid } = await supabase
@@ -300,6 +494,23 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
         created_at: d.updated_at,
         tenant_name: nameById.get(d.tenant_id) ?? 'Tenant',
       })));
+
+      // Load agent's float requests to track pipeline stage for each landlord/tenant
+      const { data: floatReqs } = await supabase
+        .from('float_requests')
+        .select('id, agent_id, requested_amount, reason, status, created_at, approved_at, rejection_reason')
+        .eq('agent_id', user.id)
+        .ilike('reason', WH_REASON_ILIKE)
+        .order('created_at', { ascending: false });
+      setFloatRequests(floatReqs ?? []);
+
+      // If latest float request was rejected, clean up local cache so tenant is back in Enrolled
+      if (floatReqs && floatReqs[0]?.status === 'rejected') {
+        try {
+          const localKey = `wh_pending_float_subs_${user.id}`;
+          localStorage.removeItem(localKey);
+        } catch { }
+      }
     } catch (err: any) {
       toast({ title: 'Failed to load Welile Homes', description: err.message, variant: 'destructive' });
     } finally {
@@ -307,15 +518,16 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
     }
   }, [user, toast]);
 
-  useEffect(() => { if (open) load(); }, [open, load]);
+  useEffect(() => { if (open || isPage) load(); }, [open, isPage, load]);
 
-  const totalReceivable = subs.reduce((a, s) => a + (Number(s.receivable_total) || 0), 0);
   const [receivablePeriod, setReceivablePeriod] = useState<'monthly' | 'yearly'>('yearly');
-  const monthlyReceivable = subs.reduce((a, s) => a + (Number(s.monthly_rent) || 0), 0);
-  const pendingConfirmation = subs.filter((s) => !getEnrollStatus(s).ready).length;
   const [searchOpen, setSearchOpen] = useState(false);
   const [listQuery, setListQuery] = useState('');
-  const visibleSubs = (() => {
+
+  const activeSubs = useMemo(() => subs.filter((s) => s.subscription_status !== 'cancelled'), [subs]);
+  const declinedSubs = useMemo(() => subs.filter((s) => s.subscription_status === 'cancelled'), [subs]);
+
+  const visibleSubs = useMemo(() => {
     const q = listQuery.trim().toLowerCase();
     if (!q) return subs;
     return subs.filter((s) =>
@@ -323,213 +535,1139 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
       (s.tenant_phone ?? '').toLowerCase().includes(q) ||
       (s.landlord_name ?? '').toLowerCase().includes(q),
     );
-  })();
+  }, [subs, listQuery]);
+
+  // Stage and delete lock per subscription, from recorded facts only.
+  const getSubscriptionPipeline = useCallback((sub: WHSubscription): FloatPipelineInfo => {
+    const facts = {
+      subscriptionStatus: sub.subscription_status,
+      linkedRequestStatus: floatLinks.get(sub.id) ?? null,
+      hasCollections: collectedSubIds.has(sub.id),
+      collectionsUnknown,
+    };
+    const stage = resolveWhPlanStage(facts);
+    return pipelineInfo(stage, isWhPlanLocked(facts), stage === 'declined' ? sub.notes || undefined : undefined);
+  }, [floatLinks, collectedSubIds, collectionsUnknown]);
+
+  // Main lifecycle tab: enrolled (ready to request float), in_progress (read-only under review), active (funded/repaying)
+  const [mainTab, setMainTab] = useState<'enrolled' | 'in_progress' | 'active'>('enrolled');
+
+  // Tenants still missing a NIN/passport photo who still need a float request
+  // (not cancelled, not in progress, not active). Presentation only; the server enforces the float rule.
+  const [missingIdOnly, setMissingIdOnly] = useState(false);
+  const missingIdSubs = useMemo(
+    () => subs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      if (isIdComplete(identities.get(s.tenant_id))) return false;
+      const fp = getSubscriptionPipeline(s);
+      return !fp.isPending && !fp.canCollect;
+    }),
+    [subs, identities, getSubscriptionPipeline],
+  );
+  const missingIdSubIds = useMemo(() => new Set(missingIdSubs.map((s) => s.id)), [missingIdSubs]);
+  const missingIdCount = missingIdSubs.length;
+  useEffect(() => { if (missingIdCount === 0) setMissingIdOnly(false); }, [missingIdCount]);
+
+  const enrolledSubs = useMemo(() => {
+    const base = missingIdOnly ? subs : visibleSubs;
+    return base.filter((s) => {
+      if (missingIdOnly) return missingIdSubIds.has(s.id);
+      if (s.subscription_status === 'cancelled') return true;
+      const fp = getSubscriptionPipeline(s);
+      return !fp.isPending && !fp.canCollect;
+    });
+  }, [subs, visibleSubs, getSubscriptionPipeline, missingIdOnly, missingIdSubIds]);
+
+  const showMissingIds = () => {
+    setMainTab('enrolled');
+    setMissingIdOnly(true);
+    setCollapsedGroups(new Set());
+    window.setTimeout(() => {
+      document.querySelector('[data-missing-id="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 150);
+  };
+
+  const inProgressSubs = useMemo(() => {
+    return visibleSubs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      const fp = getSubscriptionPipeline(s);
+      return fp.isPending;
+    });
+  }, [visibleSubs, getSubscriptionPipeline]);
+
+  const activeFundedSubs = useMemo(() => {
+    return visibleSubs.filter((s) => {
+      if (s.subscription_status === 'cancelled') return false;
+      const fp = getSubscriptionPipeline(s);
+      return fp.canCollect;
+    });
+  }, [visibleSubs, getSubscriptionPipeline]);
+
+  const displayedSubs = useMemo(() => {
+    if (mainTab === 'in_progress') return inProgressSubs;
+    if (mainTab === 'active') return activeFundedSubs;
+    return enrolledSubs;
+  }, [mainTab, enrolledSubs, inProgressSubs, activeFundedSubs]);
+
+  // Group displayed subscriptions by landlord
+  const landlordGroups = useMemo<Array<{
+    key: string;
+    name: string;
+    phone: string;
+    tenants: WHSubscription[];
+    totalRent: number;
+    totalOutstanding: number;
+  }>>(() => {
+    const map = new Map<string, {
+      key: string;
+      name: string;
+      phone: string;
+      tenants: WHSubscription[];
+      totalRent: number;
+      totalOutstanding: number;
+    }>();
+
+    displayedSubs.forEach((s) => {
+      const name = (s.landlord_name || '').trim() || 'Unassigned Landlord';
+      const phone = (s.landlord_phone || '').trim();
+      const key = landlordPhoneKey(phone) ?? `${name.toLowerCase()}|${phone}`;
+      let group = map.get(key);
+      if (!group) {
+        group = {
+          key,
+          name,
+          phone,
+          tenants: [],
+          totalRent: 0,
+          totalOutstanding: 0,
+        };
+        map.set(key, group);
+      }
+      group.tenants.push(s);
+      if (s.subscription_status !== 'cancelled') {
+        group.totalRent += Number(s.monthly_rent) || 0;
+        group.totalOutstanding += Number(s.outstanding_balance) || 0;
+      }
+    });
+
+    return Array.from(map.values());
+  }, [displayedSubs]);
+
+  // Landlord badge: all declined, else the first tenant with a recorded stage.
+  const getLandlordPipeline = useCallback((group: { name: string; phone?: string; tenants: WHSubscription[] }): FloatPipelineInfo => {
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    if (active.length === 0 && group.tenants.length > 0) {
+      return pipelineInfo('declined', false, 'All applications under this landlord were declined');
+    }
+    for (const t of active) {
+      const p = getSubscriptionPipeline(t);
+      if (p.stage !== 'not_requested') return p;
+    }
+    return pipelineInfo('not_requested', false);
+  }, [getSubscriptionPipeline]);
+
+  const handleTabChange = (tab: 'enrolled' | 'in_progress' | 'active') => {
+    setMainTab(tab);
+    setSelectedTenantIds(new Set());
+  };
+
+  const toggleTenant = (tenantId: string) => {
+    if (mainTab !== 'enrolled') return;
+    const target = subs.find((s) => s.id === tenantId);
+    if (target?.subscription_status === 'cancelled') return;
+    setSelectedTenantIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tenantId)) next.delete(tenantId);
+      else next.add(tenantId);
+      return next;
+    });
+  };
+
+  const isLandlordAllSelected = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return false;
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    return active.length > 0 && active.every((t) => selectedTenantIds.has(t.id));
+  };
+
+  const isLandlordPartiallySelected = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return false;
+    const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+    return active.some((t) => selectedTenantIds.has(t.id)) && !isLandlordAllSelected(group);
+  };
+
+  const toggleLandlord = (group: { tenants: WHSubscription[] }) => {
+    if (mainTab !== 'enrolled') return;
+    setSelectedTenantIds((prev) => {
+      const next = new Set(prev);
+      const active = group.tenants.filter((t) => t.subscription_status !== 'cancelled');
+      const allSelected = active.length > 0 && active.every((t) => next.has(t.id));
+      if (allSelected) {
+        active.forEach((t) => next.delete(t.id));
+      } else {
+        active.forEach((t) => next.add(t.id));
+      }
+      return next;
+    });
+  };
+
+  const toggleGroupCollapsed = (groupKey: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      return next;
+    });
+  };
+
+  const selectedTenants = useMemo(
+    () => subs.filter((s) => selectedTenantIds.has(s.id) && s.subscription_status !== 'cancelled'),
+    [subs, selectedTenantIds]
+  );
+
+  // Automatically prune any stale or deleted tenant IDs from selection when subs change
+  useEffect(() => {
+    setSelectedTenantIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(
+        subs
+          .filter((s) => s.subscription_status !== 'cancelled')
+          .map((s) => s.id)
+      );
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (validIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [subs]);
+
+  const selectedLandlordNames = useMemo(
+    () => Array.from(new Set(selectedTenants.map((s) => s.landlord_name || 'Landlord'))),
+    [selectedTenants]
+  );
+
+  const totalFloatAmount = useMemo(
+    () => selectedTenants.reduce((sum, s) => sum + (Number(s.monthly_rent) || 0), 0),
+    [selectedTenants]
+  );
+
+  const handleToggleSelectAll = () => {
+    if (mainTab !== 'enrolled') return;
+    const active = displayedSubs.filter((s) => s.subscription_status !== 'cancelled');
+    if (selectedTenantIds.size === active.length && active.length > 0) {
+      setSelectedTenantIds(new Set());
+    } else {
+      setSelectedTenantIds(new Set(active.map((s) => s.id)));
+    }
+  };
+
+  const totalReceivable = activeSubs.reduce((a, s) => a + (Number(s.receivable_total) || 0), 0);
+  const monthlyReceivable = activeSubs.reduce((a, s) => a + (Number(s.monthly_rent) || 0), 0);
+  const pendingConfirmation = activeSubs.filter((s) => !getEnrollStatus(s).ready).length;
+
+  const bodyContent = (
+    <div className={cn("space-y-4", !isPage && "p-4")}>
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">Enrolled</span>
+            </div>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <p className="text-xl font-bold">{loading ? '...' : activeSubs.length}</p>
+              {declinedSubs.length > 0 && (
+                <span className="text-[10px] text-destructive font-medium">
+                  ({declinedSubs.length} declined)
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1 pt-1 border-t border-border/30">Active subscriptions</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Banknote className="h-3.5 w-3.5 shrink-0" />
+              <span className="font-medium">Receivables</span>
+            </div>
+            <p className="text-lg font-bold truncate mt-0.5">
+              {formatUGX(receivablePeriod === 'monthly' ? monthlyReceivable : totalReceivable)}
+            </p>
+          </div>
+          <div className="flex items-center justify-between gap-1 mt-1 pt-1 border-t border-border/30">
+            <span className="text-[10px] text-muted-foreground truncate">
+              {receivablePeriod === 'monthly' ? 'Monthly' : '12-mo term'}
+            </span>
+            <div
+              role="tablist"
+              aria-label="Receivable period"
+              className="inline-flex shrink-0 items-center rounded-md bg-muted/80 p-0.5 text-[9px] border border-border/40"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={receivablePeriod === 'monthly'}
+                onClick={() => setReceivablePeriod('monthly')}
+                className={cn(
+                  'px-1.5 py-0.5 rounded font-bold text-[9px] transition-all flex items-center justify-center leading-none',
+                  receivablePeriod === 'monthly'
+                    ? 'bg-background text-primary shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="Per month receivable"
+              >
+                M
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={receivablePeriod === 'yearly'}
+                onClick={() => setReceivablePeriod('yearly')}
+                className={cn(
+                  'px-1.5 py-0.5 rounded font-bold text-[9px] transition-all flex items-center justify-center leading-none',
+                  receivablePeriod === 'yearly'
+                    ? 'bg-background text-primary shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="Full 12-month receivable"
+              >
+                Y
+              </button>
+            </div>
+          </div>
+        </CardContent></Card>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <TrendingUp className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+            <span className="font-medium truncate">Your 2% earned</span>
+          </div>
+          <p className="text-lg font-bold text-emerald-600 truncate mt-0.5">{formatUGX(earned)}</p>
+        </CardContent></Card>
+        <Card><CardContent className="p-3 flex flex-col justify-between h-full">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-orange-600" />
+            <span className="font-medium truncate">Pending payouts</span>
+          </div>
+          <p className="text-lg font-bold text-orange-600 truncate mt-0.5">{formatUGX(pendingPayouts)}</p>
+        </CardContent></Card>
+      </div>
+
+      {/* Welile Homes Collections summary (Welile Homes only) */}
+      <Card>
+        <CardContent className="p-3 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <Receipt className="h-3.5 w-3.5" /> Welile Homes Collections
+          </div>
+          {whCollections === undefined ? (
+            <p className="text-xs text-muted-foreground">Loading…</p>
+          ) : whCollections === null ? (
+            <p className="text-xs text-destructive">Collections summary is unavailable right now.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Total collected</span><br /><span className="text-sm font-semibold text-emerald-600">{formatUGX(whCollections.total)}</span></div>
+              <div><span className="text-muted-foreground">2% commission</span><br /><span className="text-sm font-semibold">{formatUGX(whCollections.commission)}</span></div>
+              <div><span className="text-muted-foreground">Months fully paid</span><br /><span className="text-sm font-semibold">{whCollections.paidMonths}</span></div>
+              <div><span className="text-muted-foreground">Part-paid months</span><br /><span className="text-sm font-semibold">{whCollections.partialMonths}</span></div>
+              <div className="col-span-2 text-[11px] text-muted-foreground">From {whCollections.tenants} {whCollections.tenants === 1 ? 'tenant' : 'tenants'}</div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Recent rent payments */}
+      <Card>
+        <CardContent className="p-3 space-y-2.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <History className="h-3.5 w-3.5" /> Recent rent payments
+          </div>
+          {recentPayments.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No rent collected yet.</p>
+          ) : (
+            <div className="divide-y divide-border/60">
+              {recentPayments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{p.tenant_name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {new Date(p.period_month).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} rent
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-emerald-600">{formatUGX(p.amount)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
+      <Button
+        className="w-full gap-2 bg-primary text-primary-foreground font-bold shadow-xs h-10 sm:h-11 rounded-xl text-sm"
+        onClick={() => handleOpenEnroll('choose')}
+      >
+        <UserPlus className="h-4 w-4" /> Add Tenant
+      </Button>
+
+      {searchOpen && (
+        <div className="relative [&_input]:!pl-9 [&_input]:mb-0">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground z-10" />
+          <Input
+            autoFocus
+            value={listQuery}
+            onChange={(e) => setListQuery(e.target.value)}
+            placeholder="Search by landlord, tenant or phone number"
+            className="h-9 !pl-9 text-sm rounded-xl mb-0"
+          />
+        </div>
+      )}
+
+      {missingIdCount > 0 && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2">
+          <div className="flex items-start gap-2 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600" />
+            <p>
+              <span className="font-semibold">New rule:</span> every tenant needs a NIN and passport photo before you can request float.{' '}
+              {missingIdCount} of your tenants {missingIdCount === 1 ? 'is' : 'are'} missing an ID.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button type="button" size="sm" variant={missingIdOnly ? 'outline' : 'default'} className="h-8"
+              onClick={() => { if (missingIdOnly) setMissingIdOnly(false); else showMissingIds(); }}>
+              {missingIdOnly ? 'Show all tenants' : 'Add missing IDs'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Lifecycle Navigation Tabs */}
+      <div className="w-full">
+        <Tabs
+          value={mainTab}
+          onValueChange={(val) => handleTabChange(val as 'enrolled' | 'in_progress' | 'active')}
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-3 h-10 p-1 bg-muted/60 rounded-xl">
+            <TabsTrigger
+              value="enrolled"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>Enrolled</span>
+              <Badge
+                variant={mainTab === 'enrolled' ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  mainTab === 'enrolled'
+                    ? "bg-primary/15 text-primary border-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {enrolledSubs.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="in_progress"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>In Progress</span>
+              <Badge
+                variant={inProgressSubs.length > 0 ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  inProgressSubs.length > 0
+                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                    : mainTab === 'in_progress'
+                      ? "bg-primary/15 text-primary border-primary/20"
+                      : "bg-muted text-muted-foreground"
+                )}
+              >
+                {inProgressSubs.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger
+              value="active"
+              className="text-xs font-semibold rounded-lg text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+            >
+              <span>Active</span>
+              <Badge
+                variant={mainTab === 'active' ? "default" : "secondary"}
+                className={cn(
+                  "px-1.5 py-0 text-[10px] h-4 min-w-4 flex items-center justify-center rounded-full font-bold transition-colors",
+                  mainTab === 'active'
+                    ? "bg-primary/15 text-primary border-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {activeFundedSubs.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {mainTab === 'enrolled' && (() => {
+        const shownInGroups = displayedSubs.length > 0 && !loading;
+        const groupKeys = new Set(shownInGroups ? landlordGroups.map((g) => draftLandlordKey(g.name, g.phone)) : []);
+        const loose = drafts.filter((d) => !groupKeys.has(draftLandlordKey(d.landlord_name, d.landlord_phone)));
+        if (loose.length === 0) return null;
+        return (
+          <div className="space-y-2 mb-3">
+            {loose.map((d) => (
+              <div key={d.id} className="rounded-xl border bg-card p-2">
+                <p className="px-1 pb-1.5 text-xs font-semibold flex items-center gap-1">
+                  <Building2 className="h-3.5 w-3.5 text-primary" /> {d.landlord_name || 'Landlord'}
+                  {d.landlord_phone && <span className="font-normal text-muted-foreground">({d.landlord_phone})</span>}
+                </p>
+                {renderDraftRow(d)}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : subs.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          No Welile Homes tenants yet. Enroll a tenant to start earning 2% on their monthly rent.
+        </div>
+      ) : visibleSubs.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground">
+          No match for "{listQuery}".
+        </div>
+      ) : displayedSubs.length === 0 ? (
+        <div className="text-center py-10 text-sm text-muted-foreground border rounded-xl bg-card/60 p-6 space-y-2">
+          {mainTab === 'in_progress' ? (
+            <>
+              <Clock className="h-8 w-8 mx-auto text-amber-500/70" />
+              <p className="font-semibold text-foreground">No float requests in progress</p>
+              <p className="text-xs max-w-sm mx-auto">
+                When you request float for enrolled tenants, their applications move here to be reviewed and approved by Agent Ops.
+              </p>
+            </>
+          ) : mainTab === 'active' ? (
+            <>
+              <CheckCircle2 className="h-8 w-8 mx-auto text-emerald-500/70" />
+              <p className="font-semibold text-foreground">No active funded plans</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Tenants whose float has been approved and disbursed by the CFO appear here for rent collection.
+              </p>
+            </>
+          ) : (
+            <>
+              <Users className="h-8 w-8 mx-auto text-muted-foreground/60" />
+              <p className="font-semibold text-foreground">No enrolled tenants awaiting float</p>
+              <p className="text-xs max-w-sm mx-auto">
+                Tap <b>Add Tenant</b> above to register tenants and landlords.
+              </p>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3 pb-20">
+          {/* Read-Only Notice for In-Progress Tab */}
+          {mainTab === 'in_progress' && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 text-xs shadow-xs">
+              <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5 animate-pulse" />
+              <div className="space-y-0.5 flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1 flex-wrap">
+                  <span className="font-semibold text-xs text-foreground">Float In Progress • Read-Only Mode</span>
+                  <Badge variant="outline" className="text-[10px] py-0 px-1.5 border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/15 font-medium">
+                    At Agent Ops
+                  </Badge>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground mt-0.5">
+                  These applications have requested float and are currently awaiting review and approval by Agent Ops. To ensure compliance, plans are locked in read-only mode during review.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Latest float request rejected: show the reviewer's note */}
+          {mainTab === 'enrolled' && floatRequests[0]?.status === 'rejected' && floatRequests[0]?.rejection_reason && (
+            <div className="flex items-start gap-2.5 p-3 rounded-xl border border-destructive/30 bg-destructive/5">
+              <XCircle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
+              <div className="min-w-0 text-xs">
+                <p className="font-semibold text-foreground">
+                  Your float request of {formatUGX(Number(floatRequests[0].requested_amount) || 0)} was rejected
+                </p>
+                <p className="text-muted-foreground mt-0.5">“{floatRequests[0].rejection_reason}”</p>
+                <p className="text-muted-foreground mt-1">
+                  Your tenants are still enrolled. Select them below and tap Request Float to send a new request.
+                </p>
+              </div>
+            </div>
+          )}
+          {/* Select All Toolbar */}
+          <div className="flex items-center justify-between text-xs px-1 text-muted-foreground">
+            <span>
+              {landlordGroups.length} {landlordGroups.length === 1 ? 'landlord' : 'landlords'} · {displayedSubs.length} {displayedSubs.length === 1 ? 'tenant' : 'tenants'}
+              {mainTab === 'enrolled' && declinedSubs.length > 0 && (
+                <span className="text-destructive font-medium ml-1">
+                  ({declinedSubs.length} declined)
+                </span>
+              )}
+            </span>
+            {mainTab === 'enrolled' && displayedSubs.some((s) => s.subscription_status !== 'cancelled') && (
+              <button
+                type="button"
+                onClick={handleToggleSelectAll}
+                className="text-primary hover:underline font-medium"
+              >
+                {selectedTenantIds.size === displayedSubs.filter((s) => s.subscription_status !== 'cancelled').length && selectedTenantIds.size > 0
+                  ? 'Deselect all'
+                  : 'Select all'}
+              </button>
+            )}
+          </div>
+
+          {/* Grouped Landlords with Checking Options */}
+          {landlordGroups.map((group) => {
+            const allSelected = isLandlordAllSelected(group);
+            const partialSelected = isLandlordPartiallySelected(group);
+            const isCollapsed = collapsedGroups.has(group.key);
+
+            return (
+              <div
+                key={group.key}
+                className="rounded-xl border bg-card overflow-hidden shadow-xs"
+              >
+                {/* Landlord Group Header with Checkbox / Read-only Status Indicator */}
+                <div className="flex items-center justify-between p-3 bg-muted/40 border-b gap-2.5">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    {mainTab === 'enrolled' ? (
+                      <Checkbox
+                        id={`group-${group.key}`}
+                        checked={allSelected ? true : partialSelected ? 'indeterminate' : false}
+                        disabled={group.tenants.every((t) => t.subscription_status === 'cancelled')}
+                        onCheckedChange={() => toggleLandlord(group)}
+                        aria-label={`Select all tenants for landlord ${group.name}`}
+                                              />
+                    ) : mainTab === 'in_progress' ? (
+                      <div className="h-5 w-5 rounded-md flex items-center justify-center text-amber-500 bg-amber-500/10 shrink-0" title="Float in progress · At Agent Ops">
+                        <Clock className="h-3.5 w-3.5 animate-pulse" />
+                      </div>
+                    ) : (
+                      <div className="h-5 w-5 rounded-md flex items-center justify-center text-emerald-500 bg-emerald-500/10 shrink-0" title="Active funded plan">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </div>
+                    )}
+                    <div
+                      className="min-w-0 flex-1 cursor-pointer select-none"
+                      onClick={() => toggleGroupCollapsed(group.key)}
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-sm truncate text-foreground flex items-center gap-1">
+                          <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                          {group.name}
+                        </p>
+                        {group.phone && (
+                          <span className="text-[11px] text-muted-foreground">({group.phone})</span>
+                        )}
+                        {/* Landlord Float Pipeline Status */}
+                        {(() => {
+                          const lp = getLandlordPipeline(group);
+                          if (lp.stage === 'not_requested') {
+                            return (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal border-amber-500/30 text-amber-600 bg-amber-500/10">
+                                Float Not Requested
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 font-normal gap-1", lp.badgeClass)}>
+                              {lp.isPending ? <Clock className="h-2.5 w-2.5 animate-pulse" />
+                                : lp.tone === 'destructive' ? <XCircle className="h-2.5 w-2.5" />
+                                : lp.tone === 'success' ? <CheckCircle2 className="h-2.5 w-2.5" />
+                                : <AlertCircle className="h-2.5 w-2.5" />}
+                              {lp.label}
+                            </Badge>
+                          );
+                        })()}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                        <span>{group.tenants.length} {group.tenants.length === 1 ? 'tenant' : 'tenants'}</span>
+                        <span>·</span>
+                        <span>Total float: <b className="text-foreground">{formatUGX(group.totalRent)}</b></span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className="text-[11px] font-semibold text-primary border-primary/30 bg-primary/5">
+                      {formatUGX(group.totalRent)}
+                    </Badge>
+                    {mainTab === 'enrolled' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                        title="Delete portfolio"
+                        aria-label={`Delete portfolio for ${group.name}`}
+                        onClick={() => setDeletePortfolioFor({ name: group.name, tenants: group.tenants })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground"
+                      onClick={() => toggleGroupCollapsed(group.key)}
+                    >
+                      <ChevronDown
+                        className={`h-4 w-4 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''
+                          }`}
+                      />
+                    </Button>
+                  </div>
+                </div>
+
+                {mainTab === 'enrolled' && (() => {
+                  const portfolio = group.tenants.filter((t) => t.subscription_status !== 'cancelled' && getSubscriptionPipeline(t).canRequestFloat);
+                  if (portfolio.length === 0) return null;
+                  const st = portfolioStatus.get(landlordPhoneKey(group.phone) ?? '');
+                  return (
+                    <div className="p-3 border-b bg-card">
+                      <WhLandlordPortfolioAction
+                        landlordName={group.name}
+                        landlordPhone={group.phone}
+                        tenantCount={portfolio.length}
+                        totalRent={portfolio.reduce((a, t) => a + (Number(t.monthly_rent) || 0), 0)}
+                        verified={!!st?.verified}
+                        verifiedAt={st?.verifiedAt}
+                        onVerified={() => fetchMyPortfolioStatus().then(setPortfolioStatus).catch(() => { })}
+                        onRequestFloat={() => {
+                          const missing = portfolio.filter((t) => !isIdComplete(identities.get(t.tenant_id)));
+                          if (missing.length > 0) {
+                            toast({
+                              title: 'Tenant ID missing',
+                              description: `Add the NIN and passport photo for ${missing.map((t) => t.tenant_name).join(', ')} before requesting float.`,
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+                          setSelectedTenantIds(new Set(portfolio.map((t) => t.id)));
+                          setRequestFloatOpen(true);
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
+                {mainTab === 'in_progress' && (
+                  <div className="p-3 border-b bg-card">
+                    <WhLandlordPortfolioAction landlordName={group.name} landlordPhone={group.phone} tenantCount={0} totalRent={0}
+                      verified={false} stageLabel={(() => { const lp = getLandlordPipeline(group); return (lp.stage === 'requested' || lp.stage === 'pending_agent_ops') ? 'Pending – awaiting Agent Ops review' : lp.label; })()}
+                      onVerified={() => { }} onRequestFloat={() => { }} />
+                  </div>
+                )}
+
+                {/* Drafts for this landlord: not enrolled, never in totals or float requests */}
+                {mainTab === 'enrolled' && (() => {
+                  const mine = drafts.filter((d) => draftLandlordKey(d.landlord_name, d.landlord_phone) === draftLandlordKey(group.name, group.phone));
+                  if (mine.length === 0) return null;
+                  return <div className="p-2 space-y-2 border-b bg-background/50">{mine.map((d) => renderDraftRow(d))}</div>;
+                })()}
+
+                {/* Tenants under this landlord */}
+                {!isCollapsed && (
+                  <div className="p-2 space-y-2 bg-background/50">
+                    {group.tenants.map((s) => {
+                      const isSelected = selectedTenantIds.has(s.id);
+                      return (
+                        <div
+                          key={s.id}
+                          data-missing-id={missingIdOnly && missingIdSubIds.has(s.id) ? 'true' : undefined}
+                          className={`rounded-lg border p-3 space-y-2 transition-colors ${missingIdOnly && missingIdSubIds.has(s.id) ? 'border-amber-500/60 ring-2 ring-amber-500/40 bg-amber-500/5' : isSelected ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'bg-card'
+                            }`}
+                        >
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                              <div className="pt-0.5">
+                                {mainTab === 'enrolled' ? (
+                                  <Checkbox
+                                    id={`tenant-${s.id}`}
+                                    checked={isSelected}
+                                    disabled={s.subscription_status === 'cancelled'}
+                                    onCheckedChange={() => toggleTenant(s.id)}
+                                    aria-label={`Select ${s.tenant_name}`}
+                                                                      />
+                                ) : mainTab === 'in_progress' ? (
+                                  <div className="h-4 w-4 flex items-center justify-center text-amber-500 shrink-0 mt-0.5" title="Under review with Agent Ops">
+                                    <Clock className="h-3.5 w-3.5 animate-pulse" />
+                                  </div>
+                                ) : (
+                                  <div className="h-4 w-4 flex items-center justify-center text-emerald-500 shrink-0 mt-0.5" title="Active">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                aria-expanded={historyOpenId === s.id}
+                                onClick={() => setHistoryOpenId((id) => (id === s.id ? null : s.id))}
+                                className="min-w-0 flex-1 text-left"
+                              >
+                                <p className="flex items-center gap-1 font-semibold truncate text-sm">
+                                  <span className="truncate">{s.tenant_name}</span>
+                                  <ChevronDown
+                                    className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${historyOpenId === s.id ? 'rotate-180' : ''}`}
+                                  />
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {s.tenant_phone}{s.tenant_phone ? ' · ' : ''}Tap for payment history
+                                </p>
+                              </button>
+                            </div>
+                            {!s.has_smartphone && <Badge variant="outline" className="shrink-0 text-[10px]">No phone</Badge>}
+                          </div>
+
+                          {historyOpenId === s.id && <TenantPaymentHistory subscriptionId={s.id} />}
+
+                          {/* Declined Reason Notice */}
+                          {s.subscription_status === 'cancelled' && (
+                            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 border border-destructive/25 text-xs text-destructive">
+                              <XCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                              <div className="min-w-0">
+                                <p className="font-semibold">Application Declined by Operations</p>
+                                <p className="text-[11px] text-destructive/90 mt-0.5">
+                                  {s.notes || 'This tenant application was reviewed and declined by operations.'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Status and Float Pipeline Badges */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {s.subscription_status === 'cancelled' ? (
+                              <Badge variant="outline" className="gap-1 font-semibold border-destructive/40 bg-destructive/10 text-destructive">
+                                <XCircle className="h-3 w-3 text-destructive" />
+                                Application Declined
+                              </Badge>
+                            ) : (
+                              <>
+                                {(() => {
+                                  const st = getEnrollStatus(s);
+                                  return (
+                                    <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
+                                      {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                                      {st.label}
+                                    </Badge>
+                                  );
+                                })()}
+
+                                {(() => {
+                                  const fp = getSubscriptionPipeline(s);
+                                  return (
+                                    <Badge variant="outline" className={cn("gap-1 font-normal", fp.badgeClass)} title={fp.description}>
+                                      {fp.isPending ? (
+                                        <Clock className="h-3 w-3 animate-pulse text-amber-500" />
+                                      ) : fp.tone === 'success' ? (
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                      ) : fp.tone === 'destructive' ? (
+                                        <XCircle className="h-3 w-3 text-destructive" />
+                                      ) : (
+                                        <AlertCircle className="h-3 w-3 text-amber-500" />
+                                      )}
+                                      {fp.label}
+                                    </Badge>
+                                  );
+                                })()}
+                                <WhTenantIdBadge identity={identities.get(s.tenant_id)} />
+                                {mainTab === 'enrolled' && (
+                                  <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-[11px]"
+                                    onClick={() => setIdFor({ tenantId: s.tenant_id, name: s.tenant_name })}>
+                                    {isIdComplete(identities.get(s.tenant_id)) ? 'Edit ID' : 'Add NIN & photo'}
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {/* Float Approval Stepper (Shown while float request traverses pipeline) */}
+                          {(() => {
+                            const fp = getSubscriptionPipeline(s);
+                            if (!fp.isPending && fp.stage !== 'request_returned') return null;
+                            return (
+                              <div className="rounded-lg border border-border/60 bg-muted/30 p-2 space-y-1">
+                                <div className="flex items-center justify-between text-[11px]">
+                                  <span className="font-semibold text-foreground flex items-center gap-1">
+                                    <Clock className="h-3 w-3 text-amber-500 animate-spin" /> Float Approval Flow
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground">{fp.label}</span>
+                                </div>
+                                {(() => {
+                                  const rid = floatLinkIds.get(s.id);
+                                  const st = floatLinks.get(s.id);
+                                  return rid && st ? <WhFloatStageTrail status={st} events={floatHistory?.get(rid)} compact /> : null;
+                                })()}
+                              </div>
+                            );
+                          })()}
+
+                          <div className="grid grid-cols-3 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">Rent</span><br /><span className="font-semibold">{formatUGX(s.monthly_rent)}</span></div>
+                            <div><span className="text-muted-foreground">Outstanding</span><br /><span className="font-semibold text-orange-600">{formatUGX(s.outstanding_balance)}</span></div>
+                            <div><span className="text-muted-foreground">Payout day</span><br /><span className="font-semibold">{s.payout_day}</span></div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {mainTab === 'in_progress' ? (
+                              <div className="col-span-2 flex items-center justify-between p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 animate-pulse" />
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-xs truncate">Under Review at Agent Ops</p>
+                                    <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 truncate">Ready to be approved · Read-Only</p>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="text-[10px] shrink-0 border-amber-500/40 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium">
+                                  Locked
+                                </Badge>
+                              </div>
+                            ) : (
+                              <>
+                                {(() => {
+                                  if (s.subscription_status === 'cancelled') {
+                                    return (
+                                      <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs text-destructive border-destructive/30 bg-destructive/5 cursor-not-allowed">
+                                        <XCircle className="h-3.5 w-3.5" /> Declined
+                                      </Button>
+                                    );
+                                  }
+                                  const fp = getSubscriptionPipeline(s);
+                                  if (fp.canCollect) {
+                                    return (
+                                      <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
+                                        disabled={s.outstanding_balance <= 0}
+                                        onClick={() => setAllocFor(s)}>
+                                        <Receipt className="h-3.5 w-3.5 text-primary" /> Collect Rent
+                                      </Button>
+                                    );
+                                  }
+                                  if (!fp.canRequestFloat) {
+                                    return (
+                                      <Button size="sm" variant="outline" disabled className="gap-1.5 h-8 text-xs bg-muted/40 text-muted-foreground border-border/60 cursor-not-allowed">
+                                        <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Awaiting Float
+                                      </Button>
+                                    );
+                                  }
+                                  return null; // Float is requested once per landlord portfolio, above.
+                                })()}
+                                {(() => {
+                                  if (getSubscriptionPipeline(s).isLocked) {
+                                    return (
+                                      <Badge
+                                        variant="outline"
+                                        className="gap-1 h-8 px-2 justify-center text-[11px] text-muted-foreground border-border/60 bg-muted/20 font-normal select-none"
+                                        title={collectionsUnknown
+                                          ? 'Payment history could not be loaded, so Delete is unavailable'
+                                          : 'Plans with collections, a float request or funding cannot be deleted'}
+                                      >
+                                        <Lock className="h-3 w-3 text-muted-foreground" /> Non-deletable Plan
+                                      </Badge>
+                                    );
+                                  }
+                                  return (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="gap-1.5 h-8 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+                                      onClick={() => setDeleteFor(s)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </Button>
+                                  );
+                                })()}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sticky / Fixed Floating Action Bar for Total Float Request */}
+      {false && selectedTenants.length > 0 && (
+        <div
+          className={cn(
+            isPage
+              ? "fixed bottom-0 inset-x-0 bg-background/95 backdrop-blur-md border-t p-3 shadow-xl z-30"
+              : "sticky bottom-0 -mx-4 -mb-4 bg-background/95 backdrop-blur-md border-t p-3 shadow-lg z-20"
+          )}
+        >
+          <div className={cn("flex items-center justify-between gap-3", isPage && "mx-auto w-full max-w-3xl")}>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                <span className="font-medium text-foreground">
+                  {selectedLandlordNames.length} {selectedLandlordNames.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
+                </span>
+              </div>
+              <p className="text-sm sm:text-base font-bold text-foreground truncate">
+                Total Float: <span className="text-primary">{formatUGX(totalFloatAmount)}</span>
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTenantIds(new Set())}
+                className="text-xs h-9 px-2 text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setRequestFloatOpen(true)}
+                className="h-9 gap-1.5 bg-primary text-primary-foreground font-semibold shadow-xs"
+              >
+                <Banknote className="h-4 w-4" />
+                Request Float
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[92vh] overflow-y-auto p-0">
-          <SheetHeader className="sticky top-0 z-10 bg-background border-b px-4 py-3">
-            <SheetTitle className="flex items-center gap-2">
-              <Home className="h-5 w-5 text-primary" /> Welile Homes
-            </SheetTitle>
-          </SheetHeader>
-
-          <div className="p-4 space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <Card><CardContent className="p-3">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Enrolled</div>
-                <p className="text-xl font-bold">{subs.length}</p>
-              </CardContent></Card>
-              <Card><CardContent className="p-3">
-                <div className="flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Banknote className="h-3.5 w-3.5" /> Receivable</div>
-                  <div className="flex items-center rounded-md border border-border/60 overflow-hidden">
-                    {(['monthly', 'yearly'] as const).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setReceivablePeriod(p)}
-                        className={`px-1.5 py-0.5 text-[10px] font-medium capitalize transition-colors ${
-                          receivablePeriod === p ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'
-                        }`}
-                      >
-                        {p === 'monthly' ? 'M' : 'Y'}
-                      </button>
-                    ))}
+      {isPage ? (
+        <div className="min-h-[100dvh] bg-background flex flex-col">
+          {/* Top header */}
+          <header className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border">
+            <div className="mx-auto w-full max-w-3xl px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (window.history.length > 1) {
+                      navigate(-1);
+                    } else {
+                      navigate('/dashboard?tab=tenants');
+                    }
+                  }}
+                  aria-label="Back to My Tenants"
+                  className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-full"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                  <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <Home className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-base sm:text-lg font-bold leading-tight truncate">Welile Homes</h1>
+                    <p className="text-xs text-muted-foreground leading-tight truncate">Agent-managed tenants &amp; subscriptions</p>
                   </div>
                 </div>
-                <p className="text-lg font-bold">
-                  {formatUGX(receivablePeriod === 'monthly' ? monthlyReceivable : totalReceivable)}
-                </p>
-                <p className="text-[10px] text-muted-foreground">
-                  {receivablePeriod === 'monthly' ? 'Per month' : 'Full 12-month term'}
-                </p>
-              </CardContent></Card>
-              <Card><CardContent className="p-3">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrendingUp className="h-3.5 w-3.5" /> Your 2% earned</div>
-                <p className="text-lg font-bold text-emerald-600">{formatUGX(earned)}</p>
-              </CardContent></Card>
-              <Card><CardContent className="p-3">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Clock className="h-3.5 w-3.5" /> Pending payouts</div>
-                <p className="text-lg font-bold text-orange-600">{formatUGX(pendingPayouts)}</p>
-              </CardContent></Card>
+              </div>
             </div>
+          </header>
 
-            {/* Recent rent payments */}
-            <Card>
-              <CardContent className="p-3 space-y-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                  <History className="h-3.5 w-3.5" /> Recent rent payments
-                </div>
-                {recentPayments.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No rent collected yet.</p>
-                ) : (
-                  <div className="divide-y divide-border/60">
-                    {recentPayments.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{p.tenant_name}</p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {new Date(p.period_month).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })} rent
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-semibold text-emerald-600">{formatUGX(p.amount)}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {new Date(p.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* Full-screen scrollable content */}
+          <main className="flex-1 mx-auto w-full max-w-3xl px-4 py-5 space-y-4 pb-28">
+            {bodyContent}
+          </main>
+        </div>
+      ) : (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent
+            side="bottom"
+            className="h-[92vh] w-full sm:max-w-lg sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 rounded-t-3xl border border-b-0 overflow-y-auto p-0 shadow-2xl"
+            onInteractOutside={(e) => { if (hasPendingLandlordCode()) e.preventDefault(); }}
+            onEscapeKeyDown={(e) => { if (hasPendingLandlordCode()) e.preventDefault(); }}
+          >
+            <SheetHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b px-4 py-3">
+              <SheetTitle className="flex items-center gap-2">
+                <Home className="h-5 w-5 text-primary" /> Welile Homes
+              </SheetTitle>
+            </SheetHeader>
 
-            {pendingConfirmation > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-                <Clock className="h-3.5 w-3.5 shrink-0" />
-                {pendingConfirmation} {pendingConfirmation === 1 ? 'tenant is' : 'tenants are'} unverified. Tap Verify to send them a verification SMS.
-              </div>
-            )}
+            {bodyContent}
+          </SheetContent>
+        </Sheet>
+      )}
 
-            <div className="flex gap-2">
-              <Button className="flex-1 gap-2" onClick={() => setEnrollOpen(true)}>
-                <Plus className="h-4 w-4" /> Enroll a tenant
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                aria-label="Search enrolled tenants"
-                onClick={() => { setSearchOpen((v) => !v); if (searchOpen) setListQuery(''); }}
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {searchOpen && (
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  autoFocus
-                  value={listQuery}
-                  onChange={(e) => setListQuery(e.target.value)}
-                  placeholder="Search by landlord, tenant or phone number"
-                  className="h-9 pl-8 text-sm"
-                />
-              </div>
-            )}
-
-            {loading ? (
-              <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-            ) : subs.length === 0 ? (
-              <div className="text-center py-10 text-sm text-muted-foreground">
-                No Welile Homes tenants yet. Enroll a tenant to start earning 2% on their monthly rent.
-              </div>
-            ) : visibleSubs.length === 0 ? (
-              <div className="text-center py-10 text-sm text-muted-foreground">
-                No match for "{listQuery}".
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {visibleSubs.map((s) => (
-                  <Card key={s.id}>
-                    <CardContent className="p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          type="button"
-                          aria-expanded={historyOpenId === s.id}
-                          onClick={() => setHistoryOpenId((id) => (id === s.id ? null : s.id))}
-                          className="min-w-0 flex-1 text-left"
-                        >
-                          <p className="flex items-center gap-1 font-semibold truncate">
-                            <span className="truncate">{s.tenant_name}</span>
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${historyOpenId === s.id ? 'rotate-180' : ''}`}
-                            />
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {s.tenant_phone}{s.tenant_phone ? ' · ' : ''}Tap for payment history
-                          </p>
-                        </button>
-                        {!s.has_smartphone && <Badge variant="outline" className="shrink-0">No phone</Badge>}
-                      </div>
-                      {historyOpenId === s.id && <TenantPaymentHistory subscriptionId={s.id} />}
-                      {(() => {
-                        const st = getEnrollStatus(s);
-                        return (
-                          <Badge variant="outline" className={`gap-1 font-normal ${st.className}`}>
-                            {st.ready ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                            {st.label}
-                          </Badge>
-                        );
-                      })()}
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Rent</span><br /><span className="font-semibold">{formatUGX(s.monthly_rent)}</span></div>
-                        <div><span className="text-muted-foreground">Outstanding</span><br /><span className="font-semibold text-orange-600">{formatUGX(s.outstanding_balance)}</span></div>
-                        <div><span className="text-muted-foreground">Payout day</span><br /><span className="font-semibold">{s.payout_day}</span></div>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <Badge variant="secondary" className="font-normal">
-                          {s.landlord_uses_wallet ? 'Landlord: Welile wallet' : `Landlord float${s.landlord_name ? ` · ${s.landlord_name}` : ''}`}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {!s.tenant_verified && (
-                          <Button size="sm" className="gap-1.5 col-span-3"
-                            onClick={() => setVerifyFor(s)}>
-                            <ShieldCheck className="h-3.5 w-3.5" /> Verify
-                          </Button>
-                        )}
-                        <Button size="sm" variant="outline" className="gap-1.5"
-                          onClick={() => setEditFor(s)}>
-                          <Pencil className="h-3.5 w-3.5" /> Edit
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5"
-                          disabled={s.outstanding_balance <= 0}
-                          onClick={() => setAllocFor(s)}>
-                          <Banknote className="h-3.5 w-3.5" /> Allocate
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30"
-                          onClick={() => setDeleteFor(s)}>
-                          <Trash2 className="h-3.5 w-3.5" /> Delete
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      <EnrollDialog open={enrollOpen} onOpenChange={setEnrollOpen} agentId={user?.id} onDone={load} />
-      <VerifyTenantDialog sub={verifyFor} onClose={() => setVerifyFor(null)} onDone={load} />
+      <EnrollDialog
+        open={enrollOpen}
+        initialMode={enrollInitialMode}
+        resumeDraft={resumeDraft}
+        onOpenChange={(o) => { setEnrollOpen(o); if (!o) setResumeDraft(null); }}
+        agentId={user?.id}
+        onDone={() => { load(); loadDrafts(); refreshIdentities(); }}
+      />
+      <AlertDialog open={!!deleteDraftFor} onOpenChange={(o) => { if (!o) setDeleteDraftFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The partly filled registration will be removed. No tenant is enrolled from a draft.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const d = deleteDraftFor;
+                setDeleteDraftFor(null);
+                if (!d) return;
+                try { await deleteTenantDraft(d.id); toast({ title: 'Draft deleted' }); }
+                catch (e: any) { toast({ title: 'Could not delete draft', description: e?.message, variant: 'destructive' }); }
+                loadDrafts();
+              }}
+            >
+              Delete draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <RequestFloatDialog
+        open={requestFloatOpen}
+        onClose={() => setRequestFloatOpen(false)}
+        selectedTenants={selectedTenants}
+        agentId={user?.id}
+        onDone={() => {
+          setSelectedTenantIds(new Set());
+          setMainTab('in_progress');
+          load();
+        }}
+      />
       <AllocateDialog sub={allocFor} onClose={() => setAllocFor(null)} onDone={load} />
-      <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load} />
+      <EditDialog sub={editFor} agentId={user?.id} onClose={() => setEditFor(null)} onDone={load}
+        identity={editFor ? identities.get(editFor.tenant_id) : null}
+        onEditId={() => editFor && setIdFor({ tenantId: editFor.tenant_id, name: editFor.tenant_name })} />
+      <WhTenantIdDialog
+        open={!!idFor}
+        onOpenChange={(o) => { if (!o) setIdFor(null); }}
+        agentId={user?.id}
+        tenantId={idFor?.tenantId ?? null}
+        tenantName={idFor?.name}
+        identity={idFor ? identities.get(idFor.tenantId) : null}
+        onSaved={() => refreshIdentities()}
+      />
 
       <AlertDialog open={!!deleteFor} onOpenChange={(open) => { if (!open) setDeleteFor(null); }}>
         <AlertDialogContent>
@@ -545,6 +1683,15 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
               disabled={deleting}
               onClick={async () => {
                 if (!deleteFor) return;
+                if (getSubscriptionPipeline(deleteFor).isLocked) {
+                  toast({
+                    title: 'This plan cannot be deleted',
+                    description: 'It has collections, a float request or funding recorded.',
+                    variant: 'destructive',
+                  });
+                  setDeleteFor(null);
+                  return;
+                }
                 setDeleting(true);
                 try {
                   const { error } = await (supabase.rpc as any)('delete_welile_home_subscription', {
@@ -552,6 +1699,11 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
                   });
                   if (error) throw error;
                   toast({ title: 'Enrollment deleted', description: `${deleteFor.tenant_name} has been removed.` });
+                  setSelectedTenantIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(deleteFor.id);
+                    return next;
+                  });
                   setDeleteFor(null);
                   load();
                 } catch (err: any) {
@@ -567,15 +1719,367 @@ export function AgentWelileHomesSheet({ open, onOpenChange }: AgentWelileHomesSh
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={!!deletePortfolioFor} onOpenChange={(open) => { if (!open && !deleting) setDeletePortfolioFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this portfolio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const ts = deletePortfolioFor?.tenants ?? [];
+                const locked = ts.filter((t) => getSubscriptionPipeline(t).isLocked).length;
+                return (
+                  <>
+                    This will permanently remove {ts.length - locked} {ts.length - locked === 1 ? 'tenant' : 'tenants'} under <span className="font-semibold text-foreground">{deletePortfolioFor?.name}</span> and their monthly dues from Welile Homes. This cannot be undone.
+                    {locked > 0 && ` ${locked} ${locked === 1 ? 'tenant has' : 'tenants have'} collections, a live float request or funding and will be kept.`}
+                  </>
+                );
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={async (e) => {
+                e.preventDefault();
+                if (!deletePortfolioFor) return;
+                const targets = deletePortfolioFor.tenants.filter((t) => !getSubscriptionPipeline(t).isLocked);
+                if (targets.length === 0) {
+                  toast({ title: 'Nothing to delete', description: 'Every tenant in this portfolio has collections, a float request or funding recorded.', variant: 'destructive' });
+                  setDeletePortfolioFor(null);
+                  return;
+                }
+                setDeleting(true);
+                let ok = 0;
+                const failed: string[] = [];
+                for (const t of targets) {
+                  const { error } = await (supabase.rpc as any)('delete_welile_home_subscription', { p_subscription_id: t.id });
+                  if (error) failed.push(t.tenant_name); else ok++;
+                }
+                setSelectedTenantIds((prev) => {
+                  const next = new Set(prev);
+                  targets.forEach((t) => next.delete(t.id));
+                  return next;
+                });
+                setDeleting(false);
+                setDeletePortfolioFor(null);
+                toast(failed.length
+                  ? { title: `Deleted ${ok} of ${targets.length}`, description: `Could not delete: ${failed.join(', ')}`, variant: 'destructive' }
+                  : { title: 'Portfolio deleted', description: `${ok} ${ok === 1 ? 'tenant' : 'tenants'} removed.` });
+                load();
+              }}
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete portfolio
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
 
-// ---------------- Enroll dialog ----------------
-function EnrollDialog({ open, onOpenChange, agentId, onDone }: {
-  open: boolean; onOpenChange: (o: boolean) => void; agentId?: string; onDone: () => void;
+// ---------------- Request Landlord Float Dialog ----------------
+function RequestFloatDialog({
+  open,
+  onClose,
+  selectedTenants,
+  agentId,
+  onDone,
+}: {
+  open: boolean;
+  onClose: () => void;
+  selectedTenants: WHSubscription[];
+  agentId?: string;
+  onDone: () => void;
 }) {
   const { toast } = useToast();
+  const [submitting, setSubmitting] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const totalAmount = useMemo(
+    () => selectedTenants.reduce((sum, s) => sum + (Number(s.monthly_rent) || 0), 0),
+    [selectedTenants]
+  );
+
+  const landlordBreakdown = useMemo(() => {
+    const map = new Map<string, { name: string; phone: string; tenants: WHSubscription[]; subtotal: number }>();
+    selectedTenants.forEach((s) => {
+      const name = s.landlord_name || 'Unassigned Landlord';
+      const key = `${name.toLowerCase()}|${s.landlord_phone || ''}`;
+      let item = map.get(key);
+      if (!item) {
+        item = { name, phone: s.landlord_phone || '', tenants: [], subtotal: 0 };
+        map.set(key, item);
+      }
+      item.tenants.push(s);
+      item.subtotal += Number(s.monthly_rent) || 0;
+    });
+    return Array.from(map.values());
+  }, [selectedTenants]);
+
+  useEffect(() => {
+    if (open && agentId) {
+      (async () => {
+        const { data } = await supabase.from('profiles').select('phone').eq('id', agentId).maybeSingle();
+        if (data?.phone) setPhone(data.phone);
+      })();
+      const landlordNames = landlordBreakdown.map((l) => l.name).join(', ');
+      setNotes(`For: ${landlordNames}`);
+    }
+  }, [open, agentId, landlordBreakdown, selectedTenants.length]);
+
+  const handleSubmit = async () => {
+    if (!agentId) return;
+    if (totalAmount <= 0) {
+      toast({ title: 'No float amount selected', variant: 'destructive' });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // Sends the exact tenants (subscription IDs) this request covers; the server computes the amount.
+      const result = await requestWelileHomesFloat({
+        subscriptionIds: selectedTenants.map((s) => s.id),
+        recipientPhone: phone,
+        notes,
+      });
+      const data = { id: result.requestId };
+
+      try {
+        await supabase.functions.invoke('notify-cfo-float-request', {
+          body: {
+            record: {
+              id: data.id,
+              agent_id: agentId,
+              requested_amount: result.amount,
+              reason: notes.trim(),
+              status: 'pending',
+            },
+          },
+        });
+      } catch (err) {
+        console.warn('CFO notification background dispatch:', err);
+      }
+
+      // Record requested subscriptions in local cache so UI immediately transitions them to In Progress
+      try {
+        const localKey = `wh_pending_float_subs_${agentId}`;
+        const existing: Record<string, string> = JSON.parse(localStorage.getItem(localKey) || '{}');
+        selectedTenants.forEach((s) => {
+          existing[s.id] = 'pending';
+        });
+        localStorage.setItem(localKey, JSON.stringify(existing));
+      } catch (cacheErr) {
+        console.warn('Could not cache pending float subs:', cacheErr);
+      }
+
+      toast({
+        title: 'Float request submitted',
+        description: `Total float of ${formatUGX(totalAmount)} requested for ${landlordBreakdown.length} landlord(s).`,
+      });
+      onDone();
+      onClose();
+    } catch (err: any) {
+      toast({ title: 'Could not submit float request', description: err.message, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Banknote className="h-5 w-5 text-primary shrink-0" /> Request Landlord Float
+          </DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
+            Submit a requisition to the CFO for the total float required to disburse rent to the selected landlords.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Total Banner */}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-center">
+            <p className="text-xs uppercase font-semibold tracking-wider text-muted-foreground">Total Float Requested</p>
+            <p className="text-2xl font-bold text-primary mt-1">{formatUGX(totalAmount)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              For {landlordBreakdown.length} {landlordBreakdown.length === 1 ? 'landlord' : 'landlords'} · {selectedTenants.length} {selectedTenants.length === 1 ? 'tenant' : 'tenants'}
+            </p>
+          </div>
+
+          {/* Breakdown per landlord */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
+              Landlord Float Allocation Breakdown
+            </Label>
+            <div className="max-h-48 overflow-y-auto space-y-2 rounded-xl border p-2.5 bg-muted/20">
+              {landlordBreakdown.map((l) => (
+                <div key={`${l.name}|${l.phone}`} className="rounded-lg border bg-card p-2.5 text-xs space-y-1">
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                      {l.name}
+                    </span>
+                    <span className="text-emerald-600 shrink-0 font-bold">{formatUGX(l.subtotal)}</span>
+                  </div>
+                  <div className="text-[11px] text-muted-foreground pl-5 space-y-0.5">
+                    {l.tenants.map((t) => (
+                      <div key={t.id} className="flex justify-between">
+                        <span className="truncate">{t.tenant_name}</span>
+                        <span className="tabular-nums font-medium">{formatUGX(t.monthly_rent)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div>
+            <Label className="text-xs font-semibold">Your MoMo / Payout Phone Number</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="07..."
+              className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+            />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label className="text-xs font-semibold">Purpose / Reason</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Requisition notes..."
+              className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-0 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting} className="h-10 sm:h-11 rounded-xl">
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || totalAmount <= 0}
+            className="gap-2 h-10 sm:h-11 rounded-xl flex-1 sm:flex-none"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <Banknote className="h-4 w-4 shrink-0" />}
+            <span className="truncate">
+              {`Confirm Float Request (${formatUGX(totalAmount)})`}
+            </span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------- Enroll dialog ----------------
+export interface LandlordGpsRecord {
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  captured_at?: string;
+  ip_address?: string | null;
+  source?: 'gps' | 'ip_fallback';
+}
+
+interface LandlordRecord {
+  id?: string;
+  name: string;
+  phone: string;
+  address?: string;
+  count: number;
+  passportUrl?: string | null;
+  housePhotos?: string[];
+  gps?: LandlordGpsRecord | null;
+  ugLocation?: UgLocationSelection | null;
+  registeredBy?: string;
+}
+
+function LandlordAvatar({ src, name, className }: { src?: string | null; name: string; className?: string }) {
+  const [failed, setFailed] = useState(false);
+  const usable = !!src && !failed && /^(https?:|data:image\/|blob:)/.test(src);
+  const initials = (name || '').trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'LL';
+  return usable ? (
+    <img src={src!} alt={name} onError={() => setFailed(true)}
+      className={cn('shrink-0 rounded-full object-cover border border-primary/30 shadow-xs', className)} />
+  ) : (
+    <div aria-hidden className={cn('shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-xs', className)}>
+      {initials}
+    </div>
+  );
+}
+
+function EnrollDialog({
+  open,
+  onOpenChange,
+  agentId,
+  onDone,
+  onTenantEnrolled,
+  initialMode = 'choose',
+  resumeDraft = null,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  agentId?: string;
+  onDone: () => void;
+  onTenantEnrolled?: (sub: WHSubscription) => void;
+  initialMode?: 'choose' | 'register';
+  resumeDraft?: WhTenantDraft | null;
+}) {
+  const { toast } = useToast();
+
+  // Step 1: Choose or Register Landlord; Step 2: Register Tenant & Terms
+  const [step, setStep] = useState<'landlord' | 'tenant'>('landlord');
+
+  // Landlord selection / registration state
+  const [landlordMode, setLandlordMode] = useState<'choose' | 'register'>(initialMode);
+  const [landlords, setLandlords] = useState<LandlordRecord[]>([]);
+  const [landlordQuery, setLandlordQuery] = useState('');
+  const [loadingLandlords, setLoadingLandlords] = useState(false);
+  const [savingLandlord, setSavingLandlord] = useState(false);
+  const [deleteLandlordTarget, setDeleteLandlordTarget] = useState<LandlordRecord | null>(null);
+  const [deletingLandlord, setDeletingLandlord] = useState(false);
+
+  // New landlord fields
+  const [newLandlordName, setNewLandlordName] = useState('');
+  const [newLandlordPhone, setNewLandlordPhone] = useState('');
+  const [newLandlordAddress, setNewLandlordAddress] = useState('');
+
+  // Landlord photo, house photos, Uganda location, and live GPS
+  const passportCameraRef = useRef<HTMLInputElement>(null);
+  const passportGalleryRef = useRef<HTMLInputElement>(null);
+  const houseCameraRef = useRef<HTMLInputElement>(null);
+  const houseGalleryRef = useRef<HTMLInputElement>(null);
+
+  const [passportPhoto, setPassportPhoto] = useState<{ file: File; previewUrl: string } | null>(null);
+  const [housePhotos, setHousePhotos] = useState<{ id: string; file: File; previewUrl: string }[]>([]);
+  const [ugLocation, setUgLocation] = useState<UgLocationSelection | null>(null);
+  const [optimizingImage, setOptimizingImage] = useState(false);
+
+  // Live GPS & IP fallback state for mandatory location verification
+  const [gpsLat, setGpsLat] = useState<number | null>(null);
+  const [gpsLng, setGpsLng] = useState<number | null>(null);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [gpsCapturedAt, setGpsCapturedAt] = useState<string | null>(null);
+  const [capturedIp, setCapturedIp] = useState<string | null>(null);
+  const [locationSource, setLocationSource] = useState<'gps' | 'ip_fallback' | null>(null);
+  const [isCapturingLocation, setIsCapturingLocation] = useState(false);
+
+  // Selected landlord details
+  const [landlordName, setLandlordName] = useState('');
+  const [landlordPhone, setLandlordPhone] = useState('');
+  const [selectedLandlordRecord, setSelectedLandlordRecord] = useState<LandlordRecord | null>(null);
+
+  // Tenant fields
   const [phone, setPhone] = useState('');
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -586,81 +2090,895 @@ function EnrollDialog({ open, onOpenChange, agentId, onDone }: {
   const [payoutDay, setPayoutDay] = useState('5');
   const [hasPhone, setHasPhone] = useState(true);
   const [landlordUsesWallet, setLandlordUsesWallet] = useState(false);
-  const [landlordName, setLandlordName] = useState('');
-  const [landlordPhone, setLandlordPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  // Existing Welile Homes landlords, for quick reuse instead of retyping.
-  const [landlords, setLandlords] = useState<{ name: string; phone: string; count: number }[]>([]);
-  const [landlordQuery, setLandlordQuery] = useState('');
-  const [loadingLandlords, setLoadingLandlords] = useState(false);
+
+  // Tenant ID (required in this form) and server-saved draft
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [idPhotoFile, setIdPhotoFile] = useState<File | null>(null);
+  const [idPhotoPath, setIdPhotoPath] = useState<string | null>(null);
+  const [idPreview, setIdPreview] = useState<string | null>(null);
+  const [ninInUse, setNinInUse] = useState(false);
+  const [ninLimited, setNinLimited] = useState(false);
+  const [existingIdComplete, setExistingIdComplete] = useState(false);
+  const idCamRef = useRef<HTMLInputElement>(null);
+  const idGalRef = useRef<HTMLInputElement>(null);
+
+  const pickIdPhoto = (f?: File | null) => {
+    if (!f) return;
+    if (!f.type.startsWith('image/')) { toast({ title: 'Choose a photo', variant: 'destructive' }); return; }
+    setIdPhotoFile(f);
+    setIdPreview(URL.createObjectURL(f));
+  };
+
+  const ensureIdPhotoUploaded = async (): Promise<string | null> => {
+    if (!agentId) return null;
+    if (idPhotoFile) {
+      const path = await uploadDraftTenantPhoto(agentId, draftId ?? crypto.randomUUID(), idPhotoFile);
+      setIdPhotoFile(null);
+      setIdPhotoPath(path);
+      return path;
+    }
+    return idPhotoPath;
+  };
+
+  const enrollBlockers = enrollmentIdBlockers({
+    phone, fullName: newName, existingTenant: !!tenant, nin: newNationalId,
+    hasPhoto: !!idPhotoFile || !!idPhotoPath, ninInUse, ninLimited, idAlreadyComplete: !!tenant && existingIdComplete,
+  });
+
+  // Existing tenant found by phone: is their ID already on file?
+  useEffect(() => {
+    if (!tenant?.id) { setExistingIdComplete(false); return; }
+    let live = true;
+    fetchTenantIdentities([tenant.id])
+      .then((m) => {
+        if (!live) return;
+        const id = m.get(tenant.id);
+        setExistingIdComplete(isIdComplete(id));
+        if (id?.nin && !newNationalId) setNewNationalId(id.nin);
+      })
+      .catch(() => live && setExistingIdComplete(false));
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenant?.id]);
+
+  // NIN uniqueness pre-check (server enforces again at enrolment)
+  useEffect(() => {
+    if (!isValidNin(newNationalId)) return;
+    let live = true;
+    const t = setTimeout(() => {
+      checkNin(newNationalId, tenant?.id).then((r) => { if (!live) return; setNinLimited(r.limited); if (!r.limited) setNinInUse(r.inUse); });
+    }, 400);
+    return () => { live = false; clearTimeout(t); };
+  }, [newNationalId, tenant?.id]);
+
+  const saveDraft = async () => {
+    if (!agentId) return;
+    if (!landlordName.trim()) { toast({ title: 'Choose a landlord first', variant: 'destructive' }); return; }
+    setSavingDraft(true);
+    try {
+      const photoPath = await ensureIdPhotoUploaded();
+      const id = await saveTenantDraft({
+        id: draftId, agentId, landlordId: selectedLandlordRecord?.id ?? null,
+        landlordName, landlordPhone,
+        landlordSnapshot: (selectedLandlordRecord ?? { name: landlordName, phone: landlordPhone }) as unknown as Record<string, unknown>,
+        form: {
+          phone, newName, nin: newNationalId, rent, payoutDay, hasPhone, landlordUsesWallet,
+          existingTenantId: tenant?.id ?? null, existingTenantName: tenant?.full_name ?? null,
+        },
+        photoPath,
+      });
+      setDraftId(id);
+      toast({ title: 'Draft saved', description: `Shown on ${landlordName}'s portfolio as "Draft – incomplete".` });
+      reset();
+      onOpenChange(false);
+      onDone();
+    } catch (e: any) {
+      toast({ title: 'Could not save draft', description: e?.message, variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Initialize or reset step and mode on open (a resumed draft opens on the tenant step)
+  useEffect(() => {
+    if (open && !resumeDraft) {
+      setStep('landlord');
+      setLandlordMode(initialMode === 'register' ? 'register' : (landlords.length === 0 ? 'register' : 'choose'));
+    }
+  }, [open, initialMode, landlords.length, resumeDraft]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !resumeDraft) return;
+    const f = resumeDraft.form || {};
+    const snap = (resumeDraft.landlord_snapshot || {}) as Partial<LandlordRecord>;
+    setSelectedLandlordRecord({
+      ...snap,
+      id: resumeDraft.landlord_id ?? snap.id,
+      name: resumeDraft.landlord_name || snap.name || '',
+      phone: resumeDraft.landlord_phone || snap.phone || '',
+      count: snap.count ?? 0,
+    } as LandlordRecord);
+    setLandlordName(resumeDraft.landlord_name || snap.name || '');
+    setLandlordPhone(resumeDraft.landlord_phone || snap.phone || '');
+    setPhone(f.phone ?? '');
+    setNewName(f.newName ?? '');
+    setNewNationalId(f.nin ?? '');
+    setRent(f.rent ?? '');
+    setPayoutDay(f.payoutDay ?? '5');
+    setHasPhone(f.hasPhone ?? true);
+    setLandlordUsesWallet(f.landlordUsesWallet ?? false);
+    setTenant(f.existingTenantId ? { id: f.existingTenantId, full_name: f.existingTenantName ?? '', phone: f.phone ?? '' } : null);
+    setSearched(!!f.phone);
+    setDraftId(resumeDraft.id);
+    setIdPhotoFile(null);
+    setIdPhotoPath(resumeDraft.photo_path);
+    setIdPreview(null);
+    if (resumeDraft.photo_path) tenantPhotoUrl(resumeDraft.photo_path).then(setIdPreview);
+    setStep('tenant');
+  }, [open, resumeDraft]);
+
+  // Load existing landlords EXCLUSIVELY for THIS AGENT (never other people's landlords)
+  useEffect(() => {
+    if (!open || !agentId) return;
     let cancelled = false;
     (async () => {
       setLoadingLandlords(true);
       try {
-        const { data } = await supabase
-          .from('welile_homes_subscriptions')
-          .select('landlord_name, landlord_phone')
-          .not('landlord_name', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(500);
+        const map = new Map<string, LandlordRecord>();
+
+        // 1. Landlords REGISTERED BY THIS AGENT ONLY in landlords table
+        const myRegisteredDbIds = new Set<string>();
+        try {
+          // Server-scoped: returns only landlords registered by the signed-in agent.
+          const { data: myDbLandlords } = await (supabase.rpc as any)('get_my_welile_homes_landlords', { p_limit: 300 });
+
+          (myDbLandlords || []).forEach((row: any) => {
+            // Strict agent boundary: must be registered by THIS agent only
+            if (!row.registered_by || row.registered_by !== agentId) return;
+
+            const name = (row.name || '').trim();
+            const p = (row.phone || '').trim();
+            if (!name) return;
+            const key = `${name.toLowerCase()}|${p}`;
+
+            if (row.id) myRegisteredDbIds.add(row.id);
+
+            let passportUrl: string | null = null;
+            let housePhotoUrls: string[] = [];
+            let gps: CapturedGps | null = null;
+            let ugLoc: UgLocationSelection | null = null;
+
+            if (typeof row.latitude === 'number' && typeof row.longitude === 'number') {
+              gps = { latitude: row.latitude, longitude: row.longitude, accuracy: null };
+            }
+            if (row.village || row.district) {
+              ugLoc = {
+                villageId: row.ug_village_id || 0, parishId: 0, subcountyId: 0, countyId: 0, districtId: 0,
+                village: row.village || '',
+                parish: row.cell || '',
+                subcounty: row.sub_county || '',
+                county: row.county || '',
+                district: row.district || '',
+                region: row.region || '',
+                fullPath: [row.village, row.sub_county, row.district].filter(Boolean).join(', '),
+              };
+            }
+            try {
+              if (row.description && row.description.startsWith('{')) {
+                const meta = JSON.parse(row.description);
+                if (meta.passport_photo || meta.passportUrl) passportUrl = meta.passport_photo || meta.passportUrl;
+                if (Array.isArray(meta.house_photos)) housePhotoUrls = meta.house_photos;
+                if (meta.gps) gps = meta.gps;
+                if (meta.ug_location) ugLoc = meta.ug_location;
+              }
+            } catch {
+              // ignore json parse error
+            }
+
+            map.set(key, {
+              id: row.id,
+              name,
+              phone: p,
+              address: row.property_address || '',
+              count: 0,
+              passportUrl,
+              housePhotos: housePhotoUrls,
+              gps,
+              ugLocation: ugLoc,
+              registeredBy: agentId,
+            });
+          });
+        } catch (e) {
+          console.warn('Could not query agent landlords from DB:', e);
+        }
+
+        // 2. Count active attached tenants ONLY for this agent's verified registered landlords
+        if (map.size > 0) {
+          try {
+            const { data: mySubs } = await supabase
+              .from('welile_homes_subscriptions')
+              .select('landlord_name, landlord_phone, landlord_id')
+              .or(`agent_id.eq.${agentId},enrolled_by.eq.${agentId}`);
+
+            (mySubs || []).forEach((s: any) => {
+              const sName = (s.landlord_name || '').trim().toLowerCase();
+              const sPhone = (s.landlord_phone || '').trim();
+              for (const [, item] of map.entries()) {
+                if (
+                  (s.landlord_id && item.id && s.landlord_id === item.id) ||
+                  (sName && item.name.toLowerCase() === sName && sPhone && item.phone === sPhone)
+                ) {
+                  item.count += 1;
+                }
+              }
+            });
+          } catch (e) {
+            console.warn('Could not count subscriptions:', e);
+          }
+        }
+
+        // 3. Include local storage metadata only for landlords registered by THIS AGENT
+        try {
+          const storedKey = `welile_homes_landlords_${agentId}`;
+          const localSaved = localStorage.getItem(storedKey);
+          if (localSaved) {
+            const parsed = JSON.parse(localSaved);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((row: any) => {
+                const name = (row.name || '').trim();
+                const p = (row.phone || '').trim();
+                if (!name) return;
+
+                // Never include landlords not belonging to this agent
+                if (row.registeredBy && row.registeredBy !== agentId) return;
+                if (row.registered_by && row.registered_by !== agentId) return;
+                if (row.id && !myRegisteredDbIds.has(row.id)) return;
+
+                const key = `${name.toLowerCase()}|${p}`;
+                const existing = map.get(key);
+                if (existing) {
+                  // Enrich existing registered landlord with local cached media if missing
+                  if (row.id && !existing.id) existing.id = row.id;
+                  if (row.address && !existing.address) existing.address = row.address;
+                  if (row.passportUrl && !existing.passportUrl) existing.passportUrl = row.passportUrl;
+                  if (row.housePhotos && (!existing.housePhotos || existing.housePhotos.length === 0)) existing.housePhotos = row.housePhotos;
+                  if (row.gps && !existing.gps) existing.gps = row.gps;
+                  if (row.ugLocation && !existing.ugLocation) existing.ugLocation = row.ugLocation;
+                } else if (!row.id && (row.registeredBy === agentId || row.registered_by === agentId)) {
+                  // Only allow genuinely unsynced local drafts tagged to this agent
+                  map.set(key, {
+                    id: null,
+                    name,
+                    phone: p,
+                    address: row.address || '',
+                    count: 0,
+                    passportUrl: row.passportUrl || null,
+                    housePhotos: row.housePhotos || [],
+                    gps: row.gps || null,
+                    ugLocation: row.ugLocation || null,
+                    registeredBy: agentId,
+                  });
+                }
+              });
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         if (cancelled) return;
-        const map = new Map<string, { name: string; phone: string; count: number }>();
-        (data || []).forEach((row: any) => {
-          const name = (row.landlord_name || '').trim();
-          const phone = (row.landlord_phone || '').trim();
-          if (!name) return;
-          const key = `${name.toLowerCase()}|${phone}`;
-          const existing = map.get(key);
-          if (existing) existing.count += 1;
-          else map.set(key, { name, phone, count: 1 });
-        });
-        setLandlords(Array.from(map.values()).sort((a, b) => b.count - a.count));
+        const list = Array.from(map.values()).sort((a, b) => b.count - a.count);
+        setLandlords(list);
+        if (list.length === 0) {
+          setLandlordMode('register');
+        }
       } finally {
         if (!cancelled) setLoadingLandlords(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [open]);
+  }, [open, agentId]);
 
   const filteredLandlords = landlords.filter((l) => {
     const q = landlordQuery.trim().toLowerCase();
     if (!q) return true;
-    return l.name.toLowerCase().includes(q) || l.phone.includes(q.replace(/\s/g, ''));
+    return (
+      l.name.toLowerCase().includes(q) ||
+      l.phone.includes(q.replace(/\s/g, '')) ||
+      (l.address && l.address.toLowerCase().includes(q))
+    );
   });
 
   const reset = () => {
-    setPhone(''); setSearched(false); setTenant(null); setNewName(''); setNewNationalId('');
-    setRent(''); setPayoutDay('5');
-    setHasPhone(true); setLandlordUsesWallet(false); setLandlordName(''); setLandlordPhone('');
+    setStep('landlord');
+    setLandlordMode(initialMode === 'register' ? 'register' : (landlords.length === 0 ? 'register' : 'choose'));
+    setPhone('');
+    setSearched(false);
+    setTenant(null);
+    setNewName('');
+    setNewNationalId('');
+    setDraftId(null);
+    setIdPhotoFile(null);
+    setIdPhotoPath(null);
+    setIdPreview(null);
+    setNinInUse(false);
+    setExistingIdComplete(false);
+    setRent('');
+    setPayoutDay('5');
+    setHasPhone(true);
+    setLandlordUsesWallet(false);
+    setLandlordName('');
+    setLandlordPhone('');
+    setSelectedLandlordRecord(null);
     setLandlordQuery('');
+    setNewLandlordName('');
+    setNewLandlordPhone('');
+    setNewLandlordAddress('');
+    if (passportPhoto?.previewUrl) {
+      URL.revokeObjectURL(passportPhoto.previewUrl);
+    }
+    setPassportPhoto(null);
+    housePhotos.forEach((h) => URL.revokeObjectURL(h.previewUrl));
+    setHousePhotos([]);
+    setUgLocation(null);
+    setGpsLat(null);
+    setGpsLng(null);
+    setGpsAccuracy(null);
+    setGpsCapturedAt(null);
+    setCapturedIp(null);
+    setLocationSource(null);
+    setIsCapturingLocation(false);
+  };
+
+  const fetchClientIp = async (): Promise<string | null> => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ip) return String(data.ip);
+      }
+    } catch {
+      // try fallback
+    }
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch('https://api64.ipify.org?format=json', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.ip) return String(data.ip);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  };
+
+  const handleCaptureLocation = async () => {
+    setIsCapturingLocation(true);
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast({
+        title: 'GPS not supported on device',
+        description: 'Capturing client IP address as mandatory verification fallback...',
+      });
+      const ip = await fetchClientIp();
+      if (ip) {
+        setCapturedIp(ip);
+        setGpsLat(null);
+        setGpsLng(null);
+        setGpsAccuracy(null);
+        setGpsCapturedAt(new Date().toISOString());
+        setLocationSource('ip_fallback');
+        toast({
+          title: 'IP Address Verified',
+          description: `Device IP (${ip}) captured as mandatory location fallback.`,
+        });
+      } else {
+        toast({
+          title: 'Location capture failed',
+          description: 'Could not access GPS or network IP. Please check device internet connection.',
+          variant: 'destructive',
+        });
+      }
+      setIsCapturingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setGpsLat(latitude);
+        setGpsLng(longitude);
+        setGpsAccuracy(accuracy);
+        setGpsCapturedAt(new Date().toISOString());
+        setLocationSource('gps');
+
+        // Opportunistically also capture IP in background for complete audit
+        fetchClientIp().then((ip) => {
+          if (ip) setCapturedIp(ip);
+        });
+
+        setIsCapturingLocation(false);
+        toast({
+          title: 'Live GPS Coordinates Verified',
+          description: `${latitude.toFixed(6)}, ${longitude.toFixed(6)} (±${Math.round(accuracy)}m)`,
+        });
+      },
+      async (err) => {
+        console.warn('GPS location unavailable, capturing IP address fallback:', err);
+        toast({
+          title: 'GPS disabled or unavailable',
+          description: 'Capturing device IP address as mandatory verification fallback...',
+        });
+
+        const ip = await fetchClientIp();
+        if (ip) {
+          setCapturedIp(ip);
+          setGpsLat(null);
+          setGpsLng(null);
+          setGpsAccuracy(null);
+          setGpsCapturedAt(new Date().toISOString());
+          setLocationSource('ip_fallback');
+          toast({
+            title: 'IP Address Verified',
+            description: `GPS was disabled. Client IP (${ip}) recorded as mandatory verification fallback.`,
+          });
+        } else {
+          toast({
+            title: 'Location verification failed',
+            description: 'GPS is disabled and IP address could not be resolved. Please enable GPS or connect to internet.',
+            variant: 'destructive',
+          });
+        }
+        setIsCapturingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  };
+
+  const handlePassportFile = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Invalid image', description: 'Please choose an image file (JPG, PNG, WebP).', variant: 'destructive' });
+      return;
+    }
+    setOptimizingImage(true);
+    try {
+      const optimized = await optimizeImage(file, { maxWidth: 900, maxHeight: 900, quality: 0.85 });
+      if (passportPhoto?.previewUrl) {
+        URL.revokeObjectURL(passportPhoto.previewUrl);
+      }
+      setPassportPhoto({ file: optimized.file, previewUrl: optimized.previewUrl });
+      toast({ title: 'Passport photo attached 🪪' });
+    } catch (e: any) {
+      toast({ title: 'Could not process photo', description: e.message, variant: 'destructive' });
+    } finally {
+      setOptimizingImage(false);
+    }
+  };
+
+  const handleRemovePassportPhoto = () => {
+    if (passportPhoto?.previewUrl) {
+      URL.revokeObjectURL(passportPhoto.previewUrl);
+    }
+    setPassportPhoto(null);
+  };
+
+  const handleHouseFiles = async (files?: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const remaining = 5 - housePhotos.length;
+    if (remaining <= 0) {
+      toast({ title: 'Photo limit reached', description: 'You can upload up to 5 photos of the house.', variant: 'destructive' });
+      return;
+    }
+    const toProcess = Array.from(files).slice(0, remaining);
+    setOptimizingImage(true);
+    try {
+      const newItems: { id: string; file: File; previewUrl: string }[] = [];
+      for (const f of toProcess) {
+        if (!f.type.startsWith('image/')) continue;
+        const optimized = await optimizeImage(f, { maxWidth: 1200, maxHeight: 1200, quality: 0.8 });
+        newItems.push({
+          id: `himg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          file: optimized.file,
+          previewUrl: optimized.previewUrl,
+        });
+      }
+      setHousePhotos((prev) => [...prev, ...newItems]);
+      toast({ title: `${newItems.length} house photo(s) added` });
+    } catch (e: any) {
+      toast({ title: 'Could not process photos', description: e.message, variant: 'destructive' });
+    } finally {
+      setOptimizingImage(false);
+    }
+  };
+
+  const handleRemoveHousePhoto = (id: string) => {
+    setHousePhotos((prev) => {
+      const target = prev.find((x) => x.id === id);
+      if (target?.previewUrl) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((x) => x.id !== id);
+    });
+  };
+
+  const handleSelectLandlord = (l: LandlordRecord) => {
+    const isCurrentlySelected =
+      landlordName.trim().toLowerCase() === l.name.trim().toLowerCase() &&
+      (!landlordPhone || landlordPhone.trim() === (l.phone || '').trim());
+
+    if (isCurrentlySelected) {
+      // Deselect
+      setLandlordName('');
+      setLandlordPhone('');
+      setSelectedLandlordRecord(null);
+    } else {
+      // Select
+      setLandlordName(l.name);
+      setLandlordPhone(l.phone);
+      setSelectedLandlordRecord(l);
+    }
+  };
+
+  // Fail closed: the confirmation opens only when the server says the landlord is deletable.
+  const handleRequestDeleteLandlord = async (l: LandlordRecord) => {
+    if (!l.id) {
+      // Saved only on this device: no server record and no plans can be linked to it.
+      setDeleteLandlordTarget(l);
+      return;
+    }
+    try {
+      const { data, error } = await (supabase.rpc as any)('wh_landlord_delete_blockers', { p_landlord_id: l.id });
+      if (error) throw error;
+      if (!data?.deletable) {
+        const reasons: string[] = Array.isArray(data?.reasons) ? data.reasons : [];
+        toast({
+          title: 'Cannot delete landlord',
+          description: reasons.length ? `${l.name}: ${reasons.join('; ')}.` : `${l.name} cannot be deleted.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      setDeleteLandlordTarget({ ...l, count: Number(data?.draft_plans ?? l.count ?? 0) });
+    } catch (e: any) {
+      toast({
+        title: 'Cannot delete landlord',
+        description: `Could not check ${l.name}'s records${e?.message ? `: ${e.message}` : ''}. Nothing was deleted.`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleConfirmDeleteLandlord = async () => {
+    if (!deleteLandlordTarget) return;
+    const target = deleteLandlordTarget;
+    setDeletingLandlord(true);
+    try {
+      // One server step: removes the landlord and its draft plans together, or nothing at all.
+      if (target.id) {
+        const { error } = await (supabase.rpc as any)('delete_welile_homes_landlord', { p_landlord_id: target.id });
+        if (error) throw new Error(String(error.message || '').replace(/^LANDLORD_NOT_DELETABLE:\s*/, ''));
+      }
+
+      // 3. Remove from local storage
+      if (agentId) {
+        try {
+          const storedKey = `welile_homes_landlords_${agentId}`;
+          const localSaved = localStorage.getItem(storedKey);
+          if (localSaved) {
+            const parsed = JSON.parse(localSaved);
+            if (Array.isArray(parsed)) {
+              const updated = parsed.filter(
+                (x: any) =>
+                  `${(x.name || '').toLowerCase()}|${x.phone || ''}` !==
+                  `${(target.name || '').toLowerCase()}|${target.phone || ''}`
+              );
+              localStorage.setItem(storedKey, JSON.stringify(updated));
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 4. Remove from state
+      setLandlords((prev) =>
+        prev.filter(
+          (x) =>
+            `${x.name.toLowerCase()}|${x.phone}` !==
+            `${target.name.toLowerCase()}|${target.phone}`
+        )
+      );
+
+      // Clear selection if currently selected
+      if (landlordName.trim().toLowerCase() === target.name.trim().toLowerCase()) {
+        setLandlordName('');
+        setLandlordPhone('');
+        setSelectedLandlordRecord(null);
+      }
+
+      toast({
+        title: 'Landlord deleted',
+        description: `${target.name} was removed from your landlords list.`,
+      });
+      setDeleteLandlordTarget(null);
+      onDone();
+    } catch (err: any) {
+      toast({
+        title: 'Failed to delete landlord',
+        description: err.message || 'Could not delete landlord',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingLandlord(false);
+    }
+  };
+
+  const handleProceedWithSelectedLandlord = () => {
+    if (!landlordName.trim()) {
+      toast({
+        title: 'Please select a landlord',
+        description: 'Choose a landlord from the list or register a new one.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!selectedLandlordRecord) {
+      const match = landlords.find(
+        (l) => l.name.trim().toLowerCase() === landlordName.trim().toLowerCase()
+      );
+      if (match) setSelectedLandlordRecord(match);
+    }
+    setStep('tenant');
+  };
+
+  const handleSaveNewLandlord = async () => {
+    const name = newLandlordName.trim();
+    const p = newLandlordPhone.trim();
+    const landmark = newLandlordAddress.trim();
+
+    if (name.length < 2) {
+      toast({ title: 'Enter landlord name', description: 'Please provide at least 2 characters.', variant: 'destructive' });
+      return;
+    }
+    if (p.length < 7) {
+      toast({ title: 'Enter landlord phone', description: 'Please provide a valid phone number.', variant: 'destructive' });
+      return;
+    }
+    if (!gpsLat && !capturedIp) {
+      toast({
+        title: 'Location verification required',
+        description: 'Mandatory live GPS capture (or verified IP fallback if GPS is disabled) is required before saving.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setSavingLandlord(true);
+    let createdId: string | undefined;
+    let uploadedPassportUrl: string | null = null;
+    const uploadedHouseUrls: string[] = [];
+
+    try {
+      // 1. Upload landlord passport photo if provided
+      if (passportPhoto?.file) {
+        try {
+          const path = `landlords/${agentId || 'agent'}/${Date.now()}_passport_${Math.random().toString(36).slice(2, 7)}.webp`;
+          const { error: upErr } = await supabase.storage
+            .from('house-images')
+            .upload(path, passportPhoto.file, { contentType: 'image/webp', upsert: true });
+          if (!upErr) {
+            uploadedPassportUrl = supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+          }
+        } catch (e) {
+          console.warn('Storage upload error for passport photo:', e);
+        }
+      }
+
+      // 2. Upload house photos if provided
+      for (let i = 0; i < housePhotos.length; i++) {
+        try {
+          const item = housePhotos[i];
+          const path = `landlords/${agentId || 'agent'}/${Date.now()}_house_${i}_${Math.random().toString(36).slice(2, 7)}.webp`;
+          const { error: upErr } = await supabase.storage
+            .from('house-images')
+            .upload(path, item.file, { contentType: 'image/webp', upsert: true });
+          if (!upErr) {
+            const pubUrl = supabase.storage.from('house-images').getPublicUrl(path).data.publicUrl;
+            uploadedHouseUrls.push(pubUrl);
+          }
+        } catch (e) {
+          console.warn(`Storage upload error for house photo ${i}:`, e);
+        }
+      }
+
+      // 3. Format address from Uganda location + landmark
+      const addressParts = [
+        landmark,
+        ugLocation?.village,
+        ugLocation?.parish,
+        ugLocation?.subcounty,
+        ugLocation?.district,
+      ].filter(Boolean);
+      const finalAddress = addressParts.join(', ') || 'Welile Homes Property';
+
+      const capturedGpsObj: LandlordGpsRecord | null = (gpsLat && gpsLng) || capturedIp ? {
+        latitude: gpsLat,
+        longitude: gpsLng,
+        accuracy: gpsAccuracy,
+        captured_at: gpsCapturedAt || new Date().toISOString(),
+        ip_address: capturedIp || null,
+        source: (gpsLat && gpsLng ? 'gps' : 'ip_fallback') as 'gps' | 'ip_fallback',
+      } : null;
+
+      const metadataObj = {
+        welile_homes: true,
+        passport_photo: uploadedPassportUrl || passportPhoto?.previewUrl || null,
+        house_photos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
+        ug_location: ugLocation,
+        landmark: landmark || null,
+        gps: capturedGpsObj,
+        registered_at: new Date().toISOString(),
+      };
+
+      if (agentId) {
+        try {
+          const { data: inserted, error: insertErr } = await supabase
+            .from('landlords')
+            .insert({
+              name,
+              phone: p,
+              property_address: finalAddress,
+              district: ugLocation?.district || null,
+              county: ugLocation?.county || null,
+              sub_county: ugLocation?.subcounty || null,
+              village: ugLocation?.village || null,
+              region: ugLocation?.region || null,
+              ug_village_id: ugLocation?.villageId || null,
+              latitude: gpsLat ?? null,
+              longitude: gpsLng ?? null,
+              location_captured_at: gpsCapturedAt || (capturedGpsObj ? new Date().toISOString() : null),
+              location_captured_by: agentId,
+              registered_by: agentId,
+              managed_by_agent_id: agentId,
+              is_agent_managed: true,
+              has_smartphone: false,
+              ready_to_receive: false,
+              description: JSON.stringify(metadataObj),
+              receipt_request_channel: 'welile_homes',
+              service_center_comment: 'Welile Homes Landlord',
+            })
+            .select('id')
+            .maybeSingle();
+
+          if (inserted?.id) {
+            createdId = inserted.id;
+          }
+          if (insertErr) {
+            console.warn('Could not insert landlord record:', insertErr);
+          }
+        } catch (err: any) {
+          console.warn('Could not mirror landlord record to landlords table:', err);
+        }
+      }
+
+      const newRecord: LandlordRecord = {
+        id: createdId,
+        name,
+        phone: p,
+        address: finalAddress,
+        count: 0,
+        passportUrl: uploadedPassportUrl || passportPhoto?.previewUrl || null,
+        housePhotos: uploadedHouseUrls.length > 0 ? uploadedHouseUrls : housePhotos.map((h) => h.previewUrl),
+        gps: capturedGpsObj,
+        ugLocation,
+        registeredBy: agentId,
+      };
+
+      // 4. Save locally
+      try {
+        const storedKey = `welile_homes_landlords_${agentId}`;
+        const existingRaw = localStorage.getItem(storedKey);
+        const existingList = existingRaw ? JSON.parse(existingRaw) : [];
+        const updatedList = [
+          newRecord,
+          ...existingList.filter((x: any) => `${(x.name || '').toLowerCase()}|${x.phone}` !== `${name.toLowerCase()}|${p}`),
+        ];
+        localStorage.setItem(storedKey, JSON.stringify(updatedList));
+      } catch {
+        // ignore storage error
+      }
+
+      // 5. Add to local state & select
+      setLandlords((prev) => [
+        newRecord,
+        ...prev.filter((x) => `${x.name.toLowerCase()}|${x.phone}` !== `${name.toLowerCase()}|${p}`),
+      ]);
+
+      setLandlordName(name);
+      setLandlordPhone(p);
+      setSelectedLandlordRecord(newRecord);
+
+      toast({
+        title: 'Landlord registered successfully',
+        description: `${name} has been enrolled with house details. Now enter tenant details to proceed.`,
+      });
+      setStep('tenant');
+    } catch (err: any) {
+      toast({
+        title: 'Registration saved locally',
+        description: err.message || 'Proceeding to tenant details.',
+      });
+      setStep('tenant');
+    } finally {
+      setSavingLandlord(false);
+    }
   };
 
   const findTenant = async () => {
-    const p = phone.trim();
-    if (!p) return;
+    const raw = phone.trim();
+    if (!raw) return;
     setSearching(true);
     setTenant(null);
     try {
+      const digits = raw.replace(/\D/g, '');
+      const last9 = digits.slice(-9);
+      if (last9.length === 9) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone')
+          .ilike('phone', `%${last9}`)
+          .limit(1)
+          .maybeSingle();
+        if (data) {
+          setTenant(data as any);
+          return;
+        }
+      }
       const { data } = await supabase
-        .from('profiles').select('id, full_name, phone')
-        .ilike('phone', `%${p.replace(/\s/g, '')}%`).limit(1).maybeSingle();
+        .from('profiles')
+        .select('id, full_name, phone')
+        .ilike('phone', `%${raw.replace(/\s/g, '')}%`)
+        .limit(1)
+        .maybeSingle();
       if (data) setTenant(data as any);
-    } finally { setSearching(false); setSearched(true); }
+    } finally {
+      setSearching(false);
+      setSearched(true);
+    }
   };
 
-  // Validate the form, then save the enrollment immediately. No SMS is sent
-  // here — verification is a separate, manual step from the tenant list.
   const submit = async () => {
     if (!agentId) return;
+    if (!landlordName.trim()) {
+      toast({ title: 'Choose or register a landlord first', variant: 'destructive' });
+      setStep('landlord');
+      return;
+    }
     const coreError = validateEnrollmentCore({ rent, payoutDay, hasSmartphone: hasPhone });
     if (coreError) { toast({ title: coreError, variant: 'destructive' }); return; }
-    // Require either a found tenant, or enough info to create a new one.
-    if (!tenant) {
-      if (!phone.trim()) { toast({ title: 'Enter the tenant phone', variant: 'destructive' }); return; }
-      if (newName.trim().length < 2) { toast({ title: 'Enter the tenant full name', variant: 'destructive' }); return; }
+    if (enrollBlockers.length > 0) {
+      toast({ title: 'Complete the tenant details', description: `Still needed: ${enrollBlockers.join(', ')}.`, variant: 'destructive' });
+      return;
+    }
+    const ninRes = existingIdComplete ? null : await checkNin(newNationalId, tenant?.id);
+    if (ninRes?.limited) {
+      setNinLimited(true);
+      toast({ title: NIN_RATE_LIMIT_MESSAGE, variant: 'destructive' });
+      return;
+    }
+    if (ninRes?.inUse) {
+      setNinInUse(true);
+      toast({ title: 'This NIN is already recorded for another tenant', variant: 'destructive' });
+      return;
     }
     await finalizeEnroll();
   };
@@ -670,10 +2988,28 @@ function EnrollDialog({ open, onOpenChange, agentId, onDone }: {
     const rentNum = parseFloat(rent);
     setSubmitting(true);
     try {
-      // Auto-create the tenant account when no existing profile was found.
       let tenantId = tenant?.id;
+
+      // 1. If tenant is not set in state, check if a profile already exists by normalized phone
       if (!tenantId) {
-        const { data: reg, error: regErr } = await supabase.functions.invoke('register-tenant', {
+        const digits = phone.replace(/\D/g, '');
+        const last9 = digits.slice(-9);
+        if (last9.length === 9) {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone')
+            .ilike('phone', `%${last9}`)
+            .limit(1)
+            .maybeSingle();
+          if (existingProfile?.id) {
+            tenantId = existingProfile.id;
+          }
+        }
+      }
+
+      // 2. If brand-new tenant, call register-tenant edge function with full error parsing & vetting check
+      if (!tenantId) {
+        const res = await supabase.functions.invoke('register-tenant', {
           body: {
             full_name: newName.trim(),
             phone: phone.trim(),
@@ -681,303 +3017,1062 @@ function EnrollDialog({ open, onOpenChange, agentId, onDone }: {
             telemetry: await collectAgentSignupTelemetry('/agent/welile-homes', 'tenant'),
           },
         });
-        if (regErr) throw new Error(regErr.message || 'Could not create tenant account');
-        if ((reg as any)?.error) throw new Error((reg as any).error);
-        tenantId = (reg as any)?.user_id;
+
+        let parsedBody: Record<string, unknown> | null = null;
+        if (res.error?.context) {
+          try {
+            parsedBody = (await res.error.context.clone().json()) as Record<string, unknown>;
+          } catch {
+            try {
+              parsedBody = (await res.error.context.json()) as Record<string, unknown>;
+            } catch {
+              parsedBody = null;
+            }
+          }
+        }
+        if (!parsedBody && res.data) {
+          parsedBody = res.data as Record<string, unknown>;
+        }
+
+        // Check if agent is unvetted -> prompts universal verification modal
+        if (promptIfNotVetted(parsedBody, res.error)) {
+          return;
+        }
+
+        if (res.error || !parsedBody || (parsedBody as any)?.error) {
+          const detail =
+            (typeof parsedBody?.error === 'string' && parsedBody.error) ||
+            (typeof parsedBody?.message === 'string' && parsedBody.message) ||
+            (res.error?.message && res.error.message !== 'Edge Function returned a non-2xx status code'
+              ? res.error.message
+              : 'Could not create tenant account. Please check the phone number and name.');
+          throw new Error(detail);
+        }
+
+        tenantId = (parsedBody as any)?.user_id;
         if (!tenantId) throw new Error('Could not create tenant account');
       }
-      const { data, error } = await supabase.rpc('enroll_welile_home_tenant', {
-        p_tenant_id: tenantId,
-        p_agent_id: agentId,
-        p_monthly_rent: rentNum,
-        p_payout_day: parseInt(payoutDay) || 5,
-        p_has_smartphone: hasPhone,
-        p_landlord_uses_wallet: landlordUsesWallet,
-        p_landlord_id: null,
-        p_landlord_name: landlordName || null,
-        p_landlord_phone: landlordPhone || null,
-        p_notes: null,
+
+      // NIN + passport photo are recorded and the tenant enrolled in one server step.
+      const photoPath = existingIdComplete ? null : await ensureIdPhotoUploaded();
+      const { data, error } = await enrollTenantWithIdentity({
+        tenantId,
+        agentId,
+        monthlyRent: rentNum,
+        payoutDay: parseInt(payoutDay) || 5,
+        hasSmartphone: hasPhone,
+        landlordUsesWallet,
+        landlordId: selectedLandlordRecord?.id || null,
+        landlordName: landlordName || null,
+        landlordPhone: landlordPhone || null,
+        nin: existingIdComplete ? null : newNationalId,
+        photoPath,
+        draftId,
+        notes: JSON.stringify({
+          welile_homes: true,
+          landlord_name: landlordName,
+          landlord_phone: landlordPhone,
+          property_address: selectedLandlordRecord?.address || null,
+          ug_location: selectedLandlordRecord?.ugLocation || null,
+          gps: selectedLandlordRecord?.gps || null,
+          house_photos: selectedLandlordRecord?.housePhotos || [],
+          landlord_passport: selectedLandlordRecord?.passportUrl || null,
+        }),
       });
-      if (error) throw error;
+
+      if (error) {
+        if (promptIfNotVetted(error)) return;
+        throw error;
+      }
       const res = data as any;
+      if (res?.code === 'nin_rate_limited') setNinLimited(true);
+      if (res?.code === 'nin_in_use') setNinInUse(true);
       if (!res?.success) throw new Error(res?.error || 'Enrollment failed');
+
+      const newSubRecord: WHSubscription = {
+        id: res.subscription_id,
+        tenant_id: tenantId,
+        next_due_date: null,
+        agent_id: agentId,
+        landlord_id: selectedLandlordRecord?.id || null,
+        landlord_name: landlordName || null,
+        landlord_phone: landlordPhone || null,
+        tenant_name: tenant?.full_name || newName.trim(),
+        tenant_phone: phone.trim(),
+        monthly_rent: rentNum,
+        receivable_total: Number(res.receivable_total) || rentNum * 12,
+        outstanding_balance: Number(res.receivable_total) || rentNum * 12,
+        payout_day: parseInt(payoutDay) || 5,
+        has_smartphone: hasPhone,
+        landlord_uses_wallet: landlordUsesWallet,
+        subscription_status: 'active',
+        created_at: new Date().toISOString(),
+        tenant_verified: false,
+      };
+
       toast({
-        title: 'Tenant enrolled successfully. Pending verification.',
-        description: `${formatUGX(rentNum)}/mo · you earn ${formatUGX(res.agent_commission_per_month)}/mo`,
+        title: 'Tenant enrolled successfully',
+        description: `${newSubRecord.tenant_name} can now be included in a float request.`,
       });
       reset();
       onOpenChange(false);
       onDone();
+      if (onTenantEnrolled) {
+        onTenantEnrolled(newSubRecord);
+      }
     } catch (err: any) {
-      toast({ title: 'Enrollment failed', description: err.message, variant: 'destructive' });
-    } finally { setSubmitting(false); }
+      if (promptIfNotVetted(err)) return;
+      const msg = String(err?.message ?? '');
+      const friendly = /invalid input syntax for type uuid/i.test(msg)
+        ? 'Something went wrong saving the tenant record. Please try again; if it keeps happening, contact Agent Ops.'
+        : msg;
+      toast({ title: 'Enrollment failed', description: friendly, variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Enroll tenant in Welile Homes</DialogTitle>
-          <DialogDescription>Rent is booked as receivable × 12 months. You earn 2% of every month's rent.</DialogDescription>
-        </DialogHeader>
-        <>
-        <div className="space-y-3">
-          <div>
-            <Label>Tenant phone</Label>
-            <div className="flex gap-2">
-              <Input
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); setSearched(false); setTenant(null); }}
-                placeholder="07..."
-              />
-              <Button type="button" variant="outline" onClick={findTenant} disabled={searching}>
-                {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-              </Button>
-            </div>
-            {tenant && (
-              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600">
-                <CheckCircle2 className="h-3.5 w-3.5" /> {tenant.full_name} · {tenant.phone}
-              </div>
-            )}
-            {searched && !tenant && (
-              <p className="mt-1.5 text-xs text-muted-foreground">
-                No registered tenant with that phone — a new account will be created below. You can verify their phone afterwards from the tenant list.
-              </p>
-            )}
-          </div>
-          {searched && !tenant && (
-            <div className="space-y-3 rounded-lg border border-dashed p-3">
-              <p className="text-xs font-medium text-muted-foreground">Create new tenant</p>
-              <div>
-                <Label>Tenant full name</Label>
-                <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="First Last" />
-              </div>
-              <div>
-                <Label>National ID (optional)</Label>
-                <Input value={newNationalId} onChange={(e) => setNewNationalId(e.target.value)} placeholder="CM..." />
-              </div>
-            </div>
-          )}
-          <div>
-            <Label>Monthly rent (UGX)</Label>
-            <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" />
-          </div>
-          <div>
-            <Label>Landlord payout day (1–28)</Label>
-            <Input type="number" inputMode="numeric" value={payoutDay} onChange={(e) => setPayoutDay(e.target.value)} min={1} max={28} />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div><p className="text-sm font-medium">Tenant has a smartphone</p><p className="text-xs text-muted-foreground">Off = you allocate their rent</p></div>
-            <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div><p className="text-sm font-medium">Landlord uses Welile wallet</p><p className="text-xs text-muted-foreground">Off = paid to your landlord float</p></div>
-            <Switch checked={landlordUsesWallet} onCheckedChange={setLandlordUsesWallet} />
-          </div>
-          {!landlordUsesWallet && (
-            <div className="space-y-2 rounded-lg border p-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-muted-foreground">Registered Welile Homes landlords</p>
-                {loadingLandlords && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-              </div>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={landlordQuery}
-                  onChange={(e) => setLandlordQuery(e.target.value)}
-                  placeholder="Search landlord by name or phone"
-                  className="h-9 pl-8 text-sm"
-                />
-              </div>
-              <div className="max-h-40 space-y-1 overflow-y-auto">
-                {filteredLandlords.length === 0 && !loadingLandlords && (
-                  <p className="py-2 text-xs text-muted-foreground">
-                    {landlords.length === 0 ? 'No landlords enrolled yet — type the details below.' : 'No match. Type the details below.'}
-                  </p>
-                )}
-                {filteredLandlords.map((l) => {
-                  const selected = landlordName.trim().toLowerCase() === l.name.toLowerCase()
-                    && (landlordPhone.trim() === l.phone);
-                  return (
-                    <button
-                      key={`${l.name}|${l.phone}`}
-                      type="button"
-                      onClick={() => { setLandlordName(l.name); setLandlordPhone(l.phone); }}
-                      className={`flex w-full items-center justify-between rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors ${selected ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium">{l.name}</span>
-                        <span className="block truncate text-muted-foreground">{l.phone || 'No phone on file'}</span>
-                      </span>
-                      {selected
-                        ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary" />
-                        : <Badge variant="secondary" className="shrink-0 text-[10px]">{l.count}</Badge>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {!landlordUsesWallet && (
-            <div className="grid grid-cols-2 gap-2">
-              <div><Label>Landlord name</Label><Input value={landlordName} onChange={(e) => setLandlordName(e.target.value)} /></div>
-              <div><Label>Landlord phone</Label><Input value={landlordPhone} onChange={(e) => setLandlordPhone(e.target.value)} /></div>
-            </div>
-          )}
-        </div>
-        <DialogFooter>
-          <Button
-            onClick={submit}
-            disabled={submitting || (!tenant && !(searched && newName.trim().length >= 2))}
-            className="w-full"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Enroll tenant
-          </Button>
-        </DialogFooter>
-        </>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ---------------- Verify tenant dialog ----------------
-function VerifyTenantDialog({ sub, onClose, onDone }: {
-  sub: WHSubscription | null; onClose: () => void; onDone: () => void;
-}) {
-  const { toast } = useToast();
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [otpValue, setOtpValue] = useState('');
-  const [otpError, setOtpError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState(0);
-
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const t = setInterval(() => setCooldown((c) => (c <= 1 ? 0 : c - 1)), 1000);
-    return () => clearInterval(t);
-  }, [cooldown]);
-
-  useEffect(() => {
-    if (sub) { setSent(false); setOtpValue(''); setOtpError(null); setCooldown(0); }
-  }, [sub?.id]);
-
-  const phone = sub?.tenant_phone?.trim() || '';
-
-  const sendOtp = async () => {
-    if (!phone) { toast({ title: 'This tenant has no phone number', variant: 'destructive' }); return; }
-    setSending(true); setOtpError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'send', phone, category: 'welile_homes_tenant_verify' },
-      });
-      if (error) throw new Error(error.message || 'Could not send the code');
-      if ((data as any)?.error) throw new Error((data as any).error);
-      setSent(true);
-      setOtpValue('');
-      setCooldown(60);
-      toast({ title: 'Verification SMS sent to tenant', description: phone });
-    } catch (err: any) {
-      toast({ title: 'Could not send verification SMS', description: err.message, variant: 'destructive' });
-    } finally { setSending(false); }
-  };
-
-  const verifyOtp = async (code: string) => {
-    if (!sub) return;
-    setVerifying(true); setOtpError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('sms-otp', {
-        body: { action: 'verify', phone, otp: code, category: 'welile_homes_tenant_verify' },
-      });
-      if (error) throw new Error('Invalid or expired code');
-      if ((data as any)?.error) throw new Error((data as any).error);
-      if (!(data as any)?.success) throw new Error('Verification failed');
-
-      const { data: markRes, error: markErr } = await supabase.rpc('welile_home_mark_tenant_verified', {
-        p_subscription_id: sub.id,
-      });
-      if (markErr) throw markErr;
-      if (!(markRes as any)?.success) throw new Error((markRes as any)?.error || 'Could not mark tenant verified');
-
-      toast({ title: 'Tenant verified', description: sub.tenant_name });
-      onClose();
-      onDone();
-    } catch (err: any) {
-      setOtpValue('');
-      setOtpError(err.message || 'Verification failed');
-    } finally { setVerifying(false); }
-  };
-
-  return (
-    <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-primary" /> Verify tenant
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto overflow-x-hidden p-3 sm:p-6 min-w-0 box-border">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Building2 className="h-5 w-5 text-primary shrink-0" />
+            <span className="truncate">
+              {step === 'landlord'
+                ? (landlordMode === 'register' ? 'Register New Landlord' : 'Choose Existing Landlord')
+                : 'Register Tenant'}
+            </span>
           </DialogTitle>
-          <DialogDescription>
-            {sent
-              ? `Enter the 6-digit code sent to ${phone}.`
-              : `Send a verification SMS to ${sub?.tenant_name || 'this tenant'} on ${phone || 'no phone on file'}.`}
+          <DialogDescription className="text-xs sm:text-sm">
+            {step === 'landlord'
+              ? (landlordMode === 'register'
+                ? 'Enter landlord details. They will be saved to your file and linked to the tenant.'
+                : 'Select an existing landlord from your file or register a new one.')
+              : 'Link the tenant to the selected landlord and set the monthly rent terms.'}
           </DialogDescription>
         </DialogHeader>
 
-        {sent ? (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <InputOTP
-                maxLength={6}
-                value={otpValue}
-                disabled={verifying}
-                onChange={(v) => {
-                  setOtpValue(v);
-                  setOtpError(null);
-                  if (v.length === 6) verifyOtp(v);
-                }}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+        {/* Step Indicator - Symmetric 2-col Grid on identical parameters */}
+        <div className="grid grid-cols-2 gap-1.5 sm:gap-2 rounded-xl border bg-muted/40 p-1 sm:p-1.5 text-xs">
+          <button
+            type="button"
+            onClick={() => setStep('landlord')}
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 font-medium transition-all text-left ${
+              step === 'landlord'
+                ? 'bg-background shadow-xs text-foreground font-semibold ring-1 ring-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold ${
+                landlordName ? 'bg-emerald-500 text-white' : 'bg-primary text-primary-foreground'
+              }`}
+            >
+              {landlordName ? '✓' : '1'}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold leading-tight">
+                {landlordName || 'Landlord'}
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {landlordName ? 'Selected' : 'Step 1'}
+              </p>
             </div>
-            {verifying && (
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Verifying…
+          </button>
+
+          <button
+            type="button"
+            disabled={!landlordName}
+            onClick={() => { if (landlordName) setStep('tenant'); }}
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-2.5 py-1.5 sm:py-2 font-medium transition-all text-left disabled:opacity-40 disabled:cursor-not-allowed ${
+              step === 'tenant'
+                ? 'bg-background shadow-xs text-foreground font-semibold ring-1 ring-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 sm:h-6 sm:w-6 shrink-0 items-center justify-center rounded-full text-[10px] sm:text-[11px] font-bold ${
+                step === 'tenant' ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/30 text-muted-foreground'
+              }`}
+            >
+              2
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold leading-tight">
+                <span className="sm:hidden">Tenant</span>
+                <span className="hidden sm:inline">Tenant &amp; Rent</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                Step 2
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* STEP 1: LANDLORD */}
+        {step === 'landlord' && (
+          <div className="space-y-3 sm:space-y-4 w-full min-w-0 max-w-full overflow-hidden">
+            <Tabs value={landlordMode} onValueChange={(v) => setLandlordMode(v as any)} className="w-full min-w-0 max-w-full">
+              <TabsList className="grid w-full grid-cols-2 h-9 sm:h-10 rounded-xl p-1 bg-muted/60">
+                <TabsTrigger value="choose" className="text-xs font-medium rounded-lg px-1 sm:px-2 truncate">
+                  <span className="sm:hidden">Landlords ({landlords.length})</span>
+                  <span className="hidden sm:inline">My Landlords ({landlords.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="register" className="text-xs font-medium rounded-lg px-1 sm:px-2 truncate">
+                  <span className="sm:hidden">+ Register</span>
+                  <span className="hidden sm:inline">+ Register New Landlord</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* CHOOSE EXISTING LANDLORD */}
+              <TabsContent value="choose" className="space-y-3 pt-2">
+                <div className="relative [&_input]:!pl-10 [&_input]:mb-0">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground z-10" />
+                  <Input
+                    value={landlordQuery}
+                    onChange={(e) => setLandlordQuery(e.target.value)}
+                    placeholder="Search landlord by name or phone..."
+                    className="h-10 !pl-10 pr-3 text-xs sm:text-sm rounded-xl mb-0"
+                  />
+                </div>
+
+                <div className="max-h-64 sm:max-h-80 space-y-1.5 overflow-y-auto pr-1">
+                  {loadingLandlords ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : filteredLandlords.length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-4 text-center">
+                      <Building2 className="mx-auto h-7 w-7 text-muted-foreground/50 mb-1" />
+                      <p className="text-xs font-medium text-foreground">
+                        {landlords.length === 0 ? 'No landlords registered by you yet' : `No match for "${landlordQuery}"`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 mb-3">
+                        {landlords.length === 0
+                          ? 'This search engine only looks at your own landlords instead of other people’s. Register your landlord to get started!'
+                          : 'No landlord in your list matched this search.'}
+                      </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (landlordQuery) {
+                            if (/^\d+$/.test(landlordQuery.replace(/\s/g, ''))) {
+                              setNewLandlordPhone(landlordQuery);
+                            } else {
+                              setNewLandlordName(landlordQuery);
+                            }
+                          }
+                          setLandlordMode('register');
+                        }}
+                        className="gap-1.5 text-xs rounded-xl"
+                      >
+                        <UserPlus className="h-3.5 w-3.5" /> Register new landlord
+                      </Button>
+                    </div>
+                  ) : (
+                    filteredLandlords.map((l) => {
+                      const isSelected =
+                        landlordName.trim().toLowerCase() === l.name.toLowerCase() &&
+                        (!landlordPhone || landlordPhone.trim() === l.phone);
+                      return (
+                        <div
+                          key={`${l.name}|${l.phone}`}
+                          onClick={() => handleSelectLandlord(l)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') handleSelectLandlord(l);
+                          }}
+                          className={`flex items-center justify-between gap-2 rounded-xl border p-2.5 sm:p-3 text-left text-xs transition-colors cursor-pointer ${
+                            isSelected
+                              ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
+                              : 'hover:bg-muted/60 bg-card'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
+                            <LandlordAvatar src={l.passportUrl} name={l.name} className="h-8 w-8 sm:h-9 sm:w-9" />
+
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-foreground truncate flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm">
+                                <span className="truncate">{l.name}</span>
+                                {isSelected && (
+                                  <Badge variant="default" className="text-[9px] h-4 px-1.5 py-0 font-normal shrink-0">
+                                    Selected
+                                  </Badge>
+                                )}
+                                {l.count > 0 && (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 py-0 shrink-0">
+                                    {l.count} {l.count === 1 ? 'tenant' : 'tenants'}
+                                  </Badge>
+                                )}
+                                {l.gps && (
+                                  <span className={cn(
+                                    "text-[9px] font-normal px-1 py-0.2 rounded shrink-0",
+                                    l.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
+                                  )}>
+                                    {l.gps.latitude ? "📍 GPS" : "🌐 IP"}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-muted-foreground truncate text-[10px] sm:text-[11px]">
+                                {l.phone || 'No phone'}
+                                {l.address ? ` · ${l.address}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1 sm:gap-1.5">
+                            {isSelected ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-[11px] sm:text-xs border-primary/40 bg-primary/10 text-primary hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40 transition-colors rounded-lg"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectLandlord(l);
+                                }}
+                                title="Click to deselect"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-primary shrink-0" />
+                                <span>Selected</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-[11px] sm:text-xs text-primary hover:bg-primary/10 rounded-lg"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectLandlord(l);
+                                }}
+                              >
+                                <span>Select</span>
+                                <ArrowRight className="h-3 w-3 ml-0.5" />
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-lg"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestDeleteLandlord(l);
+                              }}
+                              title="Delete landlord"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleProceedWithSelectedLandlord}
+                    disabled={!landlordName}
+                    className="w-full gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
+                  >
+                    <span className="truncate">
+                      <span className="sm:hidden">Continue to Tenant</span>
+                      <span className="hidden sm:inline">Continue to Tenant Registration</span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0" />
+                  </Button>
+                </div>
+              </TabsContent>
+
+              {/* REGISTER NEW LANDLORD */}
+              <TabsContent value="register" className="space-y-4 pt-2 w-full min-w-0 max-w-full overflow-hidden">
+                {/* Hidden File Inputs */}
+                <input
+                  ref={passportCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="user"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePassportFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={passportGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePassportFile(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={houseCameraRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    handleHouseFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+                <input
+                  ref={houseGalleryRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    handleHouseFiles(e.target.files);
+                    e.target.value = '';
+                  }}
+                />
+
+                {/* 1. Landlord Identity & Passport Photo */}
+                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      <span>Landlord Information</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      Step 1 of 2
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Landlord Full Name *</Label>
+                      <Input
+                        value={newLandlordName}
+                        onChange={(e) => setNewLandlordName(e.target.value)}
+                        placeholder="e.g. Chemayek Abraham"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Landlord Phone Number *</Label>
+                      <Input
+                        value={newLandlordPhone}
+                        onChange={(e) => setNewLandlordPhone(e.target.value)}
+                        placeholder="e.g. 0772 123 456"
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Landlord Passport Photo */}
+                  <div className="pt-1 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs flex items-center gap-1.5 font-medium">
+                        <span>🪪 Landlord Passport / Face Photo</span>
+                        {passportPhoto && (
+                          <span className="text-[10px] text-emerald-600 font-normal">✓ Photo attached</span>
+                        )}
+                      </Label>
+                    </div>
+
+                    {passportPhoto ? (
+                      <div className="flex items-center gap-3 p-2.5 rounded-lg border bg-muted/30">
+                        <div className="relative h-20 w-16 rounded-md overflow-hidden border border-border shrink-0 shadow-xs">
+                          <img
+                            src={passportPhoto.previewUrl}
+                            alt="Landlord Passport"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleRemovePassportPhoto}
+                            className="absolute top-0.5 right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow"
+                            title="Remove photo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1.5">
+                          <p className="text-xs font-medium text-foreground">Landlord photo captured</p>
+                          <p className="text-[11px] text-muted-foreground leading-tight">
+                            Passport headshot saved. Used for Landlord Ops identity verification.
+                          </p>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 gap-1"
+                              onClick={() => passportCameraRef.current?.click()}
+                              disabled={optimizingImage}
+                            >
+                              <Camera className="h-3 w-3" /> Retake
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-[11px] px-2 text-destructive hover:bg-destructive/10"
+                              onClick={handleRemovePassportPhoto}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg border border-dashed bg-muted/20 space-y-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          Take a clear live photo of the landlord or upload their passport photo headshot.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 w-full min-w-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
+                            onClick={() => passportCameraRef.current?.click()}
+                            disabled={optimizingImage}
+                          >
+                            <Camera className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate">Take Live Photo</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
+                            onClick={() => passportGalleryRef.current?.click()}
+                            disabled={optimizingImage}
+                          >
+                            <Upload className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate">Upload Photo</span>
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Official Location of the House (District -> Village) */}
+                <div className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                      <MapPin className="h-4 w-4 text-primary" />
+                      <span>House Location (Uganda Hierarchy)</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">District → Village</span>
+                  </div>
+
+                  <UgLocationPicker
+                    value={ugLocation}
+                    onChange={setUgLocation}
+                    defaultMode="cascade"
+                    label="Official House Location"
+                  />
+
+                  <div>
+                    <Label className="text-xs">Plot / Landmark / House Number (optional)</Label>
+                    <Input
+                      value={newLandlordAddress}
+                      onChange={(e) => setNewLandlordAddress(e.target.value)}
+                      placeholder="e.g. Near Total Petrol Station, Plot 14, Blue Gate"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Mandatory Live GPS Location (Compulsory, with IP fallback if GPS disabled) */}
+                <Card className="rounded-xl border bg-card p-3.5 space-y-3 shadow-xs">
+                  <CardHeader className="p-0 pb-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Navigation className="h-4 w-4 text-primary" />
+                        <span>3. Mandatory Live GPS Location</span>
+                      </div>
+                      <Badge
+                        variant={locationSource === 'gps' ? 'default' : locationSource === 'ip_fallback' ? 'secondary' : 'destructive'}
+                        className={cn(
+                          'text-[10px] font-bold',
+                          locationSource === 'gps' && 'bg-primary text-primary-foreground',
+                          locationSource === 'ip_fallback' && 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
+                        )}
+                      >
+                        {locationSource === 'gps'
+                          ? 'GPS Captured'
+                          : locationSource === 'ip_fallback'
+                          ? 'IP Captured'
+                          : 'Required'}
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-[11px] leading-tight text-muted-foreground">
+                      You must physically stand at the property to capture live coordinates. Manual pins are not accepted.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 pt-1 space-y-2">
+                    <div className="p-3.5 rounded-xl border border-dashed border-border bg-muted/20 text-center space-y-2">
+                      {locationSource === 'gps' && gpsLat && gpsLng ? (
+                        <div className="space-y-2">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-semibold">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Coordinates Verified (±{Math.round(gpsAccuracy ?? 0)}m)</span>
+                          </div>
+                          <div className="text-xs font-mono font-bold text-foreground">
+                            {gpsLat.toFixed(6)}, {gpsLng.toFixed(6)}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Captured at {gpsCapturedAt ? new Date(gpsCapturedAt).toLocaleTimeString() : 'Just now'}
+                            {capturedIp ? ` · IP: ${capturedIp}` : ''}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="h-8 text-xs rounded-lg gap-1.5"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isCapturingLocation ? 'animate-spin' : ''}`} />
+                            <span>Re-capture GPS</span>
+                          </Button>
+                        </div>
+                      ) : locationSource === 'ip_fallback' && capturedIp ? (
+                        <div className="space-y-2">
+                          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-semibold">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            <span>GPS Disabled · IP Address Verified</span>
+                          </div>
+                          <div className="text-xs font-mono font-bold text-foreground">
+                            IP: {capturedIp}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Captured at {gpsCapturedAt ? new Date(gpsCapturedAt).toLocaleTimeString() : 'Just now'} · Fallback location audit
+                          </p>
+                          <p className="text-[10px] text-amber-600/90 dark:text-amber-400/90 max-w-sm mx-auto">
+                            Device GPS is disabled or unavailable. IP address recorded for security &amp; verification audit.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="h-8 text-xs rounded-lg gap-1.5"
+                          >
+                            <RefreshCw className={`h-3 w-3 ${isCapturingLocation ? 'animate-spin' : ''}`} />
+                            <span>Retry GPS Lock</span>
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 py-2">
+                          <MapPin className="h-8 w-8 text-muted-foreground/60 mx-auto animate-pulse" />
+                          <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                            Stand in front of the house and tap the button below. Live coordinates (or verified IP fallback) are mandatory.
+                          </p>
+                          <Button
+                            type="button"
+                            onClick={handleCaptureLocation}
+                            disabled={isCapturingLocation}
+                            className="rounded-xl px-5 h-10 text-xs font-bold gap-2"
+                          >
+                            {isCapturingLocation ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Acquiring Location &amp; IP...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Navigation className="h-4 w-4" />
+                                <span>Capture Live Location</span>
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 4. House / Property Photos */}
+                <div className="rounded-xl border bg-card p-3 sm:p-3.5 space-y-3 shadow-xs w-full min-w-0 max-w-full overflow-hidden">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground min-w-0">
+                      <Home className="h-4 w-4 text-primary shrink-0" />
+                      <span className="truncate">House Photos ({housePhotos.length}/5)</span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground shrink-0">Exterior / Entrance</span>
+                  </div>
+
+                  {housePhotos.length > 0 && (
+                    <div className="w-full min-w-0 max-w-full">
+                      <div className="grid grid-cols-5 gap-1.5 sm:gap-2 w-full min-w-0">
+                        {housePhotos.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="relative aspect-square rounded-lg overflow-hidden border border-border shadow-xs bg-muted/20"
+                          >
+                            <img
+                              src={item.previewUrl}
+                              alt={`House photo ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveHousePhoto(item.id)}
+                              className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 h-4 w-4 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-[10px] shadow active:scale-90 transition-transform"
+                              title="Remove photo"
+                            >
+                              ✕
+                            </button>
+                            <div className="absolute bottom-0 inset-x-0 bg-black/65 backdrop-blur-[2px] text-white text-[8px] sm:text-[9px] text-center py-0.5 font-medium leading-none">
+                              #{idx + 1}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 w-full min-w-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
+                      onClick={() => houseCameraRef.current?.click()}
+                      disabled={housePhotos.length >= 5 || optimizingImage}
+                    >
+                      <Camera className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span className="truncate">Take Live Photo</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-9 text-xs gap-1.5 min-w-0 rounded-xl px-2"
+                      onClick={() => houseGalleryRef.current?.click()}
+                      disabled={housePhotos.length >= 5 || optimizingImage}
+                    >
+                      <Upload className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">Upload Photos</span>
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Take live photos or upload pictures of the front facade, side views, or compound.
+                  </p>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  Once registered, this landlord, location, GPS, and photos will be linked and saved for tenant registration.
+                </p>
+
+                <div className="flex flex-col gap-1.5 pt-1">
+                  {!gpsLat && !capturedIp && (
+                    <p className="text-[11px] text-destructive text-center font-medium">
+                      ⚠️ Live GPS or verified IP fallback is required to save this landlord.
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    onClick={handleSaveNewLandlord}
+                    disabled={savingLandlord || !newLandlordName.trim() || !newLandlordPhone.trim() || (!gpsLat && !capturedIp)}
+                    className="w-full gap-2 h-10 sm:h-11 text-xs sm:text-sm font-semibold rounded-xl"
+                  >
+                    {savingLandlord ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+                        <span className="truncate">Saving Landlord & Uploading Photos...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="h-4 w-4 shrink-0" />
+                        <span className="truncate">Save Landlord & Continue to Tenant →</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
+        )}
+
+        {/* STEP 2: TENANT & RENT */}
+        {step === 'tenant' && (
+          <div className="space-y-3 w-full min-w-0 max-w-full overflow-hidden">
+            {/* Selected Landlord Summary Banner */}
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <LandlordAvatar src={selectedLandlordRecord?.passportUrl} name={landlordName} className="h-10 w-10" />
+
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase font-semibold text-primary tracking-wider flex items-center gap-1.5">
+                    <span>Landlord</span>
+                    {selectedLandlordRecord?.gps && (
+                      <span className={cn(
+                        "text-[9px] font-normal px-1 py-0.2 rounded",
+                        selectedLandlordRecord.gps.latitude ? "text-emerald-600 bg-emerald-500/10" : "text-amber-600 bg-amber-500/10"
+                      )}>
+                        {selectedLandlordRecord.gps.latitude ? "📍 GPS" : "🌐 IP"}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-xs sm:text-sm font-bold text-foreground truncate">{landlordName}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {landlordPhone || 'No phone on file'}
+                    {selectedLandlordRecord?.address ? ` · ${selectedLandlordRecord.address}` : ''}
+                  </p>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setStep('landlord')}
+                className="text-xs shrink-0 gap-1 h-8 rounded-lg"
+              >
+                Change
+              </Button>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Tenant phone *</Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  value={phone}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPhone(val);
+                    setSearched(false);
+                    setTenant(null);
+                  }}
+                  onBlur={() => {
+                    if (phone.trim().length >= 9 && !tenant) {
+                      findTenant();
+                    }
+                  }}
+                  placeholder="e.g. 0772 123 456"
+                  className="h-10 text-xs sm:text-sm rounded-xl"
+                />
+                <Button type="button" variant="outline" onClick={findTenant} disabled={searching} className="h-10 px-3 rounded-xl shrink-0">
+                  {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+              {tenant ? (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Existing account: {tenant.full_name} ({tenant.phone})</span>
+                </div>
+              ) : searched ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  New tenant number — please enter their name below.
+                </p>
+              ) : null}
+            </div>
+
+            {(!tenant || !existingIdComplete) && (
+              <div className="space-y-3 rounded-xl border bg-muted/20 p-3 sm:p-3.5">
+                <p className="text-xs font-semibold text-foreground">
+                  {tenant ? 'Tenant ID needed before enrolling' : 'New tenant details'}
+                </p>
+                {!tenant && (
+                  <div>
+                    <Label className="text-xs font-medium">Tenant full name *</Label>
+                    <Input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+                    />
+                  </div>
+                )}
+                <div>
+                  <Label className="text-xs font-medium">National ID number (NIN) *</Label>
+                  <Input
+                    value={newNationalId}
+                    maxLength={14}
+                    autoCapitalize="characters"
+                    onChange={(e) => { setNewNationalId(normalizeNin(e.target.value).slice(0, 14)); setNinInUse(false); }}
+                    placeholder="CM0000000000AB"
+                    className="mt-1 h-10 text-xs sm:text-sm rounded-xl font-mono"
+                  />
+                  {newNationalId && !isValidNin(newNationalId) && (
+                    <p className="mt-1 text-[11px] text-destructive">14 characters, starting with CM or CF.</p>
+                  )}
+                  {ninLimited && (
+                    <p className="mt-1 text-[11px] text-destructive">{NIN_RATE_LIMIT_MESSAGE}</p>
+                  )}
+                  {!ninLimited && ninInUse && (
+                    <p className="mt-1 text-[11px] text-destructive">This NIN is already recorded for another tenant.</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs font-medium">Passport photo *</Label>
+                  <div className="mt-1 flex items-center gap-3">
+                    {idPreview ? (
+                      <img src={idPreview} alt="Tenant passport photo" className="h-20 w-16 rounded-lg border object-cover" />
+                    ) : (
+                      <div className="flex h-20 w-16 items-center justify-center rounded-lg border border-dashed text-[10px] text-muted-foreground">No photo</div>
+                    )}
+                    <div className="flex flex-col gap-1.5">
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => idCamRef.current?.click()}>
+                        <Camera className="mr-1 h-3.5 w-3.5" /> Take photo
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => idGalRef.current?.click()}>
+                        <ImageIcon className="mr-1 h-3.5 w-3.5" /> From gallery
+                      </Button>
+                    </div>
+                  </div>
+                  <input ref={idCamRef} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => { pickIdPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+                  <input ref={idGalRef} type="file" accept="image/*" className="hidden" onChange={(e) => { pickIdPhoto(e.target.files?.[0]); e.target.value = ''; }} />
+                </div>
               </div>
             )}
-            {otpError && <p className="text-sm text-destructive text-center">{otpError}</p>}
-            <div className="text-center">
-              <button
+
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Monthly rent (UGX) *</Label>
+                {Number(rent) > 0 && (
+                  <span className="text-[11px] text-emerald-600 font-medium">
+                    You earn {formatUGX(Number(rent) * 0.02)}/mo
+                  </span>
+                )}
+              </div>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={rent}
+                onChange={(e) => setRent(e.target.value)}
+                placeholder="500000"
+                className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+              />
+              <div className="grid grid-cols-5 gap-1.5 mt-2">
+                {[
+                  { value: '200000', label: '200k' },
+                  { value: '350000', label: '350k' },
+                  { value: '500000', label: '500k' },
+                  { value: '800000', label: '800k' },
+                  { value: '1000000', label: '1M' },
+                ].map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setRent(p.value)}
+                    className={`rounded-lg border py-1.5 text-xs font-semibold transition-all text-center ${
+                      rent === p.value
+                        ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/40'
+                        : 'hover:bg-muted text-muted-foreground'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold">Landlord payout day (1–28)</Label>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                The date of each month when the landlord receives their rent payout (e.g. 5 = 5th of every month).
+              </p>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={payoutDay}
+                onChange={(e) => setPayoutDay(e.target.value)}
+                min={1}
+                max={28}
+                placeholder="5"
+                className="mt-1 h-10 text-xs sm:text-sm rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
+              <div>
+                <p className="text-xs sm:text-sm font-medium">Tenant has a smartphone</p>
+                <p className="text-[11px] text-muted-foreground">Off = you allocate their rent</p>
+              </div>
+              <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
+              <div>
+                <p className="text-xs sm:text-sm font-medium">Landlord uses Welile wallet</p>
+                <p className="text-[11px] text-muted-foreground">Off = paid to your landlord float</p>
+              </div>
+              <Switch checked={landlordUsesWallet} onCheckedChange={setLandlordUsesWallet} />
+            </div>
+
+            {enrollBlockers.length > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Still needed to enrol: {enrollBlockers.join(', ')}.
+              </p>
+            )}
+            <div className="pt-2 flex gap-2">
+              <Button
                 type="button"
-                onClick={() => { if (cooldown === 0 && !sending) sendOtp(); }}
-                disabled={cooldown > 0 || sending || verifying}
-                className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline inline-flex items-center gap-1"
+                variant="outline"
+                onClick={() => setStep('landlord')}
+                className="gap-1.5 h-11 px-3.5 text-xs shrink-0 rounded-xl"
               >
-                <RefreshCw className="h-3 w-3" />
-                {cooldown > 0 ? `Resend code in ${cooldown}s` : sending ? 'Sending…' : 'Resend code'}
-              </button>
+                <ArrowLeft className="h-4 w-4" /> Back
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={saveDraft}
+                disabled={savingDraft || submitting}
+                className="gap-1.5 h-11 px-3 text-xs shrink-0 rounded-xl"
+              >
+                {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Save as draft
+              </Button>
+              <Button
+                onClick={submit}
+                disabled={submitting || savingDraft || enrollBlockers.length > 0 || !rent.trim()}
+                className="flex-1 min-w-0 gap-2 h-11 text-xs sm:text-sm font-semibold rounded-xl"
+              >
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin shrink-0" /> : <UserCheck className="h-4 w-4 shrink-0" />}
+                <span className="truncate">Enroll Tenant for {landlordName}</span>
+              </Button>
             </div>
           </div>
-        ) : (
-          <DialogFooter>
-            <Button className="w-full gap-2" onClick={sendOtp} disabled={sending || !phone}>
-              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-              Send verification SMS
-            </Button>
-          </DialogFooter>
         )}
+
+        <AlertDialog open={!!deleteLandlordTarget} onOpenChange={(o) => { if (!o) setDeleteLandlordTarget(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {deleteLandlordTarget?.name}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove this landlord from your Welile Homes list?
+                {deleteLandlordTarget?.count && deleteLandlordTarget.count > 0
+                  ? ` Any unapproved tenant draft enrollments (${deleteLandlordTarget.count}) will also be cancelled.`
+                  : ''}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletingLandlord}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDeleteLandlord}
+                disabled={deletingLandlord}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deletingLandlord ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                Delete Landlord
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
 }
 
-// ---------------- Edit dialog ----------------
 function PreviewRow({ label, oldText, newText, changed }: {
   label: string; oldText: string; newText: string; changed: boolean;
 }) {
@@ -996,8 +4091,9 @@ function PreviewRow({ label, oldText, newText, changed }: {
   );
 }
 
-function EditDialog({ sub, agentId, onClose, onDone }: {
+function EditDialog({ sub, agentId, onClose, onDone, identity, onEditId }: {
   sub: WHSubscription | null; agentId?: string; onClose: () => void; onDone: () => void;
+  identity?: WhTenantIdentity | null; onEditId?: () => void;
 }) {
   const { toast } = useToast();
   const [rent, setRent] = useState('');
@@ -1093,7 +4189,7 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
       if ((res.changes?.length ?? 0) > 0) {
         supabase.functions.invoke('welile-home-enrollment-update-sms', {
           body: { subscription_id: sub.id },
-        }).catch(() => {});
+        }).catch(() => { });
       }
       toast({
         title: 'Enrollment updated',
@@ -1108,12 +4204,12 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
 
   return (
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base sm:text-lg">
             {step === 'confirm' ? 'Confirm changes' : 'Edit enrollment'} — {sub?.tenant_name}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {step === 'confirm'
               ? 'Review how dues and totals will change before saving. Nothing is saved yet.'
               : 'Changes apply to upcoming, uncollected months only. Collected and paid months stay as they were.'}
@@ -1121,7 +4217,7 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
         </DialogHeader>
         {step === 'confirm' && preview ? (
           <div className="space-y-3">
-            <div className="rounded-lg border divide-y">
+            <div className="rounded-xl border divide-y overflow-hidden">
               <PreviewRow label="Monthly rent" oldText={formatUGX(preview.monthly_rent.old)} newText={formatUGX(preview.monthly_rent.new)} changed={preview.monthly_rent.old !== preview.monthly_rent.new} />
               <PreviewRow label="Landlord payout day" oldText={String(preview.payout_day.old ?? '—')} newText={String(preview.payout_day.new)} changed={preview.payout_day.old !== preview.payout_day.new} />
               <PreviewRow label="Collection mode" oldText={preview.has_smartphone.old ? 'Tenant pays' : 'Agent allocates'} newText={preview.has_smartphone.new ? 'Tenant pays' : 'Agent allocates'} changed={preview.has_smartphone.old !== preview.has_smartphone.new} />
@@ -1136,64 +4232,73 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
             </p>
           </div>
         ) : (
-        <div className="space-y-3">
-          <div>
-            <Label>Monthly rent (UGX)</Label>
-            <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" />
-          </div>
-          <div>
-            <Label>Landlord payout day (1–28)</Label>
-            <Input type="number" inputMode="numeric" value={payoutDay} onChange={(e) => setPayoutDay(e.target.value)} min={1} max={28} />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <div><p className="text-sm font-medium">Tenant has a smartphone</p><p className="text-xs text-muted-foreground">Off = you allocate their rent</p></div>
-            <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
-          </div>
-
-          <div className="rounded-lg border p-3">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
-              <History className="h-3.5 w-3.5" /> Edit history
-            </div>
-            {historyLoading ? (
-              <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
-            ) : history.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No edits yet.</p>
-            ) : (
-              <div className="space-y-2.5">
-                {history.map((h) => (
-                  <div key={h.id} className="text-xs border-l-2 border-muted pl-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">{h.editor_name}</span>
-                      <span className="text-muted-foreground">{new Date(h.created_at).toLocaleString()}</span>
-                    </div>
-                    <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
-                      {(h.changes ?? []).map((c, i) => (
-                        <li key={i}>
-                          <span className="text-foreground">{FIELD_LABELS[c.field] ?? c.field}:</span>{' '}
-                          {formatAuditValue(c.field, c.old)} → <span className="text-foreground">{formatAuditValue(c.field, c.new)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+          <div className="space-y-3">
+            {onEditId && sub && (
+              <div className="flex items-center justify-between gap-2 rounded-xl border p-2.5">
+                <div className="flex items-center gap-2 text-xs"><span className="font-semibold">Tenant ID</span><WhTenantIdBadge identity={identity} /></div>
+                <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={onEditId}>
+                  {isIdComplete(identity) ? 'Edit NIN / photo' : 'Add NIN & photo'}
+                </Button>
               </div>
             )}
+
+            <div>
+              <Label className="text-xs font-semibold">Monthly rent (UGX)</Label>
+              <Input type="number" inputMode="numeric" value={rent} onChange={(e) => setRent(e.target.value)} placeholder="500000" className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold">Landlord payout day (1–28)</Label>
+              <Input type="number" inputMode="numeric" value={payoutDay} onChange={(e) => setPayoutDay(e.target.value)} min={1} max={28} className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
+            </div>
+            <div className="flex items-center justify-between rounded-xl border p-3 bg-card">
+              <div><p className="text-xs sm:text-sm font-medium">Tenant has a smartphone</p><p className="text-[11px] text-muted-foreground">Off = you allocate their rent</p></div>
+              <Switch checked={hasPhone} onCheckedChange={setHasPhone} />
+            </div>
+
+            <div className="rounded-xl border p-3 bg-card">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+                <History className="h-3.5 w-3.5" /> Edit history
+              </div>
+              {historyLoading ? (
+                <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+              ) : history.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No edits yet.</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {history.map((h) => (
+                    <div key={h.id} className="text-xs border-l-2 border-muted pl-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">{h.editor_name}</span>
+                        <span className="text-muted-foreground">{new Date(h.created_at).toLocaleString()}</span>
+                      </div>
+                      <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
+                        {(h.changes ?? []).map((c, i) => (
+                          <li key={i}>
+                            <span className="text-foreground">{FIELD_LABELS[c.field] ?? c.field}:</span>{' '}
+                            {formatAuditValue(c.field, c.old)} → <span className="text-foreground">{formatAuditValue(c.field, c.new)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
         )}
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           {step === 'confirm' ? (
             <div className="flex w-full gap-2">
-              <Button variant="outline" onClick={() => setStep('form')} disabled={submitting} className="flex-1">
-                <ArrowLeft className="h-4 w-4 mr-1.5" /> Back
+              <Button variant="outline" onClick={() => setStep('form')} disabled={submitting} className="flex-1 h-11 rounded-xl text-xs sm:text-sm">
+                <ArrowLeft className="h-4 w-4 mr-1.5 shrink-0" /> Back
               </Button>
-              <Button onClick={submit} disabled={submitting} className="flex-1">
-                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Confirm &amp; save
+              <Button onClick={submit} disabled={submitting} className="flex-1 h-11 rounded-xl text-xs sm:text-sm font-semibold">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null} Confirm &amp; save
               </Button>
             </div>
           ) : (
-            <Button onClick={review} disabled={previewLoading} className="w-full">
-              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Review changes
+            <Button onClick={review} disabled={previewLoading} className="w-full h-11 rounded-xl text-xs sm:text-sm font-semibold">
+              {previewLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : null} Review changes
             </Button>
           )}
         </DialogFooter>
@@ -1202,7 +4307,7 @@ function EditDialog({ sub, agentId, onClose, onDone }: {
   );
 }
 
-// ---------------- Allocate dialog ----------------
+// ---------------- Record Collection dialog ----------------
 function AllocateDialog({ sub, onClose, onDone }: {
   sub: WHSubscription | null; onClose: () => void; onDone: () => void;
 }) {
@@ -1223,8 +4328,13 @@ function AllocateDialog({ sub, onClose, onDone }: {
     return opts;
   })();
 
+  // One key per collection attempt: a retry or double tap reuses it, so the server returns the
+  // original confirmation instead of charging twice. A new key is issued only after success.
+  const collectKeyRef = useRef<string>('');
+
   useEffect(() => {
     if (sub) {
+      collectKeyRef.current = crypto.randomUUID();
       setAmount(String(Math.min(sub.monthly_rent, sub.outstanding_balance)));
       const now = new Date();
       setPeriod(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
@@ -1239,57 +4349,66 @@ function AllocateDialog({ sub, onClose, onDone }: {
     const periodLabel = monthOptions.find((m) => m.value === period)?.label || period;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('welile_home_record_collection', {
+      if (!collectKeyRef.current) collectKeyRef.current = crypto.randomUUID();
+      const { data, error } = await (supabase.rpc as any)('welile_home_record_collection', {
         p_subscription_id: sub.id,
         p_amount: amt,
         p_source: 'agent_allocation',
-        p_notes: `Agent allocation — rent for ${periodLabel}`,
+        p_idempotency_key: collectKeyRef.current,
+        p_notes: `Agent collection — rent for ${periodLabel}`,
       });
       if (error) throw error;
       const res = data as any;
-      if (!res?.success) throw new Error(res?.error || 'Allocation failed');
-      toast({ title: 'Rent allocated', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
+      if (!res?.success) throw new Error(res?.error || 'Collection recording failed');
+      collectKeyRef.current = crypto.randomUUID();
+      toast({ title: 'Rent payment recorded', description: `${formatUGX(res.amount_collected)} · you earned ${formatUGX(res.agent_commission)}` });
       // Fire-and-forget: send the tenant an SMS receipt for this collection.
-      supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => {});
+      supabase.functions.invoke('welile-homes-sms-dispatch', { body: { since_minutes: 10 } }).catch(() => { });
       onClose();
       onDone();
     } catch (err: any) {
-      toast({ title: 'Allocation failed', description: err.message, variant: 'destructive' });
+      toast({ title: 'Collection failed', description: err.message, variant: 'destructive' });
     } finally { setSubmitting(false); }
   };
 
   return (
     <Dialog open={!!sub} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Allocate rent — {sub?.tenant_name}</DialogTitle>
-          <DialogDescription>
-            Records cash collected from the tenant. Outstanding: {sub ? formatUGX(sub.outstanding_balance) : ''}. Drawn from your float.
+      <DialogContent className="w-[calc(100vw-1.25rem)] max-w-md max-h-[92vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-1">
+          <DialogTitle className="text-base sm:text-lg">Record rent collection — {sub?.tenant_name}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
+            Records cash collected from the tenant into the system. Outstanding: {sub ? formatUGX(sub.outstanding_balance) : ''}.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label>Amount (UGX)</Label>
-          <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <div className="space-y-3 pt-1">
+          <div>
+            <Label className="text-xs font-semibold">Amount (UGX)</Label>
+            <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} className="mt-1 h-10 text-xs sm:text-sm rounded-xl" />
+          </div>
+          <div>
+            <Label className="text-xs font-semibold">Month being paid for</Label>
+            <div className="mt-1">
+              <Select value={period} onValueChange={setPeriod}>
+                <SelectTrigger className="h-10 rounded-xl text-xs sm:text-sm">
+                  <SelectValue placeholder="Select month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthOptions.map((m) => (
+                    <SelectItem key={m.value} value={m.value} className="text-xs sm:text-sm">{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label>Month being paid for</Label>
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select month" />
-            </SelectTrigger>
-            <SelectContent>
-              {monthOptions.map((m) => (
-                <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DialogFooter>
-          <Button onClick={submit} disabled={submitting} className="w-full">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Allocate
+        <DialogFooter className="pt-2">
+          <Button onClick={submit} disabled={submitting} className="w-full h-11 rounded-xl text-xs sm:text-sm font-semibold">
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2 shrink-0" /> : <Receipt className="h-4 w-4 mr-2 shrink-0" />} Record Collection
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
+export default AgentWelileHomesSheet;

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Suspense } from 'react';
 import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Helmet } from 'react-helmet-async';
 import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
@@ -209,7 +209,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
       animate={{ opacity: 1, y: 0 }}
       data-house-card=""
       data-house-id={listing.id}
-      className="pb-6 border-b border-border/40 last:border-b-0"
+      className="p-3 pb-4 rounded-3xl bg-primary/[0.07]"
       itemScope itemType="https://schema.org/Accommodation"
     >
       {/* Image */}
@@ -258,7 +258,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
         </p>
 
         <div className="flex items-baseline gap-1.5 pt-1">
-          <span className="font-semibold text-[15px]" itemProp="price">{formatUGX(listing.daily_rate)}</span>
+          <span className="font-semibold text-[15px] text-green-600 dark:text-green-400" itemProp="price">{formatUGX(listing.daily_rate)}</span>
           <span className="text-sm text-muted-foreground">/ day</span>
         </div>
       </div>
@@ -283,7 +283,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
  * crucial because each card mounts a Google Map iframe + multiple images.
  * Heights are measured dynamically since cards vary (amenities, description, thumbnails).
  */
-function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null }) {
+function VirtualHouseList({ listings, onOpenDetails, userLat, userLng, focusId, onFocused }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null; focusId?: string | null; onFocused?: () => void }) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const virtualizer = useWindowVirtualizer({
@@ -294,6 +294,22 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
     scrollMargin: listRef.current?.offsetTop ?? 0,
     getItemKey: (index) => listings[index].id,
   });
+
+  // Coming back from a house page: bring that house's card into view once it is on this page.
+  useEffect(() => {
+    if (!focusId) return;
+    const index = listings.findIndex((l) => l.id === focusId);
+    if (index < 0) return;
+    const id = window.setTimeout(() => {
+      // Land the card's top just below the sticky header, not underneath it.
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const [offset] = virtualizer.getOffsetForIndex(index, 'start') ?? [0];
+      window.scrollTo({ top: Math.max(0, offset - headerHeight - 12) });
+      onFocused?.();
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [focusId, listings, virtualizer, onFocused]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -306,7 +322,7 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
             key={vi.key}
             data-index={vi.index}
             ref={virtualizer.measureElement}
-            className="absolute left-0 top-0 w-full"
+            className="absolute left-0 top-0 w-full pb-4"
             style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
           >
             <PublicHouseCard listing={listing} isFirst={vi.index === 0} onOpenDetails={onOpenDetails} userLat={userLat} userLng={userLng} />
@@ -383,6 +399,11 @@ export default function FindAHouse() {
   // Client-side pagination over the filtered set.
   const PAGE_SIZE = 12;
   const [page, setPage] = useState(1);
+  // A house page's back arrow returns here with the house to bring back into view.
+  const [focusHouseId, setFocusHouseId] = useState<string | null>(
+    () => (location.state as { focusHouseId?: string } | null)?.focusHouseId ?? null,
+  );
+  const clearFocusHouse = useCallback(() => setFocusHouseId(null), []);
   const debouncedSearch = useDebouncedValue(searchText, 250);
   const [showMap, setShowMap] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -609,6 +630,13 @@ export default function FindAHouse() {
     setPage(1);
   }, [debouncedSearch, minPrice, maxPrice, minRooms, amenities, sortKey, selectedRegion, selectedCategory, selectedDistrict, selectedSubCounty, selectedVillage]);
 
+  // Open the page that holds the house being returned to.
+  useEffect(() => {
+    if (!focusHouseId || filtered.length === 0) return;
+    const index = filtered.findIndex((l) => l.id === focusHouseId);
+    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE) + 1);
+  }, [focusHouseId, filtered]);
+
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const paginated = useMemo(
@@ -786,7 +814,7 @@ export default function FindAHouse() {
         </a>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border">
-          <div className="max-w-2xl mx-auto px-4 pt-3 flex justify-center">
+          <div className="max-w-lg mx-auto px-4 pt-3 flex justify-center">
             <img
               src={houseSearchingIllustration.url}
               alt="Illustration of a person searching for a house to rent"
@@ -794,7 +822,7 @@ export default function FindAHouse() {
               loading="lazy"
             />
           </div>
-          <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <Button
                 variant="ghost"
@@ -819,7 +847,7 @@ export default function FindAHouse() {
 
         {/* Filters */}
         <div className="sticky top-[53px] z-30 bg-background/95 backdrop-blur-md border-b border-border">
-          <div className="max-w-2xl mx-auto px-4 py-2">
+          <div className="max-w-lg mx-auto px-4 py-2">
             <button
               type="button"
               onClick={() => setFilterBarOpen(o => !o)}
@@ -1066,7 +1094,7 @@ export default function FindAHouse() {
         <main
           id="house-list"
           tabIndex={-1}
-          className={`${showMap ? 'max-w-7xl' : 'max-w-5xl'} mx-auto px-4 py-4 space-y-3 pb-20`}
+          className="max-w-lg mx-auto px-4 py-4 space-y-3 pb-20"
         >
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
@@ -1106,9 +1134,9 @@ export default function FindAHouse() {
               </div>
 
               {showMap ? (
-                <div className="flex flex-col md:flex-row gap-3">
-                  {/* Map — full width on mobile, sticky side pane on desktop */}
-                  <div className="md:order-2 md:w-[44%] md:sticky md:top-4 h-[55vh] md:h-[calc(100vh-7rem)] rounded-2xl overflow-hidden border border-border shrink-0">
+                <div className="flex flex-col gap-3">
+                  {/* Map — full width of the single centred column, same as the tenant dashboard */}
+                  <div className="h-[55vh] rounded-2xl overflow-hidden border border-border shrink-0">
                     <Suspense fallback={<Skeleton className="h-full w-full" />}>
                       <HouseMapView
                         listings={filtered}
@@ -1124,13 +1152,13 @@ export default function FindAHouse() {
                       />
                     </Suspense>
                   </div>
-                  {/* List — hidden on mobile while the map is open (toggle), shown beside map on desktop */}
-                  <div className="hidden md:block md:order-1 md:flex-1 min-w-0">
-                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                  {/* List — hidden while the map is open (toggle), at every width */}
+                  <div className="hidden min-w-0">
+                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
                   </div>
                 </div>
               ) : (
-                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
               )}
 
               {/* Pagination */}

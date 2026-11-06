@@ -48,15 +48,20 @@ Deno.serve(async (req) => {
   const { data: allowed } = await admin.rpc('crm_call_centre_authorized', { _user_id: staff.id });
   if (allowed !== true) return json({ error: 'not_authorized' }, 403);
 
-  // The line is used by automated calls while human calling is paused.
-  const { data: sys } = await admin
-    .from('voice_autocall_system_status')
-    .select('human_calling_paused')
-    .eq('id', 1)
-    .maybeSingle();
-  if (sys?.human_calling_paused === true) {
+  // The line is shared with the automated call centre: staff may call only
+  // while it is idle. voice_line_try_staff takes the same lock as the robot's
+  // dialer and reserves the line for 2 minutes on success.
+  const { data: line, error: lineErr } = await admin.rpc('voice_line_try_staff', { p_bridging: false });
+  if (lineErr) {
+    console.error('[crm-place-call] line check failed', lineErr.message);
+  } else if (!(line as { ok?: boolean } | null)?.ok) {
+    const l = line as { reason?: string; message?: string; until?: string | null };
     return json(
-      { error: 'call_centre_paused', message: 'Calling from the app is paused. This line is now used for automated calls.' },
+      {
+        error: l.reason === 'paused' ? 'call_centre_paused' : 'line_in_use_automated',
+        message: l.message ?? 'This line is in use by automated calls right now.',
+        until: l.until ?? null,
+      },
       423,
     );
   }

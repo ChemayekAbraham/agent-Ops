@@ -1,3 +1,4 @@
+import { FinOpsScope } from '@/components/financial-ops/FinOpsScope';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,6 +21,7 @@ function ago(ms: number | undefined, now: number): string {
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ago`;
 }
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 
 export default function FinancialOpsPage() {
   const navigate = useNavigate();
@@ -65,6 +67,7 @@ export default function FinancialOpsPage() {
   };
 
   return (
+    <FinOpsScope>
     <div className="finops-surface min-h-screen bg-background overflow-x-clip">
       {/* Sticky top bar: where you are, find anything, how fresh the numbers are */}
       <div className="sticky top-0 z-40 border-b border-border bg-background/95 shadow-xs backdrop-blur">
@@ -127,8 +130,10 @@ export default function FinancialOpsPage() {
       </div>
 
       <div className="w-full min-w-0 space-y-3 px-3 py-3 sm:px-6">
+        <V360StaffPricingBanner />
         <FinancialOpsCommandCenter />
       </div>
     </div>
+    </FinOpsScope>
   );
 }

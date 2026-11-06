@@ -19,6 +19,7 @@ import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2, Clock, XCircle, Sparkles, ArrowRight, ShieldCheck,
+  Search, Plus, X, Shirt,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchMyBikeLeases, type BikeLeaseRecord } from '@/hooks/useBikeLeases';
@@ -37,7 +38,6 @@ const SmartphoneOrderDialog = lazyWithRetry(() => import('@/components/merchandi
 import { StorageImage } from '@/components/ui/StorageImage';
 import { shortMerchandiseUrl, longMerchandiseUrl } from '@/lib/merchandiseShareLink';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
-import shoppingBagIllustration from '@/assets/Shopping_bag-amico.svg.asset.json';
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
 import { MyCategorisedOrdersNotice } from '@/components/merchandise/MyCategorisedOrdersNotice';
@@ -162,6 +162,7 @@ export default function MerchandiseStore() {
   const [bikeOpen, setBikeOpen] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
   const [shareItem, setShareItem] = useState<CatalogItem | null>(null);
+  const [search, setSearch] = useState('');
   // Post-purchase receipt shown to the buyer as explicit confirmation.
   const [success, setSuccess] = useState<{
     itemName: string;
@@ -551,245 +552,390 @@ export default function MerchandiseStore() {
 
 
 
+  const openItem = (item: CatalogItem) => {
+    setSelected(item);
+    setQuantity('1');
+    setSelectedSize(null);
+  };
+
+  const goToOrders = () => {
+    setActiveMainTab('orders');
+    setSearchParams({ tab: 'orders' });
+  };
+
+  const goToStore = () => {
+    setActiveMainTab('store');
+    setSearchParams({});
+  };
+
+  const scrollToAllItems = () => {
+    document.getElementById('merch-all-items')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const searchTerm = search.trim().toLowerCase();
+  const searchResults = searchTerm
+    ? filteredCatalog.filter((item) =>
+        `${item.item_name} ${item.description ?? ''}`.toLowerCase().includes(searchTerm),
+      )
+    : null;
+  const popularItems = filteredCatalog.slice(0, 6);
+
+  const categories = [
+    {
+      key: 'phone',
+      label: 'Smartphone',
+      icon: Smartphone,
+      tile: 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
+      onClick: () => (smartphoneRepaying ? goToOrders() : setPhoneOpen(true)),
+    },
+    {
+      key: 'bike',
+      label: 'E-bike',
+      icon: Bike,
+      tile: 'bg-orange-500/15 text-orange-600 dark:text-orange-300',
+      onClick: () => setBikeOpen(true),
+    },
+    {
+      key: 'gear',
+      label: 'Branded gear',
+      icon: Shirt,
+      tile: 'bg-sky-500/15 text-sky-600 dark:text-sky-300',
+      onClick: scrollToAllItems,
+    },
+    {
+      key: 'orders',
+      label: 'My orders',
+      icon: Package,
+      tile: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300',
+      onClick: goToOrders,
+    },
+  ];
+
+  const renderItemCard = (item: CatalogItem, layout: 'rail' | 'grid') => {
+    const img = pickImage(item);
+    const fromDaily = merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily;
+    const sizes = Array.isArray(item.sizes) ? item.sizes : [];
+    return (
+      <div
+        key={item.id}
+        role="button"
+        tabIndex={0}
+        onClick={() => openItem(item)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            openItem(item);
+          }
+        }}
+        aria-label={`Buy ${item.item_name}`}
+        className={cn(
+          'group cursor-pointer rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+          layout === 'rail' ? 'w-40 sm:w-44 shrink-0 snap-start' : 'w-full',
+        )}
+      >
+        <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-muted">
+          {img ? (
+            <StorageImage
+              src={img}
+              alt={item.item_name}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <Package className="h-8 w-8 text-muted-foreground/40" />
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label={`Share ${item.item_name}`}
+            onClick={(e) => { e.stopPropagation(); handleShare(item); }}
+            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/90 backdrop-blur flex items-center justify-center shadow-sm hover:bg-background transition-colors"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+          </button>
+          <span
+            aria-hidden="true"
+            className="absolute bottom-2 right-2 h-9 w-9 rounded-full bg-background text-foreground shadow-md flex items-center justify-center transition-transform group-hover:scale-110"
+          >
+            <Plus className="h-5 w-5" />
+          </span>
+        </div>
+        <div className="pt-2 px-0.5 space-y-0.5">
+          <p className="text-sm font-semibold leading-tight line-clamp-1">{item.item_name}</p>
+          <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            From {formatUGX(fromDaily)}/day
+          </p>
+          <p className="text-[11px] text-muted-foreground line-clamp-1">
+            {formatUGX(Number(item.unit_price))} full price<span className="hidden sm:inline"> · up to 12 months</span>
+          </p>
+          {sizes.length > 0 && (
+            <p className="text-[11px] text-muted-foreground line-clamp-1">Sizes: {sizes.join(', ')}</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-2.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            aria-label="Back"
-            className="shrink-0 h-9 w-9"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-base font-bold flex items-center gap-2 truncate">
-              {activeMainTab === 'orders' ? (
-                <>
-                  <Package className="h-4 w-4 text-primary shrink-0" /> My Orders & Repayments
-                </>
-              ) : (
-                <>
-                  <ShoppingBag className="h-4 w-4 text-primary shrink-0" /> What do you want to buy?
-                </>
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border/60">
+        <div className="max-w-lg mx-auto px-4 pt-2.5 pb-3 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              aria-label="Back"
+              className="shrink-0 h-9 w-9 -ml-2"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] text-muted-foreground leading-none">
+                {activeMainTab === 'orders' ? 'Track leases, advances & repayments' : 'Paying from your wallet'}
+              </p>
+              <h1 className="mt-1 text-base font-bold truncate flex items-center gap-1.5">
+                {activeMainTab === 'orders' ? (
+                  'My Orders & Repayments'
+                ) : (
+                  <>
+                    <Wallet className="h-4 w-4 text-primary shrink-0" />
+                    <span className="truncate">
+                      {walletLoading
+                        ? 'Checking balance…'
+                        : walletError
+                          ? 'Balance unavailable'
+                          : `${formatUGX(availableWallet)} available`}
+                    </span>
+                  </>
+                )}
+              </h1>
+            </div>
+            <button
+              type="button"
+              onClick={activeMainTab === 'orders' ? goToStore : goToOrders}
+              aria-label={activeMainTab === 'orders' ? 'Back to store' : 'My orders'}
+              className="relative h-10 w-10 shrink-0 rounded-full bg-muted/70 hover:bg-muted flex items-center justify-center transition-colors"
+            >
+              {activeMainTab === 'orders' ? <ShoppingBag className="h-5 w-5" /> : <Package className="h-5 w-5" />}
+              {activeMainTab === 'store' && totalOrdersCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center">
+                  {totalOrdersCount}
+                </span>
               )}
-            </h1>
-            <p className="text-[11px] text-muted-foreground truncate">
-              {activeMainTab === 'orders'
-                ? 'Track your active leases, advances & repayments'
-                : 'Buy branded gear — paid off from your wallet'}
-            </p>
+            </button>
           </div>
+          {activeMainTab === 'store' && (
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search phones, jackets, polos…"
+                aria-label="Search merchandise"
+                className="h-11 rounded-full border-transparent bg-muted/70 pl-10 pr-10 text-base sm:text-sm focus-visible:bg-background"
+              />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {activeMainTab === 'store' && (
-        <div className="max-w-lg mx-auto px-4 pt-3">
-          <img
-            src={shoppingBagIllustration.url}
-            alt="Welile merchandise shopping bag"
-            className="w-full max-h-36 object-contain"
-            loading="eager"
-            onError={(e) => {
-              (e.currentTarget as HTMLElement).style.display = 'none';
-            }}
-          />
-        </div>
-      )}
-
-      <div className="max-w-lg mx-auto px-4 pt-3 space-y-4">
+      <div className="max-w-lg mx-auto px-4 pt-3 space-y-5">
         <MyCategorisedOrdersNotice userId={user?.id} />
-        {/* Main Tab Switcher (Store vs My Orders) — only appears when agent has at least one order */}
-        {/* Main Store vs Orders tabs */}
-        <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveMainTab('store');
-              setSearchParams({});
-            }}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
-              activeMainTab === 'store'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span>Store</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveMainTab('orders');
-              setSearchParams({ tab: 'orders' });
-            }}
-            className={cn(
-              'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
-              activeMainTab === 'orders'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <Package className="h-4 w-4" />
-            <span>My Orders</span>
-            {totalOrdersCount > 0 && (
-              <span
+
+        <div className="flex gap-2">
+          {([
+            { key: 'store', label: 'Store', icon: ShoppingBag, onClick: goToStore },
+            { key: 'orders', label: 'My Orders', icon: Package, onClick: goToOrders },
+          ] as const).map((tab) => {
+            const active = activeMainTab === tab.key;
+            const TabIcon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={tab.onClick}
                 className={cn(
-                  'px-1.5 py-0.5 text-[10px] rounded-full font-bold',
-                  activeMainTab === 'orders'
-                    ? 'bg-primary/15 text-primary'
-                    : 'bg-muted-foreground/20 text-muted-foreground',
+                  'inline-flex items-center gap-1.5 h-9 px-4 rounded-full border text-xs font-semibold transition-colors',
+                  active
+                    ? 'bg-foreground text-background border-foreground'
+                    : 'bg-background text-foreground border-border hover:bg-muted',
                 )}
               >
-                {totalOrdersCount}
-              </span>
-            )}
-          </button>
+                <TabIcon className="h-4 w-4" />
+                {tab.label}
+                {tab.key === 'orders' && totalOrdersCount > 0 && (
+                  <span
+                    className={cn(
+                      'px-1.5 py-0.5 text-[10px] rounded-full font-bold',
+                      active ? 'bg-background/20 text-background' : 'bg-primary/15 text-primary',
+                    )}
+                  >
+                    {totalOrdersCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {activeMainTab === 'store' ? (
-          <>
-            {/* Redesigned Welile Smartphone Equipment Advance Card */}
-            <div
-              className={cn(
-                'group relative overflow-hidden rounded-2xl border transition-all duration-300',
-                smartphoneRepaying
-                  ? 'border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-card to-background shadow-xs'
-                  : 'border-primary/30 bg-gradient-to-br from-primary/10 via-card to-background shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer'
+          searchResults ? (
+            <section className="space-y-3">
+              <p className="text-sm font-semibold">
+                {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'} for “{search.trim()}”
+              </p>
+              {searchResults.length === 0 ? (
+                <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-1">
+                  <p className="text-sm font-medium">Nothing matches that name</p>
+                  <p className="text-xs text-muted-foreground">Try another word, or browse the store.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+                  {searchResults.map((item) => renderItemCard(item, 'grid'))}
+                </div>
               )}
-              onClick={() => {
-                if (!smartphoneRepaying) setPhoneOpen(true);
-              }}
-            >
-              {/* Decorative radiant ambient glow */}
-              <div
-                className={cn(
-                  'pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full blur-3xl transition-opacity',
-                  smartphoneRepaying ? 'bg-amber-500/15 opacity-60' : 'bg-primary/20 opacity-70 group-hover:opacity-100'
-                )}
-              />
-              <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
-
-              <div className="relative p-4 sm:p-5 space-y-3.5">
-                {/* Top badges bar */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                    <Sparkles className="h-3 w-3 text-primary animate-pulse" />
-                    <span>Agent Equipment Advance</span>
-                  </div>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
-                    <ShieldCheck className="h-3 w-3 text-emerald-500" />
-                    0% Cash Down
-                  </span>
-                </div>
-
-                {/* Hero Showcase: Media + Details */}
-                <div className="flex items-start gap-3.5 sm:gap-4">
-                  {/* Smartphone Image Showcase */}
-                  <div className="relative shrink-0">
-                    <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl overflow-hidden border border-primary/25 bg-background shadow-md shadow-primary/5 flex items-center justify-center p-0.5">
-                      <img
-                        src={smartphonePromoAsset.url}
-                        alt="Welile Smartphone"
-                        loading="lazy"
-                        className="h-full w-full object-cover rounded-[14px] transition-transform duration-500 group-hover:scale-105"
-                      />
-                    </div>
-                    <div className="absolute -bottom-1 -right-1 bg-background/95 backdrop-blur rounded-full p-1 border border-border shadow-xs">
-                      <Smartphone className="h-3.5 w-3.5 text-primary" />
-                    </div>
-                  </div>
-
-                  {/* Info Column */}
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <h3 className="text-base font-bold text-foreground leading-tight tracking-tight flex items-center gap-1.5">
-                      Welile Smartphone
-                    </h3>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Upgrade your field operations with a company-issued smartphone on credit. Automatic wallet deductions with zero cash deposit.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Value Propositions / Key Features */}
-                <div className="grid grid-cols-3 gap-1.5 pt-0.5">
-                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
-                    <Smartphone className="h-3 w-3 text-primary shrink-0" />
-                    <span className="truncate">iOS & Android</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
-                    <Wallet className="h-3 w-3 text-primary shrink-0" />
-                    <span className="truncate">Pay via Wallet</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl bg-background/80 dark:bg-muted/40 border border-border/60 text-[11px] font-medium text-foreground/80 text-center">
-                    <ShieldCheck className="h-3 w-3 text-emerald-500 shrink-0" />
-                    <span className="truncate">0% Upfront</span>
-                  </div>
-                </div>
-
-                {/* Bottom CTA / Status */}
-                {smartphoneRepaying ? (
-                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300">
-                    <div className="flex items-center gap-2 font-medium">
-                      <Clock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                      <span>Active smartphone advance in repayment</span>
-                    </div>
-                    <Badge variant="outline" className="border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] uppercase font-bold tracking-wider shrink-0">
-                      In Repayment
-                    </Badge>
-                  </div>
-                ) : (
-                  <Button
+            </section>
+          ) : (
+          <>
+            {/* Category rail */}
+            <div className="-mx-4 px-4 flex gap-3 overflow-x-auto no-scrollbar">
+              {categories.map((c) => {
+                const CatIcon = c.icon;
+                return (
+                  <button
+                    key={c.key}
                     type="button"
-                    className="w-full h-10 font-bold text-xs gap-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm shadow-primary/20 transition-all cursor-pointer group/btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPhoneOpen(true);
-                    }}
+                    onClick={c.onClick}
+                    className="flex w-[76px] shrink-0 flex-col items-center gap-1.5 rounded-2xl py-1 outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    <Smartphone className="h-4 w-4" />
-                    <span>Order Welile Smartphone</span>
-                    <ArrowRight className="h-4 w-4 ml-auto transition-transform group-hover/btn:translate-x-0.5" />
-                  </Button>
-                )}
-              </div>
+                    <span className={cn('h-14 w-14 rounded-2xl flex items-center justify-center transition-transform hover:scale-105', c.tile)}>
+                      <CatIcon className="h-7 w-7" />
+                    </span>
+                    <span className="text-[11px] font-medium leading-tight text-center">{c.label}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
-            <Card className="border-primary/30 bg-primary/5">
-              <CardContent className="p-4 flex items-center gap-3">
+            {/* Promo banners */}
+            <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => { if (!smartphoneRepaying) setPhoneOpen(true); }}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !smartphoneRepaying) {
+                    e.preventDefault();
+                    setPhoneOpen(true);
+                  }
+                }}
+                className={cn(
+                  'snap-start shrink-0 w-[86%] sm:w-[88%] min-h-[140px] flex overflow-hidden rounded-2xl border outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                  smartphoneRepaying
+                    ? 'border-amber-500/25 bg-amber-500/10'
+                    : 'border-teal-500/20 bg-teal-500/10 dark:bg-teal-500/15 cursor-pointer',
+                )}
+              >
+                <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-primary">Agent Equipment Advance</p>
+                    <p className="text-[15px] sm:text-base font-bold leading-snug">Welile Smartphone, 0% cash down</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                      A company-issued phone on credit, paid with automatic wallet deductions.
+                    </p>
+                  </div>
+                  {smartphoneRepaying ? (
+                    <span className="inline-flex w-fit items-center gap-1.5 h-8 px-3 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold">
+                      <Clock className="h-3.5 w-3.5" /> In repayment
+                    </span>
+                  ) : (
+                    <span className="inline-flex w-fit items-center gap-1.5 h-8 px-4 rounded-full bg-primary text-primary-foreground text-xs font-bold shadow-sm">
+                      Order now <ArrowRight className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </div>
+                <img
+                  src={smartphonePromoAsset.url}
+                  alt="Welile Smartphone"
+                  loading="lazy"
+                  className="w-24 sm:w-32 shrink-0 object-cover"
+                />
+              </div>
+
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setBikeOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setBikeOpen(true);
+                  }
+                }}
+                className="snap-start shrink-0 w-[86%] sm:w-[88%] min-h-[140px] flex overflow-hidden rounded-2xl border border-orange-500/20 bg-orange-500/10 dark:bg-orange-500/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <div className="flex-1 min-w-0 p-3.5 sm:p-4 flex flex-col justify-between gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold text-orange-600 dark:text-orange-300">Electric bike lease</p>
+                    <p className="text-[15px] sm:text-base font-bold leading-snug">Ride a Spiro or Mocoo e-bike</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                      Pick a model and lease term. Marketing confirms the price, then the bike is released.
+                    </p>
+                  </div>
+                  <span className="inline-flex w-fit items-center gap-1.5 h-8 px-4 rounded-full bg-foreground text-background text-xs font-bold shadow-sm">
+                    Apply <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
+                </div>
                 <img
                   src={spiroBikeAsset.url}
                   alt="Welile electric bike"
                   loading="lazy"
-                  className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
+                  className="w-24 sm:w-32 shrink-0 object-cover"
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-tight">Apply for an electric bike</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
-                  </p>
-                </div>
-                <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setBikeOpen(true)}>
-                  Apply
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
-            {/* Catalog */}
-            <div>
-              <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
-                <Package className="h-4 w-4 text-primary" /> Available items
-              </h2>
+            {/* Popular rail */}
+            {!catalogError && !loadingCatalog && popularItems.length > 0 && (
+              <section className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold tracking-tight">Popular with agents</h2>
+                  <button
+                    type="button"
+                    onClick={scrollToAllItems}
+                    aria-label="See all items"
+                    className="h-9 w-9 rounded-full bg-muted/70 hover:bg-muted flex items-center justify-center transition-colors"
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="-mx-4 px-4 flex gap-3 overflow-x-auto snap-x snap-mandatory no-scrollbar pb-1">
+                  {popularItems.map((item) => renderItemCard(item, 'rail'))}
+                </div>
+              </section>
+            )}
+
+            {/* All items */}
+            <section id="merch-all-items" className="space-y-3 scroll-mt-32">
+              <h2 className="text-lg font-bold tracking-tight">All items</h2>
               {catalogError ? (
-                <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+                <div className="rounded-2xl border border-border bg-card p-6 text-center space-y-3">
                   <p className="text-sm text-muted-foreground">
                     We couldn't load the catalog. Please check your connection and try again.
                   </p>
-                  <Button size="sm" variant="outline" onClick={() => refetchCatalog()}>
+                  <Button size="sm" variant="outline" className="rounded-full" onClick={() => refetchCatalog()}>
                     Retry
                   </Button>
                 </div>
@@ -803,85 +949,21 @@ export default function MerchandiseStore() {
                 <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
               ) : (
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    {catalogSlice.map((item) => {
-                      const img = pickImage(item);
-                      return (
-                        <Card
-                          key={item.id}
-                          className="overflow-hidden cursor-pointer transition hover:shadow-md hover:border-primary/40 focus-within:ring-2 focus-within:ring-primary/40"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => { setSelected(item); setQuantity('1'); setSelectedSize(null); }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              setSelected(item);
-                              setQuantity('1');
-                              setSelectedSize(null);
-                            }
-                          }}
-                          aria-label={`Buy ${item.item_name}`}
-                        >
-                          {img ? (
-                            <StorageImage src={img} alt={item.item_name} className="w-full h-28 object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-28 bg-muted flex items-center justify-center">
-                              <Package className="h-8 w-8 text-muted-foreground/40" />
-                            </div>
-                          )}
-                          <CardContent className="p-3 space-y-1.5">
-                            <p className="text-sm font-semibold leading-tight line-clamp-1">{item.item_name}</p>
-                            {item.description && (
-                              <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
-                            )}
-                            <div>
-                              <p className="text-sm font-bold text-emerald-600">
-                                From {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
-                              </p>
-                              <p className="text-[11px] text-muted-foreground">
-                                over up to 12 months · {formatUGX(Number(item.unit_price))} full price
-                              </p>
-                            </div>
-                            {Array.isArray(item.sizes) && item.sizes.length > 0 && (
-                              <p className="text-[10px] text-muted-foreground">
-                                Sizes in stock: {item.sizes.join(', ')}
-                              </p>
-                            )}
-                            <div className="flex gap-1.5">
-                              <Button
-                                size="sm"
-                                className="flex-1 h-8 text-xs gap-1"
-                                onClick={(e) => { e.stopPropagation(); setSelected(item); setQuantity('1'); setSelectedSize(null); }}
-                              >
-                                <ShoppingBag className="h-3.5 w-3.5" /> Buy
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 w-8 p-0 shrink-0"
-                                aria-label={`Share ${item.item_name}`}
-                                onClick={(e) => { e.stopPropagation(); handleShare(item); }}
-                              >
-                                <Share2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-5">
+                    {catalogSlice.map((item) => renderItemCard(item, 'grid'))}
                   </div>
                   {totalPages > 1 && (
-                    <div className="flex items-center justify-between mt-3 text-xs">
-                      <Button variant="outline" size="sm" className="h-7" disabled={safePage <= 1} onClick={() => setCatalogPage(safePage - 1)}>Previous</Button>
+                    <div className="flex items-center justify-between pt-1 text-xs">
+                      <Button variant="outline" size="sm" className="h-8 rounded-full" disabled={safePage <= 1} onClick={() => setCatalogPage(safePage - 1)}>Previous</Button>
                       <span className="text-muted-foreground">Page {safePage} of {totalPages}</span>
-                      <Button variant="outline" size="sm" className="h-7" disabled={safePage >= totalPages} onClick={() => setCatalogPage(safePage + 1)}>Next</Button>
+                      <Button variant="outline" size="sm" className="h-8 rounded-full" disabled={safePage >= totalPages} onClick={() => setCatalogPage(safePage + 1)}>Next</Button>
                     </div>
                   )}
                 </>
               )}
-            </div>
+            </section>
           </>
+          )
         ) : (
           /* ORDERS TAB */
           <div className="space-y-4">

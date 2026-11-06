@@ -26,7 +26,7 @@ import { FundRentDialog } from './FundRentDialog';
 import { InvestmentWithdrawButton } from './InvestmentWithdrawButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { FunderHouseListingsSection, type FunderListMapFilters } from '@/components/supporter/FunderHouseListingsSection';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
@@ -262,7 +262,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
 }) {
   const showHeader = Boolean(title) || Boolean(onBack);
   return (
-    <div className={`border border-border/80 bg-card overflow-hidden shadow-sm ${compactMobile ? 'rounded-xl sm:rounded-2xl' : 'rounded-2xl'}`}>
+    <div className={`overflow-hidden ${compactMobile ? 'bg-transparent' : 'border border-border/80 bg-card shadow-sm rounded-2xl'}`}>
       {showHeader && (
       <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
@@ -286,7 +286,7 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
         )}
       </div>
       )}
-      <div className={`${compactMobile ? 'px-3 py-3 sm:px-5 sm:py-4 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
+      <div className={`${compactMobile ? 'px-0 py-1 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
     </div>
   );
 }
@@ -478,21 +478,32 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 export function FunderCapitalOpportunities({
   initialView = 'menu',
   embedded = false,
+  searchOnMap = false,
+  onListFiltersChange,
+  onListResultsFocus,
 }: {
   initialView?: ViewState;
   /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
   initialFeedOrder?: FeedOrder;
   embedded?: boolean;
+  /** Float the search bar at the top of the full screen map instead of inside the sheet. */
+  searchOnMap?: boolean;
+  /** Mirrors the houses list's search, district and amount to a map on the same screen. */
+  onListFiltersChange?: (filters: FunderListMapFilters) => void;
+  /** Where the list's search results are, so a map on the same screen can move there. */
+  onListResultsFocus?: (points: { lat: number; lng: number }[]) => void;
 } = {}) {
   const { formatAmountCompact, currency, convertFromUGX, convertToUGX } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
-  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities();
+  // The houses list ('direct') shows none of the portfolio / market summary data, so
+  // it neither waits for it nor pays for it; the menu and Angel Pool views do need it.
+  const [view, setView] = useState<ViewState>(initialView);
+  const { opportunitySummary, emptyHouseSummary, loading } = useCapitalOpportunities({ enabled: view !== 'direct' });
   const { user } = useAuth();
   const { profile } = useProfile();
   const { isApproved, status: approvalStatus } = useFunderApprovalStatus(user?.id);
 
-  const [view, setView] = useState<ViewState>(initialView);
   const [housePickerOpen, setHousePickerOpen] = useState(false);
   const [showFundDialog, setShowFundDialog] = useState(false);
   const [angelAmount, setAngelAmount] = useState(0);
@@ -594,7 +605,7 @@ export function FunderCapitalOpportunities({
         body: { amount: angelAmount },
       });
       if (error) {
-        const msg = await extractFromErrorObject(error, 'Investment failed. Please try again.');
+        const msg = await extractFromErrorObject(error, 'Support failed. Please try again.');
         toast.error(msg);
         return;
       }
@@ -606,7 +617,7 @@ export function FunderCapitalOpportunities({
       window.dispatchEvent(new CustomEvent('supporter-contribution-changed'));
       window.dispatchEvent(new CustomEvent('wallet-balance-changed'));
     } catch (err: any) {
-      toast.error(err?.message || 'Investment failed');
+      toast.error(err?.message || 'Support failed');
     } finally {
       setInvestLoading(false);
     }
@@ -618,7 +629,6 @@ export function FunderCapitalOpportunities({
 
   // ─── MENU ───
   if (view === 'menu') {
-    const activeDemand = opportunitySummary?.total_rent_requested ?? 0;
     return (
       <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
         <div className="px-5 pt-5 pb-4 space-y-4">
@@ -631,12 +641,6 @@ export function FunderCapitalOpportunities({
                 Choose how you want to deploy capital.
               </p>
             </div>
-            {activeDemand > 0 && (
-              <div className="text-right shrink-0">
-                <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-widest">Active demand</p>
-                <p className="text-sm font-black text-foreground">{formatAmountCompact(activeDemand)}</p>
-              </div>
-            )}
           </div>
 
           <div className="grid grid-cols-1 gap-[clamp(8px,2vw,20px)]">
@@ -721,13 +725,6 @@ export function FunderCapitalOpportunities({
         >
           <HowItWorksSteps steps={MANAGED_FUNDING_STEPS} />
 
-          <div>
-            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Total Rent Demand</p>
-            <p className="text-3xl font-black text-foreground tracking-tight mt-0.5">
-              {formatAmountCompact(summary?.total_rent_requested ?? 0)}
-            </p>
-          </div>
-
           <div className="grid grid-cols-3 gap-2">
             {[
               { value: (summary?.total_requests ?? 0).toLocaleString(), label: 'Requests' },
@@ -796,7 +793,7 @@ export function FunderCapitalOpportunities({
         {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <FunderHouseListingsSection />
+            ? <FunderHouseListingsSection searchOnMap={searchOnMap} onFiltersChange={onListFiltersChange} onResultsFocus={onListResultsFocus} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 

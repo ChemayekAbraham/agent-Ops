@@ -13,11 +13,11 @@ import { lazyNamed } from '@/lib/lazyWithRetry';
 import type { SupportMode } from '@/components/agent/SupportModeChooserDialog';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import {
-  ProxyKpiGrid, ProxyTodayCard, ProxyTargetCard, ProxyPerformanceChart, ProxyEarningsSnapshot,
+  ProxyKpiGrid, ProxyTodayCard, ProxyTargetCard, ProxyPerformanceChart,
   ProxyRecentNotes, ProxyDashboardSkeleton, SectionError,
 } from '@/components/proxy-dashboard/ProxyDashboardParts';
 import { ProxyHouseOpportunities } from '@/components/proxy-dashboard/ProxyHouseOpportunities';
-import { ProxyMobileNav, ProxySidebar, sectionPath, type ProxySection } from '@/components/proxy-dashboard/ProxyWorkspaceNav';
+import { ProxyMobileNav, sectionPath, type ProxySection } from '@/components/proxy-dashboard/ProxyWorkspaceNav';
 
 // Code-split heavy modal dialogs and secondary tabs so the initial dashboard route loads instantly
 const PromissoryNoteDialog = lazyNamed(() => import('@/components/agent/PromissoryNoteDialog'), 'PromissoryNoteDialog');
@@ -104,26 +104,16 @@ export default function ProxyPerformanceDashboard() {
   const todayLabel = (d?.today ? new Date(`${d.today}T00:00:00`) : new Date()).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
 
   const home = (
-    <div className="space-y-3 md:space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+    <div className="space-y-4">
+      <div className="space-y-3">
         <div className="min-w-0">
-          <h1 className="break-words text-lg font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
-          <p className="text-xs text-muted-foreground">{todayLabel}</p>
+          <h1 className="break-words text-2xl font-bold tracking-tight">{greet}, {name}</h1>
+          <p className="text-sm text-muted-foreground">{todayLabel}</p>
         </div>
-        <div className="flex w-full flex-row items-center gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-row items-center gap-2">
           <Button
             variant="outline"
-            size="sm"
-            className="hidden h-9 md:inline-flex"
-            onClick={() => setHowOpen(true)}
-            onPointerEnter={() => void import('@/components/proxy-dashboard/ProxyHowItWorksDialog')}
-          >
-            How it works
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-9 w-[20%] shrink-0 px-0 sm:w-auto"
+            className="h-11 w-11 shrink-0 rounded-full px-0"
             onClick={shareInvite}
             disabled={inviteLoading}
             aria-label="Share invite link"
@@ -131,17 +121,15 @@ export default function ProxyPerformanceDashboard() {
             {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           </Button>
           <Button
-            size="sm"
-            className="h-9 w-[80%] sm:w-auto"
+            className="h-11 flex-1 rounded-full text-sm font-semibold"
             onClick={startNote}
             onPointerEnter={() => {
-              void import('@/components/agent/SupportModeChooserDialog');
-              void import('@/components/agent/PromissoryNoteDialog');
+              void import('@/components/agent/SupportModeChooserDialog').catch(() => {});
+              void import('@/components/agent/PromissoryNoteDialog').catch(() => {});
             }}
           >
-            <FilePlus2 className="mr-1 h-4 w-4" />
-            <span className="md:hidden">Create Note</span>
-            <span className="hidden md:inline">Create Promissory Note</span>
+            <FilePlus2 className="mr-2 h-4 w-4" />
+            Create Promissory Note
           </Button>
         </div>
       </div>
@@ -150,18 +138,14 @@ export default function ProxyPerformanceDashboard() {
         <SectionError label="your performance" onRetry={() => q.refetch()} />
       ) : d ? (
         <>
-          <div className="md:hidden"><ProxyTodayCard d={d} /></div>
-          <div className="grid gap-2.5 md:grid-cols-2 md:gap-3 lg:grid-cols-3">
+          <ProxyTodayCard d={d} />
+          <div className="grid grid-cols-2 gap-2.5">
             <ProxyTargetCard title="Today's Target" done={d.notes.created_today} target={d.targets.daily} expectedFraction={dayFraction} />
             <ProxyTargetCard title="Weekly Target" done={d.notes.created_this_week} target={d.targets.weekly} expectedFraction={weekFraction}
               remainingText={`${d.targets.days_remaining} day${d.targets.days_remaining === 1 ? '' : 's'} left`} />
-            <div className="hidden md:block md:col-span-2 lg:col-span-1"><ProxyTodayCard d={d} /></div>
           </div>
           <ProxyKpiGrid d={d} onEarnings={() => go('earnings')} />
-          <div className="grid gap-3 lg:grid-cols-3">
-            <div className="min-w-0 lg:col-span-2"><ProxyPerformanceChart d={d} range={range} onRange={setRange} fetching={q.isFetching} /></div>
-            <div className="hidden lg:block"><ProxyEarningsSnapshot d={d} onOpen={() => go('earnings')} /></div>
-          </div>
+          <ProxyPerformanceChart d={d} range={range} onRange={setRange} fetching={q.isFetching} />
           <ProxyRecentNotes d={d} onViewAll={() => go('notes')} />
         </>
       ) : null}
@@ -171,10 +155,9 @@ export default function ProxyPerformanceDashboard() {
   );
 
   return (
-    <div className="flex min-h-screen bg-muted/40">
-      <ProxySidebar active={section} />
-      <main className="min-w-0 flex-1 px-3 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 md:px-6 md:pb-8 md:pt-6">
-        <div className="mx-auto w-full max-w-6xl">
+    <div className="min-h-screen bg-background">
+      <main className="min-w-0 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5">
+        <div className="mx-auto w-full max-w-lg">
           {section === 'home' && home}
           <Suspense fallback={<ProxyDashboardSkeleton />}>
             {section === 'notes' && <ProxyNotesSection agentId={user?.id} summary={d} onCreate={startNote} />}

@@ -32,6 +32,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { downloadRepaymentPdf, shareRepaymentPdfWhatsApp } from '@/lib/repaymentSchedulePdf';
 import { useToast } from '@/hooks/use-toast';
 import { AgentRejectedRequestsSection } from './AgentRejectedRequestsSection';
+import { V360AgentDayActions } from '@/components/v360/V360AgentDayActions';
 
 interface AgentRentRequest {
   id: string;
@@ -65,6 +66,7 @@ interface AgentRentRequest {
     latitude: number | null;
     longitude: number | null;
   } | null;
+  pricing_version?: string | null;
 }
 
 interface AgentMyRentRequestsSheetProps {
@@ -110,7 +112,7 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
 
     const { data, error } = await supabase
       .from('rent_requests')
-      .select('id, rent_amount, total_repayment, amount_repaid, duration_days, daily_repayment, status, created_at, tenant_id, landlord_id, agent_id, house_listing_id, registration_type, initial_outstanding_balance, outstanding_grace_days, agent_verified, manager_verified, request_latitude, request_longitude, request_city, request_country')
+      .select('id, rent_amount, total_repayment, amount_repaid, duration_days, daily_repayment, status, created_at, tenant_id, landlord_id, agent_id, house_listing_id, registration_type, initial_outstanding_balance, outstanding_grace_days, agent_verified, manager_verified, request_latitude, request_longitude, request_city, request_country, pricing_version')
       .or(`agent_id.eq.${user.id},agent_verified_by.eq.${user.id}`)
       .neq('status', 'deleted_by_agent')
       .order('created_at', { ascending: false });
@@ -364,6 +366,18 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
                             <span>{format(new Date(req.created_at), 'MMM d, yyyy h:mm a')}</span>
                           </div>
                         </div>
+                        {req.pricing_version === 'v360' && (
+                          <div className="px-4 pb-3">
+                            <V360AgentDayActions
+                              rentRequestId={req.id}
+                              guestChoices={[...new Map(
+                                requests
+                                  .filter((other) => other.tenant_id && other.tenant_id !== req.tenant_id)
+                                  .map((other) => [other.tenant_id, other.tenant?.full_name || 'Tenant'] as const),
+                              ).entries()].map(([id, label]) => ({ id, label }))}
+                            />
+                          </div>
+                        )}
 
                         {/* ═══ REPAYMENT SCHEDULE ═══ */}
                         <div className="border-t">

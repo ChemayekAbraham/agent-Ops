@@ -577,7 +577,7 @@ export default function AgentFloatBreakdown() {
           <div className="flex items-start gap-2 mt-3 text-[11px] text-muted-foreground">
             <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
             <p>
-              Float is never withdrawable as cash. Allocate it to tenants — your 10% commission lands in your withdrawable wallet automatically.
+              Float is never withdrawable as cash. Allocate it to tenants — your 8% commission lands in your withdrawable wallet automatically.
               {(fromDate || toDate) && ' Totals reflect the selected date range.'}
             </p>
           </div>

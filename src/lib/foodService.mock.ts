@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * Employee Food Ordering — in-memory fixture backend.
  *
@@ -62,7 +63,7 @@ export {
 
 
 function fail(message: string): never { throw new Error(message); }
-const uid = () => crypto.randomUUID();
+const uid = () => safeUUID();
 
 // ─────────────────────────── seeded people ───────────────────────────
 

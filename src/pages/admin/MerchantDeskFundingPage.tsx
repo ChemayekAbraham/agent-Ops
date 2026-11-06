@@ -1,3 +1,4 @@
+import { FinOpsScope } from '@/components/financial-ops/FinOpsScope';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ export default function MerchantDeskFundingPage() {
   const navigate = useNavigate();
 
   return (
+    <FinOpsScope>
     <div className="min-h-screen bg-background w-full overflow-x-hidden">
       {/* Sticky top navigation bar */}
       <div className="sticky top-0 z-40 bg-background/95 backdrop-blur border-b border-border shadow-xs">
@@ -29,5 +31,6 @@ export default function MerchantDeskFundingPage() {
         <MerchantDeskFundingTracker />
       </div>
     </div>
+    </FinOpsScope>
   );
 }

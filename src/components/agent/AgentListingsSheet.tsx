@@ -743,7 +743,7 @@ export function AgentListingsSheet({ open, onOpenChange, onListHouse, vacantOnly
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden="true" />
-                    <span>Earn 10% commission on rent collected</span>
+                    <span>Earn 8% commission on rent collected</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden="true" />

@@ -19,6 +19,7 @@ import {
   FLOATING_NAV_LABEL,
   FLOATING_NAV_SHELL,
   FLOATING_NAV_SHELL_STYLE,
+  FLOATING_NAV_Z,
   FloatingNavRow,
   SlidingIndicator,
   useSlidingIndicator,
@@ -155,8 +156,8 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
 
       <nav
         aria-label="Switch dashboard role"
-        className={cn(FLOATING_NAV_SHELL, "z-[100] max-w-lg mx-auto")}
-        style={FLOATING_NAV_SHELL_STYLE}
+        className={cn(FLOATING_NAV_SHELL, "max-w-lg mx-auto")}
+        style={{ ...FLOATING_NAV_SHELL_STYLE, zIndex: FLOATING_NAV_Z }}
       >
         <FloatingNavRow containerRef={containerRef}>
           <SlidingIndicator style={indicatorStyle} />

@@ -1,303 +1,92 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy, Sparkles } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { AnimatePresence, motion } from 'framer-motion';
+import claraAvatar from '@/assets/clara-avatar.png';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { UserAvatar } from '@/components/UserAvatar';
-import { useProfile } from '@/hooks/useProfile';
-import { useAssistantAccess } from '@/hooks/useAssistantAccess';
-import { useAgentAssistant, type AssistantMessage } from '@/hooks/useAgentAssistant';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { hapticTap } from '@/lib/haptics';
-import { cn } from '@/lib/utils';
+import { AssistantChatSurface } from '@/components/ai-chat/AssistantChatSurface';
+import { AuthContext } from '@/hooks/useAuth';
+import { FLOATING_NAV_Z } from '@/components/ui/floating-nav';
 
-const MAX_LEN = 500;
-const SUGGESTIONS = [
-  'How much did I collect today?',
-  'What is remaining to collect today?',
-  'How many tenants am I collecting for?',
-  'Why is my collection low today?',
-  'What is my wallet balance?',
-  'Do I have any advances?',
-];
-const MUTED_OUTCOMES = new Set(['error', 'rate_limited', 'blocked']);
+/**
+ * The launcher and its hello bubble draw in front of the bottom role nav
+ * (FLOATING_NAV_Z) and behind the chat sheet's backdrop (z-[110]), so the nav
+ * can never cover the assistant while an open chat still covers the assistant.
+ */
+const LAUNCHER_Z = FLOATING_NAV_Z + 5;
+const BUBBLE_Z = LAUNCHER_Z + 1;
 
-export function AgentAssistant() {
-  const { enabled, isLoading } = useAssistantAccess();
-  if (isLoading || !enabled) return null;
-  return <AssistantCard />;
-}
+/** How long the hello bubble stays up before it starts fading away. */
+const GREETING_MS = 20_000;
+/** The fade itself; the node is taken out only once this has run. */
+const GREETING_FADE_MS = 600;
 
-function AssistantCard() {
+/**
+ * Mounted once by FloatingToolbar; every page can open it without creating another chat.
+ * The launcher sits just above the bottom nav (`--fab-above-nav`); nothing else stacks on that side now.
+ */
+export function AgentAssistant({ hideLauncher = false }: { hideLauncher?: boolean }) {
   const [open, setOpen] = useState(false);
-  return (
-    <>
-      {createPortal(<button
-        type="button"
-        onClick={() => { hapticTap(); setOpen(true); }}
-        aria-label="Chat with Welile Assistant"
-        title="Chat with Welile Assistant"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={cn(
-          'gradient-assistant fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-background shadow-lg shadow-primary/40 touch-manipulation fab-shrink-landscape transition-transform active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2',
-          open && 'hidden',
-        )}
-      >
-        <Sparkles className="h-6 w-6" aria-hidden="true" />
-      </button>, document.body)}
-      <AssistantPanel open={open} onOpenChange={setOpen} />
-    </>
-  );
-}
-
-function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const isMobile = useIsMobile();
-  const { messages, isLoading, escalated, locationStatus, requestLocation, send, escalate, reset } = useAgentAssistant();
-  const { profile } = useProfile();
-  const [text, setText] = useState('');
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  // The session is read straight from the context: this component is also
+  // mounted by tests with no provider, where useAuth() would throw.
+  const user = useContext(AuthContext)?.user ?? null;
+  const [phase, setPhase] = useState<'in' | 'out' | 'done'>('in');
+  const greetedRef = useRef(false);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [messages.length, isLoading]);
+    // The chat holds personal account history, so a page with no active
+    // session cannot open it — not even from a stray launcher button.
+    const show = () => { if (user) setOpen(true); };
+    window.addEventListener('open-welile-assistant', show);
+    return () => window.removeEventListener('open-welile-assistant', show);
+  }, [user]);
 
-  const submit = (value: string) => {
-    const v = value.trim();
-    if (!v || isLoading) return;
-    hapticTap();
-    setText('');
-    void send(v);
-  };
+  // One hello per page load: it appears beside the launcher, then fades away
+  // on its own. It is never re-shown after a route change or a modal closing.
+  // While the launcher is hidden (a dialog is open) the countdown has not
+  // started yet, so the greeting is not spent on a screen that cannot show it.
+  useEffect(() => {
+    if (greetedRef.current || !user || hideLauncher) return;
+    greetedRef.current = true;
+    const fadeAt = setTimeout(() => setPhase('out'), GREETING_MS);
+    const offAt = setTimeout(() => setPhase('done'), GREETING_MS + GREETING_FADE_MS);
+    return () => { clearTimeout(fadeAt); clearTimeout(offAt); };
+  }, [user, hideLauncher]);
 
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit(text);
-    }
-  };
+  const fullName = String(user?.user_metadata?.full_name ?? '').trim();
+  const firstName = fullName.split(/\s+/)[0] || (user?.email ?? '').split('@')[0] || 'there';
 
-  const lastAssistantId = [...messages].reverse().find((m) => m.role === 'assistant')?.id;
+  // The bubble sits directly above the launcher and follows whichever dock
+  // offset the launcher itself uses, so the two never drift apart.
+  const bubbleBottom = 'calc(var(--fab-above-nav) + 4.25rem)';
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side={isMobile ? 'bottom' : 'right'}
-        onOpenAutoFocus={(e) => { e.preventDefault(); inputRef.current?.focus(); }}
-        className={cn(
-          'flex flex-col p-0 gap-0',
-          isMobile ? 'h-[100dvh] rounded-t-2xl' : 'inset-y-auto bottom-6 right-4 h-[min(640px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-md rounded-lg border border-border shadow-xl',
-        )}
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: isMobile ? 'env(safe-area-inset-top)' : undefined }}
-      >
-        <SheetHeader className="flex-row items-center gap-3 space-y-0 border-b border-border/60 px-4 py-3 pr-12 text-left">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <div className="flex-1 min-w-0">
-            <SheetTitle className="text-base">Welile Assistant</SheetTitle>
-            <SheetDescription className="text-xs">Answers about your own work.</SheetDescription>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="Assistant options">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => { hapticTap(); reset(); setText(''); }}>
-                <RotateCcw className="mr-2 h-4 w-4" /> New chat
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={messages.length === 0 || escalated || isLoading}
-                onClick={() => { hapticTap(); void escalate(); }}
-              >
-                <LifeBuoy className="mr-2 h-4 w-4" /> Talk to support
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" aria-live="polite" aria-relevant="additions">
-          {messages.length === 0 && (
-            <div className="space-y-4">
-              <div className="rounded-2xl bg-muted/50 p-4 text-sm text-foreground">
-                Hello. I can tell you about your collections, tenants, wallet and advances. Pick a question or type your own.
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS.map((s) => (
-                  <Chip key={s} label={s} disabled={isLoading} onClick={() => submit(s)} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {messages.map((m) => (
-            <MessageBubble
-              key={m.id}
-              message={m}
-              isLatest={m.id === lastAssistantId}
-              disabled={isLoading}
-              escalated={escalated}
-              userAvatarUrl={profile?.avatar_url ?? null}
-              userFullName={profile?.full_name ?? undefined}
-              onQuickReply={submit}
-              onEscalate={() => { hapticTap(); void escalate(); }}
-            />
-          ))}
-
-          {isLoading && (
-            <div className="flex justify-start" aria-label="Assistant is typing">
-              <div className="flex items-center gap-1 rounded-2xl bg-muted px-4 py-3">
-                <span className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce" />
-                <span className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:150ms]" />
-                <span className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
-          )}
-          <div ref={endRef} />
-        </div>
-
-        <div className="border-t border-border/60 px-4 pt-3 pb-3 space-y-2">
-          <LocationRow status={locationStatus} onRequest={() => { hapticTap(); requestLocation(); }} />
-          <div className="flex items-end gap-2">
-            <div className="relative flex-1">
-              <Textarea
-                ref={inputRef}
-                value={text}
-                maxLength={MAX_LEN}
-                rows={1}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={onKeyDown}
-                placeholder="Ask a question"
-                aria-label="Message the assistant"
-                className="min-h-[44px] max-h-32 resize-none rounded-xl text-base"
-              />
-              {text.length >= MAX_LEN - 50 && (
-                <span className="absolute bottom-1 right-2 text-[10px] text-muted-foreground">
-                  {text.length}/{MAX_LEN}
-                </span>
-              )}
-            </div>
-            <Button
+  return <>
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && !!user && phase !== 'done' && createPortal(
+      <AnimatePresence>
+        {phase === 'in' && (
+          <motion.div
+            key="assistant-greeting"
+            role="status"
+            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 4, scale: 0.98 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="fixed right-4"
+            style={{ bottom: bubbleBottom, maxWidth: 'min(19rem, calc(100vw - 5rem))', zIndex: BUBBLE_Z }}
+          >
+            <button
               type="button"
-              size="icon"
-              className="h-11 w-11 shrink-0 rounded-xl"
-              disabled={!text.trim() || isLoading}
-              onClick={() => submit(text)}
-              aria-label="Send"
+              onClick={() => { setPhase('done'); setOpen(true); }}
+              className="relative block w-full rounded-2xl border border-border bg-card px-3.5 py-2 text-left text-sm font-medium text-card-foreground shadow-lg"
             >
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function Chip({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="min-h-[44px] rounded-full border border-border/60 bg-card px-4 py-2 text-left text-sm text-foreground active:scale-[0.97] transition-all disabled:opacity-50 touch-manipulation"
-    >
-      {label}
-    </button>
-  );
-}
-
-function AssistantAvatar() {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-    >
-      <Sparkles className="h-4 w-4" />
-    </span>
-  );
-}
-
-function MessageBubble({
-  message, isLatest, disabled, escalated, userAvatarUrl, userFullName, onQuickReply, onEscalate,
-}: {
-  message: AssistantMessage;
-  isLatest: boolean;
-  disabled: boolean;
-  escalated: boolean;
-  userAvatarUrl?: string | null;
-  userFullName?: string;
-  onQuickReply: (t: string) => void;
-  onEscalate: () => void;
-}) {
-  if (message.role === 'user') {
-    return (
-      <div className="flex items-end justify-end gap-2">
-        <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
-          {message.content}
-        </div>
-        <UserAvatar avatarUrl={userAvatarUrl ?? null} fullName={userFullName} size="sm" />
-      </div>
-    );
-  }
-  const muted = message.outcome ? MUTED_OUTCOMES.has(message.outcome) : false;
-  return (
-    <div className="flex flex-col items-start gap-2">
-      <div className="flex items-end justify-start gap-2">
-        <AssistantAvatar />
-        <div
-          className={cn(
-            'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md px-4 py-2.5 text-sm',
-            muted ? 'bg-muted/50 text-muted-foreground border border-border/60' : 'bg-muted text-foreground',
-          )}
-        >
-          {message.content}
-        </div>
-      </div>
-      {isLatest && message.quickReplies && message.quickReplies.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {message.quickReplies.map((q) => (
-            <Chip key={q} label={q} disabled={disabled} onClick={() => onQuickReply(q)} />
-          ))}
-        </div>
-      )}
-      {message.escalationOffered && (
-        escalated ? (
-          <span className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-muted px-4 text-sm text-muted-foreground">
-            <Check className="h-4 w-4" /> Sent to support
-          </span>
-        ) : (
-          <Button variant="outline" className="min-h-[44px] rounded-full" disabled={disabled} onClick={onEscalate}>
-            <LifeBuoy className="mr-2 h-4 w-4" /> Send to support
-          </Button>
-        )
-      )}
-    </div>
-  );
-}
-
-function LocationRow({ status, onRequest }: { status: string; onRequest: () => void }) {
-  return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <MapPin className="h-3.5 w-3.5 shrink-0" />
-      <p className="flex-1 leading-snug">
-        Share my location (optional). Lets support see roughly where you were when you asked for help. Only shared if you allow it in your browser.
-      </p>
-      {status === 'idle' && (
-        <Button variant="outline" size="sm" className="min-h-[44px] shrink-0" onClick={onRequest}>Share</Button>
-      )}
-      {status === 'requesting' && <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-label="Requesting location" />}
-      {status === 'granted' && (
-        <span className="inline-flex items-center gap-1 shrink-0 text-foreground"><Check className="h-4 w-4" /> Location shared</span>
-      )}
-      {(status === 'denied' || status === 'unavailable') && <span className="shrink-0">Location not shared</span>}
-    </div>
-  );
+              Hi 👋 {firstName}, need help?
+              <span aria-hidden className="absolute right-7 h-2.5 w-2.5 rotate-45 border-b border-r border-border bg-card" style={{ bottom: -5 }} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body,
+    )}
+    <AssistantChatSurface open={open} onOpenChange={setOpen} />
+  </>;
 }

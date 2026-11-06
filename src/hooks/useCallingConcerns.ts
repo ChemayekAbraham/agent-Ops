@@ -13,6 +13,7 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 
 export type ConcernStatus = 'sent' | 'received' | 'in_progress' | 'completed';
 export type ConcernAction = 'accepted' | 'started' | 'progress_note' | 'completed';
@@ -506,13 +507,11 @@ export function useCallerLookup() {
   return useCallback(async (term: string) => {
     const q = term.trim();
     if (q.length < 3) return [] as { id: string; full_name: string | null; phone: string | null }[];
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, phone')
-      .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`)
-      .limit(8);
-    if (error) return [];
-    return (data ?? []) as { id: string; full_name: string | null; phone: string | null }[];
+    const { rows } = await searchProfilesTypeahead(q, {
+      limit: 8,
+      columns: 'id, full_name, phone',
+    });
+    return rows as { id: string; full_name: string | null; phone: string | null }[];
   }, []);
 }
 

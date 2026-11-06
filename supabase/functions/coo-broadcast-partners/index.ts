@@ -1,4 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import {
+  ensureWelileEmailHeader,
+  ensureWelileEmailTextHeader,
+} from '../_shared/emailHeader.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -304,15 +308,15 @@ Deno.serve(async (req) => {
       }
       const unsubUrl = `${unsubBase}?token=${encodeURIComponent(unsubToken)}`;
 
-      const html = renderPartnerEmail({
+      const html = ensureWelileEmailHeader(renderPartnerEmail({
         emailTitle: subject,
         notificationType,
         partnerName: r.full_name,
         messageBodyHtml: bodyHtml,
         notificationDate,
         unsubscribeUrl: unsubUrl,
-      });
-      const text = `${subject}\n\n${htmlToText(bodyHtml)}\n\nUnsubscribe: ${unsubUrl}`;
+      }));
+      const text = ensureWelileEmailTextHeader(`${subject}\n\n${htmlToText(bodyHtml)}\n\nUnsubscribe: ${unsubUrl}`);
 
       await admin.from('email_send_log').insert({
         message_id: messageId,

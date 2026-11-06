@@ -1,11 +1,13 @@
 import { safeUUID } from '@/lib/safeUUID';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft, Target, CheckSquare, Check, Gauge, 
   BarChart3, TrendingUp, Car, Gem, Cpu, Users, Wallet, Handshake, FileText, BookOpen, Layers,
-  FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, type LucideIcon,
+  FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, ShieldCheck, type LucideIcon,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import RDProjectTracker from './RDProjectTracker';
 import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -18,6 +20,9 @@ import { loadRdUpdates, RD_UPDATES_KEY, rdNewUpdateDate, rdPeriodRange, rdReport
 import { downloadRdPeriodReport } from '@/lib/rdPeriodReportPdf';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
+import { Textarea } from '@/components/ui/textarea';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -267,7 +272,28 @@ const REPORT_PERIODS: { id: RdReportPeriod; label: string }[] = [
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
+  const isTrackerRoute = location.pathname.includes('/tracker') || location.search.includes('tab=tracker');
+  const [activeTab, setActiveTab] = useState<'overview' | 'tracker'>(isTrackerRoute ? 'tracker' : 'overview');
+
+  useEffect(() => {
+    if (location.pathname.includes('/tracker') || location.search.includes('tab=tracker')) {
+      setActiveTab('tracker');
+    } else {
+      setActiveTab('overview');
+    }
+  }, [location.pathname, location.search]);
+
+  const handleTabChange = (tab: 'overview' | 'tracker') => {
+    setActiveTab(tab);
+    if (tab === 'tracker') {
+      navigate('/rd/tracker');
+    } else {
+      navigate('/rd');
+    }
+  };
+
   const [projectUpdates, setProjectUpdates] = useState(loadRdUpdates);
   const [updateError, setUpdateError] = useState('');
   const editUpdates = (name: string, updates: RdUpdate[]) => {
@@ -301,6 +327,25 @@ export default function RDDashboard() {
   const [exporting, setExporting] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [reportPeriod, setReportPeriod] = useState<RdReportPeriod>('all');
+  const [recordOpen, setRecordOpen] = useState(false);
+  const [recordProject, setRecordProject] = useState('');
+  const [recordDate, setRecordDate] = useState('');
+  const [recordText, setRecordText] = useState('');
+  const choosePeriod = (id: RdReportPeriod) => {
+    setReportPeriod(id);
+    if (id === 'last' || id === 'next') {
+      setRecordProject(CARD_PROJECTS[0]?.name ?? '');
+      setRecordDate(rdNewUpdateDate(id));
+      setRecordText('');
+      setRecordOpen(true);
+    }
+  };
+  const saveRecord = () => {
+    if (!recordProject || !recordText.trim()) return;
+    editUpdates(recordProject, [...(projectUpdates[recordProject] ?? []), { id: safeUUID(), date: recordDate, text: recordText.trim() }]);
+    setRecordOpen(false);
+    toast({ title: 'Update recorded' });
+  };
   const periodLabel = REPORT_PERIODS.find((r) => r.id === reportPeriod)?.label ?? 'All updates';
   const periodRange = rdPeriodRange(reportPeriod);
   const rangeLabel = periodRange ? `${periodRange.start} – ${periodRange.end}` : '';
@@ -341,21 +386,74 @@ export default function RDDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2">
-          <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={() => navigate('/admin/dashboard')}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to dashboards
-          </Button>
-          <Button size="sm" variant="outline" className="ml-auto gap-1.5" onClick={() => navigate('/me/requisitions')}>
-            <Paperclip className="h-4 w-4" />Attach receipts
-          </Button>
-          <Button size="sm" className="gap-1.5" disabled={exporting} onClick={exportReport}>
-            <Download className="h-4 w-4" />{exporting ? 'Preparing…' : 'General report'}
-          </Button>
-          <WelileLogo showText={false} size="sm" linkToHome={false} />
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-2">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={() => navigate('/admin/dashboard')}>
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back to dashboards</span>
+              <span className="sm:hidden">Back</span>
+            </Button>
+            <WelileLogo showText={false} size="sm" linkToHome={false} />
+          </div>
+
+          <div className="flex items-center gap-2">
+            {activeTab === 'overview' && (
+              <>
+                <Button size="sm" variant="outline" className="hidden sm:flex gap-1.5 text-xs" onClick={() => navigate('/me/requisitions')}>
+                  <Paperclip className="h-3.5 w-3.5" />Attach receipts
+                </Button>
+                <Button size="sm" className="gap-1.5 text-xs" disabled={exporting} onClick={exportReport}>
+                  <Download className="h-3.5 w-3.5" />{exporting ? 'Preparing…' : 'General report'}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Dedicated R&D Dashboard Navigation Tabs */}
+        <div className="border-t border-border/60 bg-muted/20 px-4 py-1.5">
+          <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => handleTabChange('overview')}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                activeTab === 'overview'
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <FlaskConical className="h-4 w-4" />
+              <span>R&amp;D Overview</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('tracker')}
+              className={cn(
+                "flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
+                activeTab === 'tracker'
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" />
+              <span>R&amp;D Progress Tracker</span>
+              <span className={cn(
+                "ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono",
+                activeTab === 'tracker' ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted text-muted-foreground"
+              )}>
+                Read-Only
+              </span>
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-5">
+        {activeTab === 'tracker' ? (
+          <RDProjectTracker />
+        ) : (
+          <>
+            <V360StaffPricingBanner />
         <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm lg:grid-cols-[1.2fr_repeat(4,1fr)]">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10"><FlaskConical className="h-5 w-5 text-primary" /></div>
@@ -388,7 +486,7 @@ export default function RDDashboard() {
             {REPORT_PERIODS.map((r) => (
               <Button key={r.id} size="sm" variant={reportPeriod === r.id ? 'default' : 'outline'}
                 className="h-7 px-2.5 text-xs" aria-pressed={reportPeriod === r.id}
-                onClick={() => setReportPeriod(r.id)}>
+                onClick={() => choosePeriod(r.id)}>
                 {r.label}
               </Button>
             ))}
@@ -405,6 +503,31 @@ export default function RDDashboard() {
         <div className="grid gap-4">
           {CARD_PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} period={reportPeriod} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
+        <Dialog open={recordOpen} onOpenChange={setRecordOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Record an update · {periodLabel}</DialogTitle>
+              <DialogDescription>{rangeLabel ? `Dated inside ${rangeLabel}.` : ''}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <label className="block space-y-1 text-xs font-medium text-foreground">Project
+                <select className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm" value={recordProject} onChange={(e) => setRecordProject(e.target.value)}>
+                  {CARD_PROJECTS.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
+                </select>
+              </label>
+              <label className="block space-y-1 text-xs font-medium text-foreground">Date
+                <Input type="date" value={recordDate} min={periodRange?.start} max={periodRange?.end} onChange={(e) => setRecordDate(e.target.value)} />
+              </label>
+              <label className="block space-y-1 text-xs font-medium text-foreground">Update
+                <Textarea rows={4} value={recordText} onChange={(e) => setRecordText(e.target.value)} placeholder="What happened or what is planned?" />
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRecordOpen(false)}>Cancel</Button>
+                <Button disabled={!recordProject || !recordText.trim() || !recordDate} onClick={saveRecord}>Save update</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
         {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
         <div>
@@ -436,6 +559,8 @@ export default function RDDashboard() {
             </div>
           </div>
         </div>
+      </>
+    )}
 
         <footer className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-primary px-4 py-3 text-xs text-primary-foreground">
           <span className="font-semibold">Welile Technologies Ltd <span className="mx-2 opacity-60">|</span> R&amp;D Department</span>

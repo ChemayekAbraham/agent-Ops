@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -93,22 +94,15 @@ export function AgentTenantSearch() {
 
   // Debounced search for agents
   useEffect(() => {
-    if (query.length < 2) { setAgents([]); setSearched(false); return; }
+    if (query.trim().length < 3) { setAgents([]); setSearched(false); return; }
     const timer = setTimeout(async () => {
       setSearching(true);
       setSearched(true);
       try {
-        // Find agents matching name or phone
-        const cleaned = query.replace(/\D/g, '');
-        const isPhone = cleaned.length >= 3;
-
-        let profileQ = supabase.from('profiles').select('id, full_name, phone').limit(50);
-        if (isPhone) {
-          profileQ = profileQ.ilike('phone', `%${cleaned.slice(-9)}%`);
-        } else {
-          profileQ = profileQ.ilike('full_name', `%${query}%`);
-        }
-        const { data: profiles } = await profileQ;
+        const { rows: profiles } = await searchProfilesTypeahead(query, {
+          limit: 20,
+          columns: 'id, full_name, phone',
+        });
         if (!profiles || profiles.length === 0) { setAgents([]); setSearching(false); return; }
 
         // Filter to only agent role users

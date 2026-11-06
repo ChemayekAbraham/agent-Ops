@@ -12,6 +12,7 @@ import { ArrowDownLeft, ArrowUpRight, History, Users, Wallet, FileText, Undo2 } 
 import { useMemo, useState } from 'react';
 import { ReverseAllocationDialog } from './ReverseAllocationDialog';
 import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
+import { isUuid } from '@/lib/isUuid';
 
 interface Props {
   open: boolean;
@@ -78,7 +79,7 @@ export function FloatTransactionHistory({ open, onOpenChange }: Props) {
       // Resolve tenant names for allocations
       const tenantIds = Array.from(new Set([
         ...(allocations || []).map(a => a.tenant_id).filter(Boolean),
-        ...(ledger || []).filter(isCustomerWalletLedgerEntryVisible).map(l => l.linked_party).filter(Boolean),
+        ...(ledger || []).filter(isCustomerWalletLedgerEntryVisible).map(l => l.linked_party).filter(isUuid),
       ])) as string[];
       const tenantMap: Record<string, string> = {};
       if (tenantIds.length > 0) {

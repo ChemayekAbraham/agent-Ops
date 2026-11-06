@@ -11,6 +11,7 @@ import { hapticTap } from '@/lib/haptics';
 import { format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { createShortLink } from '@/lib/createShortLink';
+import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { formatDynamic } from '@/lib/currencyFormat';
 import {
@@ -90,21 +91,20 @@ export default function AgentPartners() {
         // a funder is reassigned the prior row is flipped is_active=false.
         .eq('is_active', true);
 
-      // Fetch portfolio data for this agent's partners
-      const { data: portfolios } = await supabase
-        .from('investor_portfolios')
-        .select('investor_id, investment_amount, status, created_at')
-        .eq('agent_id', user.id);
+      // Limited portfolio cards. No phone, bank, PIN, or full portfolio code.
+      const portfolios = await fetchAgentOnboardedPortfolios();
 
-      // Get proxy beneficiary profiles
       const proxyIds = (proxyAssignments || []).map(p => p.beneficiary_id).filter(Boolean);
-      let proxyProfiles: Record<string, any> = {};
-      if (proxyIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone, avatar_url')
-          .in('id', proxyIds);
-        (profiles || []).forEach(p => { proxyProfiles[p.id] = p; });
+      const proxyProfiles: Record<string, { id: string; full_name: string; phone: string; avatar_url: null }> = {};
+      for (const card of portfolios) {
+        if (card.investor_id && proxyIds.includes(card.investor_id)) {
+          proxyProfiles[card.investor_id] = {
+            id: card.investor_id,
+            full_name: card.partner_name,
+            phone: '',
+            avatar_url: null,
+          };
+        }
       }
 
       // Check whether this agent is currently attached to a lead partner.
@@ -118,9 +118,10 @@ export default function AgentPartners() {
 
       // Build portfolio lookup by investor_id
       const portfolioMap: Record<string, { amount: number; status: string }> = {};
-      (portfolios || []).forEach(p => {
-        if (!portfolioMap[p.investor_id] || p.investment_amount > portfolioMap[p.investor_id].amount) {
-          portfolioMap[p.investor_id] = { amount: Number(p.investment_amount), status: p.status };
+      portfolios.forEach(p => {
+        if (!p.investor_id) return;
+        if (!portfolioMap[p.investor_id] || Number(p.investment_amount) > portfolioMap[p.investor_id].amount) {
+          portfolioMap[p.investor_id] = { amount: Number(p.investment_amount), status: p.status || 'pending' };
         }
       });
 
@@ -240,7 +241,7 @@ export default function AgentPartners() {
     } catch {
       // fall back to long link
     }
-    const message = `🤝 Join me on Welile as a partner investor!\n\nEarn monthly returns on your investment.\n\n${url}`;
+    const message = `🤝 Join me on Welile as a partner supporter!\n\nEarn monthly returns on your support.\n\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -248,7 +249,7 @@ export default function AgentPartners() {
     { icon: Share2, label: 'Share Form', color: 'text-emerald-500', bg: 'bg-emerald-500/10', onClick: handleSharePartnerForm },
     { icon: FileText, label: 'Promissory', color: 'text-purple-500', bg: 'bg-purple-500/10', onClick: () => setPromissoryNoteOpen(true) },
     { icon: Heart, label: 'Invite', color: 'text-primary', bg: 'bg-primary/10', onClick: handleInviteFunder },
-    { icon: HandCoins, label: 'Invest', color: 'text-emerald-600', bg: 'bg-emerald-600/10', onClick: () => setInvestForPartnerOpen(true) },
+    { icon: HandCoins, label: 'Support', color: 'text-emerald-600', bg: 'bg-emerald-600/10', onClick: () => setInvestForPartnerOpen(true) },
     { icon: PiggyBank, label: 'Angel Pool', color: 'text-amber-500', bg: 'bg-amber-500/10', onClick: () => setAngelPoolOpen(true) },
     { icon: Briefcase, label: 'Notes', color: 'text-indigo-500', bg: 'bg-indigo-500/10', onClick: () => setPromissoryListOpen(true) },
   ];
@@ -482,7 +483,7 @@ export default function AgentPartners() {
                             onClick={async () => {
                               hapticTap();
                               const url = `${window.location.origin}/become-supporter?ref=${user?.id}`;
-                              const message = `🤝 Hi ${partner.name}, you've been invited to join Welile as a partner investor!\n\nActivate your account here:\n${url}`;
+                              const message = `🤝 Hi ${partner.name}, you've been invited to join Welile as a partner supporter!\n\nActivate your account here:\n${url}`;
                               if (navigator.share) {
                                 try {
                                   await navigator.share({ title: 'Partner Activation', text: message, url });

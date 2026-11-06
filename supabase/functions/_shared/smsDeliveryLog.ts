@@ -12,6 +12,8 @@
 // This helper is intentionally fire-and-forget: a logging failure must NEVER
 // block or fail the SMS / payout flow.
 
+import { redactSmsCodes } from "./redactSmsCodes.ts";
+
 export interface SmsAttemptRecord {
   provider: string; // 'yoola' | 'africastalking' | 'lana'
   ok: boolean;
@@ -108,7 +110,10 @@ export async function logSmsDelivery(
       recipient_phone: input.recipient_phone || "unknown",
       recipient_user_id: input.recipient_user_id ?? null,
       recipient_name: input.recipient_name ?? null,
-      message: input.message ?? null,
+      // Never persist a live one-time code: this table is readable by 65
+      // staff and its MFA policy is a no-op while staff_mfa_config is in
+      // shadow mode. Wording, length and segment count are preserved.
+      message: redactSmsCodes(input.message ?? null),
       status: input.status,
       provider,
       provider_message_id: input.provider_message_id ?? providerFields.messageId,
@@ -175,7 +180,7 @@ export async function reserveSmsIdempotency(
         recipient_phone: input.recipient_phone || "unknown",
         recipient_user_id: input.recipient_user_id ?? null,
         recipient_name: input.recipient_name ?? null,
-        message: input.message ?? null,
+        message: redactSmsCodes(input.message ?? null),
         status: "queued",
         provider: "pending",
         reference_id: input.reference_id ?? null,

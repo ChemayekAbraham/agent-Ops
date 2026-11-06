@@ -36,6 +36,8 @@ const TRACE_KEY = 'welile_login_trace_id';
 const MAX_EVENTS = 200;
 const FLUSH_INTERVAL_MS = 4000;
 const MAX_PENDING = 40;
+const STALE_RING_MS = 60 * 60 * 1000;
+const MAX_INT4 = 2_147_483_647;
 
 function genTraceId() {
   try {
@@ -83,6 +85,30 @@ interface State {
   starts: Map<string, number>;
 }
 
+/**
+ * `user_id` safe to INSERT under `login_phase_events` policy
+ * `telemetry insert own`: NULL, or exactly `auth.uid()`.
+ *
+ * A cached / previous-account id on an anonymous request (or on someone
+ * else's JWT) is rejected with 42501 and spams Postgres. When nothing was
+ * recorded, the live session user is used — that is `auth.uid()` for this
+ * request. A recorded id that disagrees with the session is omitted.
+ */
+export function loginPhaseEventUserId(
+  recordedUserId: string | null,
+  sessionUserId: string | null,
+): string | null {
+  if (!sessionUserId) return null;
+  if (recordedUserId && recordedUserId !== sessionUserId) return null;
+  return sessionUserId;
+}
+
+function isRlsOrPrivilegeError(error: { code?: string; message?: string }): boolean {
+  if (error.code === '42501') return true;
+  const message = error.message?.toLowerCase() ?? '';
+  return message.includes('row-level security') || message.includes('permission denied');
+}
+
 const state: State = {
   start: (typeof performance !== 'undefined' && performance.now) ? performance.timeOrigin : Date.now(),
   traceId: 'pending',
@@ -97,6 +123,9 @@ function ensureInit() {
   if (state.traceId !== 'pending') return;
   state.traceId = loadTraceId();
   state.events = loadRing();
+  // A ring left in localStorage from an earlier visit is stale; anchoring to it produced timings of
+  // days (past the integer column, ~6 rejected batches an hour). Keep it only if it is recent.
+  if (state.events.length > 0 && Date.now() - state.events[0].at > STALE_RING_MS) state.events = [];
   // Anchor "ms_since_start" to the earliest recorded event this trace, if any;
   // otherwise anchor to now.
   if (state.events.length > 0) {
@@ -114,25 +143,62 @@ function scheduleFlush() {
   }, FLUSH_INTERVAL_MS);
 }
 
-async function flush() {
+/** Session user the next PostgREST call will present, or null when it will be anon. */
+async function currentSessionUserId(): Promise<string | null> {
+  try {
+    // getSession blocks until initial load / token refresh finishes, so this is
+    // the same identity `insert` will put on the Authorization header.
+    const { data, error } = await supabase.auth.getSession();
+    if (error) return null;
+    const session = data.session;
+    if (!session?.access_token || !session.user?.id) return null;
+    return session.user.id;
+  } catch {
+    return null;
+  }
+}
+
+// Serializes flushes so a sign-in flushNow waits for an in-flight drain
+// instead of dropping the row that just landed in `pending`.
+let flushTail: Promise<void> = Promise.resolve();
+
+function flush(): Promise<void> {
+  const run = flushTail.then(drain, drain);
+  flushTail = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+async function drain(): Promise<void> {
   if (state.pending.length === 0) return;
   const batch = state.pending.splice(0, state.pending.length);
   const path = typeof window !== 'undefined' ? window.location?.pathname ?? null : null;
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : null;
-  const rows = batch.map((e) => ({
-    user_id: state.userId,
-    session_trace_id: state.traceId,
-    phase: e.phase,
-    status: e.status ?? null,
-    ms_since_start: e.ms_since_start,
-    duration_ms: e.duration_ms ?? null,
-    detail: e.detail ?? null,
-    user_agent: ua,
-    path,
-  }));
   try {
+    const sessionUserId = await currentSessionUserId();
+    const userId = loginPhaseEventUserId(state.userId, sessionUserId);
+    // Forget a stale cached id. The next batch follows the live session.
+    state.userId = sessionUserId;
+    const rows = batch.map((e) => ({
+      user_id: userId,
+      session_trace_id: state.traceId,
+      phase: e.phase,
+      status: e.status ?? null,
+      ms_since_start: e.ms_since_start,
+      duration_ms: e.duration_ms ?? null,
+      detail: e.detail ?? null,
+      user_agent: ua,
+      path,
+    }));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('login_phase_events').insert(rows);
+    const { error } = await (supabase as any).from('login_phase_events').insert(rows);
+    if (!error) return;
+    // A Postgres rejection (RLS 42501 or any other SQLSTATE) is dropped.
+    // Replaying it is how this table spammed the database log. Transport
+    // failures have no SQLSTATE and are retried once the timer fires.
+    const code = error.code ?? '';
+    if (isRlsOrPrivilegeError(error) || /^[0-9A-Z]{5}$/.test(code)) return;
+    state.pending = [...batch, ...state.pending].slice(-MAX_PENDING);
+    scheduleFlush();
   } catch {
     // Restore for a later retry, capped to avoid unbounded growth.
     state.pending = [...batch, ...state.pending].slice(-MAX_PENDING);
@@ -148,7 +214,7 @@ function record(phase: string, status: string | undefined, detail: PhaseDetail, 
     status,
     detail,
     duration_ms: durationMs,
-    ms_since_start: Math.max(0, now - state.start),
+    ms_since_start: Math.min(MAX_INT4, Math.max(0, now - state.start)),
     at: now,
   };
   state.events.push(evt);
@@ -190,7 +256,10 @@ export const loginTelemetry = {
       record(`${phase}.end`, endStatus, endDetail, dur);
     };
   },
-  /** Attach the resolved user id to subsequent uploaded rows. */
+  /**
+   * Remember who this browser thinks is signed in. Uploads still omit
+   * `user_id` unless that id is the live session user (`auth.uid()`).
+   */
   setUserId(userId: string | null) {
     state.userId = userId;
   },
@@ -201,6 +270,10 @@ export const loginTelemetry = {
     state.start = Date.now();
     state.events = [];
     state.pending = [];
+    if (state.flushTimer) {
+      clearTimeout(state.flushTimer);
+      state.flushTimer = null;
+    }
     try { sessionStorage.setItem(TRACE_KEY, fresh); } catch { /* ignore */ }
     try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
   },

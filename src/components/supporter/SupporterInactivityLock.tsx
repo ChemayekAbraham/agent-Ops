@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { Lock, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -48,13 +49,19 @@ export function SupporterInactivityLock({
     }
   };
 
-  return (
+  // Portalled to <body> above the map drawer (z-80), sheets and dialogs (z-110/120) and the
+  // floating chat buttons, so the locked dashboard can never be used around it. Frozen-account
+  // and maintenance gates (z-9999) still sit above it.
+  return createPortal(
     <motion.div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Session locked"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-3xl backdrop-saturate-150"
+      className="fixed inset-0 z-[9000] flex items-center justify-center bg-background/60 backdrop-blur-3xl backdrop-saturate-150"
     >
-      <div className="flex flex-col items-center gap-5 px-6 py-10 max-w-sm w-full text-center">
+      <div className="flex flex-col items-center gap-5 px-6 py-10 max-w-sm w-full text-center rounded-3xl border border-border/30 bg-card/30 backdrop-blur-2xl backdrop-saturate-150 shadow-2xl ring-1 ring-inset ring-foreground/5">
         {/* Avatar */}
         <UserAvatar avatarUrl={avatarUrl} fullName={fullName} size="lg" />
 
@@ -97,6 +104,7 @@ export function SupporterInactivityLock({
           {fullName ? `Signed in as ${fullName}` : userEmail}
         </p>
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

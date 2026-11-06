@@ -69,8 +69,8 @@ export function PhoneMoneyCard() {
   ];
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
-      <div className="flex items-start justify-between gap-3 min-w-0">
+    <div className="rounded-xl border border-border bg-card p-5 sm:p-6 min-w-0 flex flex-col h-full shadow-2xs relative">
+      <div className="flex items-start justify-between gap-3 mb-4 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-11 w-11 rounded-xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
             <Smartphone className="h-5 w-5" aria-hidden="true" />

@@ -39,6 +39,7 @@ import { template as cashDepositCodeTemplate } from './cash-deposit-code.tsx'
 import { template as cashDepositWalletConfirmationTemplate } from './cash-deposit-wallet-confirmation.tsx'
 import { template as twoFactorCodeTemplate } from './two-factor-code.tsx'
 import { template as emailVerificationCodeTemplate } from './email-verification-code.tsx'
+import { template as phoneChangeCodeTemplate } from './phone-change-code.tsx'
 import { template as newDeviceSignInTemplate } from './new-device-sign-in.tsx'
 import { template as passwordChangeTipTemplate } from './password-change-tip.tsx'
 import { template as smsFailureAlertTemplate } from './sms-failure-alert.tsx'
@@ -70,6 +71,9 @@ import { template as lendingRepaymentStatusTemplate } from './lending-repayment-
 import { template as salaryPayslipTemplate } from './salary-payslip.tsx'
 import { template as selfSupportUnallocatedTemplate } from './self-support-unallocated.tsx'
 import { template as redemptionPaidTemplate } from './redemption-paid.tsx'
+import { template as portfolioRenewalReturnsReadyTemplate } from './portfolio-renewal-returns-ready.tsx'
+import { template as portfolioRenewalRequestReceivedTemplate } from './portfolio-renewal-request-received.tsx'
+import { template as zoeReportSharedTemplate } from './zoe-report-shared.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -90,6 +94,8 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'portfolio-redemption': portfolioRedemptionTemplate,
   'redemption-notice-started': redemptionNoticeStartedTemplate,
   'redemption-paid': redemptionPaidTemplate,
+  'portfolio-renewal-returns-ready': portfolioRenewalReturnsReadyTemplate,
+  'portfolio-renewal-request-received': portfolioRenewalRequestReceivedTemplate,
   'partnership-maturity-notice': partnershipMaturityNoticeTemplate,
   'partner-self-managed-cycle-ended': partnerSelfManagedCycleEndedTemplate,
   'partner-self-managed-deployment': partnerSelfManagedDeploymentTemplate,
@@ -116,6 +122,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'cash-deposit-wallet-confirmation': cashDepositWalletConfirmationTemplate,
   'two-factor-code': twoFactorCodeTemplate,
   'email-verification-code': emailVerificationCodeTemplate,
+  'phone-change-code': phoneChangeCodeTemplate,
   'new-device-sign-in': newDeviceSignInTemplate,
   'password-change-tip': passwordChangeTipTemplate,
   'sms-failure-alert': smsFailureAlertTemplate,
@@ -144,4 +151,6 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'lending-repayment-status': lendingRepaymentStatusTemplate,
   'salary-payslip': salaryPayslipTemplate,
   'self-support-unallocated': selfSupportUnallocatedTemplate,
+  'zoe-report-shared': zoeReportSharedTemplate,
+  'report-shared-from-zoe': zoeReportSharedTemplate,
 }

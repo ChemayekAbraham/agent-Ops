@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
@@ -8,6 +9,7 @@ import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
 import { planShareDescription } from '@/lib/planShareLink';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 export interface PlanDetail {
   rent_request_id: string;
@@ -42,6 +44,7 @@ function PhotoSlider({
   imgClassName,
   fit = 'cover',
   keyboard = false,
+  variant = 'arrows',
 }: {
   photos: string[];
   index: number;
@@ -51,6 +54,8 @@ function PhotoSlider({
   imgClassName?: string;
   fit?: 'cover' | 'contain';
   keyboard?: boolean;
+  /** `dots` is the mobile PageView look: swipe plus a page indicator, no arrow buttons. */
+  variant?: 'arrows' | 'dots';
 }) {
   const total = photos.length;
   // Clamp defensively: the parent may pass a stale index while a new plan's
@@ -150,7 +155,36 @@ function PhotoSlider({
         </div>
       ))}
 
-      {total > 1 && (
+      {total > 1 && variant === 'dots' && (
+        <div className="absolute inset-x-0 bottom-8 z-20 flex items-center justify-center">
+          <div className="flex items-center gap-1 rounded-full bg-foreground/35 px-2 py-1.5 backdrop-blur">
+            {photos.map((_, i) => (
+              <button
+                key={`dot-${i}`}
+                type="button"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  indexRef.current = i;
+                  onIndexChange(i);
+                }}
+                aria-label={`Show photo ${i + 1} of ${total}`}
+                aria-current={i === safeIndex}
+                className="grid h-3 place-items-center px-0.5"
+              >
+                <span
+                  className={cn(
+                    'block h-1.5 rounded-full bg-background transition-all duration-200',
+                    i === safeIndex ? 'w-4' : 'w-1.5 opacity-60',
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {total > 1 && variant === 'arrows' && (
         <>
           <button
             type="button"
@@ -233,7 +267,7 @@ export function SelfPortfolioPlanDetailSheet({
           positioning (Tailwind orders `relative` after `fixed`) and drop the
           panel into normal flow below the viewport — the sheet would open as a
           blank, washed-out screen. Children position against this fixed box. */}
-      <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-none p-0">
+      <SheetContent side="bottom" className="plan-detail-sheet max-h-[92vh] overflow-y-auto rounded-t-[28px] p-0">
 
         <SheetHeader className="sr-only">
           <SheetTitle>Rent plan details</SheetTitle>
@@ -243,12 +277,12 @@ export function SelfPortfolioPlanDetailSheet({
           type="button"
           onClick={() => onOpenChange(false)}
           aria-label="Back"
-          className="absolute left-3 top-3 z-30 grid h-8 w-8 place-items-center rounded-full bg-background/85 text-foreground shadow-md backdrop-blur transition hover:bg-background"
+          className="absolute left-3 top-3 z-30 grid h-10 w-10 place-items-center rounded-full bg-background/90 text-foreground shadow-md backdrop-blur transition active:scale-95 hover:bg-background"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
         </button>
 
-        {/* Photo carousel */}
+        {/* Photo carousel: swipe plus page dots, like a mobile PageView */}
         {photos.length > 0 ? (
           <PhotoSlider
             photos={photos}
@@ -256,10 +290,11 @@ export function SelfPortfolioPlanDetailSheet({
             onIndexChange={setHeroIndex}
             onSelect={(i) => setLightboxIndex(i)}
             keyboard={lightboxIndex === null}
-            className="w-full h-56 rounded-none"
+            variant="dots"
+            className="w-full h-60 rounded-none"
           />
         ) : (
-          <div className="relative w-full h-56 bg-muted flex items-center justify-center">
+          <div className="relative w-full h-60 bg-muted flex items-center justify-center">
             <Home className="h-8 w-8 text-muted-foreground" />
           </div>
         )}
@@ -304,40 +339,29 @@ export function SelfPortfolioPlanDetailSheet({
           </DialogContent>
         </Dialog>
 
-        {/* Title card */}
-        <div className="relative bg-background px-5 pt-5 pb-5">
-          <h2 className="text-2xl font-extrabold leading-tight tracking-tight">
+        {/* Content sheet overlapping the photo, rounded like a Material bottom sheet */}
+        <div className="relative -mt-5 rounded-t-[28px] bg-background px-4 pt-6 pb-0">
+          <h2 className="text-2xl font-bold leading-tight tracking-tight">
             {plan.house_category ? `${plan.house_category.replace(/-/g, ' ')} in ` : 'Rent plan in '}
             {regionLabel}
           </h2>
-          <p className="mt-2 text-sm text-muted-foreground flex items-start gap-1">
-            <MapPin className="h-3.5 w-3.5 flex-none mt-0.5" />
+          <p className="mt-2 text-sm text-muted-foreground flex items-start gap-1.5">
+            <MapPin className="h-4 w-4 flex-none mt-0.5" />
             <span>{fullAddress}</span>
           </p>
 
-          {/* Fund CTA — mirrors the empty-house sheet's Fund button */}
-          {onFund && !isFunded && (
-            <Button
-              className="mt-4 h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
-              onClick={() => onFund(plan)}
-            >
-              <Wallet className="h-4 w-4" />
-              Fund this tenant — {formatDynamic(plan.funding_amount)}
-            </Button>
-          )}
-
-          {/* Invite others to support this plan */}
-          <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-3">
-            <p className="text-xs font-bold">Invite someone to support this tenant</p>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          {/* Invite others to support this plan (tonal card) */}
+          <div className="mt-4 rounded-3xl bg-primary/10 p-4">
+            <p className="text-sm font-semibold">Invite someone to support this tenant</p>
+            <p className="mt-1 text-xs leading-snug text-muted-foreground">
               {planShareDescription(plan)}
             </p>
-            <div className="mt-2.5">
+            <div className="mt-3">
               <PlanShareButton plan={plan} variant="block" />
             </div>
           </div>
 
-          {/* Tenant row */}
+          {/* Tenant row (list tile) */}
           <div className="mt-5 flex items-center gap-3">
             {/* Privacy: the tenant photo is never sent to the client for this
                 view, so there is no image URL to reveal via devtools. */}
@@ -362,22 +386,24 @@ export function SelfPortfolioPlanDetailSheet({
             </div>
           </div>
 
-          {/* Key details list */}
-          <ul className="mt-4 divide-y divide-border border-t border-border">
-            <li className="flex items-center justify-between gap-3 py-3">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Home className="h-4 w-4 flex-none" /> Rent amount
+          {/* Key details: list tiles with a tonal leading icon */}
+          <ul className="mt-4 divide-y divide-border/60 rounded-3xl bg-muted/40 px-3">
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
+                <Home className="h-5 w-5" />
               </span>
-              <span className="text-base font-black text-primary truncate">
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Rent amount</span>
+              <span className="text-base font-bold text-primary truncate">
                 {formatDynamic(plan.funding_amount)}
               </span>
             </li>
-            <li className="flex items-start justify-between gap-3 py-3">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <User className="h-4 w-4 flex-none" /> Landlord
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
+                <User className="h-5 w-5" />
               </span>
-              <div className="flex flex-col items-end gap-0.5 text-right">
-                <span className="text-sm font-bold truncate">{plan.landlord_name ?? 'Landlord'}</span>
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Landlord</span>
+              <div className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+                <span className="text-sm font-semibold truncate">{plan.landlord_name ?? 'Landlord'}</span>
                 {plan.landlord_phone ? (
                   <a
                     href={`tel:${plan.landlord_phone}`}
@@ -390,19 +416,21 @@ export function SelfPortfolioPlanDetailSheet({
                 )}
               </div>
             </li>
-            <li className="flex items-center justify-between gap-3 py-3">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ShieldCheck className="h-4 w-4 flex-none" /> LC Name
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
+                <ShieldCheck className="h-5 w-5" />
               </span>
-              <span className="text-sm font-bold truncate">{plan.lc1_chairperson_name ?? '—'}</span>
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">LC Name</span>
+              <span className="text-sm font-semibold truncate">{plan.lc1_chairperson_name ?? '—'}</span>
             </li>
-            <li className="flex items-center justify-between gap-3 py-3">
-              <span className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4 flex-none" /> Proxy Agent
+            <li className="flex items-center gap-3 py-3">
+              <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
+                <Phone className="h-5 w-5" />
               </span>
+              <span className="min-w-0 flex-1 text-sm text-muted-foreground">Proxy Agent</span>
               <a
                 href={`tel:${(plan.proxy_agent_phone ?? '+256 751 424 629').replace(/\s/g, '')}`}
-                className="text-sm font-bold truncate text-primary hover:underline"
+                className="text-sm font-semibold truncate text-primary hover:underline"
               >
                 {plan.proxy_agent_phone ?? '+256 751 424 629'}
               </a>
@@ -444,13 +472,14 @@ export function SelfPortfolioPlanDetailSheet({
           {(() => {
             const monthly = plan.funding_amount * 0.15;
             const daily = monthly / 30;
-            const months = Math.max(1, Math.round((plan.duration_days ?? 30) / 30));
+            // The partner earns across the whole contract, not for the plan's length.
+            const months = CONTRACT_TERM_MONTHS;
             const total = monthly * months;
             return (
-              <div className="mt-5 rounded-2xl border border-primary/40 bg-primary/5 p-4">
+              <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-bold">Your projected returns</p>
-                  <span className="rounded-full border border-primary/40 bg-background px-2 py-0.5 text-[11px] font-bold text-primary">
+                  <p className="text-sm font-semibold">Your projected returns</p>
+                  <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
                     15% per month
                   </span>
                 </div>
@@ -471,7 +500,7 @@ export function SelfPortfolioPlanDetailSheet({
                   ))}
                   <li className="flex items-center justify-between gap-3 py-2.5">
                     <span className="text-xs text-muted-foreground">
-                      Over {months} {months === 1 ? 'month' : 'months'}
+                      Over {months} months
                     </span>
                     <span className="text-base font-black text-primary">
                       {formatDynamic(Math.round(total))}
@@ -482,8 +511,12 @@ export function SelfPortfolioPlanDetailSheet({
             );
           })()}
 
+          <div className="mt-4">
+            <V360PlanCaptions rentRequestId={plan.rent_request_id} />
+          </div>
+
           {/* Privacy notice band */}
-          <div className="mt-4 -mx-5 bg-muted/50 px-5 py-3 flex items-start gap-2">
+          <div className="mt-4 -mx-4 bg-muted/50 px-4 py-3 flex items-start gap-2">
             <ShieldCheck className="h-4 w-4 text-muted-foreground flex-none mt-0.5" />
             <p className="text-xs text-muted-foreground">
               {isFunded
@@ -492,6 +525,18 @@ export function SelfPortfolioPlanDetailSheet({
             </p>
           </div>
 
+          {/* Bottom action bar: stays on screen while the details scroll */}
+          {onFund && !isFunded && (
+            <div className="sticky bottom-0 z-20 -mx-4 mt-4 border-t border-border/60 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+              <Button
+                className="h-12 w-full gap-2 rounded-full bg-emerald-600 text-base font-semibold text-white shadow-md active:scale-[0.99] hover:bg-emerald-700"
+                onClick={() => onFund(plan)}
+              >
+                <Wallet className="h-5 w-5" />
+                Fund this tenant — {formatDynamic(plan.funding_amount)}
+              </Button>
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

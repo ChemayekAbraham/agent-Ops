@@ -104,7 +104,7 @@ export default function TryCalculator() {
     const shareLink = `${window.location.origin}/try-calculator${referrerId ? `?ref=${referrerId}` : ''}`;
     const shareMessage = `💰 Want to earn 15% monthly returns?
 
-📊 Try this FREE Investment Calculator - no signup needed!
+📊 Try this FREE Support Calculator - no signup needed!
 📈 See exactly how much you can earn
 🔄 With compounding up to 60 months!
 🎁 Sign up & we BOTH earn UGX 500!
@@ -114,7 +114,7 @@ export default function TryCalculator() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Welile Investment Calculator',
+          title: 'Welile Support Calculator',
           text: shareMessage,
           url: shareLink,
         });
@@ -147,7 +147,7 @@ export default function TryCalculator() {
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(22);
       doc.setFont('helvetica', 'bold');
-      doc.text('Welile Investment Projection', pageWidth / 2, 18, { align: 'center' });
+      doc.text('Welile Support Projection', pageWidth / 2, 18, { align: 'center' });
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
       doc.text(`Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, { align: 'center' });
@@ -159,7 +159,7 @@ export default function TryCalculator() {
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('Investment Summary', 20, 55);
+      doc.text('Support Summary', 20, 55);
       
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
@@ -167,7 +167,7 @@ export default function TryCalculator() {
       doc.text(`Principal: ${formatUGX(amount)}`, 20, summaryY);
       doc.text(`Duration: ${months} months`, 80, summaryY);
       doc.text(`Compounding: ${isCompounding ? 'Yes' : 'No'}`, 140, summaryY);
-      doc.text(`Monthly ROI: 15%`, 20, summaryY + 8);
+      doc.text(`Monthly Returns: 15%`, 20, summaryY + 8);
       doc.text(`Total Earnings: ${formatUGX(finalProjection?.totalEarnings || 0)}`, 80, summaryY + 8);
       doc.setTextColor(34, 197, 94);
       doc.text(`Final Balance: ${formatUGX(finalProjection?.balance || 0)}`, 140, summaryY + 8);
@@ -238,7 +238,7 @@ export default function TryCalculator() {
       doc.setFontSize(8);
       doc.setTextColor(150, 150, 150);
       doc.text('This projection is for illustration purposes. Past performance does not guarantee future results.', pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: 'center' });
-      doc.text('Start investing at welile.com', pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
+      doc.text('Start supporting tenants at welile.com', pageWidth / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' });
       
       doc.save(`Welile_${months}mo_${isCompounding ? 'compound' : 'simple'}.pdf`);
       hapticSuccess();
@@ -386,10 +386,10 @@ export default function TryCalculator() {
         <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2.5 rounded-full text-sm font-semibold mb-3">
             <TrendingUp className="h-4 w-4" />
-            15% Monthly Returns
+            Partner Returns target 15%, not guaranteed
           </div>
           <h1 className="text-xl font-bold mb-1">
-            Investment Calculator
+            Support Calculator
           </h1>
           <p className="text-muted-foreground text-sm">
             With compounding up to 60 months
@@ -405,9 +405,9 @@ export default function TryCalculator() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 px-4 pb-5">
-            {/* Investment Amount */}
+            {/* Support Amount */}
             <div className="space-y-3">
-              <Label className="text-sm font-semibold block">Investment Amount</Label>
+              <Label className="text-sm font-semibold block">Support Amount</Label>
               <Input
                 type="text"
                 inputMode="numeric"
@@ -571,7 +571,7 @@ export default function TryCalculator() {
                   
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="text-center p-3 bg-background rounded-xl">
-                      <p className="text-xs text-muted-foreground mb-1">Your Investment</p>
+                      <p className="text-xs text-muted-foreground mb-1">Your Support</p>
                       <p className="font-bold">{formatAmount(amount)}</p>
                       {currency.code !== 'UGX' && (
                         <p className="text-[10px] text-muted-foreground mt-0.5">{formatUGX(amount)}</p>

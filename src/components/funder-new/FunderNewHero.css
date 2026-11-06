@@ -1,0 +1,17 @@
+/* Headline type matches the agent dashboard's "Post a rent request here." card
+   (SignatureRentRequestCard.css): 900 weight, 1.24 line height, no tracking,
+   one block per line. The agent card steps its size down by container width;
+   the longest line here is longer, so the size follows the card's width. */
+.funder-hero-card { container-type: inline-size; }
+
+.funder-hero-heading {
+  font-size: 30px;
+  font-size: clamp(28px, 9.4cqw, 48px);
+  font-weight: 900;
+  line-height: 1.24;
+  letter-spacing: 0;
+}
+
+.funder-hero-heading > span { display: block; white-space: nowrap; }
+.funder-hero-accent { color: hsl(var(--signature-rent-accent)); }
+.funder-hero-subtle { color: hsl(var(--signature-rent-subtle)); }

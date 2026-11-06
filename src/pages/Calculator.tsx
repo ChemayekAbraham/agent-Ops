@@ -66,15 +66,15 @@ export default function CalculatorPage() {
   const finalProjection = projections[projections.length - 1];
 
   const handleShareWhatsApp = () => {
-    const message = `💰 *Welile Investment Projection*\n\n` +
-      `📊 Investment: ${formatAmount(calculations.requiredInvestment)}\n` +
-      `📈 Monthly ROI: 15%\n` +
+    const message = `💰 *Welile Support Projection*\n\n` +
+      `📊 Support: ${formatAmount(calculations.requiredInvestment)}\n` +
+      `📈 Monthly Returns: 15%\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Compounding: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
       `💵 Total Earnings: ${formatAmount(finalProjection?.totalEarnings || 0)}\n` +
       `🏦 Final Balance: ${formatAmount(finalProjection?.balance || 0)}\n\n` +
-      `Start investing today at Welile! 🚀`;
+      `Start supporting tenants today at Welile! 🚀`;
     
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
@@ -84,7 +84,7 @@ export default function CalculatorPage() {
     if (!projectionRef.current) return;
     setIsExporting(true);
     try {
-      await exportToPDF(projectionRef.current, `Welile_Projection_${duration}months`, 'Investment Projection');
+      await exportToPDF(projectionRef.current, `Welile_Projection_${duration}months`, 'Support Projection');
       toast({ title: "PDF Downloaded", description: "Your projection has been saved." });
     } catch {
       toast({ title: "Export Failed", variant: "destructive" });
@@ -104,7 +104,7 @@ export default function CalculatorPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
-              ROI Calculator
+              Returns Calculator
             </h1>
           </div>
           <CurrencySwitcher />
@@ -120,7 +120,7 @@ export default function CalculatorPage() {
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
             <Sparkles className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs font-bold text-success">15% Monthly Returns</span>
+            <span className="text-xs font-bold text-success">Partner Returns target 15%, not guaranteed</span>
           </div>
         </motion.div>
 
@@ -209,7 +209,7 @@ export default function CalculatorPage() {
               <div className="p-2 rounded-full bg-primary/20 w-fit mx-auto mb-2">
                 <Target className="h-4 w-4 text-primary" />
               </div>
-              <p className="text-[10px] font-bold text-primary uppercase tracking-wide mb-1">Invest</p>
+              <p className="text-[10px] font-bold text-primary uppercase tracking-wide mb-1">Support</p>
               <AnimatePresence mode="wait">
                 <motion.p 
                   key={calculations.requiredInvestment}
@@ -289,7 +289,7 @@ export default function CalculatorPage() {
                     <div className="flex justify-between items-center">
                       <div>
                         <h2 className="text-xl font-bold text-primary" style={{ fontFamily: "'Chewy', cursive" }}>Welile</h2>
-                        <p className="text-xs text-muted-foreground">Investment Projection</p>
+                        <p className="text-xs text-muted-foreground">Support Projection</p>
                       </div>
                       <div className="text-right text-xs text-muted-foreground">
                         <p className="font-semibold text-foreground">{duration} Months</p>
@@ -301,11 +301,11 @@ export default function CalculatorPage() {
                   {/* Summary Row */}
                   <div className="grid grid-cols-3 gap-2 p-3 border-b bg-muted/30">
                     <div className="text-center p-2 rounded-lg bg-primary/10">
-                      <p className="text-[9px] text-muted-foreground">Investment</p>
+                      <p className="text-[9px] text-muted-foreground">Support</p>
                       <p className="text-xs font-bold text-primary">{formatAmount(calculations.requiredInvestment)}</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-success/10">
-                      <p className="text-[9px] text-muted-foreground">ROI</p>
+                      <p className="text-[9px] text-muted-foreground">Returns</p>
                       <p className="text-xs font-bold text-success">15%/mo</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-muted">
@@ -363,7 +363,7 @@ export default function CalculatorPage() {
             <CardContent className="p-4 text-center space-y-3">
               <h3 className="font-bold text-sm">Start Earning Today</h3>
               <p className="text-xs text-muted-foreground">
-                Invest with Welile and earn 15% monthly returns by supporting tenants
+                Support with Welile and earn 15% monthly returns by supporting tenants
               </p>
               <Button 
                 onClick={() => navigate('/become-supporter')} 

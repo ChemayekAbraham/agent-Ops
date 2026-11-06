@@ -314,6 +314,35 @@ Deno.serve(async (req) => {
       console.warn("[register-tenant] Registration gate threw (allowing):", gateCatch);
     }
 
+    // ---- Agent vetting ----------------------------------------------------
+    // Agents must be verified by Agent Ops before adding tenants (switched on by
+    // agent_vetting_settings.enforce). Unlike the control above this fails
+    // CLOSED: if we cannot tell whether the agent is verified, we do not add.
+    {
+      const { data: agentRole } = await supabaseAdmin
+        .from("user_roles").select("role")
+        .eq("user_id", callingUser.id).eq("role", "agent").maybeSingle();
+      if (agentRole) {
+        const { data: vet, error: vetErr } = await supabaseAdmin.rpc(
+          "agent_vetting_gate_status",
+          { p_agent_id: callingUser.id },
+        );
+        if (vetErr || !vet || (vet as any).blocked) {
+          if (vetErr) console.error("[register-tenant] Vetting gate check failed (blocking):", vetErr.message);
+          return new Response(JSON.stringify({
+            error: vetErr || !vet
+              ? "We could not check your agent verification. Please try again."
+              : (vet as any).reason,
+            code: "agent_not_vetted",
+            vetting_status: (vet as any)?.status ?? null,
+          }), {
+            status: vetErr || !vet ? 503 : 403,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     // Create auth user with a temp password
     const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
 

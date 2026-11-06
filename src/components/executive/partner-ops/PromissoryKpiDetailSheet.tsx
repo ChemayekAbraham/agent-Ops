@@ -31,6 +31,16 @@ export type PromissoryKpiMetric =
 
 type Point = { at: string | null; value: number; label: string; sub?: string };
 
+/** Percentage change from one period to the next. Null when there is nothing
+ *  to compare with: the first period, or a previous amount of zero. */
+export function trendGrowthPct(previous: number, current: number): number | null {
+  if (!Number.isFinite(previous) || !Number.isFinite(current) || previous <= 0) return null;
+  return ((current - previous) / previous) * 100;
+}
+
+const growthText = (pct: number | null | undefined) =>
+  pct == null ? '' : ` (${pct >= 0 ? '+' : '-'}${Math.abs(pct).toFixed(1)}%)`;
+
 /** Read-only detail view for one promissory-notes number: trend over time plus
  *  the records that make it up. Derived entirely from the same report payload
  *  already on screen — no extra reads, no writes. */
@@ -179,7 +189,14 @@ export function PromissoryKpiDetailSheet({
   );
 
   const chart = useMemo(() => {
-    if (!dated.length) return [] as { key: string; value: number; running: number }[];
+    if (!dated.length)
+      return [] as {
+        key: string;
+        value: number;
+        running: number;
+        valuePct: number | null;
+        runningPct: number | null;
+      }[];
     const first = parseISO(dated[0].at!);
     const last = parseISO(dated[dated.length - 1].at!);
     const spanDays = (last.getTime() - first.getTime()) / 86_400_000;
@@ -191,7 +208,7 @@ export function PromissoryKpiDetailSheet({
       buckets.set(key, (buckets.get(key) || 0) + p.value);
     }
     let running = 0;
-    return Array.from(buckets.entries()).map(([key, value]) => {
+    const rows = Array.from(buckets.entries()).map(([key, value]) => {
       running += value;
       return {
         key: monthly ? format(parseISO(`${key}-01`), 'MMM yy') : format(parseISO(key), 'dd MMM'),
@@ -199,6 +216,11 @@ export function PromissoryKpiDetailSheet({
         running,
       };
     });
+    return rows.map((r, i) => ({
+      ...r,
+      valuePct: i > 0 ? trendGrowthPct(rows[i - 1].value, r.value) : null,
+      runningPct: i > 0 ? trendGrowthPct(rows[i - 1].running, r.running) : null,
+    }));
   }, [dated]);
 
   const total = points.reduce((s, p) => s + p.value, 0);
@@ -244,8 +266,10 @@ export function PromissoryKpiDetailSheet({
                     <XAxis dataKey="key" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
                     <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" width={48} />
                     <Tooltip
-                      formatter={(v: any, n: any) => [
-                        isMoney ? formatUGX(Number(v)) : Number(v).toLocaleString(),
+                      formatter={(v: any, n: any, item: any) => [
+                        `${isMoney ? formatUGX(Number(v)) : Number(v).toLocaleString()}${growthText(
+                          n === 'running' ? item?.payload?.runningPct : item?.payload?.valuePct,
+                        )}`,
                         n === 'running' ? 'Cumulative' : 'In period',
                       ]}
                       contentStyle={{ fontSize: 11 }}
@@ -269,7 +293,7 @@ export function PromissoryKpiDetailSheet({
                 </ResponsiveContainer>
               </div>
               <p className="px-1 pt-1 text-[10px] text-muted-foreground">
-                Solid line: added in each period. Dashed line: cumulative.
+                Solid line: added in each period. Dashed line: cumulative. Percentages compare with the previous period.
               </p>
             </div>
           )}

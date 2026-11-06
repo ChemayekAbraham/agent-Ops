@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,12 +8,14 @@ import { supabase } from '@/integrations/supabase/client';
 import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
+import { viewportFromCenter } from './viewportMath';
 
-const SERVICE_AREA_CENTRE = { lat: 1.3733, lng: 32.2903 };
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
 const KAMPALA_CENTRE = { lat: 0.3476, lng: 32.5825 };
 const KAMPALA_ZOOM = 12;
+/** How long the first data request waits for a location fix before loading Kampala instead. */
+const HOLD_FOR_LOCATION_MS = 4000;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
@@ -33,9 +35,26 @@ async function resolveMapsKey(): Promise<string> {
   throw new Error('Google Maps is not connected.');
 }
 
-function loadGoogleMaps(): Promise<typeof google.maps> {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
+async function ensureMapsReady(): Promise<typeof google.maps> {
+  const maps = window.google?.maps as (typeof google.maps & { importLibrary?: (n: string) => Promise<unknown> }) | undefined;
+  if (!maps) throw new Error('Google Maps did not initialise.');
+  // With loading=async the namespace can exist before Map/Marker are attached.
+  if (typeof maps.Map !== 'function' && typeof maps.importLibrary === 'function') {
+    await maps.importLibrary('maps');
+    await maps.importLibrary('marker');
+  }
+  if (typeof window.google?.maps?.Map !== 'function') throw new Error('Google Maps did not initialise.');
+  return window.google.maps;
+}
+
+export function loadGoogleMaps(): Promise<typeof google.maps> {
+  if (typeof window.google?.maps?.Map === 'function') return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
+  if (window.google?.maps) {
+    mapsPromise = ensureMapsReady();
+    mapsPromise.catch(() => { mapsPromise = null; });
+    return mapsPromise;
+  }
 
   const channel = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID'] as string | undefined;
 
@@ -44,8 +63,7 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
       new Promise<typeof google.maps>((resolve, reject) => {
         const callbackName = '__initFunderNewGoogleMap';
         window[callbackName] = () => {
-          if (window.google?.maps) resolve(window.google.maps);
-          else reject(new Error('Google Maps did not initialise.'));
+          ensureMapsReady().then(resolve, reject);
           delete window[callbackName];
         };
 
@@ -96,7 +114,7 @@ export interface FunderNewMapCell {
   house: FunderNewEmptyHouse | null;
 }
 
-function viewportOf(map: google.maps.Map): FunderNewViewport | null {
+export function viewportOf(map: google.maps.Map): FunderNewViewport | null {
   const bounds = map.getBounds();
   const centre = map.getCenter();
   if (!bounds || !centre) return null;
@@ -127,7 +145,7 @@ const pinIconCache = new Map<string, google.maps.Icon>();
  * Builds an SVG price-pill icon for Google Maps markers.
  * Displays only the formatted price tag with rent-tier styling.
  */
-function getPricePinIcon(
+export function getPricePinIcon(
   amount: number,
   active: boolean,
   saved: boolean,
@@ -220,6 +238,10 @@ export function FunderNewRouteMap({
   onReset,
   loadedNote,
   onExpandedChange,
+  expandRequest,
+  reserveTopForSearch = false,
+  focus,
+  notice,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -238,6 +260,14 @@ export function FunderNewRouteMap({
   onReset: () => void;
   loadedNote: string;
   onExpandedChange?: (expanded: boolean) => void;
+  /** Bumped by the page to open the full screen map (e.g. from the hero card). */
+  expandRequest?: number;
+  /** Full screen only: leave room under a search bar floated at the top by the page. */
+  reserveTopForSearch?: boolean;
+  /** Bumped by the page (new token) to move the map to a set of points, e.g. search results. */
+  focus?: { points: { lat: number; lng: number }[]; token: number } | null;
+  /** A note shown under the top of the full screen map (e.g. the location prompt). */
+  notice?: ReactNode;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -248,8 +278,26 @@ export function FunderNewRouteMap({
   const accuracyCircleRef = useRef<google.maps.Circle | null>(null);
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const initialisedRef = useRef(false);
+  const markerJobRef = useRef(0);
+  // Waiting for the user's location fix: hold the first data request so the map
+  // never loads a wide, wrong view only to throw it away when the fix lands. A
+  // short grace period stops the hold from lasting if the fix is slow.
+  const [graceExpired, setGraceExpired] = useState(false);
+  const holding = awaitingDeviceFix && !device && !graceExpired;
+  const holdingRef = useRef(holding);
+  holdingRef.current = holding;
+  const deviceRef = useRef(device);
+  deviceRef.current = device;
+  useEffect(() => {
+    if (!holding) return;
+    const timer = window.setTimeout(() => setGraceExpired(true), HOLD_FOR_LOCATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [holding]);
   const reportTimerRef = useRef<number | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (expandRequest) setFullscreen(true);
+  }, [expandRequest]);
   const [moved, setMoved] = useState<FunderNewViewport | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const expandRef = useRef<HTMLButtonElement | null>(null);
@@ -261,6 +309,7 @@ export function FunderNewRouteMap({
       if (!map) return;
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
       const doReport = () => {
+        if (holdingRef.current) return;
         const viewport = viewportOf(map);
         if (!viewport) return;
         onViewportChange(viewport);
@@ -269,7 +318,9 @@ export function FunderNewRouteMap({
       if (immediate) {
         doReport();
       } else {
-        reportTimerRef.current = window.setTimeout(doReport, 300);
+        // 'idle' already waits for the pan or zoom animation to finish, so a short
+        // settle delay is enough; every ms here is added to the wait for new pins.
+        reportTimerRef.current = window.setTimeout(doReport, 120);
       }
     },
     [onViewportChange],
@@ -277,11 +328,26 @@ export function FunderNewRouteMap({
 
   useEffect(() => {
     let cancelled = false;
+    // Start the first pin request now, from where the map is about to open, rather
+    // than after Google Maps has loaded and fired its first 'idle' event (several
+    // seconds on a slow connection). The real bounds Google reports a moment later
+    // match this rectangle, so those reads are served from the same cache.
+    if (!holdingRef.current) {
+      const start = deviceRef.current ?? KAMPALA_CENTRE;
+      const startZoom = deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM;
+      const host = hostRef.current;
+      // A map opened from the dashboard card goes full screen straight away.
+      const width = expandRequest ? window.innerWidth : host?.clientWidth ?? 0;
+      const height = expandRequest ? window.innerHeight : host?.clientHeight ?? 0;
+      if (width > 0 && height > 0) onViewportChange(viewportFromCenter(start, startZoom, width, height));
+    }
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !hostRef.current) return;
-        const initialCenter = device ?? (awaitingDeviceFix ? SERVICE_AREA_CENTRE : KAMPALA_CENTRE);
-        const initialZoom = device ? LOCATED_ZOOM : awaitingDeviceFix ? SERVICE_AREA_ZOOM : KAMPALA_ZOOM;
+        // While a location fix is pending the map shows Kampala (no data is requested
+        // for it); it moves to the person the moment the fix lands.
+        const initialCenter = deviceRef.current ?? KAMPALA_CENTRE;
+        const initialZoom = deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM;
         const map = new google.maps.Map(hostRef.current, {
           center: initialCenter,
           zoom: initialZoom,
@@ -313,6 +379,36 @@ export function FunderNewRouteMap({
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!focus || focus.points.length === 0 || !map || !window.google?.maps) return;
+    if (focus.points.length === 1) {
+      map.panTo(focus.points[0]);
+      map.setZoom(15);
+      return;
+    }
+    const bounds = new google.maps.LatLngBounds();
+    focus.points.forEach((point) => bounds.extend(point));
+    // Keep the matches clear of the floating search bar and the sheet below.
+    map.fitBounds(bounds, {
+      top: reserveTopForSearch ? 96 : 48,
+      bottom: fullscreen ? Math.round(window.innerHeight * 0.5) : 48,
+      left: 40,
+      right: 40,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.token]);
+
+  useEffect(() => {
+    if (holding) return;
+    const map = mapRef.current;
+    if (!map || device || !initialisedRef.current) return;
+    // The wait ended with no fix (error or grace period): load Kampala. A fix that
+    // arrives later still moves the map through the [device] effect below.
+    google.maps.event.trigger(map, 'resize');
+    reportViewport(false, true);
+  }, [holding, device, reportViewport]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map || !device) return;
     map.panTo(device);
     map.setZoom(LOCATED_ZOOM);
@@ -332,16 +428,22 @@ export function FunderNewRouteMap({
     // changed are touched; removed cells are detached, new cells are added.
     const store = markersRef.current;
     const seen = new Set<string>();
+    const selected = new Set(selectedIds);
+    const savedSet = new Set(savedIds);
+    const buildTitle = (cell: FunderNewMapCell, amount: number) =>
+      cell.house
+        ? `${emptyHouseTitle(cell.house)}. ${formatDynamic(amount)} to support.`
+        : `${cell.count} homes in this area from ${formatDynamic(amount)}.`;
+    const toCreate: Array<{ cell: FunderNewMapCell; amount: number; active: boolean; saved: boolean; sig: string }> = [];
     for (const cell of cells) {
       const house = cell.house;
       const id = house?.house_id ?? null;
-      const active = !!id && (selectedIds.includes(id) || activeId === id);
-      const saved = !!id && savedIds.includes(id);
+      const active = !!id && (selected.has(id) || activeId === id);
+      const saved = !!id && savedSet.has(id);
       const amount = cell.amount || (house ? itemAmount('empty', house) : 0);
-      const title = house
-        ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
-        : `${cell.count} homes in this area from ${formatDynamic(amount)}.`;
-      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${saved}|${title}`;
+      // Cheap signature from raw values. The tooltip text (which formats the
+      // amount) is only built for pins that are created or really changed.
+      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${saved}|${cell.count}|${id ?? ''}`;
       seen.add(cell.key);
       const existing = store.get(cell.key);
       if (existing) {
@@ -350,28 +452,11 @@ export function FunderNewRouteMap({
         existing.sig = sig;
         existing.marker.setPosition({ lat: cell.lat, lng: cell.lng });
         existing.marker.setIcon(getPricePinIcon(amount, active, saved));
-        existing.marker.setTitle(title);
+        existing.marker.setTitle(buildTitle(cell, amount));
         existing.marker.setZIndex(active ? 30 : saved ? 25 : 10);
         continue;
       }
-      const marker = new google.maps.Marker({
-        map,
-        position: { lat: cell.lat, lng: cell.lng },
-        title,
-        icon: getPricePinIcon(amount, active, saved),
-        zIndex: active ? 30 : saved ? 25 : 10,
-        optimized: true,
-      });
-      const entry = { marker, sig, cell };
-      marker.addListener('click', () => {
-        const current = entry.cell;
-        if (current.house) onOpenHouseRef.current(current.house);
-        else {
-          map.panTo({ lat: current.lat, lng: current.lng });
-          map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
-        }
-      });
-      store.set(cell.key, entry);
+      toCreate.push({ cell, amount, active, saved, sig });
     }
     for (const [key, entry] of store) {
       if (!seen.has(key)) {
@@ -380,10 +465,57 @@ export function FunderNewRouteMap({
         store.delete(key);
       }
     }
+
+    // Pins nearest the middle of the screen are created first, so what the person
+    // is looking at appears before the edges fill in.
+    const centre = map.getCenter();
+    if (centre && toCreate.length > 1) {
+      const centreLat = centre.lat();
+      const centreLng = centre.lng();
+      const distance = (cell: FunderNewMapCell) => (cell.lat - centreLat) ** 2 + (cell.lng - centreLng) ** 2;
+      toCreate.sort((a, b) => distance(a.cell) - distance(b.cell));
+    }
+
+    // A new area can bring hundreds of pins at once. Creating them all in one
+    // go blocks the main thread (a visible hitch on phones), so they are added a
+    // slice per tick (about one frame apart). A newer sync cancels the unfinished slices; the cells it
+    // still lacks are simply picked up again by that sync.
+    const job = ++markerJobRef.current;
+    const SLICE = 50;
+    const createSlice = (start: number) => {
+      if (job !== markerJobRef.current || mapRef.current !== map) return;
+      const end = Math.min(start + SLICE, toCreate.length);
+      for (let index = start; index < end; index += 1) {
+        const { cell, amount, active, saved, sig } = toCreate[index];
+        const marker = new google.maps.Marker({
+          map,
+          position: { lat: cell.lat, lng: cell.lng },
+          title: buildTitle(cell, amount),
+          icon: getPricePinIcon(amount, active, saved),
+          zIndex: active ? 30 : saved ? 25 : 10,
+          optimized: true,
+        });
+        const entry = { marker, sig, cell };
+        marker.addListener('click', () => {
+          const current = entry.cell;
+          if (current.house) onOpenHouseRef.current(current.house);
+          else {
+            map.panTo({ lat: current.lat, lng: current.lng });
+            map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
+          }
+        });
+        store.set(cell.key, entry);
+      }
+      // A timer, not requestAnimationFrame: frames stop in a backgrounded tab, and the
+      // pins should still finish arriving there.
+      if (end < toCreate.length) window.setTimeout(() => createSlice(end), 16);
+    };
+    createSlice(0);
   }, [cells, selectedIds, savedIds, activeId]);
 
   useEffect(
     () => () => {
+      markerJobRef.current += 1;
       markersRef.current.forEach((entry) => entry.marker.setMap(null));
       markersRef.current.clear();
     },
@@ -458,6 +590,19 @@ export function FunderNewRouteMap({
     onExpandedChange?.(fullscreen);
   }, [fullscreen, onExpandedChange]);
 
+  // Reset: put the map back where it started (the person's position if known,
+  // otherwise Kampala) and ask the page to reload the pins fresh. In place, no remount.
+  const handleResetClick = useCallback(() => {
+    setMoved(null);
+    const map = mapRef.current;
+    if (map) {
+      const home = deviceRef.current;
+      map.panTo(home ?? KAMPALA_CENTRE);
+      map.setZoom(home ? LOCATED_ZOOM : KAMPALA_ZOOM);
+    }
+    onReset();
+  }, [onReset]);
+
   const controls = useMemo(
     () => (
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -477,23 +622,23 @@ export function FunderNewRouteMap({
         ) : null}
         <div className={cn(
           "pointer-events-auto flex flex-col gap-2",
-          fullscreen ? "absolute top-3 right-3 z-30 pt-safe" : "absolute bottom-7 right-2 sm:right-3"
+          fullscreen ? (reserveTopForSearch ? "absolute top-[4.75rem] right-3 z-30 pt-safe" : "absolute top-3 right-3 z-30 pt-safe") : "absolute bottom-7 right-2 sm:right-3"
         )}>
           {canUseLocation ? (
-            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
+            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
               {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Crosshair className={cn('h-4 w-4', device && 'text-primary')} aria-hidden />}
             </Button>
           ) : null}
-          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
+          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
             {fullscreen ? <X className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </Button>
-          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
+          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-lg" onClick={handleResetClick} aria-label="Reset the map view">
             <RotateCcw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
     ),
-    [areaSearchValue, canUseLocation, device, fullscreen, locating, moved, onAreaSearchChange, onReset, onSearchThisArea, onUseMyLocation],
+    [areaSearchValue, canUseLocation, device, fullscreen, handleResetClick, locating, moved, onAreaSearchChange, onSearchThisArea, onUseMyLocation, reserveTopForSearch],
   );
 
   return (
@@ -501,9 +646,13 @@ export function FunderNewRouteMap({
       <div ref={hostRef} className="h-full w-full" aria-label="Google map of available homes" />
       {mapError ? <div className="absolute inset-0 grid place-items-center bg-muted p-6 text-center text-sm text-muted-foreground">{mapError}</div> : null}
       {controls}
+      {fullscreen && notice ? (
+        // Clear of the floating search bar above and the round buttons on the right.
+        <div className="pointer-events-none absolute left-3 right-[4.5rem] top-[4.75rem] z-20 pt-safe">{notice}</div>
+      ) : null}
       <p className={cn(
-        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
-        fullscreen ? "top-3 left-3 pt-safe hidden sm:block" : "bottom-6"
+        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-full bg-card/95 px-3 py-1.5 text-xs font-medium leading-tight text-muted-foreground shadow-md backdrop-blur",
+        fullscreen ? (reserveTopForSearch ? (notice ? "top-[9.75rem] left-3 pt-safe hidden sm:block" : "top-[4.75rem] left-3 pt-safe hidden sm:block") : "top-3 left-3 pt-safe hidden sm:block") : "bottom-6"
       )}>{loadedNote}</p>
     </div>
   );

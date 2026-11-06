@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
-import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import { useMerchantAgentMoneyOwed } from '@/hooks/useMerchantAgentMoneyOwed';
 import { MoneyWeCanUseBreakdown } from '@/components/cfo/MoneyWeCanUseBreakdown';
@@ -78,10 +77,14 @@ export function CFOOverviewDashboard({
     setOpenSections((prev) => ({ ...prev, [key]: prev[key] === false }));
   const { user } = useAuth();
   const {
-    platformCash, position, positionError, liabilities, revenue, receivables, moneyFlow,
-    todayCashFlow, isLoading
-  } = useCFOOverviewData();
-  const { data: sevenDayCashFlow } = useCFO7DayCashFlow();
+    platformCash, position, positionError, liabilities, receivables,
+    todayCashFlow, platformCashLoading, platformCashError, refetchPlatformCash, positionLoading,
+    receivablesLoading, receivablesError,
+  } = useCFOOverviewData({
+    cashDetails: activeBreakdown === 'cash' || activeBreakdown === 'wallets',
+    cashVisible: showCashPosition,
+    todayDetails: ['cashIn', 'cashOut', 'netCash'].includes(activeBreakdown ?? ''),
+  });
   const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
   const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
@@ -96,7 +99,7 @@ export function CFOOverviewDashboard({
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) => {
           const key = String(queryKey[0] ?? '');
-          return key.startsWith('cfo-') || key.includes('actual-money') || key.includes('merchant');
+          return key.startsWith('cfo-') || key === 'receivables-total' || key.includes('actual-money') || key.includes('merchant');
         },
       });
       toast.success('Cash position refreshed');
@@ -161,21 +164,13 @@ export function CFOOverviewDashboard({
       a.click();
       URL.revokeObjectURL(url);
       toast.success(`Exported ${data.length} commission records`);
-    } catch (e: any) {
-      toast.error(e.message || 'Export failed');
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : 'Export failed');
     } finally {
       setExportingCommissions(false);
     }
   }, []);
 
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
 
   // Cash comes from the Balance Sheet's own statement, so these cards and the
   // Balance Sheet cannot disagree. Bank (A1) and cash held outside the bank
@@ -183,7 +178,7 @@ export function CFOOverviewDashboard({
   const totalCash = position?.totalCash ?? 0;
   const bankCash = position?.bank ?? 0;
   const outsideBankCash = position?.outsideBank ?? 0;
-  const positionUnavailable = !!positionError;
+  const positionUnavailable = positionLoading || !!positionError;
   const totalLiabilities = liabilities?.totalLiabilities ?? 0;
   const walletTotal = liabilities?.tenantFunds ?? 0;
   const actualMoneyTotal = actualMoney?.total ?? 0;
@@ -219,7 +214,8 @@ export function CFOOverviewDashboard({
 
   /* ── presentation-only derivations (no new data sources) ── */
   const firstName = (() => {
-    const raw = (user?.user_metadata as any)?.full_name || user?.email || '';
+    const meta = user?.user_metadata as Record<string, unknown> | undefined;
+    const raw = (meta?.full_name as string | undefined) || user?.email || '';
     const first = String(raw).split(/[\s@.]+/)[0] || '';
     return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'there';
   })();
@@ -228,8 +224,6 @@ export function CFOOverviewDashboard({
   const todayLabel = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 
-  const cashFlowDays = sevenDayCashFlow?.days ?? [];
-  const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
   const monthRangeLabel = (() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -239,7 +233,7 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className={cashPositionOnly ? 'cash-position-page max-w-7xl mx-auto' : 'space-y-6 max-w-7xl mx-auto'}>
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
       {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -268,21 +262,29 @@ export function CFOOverviewDashboard({
       </div>}
 
       {cashPositionOnly && (
-        <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div className="cash-position-heading flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between border-b border-border/60 pb-5">
           <div>
-            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary">Finance command centre</p>
-            <h1 className="font-serif text-3xl font-semibold tracking-normal sm:text-4xl">Cash Position</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{greeting}, CFO. Live liquidity, obligations and cash movement.</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                Treasury &amp; Liquidity Command Centre
+              </p>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Cash Position</h1>
+            <p className="mt-1 text-xs text-muted-foreground max-w-xl leading-relaxed">
+              Real-time available float, verified bank balances, obligations, and liquidity velocity.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium shadow-sm">
-              <CalendarDays className="h-4 w-4 text-primary" />
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <div className="flex h-9 items-center gap-2 rounded-lg border border-border/80 bg-card px-3 text-xs font-medium shadow-2xs">
+              <CalendarDays className="h-3.5 w-3.5 text-primary" />
               {monthRangeLabel}
             </div>
-            <Button variant="outline" size="sm" className="h-10 rounded-md" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
-              <RefreshCw className={refreshingCashPosition ? 'animate-spin' : ''} />
+            <Button variant="outline" size="sm" className="h-9 rounded-lg gap-1.5 text-xs font-medium border-border/80 shadow-2xs hover:bg-muted/80" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
+              <RefreshCw className={`h-3.5 w-3.5 ${refreshingCashPosition ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
+            <p className="w-full text-right text-[11px] text-muted-foreground/80 tabular-nums">Last updated: {actualUpdatedAt ? new Date(actualUpdatedAt).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) + ' EAT' : '—'}</p>
           </div>
         </div>
       )}
@@ -293,7 +295,6 @@ export function CFOOverviewDashboard({
           how it moved → the advances book → lookup tools.
          ══════════════════════════════════════════════════════════════ */}
       <div className="space-y-6">
-
         {/* ─────────── 1 · CASH POSITION ─────────── */}
         {showCashPosition && <Band
           title="Cash Position"
@@ -305,7 +306,7 @@ export function CFOOverviewDashboard({
           {/* Four across and two down on wide screens; two across on tablets
               and one on phones, because below ~1280px the UGX amounts stop
               fitting on one line inside a quarter of the page. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className={cashPositionOnly ? 'cash-position-kpis' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3'}>
 
             <Card className="rounded-xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full min-w-0">
               <CardContent className="p-4 h-full flex flex-col">
@@ -460,7 +461,7 @@ export function CFOOverviewDashboard({
               icon={<Package className="h-4 w-4" />}
               tone="warning"
               title="Money We Owe"
-              value={fmt(moneyWeOweTotal)}
+              value={merchantOwedLoading || !merchantOwed ? '—' : fmt(moneyWeOweTotal)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeOweTotal, actualMoneyTotal)}
               percentageDirection="down"
               percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeOweTotal : undefined}
@@ -475,7 +476,7 @@ export function CFOOverviewDashboard({
               icon={<BarChart3 className="h-4 w-4" />}
               tone="info"
               title="Money We Can Use"
-              value={fmt(moneyWeCanUse)}
+              value={actualLoading || !actualMoney || merchantOwedLoading || !merchantOwed ? '—' : fmt(moneyWeCanUse)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeCanUse, actualMoneyTotal)}
               percentageDirection="up"
               percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeCanUse : undefined}
@@ -553,7 +554,7 @@ export function CFOOverviewDashboard({
           </div>
 
           {/* Transaction-level reconciliation behind Money We Can Use. */}
-          <MoneyWeCanUseBreakdown />
+          {!cashPositionOnly && <MoneyWeCanUseBreakdown />}
 
         </Band>}
 
@@ -567,7 +568,12 @@ export function CFOOverviewDashboard({
             moneyWeCanUse={moneyWeCanUse}
             moneyWeOwe={moneyWeOweTotal}
             bankReconciled={actualMoney?.bankedInSync}
+            receivablesReady={!receivablesLoading && !receivablesError && !!receivables}
+            moneyReady={!actualLoading && !!actualMoney && !merchantOwedLoading && !!merchantOwed}
             onNavigate={onTabChange}
+            accountMoney={actualMoney}
+            accountUpdatedAt={actualUpdatedAt}
+            onSelectAccount={setActualMoneyLine}
           />
         )}
 
@@ -588,6 +594,10 @@ export function CFOOverviewDashboard({
       {/* ── BREAKDOWNS ── */}
       <CashSourcesSheet
         open={activeBreakdown === 'cash'}
+        loading={platformCashLoading}
+        loadError={platformCashError}
+        reconciliationReady={!positionLoading && !positionError && !!position}
+        onRetry={() => { void refetchPlatformCash(); void queryClient.invalidateQueries({ queryKey: ['cfo-overview-position'] }); }}
         onOpenChange={(o) => !o && setActiveBreakdown(null)}
         totalCash={totalCash}
         a1={platformCash?.a1 ?? 0}

@@ -16,6 +16,8 @@
  * given API is the reason the app couldn't boot.
  */
 
+import { isProductionStartupHost } from './startupBoot';
+
 /** Feature-detection probes. Each returns true when the feature IS present. */
 function runFeatureChecks(): { supported: string[]; missing: string[] } {
   const checks: Record<string, () => boolean> = {
@@ -145,6 +147,14 @@ export interface StartupCrashInput {
  */
 export async function reportStartupCrash(input: StartupCrashInput): Promise<void> {
   if (reported) return;
+  // Preview, Lovable editor and localhost were almost all of the
+  // startup-timeout-slow volume. Same rule as errorReporting: only the
+  // public hosts reach public_error_logs. Console still traces locally.
+  if (typeof window !== 'undefined' && !isProductionStartupHost(window.location.hostname)) {
+    reported = true;
+    console.error('[startupCrash:suppressed]', input.reason);
+    return;
+  }
   reported = true;
 
   try {

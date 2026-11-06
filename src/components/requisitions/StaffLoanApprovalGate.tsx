@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { hasUsableUserSession, useAuthenticatedAudience, useAuthenticatedPoll } from '@/hooks/useAuthenticatedPoll';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -21,6 +22,7 @@ import {
  * FAIL OPEN: the modal renders only when `staff_loan_pending_prompt()` succeeds
  * AND returns a row. Any error, timeout or offline state leaves the app fully
  * usable. No role check is performed; the rpc alone decides who is prompted.
+ * The poll waits for a signed-in session — a missing or expired user JWT is not sent.
  *
  * The client never writes wallet_credit_status — only `staff_loan_disburse`
  * may mark a loan disbursed, because it posts the ledger entries in the same
@@ -68,9 +70,11 @@ export function StaffLoanApprovalGate() {
   const [rejectReason, setRejectReason] = useState('');
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
+  const ready = useAuthenticatedAudience();
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
+    if (!(await hasUsableUserSession())) { setPrompt(null); return; }
     try {
       const { data, error } = await supabase.rpc('staff_loan_pending_prompt' as never);
       if (error) { setPrompt(null); return; }
@@ -85,11 +89,8 @@ export function StaffLoanApprovalGate() {
     }
   }, []);
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => { void load(); }, POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useAuthenticatedPoll(load, POLL_MS);
+  useEffect(() => { if (!ready) setPrompt(null); }, [ready]);
 
   useEffect(() => {
     setDeclining(false);

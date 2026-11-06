@@ -52,7 +52,7 @@ export default defineTool({
   name: "estimate_supporter_returns",
   title: "Estimate Supporter Returns (illustrative)",
   description:
-    "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time (based on 15% monthly platform rewards), then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested) — it is an illustration only, not a guarantee; actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+    "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target 15%, not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
   inputSchema: {
     amount: z
       .number()
@@ -152,7 +152,7 @@ export default defineTool({
       )} depending on horizon and whether Returns are paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Platform rewards of ${REWARD_RATE * 100}% a month on the supported amount.`,
+        `Partner Returns target 15%, not guaranteed. This illustration uses ${REWARD_RATE * 100}% a month on the supported amount.`,
         "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
         projections.length > 1
           ? `No horizon was given, so ${DEFAULT_DURATIONS.join("/")}-month options are compared.`
@@ -178,7 +178,7 @@ export default defineTool({
         })),
       },
       disclaimers: [
-        "This is an illustration only — not a guarantee of Returns.",
+        "Partner Returns target 15%, not guaranteed. This is an illustration only.",
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period.",
       ],

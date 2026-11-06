@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
+import { isPlaceholderRecipient } from "../_shared/recipientMailbox.ts";
+import { maskEmail } from "../_shared/twoFactorEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,13 +34,78 @@ function normalizePhone(raw: string): string | null {
   }
   // Bare 9-digit Ugandan number without any prefix (e.g. 771234567)
   if (!hadPlus && d.length === 9) return `+256${d}`;
-  // Explicit international number: + followed by 9-15 digits
-  if (hadPlus && d.length >= 9 && d.length <= 15) return `+${d}`;
+  // International number, with or without the +: 9-15 digits starting with a country code
+  // (a bare 9-digit number is Ugandan, handled above)
+  if (d.length >= 9 && d.length <= 15) return `+${d}`;
   return null;
 }
 
 const OLD_CODE_TTL_MS = 10 * 60 * 1000;
 const MAX_CHALLENGES_PER_HOUR = 5;
+// An inbox must have been on the account this long before it can approve a
+// phone change. Without it, a stolen session could verify the attacker's own
+// inbox (email-verify-request/confirm needs only a session) and then approve
+// the SIM move from there.
+const EMAIL_SETTLE_DAYS = 7;
+
+type ApprovalEmail =
+  | { ok: true; email: string }
+  | { ok: false; reason: "no_email" | "email_too_new" | "check_failed"; usableFrom?: string };
+
+/**
+ * The inbox the approval code goes to. There is no other channel: without a
+ * settled, confirmed inbox the user is told to add one first.
+ *
+ * Read from auth.users, never profiles.email: a signed-in user can write
+ * profiles.email straight from the browser, so it proves nothing. The
+ * EmailEditor flow (email-verify-request/confirm) proves the inbox and then
+ * syncs it to auth.users with email_confirmed_at set.
+ */
+// deno-lint-ignore no-explicit-any
+async function resolveApprovalEmail(admin: any, caller: any): Promise<ApprovalEmail> {
+  const email = String(caller?.email ?? "").trim().toLowerCase();
+  if (isPlaceholderRecipient(email) || !caller?.email_confirmed_at) {
+    return { ok: false, reason: "no_email" };
+  }
+
+  const settleMs = EMAIL_SETTLE_DAYS * 24 * 60 * 60 * 1000;
+  const since = new Date(Date.now() - settleMs).toISOString();
+  let latestChange = 0;
+
+  // Changed through Supabase's own email-change flow.
+  const changeSentAt = caller?.email_change_sent_at ? Date.parse(caller.email_change_sent_at) : NaN;
+  if (Number.isFinite(changeSentAt) && changeSentAt >= Date.now() - settleMs) latestChange = changeSentAt;
+
+  // Changed through our email-verify flow. Re-proving the SAME address
+  // (Agent Verification does this) is not a change and does not count.
+  const { data: recent, error } = await admin
+    .from("email_verification_challenges")
+    .select("new_email, old_email, verified_at")
+    .eq("user_id", caller.id)
+    .not("verified_at", "is", null)
+    .gte("verified_at", since)
+    .limit(50);
+  if (error) {
+    console.error("email settle check failed", error);
+    return { ok: false, reason: "check_failed" };
+  }
+  for (const r of (recent ?? []) as { new_email: string | null; old_email: string | null; verified_at: string }[]) {
+    const isChange = String(r.new_email ?? "").trim().toLowerCase() !== String(r.old_email ?? "").trim().toLowerCase();
+    const at = Date.parse(r.verified_at);
+    if (isChange && Number.isFinite(at) && at > latestChange) latestChange = at;
+  }
+
+  if (latestChange > 0) {
+    return { ok: false, reason: "email_too_new", usableFrom: new Date(latestChange + settleMs).toISOString() };
+  }
+  return { ok: true, email };
+}
+
+function formatEat(iso: string): string {
+  return new Date(iso).toLocaleString("en-UG", {
+    timeZone: "Africa/Kampala", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+}
 
 function generateOtp(): string {
   const buf = new Uint32Array(1);
@@ -51,10 +118,6 @@ async function sha256(s: string): Promise<string> {
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function maskPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  return digits.length < 6 ? "•••••" : `+••• ••• ${digits.slice(-3)}`;
-}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -107,10 +170,12 @@ serve(async (req) => {
       return json({ error: "Please verify this phone number with an SMS code before saving." }, 403);
     }
 
-    // ── Proof of the CURRENT login phone ─────────────────────────────────
+    // ── Second proof: the account's email inbox ──────────────────────────
     // Verifying only the NEW number lets anyone holding a live session (stolen
     // password, unlocked handset) move the account to a SIM they control. A
-    // code sent to the number being replaced must also be presented. The
+    // code emailed to the account's settled inbox must also be presented (it
+    // used to go by SMS to the number being replaced; since 2026-11-04 it is
+    // email only, and users without an inbox are told to add one). The
     // challenge is bound to this user and to this exact target number, is
     // single-use, and is stored hashed.
     const { data: prof } = await adminClient
@@ -124,9 +189,26 @@ serve(async (req) => {
 
     if (body?.action === "request_old_phone_code") {
       if (!hasOldPhone) return json({ success: true, not_required: true });
-      if (!isUgandanPhone(oldPhone)) {
-        return json({ error: "We cannot text your current number. Please contact support to change your login phone." }, 400);
+      // The approval code goes to the account's email inbox only. The new
+      // number is already proven by its own SMS code (otp_verifications above).
+      const approval = await resolveApprovalEmail(adminClient, caller);
+      if (!approval.ok) {
+        if (approval.reason === "no_email") {
+          return json({
+            error: "Add and confirm an email address first (Settings → Profile → Contact). We send the code to approve a phone change to your email.",
+            code: "email_required",
+          }, 400);
+        }
+        if (approval.reason === "email_too_new") {
+          return json({
+            error: `Your email was added or changed recently. For your safety it can approve a phone change from ${formatEat(approval.usableFrom!)} (EAT).`,
+            code: "email_too_new",
+            usable_from: approval.usableFrom,
+          }, 400);
+        }
+        return json({ error: "Could not check your email. Please try again." }, 500);
       }
+      const approvalEmail = approval.email;
       const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
       const { count } = await adminClient
         .from("phone_change_otp_challenges")
@@ -152,23 +234,52 @@ serve(async (req) => {
         })
         .select("id").single();
       if (chErr || !ch) return json({ error: "Could not create verification code" }, 500);
-      await sendSMS(
-        oldPhone,
-        `Welile code ${code}: approve login phone change to ***${last9.slice(-3)}. Valid 10 min. Not you? Don't share it, call support.`,
-        { admin: adminClient, source: "phone_change_old_number_otp", reference_id: ch.id, recipient_user_id: caller.id },
-      );
+
+      const { data: prof2 } = await adminClient
+        .from("profiles").select("full_name").eq("id", caller.id).maybeSingle();
+      const { data: mailRes, error: mailErr } = await adminClient.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "phone-change-code",
+          recipientEmail: approvalEmail,
+          idempotencyKey: `phone-change-code-${ch.id}`,
+          templateData: {
+            code,
+            userName: String(prof2?.full_name ?? "").split(" ")[0] || "there",
+            newPhoneLast3: last9.slice(-3),
+            requestedAt: new Date().toISOString(),
+            minutesValid: OLD_CODE_TTL_MS / 60000,
+          },
+        },
+      });
+      // send-transactional-email answers 200 with { success: false } when it
+      // declines (suppressed recipient, provider refusal), so check both.
+      const declined = mailRes && (mailRes as { success?: boolean }).success === false;
+      if (mailErr || declined) {
+        console.error("phone change code email failed", mailErr ?? mailRes);
+        await adminClient.from("phone_change_otp_challenges").update({ status: "expired" }).eq("id", ch.id);
+        return json({ error: "We could not email your approval code. Please try again in a few minutes." }, 502);
+      }
+
       await adminClient.from("audit_logs").insert({
         user_id: caller.id, action_type: "user_phone_change_code_requested",
         table_name: "profiles", record_id: caller.id, reason: "settings_self_service",
-        metadata: { to_last3: last9.slice(-3) },
+        metadata: { to_last3: last9.slice(-3), channel: "email" },
       });
-      return json({ success: true, masked_phone: maskPhone(oldPhone), expires_in_seconds: OLD_CODE_TTL_MS / 1000 });
+      const maskedDestination = maskEmail(approvalEmail);
+      return json({
+        success: true,
+        channel: "email",
+        masked_destination: maskedDestination,
+        // Kept for older app builds, which read only this field.
+        masked_phone: maskedDestination,
+        expires_in_seconds: OLD_CODE_TTL_MS / 1000,
+      });
     }
 
     if (hasOldPhone) {
       const oldCode = typeof body?.old_phone_code === "string" ? body.old_phone_code.trim() : "";
       if (!/^\d{6}$/.test(oldCode)) {
-        return json({ error: "old_phone_code_required", message: `Enter the 6-digit code we sent to your current number ${maskPhone(oldPhone)}.` }, 403);
+        return json({ error: "Enter the 6-digit approval code we emailed you.", code: "old_phone_code_required" }, 403);
       }
       const { data: ch } = await adminClient
         .from("phone_change_otp_challenges")
@@ -180,16 +291,16 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (!ch || new Date(ch.otp_expires_at) < new Date()) {
-        return json({ error: "old_phone_code_expired", message: "That code has expired. Request a new one." }, 403);
+        return json({ error: "That code has expired. Request a new one.", code: "old_phone_code_expired" }, 403);
       }
       if (ch.attempts >= ch.max_attempts) {
         await adminClient.from("phone_change_otp_challenges").update({ status: "failed" }).eq("id", ch.id);
-        return json({ error: "old_phone_code_locked", message: "Too many wrong attempts. Request a new code." }, 429);
+        return json({ error: "Too many wrong attempts. Request a new code.", code: "old_phone_code_locked" }, 429);
       }
       if ((await sha256(oldCode)) !== ch.otp_hash) {
         await adminClient.from("phone_change_otp_challenges")
           .update({ attempts: ch.attempts + 1 }).eq("id", ch.id);
-        return json({ error: "old_phone_code_invalid", message: "That code is incorrect." }, 403);
+        return json({ error: "That code is incorrect.", code: "old_phone_code_invalid" }, 403);
       }
       // Single use: burn it before any state changes so a replay cannot succeed.
       await adminClient.from("phone_change_otp_challenges")

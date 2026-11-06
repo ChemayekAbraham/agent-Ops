@@ -46,3 +46,9 @@ export function kampalaLabel(ymd: string): string {
     timeZone: TZ,
   });
 }
+
+/** Calendar day `days` away from a YYYY-MM-DD day (Kampala calendar). */
+export function shiftKampalaDays(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days, 12)).toISOString().slice(0, 10);
+}

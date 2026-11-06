@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,27 +42,26 @@ export function TenantTransferPanel() {
     staleTime: 300000,
   });
 
+  const debouncedAgentSearch = useDebouncedValue(targetAgentSearch, 300);
   // Search agents
   const { data: agentResults } = useQuery({
-    queryKey: ['search-agents-transfer', targetAgentSearch],
+    queryKey: ['search-agents-transfer', debouncedAgentSearch],
     queryFn: async () => {
-      if (targetAgentSearch.length < 3) return [];
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${targetAgentSearch}%,phone.ilike.%${targetAgentSearch}%`)
-        .limit(10);
-      // Filter to only agents
-      if (!data || data.length === 0) return [];
+      if (debouncedAgentSearch.trim().length < 3) return [];
+      const { rows } = await searchProfilesTypeahead(debouncedAgentSearch, {
+        limit: 10,
+        columns: 'id, full_name, phone',
+      });
+      if (rows.length === 0) return [];
       const { data: agentRoles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .in('user_id', data.map(d => d.id))
+        .in('user_id', rows.map(d => d.id))
         .eq('role', 'agent');
       const agentIds = new Set((agentRoles || []).map(r => r.user_id));
-      return data.filter(d => agentIds.has(d.id));
+      return rows.filter(d => agentIds.has(d.id));
     },
-    enabled: targetAgentSearch.length >= 3,
+    enabled: debouncedAgentSearch.trim().length >= 3,
     staleTime: 30000,
   });
 

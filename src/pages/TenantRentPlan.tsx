@@ -9,6 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useTenantRentPlan, usePayRentFromWallet } from '@/hooks/useTenantRentPlan';
+import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 
 /* ── Helpers ─────────────────────────────────────────────── */
@@ -301,6 +302,8 @@ export default function TenantRentPlan() {
             <p className="text-[11px] text-muted-foreground">{scoreLabel}</p>
           </div>
         </motion.div>
+
+        <V360PlanCaptions rentRequestId={plan.id} />
 
         {/* ── Make a Repayment CTA ── */}
         <motion.div

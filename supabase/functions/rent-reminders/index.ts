@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { RENT_ACCESS_CAMPAIGN_NOTE } from '../_shared/tenantTemplates.ts';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -132,6 +133,7 @@ serve(async (req) => {
           }
         }
 
+        message += ` ${RENT_ACCESS_CAMPAIGN_NOTE}`;
         // Create notification
         const { error: notifError } = await supabase.from("notifications").insert({
           user_id: tenantId,

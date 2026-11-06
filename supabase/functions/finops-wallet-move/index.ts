@@ -41,6 +41,16 @@ const REASON_CODES: Record<string, string> = {
   other: "Other",
 };
 
+/** Reason codes that reverse an earlier credit: these must name the credit (reverses_group_id). */
+export const REVERSAL_REASON_CODES = new Set([
+  "duplicate_credit",
+  "wrong_user",
+  "wrong_recipient",
+  "failed_funding_reversal",
+  "wrong_bucket",
+  "test_transaction",
+]);
+
 /** Wallet ledger categories that represent income the user has already EARNED. */
 const COMMISSION_CATEGORIES = [
   "agent_commission",
@@ -184,6 +194,24 @@ Deno.serve(async (req) => {
       return json({ error: "A reason note of at least 10 characters is required." }, 400);
     }
     const reason = `[${REASON_CODES[reasonCode]}] ${reasonNote}`;
+
+    // ── Linked reversals (2026-11-04 agent-advance controls) ─────────────
+    // A correction that reverses a credit names the transaction it reverses. The database reserves it against that
+    // credit (reserve_wallet_reversal): reversals of one credit can never add up to more than the credit, and reversing an
+    // advance payout reduces the advance (A10) instead of booking the money to equity.
+    // The panel's existing "related transaction" field is accepted when it is a transaction id.
+    const reversesGroupId: string = String(
+      body?.reverses_group_id ?? (UUID_RE.test(relatedTransactionId) ? relatedTransactionId : ""),
+    ).trim();
+    if (reversesGroupId && !UUID_RE.test(reversesGroupId)) {
+      return json({ error: "reverses_group_id must be the transaction id of the credit being reversed.", field: "reverses_group_id" }, 400);
+    }
+    if (mode === "error_correction" && REVERSAL_REASON_CODES.has(reasonCode) && !reversesGroupId) {
+      return json({
+        error: "This correction reverses a credit: choose the transaction it reverses (reverses_group_id), so it cannot exceed the original.",
+        field: "reverses_group_id",
+      }, 400);
+    }
 
     // ── Confirm the source has enough in the chosen bucket (NO overdraw) ───
     const { data: srcWallet, error: srcErr } = await adminClient
@@ -462,6 +490,7 @@ Deno.serve(async (req) => {
 
     let entries: Record<string, unknown>[];
     let refId: string;
+    let reversal: { link_id: string; advance_id: string | null; platform_category: string | null } | null = null;
 
     if (mode === "user_to_user") {
       refId = `FXW-${crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
@@ -492,6 +521,21 @@ Deno.serve(async (req) => {
     } else {
       // error_correction: wallet leg out, platform leg in (system_balance_correction)
       refId = `ECW-${crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+      if (reversesGroupId) {
+        const { data: rv, error: rvErr } = await adminClient.rpc("reserve_wallet_reversal", {
+          p_original_group: reversesGroupId,
+          p_user: sourceUserId,
+          p_amount: amount,
+          p_reference: refId,
+          p_actor: authedUser.id,
+        });
+        if (rvErr) return json({ error: rvErr.message, field: "reverses_group_id" }, 400);
+        reversal = rv as { link_id: string; advance_id: string | null; platform_category: string | null };
+        if (reversal?.advance_id && sourceBucket !== "withdrawable") {
+          await adminClient.rpc("settle_wallet_reversal", { p_link_id: reversal.link_id, p_reversal_group: null });
+          return json({ error: "An advance payout was credited to Withdrawable; reverse it from Withdrawable." }, 400);
+        }
+      }
       entries = [
         bucketLeg(
           sourceUserId,
@@ -509,13 +553,16 @@ Deno.serve(async (req) => {
           // the wallet leg: a withdrawable claw-back debits the liability, so the
           // platform side must credit (balance_correction → E3); a float claw-back
           // credits the float asset, so the platform side must debit (A9).
-          user_id: null,
+          // A reversed advance payout credits the advance (A10, agent_advance_reversed) - the advance is reduced by
+          // settle_wallet_reversal - instead of booking the money to equity while the advance still carries it.
+          user_id: reversal?.advance_id ? sourceUserId : null,
           amount,
           direction: "cash_in",
-          category: sourceBucket === "float" ? "system_balance_correction" : "balance_correction",
+          category: reversal?.platform_category ?? (sourceBucket === "float" ? "system_balance_correction" : "balance_correction"),
           ledger_scope: "platform",
           routing_source: "finops_wallet_move",
-          source_table: "finops_wallet_move",
+          source_table: reversal?.advance_id ? "agent_advances" : "finops_wallet_move",
+          ...(reversal?.advance_id ? { source_id: reversal.advance_id } : {}),
           reference_id: refId,
           currency: "UGX",
           transaction_date: nowIso,
@@ -538,8 +585,15 @@ Deno.serve(async (req) => {
       referenceId: refId,
       skipBalanceCheck: true,
     });
-    if (!posted.ok) return json({ error: posted.error }, 500);
+    if (!posted.ok) {
+      if (reversal) await adminClient.rpc("settle_wallet_reversal", { p_link_id: reversal.link_id, p_reversal_group: null });
+      return json({ error: posted.error }, 500);
+    }
     const groupId = posted.groupId;
+    if (reversal) {
+      const { error: stErr } = await adminClient.rpc("settle_wallet_reversal", { p_link_id: reversal.link_id, p_reversal_group: groupId });
+      if (stErr) console.error("settle_wallet_reversal failed", reversal.link_id, stErr.message);
+    }
 
     // Refresh cached totals (buckets are derived by the view; this keeps the
     // cached `balance` column in step).

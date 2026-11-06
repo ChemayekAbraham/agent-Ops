@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -132,32 +133,19 @@ export function RoleManagementPanel() {
 
   const runSearch = useCallback(async (raw?: string, notifyEmpty = false) => {
     const q = (raw ?? query).trim();
-    if (q.length < 2) { setResults([]); return; }
+    if (q.length < PROFILE_TYPEAHEAD_MIN_CHARS) { setResults([]); return; }
     setSearching(true);
     setSelected(null);
     try {
-      const filters = [
-        `full_name.ilike.%${q}%`,
-        `email.ilike.%${q}%`,
-        `phone.ilike.%${q}%`,
-      ];
-      // Phone-friendly matching: strip spaces, dashes, +, brackets and also try
-      // the local form (drop a leading country code / leading zero) so "0772…",
-      // "+256772…" and "772…" all find the same user.
-      const digits = q.replace(/[^0-9]/g, '');
-      if (digits.length >= 3) {
-        filters.push(`phone.ilike.%${digits}%`);
-        const local = digits.replace(/^(00?256|256|0)/, '');
-        if (local && local !== digits) filters.push(`phone.ilike.%${local}%`);
-      }
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, phone, avatar_url')
-        .or(filters.join(','))
-        .limit(25);
-      if (error) throw error;
-      setResults(data || []);
-      if (notifyEmpty && (data || []).length === 0) toast.info('No users match that search');
+      // search_users_fast matches a phone on the last 9 digits, so 0772…,
+      // +256772… and 772… resolve to the same person without an ILIKE OR.
+      const { rows, error } = await searchProfilesTypeahead(q, {
+        limit: 25,
+        columns: 'id, full_name, email, phone, avatar_url',
+      });
+      if (error) throw new Error(error);
+      setResults(rows as FoundUser[]);
+      if (notifyEmpty && (rows || []).length === 0) toast.info('No users match that search');
     } catch (err: any) {
       console.error('User search error:', err);
       toast.error('Failed to search users');
@@ -169,7 +157,7 @@ export function RoleManagementPanel() {
   // Debounced live search as the CEO types (name or phone).
   useEffect(() => {
     const q = query.trim();
-    if (q.length < 2) { setResults([]); return; }
+    if (q.length < PROFILE_TYPEAHEAD_MIN_CHARS) { setResults([]); return; }
     const t = setTimeout(() => { runSearch(q); }, 300);
     return () => clearTimeout(t);
   }, [query, runSearch]);
@@ -303,11 +291,11 @@ export function RoleManagementPanel() {
                 autoFocus
               />
             </div>
-            <Button onClick={() => runSearch(query, true)} disabled={searching || query.trim().length < 2} className="h-10">
+            <Button onClick={() => runSearch(query, true)} disabled={searching || query.trim().length < PROFILE_TYPEAHEAD_MIN_CHARS} className="h-10">
               {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground -mt-1">Type at least 2 characters — results appear as you type.</p>
+          <p className="text-xs text-muted-foreground -mt-1">Type at least 3 characters — results appear as you type.</p>
 
           {searching ? (
             <div className="space-y-2">
@@ -335,7 +323,7 @@ export function RoleManagementPanel() {
             <Card className="p-8 text-center text-muted-foreground">
               <Users className="h-10 w-10 mx-auto mb-2 opacity-40" />
               <p className="text-sm">
-                {query.trim().length >= 2
+                {query.trim().length >= PROFILE_TYPEAHEAD_MIN_CHARS
                   ? `No users match "${query.trim()}".`
                   : 'Start typing a name or phone number to find a user.'}
               </p>

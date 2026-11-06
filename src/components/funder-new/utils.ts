@@ -10,6 +10,26 @@ import type {
 import { formatHouseCategory, prettyName } from '@/lib/formatting';
 import { formatDynamicCompact, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import { readCoordinate } from './distance';
+import { compareFunderHousesByCompleteness, sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+export * from '@/lib/funderHouseSort';
+
+type OpportunitySort = 'urgent' | 'rent-asc' | 'rent-desc' | 'return-desc' | 'newest';
+export function sortOpportunities<T extends object>(items: readonly T[], sort?: OpportunitySort | ((a: T, b: T) => number)): T[] {
+  if (typeof sort === 'function') return sortFunderHousesByCompleteness(items, sort);
+  if (!sort) return sortFunderHousesByCompleteness(items);
+  const value = (item:T, key:string) => Number((item as Record<string,unknown>)[key] ?? 0) || 0;
+  const amount = (item:T) => value(item,'funding_amount') || value(item,'rent_amount') || value(item,'monthly_rent');
+  const created = (item:T) => Date.parse(String((item as Record<string,unknown>).created_at ?? '')) || 0;
+  return [...items].sort((a,b) => {
+    const completeness = compareFunderHousesByCompleteness(a,b);
+    if (completeness) return completeness;
+    if (sort === 'rent-asc') return amount(a)-amount(b);
+    if (sort === 'rent-desc') return amount(b)-amount(a);
+    if (sort === 'return-desc') return (value(b,'monthly_return') || amount(b)*MONTHLY_RETURN_RATE) - (value(a,'monthly_return') || amount(a)*MONTHLY_RETURN_RATE);
+    if (sort === 'urgent') return value(b,'urgency_score')-value(a,'urgency_score') || created(a)-created(b);
+    return created(b)-created(a);
+  });
+}
 
 const MONTHLY_RETURN_RATE = 0.15;
 
@@ -94,11 +114,27 @@ export function readyPlanTitle(plan: FunderNewReadyPlan): string {
   return formatHouseCategory(plan.house_category) || 'Rent Plan';
 }
 
+/**
+ * Uganda's sub-county level is recorded as "X Town Council", "X County",
+ * "X Division", "X Municipality" or "X Sub County". Funders browse by village
+ * and district, so a rent plan's place line never shows it: the agent-recorded
+ * request_city is usually that same sub-county, which is why it used to appear
+ * twice on one card.
+ */
+const SUBCOUNTY_LEVEL = /\b(town council|sub ?county|municipality|division|county)\b/i;
+
+/** Place parts as recorded, minus the sub-county level and its duplicate. */
 export function readyPlanPlace(plan: FunderNewReadyPlan): string {
-  const local = plan.tenant_location ? prettyName(plan.tenant_location) : '';
-  const city = plan.request_city ? prettyName(plan.request_city) : '';
-  const parts = [city, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
-  return parts.join(', ') || 'Location on file';
+  const recorded = plan.request_city?.trim() ? prettyName(plan.request_city) : '';
+  const parts = (plan.tenant_location ?? '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => prettyName(part))
+    .filter((part) => !SUBCOUNTY_LEVEL.test(part))
+    .filter((part) => part.toLowerCase() !== recorded.toLowerCase())
+    .filter((part, index, all) => all.indexOf(part) === index);
+  return parts.join(', ') || recorded || 'Location on file';
 }
 
 
@@ -184,6 +220,7 @@ export function matchesReadyPlanSearch(plan: FunderNewReadyPlan, filters: Funder
   const haystack = [
     readyPlanTitle(plan),
     readyPlanPlace(plan),
+    plan.request_city,
     plan.house_category,
     plan.landlord_name,
     plan.tenant_first_name,
@@ -241,4 +278,20 @@ function contactFields(category: FunderNewCategory, item: FunderNewEmptyHouse | 
     lat: toNum(any.request_latitude),
     lng: toNum(any.request_longitude),
   };
+}
+
+/**
+ * How many filters the funder has actually switched on. `sort` is an ordering,
+ * not a filter, so it is never counted — the Filters button badge shows this.
+ */
+export function countActiveFunderFilters(f: FunderNewFilters): number {
+  return [
+    f.search.trim() !== '',
+    f.location.trim() !== '',
+    f.amount !== 'all',
+    f.rentMin !== null,
+    f.rentMax !== null,
+    f.radiusKm !== 'all',
+    f.withinFloat,
+  ].filter(Boolean).length;
 }

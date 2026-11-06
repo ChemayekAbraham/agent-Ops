@@ -50,6 +50,8 @@ export default function RaiseTicketButton() {
 
   if (!staff) return null;
   if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard/agent-new')) return null;
+  // Partner (funder) dashboards keep the right-hand corner clear.
+  if (typeof window !== 'undefined' && /^\/dashboard\/funders?(\/|-|$)/.test(window.location.pathname)) return null;
 
   return (
     <>

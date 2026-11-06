@@ -1,0 +1,1 @@
+Sync check only: the sandbox is on 595cd1d4a1 and does not yet include df3a963c68. No files will be changed; the re-sync is picked up automatically by Lovable's GitHub sync. No Special Advances migrations, ledger mappings or issuance switch will be touched.
