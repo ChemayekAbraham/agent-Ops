@@ -467,7 +467,13 @@ export default function HouseDetail() {
                 {images.length > 1 && (
                   <>
                     <button type="button"
-                      onClick={(e) => { e.stopPropagation(); setImgIdx(i => (i - 1 + images.length) % images.length); }}
+                      aria-label="Back to this house in Find a House"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(filteredListTo, {
+                          state: { from: fromFunder ? 'funder' : undefined, listSearch, focusHouseId: listing.id },
+                        });
+                      }}
                       className="absolute left-3 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur-sm text-foreground rounded-full p-2 shadow-lg active:scale-95 transition-transform">
                       <ChevronLeft className="h-5 w-5" />
                     </button>
@@ -527,8 +533,10 @@ export default function HouseDetail() {
           {/* Floating top controls */}
           <div className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-4 pt-safe-top py-3">
             <button
-              onClick={() => navigate('/dashboard/tenant')}
-              aria-label="Back to tenant dashboard"
+              onClick={() => navigate(filteredListTo, {
+                state: { from: fromFunder ? 'funder' : undefined, listSearch, focusHouseId: listing.id },
+              })}
+              aria-label="Back to this house in Find a House"
               className="bg-background/80 backdrop-blur-sm text-foreground rounded-full p-2.5 shadow-lg active:scale-95 transition-transform">
               <ArrowLeft className="h-5 w-5" />
             </button>

@@ -209,7 +209,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
       animate={{ opacity: 1, y: 0 }}
       data-house-card=""
       data-house-id={listing.id}
-      className="pb-6 border-b border-border/40 last:border-b-0"
+      className="p-3 pb-4 rounded-3xl bg-primary/[0.07]"
       itemScope itemType="https://schema.org/Accommodation"
     >
       {/* Image */}
@@ -258,7 +258,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
         </p>
 
         <div className="flex items-baseline gap-1.5 pt-1">
-          <span className="font-semibold text-[15px]" itemProp="price">{formatUGX(listing.daily_rate)}</span>
+          <span className="font-semibold text-[15px] text-green-600 dark:text-green-400" itemProp="price">{formatUGX(listing.daily_rate)}</span>
           <span className="text-sm text-muted-foreground">/ day</span>
         </div>
       </div>
@@ -283,7 +283,7 @@ function PublicHouseCard({ listing, isFirst, onOpenDetails, userLat, userLng }: 
  * crucial because each card mounts a Google Map iframe + multiple images.
  * Heights are measured dynamically since cards vary (amenities, description, thumbnails).
  */
-function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null }) {
+function VirtualHouseList({ listings, onOpenDetails, userLat, userLng, focusId, onFocused }: { listings: HouseListing[]; onOpenDetails?: (listing: HouseListing) => void; userLat?: number | null; userLng?: number | null; focusId?: string | null; onFocused?: () => void }) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   const virtualizer = useWindowVirtualizer({
@@ -294,6 +294,22 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
     scrollMargin: listRef.current?.offsetTop ?? 0,
     getItemKey: (index) => listings[index].id,
   });
+
+  // Coming back from a house page: bring that house's card into view once it is on this page.
+  useEffect(() => {
+    if (!focusId) return;
+    const index = listings.findIndex((l) => l.id === focusId);
+    if (index < 0) return;
+    const id = window.setTimeout(() => {
+      // Land the card's top just below the sticky header, not underneath it.
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const [offset] = virtualizer.getOffsetForIndex(index, 'start') ?? [0];
+      window.scrollTo({ top: Math.max(0, offset - headerHeight - 12) });
+      onFocused?.();
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [focusId, listings, virtualizer, onFocused]);
 
   const items = virtualizer.getVirtualItems();
 
@@ -306,7 +322,7 @@ function VirtualHouseList({ listings, onOpenDetails, userLat, userLng }: { listi
             key={vi.key}
             data-index={vi.index}
             ref={virtualizer.measureElement}
-            className="absolute left-0 top-0 w-full"
+            className="absolute left-0 top-0 w-full pb-4"
             style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
           >
             <PublicHouseCard listing={listing} isFirst={vi.index === 0} onOpenDetails={onOpenDetails} userLat={userLat} userLng={userLng} />
@@ -383,6 +399,11 @@ export default function FindAHouse() {
   // Client-side pagination over the filtered set.
   const PAGE_SIZE = 12;
   const [page, setPage] = useState(1);
+  // A house page's back arrow returns here with the house to bring back into view.
+  const [focusHouseId, setFocusHouseId] = useState<string | null>(
+    () => (location.state as { focusHouseId?: string } | null)?.focusHouseId ?? null,
+  );
+  const clearFocusHouse = useCallback(() => setFocusHouseId(null), []);
   const debouncedSearch = useDebouncedValue(searchText, 250);
   const [showMap, setShowMap] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -608,6 +629,13 @@ export default function FindAHouse() {
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, minPrice, maxPrice, minRooms, amenities, sortKey, selectedRegion, selectedCategory, selectedDistrict, selectedSubCounty, selectedVillage]);
+
+  // Open the page that holds the house being returned to.
+  useEffect(() => {
+    if (!focusHouseId || filtered.length === 0) return;
+    const index = filtered.findIndex((l) => l.id === focusHouseId);
+    if (index >= 0) setPage(Math.floor(index / PAGE_SIZE) + 1);
+  }, [focusHouseId, filtered]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -1126,11 +1154,11 @@ export default function FindAHouse() {
                   </div>
                   {/* List — hidden while the map is open (toggle), at every width */}
                   <div className="hidden min-w-0">
-                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                    <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
                   </div>
                 </div>
               ) : (
-                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} />
+                <VirtualHouseList listings={paginated} onOpenDetails={openDetails} userLat={effectiveLat} userLng={effectiveLng} focusId={focusHouseId} onFocused={clearFocusHouse} />
               )}
 
               {/* Pagination */}
