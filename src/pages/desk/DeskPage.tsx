@@ -29,6 +29,7 @@ import { AgentRankingFold } from './AgentRanking';
 import { ScriptEditor } from './landlordOps';
 import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
+import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
 import { DeskRules } from './DeskRules';
 import { AgentsLiveFold } from './agents/AgentsLive';
@@ -451,23 +452,22 @@ function DeskView({
     );
   }
 
-  // Partner Ops, when live: it no longer attaches funders; it watches the funders' board.
+  // Partner Ops, when live: the sales desk — listings, Welile-due, funder approvals, field officers.
   if (checklistOn && desk.id === 'partner-ops') {
     return (
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {intro}
-        <section className="space-y-3" aria-labelledby="desk-watch">
-          <h2 id="desk-watch" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
-            Funder board watch
+        <section className="space-y-3" aria-labelledby="desk-ready">
+          <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+            Ready for your push
           </h2>
-          <PartnerWatch board={board} />
+          <PartnerOpsBoard board={board} />
         </section>
-        <Fold title="Funder board — preview" board={board} hint="What the funders would see">
-          <FunderBoard board={board} />
-        </Fold>
         <DeskRules deskId={desk.id} board={board} />
-        <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+        <Fold title="Classic view" board={board} hint="The funder board watch and every table this desk showed before">
+          <PartnerWatch board={board} />
+          <FunderBoard board={board} />
           {desk.tables.map(table)}
         </Fold>
         {drawer}

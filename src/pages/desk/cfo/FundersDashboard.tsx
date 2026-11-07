@@ -6,7 +6,7 @@ import { clockTime } from '../deskPrefs';
 import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, Segmented, Tile, TileRow } from '../ui';
 import { readableError } from '../reviewApi';
 import { FUNDERS_KEY, PERIODS, fundOne, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
-import { canFundRow, heldLabel, rating, sortRows, ugx, type Rank } from './fundersView';
+import { canFundRow, fundedSplitText, heldLabel, isWelileDue, rating, sortRows, ugx, type Rank } from './fundersView';
 
 const HEAD: { label: string; right?: boolean }[] = [
   { label: 'Request' },
@@ -159,7 +159,7 @@ export function FundersDashboard({ board }: { board: boolean }) {
             board={board}
             label={`Funded · ${PERIODS.find((p) => p.value === period)?.label ?? period}`}
             value={ugx(d.funded.ugx)}
-            sub={`${d.funded.n} requests · Funders ${d.funded.by_funders.n} · Welile ${d.funded.by_welile.n}`}
+            sub={fundedSplitText(d.funded)}
           />
           <Tile
             board={board}
@@ -261,11 +261,18 @@ export function FundersDashboard({ board }: { board: boolean }) {
                         </span>
                       </td>
                       <td className={cell}>
-                        {held && (
-                          <Chip tone="warn" size="sm">
-                            {held}
-                          </Chip>
-                        )}
+                        <span className="flex flex-wrap gap-1" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {isWelileDue(r) && (
+                            <Chip tone="bad" size="sm" strong>
+                              Welile to fund
+                            </Chip>
+                          )}
+                          {held && (
+                            <Chip tone="warn" size="sm">
+                              {held}
+                            </Chip>
+                          )}
+                        </span>
                       </td>
                       <td className={`${cell} text-right`}>
                         {canFundRow(r, d?.can_fund_welile === true) && (
