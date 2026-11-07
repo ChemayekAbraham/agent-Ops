@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fmt } from './format';
-import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
-import { Pop } from './Pop';
+import { CALM, FOCUS, LABEL, PANEL, statusText } from './deskTheme';
+import { Chip, DecisionButton, EmptyState, ErrorLine, LoadingRows, MenuItem, MoreMenu, Segmented, decisionVariant } from './ui';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
@@ -51,10 +50,6 @@ import {
 export type OpenDrawer = (requestId: string, initial?: Decision | 'wait' | 'call') => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
-
-const BTN = `desk-pill whitespace-nowrap border px-3 py-1 text-xs font-medium ${CALM} ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
-const BTN_PRIMARY = `${BTN} border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] text-foreground hover:bg-[hsl(var(--primary)/0.25)]`;
-const BTN_QUIET = `${BTN} border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground`;
 
 /** Chip colour per decision group. */
 function rowTone(d: BoardDecision): 'ok' | 'warn' | 'bad' | 'idle' {
@@ -119,12 +114,12 @@ function BoardRowLine({
             target={{ requestId: row.id, desk: stage, subject: 'agent', calleeId: row.agent_id, name: row.agent, phone: row.agent_phone }}
           />
         </span>
-        <span
-          className={`desk-pill border px-2 py-0.5 text-[11px] ${chip.ok ? statusGlass.ok : statusGlass.warn}`}
+        <Chip
+          tone={chip.ok ? 'ok' : 'warn'}
           title={row.flags.flags.map((f) => `${f.ok ? '✓' : '✗'} ${f.label}${f.detail ? ` — ${f.detail}` : ''}`).join('\n')}
         >
           {chip.text}
-        </span>
+        </Chip>
         <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
         <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
         {tries && <span className={`text-xs ${statusText.warn}`}>{tries}</span>}
@@ -134,64 +129,50 @@ function BoardRowLine({
             <span className={`${LABEL} inline-flex items-center gap-1.5`}>
               Waiting on {ownerLabel(w?.owner_kind, stage)}
               {w && (w.expired || (hoursUntil(w.until_at) ?? 1) <= 0) ? (
-                <span className={`desk-pill border px-2 py-0.5 text-[11px] font-semibold ${statusGlass.bad}`}>Time up</span>
+                <Chip tone="bad" strong>
+                  Time up
+                </Chip>
               ) : (
                 <span className="tabular-nums text-foreground">{timeLeftText(hoursUntil(w?.until_at))}</span>
               )}
             </span>
           ) : note?.kind === 'retry' ? (
-            <button type="button" disabled={busy || !canAct} onClick={onRetry} className={`${BTN} ${statusGlass.warn}`} title={note.text}>
+            <DecisionButton variant="warn" disabled={busy || !canAct} onClick={onRetry} title={note.text}>
               {busy ? 'Retrying…' : 'Retry the move only'}
-            </button>
+            </DecisionButton>
           ) : (
             label && (
-              <button
-                type="button"
+              <DecisionButton
+                variant={decisionVariant(row.decision)}
                 disabled={busy || !canAct || note?.kind === 'ok'}
                 onClick={onPrimary}
                 title={canAct ? undefined : NEEDS_ROLE}
-                className={row.decision === 'reject' ? `${BTN} ${statusGlass.bad}` : BTN_PRIMARY}
               >
                 {busy ? 'Working…' : label}
-              </button>
+              </DecisionButton>
             )
           )}
 
-          <Pop
-            label={`More for ${row.tenant ?? 'this request'}`}
-            align="right"
-            trigger={<MoreHorizontal className="h-4 w-4" aria-hidden />}
-            triggerClass={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-1 text-muted-foreground ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
-          >
+          <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
             {(close) => (
-              <span className="flex flex-col gap-1">
-                <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id); }}>
-                  Open the review
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  title={canAct ? undefined : NEEDS_ROLE}
-                  className={`${BTN_QUIET} text-left`}
-                  onClick={() => { close(); onOpen(row.id, 'wait'); }}
-                >
+              <>
+                <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+                <MenuItem disabled={!canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
                   Wait on…
-                </button>
+                </MenuItem>
                 {others.map((d) => (
-                  <button
+                  <MenuItem
                     key={d}
-                    type="button"
                     disabled={!canAct}
                     title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE}
-                    className={`${BTN_QUIET} text-left`}
                     onClick={() => { close(); onOpen(row.id, d); }}
                   >
                     {DECISION_LABEL[d]}…
-                  </button>
+                  </MenuItem>
                 ))}
-              </span>
+              </>
             )}
-          </Pop>
+          </MoreMenu>
         </span>
       </div>
 
@@ -308,13 +289,13 @@ function PushAllSheet({
           )}
           <div className="flex flex-wrap gap-2">
             {!finished ? (
-              <button type="button" disabled={running} onClick={run} className={`${BTN} px-4 py-2 text-sm ${statusGlass.ok}`}>
+              <DecisionButton size="md" variant="ok" disabled={running} onClick={run}>
                 {running ? 'Pushing…' : `${GROUP_LABEL[group]} all ${fmt('int', rows.length)}`}
-              </button>
+              </DecisionButton>
             ) : (
-              <button type="button" onClick={onClose} className={`${BTN_QUIET} px-4 py-2 text-sm`}>
+              <DecisionButton size="md" onClick={onClose}>
                 Done
-              </button>
+              </DecisionButton>
             )}
           </div>
         </footer>
@@ -473,13 +454,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 
-  if (q.isLoading) return <Skeleton className="h-48 w-full" />;
-  if (q.error)
-    return (
-      <p className={`text-sm ${statusText.bad}`} role="alert">
-        The board could not load: {readableError(q.error)}
-      </p>
-    );
+  if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the board" />;
+  if (q.error) return <ErrorLine>The board could not load: {readableError(q.error)}</ErrorLine>;
 
   const counts = data?.counts ?? {};
   const countOf = (d: BoardDecision) =>
@@ -494,46 +470,31 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
           {q.isPlaceholderData && <span className={LABEL} role="status">Loading…</span>}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {groupsFor(stage).map((d) => {
-          const n = countOf(d);
-          const on = only === d;
-          return (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setOnly(on ? null : d)}
-              className={`desk-pill border px-3 py-1 text-xs ${CALM} ${FOCUS} ${on ? statusGlass[rowTone(d)] : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'}`}
-            >
-              {GROUP_LABEL[d]} <span className="tabular-nums text-foreground">{fmt('int', n)}</span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <Segmented<BoardDecision>
+          ariaLabel="Show only"
+          deselectable
+          options={groupsFor(stage).map((d) => ({ value: d, label: GROUP_LABEL[d], count: countOf(d), tone: rowTone(d) }))}
+          value={only}
+          onChange={setOnly}
+        />
         {!canAct && <span className={`${LABEL} ${statusText.warn}`}>{NEEDS_ROLE} to act on this board.</span>}
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {PUSHABLE.map((d) => {
           const list = pushable(d);
           if (list.length === 0) return null;
           return (
-            <button
-              key={d}
-              type="button"
-              disabled={!canAct || q.isPlaceholderData}
-              title={canAct ? undefined : NEEDS_ROLE}
-              onClick={() => setPushAll(d)}
-              className={BTN_QUIET}
-            >
+            <DecisionButton key={d} disabled={!canAct || q.isPlaceholderData} title={canAct ? undefined : NEEDS_ROLE} onClick={() => setPushAll(d)}>
               Push all {fmt('int', list.length)} · {GROUP_LABEL[d]}
-            </button>
+            </DecisionButton>
           );
         })}
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{only ? `Nothing in ${GROUP_LABEL[only]}.` : 'Nothing is waiting at this desk.'}</p>
+        <EmptyState>{only ? `Nothing in ${GROUP_LABEL[only]}.` : 'Nothing is waiting at this desk.'}</EmptyState>
       ) : (
         <ul>
           {rows.map((r) => (

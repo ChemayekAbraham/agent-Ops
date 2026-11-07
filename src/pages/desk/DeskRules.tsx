@@ -1,6 +1,5 @@
-import { Fold } from './DeskFrame';
-import { LABEL, statusDot, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
+import { LABEL, statusText } from './deskTheme';
+import { EmptyState, ErrorLine, Fold, LoadingRows } from './ui';
 import { isMissingDbObject, logMissingOnce } from './deskLive';
 import { readableError } from './reviewApi';
 import { AutomationBadge, BasisBadge } from './ontology/badges';
@@ -43,23 +42,19 @@ export function DeskRules({ deskId, board }: { deskId: string; board: boolean })
 
   const rules = sortDeskRules(q.data?.rules);
   const changed = q.data?.changed_7d ?? [];
-  const title = q.data ? `Rules for this desk (${rules.length})` : 'Rules for this desk';
 
   return (
     <Fold
-      title={title}
+      title="Rules for this desk"
+      count={q.data ? rules.length : undefined}
+      changed={changed.length > 0}
       board={board}
-      badge={
-        changed.length > 0 ? (
-          <span className={`h-2 w-2 rounded-full ${statusDot.warn}`} role="img" aria-label="Changed this week" title="Changed this week" />
-        ) : undefined
-      }
       hint={q.data?.board ? `${q.data.board} board${q.data.version ? ` · ontology ${q.data.version}` : ''}` : 'What the ontology says this desk decides'}
     >
       {q.isLoading ? (
-        <Skeleton className="h-5 w-72" />
+        <LoadingRows rows={2} height={20} label="Loading the rules" />
       ) : q.error ? (
-        <p className={`text-sm ${statusText.bad}`}>Could not load the rules: {readableError(q.error)}</p>
+        <ErrorLine>Could not load the rules: {readableError(q.error)}</ErrorLine>
       ) : (
         <div className="space-y-4">
           {changed.length > 0 && (
@@ -76,7 +71,7 @@ export function DeskRules({ deskId, board }: { deskId: string; board: boolean })
             </div>
           )}
           {rules.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No rules recorded for this desk yet.</p>
+            <EmptyState>No rules recorded for this desk yet.</EmptyState>
           ) : (
             <ul className="divide-y divide-[var(--desk-line-color)]">
               {rules.map((r) => (

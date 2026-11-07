@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
-import { Pop } from './Pop';
-import { badgeFor } from './agentGrade';
+import { DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
@@ -114,14 +112,6 @@ export function useCooBoard(enabled = true) {
   });
 }
 
-const BTN = `desk-pill whitespace-nowrap border px-3 py-1 text-xs font-medium ${CALM} ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
-const BTN_QUIET = `${BTN} border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground`;
-
-function GradePill({ grade }: { grade: string | null }) {
-  const b = badgeFor(grade);
-  return <span className={`desk-pill inline-block border px-1.5 text-[11px] font-semibold leading-5 ${b.cls}`}>{b.text}</span>;
-}
-
 const rating = (v: number | null | undefined) => (v === null || v === undefined ? '—' : String(Math.round(Number(v))));
 
 function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpen: OpenDrawer }) {
@@ -130,7 +120,7 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
   return (
     <li className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'}`}>
       <span className={`${LABEL} w-7 text-right tabular-nums`}>{row.rank ?? '—'}</span>
-      <GradePill grade={row.grade} />
+      <GradeBadge grade={row.grade} />
       <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
       <span className={`${LABEL} font-mono`}>{row.req}</span>
       <span className="tabular-nums text-foreground" title="Agent Ops · Tenant Ops · Landlord Ops ratings">
@@ -146,26 +136,15 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
         </span>
       )}
       <span className="ml-auto">
-        <Pop
-          label={`More for ${row.tenant ?? 'this request'}`}
-          align="right"
-          trigger={<MoreHorizontal className="h-4 w-4" aria-hidden />}
-          triggerClass={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-1 text-muted-foreground ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
-        >
+        <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
           {(close) => (
-            <span className="flex flex-col gap-1">
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id); }}>
-                Open the review
-              </button>
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
-                Hold (Wait on…)
-              </button>
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id, 'send_back'); }}>
-                Send back…
-              </button>
-            </span>
+            <>
+              <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+              <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
+              <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
+            </>
           )}
-        </Pop>
+        </MoreMenu>
       </span>
     </li>
   );
@@ -211,7 +190,7 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 text-foreground">
                 <span className={`${LABEL} w-6 text-right`}>{r.rank ?? '—'}</span>
-                <GradePill grade={r.grade} />
+                <GradeBadge grade={r.grade} />
                 {r.tenant ?? '—'}
               </span>
               <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', r.rent)}</span>
@@ -230,15 +209,17 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
               />
             </label>
           )}
-          {error && <p className={`text-sm ${statusText.bad}`} role="alert">{error}</p>}
+          {error && <ErrorLine>{error}</ErrorLine>}
           {result && <p className={`text-sm ${statusText.ok}`} role="status">{result}</p>}
           <div className="flex flex-wrap gap-2">
             {result ? (
-              <button type="button" onClick={onClose} className={`${BTN_QUIET} px-4 py-2 text-sm`}>Done</button>
+              <DecisionButton size="md" onClick={onClose}>
+                Done
+              </DecisionButton>
             ) : (
-              <button type="button" disabled={busy || plan.rows.length === 0} onClick={push} className={`${BTN} px-4 py-2 text-sm ${statusGlass.ok}`}>
+              <DecisionButton size="md" variant="ok" disabled={busy || plan.rows.length === 0} onClick={push}>
                 {busy ? 'Pushing…' : `Push ${fmt('int', n)} to funders`}
-              </button>
+              </DecisionButton>
             )}
           </div>
         </footer>
@@ -254,8 +235,8 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
 
-  if (q.isLoading) return <Skeleton className="h-48 w-full" />;
-  if (q.error) return <p className={`text-sm ${statusText.bad}`} role="alert">The COO board could not load: {readableError(q.error)}</p>;
+  if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the COO board" />;
+  if (q.error) return <ErrorLine>The COO board could not load: {readableError(q.error)}</ErrorLine>;
 
   const canPush = q.data?.can_push === true;
   const valid = Number.isFinite(n) && n >= 1;
@@ -279,20 +260,19 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
           />
           to funders
         </label>
-        <button
-          type="button"
+        <DecisionButton
+          variant="primary"
           disabled={!canPush || !valid || plan.rows.length === 0}
           title={canPush ? undefined : NEEDS_COO}
           onClick={() => setConfirm(true)}
-          className={`${BTN} border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] text-foreground hover:bg-[hsl(var(--primary)/0.25)]`}
         >
           Push top {valid ? fmt('int', n) : '…'} to funders
-        </button>
+        </DecisionButton>
         {!canPush && <span className={`${LABEL} ${statusText.warn}`}>{NEEDS_COO}.</span>}
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing is waiting for your push.</p>
+        <EmptyState>Nothing is waiting for your push.</EmptyState>
       ) : (
         <ol>
           {rows.map((r) => (
@@ -310,9 +290,9 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
 export function RetiredFundNote() {
   return (
     <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.idle}`}>
-      <button type="button" disabled className={`${BTN_QUIET} mr-2`} aria-disabled="true">
+      <DecisionButton disabled className="mr-2" style={{ marginRight: 8 }} aria-disabled="true">
         Fund by score
-      </button>
+      </DecisionButton>
       Retired 5 Nov — use Push top N.
     </p>
   );

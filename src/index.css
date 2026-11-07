@@ -1939,6 +1939,20 @@ html.reduce-motion *::after {
   --desk-live-bg: var(--desk-ok);
   --desk-live-fg: var(--desk-ok);
 
+  /* Grade fills (ui/GradeBadge). Solid chips with their own text colour, the
+     same in light and dark so a grade reads the same on any desk. Named after
+     the colour so code reads plainly: A emerald, B teal, C amber, D red, N/none
+     slate, X blocked (black). */
+  --desk-emerald: 161 94% 30%;
+  --desk-teal: 175 84% 32%;
+  --desk-amber: 38 92% 50%;
+  --desk-red: 0 72% 51%;
+  --desk-slate: 215 16% 47%;
+  --desk-blocked: 0 0% 0%;
+  --desk-blocked-line: rgba(255, 255, 255, 0.3);
+  --desk-on-fill: 0 0% 100%;
+  --desk-on-amber: 0 0% 0%;
+
   /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
      an alpha, because light does not want a translucent white — it wants a
      solid lilac-grey line. These values are exactly the white/12, white/5,
@@ -2039,6 +2053,8 @@ html.reduce-motion *::after {
   --desk-bad-dot: 0 72% 51%;
   --desk-live-bg: 137 39% 93%;
   --desk-live-fg: 143 64% 24%;
+  /* A black chip needs a dark edge on white paper. */
+  --desk-blocked-line: rgba(0, 0, 0, 0.6);
 
   /* Solid lines and a faintly tinted field, so an input still reads as recessed
      against a white card. */

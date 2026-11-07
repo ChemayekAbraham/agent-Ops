@@ -1,46 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { MapPin } from 'lucide-react';
-import { CALM, FIGURE, FOCUS, LABEL, PANEL, TILE, statusGlass, statusText } from '../deskTheme';
+import { CALM, FOCUS, PANEL, statusText } from '../deskTheme';
 import { clockTime } from '../deskPrefs';
-import { Skeleton } from '../Skeleton';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, Segmented, Tile, TileRow } from '../ui';
 import { readableError } from '../reviewApi';
 import { FUNDERS_KEY, PERIODS, fundOne, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
 import { canFundRow, heldLabel, rating, sortRows, ugx, type Rank } from './fundersView';
-
-const GRADE_TONE: Record<string, string> = {
-  A: 'border-emerald-500/60 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
-  B: 'border-teal-500/60 bg-teal-500/15 text-teal-700 dark:text-teal-300',
-  C: 'border-amber-500/60 bg-amber-500/15 text-amber-800 dark:text-amber-300',
-  D: 'border-red-500/60 bg-red-500/15 text-red-700 dark:text-red-300',
-};
-
-function GradeBadge({ grade }: { grade: string | null }) {
-  const g = (grade ?? '').trim().toUpperCase();
-  const tone = GRADE_TONE[g] ?? 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground';
-  return (
-    <span className={`inline-flex min-w-[2rem] justify-center rounded-md border px-2 py-0.5 text-xs font-semibold ${tone}`}>
-      {g || '—'}
-    </span>
-  );
-}
-
-function Tile({ label, value, sub, board }: { label: string; value: string; sub?: string; board: boolean }) {
-  return (
-    <div className={`${TILE} min-w-0 space-y-2 p-4`}>
-      <div className={LABEL}>{label}</div>
-      <div className={`${FIGURE} ${board ? 'text-[36px]' : 'text-[28px]'} leading-none`}>{value}</div>
-      {sub && <div className={`${LABEL} truncate`}>{sub}</div>}
-    </div>
-  );
-}
-
-const pill = (active: boolean) =>
-  `desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
-    active
-      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
-  }`;
 
 const HEAD: { label: string; right?: boolean }[] = [
   { label: 'Request' },
@@ -104,24 +70,14 @@ function ConfirmFund({
             {outcome.text}
           </p>
         )}
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={busy}
-            className={`desk-pill border border-[var(--desk-line-color)] px-4 py-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
-          >
+        <div className="flex justify-end gap-2" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <DecisionButton size="md" onClick={onClose} disabled={busy}>
             {done ? 'Close' : 'Cancel'}
-          </button>
+          </DecisionButton>
           {!done && (
-            <button
-              type="button"
-              onClick={onConfirm}
-              disabled={busy}
-              className={`desk-pill border border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.25)] px-4 py-2 text-sm font-medium text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
-            >
+            <DecisionButton size="md" variant="primary" onClick={onConfirm} disabled={busy}>
               {busy ? 'Funding…' : `Fund ${ugx(amount)}`}
-            </button>
+            </DecisionButton>
           )}
         </div>
       </div>
@@ -180,13 +136,13 @@ export function FundersDashboard({ board }: { board: boolean }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="group" aria-label="Period for the funded figures" className="flex flex-wrap gap-1.5">
-          {PERIODS.map((p) => (
-            <button key={p.value} type="button" aria-pressed={period === p.value} onClick={() => setPeriod(p.value)} className={pill(period === p.value)}>
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="Period for the funded figures"
+          size="md"
+          options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
+          value={period}
+          onChange={(p) => p !== null && setPeriod(p)}
+        />
         <span className="text-xs text-muted-foreground">
           Updated {clockTime(Number.isFinite(updatedMs) ? updatedMs : 0)}
           {q.isFetching && !q.isLoading ? ' · refreshing' : ''}
@@ -194,13 +150,9 @@ export function FundersDashboard({ board }: { board: boolean }) {
       </div>
 
       {q.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28 w-full" />
-          ))}
-        </div>
+        <LoadingRows rows={1} height={112} label="Loading the funders' figures" />
       ) : d ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <TileRow max={4} phone={1}>
           <Tile board={board} label="Fund today" value={ugx(d.fund_today.ugx)} sub={`${d.fund_today.n} on the board, not held`} />
           <Tile board={board} label="Held by funders now" value={ugx(d.held_by_funders.ugx)} sub={`${d.held_by_funders.n} held`} />
           <Tile
@@ -214,14 +166,10 @@ export function FundersDashboard({ board }: { board: boolean }) {
             label="Avg days COO → funded"
             value={avg === null || avg === undefined ? '—' : (Math.round(avg * 10) / 10).toFixed(1)}
           />
-        </div>
+        </TileRow>
       ) : null}
 
-      {q.error && (
-        <p role="alert" className={`text-sm ${statusText.bad}`}>
-          {readableError(q.error)}
-        </p>
-      )}
+      {q.error && <ErrorLine>{readableError(q.error)}</ErrorLine>}
 
       <section className={`${PANEL} space-y-3 p-4 sm:p-5`} aria-labelledby="funders-list-title">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -234,20 +182,20 @@ export function FundersDashboard({ board }: { board: boolean }) {
               their own.
             </p>
           </div>
-          <div role="group" aria-label="Sort" className="flex flex-wrap gap-1.5">
-            <button type="button" aria-pressed={rank === 'grade'} onClick={() => setRank('grade')} className={pill(rank === 'grade')}>
-              Best grade first
-            </button>
-            <button type="button" aria-pressed={rank === 'oldest'} onClick={() => setRank('oldest')} className={pill(rank === 'oldest')}>
-              Oldest first
-            </button>
-          </div>
+          <Segmented
+            ariaLabel="Sort"
+            size="md"
+            options={[
+              { value: 'grade' as Rank, label: 'Best grade first' },
+              { value: 'oldest' as Rank, label: 'Oldest first' },
+            ]}
+            value={rank}
+            onChange={(r) => r !== null && setRank(r)}
+          />
         </div>
 
-        {q.isLoading && <Skeleton className="h-40 w-full" />}
-        {!q.isLoading && !q.error && rows.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nothing is on the funders&rsquo; board right now.</p>
-        )}
+        {q.isLoading && <LoadingRows rows={4} height={32} label="Loading the funders' board" />}
+        {!q.isLoading && !q.error && rows.length === 0 && <EmptyState>Nothing is on the funders&rsquo; board right now.</EmptyState>}
 
         {rows.length > 0 && (
           <div className="max-h-[40rem] overflow-auto rounded-xl border border-[var(--desk-line-color)]">
@@ -314,24 +262,23 @@ export function FundersDashboard({ board }: { board: boolean }) {
                       </td>
                       <td className={cell}>
                         {held && (
-                          <span className={`desk-pill inline-block whitespace-nowrap border px-2.5 py-0.5 text-xs ${statusGlass.warn}`}>
+                          <Chip tone="warn" size="sm">
                             {held}
-                          </span>
+                          </Chip>
                         )}
                       </td>
                       <td className={`${cell} text-right`}>
                         {canFundRow(r, d?.can_fund_welile === true) && (
-                          <button
-                            type="button"
+                          <DecisionButton
+                            variant="primary"
                             disabled={busy || !!target}
                             onClick={() => {
                               setOutcome(null);
                               setTarget(r);
                             }}
-                            className={`desk-pill whitespace-nowrap border border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] px-3 py-1 text-xs font-medium text-foreground disabled:opacity-50 ${CALM} ${FOCUS}`}
                           >
                             Fund with Welile money
-                          </button>
+                          </DecisionButton>
                         )}
                       </td>
                     </tr>
