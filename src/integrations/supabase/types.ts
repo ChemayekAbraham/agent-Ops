@@ -43196,6 +43196,7 @@ export type Database = {
           captured_by: string
           family_size: number | null
           id: number
+          lc1_missing_reason: string | null
           lc1_phone_confirmation: string | null
           rent_request_id: string
           source: string
@@ -43207,6 +43208,7 @@ export type Database = {
           captured_by: string
           family_size?: number | null
           id?: never
+          lc1_missing_reason?: string | null
           lc1_phone_confirmation?: string | null
           rent_request_id: string
           source: string
@@ -43218,6 +43220,7 @@ export type Database = {
           captured_by?: string
           family_size?: number | null
           id?: never
+          lc1_missing_reason?: string | null
           lc1_phone_confirmation?: string | null
           rent_request_id?: string
           source?: string
@@ -65790,6 +65793,30 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_cache_drift_scan_state: {
+        Row: {
+          bucket_count: number
+          id: number
+          lookback: string
+          next_bucket: number
+          updated_at: string
+        }
+        Insert: {
+          bucket_count: number
+          id: number
+          lookback: string
+          next_bucket: number
+          updated_at?: string
+        }
+        Update: {
+          bucket_count?: number
+          id?: number
+          lookback?: string
+          next_bucket?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       wallet_debit_bucket_attempts: {
         Row: {
           amount: number
@@ -72179,6 +72206,42 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_hub_refresh_src: {
+        Row: {
+          active_rent_plans: number | null
+          check_flags: string[] | null
+          district: string | null
+          full_name: string | null
+          houses_count: number | null
+          is_flagged: boolean | null
+          landlord_id: string | null
+          landlord_key: string | null
+          landlord_key_text: string | null
+          last_call_outcome: string | null
+          last_called_at: string | null
+          last_caller_name: string | null
+          last_payout_at: string | null
+          needs_check: boolean | null
+          needs_review: boolean | null
+          phones: string[] | null
+          plan_rent_total: number | null
+          plan_stage: string | null
+          plans_live: number | null
+          plans_total: number | null
+          region: string | null
+          registered_at: string | null
+          registered_by: string | null
+          registering_agent_id: string | null
+          registering_agent_name: string | null
+          registrar_is_agent_now: boolean | null
+          service_center_status: string | null
+          tenants_count: number | null
+          total_paid_out_ugx: number | null
+          user_id: string | null
+          verification_status: string | null
+        }
+        Relationships: []
+      }
       v_landlord_ops_status: {
         Row: {
           has_smartphone: boolean | null
@@ -75281,6 +75344,10 @@ export type Database = {
       }
       _geo_coverage_caller_allowed: { Args: never; Returns: boolean }
       _geo_norm: { Args: { p: string }; Returns: string }
+      _get_user_trust_profile_impl: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       _has_enabled_role: {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
@@ -75637,6 +75704,8 @@ export type Database = {
       }
       _rt_rank: { Args: { p_desk: string }; Returns: number }
       _rt_ts: { Args: { p: string }; Returns: string }
+      _sc1_missing: { Args: { p_request_id: string }; Returns: string[] }
+      _sc2_missing: { Args: { p_request_id: string }; Returns: string[] }
       _shopping_advance_received_24h: {
         Args: never
         Returns: {
@@ -76259,6 +76328,10 @@ export type Database = {
       }
       agent_arrears_billing_go_live: { Args: never; Returns: string }
       agent_arrears_overview: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_attach_lc1_letter: {
+        Args: { p_path: string; p_request_id: string }
+        Returns: Json
+      }
       agent_bike_advance_priority: {
         Args: { p_agent_id: string }
         Returns: Json
@@ -76489,6 +76562,10 @@ export type Database = {
       }
       agent_list_subagent_tenant_transfers: {
         Args: { p_limit?: number }
+        Returns: Json
+      }
+      agent_note_lc1_missing: {
+        Args: { p_reason: string; p_request_id: string }
         Returns: Json
       }
       agent_onboarded_portfolios: {
@@ -77133,6 +77210,7 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_requests_missing_details: { Args: never; Returns: Json }
       agent_respond_payment_edit: {
         Args: { p_edit_id: string; p_note?: string; p_response: string }
         Returns: Json
@@ -81418,6 +81496,7 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_agents_live: { Args: { p_days?: number }; Returns: Json }
       desk_budget_burn: { Args: never; Returns: Json }
       desk_feed: { Args: { p_feed: string }; Returns: Json }
       desk_morning_brief: { Args: never; Returns: Json }
@@ -87716,6 +87795,10 @@ export type Database = {
           txn_count: number
         }[]
       }
+      gmail_counterparty_token_key: {
+        Args: { p_name: string }
+        Returns: string
+      }
       grade_receivables_forecast_snapshots: { Args: never; Returns: Json }
       grant_agent_registration_override: {
         Args: { p_agent_id: string; p_days?: number; p_reason: string }
@@ -92347,7 +92430,7 @@ export type Database = {
         }[]
       }
       pipeline_desk_board: {
-        Args: { p_limit?: number; p_stage: string }
+        Args: { p_limit?: number; p_scope?: string; p_stage: string }
         Returns: Json
       }
       pipeline_desk_daily: {
