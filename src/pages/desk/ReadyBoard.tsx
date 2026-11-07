@@ -127,7 +127,28 @@ function BoardRowLine({
   return (
     <li className="space-y-1 border-t border-[var(--desk-line-color)] py-2.5 first:border-t-0">
       <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${text}`}>
-        <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
+        {stage === 'landlord_ops' && (
+          <>
+            <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+              {row.landlord ?? 'No landlord'}
+              <DeskCallButton
+                disabled={!canAct}
+                target={{ requestId: row.id, desk: stage, subject: 'landlord', calleeId: null, name: row.landlord, phone: row.landlord_phone }}
+              />
+            </span>
+            <span className="text-muted-foreground" aria-hidden>·</span>
+          </>
+        )}
+        <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+          {row.tenant ?? '—'}
+          {/* Landlord Ops calls the tenant from the row too; Tenant Ops calls through "Call tenant". */}
+          {stage === 'landlord_ops' && (
+            <DeskCallButton
+              disabled={!canAct}
+              target={{ requestId: row.id, desk: stage, subject: 'tenant', calleeId: row.tenant_id, name: row.tenant, phone: row.tenant_phone }}
+            />
+          )}
+        </span>
         {row.batch && (
           <span className="desk-pill border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[11px] text-muted-foreground">Aug batch</span>
         )}
@@ -433,7 +454,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
   // One batch call each per board load, for the desks that show them.
-  const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops');
+  const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops' || stage === 'landlord_ops');
   const concerns = useConcernsSummary((data?.rows ?? []).map((r) => r.id), stage === 'tenant_ops' || stage === 'landlord_ops');
 
   const setNote = (id: string, n: RowNote | null) =>

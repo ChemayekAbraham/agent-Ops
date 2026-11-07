@@ -387,7 +387,7 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
   switch (row.decision) {
     case 'pass':
       // Tenant Ops' pass sends the request on to Landlord Ops; same push as any pass.
-      return stage === 'tenant_ops' ? 'Forward to Landlord Ops' : 'Pass';
+      return stage === 'tenant_ops' ? 'Forward to Landlord Ops' : stage === 'landlord_ops' ? 'Forward to COO' : 'Pass';
     case 'send_back':
       return 'Send back';
     case 'reject':

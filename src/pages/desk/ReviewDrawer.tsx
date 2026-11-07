@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FileText, MapPin, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,7 @@ import { PhotoReview } from './PhotoReview';
 import { IntakeForm } from './IntakeForm';
 import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
+import { LandlordContextPanel, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
 import { stackLayout } from './ui';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
@@ -129,6 +130,8 @@ function CheckRow({
   needsText,
   onResult,
   onValue,
+  extra,
+  placeholder,
 }: {
   item: ChecklistItem;
   entry: CheckEntry | undefined;
@@ -136,8 +139,12 @@ function CheckRow({
   needsText: boolean;
   onResult: (r: CheckResult) => void;
   onValue: (v: unknown) => void;
+  /** A line under the question: the rent on the request, the arrears hint. */
+  extra?: React.ReactNode;
+  placeholder?: string;
 }) {
-  const kind = item.value_kind;
+  // "Rent confirmed by the landlord" always takes the amount the landlord said; it is sent as the check's value.
+  const kind = item.value_kind ?? (item.code === 'lo_rent_confirmed' ? 'amount' : null);
   const showInput = (!!kind || needsText) && entry?.result === 'pass';
   const numeric = kind === 'number' || kind === 'amount';
 
@@ -150,6 +157,7 @@ function CheckRow({
             {item.required && <span className="ml-1.5 text-xs text-muted-foreground">(required)</span>}
           </p>
           <p className="text-xs leading-snug text-muted-foreground">{item.question}</p>
+          {extra && <div className="text-xs leading-snug">{extra}</div>}
           {item.system_said && (
             <p className="text-xs leading-snug">
               <span className="text-[hsl(var(--desk-lavender))]">The system sees: {item.system_said}</span>
@@ -206,6 +214,7 @@ function CheckRow({
               if (!numeric) return onValue(raw);
               onValue(raw === '' ? null : Number(raw));
             }}
+            placeholder={placeholder}
             className={`desk-pill h-9 w-full max-w-sm border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
           />
         </label>
@@ -263,6 +272,9 @@ export function ReviewDrawer({
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
   // Concerns follow the request; every desk but the retired Partner Ops can log and read them.
   const concernDesk = concernDeskFor(stage);
+  // Landlord Ops reads the whole request from one RPC; the panel and the checks share the cached answer.
+  const landlordCtx = useLandlordContext(requestId, stage === 'landlord_ops');
+  const lctx = landlordCtx.data;
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
   const proxies = useProxyAgents(decision === 'attach_funder');
 
@@ -544,6 +556,8 @@ export function ReviewDrawer({
                 </div>
               </section>
 
+              {stage === 'landlord_ops' && <LandlordContextPanel requestId={requestId} />}
+
               {/* ── Tenant Ops: how the tenant has paid, and the agent who brought them ── */}
               {stage === 'tenant_ops' && (
                 <div className="grid gap-4 sm:grid-cols-2" style={{ display: 'grid', gap: 16 }}>
@@ -601,14 +615,29 @@ export function ReviewDrawer({
                 <h3 className="text-sm font-semibold text-foreground">The checks for this desk</h3>
                 <ul>
                   {items.map((c) => (
-                    <CheckRow
-                      key={c.code}
-                      item={c}
-                      entry={entries[c.code]}
-                      needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
-                      onResult={(r) => setResult(c.code, r)}
-                      onValue={(v) => setValue(c.code, v)}
-                    />
+                    <Fragment key={c.code}>
+                      {/* The call script sits right above "Value proposition offered". */}
+                      {stage === 'landlord_ops' && c.code === 'lo_value_prop' && lctx?.script && (
+                        <li className="py-3">
+                          <ScriptPanel script={lctx.script} />
+                        </li>
+                      )}
+                      <CheckRow
+                        item={c}
+                        entry={entries[c.code]}
+                        needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
+                        onResult={(r) => setResult(c.code, r)}
+                        onValue={(v) => setValue(c.code, v)}
+                        placeholder={c.code === 'lo_rent_confirmed' && lctx ? String(lctx.rent_on_request ?? '') : undefined}
+                        extra={
+                          stage !== 'landlord_ops' || !lctx ? undefined : c.code === 'lo_rent_confirmed' ? (
+                            <span className="text-foreground">{rentOnRequestText(lctx.rent_on_request)}. The server refuses a pass more than 5% off.</span>
+                          ) : c.code === 'lo_tenant_no_arrears' && lctx.landlord?.arrears_hint ? (
+                            <span className={statusText.warn}>Arrears hint: {lctx.landlord.arrears_hint}</span>
+                          ) : undefined
+                        }
+                      />
+                    </Fragment>
                   ))}
                   {items.length === 0 && <li className="py-3 text-sm text-muted-foreground">No checks are configured for this desk.</li>}
                 </ul>

@@ -26,6 +26,7 @@ import { DeskTabs } from './DeskTabs';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
 import { AgentRankingFold } from './AgentRanking';
+import { ScriptEditor } from './landlordOps';
 import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
 import { desksFor, useMyScScope } from './scScope';
@@ -483,6 +484,12 @@ function DeskView({
       {showQueue && desk.tables.map(table)}
       {/* Partner Ops and Customer Care have no frame, so their rules sit at the foot. */}
       {checklistOn && <DeskRules deskId={desk.id} board={board} />}
+      {/* The COO's settings live on the Ontology desk: the landlord call script. The server lets only the COO save. */}
+      {checklistOn && desk.id === 'ontology' && (
+        <Fold title="Edit call script — Landlord Ops" board={board} hint="What Landlord Ops reads on every landlord call">
+          <ScriptEditor desk="landlord_ops" />
+        </Fold>
+      )}
       {drawer}
     </div>
   );

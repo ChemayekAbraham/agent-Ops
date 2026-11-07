@@ -106,7 +106,7 @@ describe('log a concern', () => {
 describe('Tenant Ops board', () => {
   it('the pass button reads "Forward to Landlord Ops"', () => {
     expect(primaryLabel(row({}), 'tenant_ops')).toBe('Forward to Landlord Ops');
-    expect(primaryLabel(row({}), 'landlord_ops')).toBe('Pass');
+    expect(primaryLabel(row({}), 'landlord_ops')).toBe('Forward to COO');
   });
 
   it('shows health and concerns chips from one batch call each, and no transfer, eligibility or freeze UI', async () => {
