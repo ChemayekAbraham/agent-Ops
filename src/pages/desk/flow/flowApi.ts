@@ -77,19 +77,31 @@ export function ugxShort(v: number | null | undefined): string {
   return n === null ? '—' : compact.format(n);
 }
 
-/** What OUT was made of: "7 forwarded · 1 returned · 1 rejected" ("funded" where OUT means funded). */
-export function outBreakdown(p: FlowPeriod | null | undefined, deskId: string): string | null {
-  if (!p) return null;
-  if (deskId === 'command') return `${countText(p.out_n)} funded`;
-  const fwd = deskId === 'cfo' || deskId === 'funders' || deskId === 'partner-ops' ? 'funded' : 'forwarded';
-  return `${countText(p.forwarded_n)} ${fwd} · ${countText(p.returned_n)} returned · ${countText(p.rejected_n)} rejected`;
+/** Desks where OUT means funded: Funders (cfo), Partner Ops and the command centre. */
+const fundedDesk = (deskId: string) => deskId === 'cfo' || deskId === 'funders' || deskId === 'partner-ops' || deskId === 'command';
+
+/**
+ * The two column headers: stage desks "In | Out"; Funders and Partner Ops
+ * "Listed | Funded"; the command centre "New | Funded".
+ */
+export function flowWords(deskId: string): { in: string; out: string } {
+  if (deskId === 'command') return { in: 'New', out: 'Funded' };
+  if (fundedDesk(deskId)) return { in: 'Listed', out: 'Funded' };
+  return { in: 'In', out: 'Out' };
 }
 
-/** What IN and OUT mean on this desk, for the card's hint. */
+/** What OUT was made of: "forwarded 7 · returned 1 · rejected 1"; "funded 9" where OUT means funded. */
+export function outBreakdown(p: FlowPeriod | null | undefined, deskId: string): string | null {
+  if (!p) return null;
+  if (fundedDesk(deskId)) return `funded ${countText(p.out_n)}`;
+  return `forwarded ${countText(p.forwarded_n)} · returned ${countText(p.returned_n)} · rejected ${countText(p.rejected_n)}`;
+}
+
+/** What the two columns mean on this desk, for the card's hint. */
 export function flowHint(deskId: string): string {
-  if (deskId === 'command') return 'IN = new requests · OUT = funded';
-  if (deskId === 'cfo' || deskId === 'funders' || deskId === 'partner-ops') return 'IN = listed for funders · OUT = funded';
-  return 'IN = arrived at this desk · OUT = left it';
+  if (deskId === 'command') return 'New = new requests · Funded = funded';
+  if (fundedDesk(deskId)) return 'Listed = listed for funders · Funded = funded';
+  return 'In = arrived at this desk · Out = left it';
 }
 
 /** Two across on a phone, four from md (600 px) — the sketch's 2×2 and 1×4. */

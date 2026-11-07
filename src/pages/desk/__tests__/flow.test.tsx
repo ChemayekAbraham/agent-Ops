@@ -8,7 +8,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles:
 
 import { supabase } from '@/integrations/supabase/client';
 import { FlowGrid, FlowPanel } from '../flow/FlowPanel';
-import { FLOW_PERIODS, countText, flowColumns, outBreakdown, ugxShort, type DeskFlow } from '../flow/flowApi';
+import { FLOW_PERIODS, countText, flowColumns, flowWords, outBreakdown, ugxShort, type DeskFlow } from '../flow/flowApi';
 
 const rpcMock = supabase.rpc as unknown as ReturnType<typeof vi.fn>;
 
@@ -40,7 +40,7 @@ const FLOW: DeskFlow = {
     '90d': period(910, 320_000_000, 880, 300_000_000, 850, 20, 10),
     all: period(1450, 512_340_000, 1400, 490_000_000, 1350, 30, 20),
   },
-  note: 'Rolling windows from now',
+  note: 'Rolling windows from now: today = last 24 h',
 };
 
 describe('IN / OUT panel', () => {
@@ -55,9 +55,9 @@ describe('IN / OUT panel', () => {
     expect(today.querySelector('[data-cell="out-count"]')?.textContent).toBe('9');
     expect(today.querySelector('[data-cell="in-ugx"]')?.textContent).toBe('4.2M');
     expect(today.querySelector('[data-cell="in-ugx"]')?.getAttribute('title')).toBe('UGX 4,200,000');
-    expect(today.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('7 forwarded · 1 returned · 1 rejected');
-    expect(screen.getAllByText('IN')).toHaveLength(4);
-    expect(screen.getAllByText('OUT')).toHaveLength(4);
+    expect(today.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('forwarded 7 · returned 1 · rejected 1');
+    expect(screen.getAllByText('In')).toHaveLength(4);
+    expect(screen.getAllByText('Out')).toHaveLength(4);
   });
 
   it('is 2×2 on a phone and four across from md', () => {
@@ -84,9 +84,30 @@ describe('IN / OUT panel', () => {
 
   it('says what OUT was made of, with funded where OUT means funded', () => {
     const p = period(1, 1, 9, 1, 7, 1, 1);
-    expect(outBreakdown(p, 'tenant-ops')).toBe('7 forwarded · 1 returned · 1 rejected');
-    expect(outBreakdown(p, 'cfo')).toBe('7 funded · 1 returned · 1 rejected');
-    expect(outBreakdown(p, 'command')).toBe('9 funded');
+    for (const d of ['service-centre', 'agent-ops', 'tenant-ops', 'landlord-ops', 'coo']) {
+      expect(outBreakdown(p, d)).toBe('forwarded 7 · returned 1 · rejected 1');
+    }
+    for (const d of ['cfo', 'funders', 'partner-ops', 'command']) expect(outBreakdown(p, d)).toBe('funded 9');
+    expect(outBreakdown(null, 'coo')).toBeNull();
+  });
+
+  it('names the columns per desk', () => {
+    for (const d of ['service-centre', 'agent-ops', 'tenant-ops', 'landlord-ops', 'coo']) expect(flowWords(d)).toEqual({ in: 'In', out: 'Out' });
+    for (const d of ['cfo', 'funders', 'partner-ops']) expect(flowWords(d)).toEqual({ in: 'Listed', out: 'Funded' });
+    expect(flowWords('command')).toEqual({ in: 'New', out: 'Funded' });
+
+    const funders = render(<FlowGrid flow={FLOW} deskId="cfo" board={false} mdUp />);
+    expect(funders.getAllByText('Listed')).toHaveLength(4);
+    expect(funders.getAllByText('Funded')).toHaveLength(4);
+    expect(funders.container.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('funded 9');
+    funders.unmount();
+    const partner = render(<FlowGrid flow={FLOW} deskId="partner-ops" board={false} mdUp />);
+    expect(partner.getAllByText('Listed')).toHaveLength(4);
+    partner.unmount();
+    const command = render(<FlowGrid flow={FLOW} deskId="command" board={false} mdUp />);
+    expect(command.getAllByText('New')).toHaveLength(4);
+    expect(command.getAllByText('Funded')).toHaveLength(4);
+    expect(command.container.querySelector('[data-cell="out-count"]')?.getAttribute('title')).toBe('funded 9');
   });
 
   it('asks desk_flow for this desk and draws the card', async () => {
@@ -95,6 +116,8 @@ describe('IN / OUT panel', () => {
     expect(await screen.findByText('In and out')).not.toBeNull();
     expect(rpcMock).toHaveBeenCalledWith('desk_flow', { p_desk: 'agent-ops' });
     expect(await screen.findByText('Today (24 h)')).not.toBeNull();
+    // desk_flow's note, as the card's grey footnote.
+    expect(screen.getByText('Rolling windows from now: today = last 24 h').className).toContain('desk-label');
   });
 
   it('the command centre passes "command"', async () => {
@@ -102,6 +125,7 @@ describe('IN / OUT panel', () => {
     withClient(<FlowPanel deskId="command" board={false} />);
     await screen.findByText('In and out');
     expect(rpcMock).toHaveBeenCalledWith('desk_flow', { p_desk: 'command' });
+    expect((await screen.findAllByText('New')).length).toBe(4);
   });
 
   it('hides for a viewer the server refuses, and on a desk with no stage', async () => {

@@ -9,6 +9,7 @@ import {
   countText,
   flowColumns,
   flowHint,
+  flowWords,
   outBreakdown,
   ugxShort,
   useDeskFlow,
@@ -36,6 +37,7 @@ const labelText = { ...cellText, fontSize: '0.85em' };
 
 function PeriodCell({ label, p, deskId, board }: { label: string; p: FlowPeriod | null | undefined; deskId: string; board: boolean }) {
   const out = outBreakdown(p, deskId);
+  const words = flowWords(deskId);
   return (
     <div
       className={TILE}
@@ -58,10 +60,10 @@ function PeriodCell({ label, p, deskId, board }: { label: string; p: FlowPeriod 
           <tr>
             <td />
             <th scope="col" className="font-semibold text-muted-foreground" style={{ ...labelText, textAlign: 'right' }}>
-              IN
+              {words.in}
             </th>
             <th scope="col" className="font-semibold text-muted-foreground" style={{ ...labelText, textAlign: 'right' }}>
-              OUT
+              {words.out}
             </th>
           </tr>
         </thead>
@@ -123,7 +125,15 @@ export function FlowPanel({ deskId, board }: { deskId: string; board: boolean })
   if (q.error && isDenied(q.error)) return null;
 
   return (
-    <Card title="In and out" hint={flowHint(deskId)} board={board} ariaLabel="In and out" busy={q.isFetching}>
+    <Card
+      title="In and out"
+      hint={flowHint(deskId)}
+      board={board}
+      ariaLabel="In and out"
+      busy={q.isFetching}
+      // desk_flow's own note ("Rolling windows from now: today = last 24 h …"), small and grey under the panel.
+      footnote={q.data?.note || undefined}
+    >
       {q.isLoading ? (
         <LoadingRows rows={1} height={mdUp ? 96 : 200} label="Loading in and out" />
       ) : q.error ? (
