@@ -739,398 +739,436 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
         </div>
       </div>
 
-      {/* Filter Row 1 */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-center">
-        {/* Search */}
-        <div className="relative w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelected(new Set()); setPage(1); }}
-            placeholder="Search Tenant..."
-            className="h-10 rounded-xl text-sm pl-9 pr-8 bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs focus-visible:ring-primary/20"
-          />
-          {search && (
-            <button
+      {/* Revenue summary — only while no tenants are ticked for payment and location scoped */}
+      {locationScoped && selected.size === 0 && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+              <TrendingUp className="h-4 w-4" />
+              Revenue from this disbursement
+              <span className="ml-1 text-[11px] font-normal text-emerald-600/80 dark:text-emerald-400/80">
+                · Scoped by location ({locationScopeLabel})
+              </span>
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+            <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+              <p className="text-[11px] font-medium text-muted-foreground">Rent Out (Principal)</p>
+              <p className="font-bold text-base text-orange-600 dark:text-orange-400 mt-0.5">
+                {fmt(selected.size > 0 ? totalRent : queueTotalRent)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+              <p className="text-[11px] font-medium text-muted-foreground">Platform Earnings (Fees)</p>
+              <p className="font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {fmt(selected.size > 0 ? totalRevenue : queueTotalRevenue)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
+              <p className="text-[11px] font-medium text-muted-foreground">Total Repayment Expected</p>
+              <p className="font-bold text-base text-primary mt-0.5">
+                {fmt(selected.size > 0 ? totalRepaymentExpected : queueTotalRepaymentExpected)}
+              </p>
+            </div>
+          </div>
+          <TreasuryImpactBanner payoutAmount={selected.size > 0 ? totalRent : queueTotalRent} />
+        </div>
+      )}
+
+      {/* Table Container Card (With Filters Positioned Inside) */}
+      <Card className="rounded-2xl border border-slate-200/80 dark:border-border/70 bg-card p-5 sm:p-6 shadow-xs space-y-4">
+        {/* Table Toolbar Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
+              <Users className="h-4 w-4" />
+            </div>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-foreground">
+              {visibleItems.length} Tenants Awaiting Payout
+            </h3>
+            <span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
+              Showing all {visibleItems.length} tenants
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {selectedVisibleCount > 0 ? (
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 rounded-xl gap-2 font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 text-xs px-4"
+                onClick={() => setBulkReviewOpen(true)}
+              >
+                <Banknote className="h-4 w-4" />
+                Review &amp; Pay {selectedVisibleCount} Selected ({fmt(totalRent)})
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl gap-1.5 font-semibold text-xs border border-blue-600 text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 px-4"
+                disabled={selectableItems.length === 0}
+                onClick={selectAllForPayment}
+              >
+                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                Select All for Disbursement
+              </Button>
+            )}
+
+            <Button
               type="button"
-              onClick={() => { setSearch(''); setPage(1); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-xl gap-1.5 border-slate-200 dark:border-border/70 text-slate-700 dark:text-foreground text-xs font-medium px-3.5 hover:bg-slate-50 shadow-xs"
+              disabled={visibleItems.length === 0}
+              onClick={exportCsv}
             >
-              ✕
-            </button>
-          )}
+              <Download className="h-4 w-4 text-slate-500" />
+              Export
+            </Button>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 border-slate-200 dark:border-border/70 text-slate-700 dark:text-foreground text-xs font-medium px-3.5 hover:bg-slate-50 shadow-xs">
+                  <Filter className="h-4 w-4 text-slate-500" />
+                  Filter
+                  {(agentFilter !== 'all' || countryFilter !== 'all' || dateFilter !== 'all' || districtFilter !== 'all' || cityFilter !== 'all' || catValue !== 'all') && (
+                    <Badge className="h-5 min-w-5 px-1.5 text-[10px] bg-primary text-primary-foreground border-0 rounded-full">
+                      {[agentFilter !== 'all', countryFilter !== 'all', dateFilter !== 'all', districtFilter !== 'all', cityFilter !== 'all', catValue !== 'all'].filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 space-y-3 p-4 rounded-xl shadow-lg border-border/80">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">District</p>
+                  <Select
+                    value={districtFilter}
+                    onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
+                  >
+                    <SelectTrigger className="h-9 rounded-lg text-sm">
+                      <SelectValue placeholder="All districts" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[280px]">
+                      <SelectItem value="all">All districts</SelectItem>
+                      {districtOptions.map(o => (
+                        <SelectItem key={o.name} value={o.name}>
+                          <span className="truncate">{o.name} · {o.count}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">Municipality / Town</p>
+                  <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}>
+                    <SelectTrigger className="h-9 rounded-lg text-sm">
+                      <SelectValue placeholder="All municipalities/towns" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[280px]">
+                      <SelectItem value="all">All municipalities/towns</SelectItem>
+                      {cityOptions.map(o => (
+                        <SelectItem key={o.name} value={o.name}>
+                          <span className="truncate">{o.name} · {o.count}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {!locationProvisionsOnly && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Category type</p>
+                    <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); setPage(1); }}>
+                      <SelectTrigger className="h-9 rounded-lg text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[280px]">
+                        {CAT_FIELD_KEYS.map(k => (
+                          <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {!locationProvisionsOnly && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground">{CAT_FIELD_LABELS[catField]}</p>
+                    <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}>
+                      <SelectTrigger className="h-9 rounded-lg text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[280px]">
+                        <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
+                        {catOptions.map(o => (
+                          <SelectItem key={o.name} value={o.name}>
+                            <span className="truncate">{o.name} · {o.count}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground">Agent</p>
+                  <Select value={agentFilter} onValueChange={(v) => { setAgentFilter(v); setPage(1); }}>
+                    <SelectTrigger className="h-9 rounded-lg text-sm">
+                      <SelectValue placeholder="Filter by agent" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[280px]">
+                      <SelectItem value="all">All agents ({grouped.length})</SelectItem>
+                      {grouped.map(g => (
+                        <SelectItem key={g.agent_id} value={g.agent_id}>
+                          <span className="truncate">{g.agent_name} · {g.rows.length}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {!locationProvisionsOnly && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Country</p>
+                    <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setPage(1); }}>
+                      <SelectTrigger className="h-9 rounded-lg text-sm">
+                        <SelectValue placeholder="All countries" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[280px]">
+                        <SelectItem value="all">All countries</SelectItem>
+                        {countryStats.map(c => (
+                          <SelectItem key={c.country} value={c.country}>
+                            <span className="truncate">{c.country} · {c.count}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  className="text-xs font-medium text-primary hover:underline block pt-1"
+                  onClick={handleResetFilters}
+                >
+                  Clear all filters
+                </button>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
 
-        {/* District Filter */}
-        <Select
-          value={districtFilter}
-          onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
-        >
-          <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs">
-            <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
-            <SelectValue placeholder="All Districts" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[320px]">
-            <SelectItem value="all">All Districts ({items.length})</SelectItem>
-            {districtOptions.map(o => (
-              <SelectItem key={o.name} value={o.name}>
-                <span className="truncate">{o.name} · {o.count}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Filter Row 1 (Inside Table Card) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-center pt-1 border-t border-slate-100 dark:border-border/50">
+          {/* Search */}
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setSelected(new Set()); setPage(1); }}
+              placeholder="Search Tenant..."
+              className="h-10 rounded-xl text-sm pl-9 pr-8 bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs focus-visible:ring-primary/20"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setPage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-        {/* Agent Filter */}
-        <Select
-          value={agentFilter}
-          onValueChange={(v) => { setAgentFilter(v); setPage(1); }}
-        >
-          <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs">
-            <Users className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
-            <SelectValue placeholder="All Agents" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[320px]">
-            <SelectItem value="all">All Agents ({grouped.length})</SelectItem>
-            {grouped.map(g => {
-              const gTotal = g.rows.reduce((s, r) => s + r.rent_amount, 0);
-              return (
-                <SelectItem key={g.agent_id} value={g.agent_id}>
-                  <span className="truncate">
-                    {g.agent_name} · {g.rows.length} · {fmt(gTotal)}
-                  </span>
-                </SelectItem>
-              );
-            })}
-          </SelectContent>
-        </Select>
-
-        {/* Municipality/Town Filter */}
-        <Select
-          value={cityFilter}
-          onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}
-        >
-          <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs">
-            <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
-            <SelectValue placeholder="District" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[320px]">
-            <SelectItem value="all">All Municipalities/Towns</SelectItem>
-            {cityOptions.map(o => (
-              <SelectItem key={o.name} value={o.name}>
-                <span className="truncate">{o.name} · {o.count}</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Optional Category Pickers */}
-        {!locationProvisionsOnly ? (
+          {/* District Filter */}
           <Select
-            value={catValue}
-            onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}
+            value={districtFilter}
+            onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
           >
-            <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs">
-              <Building2 className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
+            <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
+              <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
               <SelectValue placeholder="All Districts" />
             </SelectTrigger>
             <SelectContent className="max-h-[320px]">
-              <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
-              {catOptions.map(o => (
+              <SelectItem value="all">All Districts ({items.length})</SelectItem>
+              {districtOptions.map(o => (
                 <SelectItem key={o.name} value={o.name}>
                   <span className="truncate">{o.name} · {o.count}</span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        ) : (
-          <div />
-        )}
 
-        {/* Reset Filters button */}
-        <Button
-          type="button"
-          variant="outline"
-          className="h-10 rounded-xl text-sm gap-2 bg-white dark:bg-card border-slate-200 dark:border-border/70 shadow-xs hover:bg-slate-50 text-slate-700 dark:text-foreground font-medium"
-          onClick={handleResetFilters}
-        >
-          <RefreshCw className="h-4 w-4 text-slate-500" />
-          Reset Filters
-        </Button>
-      </div>
+          {/* Agent Filter */}
+          <Select
+            value={agentFilter}
+            onValueChange={(v) => { setAgentFilter(v); setPage(1); }}
+          >
+            <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
+              <Users className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
+              <SelectValue placeholder="All Agents" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              <SelectItem value="all">All Agents ({grouped.length})</SelectItem>
+              {grouped.map(g => {
+                const gTotal = g.rows.reduce((s, r) => s + r.rent_amount, 0);
+                return (
+                  <SelectItem key={g.agent_id} value={g.agent_id}>
+                    <span className="truncate">
+                      {g.agent_name} · {g.rows.length} · {fmt(gTotal)}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
 
-      {/* Filter Row 2: Desk Controls */}
-      <div className="flex flex-wrap items-center gap-3">
-        <RentDeskControls
-          filters={deskUrl.filters}
-          onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); setPage(1); }}
-          onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); setPage(1); }}
-          sort={deskUrl.sort}
-          onSortChange={(v) => { deskUrl.setSort(v as RentDeskSort); setPage(1); }}
-          sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
-          matchCount={deskOrder.data?.matchCount}
-          totalCount={deskOrder.data?.totalCount}
-          error={deskOrder.isError}
-        />
-        <AboveSuggestionToggle
-          className="pt-0"
-          on={aboveOnly}
-          onChange={(on) => { setAboveOnly(on); setSelected(new Set()); setPage(1); }}
-          count={items.filter((i) => i.renewal_above_suggestion).length}
-        />
-      </div>
+          {/* Municipality/Town Filter */}
+          <Select
+            value={cityFilter}
+            onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}
+          >
+            <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
+              <MapPin className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
+              <SelectValue placeholder="District" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[320px]">
+              <SelectItem value="all">All Municipalities/Towns</SelectItem>
+              {cityOptions.map(o => (
+                <SelectItem key={o.name} value={o.name}>
+                  <span className="truncate">{o.name} · {o.count}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-      {/* Main Content Area */}
-      {showLoading ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-2xl border border-slate-200/80 bg-card p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm font-medium text-muted-foreground">Loading rent disbursement queue…</p>
+          {/* Optional Category Pickers */}
+          {!locationProvisionsOnly ? (
+            <Select
+              value={catValue}
+              onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}
+            >
+              <SelectTrigger className="h-10 rounded-xl text-sm w-full bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs">
+                <Building2 className="h-4 w-4 mr-2 text-slate-400 shrink-0" />
+                <SelectValue placeholder="All Districts" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[320px]">
+                <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
+                {catOptions.map(o => (
+                  <SelectItem key={o.name} value={o.name}>
+                    <span className="truncate">{o.name} · {o.count}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <div />
+          )}
+
+          {/* Reset Filters button */}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-10 rounded-xl text-sm gap-2 bg-slate-50/70 dark:bg-muted/30 border-slate-200 dark:border-border/70 shadow-xs hover:bg-slate-100 text-slate-700 dark:text-foreground font-medium"
+            onClick={handleResetFilters}
+          >
+            <RefreshCw className="h-4 w-4 text-slate-500" />
+            Reset Filters
+          </Button>
         </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="text-center py-16 px-4 rounded-2xl border border-dashed border-border/70 bg-muted/10">
-          <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500 opacity-90" />
-          <p className="text-base font-semibold text-foreground">No Pending Rent Payouts</p>
-          <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-            {dateFilter !== 'all'
-              ? `No requests match ${dateFilterLabel[dateFilter]}.`
-              : 'All approved rent requests have been disbursed to agent float or landlord wallets.'}
-          </p>
-          {(dateFilter !== 'all' || agentFilter !== 'all' || locationScoped || search) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4 rounded-xl text-xs gap-1.5"
+
+        {/* Filter Row 2: Desk Controls (Inside Table Card) */}
+        <div className="flex flex-wrap items-center gap-3">
+          <RentDeskControls
+            filters={deskUrl.filters}
+            onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); setPage(1); }}
+            onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); setPage(1); }}
+            sort={deskUrl.sort}
+            onSortChange={(v) => { deskUrl.setSort(v as RentDeskSort); setPage(1); }}
+            sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
+            matchCount={deskOrder.data?.matchCount}
+            totalCount={deskOrder.data?.totalCount}
+            error={deskOrder.isError}
+          />
+          <AboveSuggestionToggle
+            className="pt-0"
+            on={aboveOnly}
+            onChange={(on) => { setAboveOnly(on); setSelected(new Set()); setPage(1); }}
+            count={items.filter((i) => i.renewal_above_suggestion).length}
+          />
+        </div>
+
+        {(agentFilter !== 'all' || locationScoped || catValue !== 'all' || search) && (
+          <div className="flex items-center gap-2 pt-1 flex-wrap text-xs">
+            <span className="text-muted-foreground font-medium">Active filters:</span>
+            {search && (
+              <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                Search: "{search}"
+              </Badge>
+            )}
+            {districtFilter !== 'all' && (
+              <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                District: {districtFilter}
+              </Badge>
+            )}
+            {cityFilter !== 'all' && (
+              <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                Town: {cityFilter}
+              </Badge>
+            )}
+            {agentFilter !== 'all' && (
+              <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                Agent: {grouped.find(g => g.agent_id === agentFilter)?.agent_name || agentFilter}
+              </Badge>
+            )}
+            {catValue !== 'all' && (
+              <Badge variant="secondary" className="gap-1 rounded-md text-[11px] font-normal">
+                {CAT_FIELD_LABELS[catField]}: {catValue}
+              </Badge>
+            )}
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:underline ml-1"
               onClick={handleResetFilters}
             >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Reset all filters
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {/* Revenue summary — only while no tenants are ticked for payment and location scoped */}
-          {locationScoped && selected.size === 0 && (
-            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                  <TrendingUp className="h-4 w-4" />
-                  Revenue from this disbursement
-                  <span className="ml-1 text-[11px] font-normal text-emerald-600/80 dark:text-emerald-400/80">
-                    · Scoped by location ({locationScopeLabel})
-                  </span>
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
-                  <p className="text-[11px] font-medium text-muted-foreground">Rent Out (Principal)</p>
-                  <p className="font-bold text-base text-orange-600 dark:text-orange-400 mt-0.5">
-                    {fmt(selected.size > 0 ? totalRent : queueTotalRent)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
-                  <p className="text-[11px] font-medium text-muted-foreground">Platform Earnings (Fees)</p>
-                  <p className="font-bold text-base text-emerald-600 dark:text-emerald-400 mt-0.5">
-                    {fmt(selected.size > 0 ? totalRevenue : queueTotalRevenue)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-emerald-500/20 bg-background/80 p-3 shadow-xs">
-                  <p className="text-[11px] font-medium text-muted-foreground">Total Repayment Expected</p>
-                  <p className="font-bold text-base text-primary mt-0.5">
-                    {fmt(selected.size > 0 ? totalRepaymentExpected : queueTotalRepaymentExpected)}
-                  </p>
-                </div>
-              </div>
-              <TreasuryImpactBanner payoutAmount={selected.size > 0 ? totalRent : queueTotalRent} />
-            </div>
-          )}
+              Clear all filters
+            </button>
+          </div>
+        )}
 
-          {/* Table Container Card */}
-          <Card className="rounded-2xl border border-slate-200/80 dark:border-border/70 bg-card p-5 sm:p-6 shadow-xs space-y-4">
-            {/* Table Toolbar Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400">
-                  <Users className="h-4 w-4" />
-                </div>
-                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-foreground">
-                  {visibleItems.length} Tenants Awaiting Payout
-                </h3>
-                <span className="rounded-full bg-blue-50 dark:bg-blue-950/40 px-3 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400">
-                  Showing all {visibleItems.length} tenants
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                {selectedVisibleCount > 0 ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="h-9 rounded-xl gap-2 font-semibold shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 text-xs px-4"
-                    onClick={() => setBulkReviewOpen(true)}
-                  >
-                    <Banknote className="h-4 w-4" />
-                    Review &amp; Pay {selectedVisibleCount} Selected ({fmt(totalRent)})
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-9 rounded-xl gap-1.5 font-semibold text-xs border border-blue-600 text-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-950/30 px-4"
-                    disabled={selectableItems.length === 0}
-                    onClick={selectAllForPayment}
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                    Select All for Disbursement
-                  </Button>
-                )}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-xl gap-1.5 border-slate-200 dark:border-border/70 text-slate-700 dark:text-foreground text-xs font-medium px-3.5 hover:bg-slate-50 shadow-xs"
-                  disabled={visibleItems.length === 0}
-                  onClick={exportCsv}
-                >
-                  <Download className="h-4 w-4 text-slate-500" />
-                  Export
-                </Button>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 rounded-xl gap-1.5 border-slate-200 dark:border-border/70 text-slate-700 dark:text-foreground text-xs font-medium px-3.5 hover:bg-slate-50 shadow-xs">
-                      <Filter className="h-4 w-4 text-slate-500" />
-                      Filter
-                      {(agentFilter !== 'all' || countryFilter !== 'all' || dateFilter !== 'all' || districtFilter !== 'all' || cityFilter !== 'all' || catValue !== 'all') && (
-                        <Badge className="h-5 min-w-5 px-1.5 text-[10px] bg-primary text-primary-foreground border-0 rounded-full">
-                          {[agentFilter !== 'all', countryFilter !== 'all', dateFilter !== 'all', districtFilter !== 'all', cityFilter !== 'all', catValue !== 'all'].filter(Boolean).length}
-                        </Badge>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-72 space-y-3 p-4 rounded-xl shadow-lg border-border/80">
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-muted-foreground">District</p>
-                      <Select
-                        value={districtFilter}
-                        onValueChange={(v) => { setDistrictFilter(v); setCityFilter('all'); setSelected(new Set()); setPage(1); }}
-                      >
-                        <SelectTrigger className="h-9 rounded-lg text-sm">
-                          <SelectValue placeholder="All districts" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[280px]">
-                          <SelectItem value="all">All districts</SelectItem>
-                          {districtOptions.map(o => (
-                            <SelectItem key={o.name} value={o.name}>
-                              <span className="truncate">{o.name} · {o.count}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-muted-foreground">Municipality / Town</p>
-                      <Select value={cityFilter} onValueChange={(v) => { setCityFilter(v); setSelected(new Set()); setPage(1); }}>
-                        <SelectTrigger className="h-9 rounded-lg text-sm">
-                          <SelectValue placeholder="All municipalities/towns" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[280px]">
-                          <SelectItem value="all">All municipalities/towns</SelectItem>
-                          {cityOptions.map(o => (
-                            <SelectItem key={o.name} value={o.name}>
-                              <span className="truncate">{o.name} · {o.count}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {!locationProvisionsOnly && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-semibold text-muted-foreground">Category type</p>
-                        <Select value={catField} onValueChange={(v) => { setCatField(v as CatFieldKey); setCatValue('all'); setSelected(new Set()); setPage(1); }}>
-                          <SelectTrigger className="h-9 rounded-lg text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[280px]">
-                            {CAT_FIELD_KEYS.map(k => (
-                              <SelectItem key={k} value={k}>{CAT_FIELD_LABELS[k]}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {!locationProvisionsOnly && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-semibold text-muted-foreground">{CAT_FIELD_LABELS[catField]}</p>
-                        <Select value={catValue} onValueChange={(v) => { setCatValue(v); setSelected(new Set()); setPage(1); }}>
-                          <SelectTrigger className="h-9 rounded-lg text-sm">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[280px]">
-                            <SelectItem value="all">All {CAT_FIELD_LABELS[catField].toLowerCase()}</SelectItem>
-                            {catOptions.map(o => (
-                              <SelectItem key={o.name} value={o.name}>
-                                <span className="truncate">{o.name} · {o.count}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5">
-                      <p className="text-xs font-semibold text-muted-foreground">Agent</p>
-                      <Select value={agentFilter} onValueChange={(v) => { setAgentFilter(v); setPage(1); }}>
-                        <SelectTrigger className="h-9 rounded-lg text-sm">
-                          <SelectValue placeholder="Filter by agent" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[280px]">
-                          <SelectItem value="all">All agents ({grouped.length})</SelectItem>
-                          {grouped.map(g => (
-                            <SelectItem key={g.agent_id} value={g.agent_id}>
-                              <span className="truncate">{g.agent_name} · {g.rows.length}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {!locationProvisionsOnly && (
-                      <div className="space-y-1.5">
-                        <p className="text-xs font-semibold text-muted-foreground">Country</p>
-                        <Select value={countryFilter} onValueChange={(v) => { setCountryFilter(v); setPage(1); }}>
-                          <SelectTrigger className="h-9 rounded-lg text-sm">
-                            <SelectValue placeholder="All countries" />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-[280px]">
-                            <SelectItem value="all">All countries</SelectItem>
-                            {countryStats.map(c => (
-                              <SelectItem key={c.country} value={c.country}>
-                                <span className="truncate">{c.country} · {c.count}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className="text-xs font-medium text-primary hover:underline block pt-1"
-                      onClick={handleResetFilters}
-                    >
-                      Clear all filters
-                    </button>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
+        {/* Content Area Inside Table Card */}
+        {showLoading ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-muted-foreground">Loading rent disbursement queue…</p>
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="text-center py-16 px-4 rounded-xl border border-dashed border-border/70 bg-muted/10">
+            <CheckCircle2 className="h-12 w-12 mx-auto mb-3 text-emerald-500 opacity-90" />
+            <p className="text-base font-semibold text-foreground">No Pending Rent Payouts</p>
+            <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+              {dateFilter !== 'all'
+                ? `No requests match ${dateFilterLabel[dateFilter]}.`
+                : 'All approved rent requests have been disbursed to agent float or landlord wallets.'}
+            </p>
+            {(dateFilter !== 'all' || agentFilter !== 'all' || locationScoped || search) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 rounded-xl text-xs gap-1.5"
+                onClick={handleResetFilters}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Reset all filters
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
             {/* Table */}
             <div className="rounded-xl border border-slate-200/70 dark:border-border/60 overflow-hidden">
               <div className="overflow-x-auto">
@@ -1341,9 +1379,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 )}
               </div>
             </div>
-          </Card>
-        </div>
-      )}
+          </div>
+        )}
+      </Card>
 
       <Sheet open={bulkReviewOpen} onOpenChange={setBulkReviewOpen}>
         <SheetContent side="center" className="max-h-[88vh] w-[94vw] max-w-3xl sm:max-w-3xl lg:max-w-3xl xl:max-w-3xl overflow-y-auto rounded-xl p-0">
