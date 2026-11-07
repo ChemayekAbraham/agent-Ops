@@ -3226,6 +3226,45 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_eligibility_daily: {
+        Row: {
+          agent_id: string
+          collected: number | null
+          computed_at: string
+          day: string
+          due: number | null
+          eligible: boolean | null
+          new_agent: boolean | null
+          open_n: number | null
+          pct: number | null
+          plans: number | null
+        }
+        Insert: {
+          agent_id: string
+          collected?: number | null
+          computed_at?: string
+          day: string
+          due?: number | null
+          eligible?: boolean | null
+          new_agent?: boolean | null
+          open_n?: number | null
+          pct?: number | null
+          plans?: number | null
+        }
+        Update: {
+          agent_id?: string
+          collected?: number | null
+          computed_at?: string
+          day?: string
+          due?: number | null
+          eligible?: boolean | null
+          new_agent?: boolean | null
+          open_n?: number | null
+          pct?: number | null
+          plans?: number | null
+        }
+        Relationships: []
+      }
       agent_eligibility_unblock_events: {
         Row: {
           active_count: number
@@ -43016,6 +43055,39 @@ export type Database = {
         }
         Relationships: []
       }
+      pipeline_agent_freezes: {
+        Row: {
+          agent_id: string | null
+          frozen_at: string
+          id: number
+          outcome: string | null
+          reason: string | null
+          rent_request_id: string
+          stage: string
+          unfrozen_at: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          frozen_at?: string
+          id?: number
+          outcome?: string | null
+          reason?: string | null
+          rent_request_id: string
+          stage: string
+          unfrozen_at?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          frozen_at?: string
+          id?: number
+          outcome?: string | null
+          reason?: string | null
+          rent_request_id?: string
+          stage?: string
+          unfrozen_at?: string | null
+        }
+        Relationships: []
+      }
       pipeline_auto_forwards: {
         Row: {
           error: string | null
@@ -51519,6 +51591,42 @@ export type Database = {
           submitted_by_name?: string | null
           summary?: string | null
           title?: string
+        }
+        Relationships: []
+      }
+      request_photo_review_runs: {
+        Row: {
+          approved: string[]
+          before: string[]
+          id: number
+          main_url: string
+          rejected: string[]
+          rent_request_id: string
+          reviewed_at: string
+          reviewed_by: string
+          staff_ref: string | null
+        }
+        Insert: {
+          approved: string[]
+          before: string[]
+          id?: number
+          main_url: string
+          rejected?: string[]
+          rent_request_id: string
+          reviewed_at?: string
+          reviewed_by: string
+          staff_ref?: string | null
+        }
+        Update: {
+          approved?: string[]
+          before?: string[]
+          id?: number
+          main_url?: string
+          rejected?: string[]
+          rent_request_id?: string
+          reviewed_at?: string
+          reviewed_by?: string
+          staff_ref?: string | null
         }
         Relationships: []
       }
@@ -74765,6 +74873,7 @@ export type Database = {
           yesterday_pct: number
         }[]
       }
+      _agent_eligibility: { Args: { p_agent: string }; Returns: Json }
       _agent_expected_effective: {
         Args: { p_agent_ids: string[]; p_from: string; p_to: string }
         Returns: {
@@ -75001,6 +75110,9 @@ export type Database = {
         }[]
       }
       _am_staff_ok: { Args: never; Returns: boolean }
+      _ao_gate_missing: { Args: { p_request_id: string }; Returns: string[] }
+      _ao_items_missing: { Args: { p_request_id: string }; Returns: string[] }
+      _ao_photos_ok: { Args: { p_request_id: string }; Returns: boolean }
       _aom_allowed: { Args: never; Returns: boolean }
       _aom_rows: {
         Args: { p_end: string; p_scope: string; p_start: string }
@@ -75313,6 +75425,19 @@ export type Database = {
         }[]
       }
       _e28_phone9: { Args: { p: string }; Returns: string }
+      _eligible_agents: {
+        Args: never
+        Returns: {
+          agent_id: string
+          collected: number
+          due: number
+          eligible: boolean
+          new_agent: boolean
+          open_n: number
+          pct: number
+          plans: number
+        }[]
+      }
       _file_allocation_return_for_rejected_payout: {
         Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
         Returns: string
@@ -76458,6 +76583,9 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_eligibility_board: { Args: never; Returns: Json }
+      agent_eligibility_of: { Args: { p_agent: string }; Returns: Json }
+      agent_eligibility_snapshot: { Args: never; Returns: number }
       agent_expected_collection: {
         Args: { p_rent_request_id: string }
         Returns: number
@@ -76824,6 +76952,7 @@ export type Database = {
             Args: { p_days?: number; p_limit?: number; p_offset?: number }
             Returns: Json
           }
+      agent_ops_photo_state: { Args: { p_request_id: string }; Returns: Json }
       agent_ops_prior_period_start: {
         Args: { p_granularity: string; p_period_start: string }
         Returns: string
@@ -76893,6 +77022,15 @@ export type Database = {
       }
       agent_ops_report_team_search: {
         Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      agent_ops_review_photos: {
+        Args: {
+          p_approved: string[]
+          p_main_url: string
+          p_rejected?: string[]
+          p_request_id: string
+        }
         Returns: Json
       }
       agent_ops_run_snapshot_cycle: { Args: never; Returns: undefined }
@@ -76997,6 +77135,10 @@ export type Database = {
         Returns: undefined
       }
       agent_ops_tenants_owing: { Args: { p_as_of?: string }; Returns: Json }
+      agent_ops_transfer_options: {
+        Args: { p_limit?: number; p_request_id: string }
+        Returns: Json
+      }
       agent_ops_verify_bike_lease: {
         Args: { p_note?: string; p_sale_id: string }
         Returns: Json
@@ -80697,6 +80839,10 @@ export type Database = {
         }
         Returns: Json
       }
+      coo_push_selected: {
+        Args: { p_comment?: string; p_ids: string[] }
+        Returns: Json
+      }
       coo_push_to_funders: {
         Args: { p_comment?: string; p_n: number }
         Returns: Json
@@ -82788,6 +82934,7 @@ export type Database = {
         Returns: number
       }
       funder_booked_houses: { Args: never; Returns: Json }
+      funder_card_preview: { Args: { p_request_id: string }; Returns: Json }
       funder_create_pending_portfolio: {
         Args: {
           p_amount: number
@@ -92452,6 +92599,7 @@ export type Database = {
         }[]
       }
       pipeline_desk_ratings: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_freeze_sync: { Args: never; Returns: Json }
       pipeline_funder_board_preview: {
         Args: never
         Returns: {
@@ -96119,6 +96267,16 @@ export type Database = {
           final_stage: string
           stage: string
         }[]
+      }
+      staff_save_intake_details: {
+        Args: {
+          p_family_size?: number
+          p_lc1_phone_confirmation?: string
+          p_request_id: string
+          p_work_business?: string
+          p_work_location?: string
+        }
+        Returns: Json
       }
       staff_survey_apply_tax_acceptance: {
         Args: { _at: string; _nssf: string; _tin: string; _user_id: string }
