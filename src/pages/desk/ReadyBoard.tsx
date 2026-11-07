@@ -12,6 +12,8 @@ import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
+import { healthChip, useTenantHealthMany, type TenantHealth } from './paymentHealth';
+import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import {
   GROUP_LABEL,
   PUSHABLE,
@@ -93,6 +95,8 @@ function BoardRowLine({
   onRetry,
   onOpen,
   onPick,
+  health,
+  concerns,
 }: {
   row: BoardRow;
   stage: Stage;
@@ -105,8 +109,14 @@ function BoardRowLine({
   onOpen: OpenDrawer;
   /** Agent Ops transfer rows: choose a different receiving agent. */
   onPick?: () => void;
+  /** Tenant Ops: how the tenant has paid before. */
+  health?: TenantHealth;
+  /** Tenant/Landlord Ops: concerns any desk logged on this request. */
+  concerns?: ConcernSummary;
 }) {
-  const elig = eligibilityChip(row.eligibility);
+  // Eligibility belongs to Agent Ops only; other desks never show it.
+  const elig = stage === 'agent_ops' ? eligibilityChip(row.eligibility) : null;
+  const hc = healthChip(health);
   const chip = flagsChip(row.flags);
   const label = primaryLabel(row, stage);
   const others = visibleDecisions(stage).filter((d) => d !== row.decision);
@@ -121,6 +131,12 @@ function BoardRowLine({
         {row.batch && (
           <span className="desk-pill border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[11px] text-muted-foreground">Aug batch</span>
         )}
+        {hc && (
+          <Chip tone={hc.tone} title={hc.title}>
+            {hc.text}
+          </Chip>
+        )}
+        <ConcernsChip summary={concerns} />
         <span className="text-muted-foreground" aria-hidden>·</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
           {row.agent ?? 'No agent'}
@@ -416,6 +432,9 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
+  // One batch call each per board load, for the desks that show them.
+  const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops');
+  const concerns = useConcernsSummary((data?.rows ?? []).map((r) => r.id), stage === 'tenant_ops' || stage === 'landlord_ops');
 
   const setNote = (id: string, n: RowNote | null) =>
     setNotes((m) => {
@@ -555,6 +574,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
               onRetry={() => void retry(r)}
               onOpen={onOpen}
               onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
+              health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
+              concerns={concerns.data?.[r.id]}
             />
           ))}
         </ul>

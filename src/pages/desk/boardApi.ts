@@ -386,7 +386,8 @@ export function ownerWords(kind: string | null | undefined, stage: Stage, name?:
 export function primaryLabel(row: BoardRow, stage: Stage): string | null {
   switch (row.decision) {
     case 'pass':
-      return 'Pass';
+      // Tenant Ops' pass sends the request on to Landlord Ops; same push as any pass.
+      return stage === 'tenant_ops' ? 'Forward to Landlord Ops' : 'Pass';
     case 'send_back':
       return 'Send back';
     case 'reject':

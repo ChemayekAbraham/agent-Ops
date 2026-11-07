@@ -8,6 +8,7 @@ import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
 import type { OpenDrawer } from './ReadyBoard';
+import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -179,7 +180,20 @@ export function frozenText(f: NonNullable<CooRow['frozen']>): string {
   return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
 }
 
-function CooRowLine({ row, board, onOpen, onPush }: { row: CooRow; board: boolean; onOpen: OpenDrawer; onPush: (row: CooRow) => void }) {
+function CooRowLine({
+  row,
+  board,
+  onOpen,
+  onPush,
+  concerns,
+}: {
+  row: CooRow;
+  board: boolean;
+  onOpen: OpenDrawer;
+  onPush: (row: CooRow) => void;
+  /** Concerns any desk logged on this request. */
+  concerns?: ConcernSummary;
+}) {
   const r = row.ratings;
   const w = row.waiting;
   const frozen = row.frozen;
@@ -194,6 +208,7 @@ function CooRowLine({ row, board, onOpen, onPush }: { row: CooRow; board: boolea
       <GradeBadge grade={row.grade} />
       <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
       <span className={`${LABEL} font-mono`}>{row.req}</span>
+      <ConcernsChip summary={concerns} />
       <span className="tabular-nums text-foreground" title="Agent Ops · Tenant Ops · Landlord Ops ratings">
         AO {rating(r?.agent_ops)} · TO {rating(r?.tenant_ops)} · LO {rating(r?.landlord_ops)}
       </span>
@@ -389,6 +404,8 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const [pushRow, setPushRow] = useState<CooRow | null>(null);
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
+  // One batch call per board load: the concerns logged on every row.
+  const concerns = useConcernsSummary(rows.map((r) => r.id));
 
   if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the COO board" />;
   if (q.error) return <ErrorLine>The COO board could not load: {readableError(q.error)}</ErrorLine>;
@@ -432,7 +449,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       ) : (
         <ol>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} onPush={setPushRow} />
+            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} onPush={setPushRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}

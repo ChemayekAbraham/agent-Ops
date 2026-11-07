@@ -196,7 +196,7 @@ describe('board button labels per decision', () => {
   it('Tenant Ops', () => {
     expect(primaryLabel(boardRow('call'), 'tenant_ops')).toBe('Call tenant');
     expect(primaryLabel(boardRow('complete'), 'tenant_ops')).toBe('Finish checks');
-    expect(primaryLabel(boardRow('pass'), 'tenant_ops')).toBe('Pass');
+    expect(primaryLabel(boardRow('pass'), 'tenant_ops')).toBe('Forward to Landlord Ops');
     expect(primaryLabel(boardRow('call_again'), 'tenant_ops')).toBe('Call again');
     expect(primaryLabel(boardRow('reject'), 'tenant_ops')).toBe('Reject');
     expect(primaryLabel(boardRow('waiting'), 'tenant_ops')).toBeNull();

@@ -13,6 +13,9 @@ import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
 import { DeskCallButton, RequestCallHistory } from './deskCall';
 import { PhotoReview } from './PhotoReview';
 import { IntakeForm } from './IntakeForm';
+import { PaymentHealthPanel } from './paymentHealth';
+import { ConcernsSection, concernDeskFor } from './concerns';
+import { stackLayout } from './ui';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
@@ -258,6 +261,8 @@ export function ReviewDrawer({
   const canWait = !!waitDesk && !waitList.missing;
 
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
+  // Concerns follow the request; every desk but the retired Partner Ops can log and read them.
+  const concernDesk = concernDeskFor(stage);
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
   const proxies = useProxyAgents(decision === 'attach_funder');
 
@@ -539,6 +544,26 @@ export function ReviewDrawer({
                 </div>
               </section>
 
+              {/* ── Tenant Ops: how the tenant has paid, and the agent who brought them ── */}
+              {stage === 'tenant_ops' && (
+                <div className="grid gap-4 sm:grid-cols-2" style={{ display: 'grid', gap: 16 }}>
+                  <PaymentHealthPanel tenantId={req.tenant?.id ?? null} />
+                  <section className={`${PANEL} p-4`} style={stackLayout(6)} aria-label="Agent">
+                    <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+                      Agent
+                    </h3>
+                    <p className="text-sm text-foreground">{req.agent?.name ?? 'No agent recorded'}</p>
+                    <p className="font-mono text-xs text-muted-foreground">{req.agent?.phone ?? 'no number'}</p>
+                    <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
+                      Call agent
+                      <DeskCallButton
+                        target={{ requestId, desk: stage, subject: 'agent', calleeId: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                      />
+                    </span>
+                  </section>
+                </div>
+              )}
+
               {showIntake && (
                 <IntakeForm
                   requestId={requestId}
@@ -568,6 +593,8 @@ export function ReviewDrawer({
               )}
 
               <RequestCallHistory requestId={requestId} />
+
+              {concernDesk && <ConcernsSection requestId={requestId} desk={concernDesk} />}
 
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>
