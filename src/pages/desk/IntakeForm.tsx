@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { FOCUS, LABEL, PANEL, statusText } from './deskTheme';
-import { DecisionButton, ErrorLine } from './ui';
+import { DecisionButton, ErrorLine, atLeast, useBreakpoint } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { DeskCallButton } from './deskCall';
 import { setWait, type WaitSuggest } from './boardApi';
@@ -52,6 +52,8 @@ export function IntakeForm({
   itemsMissing: string[];
   waitSuggest: WaitSuggest | null;
 }) {
+  // Two columns from md; one on phones.
+  const twoCols = atLeast(useBreakpoint(), 'md');
   const queryClient = useQueryClient();
   const [v, setV] = useState<IntakeValues>({ familySize: '', workBusiness: '', workLocation: '', lc1: '' });
   const [stillMissing, setStillMissing] = useState<string[] | null>(null);
@@ -108,7 +110,7 @@ export function IntakeForm({
         <p className={`text-sm ${statusText.ok}`}>Nothing is missing.</p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: twoCols ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)' }}>
         <label className="block space-y-1">
           <span className={LABEL}>Family size ({FAMILY_MIN}–{FAMILY_MAX}){flag(/family/i)}</span>
           <input type="number" inputMode="numeric" min={FAMILY_MIN} max={FAMILY_MAX} value={v.familySize} onChange={set('familySize')} className={`${INPUT} max-w-[8rem]`} />
@@ -121,7 +123,7 @@ export function IntakeForm({
           <span className={LABEL}>Where they work{flag(/location/i)}</span>
           <input value={v.workLocation} onChange={set('workLocation')} className={INPUT} placeholder="e.g. Nakawa market" />
         </label>
-        <label className="block space-y-1 sm:col-span-2">
+        <label className="block space-y-1" style={{ gridColumn: '1 / -1' }}>
           <span className={LABEL}>LC1 phone confirmation ({LC1_MIN}+ characters){flag(/lc1/i)}</span>
           <textarea
             value={v.lc1}

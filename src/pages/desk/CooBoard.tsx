@@ -3,13 +3,14 @@ import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout } from './ui';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout, RowCard, atLeast, useBreakpoint, daysShort, moneyCard, moneyFull } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
 import type { OpenDrawer } from './ReadyBoard';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
-import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
+import { concernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
+import type { ChipModel } from './boardRowModel';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -181,64 +182,157 @@ export function frozenText(f: NonNullable<CooRow['frozen']>): string {
   return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
 }
 
+/**
+ * The COO row's chips, most important first: concerns, frozen, on hold,
+ * partly rated. Chips stay short; the frozen or hold sentence goes on its own
+ * line (`cooLine`), because a pill never wraps.
+ */
+export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
+  const out: ChipModel[] = [];
+  const c = concernsChip(concerns);
+  if (c) out.push({ key: 'concerns', text: c.text, tone: c.tone, title: c.title, strong: c.tone === 'bad' });
+  if (row.frozen) out.push({ key: 'frozen', text: 'Frozen', tone: 'idle', title: frozenText(row.frozen) });
+  const w = row.waiting;
+  if (w) {
+    const up = w.expired || (hoursUntil(w.until_at) ?? 1) <= 0;
+    out.push({ key: 'hold', text: up ? 'On hold · time up' : 'On hold', tone: up ? 'bad' : 'idle', title: w.note ?? undefined });
+  }
+  if (row.ratings?.partly_rated) out.push({ key: 'partly', text: 'partly rated', tone: 'idle' });
+  return out;
+}
+
+/** The sentence under a frozen or held row, in plain words; null otherwise. */
+export function cooLine(row: CooRow): string | null {
+  if (row.frozen) return frozenText(row.frozen);
+  const w = row.waiting;
+  if (!w) return null;
+  const up = w.expired || (hoursUntil(w.until_at) ?? 1) <= 0;
+  return `On hold for ${ownerLabel(w.owner_kind, 'coo')} · ${up ? 'Time up' : timeLeftText(hoursUntil(w.until_at))}${w.note ? ` — ${w.note}` : ''}`;
+}
+
+/** "AO 80 · TO 70 · LO —". */
+export const ratingsText = (r: CooRow['ratings']) => `AO ${rating(r?.agent_ops)} · TO ${rating(r?.tenant_ops)} · LO ${rating(r?.landlord_ops)}`;
+
+/** lg: rank+grade+tenant | agent | chips | ratings | UGX | days | action — the action never wraps. */
+const COO_GRID = 'minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.4fr) 9rem 6.5rem 3.5rem max-content';
+/** md: people | ratings | UGX | days | action, chips on a line of their own. */
+const COO_GRID_MD = 'minmax(0, 1fr) 8.5rem 5.5rem 3rem max-content';
+
 function CooRowLine({
   row,
   board,
+  layout,
   onOpen,
   onPush,
   concerns,
 }: {
   row: CooRow;
   board: boolean;
+  /** card below md; md: two-line row; lg: one row. */
+  layout: 'card' | 'md' | 'lg';
   onOpen: OpenDrawer;
   onPush: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
-  const r = row.ratings;
-  const w = row.waiting;
   const frozen = row.frozen;
+  const chips = cooChips(row, concerns).map((c) => (
+    <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
+      {c.text}
+    </Chip>
+  ));
+  const menu = (close: () => void) => (
+    <>
+      <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+      <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
+      <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
+    </>
+  );
+  const title = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      {/* Rank and grade never shrink or wrap beside a long name. */}
+      <span className={`${LABEL} tabular-nums`} style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{row.rank ?? '—'}.</span>
+      <span style={{ flexShrink: 0, display: 'inline-flex' }}>
+        <GradeBadge grade={row.grade} />
+      </span>
+      <span style={{ overflowWrap: 'anywhere' }}>{row.tenant ?? '—'}</span>
+    </span>
+  );
+  const agent = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
+      {row.agent_grade && <GradeBadge grade={row.agent_grade} />}
+    </span>
+  );
+
+  const line = cooLine(row);
+
+  if (layout === 'card') {
+    return (
+      <li data-row={row.id} data-frozen={frozen ? 'true' : undefined} className={frozen ? 'opacity-60' : ''} style={{ listStyle: 'none' }}>
+        <RowCard
+          board={board}
+          title={title}
+          subtitle={agent}
+          chips={chips}
+          why={line ?? undefined}
+          meta={
+            <>
+              <span title={moneyFull(row.rent)}>{moneyCard(row.rent)}</span>
+              <span>{daysShort(row.days_here)}</span>
+              <span title="Agent Ops · Tenant Ops · Landlord Ops ratings">{ratingsText(row.ratings)}</span>
+            </>
+          }
+          primary={isPushable(row) ? { label: 'Push to funders', onClick: () => onPush(row) } : undefined}
+          menu={menu}
+          menuLabel={`More for ${row.tenant ?? 'this request'}`}
+        />
+      </li>
+    );
+  }
+
   return (
     <li
+      data-row={row.id}
+      data-gridrow
       data-frozen={frozen ? 'true' : undefined}
-      className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${
-        frozen ? 'opacity-60' : ''
-      }`}
+      className={`border-t border-[var(--desk-line-color)] first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${frozen ? 'opacity-60' : ''}`}
+      data-layout={layout}
+      style={{ display: 'grid', gridTemplateColumns: layout === 'lg' ? COO_GRID : COO_GRID_MD, columnGap: 12, rowGap: 4, alignItems: 'center', paddingTop: 8, paddingBottom: 8, listStyle: 'none' }}
     >
-      <span className={`${LABEL} w-7 text-right tabular-nums`}>{row.rank ?? '—'}</span>
-      <GradeBadge grade={row.grade} />
-      <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
-      <span className={`${LABEL} font-mono`}>{row.req}</span>
-      <ConcernsChip summary={concerns} />
-      <span className="tabular-nums text-foreground" title="Agent Ops · Tenant Ops · Landlord Ops ratings">
-        AO {rating(r?.agent_ops)} · TO {rating(r?.tenant_ops)} · LO {rating(r?.landlord_ops)}
-      </span>
-      {r?.partly_rated && <span className="text-xs text-muted-foreground">partly rated</span>}
-      <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
-      <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
-      {frozen && <Chip tone="idle">{frozenText(frozen)}</Chip>}
-      {w && (
-        <span className={`${LABEL} inline-flex items-center gap-1`} title={w.note ?? undefined}>
-          On hold for {ownerLabel(w.owner_kind, 'coo')} ·{' '}
-          {w.expired || (hoursUntil(w.until_at) ?? 1) <= 0 ? <span className={statusText.bad}>Time up</span> : timeLeftText(hoursUntil(w.until_at))}
+      {layout === 'lg' ? (
+        <>
+          <span className="font-medium text-foreground" style={{ minWidth: 0 }}>{title}</span>
+          <span className="text-foreground" style={{ minWidth: 0 }}>{agent}</span>
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>{chips}</span>
+        </>
+      ) : (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <span className="font-medium text-foreground">{title}</span>
+          <span className="text-muted-foreground">{agent}</span>
         </span>
       )}
-      <span className="ml-auto inline-flex items-center gap-2">
+      <span className="tabular-nums text-foreground" style={{ whiteSpace: 'nowrap' }} title="Agent Ops · Tenant Ops · Landlord Ops ratings">
+        {ratingsText(row.ratings)}
+      </span>
+      <span className="tabular-nums text-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} title={moneyFull(row.rent)}>
+        {moneyCard(row.rent)}
+      </span>
+      <span className="tabular-nums text-muted-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{daysShort(row.days_here)}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, whiteSpace: 'nowrap' }}>
         {isPushable(row) && (
           <DecisionButton variant="primary" onClick={() => onPush(row)}>
             Push to funders
           </DecisionButton>
         )}
-        <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
-          {(close) => (
-            <>
-              <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
-              <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
-              <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
-            </>
-          )}
-        </MoreMenu>
+        <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
       </span>
+      {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
+      {line && (
+        <div className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
+          {line}
+        </div>
+      )}
     </li>
   );
 }
@@ -407,6 +501,10 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
   // One batch call per board load: the concerns logged on every row.
   const concerns = useConcernsSummary(rows.map((r) => r.id));
+  // Below md: rows are cards and "Push top N" sits in a bar stuck to the bottom of the screen.
+  const bp = useBreakpoint();
+  const layout: 'card' | 'md' | 'lg' = !atLeast(bp, 'md') ? 'card' : atLeast(bp, 'lg') ? 'lg' : 'md';
+  const card = layout === 'card';
 
   if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the COO board" />;
   if (q.error)
@@ -420,10 +518,22 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const valid = Number.isFinite(n) && n >= 1;
 
   return (
-    <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
+    <section className={`${PANEL} p-4 sm:p-5`} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <CooTopLine counts={q.data?.counts ?? {}} board={board} />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div
+        data-push-bar={card ? 'sticky' : 'inline'}
+        className={card ? 'border-t border-[var(--desk-line-color)] bg-[hsl(var(--background))]' : ''}
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 8,
+          ...(card
+            ? { position: 'sticky', bottom: 0, zIndex: 6, order: 99, padding: '10px 0', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))' }
+            : null),
+        }}
+      >
         <label className="inline-flex items-center gap-1.5 text-sm text-foreground">
           Push top
           <input
@@ -453,9 +563,9 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       {rows.length === 0 ? (
         <EmptyState>Nothing is waiting for your push.</EmptyState>
       ) : (
-        <ol>
+        <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} onPush={setPushRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}

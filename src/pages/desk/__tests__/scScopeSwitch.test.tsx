@@ -100,8 +100,9 @@ describe('Service Centre scope switch', () => {
     mount();
     await waitFor(() => screen.getByText('Tenant batch-row-1'));
     expect(screen.getAllByText('Aug batch')).toHaveLength(1);
+    // The chip sits in the batch row's own chip list.
     const chip = screen.getByText('Aug batch');
-    expect(chip.previousElementSibling?.textContent).toBe('Tenant batch-row-1');
+    expect(chip.closest('[data-row]')?.getAttribute('data-row')).toBe('batch-row-1');
   });
 });
 
