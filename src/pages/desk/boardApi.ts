@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { rpc } from './reviewApi';
 import { runMove, type MoveResult } from './deskActions';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
@@ -12,7 +12,18 @@ import type { CheckEntry, Decision, Stage } from './reviewTypes';
  * values, nothing more.
  */
 
-export type BoardDecision = 'pass' | 'transfer' | 'send_back' | 'reject' | 'wait' | 'waiting';
+export type BoardDecision =
+  | 'pass'
+  | 'transfer'
+  | 'send_back'
+  | 'reject'
+  | 'wait'
+  | 'waiting'
+  /** Service Centre: items missing — call and fill them in the drawer. Tenant/Landlord Ops: checks left to finish. */
+  | 'complete'
+  /** Tenant/Landlord Ops: no answered call yet — call first. */
+  | 'call'
+  | 'call_again';
 
 export type BoardFlag = { code: string; label: string; level: 'hard' | 'soft' | 'info'; ok: boolean; detail: string | null };
 
@@ -65,7 +76,12 @@ export type BoardRow = {
   wait_suggest: WaitSuggest | null;
   push: BoardPush | null;
   call: { answered_since_stage: string | null; attempts_24h: number | null } | null;
+  /** Service Centre: the request is from the August 2026 batch. */
+  batch?: boolean;
 };
+
+/** Service Centre only: which requests the board shows. Other stages ignore it. */
+export type BoardScope = 'new' | 'batch' | 'all';
 
 export type Board = {
   stage: Stage;
@@ -74,14 +90,29 @@ export type Board = {
   sc_only: boolean;
   counts: Partial<Record<BoardDecision, number>>;
   rows: BoardRow[];
+  /** Service Centre: the scope the server applied, and how many requests each scope holds. */
+  scope: BoardScope;
+  scope_counts: { new: number | null; batch: number | null } | null;
 };
 
 export const BOARD_LIMIT = 150;
+/** The Service Centre carries the August batch, so it reads more rows at once. */
+export const SC_BOARD_LIMIT = 300;
 
-export const boardKey = (stage: Stage) => ['desk-feed', 'board', stage];
+export const boardLimit = (stage: Stage) => (stage === 'service_centre' ? SC_BOARD_LIMIT : BOARD_LIMIT);
 
-export async function loadBoard(stage: Stage): Promise<Board> {
-  const { data, error } = await rpc('pipeline_desk_board', { p_stage: stage, p_limit: BOARD_LIMIT });
+export const boardKey = (stage: Stage, scope?: BoardScope) =>
+  stage === 'service_centre' ? ['desk-feed', 'board', stage, scope ?? 'new'] : ['desk-feed', 'board', stage];
+
+/** The RPC arguments: `p_scope` only on the Service Centre, where it means something. */
+export function boardArgs(stage: Stage, scope?: BoardScope): Record<string, unknown> {
+  const args: Record<string, unknown> = { p_stage: stage, p_limit: boardLimit(stage) };
+  if (stage === 'service_centre') args.p_scope = scope ?? 'new';
+  return args;
+}
+
+export async function loadBoard(stage: Stage, scope?: BoardScope): Promise<Board> {
+  const { data, error } = await rpc('pipeline_desk_board', boardArgs(stage, scope));
   if (error) throw error;
   const b = (data ?? {}) as Partial<Board>;
   return {
@@ -91,14 +122,32 @@ export async function loadBoard(stage: Stage): Promise<Board> {
     sc_only: b.sc_only === true,
     counts: b.counts ?? {},
     rows: Array.isArray(b.rows) ? b.rows : [],
+    scope: b.scope ?? scope ?? 'new',
+    scope_counts: b.scope_counts ?? null,
   };
 }
 
-export function useDeskBoard(stage: Stage, enabled = true) {
+/** "New (213) · August batch (3,580) · All" — the switch's labels, from scope_counts. */
+export function scopeLabels(counts: Board['scope_counts']): Record<BoardScope, string> {
+  const n = (v: number | null | undefined) => (v === null || v === undefined ? '' : ` (${Number(v).toLocaleString('en')})`);
+  return { new: `New${n(counts?.new)}`, batch: `August batch${n(counts?.batch)}`, all: 'All' };
+}
+
+/** How many requests the current scope holds, for "Showing 300 of 3,580". Null when unknown. */
+export function scopeTotal(scope: BoardScope, counts: Board['scope_counts']): number | null {
+  if (!counts) return null;
+  if (scope === 'new') return counts.new ?? null;
+  if (scope === 'batch') return counts.batch ?? null;
+  return counts.new === null || counts.batch === null ? null : Number(counts.new) + Number(counts.batch);
+}
+
+export function useDeskBoard(stage: Stage, enabled = true, scope?: BoardScope) {
   return useQuery({
-    queryKey: boardKey(stage),
+    queryKey: boardKey(stage, scope),
     enabled,
-    queryFn: () => loadBoard(stage),
+    queryFn: () => loadBoard(stage, scope),
+    // Switching scope keeps the last board on screen (switch included) until the new one arrives.
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
     staleTime: 20_000,
     retry: 1,
@@ -167,7 +216,31 @@ export async function setSuggestedWait(row: BoardRow, stage: Stage): Promise<{ o
 /** The groups "Push all" works on. */
 export const PUSHABLE: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reject'];
 
-export const GROUP_ORDER: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reject', 'wait', 'waiting'];
+/** The decision groups each board shows, in the order the desk works them. */
+export const STAGE_GROUPS: Partial<Record<Stage, BoardDecision[]>> = {
+  service_centre: ['pass', 'send_back', 'complete', 'waiting'],
+  agent_ops: ['pass', 'transfer', 'send_back', 'reject', 'wait', 'waiting'],
+  tenant_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
+  landlord_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
+};
+
+export const GROUP_ORDER: BoardDecision[] = STAGE_GROUPS.agent_ops as BoardDecision[];
+
+export function groupsFor(stage: Stage): BoardDecision[] {
+  return STAGE_GROUPS[stage] ?? GROUP_ORDER;
+}
+
+/** Decisions whose button opens the drawer instead of pushing: the reviewer has work to do first. */
+export function opensDrawer(d: BoardDecision): boolean {
+  return d === 'complete' || d === 'call';
+}
+
+/** "3 tries today", or null when nobody has tried in 24 hours. */
+export function triesToday(call: BoardRow['call']): string | null {
+  const n = call?.attempts_24h ?? 0;
+  if (!n || n <= 0) return null;
+  return n === 1 ? '1 try today' : `${n} tries today`;
+}
 
 export const GROUP_LABEL: Record<BoardDecision, string> = {
   pass: 'Pass',
@@ -176,6 +249,9 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   reject: 'Reject',
   wait: 'Wait',
   waiting: 'Waiting',
+  complete: 'Complete',
+  call: 'Call',
+  call_again: 'Call again',
 };
 
 /** "5/5 ✓", or "4/5 — <first failing label>". */
@@ -254,6 +330,12 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
       return 'Send back';
     case 'reject':
       return 'Reject';
+    case 'call_again':
+      return 'Call again';
+    case 'call':
+      return stage === 'landlord_ops' ? 'Call landlord' : 'Call tenant';
+    case 'complete':
+      return stage === 'service_centre' ? 'Call and fill' : 'Finish checks';
     case 'transfer': {
       const r = row.receiver;
       if (!r) return 'Transfer';

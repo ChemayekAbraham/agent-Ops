@@ -49,6 +49,7 @@ import type {
 import { amountRange, itemCoordinates, itemId, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { FunderPreviewMap } from '@/components/funder-preview/FunderPreviewMap';
+import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
 
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -72,6 +73,7 @@ type FeedEntry = FunderPreviewEntry;
  * shown on the landing; the balance is read only for the review step.
  */
 export default function FunderLandingPreview() {
+  const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const reduceMotion = useReducedMotion() ?? false;
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
@@ -324,11 +326,11 @@ export default function FunderLandingPreview() {
   const cellQuery = useEmptyHouseMapCells(
     cellViewport,
     { search: filters.search.trim() || undefined, minRent: range.min, maxRent: range.max },
-    category !== 'ready',
+    emptyHousesAllowed && category !== 'ready',
   );
   const cells = useMemo<FunderNewMapCell[]>(
     () =>
-      (cellQuery.data?.cells ?? []).map((cell) => ({
+      (emptyHousesAllowed ? cellQuery.data?.cells ?? [] : []).map((cell) => ({
         key: cell.key,
         count: cell.count,
         lat: cell.latitude,
@@ -336,12 +338,12 @@ export default function FunderLandingPreview() {
         amount: cell.minRent,
         house: (cell.house as unknown as FunderNewEmptyHouse | null) ?? null,
       })),
-    [cellQuery.data],
+    [cellQuery.data, emptyHousesAllowed],
   );
-  const housesInView = cellQuery.data?.housesInView ?? 0;
+  const housesInView = emptyHousesAllowed ? cellQuery.data?.housesInView ?? 0 : 0;
   const neededInView = useMemo(
-    () => (cellQuery.data?.cells ?? []).reduce((sum, cell) => sum + (Number(cell.sumRent) || 0), 0),
-    [cellQuery.data],
+    () => emptyHousesAllowed ? (cellQuery.data?.cells ?? []).reduce((sum, cell) => sum + (Number(cell.sumRent) || 0), 0) : 0,
+    [cellQuery.data, emptyHousesAllowed],
   );
 
   const handleViewport = useCallback((next: FunderNewViewport) => {
@@ -585,7 +587,7 @@ export default function FunderLandingPreview() {
           <div ref={sheetTopRef} aria-hidden className="h-px" />
           <div aria-hidden className="mx-auto h-1.5 w-11 rounded-full bg-border" />
 
-          <motion.section
+          {emptyHousesAllowed && <motion.section
             aria-label="Amount needed to fund houses"
             aria-busy={summary.isLoading}
             className="rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-[0_14px_30px_-12px_hsl(var(--primary)/0.6)]"
@@ -622,7 +624,7 @@ export default function FunderLandingPreview() {
                 )}
               </>
             )}
-          </motion.section>
+          </motion.section>}
 
           <div className="space-y-0.5">
             <p className="text-sm text-muted-foreground">

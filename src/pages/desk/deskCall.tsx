@@ -116,10 +116,13 @@ export function DeskCallButton({
   target,
   onEnded,
   disabled,
+  autoFocus,
 }: {
   target: DeskCallTarget;
   onEnded?: (answered: boolean) => void;
   disabled?: boolean;
+  /** Focus the button on mount — the drawer opened from "Call tenant"/"Call landlord". */
+  autoFocus?: boolean;
 }) {
   const paused = useHumanCallingPaused();
   const [active, setActive] = useState(false);
@@ -165,6 +168,7 @@ export function DeskCallButton({
       disabled={off}
       title={why}
       aria-label={why}
+      autoFocus={autoFocus}
       onClick={() => setActive(true)}
       className={`desk-pill inline-flex items-center border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-1 text-[hsl(var(--desk-lavender))] ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] disabled:cursor-not-allowed disabled:opacity-40`}
     >

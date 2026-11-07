@@ -1960,6 +1960,47 @@ html.reduce-motion *::after {
   background-attachment: fixed;
 }
 
+/* ---- Desk tab bar ----------------------------------------------------------
+   One row that scrolls sideways: tabs never wrap or shrink, so labels can't run
+   into each other. The scrollbar is hidden but wheel, trackpad and touch still
+   scroll it. data-fade (set by DeskTabs) fades whichever edge has more tabs.
+   --------------------------------------------------------------------------- */
+.desk-root .desk-tabs {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-padding-inline: 44px;
+}
+.desk-root .desk-tabs::-webkit-scrollbar { display: none; }
+.desk-root .desk-tab {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.desk-root .desk-tabs[data-fade='end'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.desk-root .desk-tabs[data-fade='start'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+}
+.desk-root .desk-tabs[data-fade='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
 /* ---- The same board in daylight -------------------------------------------
    Dark above is the baseline; this is the light set, and the desks open on it.
    DeskPage writes the decision into data-desk-theme, so there is one light
