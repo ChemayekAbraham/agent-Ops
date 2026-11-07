@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fmt } from './format';
-import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
-import { Pop } from './Pop';
+import { CALM, FOCUS, LABEL, PANEL, statusText } from './deskTheme';
+import { Chip, DecisionButton, EmptyState, ErrorLine, LoadingRows, MenuItem, MoreMenu, Segmented, decisionVariant } from './ui';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
+import { TransferPicker } from './TransferPicker';
+import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
+import { healthChip, useTenantHealthMany, type TenantHealth } from './paymentHealth';
+import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import {
   GROUP_LABEL,
   PUSHABLE,
@@ -29,6 +32,9 @@ import {
   scopeTotal,
   pushRow,
   setSuggestedWait,
+  drawerStartFor,
+  eligibilityChip,
+  type WaitSuggest,
   triesToday,
   useDeskBoard,
   type BoardDecision,
@@ -47,14 +53,18 @@ import {
  * reason code is asked.
  */
 
-/** `call` opens the drawer with the call button ready. */
-export type OpenDrawer = (requestId: string, initial?: Decision | 'wait' | 'call') => void;
+/**
+ * What the drawer opens on: a decision, "Wait on…", the call button ready
+ * (`call`), the intake form (`complete`), or the photo review tab (`photos`).
+ */
+export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos';
+
+/** What the board already knows about the row, so the drawer need not ask again. */
+export type DrawerContext = { itemsMissing?: string[] | null; waitSuggest?: WaitSuggest | null };
+
+export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
-
-const BTN = `desk-pill whitespace-nowrap border px-3 py-1 text-xs font-medium ${CALM} ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
-const BTN_PRIMARY = `${BTN} border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] text-foreground hover:bg-[hsl(var(--primary)/0.25)]`;
-const BTN_QUIET = `${BTN} border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground`;
 
 /** Chip colour per decision group. */
 function rowTone(d: BoardDecision): 'ok' | 'warn' | 'bad' | 'idle' {
@@ -85,6 +95,9 @@ function BoardRowLine({
   onPrimary,
   onRetry,
   onOpen,
+  onPick,
+  health,
+  concerns,
 }: {
   row: BoardRow;
   stage: Stage;
@@ -95,7 +108,16 @@ function BoardRowLine({
   onPrimary: () => void;
   onRetry: () => void;
   onOpen: OpenDrawer;
+  /** Agent Ops transfer rows: choose a different receiving agent. */
+  onPick?: () => void;
+  /** Tenant Ops: how the tenant has paid before. */
+  health?: TenantHealth;
+  /** Tenant/Landlord Ops: concerns any desk logged on this request. */
+  concerns?: ConcernSummary;
 }) {
+  // Eligibility belongs to Agent Ops only; other desks never show it.
+  const elig = stage === 'agent_ops' ? eligibilityChip(row.eligibility) : null;
+  const hc = healthChip(health);
   const chip = flagsChip(row.flags);
   const label = primaryLabel(row, stage);
   const others = visibleDecisions(stage).filter((d) => d !== row.decision);
@@ -106,25 +128,55 @@ function BoardRowLine({
   return (
     <li className="space-y-1 border-t border-[var(--desk-line-color)] py-2.5 first:border-t-0">
       <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${text}`}>
-        <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
+        {stage === 'landlord_ops' && (
+          <>
+            <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+              {row.landlord ?? 'No landlord'}
+              <DeskCallButton
+                disabled={!canAct}
+                target={{ requestId: row.id, desk: stage, subject: 'landlord', calleeId: null, name: row.landlord, phone: row.landlord_phone }}
+              />
+            </span>
+            <span className="text-muted-foreground" aria-hidden>·</span>
+          </>
+        )}
+        <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
+          {row.tenant ?? '—'}
+          {/* Landlord Ops calls the tenant from the row too; Tenant Ops calls through "Call tenant". */}
+          {stage === 'landlord_ops' && (
+            <DeskCallButton
+              disabled={!canAct}
+              target={{ requestId: row.id, desk: stage, subject: 'tenant', calleeId: row.tenant_id, name: row.tenant, phone: row.tenant_phone }}
+            />
+          )}
+        </span>
         {row.batch && (
           <span className="desk-pill border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[11px] text-muted-foreground">Aug batch</span>
         )}
+        {hc && (
+          <Chip tone={hc.tone} title={hc.title}>
+            {hc.text}
+          </Chip>
+        )}
+        <ConcernsChip summary={concerns} />
         <span className="text-muted-foreground" aria-hidden>·</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
           {row.agent ?? 'No agent'}
           <GradeBadge agentId={row.agent_id} grade={row.agent_grade} weekAgo={row.agent_grade_week_ago} />
+          {elig && (
+            <Chip tone={elig.tone}>{elig.text}</Chip>
+          )}
           <DeskCallButton
             disabled={!canAct}
             target={{ requestId: row.id, desk: stage, subject: 'agent', calleeId: row.agent_id, name: row.agent, phone: row.agent_phone }}
           />
         </span>
-        <span
-          className={`desk-pill border px-2 py-0.5 text-[11px] ${chip.ok ? statusGlass.ok : statusGlass.warn}`}
+        <Chip
+          tone={chip.ok ? 'ok' : 'warn'}
           title={row.flags.flags.map((f) => `${f.ok ? '✓' : '✗'} ${f.label}${f.detail ? ` — ${f.detail}` : ''}`).join('\n')}
         >
           {chip.text}
-        </span>
+        </Chip>
         <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
         <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
         {tries && <span className={`text-xs ${statusText.warn}`}>{tries}</span>}
@@ -134,64 +186,55 @@ function BoardRowLine({
             <span className={`${LABEL} inline-flex items-center gap-1.5`}>
               Waiting on {ownerLabel(w?.owner_kind, stage)}
               {w && (w.expired || (hoursUntil(w.until_at) ?? 1) <= 0) ? (
-                <span className={`desk-pill border px-2 py-0.5 text-[11px] font-semibold ${statusGlass.bad}`}>Time up</span>
+                <Chip tone="bad" strong>
+                  Time up
+                </Chip>
               ) : (
                 <span className="tabular-nums text-foreground">{timeLeftText(hoursUntil(w?.until_at))}</span>
               )}
             </span>
           ) : note?.kind === 'retry' ? (
-            <button type="button" disabled={busy || !canAct} onClick={onRetry} className={`${BTN} ${statusGlass.warn}`} title={note.text}>
+            <DecisionButton variant="warn" disabled={busy || !canAct} onClick={onRetry} title={note.text}>
               {busy ? 'Retrying…' : 'Retry the move only'}
-            </button>
+            </DecisionButton>
           ) : (
             label && (
-              <button
-                type="button"
+              <DecisionButton
+                variant={decisionVariant(row.decision)}
                 disabled={busy || !canAct || note?.kind === 'ok'}
                 onClick={onPrimary}
                 title={canAct ? undefined : NEEDS_ROLE}
-                className={row.decision === 'reject' ? `${BTN} ${statusGlass.bad}` : BTN_PRIMARY}
               >
                 {busy ? 'Working…' : label}
-              </button>
+              </DecisionButton>
             )
           )}
-
-          <Pop
-            label={`More for ${row.tenant ?? 'this request'}`}
-            align="right"
-            trigger={<MoreHorizontal className="h-4 w-4" aria-hidden />}
-            triggerClass={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-1 text-muted-foreground ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
-          >
+          <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
             {(close) => (
-              <span className="flex flex-col gap-1">
-                <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id); }}>
-                  Open the review
-                </button>
-                <button
-                  type="button"
-                  disabled={!canAct}
-                  title={canAct ? undefined : NEEDS_ROLE}
-                  className={`${BTN_QUIET} text-left`}
-                  onClick={() => { close(); onOpen(row.id, 'wait'); }}
-                >
+              <>
+                {/* Agent Ops transfer rows: a different receiving agent, same review and move. */}
+                {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
+                  <MenuItem disabled={busy || !canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onPick(); }}>
+                    Pick another agent…
+                  </MenuItem>
+                )}
+                <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+                <MenuItem disabled={!canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
                   Wait on…
-                </button>
+                </MenuItem>
                 {others.map((d) => (
-                  <button
+                  <MenuItem
                     key={d}
-                    type="button"
                     disabled={!canAct}
                     title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE}
-                    className={`${BTN_QUIET} text-left`}
                     onClick={() => { close(); onOpen(row.id, d); }}
                   >
                     {DECISION_LABEL[d]}…
-                  </button>
+                  </MenuItem>
                 ))}
-              </span>
+              </>
             )}
-          </Pop>
+          </MoreMenu>
         </span>
       </div>
 
@@ -308,13 +351,13 @@ function PushAllSheet({
           )}
           <div className="flex flex-wrap gap-2">
             {!finished ? (
-              <button type="button" disabled={running} onClick={run} className={`${BTN} px-4 py-2 text-sm ${statusGlass.ok}`}>
+              <DecisionButton size="md" variant="ok" disabled={running} onClick={run}>
                 {running ? 'Pushing…' : `${GROUP_LABEL[group]} all ${fmt('int', rows.length)}`}
-              </button>
+              </DecisionButton>
             ) : (
-              <button type="button" onClick={onClose} className={`${BTN_QUIET} px-4 py-2 text-sm`}>
+              <DecisionButton size="md" onClick={onClose}>
                 Done
-              </button>
+              </DecisionButton>
             )}
           </div>
         </footer>
@@ -406,10 +449,14 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
+  const [picker, setPicker] = useState<BoardRow | null>(null);
 
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
+  // One batch call each per board load, for the desks that show them.
+  const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops' || stage === 'landlord_ops');
+  const concerns = useConcernsSummary((data?.rows ?? []).map((r) => r.id), stage === 'tenant_ops' || stage === 'landlord_ops');
 
   const setNote = (id: string, n: RowNote | null) =>
     setNotes((m) => {
@@ -432,7 +479,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return;
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
-      onOpen(row.id, row.decision === 'call' ? 'call' : undefined);
+      onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
       return;
     }
     // No push values: the drawer asks for what is missing.
@@ -457,6 +504,26 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 
+  /** The suggested transfer's review and move, with the agent the reviewer picked. Returns an error, or null. */
+  const pickTransfer = async (row: BoardRow, agentId: string, note: string): Promise<string | null> => {
+    if (!user) return 'Sign in again.';
+    setNote(row.id, null);
+    const out = await pushRow(row, stage, user.id, { targetAgentId: agentId, note });
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    if (out.kind === 'moved') {
+      clear(row.id);
+      mark(row.id, { kind: 'moved', message: out.message });
+      setNote(row.id, { kind: 'ok', text: out.message });
+      return null;
+    }
+    if (out.kind === 'move_failed') {
+      // The review is in; retry only the move, to the agent that was picked.
+      failed({ ...row, push: row.push ? { ...row.push, decision: 'transfer', target_agent_id: agentId, note } : row.push }, 'move_failed', out.message);
+      return null;
+    }
+    return out.message;
+  };
+
   const retry = async (row: BoardRow) => {
     if (!user) return;
     const snap = notes[row.id]?.snapshot ?? row;
@@ -473,12 +540,12 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 
-  if (q.isLoading) return <Skeleton className="h-48 w-full" />;
+  if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the board" />;
   if (q.error)
-    return (
-      <p className={`text-sm ${statusText.bad}`} role="alert">
-        The board could not load: {readableError(q.error)}
-      </p>
+    return isNotAssigned(q.error) ? (
+      <ErrorLine>{NOT_ASSIGNED}</ErrorLine>
+    ) : (
+      <ErrorLine>The board could not load: {readableError(q.error)}</ErrorLine>
     );
 
   const counts = data?.counts ?? {};
@@ -494,46 +561,31 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
           {q.isPlaceholderData && <span className={LABEL} role="status">Loading…</span>}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-1.5">
-        {groupsFor(stage).map((d) => {
-          const n = countOf(d);
-          const on = only === d;
-          return (
-            <button
-              key={d}
-              type="button"
-              aria-pressed={on}
-              onClick={() => setOnly(on ? null : d)}
-              className={`desk-pill border px-3 py-1 text-xs ${CALM} ${FOCUS} ${on ? statusGlass[rowTone(d)] : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'}`}
-            >
-              {GROUP_LABEL[d]} <span className="tabular-nums text-foreground">{fmt('int', n)}</span>
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <Segmented<BoardDecision>
+          ariaLabel="Show only"
+          deselectable
+          options={groupsFor(stage).map((d) => ({ value: d, label: GROUP_LABEL[d], count: countOf(d), tone: rowTone(d) }))}
+          value={only}
+          onChange={setOnly}
+        />
         {!canAct && <span className={`${LABEL} ${statusText.warn}`}>{NEEDS_ROLE} to act on this board.</span>}
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-wrap gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
         {PUSHABLE.map((d) => {
           const list = pushable(d);
           if (list.length === 0) return null;
           return (
-            <button
-              key={d}
-              type="button"
-              disabled={!canAct || q.isPlaceholderData}
-              title={canAct ? undefined : NEEDS_ROLE}
-              onClick={() => setPushAll(d)}
-              className={BTN_QUIET}
-            >
+            <DecisionButton key={d} disabled={!canAct || q.isPlaceholderData} title={canAct ? undefined : NEEDS_ROLE} onClick={() => setPushAll(d)}>
               Push all {fmt('int', list.length)} · {GROUP_LABEL[d]}
-            </button>
+            </DecisionButton>
           );
         })}
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{only ? `Nothing in ${GROUP_LABEL[only]}.` : 'Nothing is waiting at this desk.'}</p>
+        <EmptyState>{only ? `Nothing in ${GROUP_LABEL[only]}.` : 'Nothing is waiting at this desk.'}</EmptyState>
       ) : (
         <ul>
           {rows.map((r) => (
@@ -548,12 +600,25 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
               onPrimary={() => void primary(r)}
               onRetry={() => void retry(r)}
               onOpen={onOpen}
+              onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
+              health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
+              concerns={concerns.data?.[r.id]}
             />
           ))}
         </ul>
       )}
       {limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null) && (
         <p className={LABEL}>{limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)}</p>
+      )}
+
+      {picker && (
+        <TransferPicker
+          requestId={picker.id}
+          tenant={picker.tenant}
+          defaultNote={picker.push?.note ?? picker.why ?? ''}
+          onClose={() => setPicker(null)}
+          onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+        />
       )}
 
       {pushAll && (

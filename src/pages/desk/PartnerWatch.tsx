@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { fmt } from './format';
-import { FIGURE, LABEL, PANEL, statusGlass, statusText, type Status } from './deskTheme';
-import { Skeleton } from './Skeleton';
+import { LABEL, PANEL, type Status } from './deskTheme';
+import { Chip, EmptyState, ErrorLine, LoadingRows, Tile, TileRow } from './ui';
 import { readableError, rpc } from './reviewApi';
 
 /**
@@ -64,26 +64,27 @@ export function usePartnerWatch(enabled = true) {
 
 export function PartnerWatch({ board }: { board: boolean }) {
   const q = usePartnerWatch();
-  if (q.isLoading) return <Skeleton className="h-40 w-full" />;
-  if (q.error) return <p className={`text-sm ${statusText.bad}`} role="alert">The funder board watch could not load: {readableError(q.error)}</p>;
+  if (q.isLoading) return <LoadingRows rows={4} height={36} label="Loading the funder board watch" />;
+  if (q.error) return <ErrorLine>The funder board watch could not load: {readableError(q.error)}</ErrorLine>;
   const { rows, counts } = q.data ?? { rows: [], counts: {} };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+      <TileRow max={5}>
         {WATCH_TILES.map((t) => (
-          <div key={t.key} className="desk-tile space-y-1 p-3 sm:p-4">
-            <div className={LABEL}>{t.label}</div>
-            <div className={`${FIGURE} ${board ? 'text-3xl' : 'text-2xl'} ${t.key === 'untouched_48h' && Number(counts[t.key] ?? 0) > 0 ? statusText.warn : ''}`}>
-              {fmt('int', counts[t.key] ?? 0)}
-            </div>
-          </div>
+          <Tile
+            key={t.key}
+            label={t.label}
+            value={fmt('int', counts[t.key] ?? 0)}
+            tone={t.key === 'untouched_48h' && Number(counts[t.key] ?? 0) > 0 ? 'warn' : undefined}
+            board={board}
+          />
         ))}
-      </div>
+      </TileRow>
 
       <section className={`${PANEL} p-4 sm:p-5`}>
         {rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing is on the funders&rsquo; board.</p>
+          <EmptyState>Nothing is on the funders&rsquo; board.</EmptyState>
         ) : (
           <ul>
             {rows.map((r) => (
@@ -93,9 +94,11 @@ export function PartnerWatch({ board }: { board: boolean }) {
               >
                 <span className="font-medium text-foreground">{r.tenant ?? '—'}</span>
                 <span className={`${LABEL} font-mono`}>{r.req}</span>
-                <span className={`desk-pill border px-2 py-0.5 text-[11px] ${statusGlass[stateTone(r.state)]}`}>{plain(r.state)}</span>
+                <Chip tone={stateTone(r.state)}>{plain(r.state)}</Chip>
                 {r.untouched_48h && (
-                  <span className={`desk-pill border px-2 py-0.5 text-[11px] font-semibold ${statusGlass.bad}`}>Untouched 48 h</span>
+                  <Chip tone="bad" strong>
+                    Untouched 48 h
+                  </Chip>
                 )}
                 <span className="ml-auto tabular-nums text-muted-foreground">{fmt('days', r.days_on_board)} d on board</span>
                 <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', r.rent)}</span>

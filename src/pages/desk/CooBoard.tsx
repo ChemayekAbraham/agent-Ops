@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
-import { MoreHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
-import { Pop } from './Pop';
-import { badgeFor } from './agentGrade';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
 import type { OpenDrawer } from './ReadyBoard';
+import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
+import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -47,9 +47,13 @@ export type CooRow = {
   auto_forwarded: boolean | null;
   waiting: BoardWaiting | null;
   rank: number | null;
+  /** False when the server will not push this row (frozen, on hold, …). */
+  pushable?: boolean | null;
+  /** Frozen rows go back to Agent Ops on the given date; they are never pushed. */
+  frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
 };
 
-export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number };
+export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number; pushable?: number; frozen?: number };
 
 export type CooBoardData = { counts: CooCounts; can_push: boolean; rows: CooRow[] };
 
@@ -62,17 +66,64 @@ export type PushResult = {
   skipped: { id: string; reason?: string | null; message?: string | null }[];
 };
 
+/** What `coo_push_selected` returns for a one-row push (no `picked_list`). */
+export type PushSelectedResult = {
+  requested: number;
+  approved: { id: string; rent_amount: number | null }[];
+  approved_total: number | null;
+  skipped: { id: string; reason?: string | null; message?: string | null }[];
+};
+
 export const COO_PUSH_DEFAULT = 10;
 const NEEDS_COO = 'Needs the COO role and a staff ID';
 
-/** "113 waiting · A 20 · B 40 · C 30 · D 23", plus unrated / on hold when there are any. */
+/**
+ * "38 pushable · 75 frozen · A 20 · B 40 · C 30 · D 23" once the board counts
+ * pushable and frozen rows; "113 waiting · A 20 · …" before it did. Unrated and
+ * on hold are added when there are any.
+ */
 export function cooTopLine(c: CooCounts): string {
   const n = (k: keyof CooCounts) => Number(c[k] ?? 0);
   const total = n('A') + n('B') + n('C') + n('D') + n('unrated');
-  const parts = [`${fmt('int', total)} waiting`, `A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
+  const head =
+    c.pushable !== undefined && c.pushable !== null
+      ? [`${fmt('int', n('pushable'))} pushable`, `${fmt('int', n('frozen'))} frozen`]
+      : [`${fmt('int', total)} waiting`];
+  const parts = [...head, `A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
   if (n('unrated') > 0) parts.push(`${fmt('int', n('unrated'))} unrated`);
   if (n('waiting') > 0) parts.push(`${fmt('int', n('waiting'))} on hold`);
   return parts.join(' · ');
+}
+
+/** "A 20 · B 40 · C 30 · D 23", plus unrated / on hold when there are any. */
+export function cooGradeLine(c: CooCounts): string {
+  const n = (k: keyof CooCounts) => Number(c[k] ?? 0);
+  const parts = [`A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
+  if (n('unrated') > 0) parts.push(`${fmt('int', n('unrated'))} unrated`);
+  if (n('waiting') > 0) parts.push(`${fmt('int', n('waiting'))} on hold`);
+  return parts.join(' · ');
+}
+
+/**
+ * The board's top line. Once the server counts pushable and frozen rows they
+ * lead as chips; before that it reads "113 waiting · A 20 · …" as text.
+ */
+function CooTopLine({ counts, board }: { counts: CooCounts; board: boolean }) {
+  const size = board ? 'text-lg' : 'text-base';
+  if (counts.pushable === undefined || counts.pushable === null) {
+    return <p className={`${size} font-medium text-foreground`}>{cooTopLine(counts)}</p>;
+  }
+  return (
+    <div style={rowLayout(8)} aria-label={cooTopLine(counts)}>
+      <Chip size="sm" tone="ok" strong>
+        {fmt('int', counts.pushable)} pushable
+      </Chip>
+      <Chip size="sm" tone="idle">
+        {fmt('int', counts.frozen ?? 0)} frozen
+      </Chip>
+      <span className={`${size} font-medium text-foreground`}>{cooGradeLine(counts)}</span>
+    </div>
+  );
 }
 
 /** Rank order, best first. */
@@ -80,9 +131,14 @@ export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
 }
 
-/** What "Push top N" would send, as the confirm sheet lists it: the best N not on hold, and their total rent. */
+/** True when the server would push this row: not frozen, not on hold, not marked unpushable. */
+export function isPushable(r: CooRow): boolean {
+  return !r.waiting && !r.frozen && r.pushable !== false;
+}
+
+/** What "Push top N" would send, as the confirm sheet lists it: the best N pushable rows, and their total rent. */
 export function pushPlan(rows: CooRow[], n: number): { rows: CooRow[]; totalUgx: number } {
-  const picked = byRank(rows).filter((r) => !r.waiting).slice(0, Math.max(0, Math.floor(n)));
+  const picked = byRank(rows).filter(isPushable).slice(0, Math.max(0, Math.floor(n)));
   return { rows: picked, totalUgx: picked.reduce((t, r) => t + (Number(r.rent) || 0), 0) };
 }
 
@@ -114,60 +170,153 @@ export function useCooBoard(enabled = true) {
   });
 }
 
-const BTN = `desk-pill whitespace-nowrap border px-3 py-1 text-xs font-medium ${CALM} ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
-const BTN_QUIET = `${BTN} border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground`;
-
-function GradePill({ grade }: { grade: string | null }) {
-  const b = badgeFor(grade);
-  return <span className={`desk-pill inline-block border px-1.5 text-[11px] font-semibold leading-5 ${b.cls}`}>{b.text}</span>;
-}
-
 const rating = (v: number | null | undefined) => (v === null || v === undefined ? '—' : String(Math.round(Number(v))));
 
-function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpen: OpenDrawer }) {
+/** "12 Nov", in Kampala time. */
+const dayMonth = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Kampala' }) : 'a date not set';
+
+/** "Frozen — <reason>; back to Agent Ops on 12 Nov". */
+export function frozenText(f: NonNullable<CooRow['frozen']>): string {
+  return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
+}
+
+function CooRowLine({
+  row,
+  board,
+  onOpen,
+  onPush,
+  concerns,
+}: {
+  row: CooRow;
+  board: boolean;
+  onOpen: OpenDrawer;
+  onPush: (row: CooRow) => void;
+  /** Concerns any desk logged on this request. */
+  concerns?: ConcernSummary;
+}) {
   const r = row.ratings;
   const w = row.waiting;
+  const frozen = row.frozen;
   return (
-    <li className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'}`}>
+    <li
+      data-frozen={frozen ? 'true' : undefined}
+      className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${
+        frozen ? 'opacity-60' : ''
+      }`}
+    >
       <span className={`${LABEL} w-7 text-right tabular-nums`}>{row.rank ?? '—'}</span>
-      <GradePill grade={row.grade} />
+      <GradeBadge grade={row.grade} />
       <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
       <span className={`${LABEL} font-mono`}>{row.req}</span>
+      <ConcernsChip summary={concerns} />
       <span className="tabular-nums text-foreground" title="Agent Ops · Tenant Ops · Landlord Ops ratings">
         AO {rating(r?.agent_ops)} · TO {rating(r?.tenant_ops)} · LO {rating(r?.landlord_ops)}
       </span>
       {r?.partly_rated && <span className="text-xs text-muted-foreground">partly rated</span>}
       <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
       <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
+      {frozen && <Chip tone="idle">{frozenText(frozen)}</Chip>}
       {w && (
         <span className={`${LABEL} inline-flex items-center gap-1`} title={w.note ?? undefined}>
           On hold for {ownerLabel(w.owner_kind, 'coo')} ·{' '}
           {w.expired || (hoursUntil(w.until_at) ?? 1) <= 0 ? <span className={statusText.bad}>Time up</span> : timeLeftText(hoursUntil(w.until_at))}
         </span>
       )}
-      <span className="ml-auto">
-        <Pop
-          label={`More for ${row.tenant ?? 'this request'}`}
-          align="right"
-          trigger={<MoreHorizontal className="h-4 w-4" aria-hidden />}
-          triggerClass={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] p-1 text-muted-foreground ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
-        >
+      <span className="ml-auto inline-flex items-center gap-2">
+        {isPushable(row) && (
+          <DecisionButton variant="primary" onClick={() => onPush(row)}>
+            Push to funders
+          </DecisionButton>
+        )}
+        <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
           {(close) => (
-            <span className="flex flex-col gap-1">
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id); }}>
-                Open the review
-              </button>
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
-                Hold (Wait on…)
-              </button>
-              <button type="button" className={`${BTN_QUIET} text-left`} onClick={() => { close(); onOpen(row.id, 'send_back'); }}>
-                Send back…
-              </button>
-            </span>
+            <>
+              <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+              <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
+              <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
+            </>
           )}
-        </Pop>
+        </MoreMenu>
       </span>
     </li>
+  );
+}
+
+/**
+ * The one-row confirm: tenant, grade and rent, then `coo_push_selected` with
+ * just that id. A skipped row shows the server's reason as-is; a pushed row
+ * says so in one line. Either way the board refetches on close.
+ */
+function RowPushConfirm({ row, onClose }: { row: CooRow; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const push = async () => {
+    setBusy(true);
+    setError(null);
+    const { data, error: e } = await rpc('coo_push_selected', { p_ids: [row.id], p_comment: null });
+    setBusy(false);
+    if (e) {
+      setError(readableError(e));
+      return;
+    }
+    const r = (data ?? {}) as Partial<PushSelectedResult>;
+    const skipped = r.skipped ?? [];
+    const pushed = r.approved?.length ?? 0;
+    if (pushed > 0) {
+      setResult({ ok: true, text: "Pushed to the funders' dashboard" });
+    } else {
+      const reasons = skipped.map((s) => s.message || s.reason || 'no reason given');
+      setResult({ ok: false, text: reasons.join('; ') || 'The server skipped this request.' });
+    }
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Push ${row.tenant ?? 'this request'} to funders`}>
+      <button type="button" aria-label="Close" onClick={busy ? undefined : onClose} className="absolute inset-0 bg-black/60" />
+      <div className="desk-root relative w-full max-w-md rounded-t-3xl border border-[var(--desk-line-color)] shadow-2xl sm:rounded-3xl">
+        <header className="flex items-start justify-between gap-3 border-b border-[var(--desk-line-color)] px-5 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Push to funders</h2>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className={`desk-pill border border-[var(--desk-line-color)] p-2 ${CALM} ${FOCUS} disabled:opacity-40`}>
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </header>
+        <div className="space-y-2 px-5 py-4 text-sm">
+          <p className="flex flex-wrap items-center gap-2 text-foreground">
+            <GradeBadge grade={row.grade} />
+            <span className="font-medium">{row.tenant ?? '—'}</span>
+            <span className={`${LABEL} font-mono`}>{row.req}</span>
+          </p>
+          <p className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</p>
+          {error && <ErrorLine>{error}</ErrorLine>}
+          {result && (
+            <p className={`text-sm ${result.ok ? statusText.ok : statusText.warn}`} role="status">
+              {result.text}
+            </p>
+          )}
+        </div>
+        <footer className="flex flex-wrap gap-2 border-t border-[var(--desk-line-color)] px-5 py-4">
+          {result ? (
+            <DecisionButton size="md" onClick={onClose}>
+              Done
+            </DecisionButton>
+          ) : (
+            <>
+              <DecisionButton size="md" variant="primary" disabled={busy} onClick={push}>
+                {busy ? 'Pushing…' : 'Push to funders'}
+              </DecisionButton>
+              <DecisionButton size="md" disabled={busy} onClick={onClose}>
+                Back
+              </DecisionButton>
+            </>
+          )}
+        </footer>
+      </div>
+    </div>
   );
 }
 
@@ -211,7 +360,7 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 text-foreground">
                 <span className={`${LABEL} w-6 text-right`}>{r.rank ?? '—'}</span>
-                <GradePill grade={r.grade} />
+                <GradeBadge grade={r.grade} />
                 {r.tenant ?? '—'}
               </span>
               <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', r.rent)}</span>
@@ -230,15 +379,17 @@ function PushSheet({ plan, n, onClose }: { plan: { rows: CooRow[]; totalUgx: num
               />
             </label>
           )}
-          {error && <p className={`text-sm ${statusText.bad}`} role="alert">{error}</p>}
+          {error && <ErrorLine>{error}</ErrorLine>}
           {result && <p className={`text-sm ${statusText.ok}`} role="status">{result}</p>}
           <div className="flex flex-wrap gap-2">
             {result ? (
-              <button type="button" onClick={onClose} className={`${BTN_QUIET} px-4 py-2 text-sm`}>Done</button>
+              <DecisionButton size="md" onClick={onClose}>
+                Done
+              </DecisionButton>
             ) : (
-              <button type="button" disabled={busy || plan.rows.length === 0} onClick={push} className={`${BTN} px-4 py-2 text-sm ${statusGlass.ok}`}>
+              <DecisionButton size="md" variant="ok" disabled={busy || plan.rows.length === 0} onClick={push}>
                 {busy ? 'Pushing…' : `Push ${fmt('int', n)} to funders`}
-              </button>
+              </DecisionButton>
             )}
           </div>
         </footer>
@@ -251,18 +402,26 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const q = useCooBoard();
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
+  const [pushRow, setPushRow] = useState<CooRow | null>(null);
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
+  // One batch call per board load: the concerns logged on every row.
+  const concerns = useConcernsSummary(rows.map((r) => r.id));
 
-  if (q.isLoading) return <Skeleton className="h-48 w-full" />;
-  if (q.error) return <p className={`text-sm ${statusText.bad}`} role="alert">The COO board could not load: {readableError(q.error)}</p>;
+  if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the COO board" />;
+  if (q.error)
+    return isNotAssigned(q.error) ? (
+      <ErrorLine>{NOT_ASSIGNED}</ErrorLine>
+    ) : (
+      <ErrorLine>The COO board could not load: {readableError(q.error)}</ErrorLine>
+    );
 
   const canPush = q.data?.can_push === true;
   const valid = Number.isFinite(n) && n >= 1;
 
   return (
     <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
-      <p className={`${board ? 'text-lg' : 'text-base'} font-medium text-foreground`}>{cooTopLine(q.data?.counts ?? {})}</p>
+      <CooTopLine counts={q.data?.counts ?? {}} board={board} />
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex items-center gap-1.5 text-sm text-foreground">
@@ -271,7 +430,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
             type="number"
             inputMode="numeric"
             min={1}
-            max={Math.max(1, rows.length)}
+            max={Math.max(1, rows.filter(isPushable).length)}
             value={Number.isFinite(n) ? n : ''}
             onChange={(e) => setN(e.target.value === '' ? Number.NaN : Number(e.target.value))}
             className={`desk-pill h-8 w-16 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 text-sm text-foreground ${FOCUS}`}
@@ -279,29 +438,30 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
           />
           to funders
         </label>
-        <button
-          type="button"
+        <DecisionButton
+          variant="primary"
+          size="md"
           disabled={!canPush || !valid || plan.rows.length === 0}
           title={canPush ? undefined : NEEDS_COO}
           onClick={() => setConfirm(true)}
-          className={`${BTN} border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] text-foreground hover:bg-[hsl(var(--primary)/0.25)]`}
         >
           Push top {valid ? fmt('int', n) : '…'} to funders
-        </button>
+        </DecisionButton>
         {!canPush && <span className={`${LABEL} ${statusText.warn}`}>{NEEDS_COO}.</span>}
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing is waiting for your push.</p>
+        <EmptyState>Nothing is waiting for your push.</EmptyState>
       ) : (
         <ol>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} />
+            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} onPush={setPushRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
+      {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
     </section>
   );
 }
@@ -310,9 +470,9 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
 export function RetiredFundNote() {
   return (
     <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.idle}`}>
-      <button type="button" disabled className={`${BTN_QUIET} mr-2`} aria-disabled="true">
+      <DecisionButton disabled className="mr-2" style={{ marginRight: 8 }} aria-disabled="true">
         Fund by score
-      </button>
+      </DecisionButton>
       Retired 5 Nov — use Push top N.
     </p>
   );

@@ -1,8 +1,12 @@
+import { useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { fmt } from './format';
 import { useDeskFeeds, useStageFlow, type Row } from './useDeskFeed';
 import { useStageTrend } from './deskBriefApi';
 import { Trend, clearText, stageStatus } from './StageFlow';
-import { statusDot, statusText } from './deskTheme';
+import { StripStep } from './ui/StripStep';
+import { CALM, FOCUS, statusDot, statusText } from './deskTheme';
+import { Sheet, atLeast, useBreakpoint, useFadeEdges } from './ui';
 import { Skeleton } from './Skeleton';
 
 /**
@@ -56,22 +60,95 @@ export function stripMarks(deskId: string): { mine: string | null; before: strin
 
 const byOrd = (rows: Row[], ord: string) => rows.find((r) => String(r.ord) === ord);
 
-export function PipelineStrip({ deskId, board }: { deskId: string; board: boolean }) {
+export function PipelineStrip({ deskId, board, forceCompact }: { deskId: string; board: boolean; forceCompact?: boolean }) {
   // Same query keys as the desks and the command centre, so nothing is fetched twice.
   const pipeline = useDeskFeeds(['pipeline']).pipeline;
   const flow = useStageFlow();
   const trend = useStageTrend(true);
+  const bp = useBreakpoint();
+  const compact = forceCompact ?? !atLeast(bp, 'md');
+  const [open, setOpen] = useState(false);
+  const { ref, fade } = useFadeEdges<HTMLElement>(compact ? null : '[aria-current="step"]', [pipeline.rows.length]);
   const { mine, before } = stripMarks(deskId);
   const text = board ? 'text-sm' : 'text-xs';
 
   if (pipeline.loading) {
-    return <Skeleton className="h-9 w-full" />;
+    return <Skeleton className={compact ? 'h-11 w-40' : 'h-9 w-full'} />;
   }
   // The strip is a guide, not a figure anyone acts on: on an error it goes.
   if (pipeline.error) return null;
 
+  // Below md: one chip that opens the stages in a sheet.
+  if (compact) {
+    const mineStage = STRIP_STAGES.find((st) => st.ord === mine);
+    const mineCount = mineStage ? byOrd(pipeline.rows, mineStage.ord) : undefined;
+    return (
+      <>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => setOpen(true)}
+          className={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-sm text-foreground ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)]`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '6px 14px', borderRadius: 999, borderWidth: 1, borderStyle: 'solid', whiteSpace: 'nowrap', maxWidth: '100%' }}
+          data-pipeline-chip
+        >
+          Pipeline
+          {mineStage && mineCount && (
+            <span className="text-muted-foreground">
+              · {mineStage.label} <span className="tabular-nums text-foreground">{fmt('int', mineCount.n)}</span>
+            </span>
+          )}
+          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+        </button>
+        {open && (
+          <Sheet title="Where requests wait" onClose={() => setOpen(false)}>
+            <ol style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: 0, padding: 0, listStyle: 'none' }} data-pipeline-sheet>
+              {STRIP_STAGES.map((st) => {
+                const p = byOrd(pipeline.rows, st.ord);
+                const f = byOrd(flow.rows, st.flowOrd);
+                const isMine = st.ord === mine;
+                const state = f ? stageStatus(f) : 'idle';
+                return (
+                  <li
+                    key={st.ord}
+                    aria-current={isMine ? 'step' : undefined}
+                    className={`rounded-xl border ${isMine ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.1)]' : 'border-[var(--desk-line-soft)]'} text-sm`}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', minHeight: 48, borderWidth: 1, borderStyle: st.retired ? 'dashed' : 'solid', borderRadius: 12 }}
+                  >
+                    {st.desk !== null && !st.retired && <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot[state]}`} style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0 }} aria-hidden />}
+                    <span className={`${isMine ? 'font-semibold' : 'font-medium'} text-foreground`} style={{ flex: '1 1 auto', minWidth: 0 }}>
+                      {st.label}
+                      {st.retired && <span className="text-muted-foreground"> · retired</span>}
+                      {isMine && <span className="text-[hsl(var(--desk-lavender))]"> · you</span>}
+                    </span>
+                    <span className="tabular-nums text-foreground">{p ? fmt('int', p.n) : '—'}<span className="sr-only"> waiting</span></span>
+                    {st.desk !== null && !st.retired && (
+                      <span className={`tabular-nums ${statusText[state]}`} title="Days to clear">
+                        {clearText(f)}
+                        {f && !Number.isNaN(Number(f.days_to_clear)) && f.days_to_clear !== null ? ' d' : ''}
+                        <span className="sr-only"> to clear</span>
+                      </span>
+                    )}
+                    {!st.retired && <Trend t={trend.byOrd.get(String(f?.ord ?? st.flowOrd))} board={false} />}
+                  </li>
+                );
+              })}
+            </ol>
+          </Sheet>
+        )}
+      </>
+    );
+  }
+
   return (
-    <nav aria-label="Where requests wait" className="-mx-1 overflow-x-auto px-1 pb-1">
+    <nav
+      ref={ref}
+      aria-label="Where requests wait"
+      data-fade={fade}
+      className="desk-scroll-row -mx-1 overflow-x-auto px-1 pb-1"
+      style={{ position: 'relative', overflowX: 'auto', minWidth: 0, maxWidth: '100%' }}
+    >
       <ol className="flex w-max min-w-full items-stretch gap-1.5">
         {STRIP_STAGES.map((s, i) => {
           const p = byOrd(pipeline.rows, s.ord);
@@ -83,15 +160,10 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
           if (s.retired) {
             return (
               <li key={s.ord} className="flex shrink-0 items-center gap-1.5">
-                <span
-                  className={`desk-pill whitespace-nowrap border border-dashed border-[var(--desk-line-color)] px-2 py-0.5 text-[11px] text-muted-foreground ${
-                    isMine ? 'border-[hsl(var(--primary)/0.6)]' : ''
-                  }`}
-                  title="Partner Ops is retired; requests forward to the COO"
-                >
+                <StripStep retired active={isMine} board={board} title="Partner Ops is retired; requests forward to the COO">
                   {s.label} · retired — forwards to COO
                   {p && Number(p.n) > 0 ? ` · ${fmt('int', p.n)} left` : ''}
-                </span>
+                </StripStep>
                 {arrow}
               </li>
             );
@@ -100,14 +172,7 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
           const state = f ? stageStatus(f) : 'idle';
           return (
             <li key={s.ord} className="flex shrink-0 items-center gap-1.5">
-              <div
-                aria-current={isMine ? 'step' : undefined}
-                className={`desk-pill flex items-center gap-2 whitespace-nowrap border px-3 py-1 ${text} ${
-                  isMine
-                    ? 'border-[hsl(var(--primary)/0.7)] bg-[hsl(var(--primary)/0.2)] text-foreground'
-                    : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-                }`}
-              >
+              <StripStep active={isMine} board={board}>
                 {s.desk !== null && <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot[state]}`} aria-hidden />}
                 <span className={isMine ? 'font-semibold' : 'font-medium text-foreground'}>{s.label}</span>
                 {isMine && <span className="text-[11px] text-[hsl(var(--desk-lavender))]">you</span>}
@@ -122,7 +187,7 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
                   </span>
                 )}
                 <Trend t={trend.byOrd.get(String(f?.ord ?? s.flowOrd))} board={board} />
-              </div>
+              </StripStep>
               {arrow}
             </li>
           );

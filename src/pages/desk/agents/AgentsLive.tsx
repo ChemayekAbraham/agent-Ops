@@ -1,11 +1,10 @@
 import { useMemo, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Fold } from '../DeskFrame';
 import { GradeBadge } from '../agentGrade';
 import { readableError } from '../reviewApi';
 import { isMissingDbObject, logMissingOnce } from '../deskLive';
-import { CALM, FOCUS, LABEL, statusGlass, statusText } from '../deskTheme';
-import { Skeleton } from '../Skeleton';
+import { FOCUS, LABEL, statusText } from '../deskTheme';
+import { Chip, EmptyState, ErrorLine, Fold, LoadingRows, Segmented } from '../ui';
 import { eatTime } from '../ontology/ontologyApi';
 import {
   AGENT_WINDOWS,
@@ -42,14 +41,6 @@ export const INTAKE_CLASS = { bad: statusText.bad, plain: 'text-foreground', idl
 
 const ugx = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
-function pill(active: boolean) {
-  return `desk-pill border px-3 py-1 text-xs font-medium ${CALM} ${FOCUS} ${
-    active
-      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
-  }`;
-}
-
 /** A press anywhere on the row opens the grade popover, unless it landed on a control. */
 function openGradeFromRow(e: MouseEvent<HTMLTableRowElement>) {
   const target = e.target as HTMLElement;
@@ -78,11 +69,11 @@ export function AgentRow({ r, w }: { r: AgentLiveRow; w: AgentsWindow }) {
         {pills.length === 0 ? (
           <span className="text-xs text-muted-foreground">—</span>
         ) : (
-          <span className="flex flex-wrap gap-1">
+          <span className="flex flex-wrap gap-1" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
             {pills.map((p) => (
-              <span key={p.key} title={`${p.n} open at ${p.name}`} className={`desk-pill border px-1.5 py-0 text-[11px] tabular-nums ${statusGlass.idle}`}>
+              <Chip key={p.key} title={`${p.n} open at ${p.name}`} className="tabular-nums">
                 {p.short} {p.n}
-              </span>
+              </Chip>
             ))}
           </span>
         )}
@@ -145,9 +136,7 @@ export function AgentsTable({ rows, w, deskId }: { rows: AgentLiveRow[]; w: Agen
             ))}
           </tbody>
         </table>
-        {shown.length === 0 && (
-          <p className="py-2 text-sm text-muted-foreground">{q ? 'No agent matches.' : EMPTY_TEXT[deskId] ?? EMPTY_TEXT['agent-ops']}</p>
-        )}
+        {shown.length === 0 && <EmptyState>{q ? 'No agent matches.' : EMPTY_TEXT[deskId] ?? EMPTY_TEXT['agent-ops']}</EmptyState>}
       </div>
     </div>
   );
@@ -162,22 +151,19 @@ function AgentsBody({ deskId }: { deskId: string }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="group" aria-label="Window" className="flex gap-1.5">
-          {AGENT_WINDOWS.map((x) => (
-            <button key={String(x)} type="button" aria-pressed={w === x} onClick={() => setW(x)} className={pill(w === x)}>
-              {windowLabel(x)}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="Window"
+          options={AGENT_WINDOWS.map((x) => ({ value: x, label: windowLabel(x) }))}
+          value={w}
+          onChange={(x) => x !== null && setW(x)}
+        />
         {q.data?.generated_at && <span className={LABEL}>Updated {eatTime(q.data.generated_at)}</span>}
       </div>
 
       {q.isLoading ? (
-        <Skeleton className="h-24 w-full" />
+        <LoadingRows rows={3} height={28} label="Loading agents" />
       ) : q.error ? (
-        <p className={`text-sm ${statusText.bad}`}>
-          {isMissingDbObject(q.error) ? 'Agents live is not available yet.' : `Could not load agents: ${readableError(q.error)}`}
-        </p>
+        <ErrorLine>{isMissingDbObject(q.error) ? 'Agents live is not available yet.' : `Could not load agents: ${readableError(q.error)}`}</ErrorLine>
       ) : (
         <>
           <p className="text-sm text-foreground">

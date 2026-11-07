@@ -19,7 +19,8 @@ import { fmt } from './format';
 export type CallSubjectKind = 'agent' | 'tenant' | 'landlord';
 
 export type DeskCallTarget = {
-  requestId: string;
+  /** The request the call is about; null for a call not tied to one (the agent ranking). */
+  requestId: string | null;
   /** `p_desk`: agent_ops, tenant_ops, … */
   desk: string;
   subject: CallSubjectKind;
@@ -64,7 +65,7 @@ function LiveCall({ target, onDone }: { target: DeskCallTarget; onDone: (answere
   // Tie the session to the request as soon as its id exists.
   useEffect(() => {
     const id = call.callId;
-    if (!id || linked.current === id) return;
+    if (!id || linked.current === id || !target.requestId) return;
     linked.current = id;
     void rpc('pipeline_link_call', {
       p_call_session_id: id,

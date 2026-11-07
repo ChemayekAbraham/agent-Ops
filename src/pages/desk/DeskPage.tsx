@@ -1,7 +1,7 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Maximize2, Minimize2, Moon, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
+import { Maximize2, Minimize2, Moon, MoreHorizontal, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { DESKS, DESK_ALIASES, feedsOf, landingDesk, show, type Desk, type Getter } from './deskConfig';
@@ -22,14 +22,20 @@ import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
-import { DeskTabs } from './DeskTabs';
+import { DeskSwitcher, DeskTabs } from './DeskTabs';
+import { DecisionButton, Sheet, atLeast, useBreakpoint, type Breakpoint } from './ui';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
-import { ReadyBoard, type OpenDrawer } from './ReadyBoard';
+import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
+import { AgentRankingFold } from './AgentRanking';
+import { ScriptEditor } from './landlordOps';
 import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
+import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
-import type { Decision } from './reviewTypes';
+import { accessLanding, desksByAccess, useMyDeskAccess } from './deskAccess';
 import { DeskRules } from './DeskRules';
+import { AccountabilityFold } from './accountability/AccountabilityFold';
+import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
 import { AgentsLiveFold } from './agents/AgentsLive';
 import { OntologyTab } from './ontology/OntologyTab';
 
@@ -108,46 +114,166 @@ function ThemeToggle() {
   );
 }
 
-function Toolbar({ updated, failed, board }: { updated: number; failed: string[]; board: boolean }) {
+/** A short Kampala clock for the compact bar: "14:05". */
+function ShortClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  return (
+    <span className="tabular-nums text-sm font-medium text-foreground" style={{ whiteSpace: 'nowrap' }}>
+      {now.toLocaleTimeString('en-GB', { timeZone: 'Africa/Kampala', hour: '2-digit', minute: '2-digit' })}
+    </span>
+  );
+}
+
+function LivePill({ dotOnly }: { dotOnly?: boolean }) {
+  return (
+    <span
+      className="desk-pill desk-live-pill inline-flex items-center gap-1.5 border px-2.5 py-1 text-xs"
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', flexShrink: 0 }}
+      aria-label="Live"
+    >
+      <span className="desk-live-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--desk-live-fg))]" style={{ width: 6, height: 6, borderRadius: 999 }} aria-hidden />
+      {dotOnly ? <span className="sr-only">LIVE</span> : <span className="font-semibold tracking-wide">LIVE</span>}
+    </span>
+  );
+}
+
+/**
+ * The "⋯" menu: whatever the header has no room for at this width. Always
+ * Refresh-adjacent tools (density, staff ID, updated time); also Refresh and
+ * Light/Dark below md, and Board mode only from lg (where it is in the bar).
+ */
+function HeaderMenu({
+  updated,
+  failed,
+  board,
+  bp,
+}: {
+  updated: number;
+  failed: string[];
+  board: boolean;
+  bp: Breakpoint;
+}) {
+  const [open, setOpen] = useState(false);
+  const { theme, setTheme, density, setDensity, setBoard } = useDeskPrefs();
+  const queryClient = useQueryClient();
+  const compact = !atLeast(bp, 'md');
+  const lg = atLeast(bp, 'lg');
+  const next = theme === 'light' ? 'dark' : 'light';
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Desk options"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+        className={`desk-pill relative border border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground ${CALM} ${FOCUS} hover:text-foreground`}
+        style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 44, minHeight: 44, borderWidth: 1, borderStyle: 'solid', borderRadius: 999, flexShrink: 0 }}
+        data-header-menu
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden />
+        {failed.length > 0 && (
+          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[hsl(var(--desk-warn-dot))]" style={{ position: 'absolute', top: 6, right: 6, width: 8, height: 8, borderRadius: 999 }} aria-hidden />
+        )}
+      </button>
+      {open && (
+        <Sheet title="Desk options" onClose={() => setOpen(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }} data-header-menu-items>
+            <p className="text-sm text-muted-foreground" style={{ margin: 0 }}>
+              Updated {clockTime(updated)}
+            </p>
+            {compact && (
+              <DecisionButton size="md" align="start" onClick={() => queryClient.invalidateQueries({ queryKey: ['desk-feed'] })}>
+                <RefreshCw className="h-4 w-4" aria-hidden /> Refresh
+              </DecisionButton>
+            )}
+            {!lg && !board && (
+              <DecisionButton size="md" align="start" onClick={() => setTheme(next)} aria-label={`Switch to the ${next} theme`}>
+                {next === 'dark' ? <Moon className="h-4 w-4" aria-hidden /> : <Sun className="h-4 w-4" aria-hidden />}
+                {next === 'dark' ? 'Dark theme' : 'Light theme'}
+              </DecisionButton>
+            )}
+            <DecisionButton
+              size="md"
+              align="start"
+              aria-pressed={density === 'compact'}
+              onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}
+            >
+              <Rows3 className="h-4 w-4" aria-hidden />
+              {density === 'compact' ? 'Rows: compact' : 'Rows: comfortable'}
+            </DecisionButton>
+            {board && !lg && (
+              <DecisionButton size="md" align="start" onClick={() => setBoard(false)}>
+                <Minimize2 className="h-4 w-4" aria-hidden /> Leave board mode
+              </DecisionButton>
+            )}
+            <StaffBadge />
+            {failed.length > 0 && <p className={`text-sm ${statusText.bad}`} style={{ margin: 0 }}>Some figures could not load ({failed.join(', ')}).</p>}
+          </div>
+        </Sheet>
+      )}
+    </>
+  );
+}
+
+/**
+ * The toolbar on the right of the header, staged by width so the header never
+ * takes more than two rows (bar, then tabs):
+ *   md  LIVE · clock · Refresh · ⋯
+ *   lg  + Light/Dark · Board mode
+ *   xl  + Updated · Density · Rotate, and no ⋯ (the staff ID sits under the title)
+ */
+function Toolbar({ updated, failed, board, bp }: { updated: number; failed: string[]; board: boolean; bp: Breakpoint }) {
   const { setBoard, density, setDensity, rotate, setRotate } = useDeskPrefs();
   const queryClient = useQueryClient();
+  const lg = atLeast(bp, 'lg');
+  const xl = atLeast(bp, 'xl') || (board && lg);
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-      <span className="desk-pill desk-live-pill inline-flex items-center gap-1.5 border px-2.5 py-1">
-        <span className="desk-live-dot h-1.5 w-1.5 rounded-full bg-[hsl(var(--desk-live-fg))]" aria-hidden />
-        <span className="font-semibold tracking-wide">LIVE</span>
-      </span>
+    <div
+      className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+      style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 8, minWidth: 0, flexShrink: 0 }}
+      data-toolbar
+    >
+      <LivePill />
 
-      <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground`} />
-      <span>Updated {clockTime(updated)}</span>
+      <KampalaClock className={`${board ? 'text-base' : 'text-sm'} font-medium text-foreground whitespace-nowrap`} />
+      {xl && <span style={{ whiteSpace: 'nowrap' }}>Updated {clockTime(updated)}</span>}
 
       <button
         type="button"
         onClick={() => queryClient.invalidateQueries({ queryKey: ['desk-feed'] })}
         className={`desk-pill inline-flex items-center gap-1.5 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-1.5 ${CALM} ${FOCUS} hover:bg-[var(--desk-surface-hover)] hover:text-foreground`}
+        style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
       >
         <RefreshCw className="h-3.5 w-3.5" aria-hidden /> Refresh
       </button>
 
-      <ToolButton
-        onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}
-        active={density === 'compact'}
-        label={density === 'compact' ? 'Switch to comfortable rows' : 'Switch to compact rows'}
-      >
-        <Rows3 className="h-3.5 w-3.5" aria-hidden />
-        {density === 'compact' ? 'Compact' : 'Comfortable'}
-      </ToolButton>
+      {xl && (
+        <ToolButton
+          onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}
+          active={density === 'compact'}
+          label={density === 'compact' ? 'Switch to comfortable rows' : 'Switch to compact rows'}
+        >
+          <Rows3 className="h-3.5 w-3.5" aria-hidden />
+          {density === 'compact' ? 'Compact' : 'Comfortable'}
+        </ToolButton>
+      )}
 
-      {/* Offered only where the theme can actually change: board mode is always
-          dark, and so is every desk while the checklist flag is off. */}
-      {!board && deskChecklistOn() && <ThemeToggle />}
+      {/* Board mode is always dark, so the toggle is offered everywhere else. */}
+      {lg && !board && <ThemeToggle />}
 
-      <ToolButton onClick={() => setBoard(!board)} active={board} label={board ? 'Leave board mode' : 'Enter board mode'}>
-        {board ? <Minimize2 className="h-3.5 w-3.5" aria-hidden /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden />}
-        Board mode
-      </ToolButton>
+      {lg && (
+        <ToolButton onClick={() => setBoard(!board)} active={board} label={board ? 'Leave board mode' : 'Enter board mode'}>
+          {board ? <Minimize2 className="h-3.5 w-3.5" aria-hidden /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden />}
+          Board mode
+        </ToolButton>
+      )}
 
-      {board && (
+      {board && lg && (
         <ToolButton
           onClick={() => setRotate(!rotate)}
           active={rotate}
@@ -158,9 +284,99 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
         </ToolButton>
       )}
 
-      {failed.length > 0 && <span className={statusText.bad}>Some figures could not load ({failed.join(', ')}).</span>}
+      {!xl && <HeaderMenu updated={updated} failed={failed} board={board} bp={bp} />}
+      {xl && failed.length > 0 && <span className={statusText.bad}>Some figures could not load ({failed.join(', ')}).</span>}
     </div>
   );
+}
+
+/**
+ * The desk header.
+ *   below md  one sticky bar, at most 56px: desk (switcher), LIVE, time, ⋯
+ *   md and up the title and toolbar on one row, the desk tabs on the next
+ */
+export function DeskHeader({
+  desk,
+  allowed,
+  updated,
+  failed,
+  board,
+  bp,
+}: {
+  desk: { id: string; name: string };
+  allowed: { id: string; name: string }[];
+  updated: number;
+  failed: string[];
+  board: boolean;
+  bp: Breakpoint;
+}) {
+  if (!atLeast(bp, 'md')) {
+    return (
+      <header
+        data-desk-header="compact"
+        className="sticky top-0 z-30 border-b border-[var(--desk-line-color)] bg-[hsl(var(--background)/0.94)] backdrop-blur"
+        style={{ position: 'sticky', top: 0, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8, minHeight: 52, maxHeight: 56, margin: '0 -1rem', padding: '2px 1rem', minWidth: 0 }}
+      >
+        <div style={{ flex: '1 1 auto', minWidth: 0, display: 'flex', alignItems: 'center' }}>
+          <DeskSwitcher desks={allowed} activeId={desk.id} board={board} />
+        </div>
+        <LivePill dotOnly={bp === 'xs'} />
+        <ShortClock />
+        <HeaderMenu updated={updated} failed={failed} board={board} bp={bp} />
+      </header>
+    );
+  }
+
+  const xl = atLeast(bp, 'xl') || (board && atLeast(bp, 'lg'));
+  return (
+    <header data-desk-header="full" className={`min-w-0 ${board ? 'shrink-0 space-y-3' : 'space-y-3'}`}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, minWidth: 0 }}>
+        <div className="flex items-center gap-3 min-w-0" style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <WelileLogo size="sm" showText={false} linkToHome={false} variant="light" />
+          <div className="min-w-0" style={{ minWidth: 0 }}>
+            <h1 className={`${board ? 'text-2xl' : 'text-xl'} truncate font-semibold tracking-tight text-foreground`} style={{ margin: 0 }} title="Ops Command Centre">
+              Ops Command Centre
+            </h1>
+            <p className={`${board ? 'text-base' : 'text-sm'} truncate text-[hsl(var(--desk-lavender))]`} style={{ margin: 0 }} title={desk.name}>
+              {desk.name}
+            </p>
+            {xl && <StaffBadge />}
+          </div>
+        </div>
+        <Toolbar updated={updated} failed={failed} board={board} bp={bp} />
+      </div>
+
+      {allowed.length > 1 && <DeskTabs desks={allowed} activeId={desk.id} board={board} />}
+    </header>
+  );
+}
+
+/**
+ * While the "Set up your authenticator app" banner shows, the desk keeps room
+ * for it at the bottom so it never covers a desk's main buttons.
+ */
+function useAuthenticatorBannerInset(): number {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const banner = Array.from(document.querySelectorAll<HTMLElement>('div.z-40')).find((el) => /authenticator app/i.test(el.textContent ?? ''));
+        setInset(banner ? Math.ceil(banner.getBoundingClientRect().height) : 0);
+      });
+    };
+    measure();
+    const mo = new MutationObserver(measure);
+    mo.observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('resize', measure);
+    return () => {
+      cancelAnimationFrame(frame);
+      mo.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+  return inset;
 }
 
 /** Ontology only: choose which mapped day every onto_ feed shows. Stored as ?day=YYYY-MM-DD. */
@@ -237,7 +453,8 @@ function DeskView({
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
-  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | 'call' | undefined>(undefined);
+  const [openInitial, setOpenInitial] = useState<DrawerStart | undefined>(undefined);
+  const [openCtx, setOpenCtx] = useState<DrawerContext | undefined>(undefined);
   const [opening, setOpening] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   // `?tab=` opens the second tab straight away, so the budget-room card can
@@ -265,6 +482,7 @@ function DeskView({
     setOpening(null);
     if (found.status === 'ok') {
       setOpenInitial(undefined);
+      setOpenCtx(undefined);
       setOpenRequest(found.id);
       return;
     }
@@ -377,12 +595,14 @@ function DeskView({
       stage={stage}
       requestId={openRequest}
       initial={openInitial}
+      ctx={openCtx}
       onClose={() => setOpenRequest(null)}
     />
   );
 
-  const openFromBoard: OpenDrawer = (id, initial) => {
+  const openFromBoard: OpenDrawer = (id, initial, ctx) => {
     setOpenInitial(initial);
+    setOpenCtx(ctx);
     setOpenRequest(id);
   };
 
@@ -433,6 +653,7 @@ function DeskView({
           )}
         </section>
 
+        {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />
@@ -446,23 +667,23 @@ function DeskView({
     );
   }
 
-  // Partner Ops, when live: it no longer attaches funders; it watches the funders' board.
+  // Partner Ops, when live: the sales desk — listings, Welile-due, funder approvals, field officers.
   if (checklistOn && desk.id === 'partner-ops') {
     return (
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {intro}
-        <section className="space-y-3" aria-labelledby="desk-watch">
-          <h2 id="desk-watch" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
-            Funder board watch
+        <section className="space-y-3" aria-labelledby="desk-ready">
+          <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+            Ready for your push
           </h2>
-          <PartnerWatch board={board} />
+          <PartnerOpsBoard board={board} />
         </section>
-        <Fold title="Funder board — preview" board={board} hint="What the funders would see">
-          <FunderBoard board={board} />
-        </Fold>
+        <AccountabilityFold deskId={desk.id} board={board} />
         <DeskRules deskId={desk.id} board={board} />
-        <Fold title="Classic view" board={board} hint="Every table this desk showed before, unchanged">
+        <Fold title="Classic view" board={board} hint="The funder board watch and every table this desk showed before">
+          <PartnerWatch board={board} />
+          <FunderBoard board={board} />
           {desk.tables.map(table)}
         </Fold>
         {drawer}
@@ -478,7 +699,15 @@ function DeskView({
       {extraView}
       {showQueue && desk.tables.map(table)}
       {/* Partner Ops and Customer Care have no frame, so their rules sit at the foot. */}
+      {checklistOn && <AccountabilityFold deskId={desk.id} board={board} />}
       {checklistOn && <DeskRules deskId={desk.id} board={board} />}
+      {/* The COO's settings live on the Ontology desk: the landlord call script. The server lets only the COO save. */}
+      {checklistOn && desk.id === 'ontology' && (
+        <Fold title="Edit call script — Landlord Ops" board={board} hint="What Landlord Ops reads on every landlord call">
+          <ScriptEditor desk="landlord_ops" />
+        </Fold>
+      )}
+      {checklistOn && desk.id === 'ontology' && <EditResponsibilitiesFold board={board} />}
       {drawer}
     </div>
   );
@@ -489,20 +718,24 @@ function DeskShell() {
   // `/desk/funders` is the same desk as `/desk/cfo`.
   const deskId = rawDeskId ? (DESK_ALIASES[rawDeskId] ?? rawDeskId) : rawDeskId;
   const { roles } = useAuth();
-  const { board, rotate, theme } = useDeskPrefs();
-  /**
-   * Board mode is always dark, and so is production until Mark flips the flag —
-   * with the checklist off the desks must look exactly as they do today, so the
-   * light theme never reaches welileapp.com by accident.
-   */
-  const rootTheme: 'light' | 'dark' = board || !deskChecklistOn() ? 'dark' : theme;
+  // Light unless the viewer chose dark; Board mode is always dark (deskPrefs.resolveDeskTheme).
+  const { board, rotate, rootTheme } = useDeskPrefs();
+  const bp = useBreakpoint();
+  const bannerInset = useAuthenticatorBannerInset();
   const navigate = useNavigate();
 
   const mine = (roles ?? []) as unknown as string[];
   // Desk roles first; with none, ask whether this account is a Service Centre person.
   const hasDeskRole = DESKS.some((d) => d.roles.some((r) => mine.includes(r)));
   const scScope = useMyScScope(!hasDeskRole && roles !== undefined);
-  const { desks: allowed, scOnly } = desksFor(DESKS, mine, scScope.data);
+  const base = desksFor(DESKS, mine, scScope.data);
+  // HR's desk access, once the COO turns it on: only the desks HR gave this person.
+  // Re-read every 2 minutes and on focus, so a removal lands without a re-login.
+  const access = useMyDeskAccess();
+  const accessEnforced = !!access.data?.enforced && !access.data.all;
+  const allowed = desksByAccess(base.desks, DESKS, access.data);
+  // The board-only view is for a Service Centre person with no other desk.
+  const scOnly = base.scOnly && !(accessEnforced && allowed.some((d) => d.id !== 'service-centre'));
   const desk = allowed.find((d) => d.id === deskId);
   const [search] = useSearchParams();
   const rawDay = search.get('day');
@@ -524,10 +757,22 @@ function DeskShell() {
     return () => window.clearInterval(id);
   }, [board, rotate, deskKey, allowedKey, navigate]);
 
-  if (allowed.length === 0 && !hasDeskRole && scScope.isLoading) {
+  // Wait for the access answer before showing any tab, so no one sees a desk they no longer have.
+  if (access.isLoading || (allowed.length === 0 && !hasDeskRole && scScope.isLoading)) {
     return (
       <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme} aria-busy>
         <p className="text-sm text-muted-foreground">Opening your desk…</p>
+      </main>
+    );
+  }
+
+  if (allowed.length === 0 && accessEnforced) {
+    return (
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
+        <div className="mx-auto max-w-xl space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">No desk assigned — ask HR</h1>
+          <p className="text-sm text-muted-foreground">HR gives desks under People → Desks. Reload this page once they have.</p>
+        </div>
       </main>
     );
   }
@@ -544,39 +789,23 @@ function DeskShell() {
       </main>
     );
   }
-  if (!desk) return <Navigate to={`/desk/${landingDesk(mine, allowed).id}${board ? '?board=1' : ''}`} replace />;
+  if (!desk) {
+    // A desk that is not allowed (or was just removed) goes to the first allowed one.
+    const to = accessEnforced ? accessLanding(allowed, access.data) ?? allowed[0] : landingDesk(mine, allowed);
+    return <Navigate to={`/desk/${to.id}${board ? '?board=1' : ''}`} replace />;
+  }
 
   const updated = Math.max(0, ...Object.values(feeds).map((f) => f.updatedAt || 0));
   const failed = Object.entries(feeds)
     .filter(([, f]) => f.error)
     .map(([k]) => k);
 
-  const header = (
-    <header className={`min-w-0 ${board ? 'shrink-0 space-y-3' : 'space-y-4'}`}>
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <WelileLogo size="sm" showText={false} linkToHome={false} variant="light" />
-          <div className="min-w-0">
-            <h1 className={`${board ? 'text-2xl' : 'text-xl sm:text-2xl'} font-semibold tracking-tight text-foreground`}>
-              Ops Command Centre
-            </h1>
-            <p className={`${board ? 'text-base' : 'text-sm'} text-[hsl(var(--desk-lavender))]`}>{desk.name}</p>
-            <StaffBadge />
-          </div>
-        </div>
-        <Toolbar updated={updated} failed={failed} board={board} />
-      </div>
-
-      {allowed.length > 1 && (
-        <DeskTabs desks={allowed} activeId={desk.id} board={board} />
-      )}
-    </header>
-  );
+  const header = <DeskHeader desk={desk} allowed={allowed} updated={updated} failed={failed} board={board} bp={bp} />;
 
   if (board) {
     // A wall display: full bleed, one screen, 32px of air all round.
     return (
-      <div className="desk-root flex h-[100dvh] min-w-0 flex-col gap-6 overflow-hidden px-4 py-6 sm:px-8" data-desk-theme="dark">
+      <div className="desk-root flex h-[100dvh] min-w-0 flex-col gap-6 overflow-hidden px-4 py-6 sm:px-8" data-desk-theme="dark" data-desk-wall>
         {header}
         <div className="min-h-0 min-w-0 flex-1">
           <DeskView key={desk.id} desk={desk} feeds={feeds} board scOnly={scOnly} />
@@ -586,8 +815,8 @@ function DeskShell() {
   }
 
   return (
-    <div className="desk-root min-h-screen" data-desk-theme={rootTheme}>
-      <main className="mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 py-6 sm:px-8">
+    <div className="desk-root min-h-screen" data-desk-theme={rootTheme} style={bannerInset ? ({ paddingBottom: bannerInset + 16, '--desk-banner-inset': `${bannerInset}px` } as CSSProperties) : undefined}>
+      <main className={`mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 sm:px-8 ${atLeast(bp, 'md') ? 'py-6' : 'pb-6 pt-0'}`}>
         {header}
         <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} scOnly={scOnly} />
       </main>

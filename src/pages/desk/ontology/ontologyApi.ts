@@ -105,13 +105,80 @@ export type DeskRule = {
   all_desks: boolean | null;
 };
 
+/** What a desk is responsible for, and who answers for it. Set by the COO/CEO on the Ontology desk. */
+export type Responsibilities = {
+  title: string | null;
+  role_line: string | null;
+  steps: string[] | null;
+  must_not: string | null;
+  accountability: string | null;
+  version: number | string | null;
+  updated_at: string | null;
+};
+
 export type DeskRulesView = {
   desk: string;
   board: string | null;
   version: string | null;
   rules: DeskRule[] | null;
   changed_7d: { at: string | null; what: string | null; why: string | null }[] | null;
+  responsibilities?: Responsibilities | null;
 };
+
+/** The desk keys `desk_responsibilities_set` takes, in pipeline order. */
+export const RESPONSIBILITY_DESKS: { key: string; name: string }[] = [
+  { key: 'agent-app', name: 'Agent app' },
+  { key: 'service-centre', name: 'Service Centre' },
+  { key: 'agent-ops', name: 'Agent Ops' },
+  { key: 'tenant-ops', name: 'Tenant Ops' },
+  { key: 'landlord-ops', name: 'Landlord Ops' },
+  { key: 'coo', name: 'COO' },
+  { key: 'cfo', name: 'CFO' },
+  { key: 'partner-ops', name: 'Partner Ops' },
+];
+
+/** COO and CEO set responsibilities and see accountability across every desk. */
+export function isCooOrCeo(roles: readonly unknown[] | null | undefined): boolean {
+  return (roles ?? []).some((r) => r === 'coo' || r === 'ceo');
+}
+
+/** One step per non-empty line. */
+export function stepsFromText(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((s) => s.replace(/^\s*\d+[.)]\s*/, '').trim())
+    .filter(Boolean);
+}
+
+/** localStorage key that remembers a user has seen a desk's rules once. */
+export const rulesSeenKey = (userId: string, deskId: string) => `desk-rules-seen:${userId}:${deskId}`;
+
+/** True the first time this user opens this desk (nothing stored yet). Storage that throws counts as seen. */
+export function firstRulesVisit(userId: string | null | undefined, deskId: string, store: Pick<Storage, 'getItem'> | null = safeStorage()): boolean {
+  if (!userId || !store) return false;
+  try {
+    return store.getItem(rulesSeenKey(userId, deskId)) === null;
+  } catch {
+    return false;
+  }
+}
+
+export function markRulesSeen(userId: string | null | undefined, deskId: string, store: Pick<Storage, 'setItem'> | null = safeStorage()): void {
+  if (!userId || !store) return;
+  try {
+    store.setItem(rulesSeenKey(userId, deskId), new Date().toISOString());
+  } catch {
+    /* private window or blocked storage: the fold just stays closed next time */
+  }
+}
+
+function safeStorage(): Storage | null {
+  try {
+    return typeof window !== 'undefined' ? window.localStorage : null;
+  } catch {
+    return null;
+  }
+}
 
 export const CHANGE_WINDOWS = [7, 30, 90] as const;
 export type ChangeWindow = (typeof CHANGE_WINDOWS)[number];

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FileText, MapPin, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,6 +11,13 @@ import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
 import { DeskCallButton, RequestCallHistory } from './deskCall';
+import { PhotoReview } from './PhotoReview';
+import { IntakeForm } from './IntakeForm';
+import { PaymentHealthPanel } from './paymentHealth';
+import { ConcernsSection, concernDeskFor } from './concerns';
+import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
+import { stackLayout } from './ui';
+import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
   readableError,
@@ -123,6 +130,7 @@ function CheckRow({
   needsText,
   onResult,
   onValue,
+  extra,
 }: {
   item: ChecklistItem;
   entry: CheckEntry | undefined;
@@ -130,8 +138,11 @@ function CheckRow({
   needsText: boolean;
   onResult: (r: CheckResult) => void;
   onValue: (v: unknown) => void;
+  /** A line under the question: the rent on the request, the arrears hint. */
+  extra?: React.ReactNode;
 }) {
-  const kind = item.value_kind;
+  // "Rent confirmed by the landlord" always takes the amount the landlord said; it is sent as the check's value.
+  const kind = item.value_kind ?? (item.code === 'lo_rent_confirmed' ? 'amount' : null);
   const showInput = (!!kind || needsText) && entry?.result === 'pass';
   const numeric = kind === 'number' || kind === 'amount';
 
@@ -144,6 +155,7 @@ function CheckRow({
             {item.required && <span className="ml-1.5 text-xs text-muted-foreground">(required)</span>}
           </p>
           <p className="text-xs leading-snug text-muted-foreground">{item.question}</p>
+          {extra && <div className="text-xs leading-snug">{extra}</div>}
           {item.system_said && (
             <p className="text-xs leading-snug">
               <span className="text-[hsl(var(--desk-lavender))]">The system sees: {item.system_said}</span>
@@ -213,12 +225,15 @@ export function ReviewDrawer({
   requestId,
   onClose,
   initial,
+  ctx,
 }: {
   stage: Stage;
   requestId: string;
   onClose: () => void;
   /** Opened from the board: start on this decision, on "Wait on…", or with the call button ready. */
-  initial?: Decision | 'wait' | 'call';
+  initial?: DrawerStart;
+  /** What the board already knew about the row: missing intake items and the suggested wait. */
+  ctx?: DrawerContext;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -228,7 +243,7 @@ export function ReviewDrawer({
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
   const [decision, setDecision] = useState<Decision | null>(() =>
-    initial && initial !== 'wait' && initial !== 'call' && visibleDecisions(stage).includes(initial) ? initial : null,
+    initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
   );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
@@ -241,6 +256,10 @@ export function ReviewDrawer({
   const [outcome, setOutcome] = useState<string | null>(null);
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
   const [waitMode, setWaitMode] = useState(initial === 'wait');
+  // Agent Ops has a second tab for the house photos.
+  const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  const photosTab = stage === 'agent_ops';
+  const showIntake = stage === 'agent_ops' && (initial === 'complete' || (ctx?.itemsMissing?.length ?? 0) > 0);
   // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
   const [liveAnswered, setLiveAnswered] = useState(false);
   const waitDesk = waitDeskForStage(stage);
@@ -248,6 +267,11 @@ export function ReviewDrawer({
   const canWait = !!waitDesk && !waitList.missing;
 
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
+  // Concerns follow the request; every desk but the retired Partner Ops can log and read them.
+  const concernDesk = concernDeskFor(stage);
+  // Landlord Ops reads the whole request from one RPC; the panel and the checks share the cached answer.
+  const landlordCtx = useLandlordContext(requestId, stage === 'landlord_ops');
+  const lctx = landlordCtx.data;
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
   const proxies = useProxyAgents(decision === 'attach_funder');
 
@@ -425,8 +449,32 @@ export function ReviewDrawer({
             </p>
           )}
 
+          {req && photosTab && (
+            <div role="tablist" aria-label="Review views" className="flex gap-1.5">
+              {(['review', 'photos'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                    tab === t
+                      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+                      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t === 'review' ? 'Review' : 'Photos'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {req && photosTab && tab === 'photos' && <PhotoReview requestId={requestId} />}
+
           {req && (
-            <>
+            // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
+            <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {/* ── The facts, as the agent recorded them ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">What the agent sent</h3>
@@ -505,6 +553,38 @@ export function ReviewDrawer({
                 </div>
               </section>
 
+              {stage === 'landlord_ops' && <LandlordContextPanel requestId={requestId} />}
+
+              {/* ── Tenant Ops: how the tenant has paid, and the agent who brought them ── */}
+              {stage === 'tenant_ops' && (
+                <div className="grid gap-4 sm:grid-cols-2" style={{ display: 'grid', gap: 16 }}>
+                  <PaymentHealthPanel tenantId={req.tenant?.id ?? null} />
+                  <section className={`${PANEL} p-4`} style={stackLayout(6)} aria-label="Agent">
+                    <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+                      Agent
+                    </h3>
+                    <p className="text-sm text-foreground">{req.agent?.name ?? 'No agent recorded'}</p>
+                    <p className="font-mono text-xs text-muted-foreground">{req.agent?.phone ?? 'no number'}</p>
+                    <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
+                      Call agent
+                      <DeskCallButton
+                        target={{ requestId, desk: stage, subject: 'agent', calleeId: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                      />
+                    </span>
+                  </section>
+                </div>
+              )}
+
+              {showIntake && (
+                <IntakeForm
+                  requestId={requestId}
+                  stage={stage}
+                  agent={{ id: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                  itemsMissing={ctx?.itemsMissing ?? []}
+                  waitSuggest={ctx?.waitSuggest ?? null}
+                />
+              )}
+
               {initial === 'call' && callDesk && (
                 <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.warn}`}>
                   Call the {callDesk} first: press the phone button next to their name above, then log the call below.
@@ -525,19 +605,39 @@ export function ReviewDrawer({
 
               <RequestCallHistory requestId={requestId} />
 
+              {concernDesk && <ConcernsSection requestId={requestId} desk={concernDesk} />}
+
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">The checks for this desk</h3>
                 <ul>
                   {items.map((c) => (
-                    <CheckRow
-                      key={c.code}
-                      item={c}
-                      entry={entries[c.code]}
-                      needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
-                      onResult={(r) => setResult(c.code, r)}
-                      onValue={(v) => setValue(c.code, v)}
-                    />
+                    <Fragment key={c.code}>
+                      {/* The call script sits right above "Value proposition offered". */}
+                      {stage === 'landlord_ops' && c.code === 'lo_value_prop' && lctx?.script && (
+                        <li className="py-3">
+                          <ScriptPanel script={lctx.script} />
+                        </li>
+                      )}
+                      <CheckRow
+                        item={c}
+                        entry={entries[c.code]}
+                        needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
+                        onResult={(r) => setResult(c.code, r)}
+                        onValue={(v) => setValue(c.code, v)}
+                        extra={
+                          stage !== 'landlord_ops' || !lctx ? undefined : c.code === 'lo_rent_confirmed' ? (
+                            // The box starts empty: the reviewer types what the landlord says, never the request's figure.
+                            <span className="text-foreground">
+                              {rentOnRequestText(lctx.rent_on_request)}
+                              <span className={`block ${statusText.warn}`}>{RENT_EXACT_HINT}</span>
+                            </span>
+                          ) : c.code === 'lo_tenant_no_arrears' && lctx.landlord?.arrears_hint ? (
+                            <span className={statusText.warn}>Arrears hint: {lctx.landlord.arrears_hint}</span>
+                          ) : undefined
+                        }
+                      />
+                    </Fragment>
                   ))}
                   {items.length === 0 && <li className="py-3 text-sm text-muted-foreground">No checks are configured for this desk.</li>}
                 </ul>
@@ -770,7 +870,7 @@ export function ReviewDrawer({
                   </ul>
                 </section>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

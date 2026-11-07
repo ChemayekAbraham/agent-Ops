@@ -20,6 +20,7 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import type { UgLocationSelection } from '@/hooks/useUgLocations';
+import { attachLc1Letter, noteLc1Missing, saveIntakeDetails } from '@/lib/agentIntakeDetails';
 
 export type AssistantIncomeType = 'daily' | 'weekly-monthly';
 export type AssistantEarnerCycle = 'weekly' | 'monthly';
@@ -105,10 +106,28 @@ export interface AssistantSubmitInput {
   lc1Village: string;
   lcLetter: File | null;
   landlordPayoutDay: string;
+  /** Intake details, saved through agent_save_intake_details after the insert. */
+  familySize: number;
+  workBusiness: string;
+  workLocation: string;
+  /** "No LC1 letter yet" reason; sent through agent_note_lc1_missing when there is no letter. */
+  noLc1Reason: string | null;
 }
 
 export type AssistantSubmitResult =
-  | { ok: true; rentRequestId: string; tenantExisting: boolean; activationLink: string | null; lcLetterFailed: boolean }
+  | {
+      ok: true;
+      rentRequestId: string;
+      tenantExisting: boolean;
+      activationLink: string | null;
+      lcLetterFailed: boolean;
+      /** Server error from agent_save_intake_details; the request itself was created. */
+      intakeError: string | null;
+      /** Server error from agent_attach_lc1_letter after the letter uploaded. */
+      lc1AttachError: string | null;
+      /** Server error from agent_note_lc1_missing. */
+      lc1NoteError: string | null;
+    }
   | {
       ok: false;
       /** Which conversation step the agent should go back to, if any. */
@@ -174,7 +193,8 @@ async function uploadHousePhotos(agentId: string, requestId: string, files: File
   return urls;
 }
 
-async function uploadLcLetter(agentId: string, requestId: string, file: File): Promise<{ path: string; bucket: string } | null> {
+/** Uploads the LC1 letter photo to `lc-letters/<agent>/<request>/lc_letter.<ext>`. */
+export async function uploadLcLetter(agentId: string, requestId: string, file: File): Promise<{ path: string; bucket: string } | null> {
   let letterFile = file;
   try {
     letterFile = (await optimizeImage(file, { maxWidth: 2000, maxHeight: 2000, quality: 0.85, format: 'image/jpeg' })).file;
@@ -407,6 +427,7 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
     }
 
     let lcLetterFailed = false;
+    let lc1AttachError: string | null = null;
     if (input.lcLetter) {
       const letter = await uploadLcLetter(input.agentId, requestId, input.lcLetter);
       if (letter) {
@@ -414,10 +435,25 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
           .from('rent_requests')
           .update({ lc_letter_path: letter.path, lc_letter_bucket: letter.bucket } as Loose)
           .eq('id', requestId);
+        const attached = await attachLc1Letter(requestId, letter.path);
+        if (!attached.ok) lc1AttachError = attached.message;
       } else {
         lcLetterFailed = true;
       }
     }
+    let lc1NoteError: string | null = null;
+    if (!input.lcLetter && input.noLc1Reason?.trim()) {
+      const noted = await noteLc1Missing(requestId, input.noLc1Reason);
+      if (!noted.ok) lc1NoteError = noted.message;
+    }
+
+    // The request exists now: a failure here keeps it and is finished from the home card.
+    const intake = await saveIntakeDetails(requestId, {
+      familySize: input.familySize,
+      workBusiness: input.workBusiness,
+      workLocation: input.workLocation,
+    });
+    const intakeError = intake.ok ? null : intake.message;
 
     if (input.faceCheckSha256) {
       try {
@@ -453,7 +489,16 @@ export async function submitAssistantRentRequest(input: AssistantSubmitInput): P
       console.warn('[rentRequestAssistant] could not queue invite SMS', e);
     }
 
-    return { ok: true, rentRequestId: requestId, tenantExisting: !!tenantResult.existing, activationLink, lcLetterFailed };
+    return {
+      ok: true,
+      rentRequestId: requestId,
+      tenantExisting: !!tenantResult.existing,
+      activationLink,
+      lcLetterFailed,
+      intakeError,
+      lc1AttachError,
+      lc1NoteError,
+    };
   } catch (caught) {
     const error = (caught ?? {}) as { message?: string; hint?: string; details?: string };
     const msg: string = error.message || 'Failed to post the rent request';

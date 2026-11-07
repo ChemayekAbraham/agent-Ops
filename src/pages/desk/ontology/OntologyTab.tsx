@@ -1,8 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
-import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from '../deskTheme';
-import { Skeleton } from '../Skeleton';
-import { Fold } from '../DeskFrame';
+import { FOCUS, LABEL, PANEL, statusText } from '../deskTheme';
+import { Chip, DecisionButton, EmptyState, ErrorLine, Fold, LoadingRows, Segmented } from '../ui';
 import { readableError } from '../reviewApi';
 import { isMissingDbObject } from '../deskLive';
 import { AutomationBadge, BasisBadge, KindBadge } from './badges';
@@ -45,18 +44,6 @@ function Card({ title, hint, board, children }: { title: string; hint?: ReactNod
   );
 }
 
-function Chip({ children, tone = 'idle' }: { children: ReactNode; tone?: 'idle' | 'ok' | 'bad' | 'warn' }) {
-  return <span className={`desk-pill inline-flex items-center border px-2.5 py-0.5 text-xs ${statusGlass[tone]}`}>{children}</span>;
-}
-
-function pillButton(active: boolean) {
-  return `desk-pill inline-flex items-center gap-1.5 border px-3 py-1.5 text-xs font-medium ${CALM} ${FOCUS} ${
-    active
-      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground'
-  }`;
-}
-
 function Header({ view, days, setDays, board }: { view: OntologyView; days: ChangeWindow; setDays: (d: ChangeWindow) => void; board: boolean }) {
   const c = view.counts;
   return (
@@ -65,14 +52,13 @@ function Header({ view, days, setDays, board }: { view: OntologyView; days: Chan
         Ontology {versionLabel(view.version)} · {n(c?.objects)} objects · {n(c?.links)} links · {n(c?.actions)} actions · {n(c?.boards)} boards ·{' '}
         {n(c?.rules)} rules ({n(c?.assumptions)} assumptions)
       </p>
-      <div role="group" aria-label="What changed: window" className="flex items-center gap-1.5">
-        <span className={LABEL}>What changed in</span>
-        {CHANGE_WINDOWS.map((d) => (
-          <button key={d} type="button" aria-pressed={days === d} onClick={() => setDays(d)} className={pillButton(days === d)}>
-            {d} days
-          </button>
-        ))}
-      </div>
+      <Segmented
+        ariaLabel="What changed: window"
+        label="What changed in"
+        options={CHANGE_WINDOWS.map((d) => ({ value: d, label: `${d} days` }))}
+        value={days}
+        onChange={(d) => d !== null && setDays(d)}
+      />
     </div>
   );
 }
@@ -84,7 +70,7 @@ function WhatChanged({ view, days, board }: { view: OntologyView; days: ChangeWi
   return (
     <Card title="What changed" board={board} hint={view.week?.since ? `Since ${eatTime(view.week.since)}` : `Last ${days} days`}>
       {changes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing changed in the last {days} days.</p>
+        <EmptyState>Nothing changed in the last {days} days.</EmptyState>
       ) : (
         <ul className="divide-y divide-[var(--desk-line-color)]">
           {changes.map((ch, i) => (
@@ -103,12 +89,12 @@ function WhatChanged({ view, days, board }: { view: OntologyView; days: ChangeWi
       {(added.length > 0 || retired.length > 0) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {added.map((a, i) => (
-            <Chip key={`a-${a.kind}-${a.name}-${i}`} tone="ok">
+            <Chip key={`a-${a.kind}-${a.name}-${i}`} tone="ok" size="sm">
               Added: {a.kind} {a.name}
             </Chip>
           ))}
           {retired.map((r, i) => (
-            <Chip key={`r-${r.kind}-${r.name}-${i}`} tone="bad">
+            <Chip key={`r-${r.kind}-${r.name}-${i}`} tone="bad" size="sm">
               Retired: {r.kind} {r.name}
               {r.now ? ` → ${r.now}` : ''}
             </Chip>
@@ -124,7 +110,7 @@ function Boards({ view, board }: { view: OntologyView; board: boolean }) {
   return (
     <Card title="Decision boards" board={board} hint="In pipeline order">
       {boards.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No boards recorded.</p>
+        <EmptyState>No boards recorded.</EmptyState>
       ) : (
         <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
           {boards.map((b) => {
@@ -139,7 +125,9 @@ function Boards({ view, board }: { view: OntologyView; board: boolean }) {
                 {(b.actions ?? []).length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {(b.actions ?? []).map((a) => (
-                      <Chip key={a}>{a}</Chip>
+                      <Chip key={a} size="sm">
+                        {a}
+                      </Chip>
                     ))}
                   </div>
                 )}
@@ -162,7 +150,7 @@ function Rules({ view, board }: { view: OntologyView; board: boolean }) {
   const groups = rulesByBoard(view.rules, view.boards);
   return (
     <Card title="Rules" board={board} hint="Grouped by board">
-      {groups.length === 0 && <p className="text-sm text-muted-foreground">No rules recorded.</p>}
+      {groups.length === 0 && <EmptyState>No rules recorded.</EmptyState>}
       {groups.map((g) => (
         <div key={g.board} className="space-y-1">
           <h3 className={`${LABEL} font-semibold`}>{g.board}</h3>
@@ -190,7 +178,7 @@ function Ladder({ view, board }: { view: OntologyView; board: boolean }) {
   return (
     <Card title="Ready to automate" board={board}>
       {list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{LADDER_EMPTY}</p>
+        <EmptyState>{LADDER_EMPTY}</EmptyState>
       ) : (
         <ul className="space-y-1 text-sm text-foreground">
           {list.map((c) => (
@@ -210,7 +198,7 @@ function Assumptions({ view, board }: { view: OntologyView; board: boolean }) {
   return (
     <Card title="Open assumptions" board={board} hint="Each owner confirms the decision before it counts as one">
       {list.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No open assumptions.</p>
+        <EmptyState>No open assumptions.</EmptyState>
       ) : (
         <ul className="divide-y divide-[var(--desk-line-color)]">
           {list.map((a) => (
@@ -233,7 +221,7 @@ type Col<T> = { label: string; get: (r: T) => ReactNode; mono?: boolean };
 
 function SearchTable<T extends Record<string, unknown>>({ title, rows, cols, board }: { title: string; rows: T[]; cols: Col<T>[]; board: boolean }) {
   return (
-    <Fold title={`${title} (${rows.length})`} board={board}>
+    <Fold title={title} count={rows.length} board={board}>
       <SearchTableBody title={title} rows={rows} cols={cols} />
     </Fold>
   );
@@ -275,7 +263,7 @@ function SearchTableBody<T extends Record<string, unknown>>({ title, rows, cols 
             ))}
           </tbody>
         </table>
-        {shown.length === 0 && <p className="py-2 text-sm text-muted-foreground">{q ? 'No match.' : 'Nothing recorded.'}</p>}
+        {shown.length === 0 && <EmptyState>{q ? 'No match.' : 'Nothing recorded.'}</EmptyState>}
       </div>
     </div>
   );
@@ -392,13 +380,13 @@ function Export({ view }: { view: OntologyView }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-t border-[var(--desk-line-color)] pt-3">
-      <button type="button" onClick={copy} disabled={!md} className={pillButton(false)}>
+      <DecisionButton onClick={copy} disabled={!md}>
         {copied === 'ok' ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
         {copied === 'ok' ? 'Copied' : 'Copy as Markdown'}
-      </button>
-      <button type="button" onClick={download} disabled={!md} className={pillButton(false)}>
+      </DecisionButton>
+      <DecisionButton onClick={download} disabled={!md}>
         <Download className="h-3.5 w-3.5" aria-hidden /> Download .md
-      </button>
+      </DecisionButton>
       {copied === 'failed' && <span className={`text-xs ${statusText.bad}`}>Could not copy — use Download instead.</span>}
       {view.generated_at && <span className={LABEL}>Generated {eatTime(view.generated_at)}</span>}
     </div>
@@ -410,21 +398,11 @@ export function OntologyTab({ board }: { board: boolean }) {
   const q = useOntologyView(days);
 
   if (q.isLoading) {
-    return (
-      <div className="space-y-3">
-        <Skeleton className="h-6 w-3/4" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-40 w-full" />
-      </div>
-    );
+    return <LoadingRows rows={3} height={96} label="Loading the ontology" />;
   }
   if (q.error || !q.data) {
     const missing = isMissingDbObject(q.error);
-    return (
-      <p className={`text-sm ${statusText.bad}`}>
-        {missing ? 'The ontology view is not available yet.' : `Could not load the ontology: ${readableError(q.error)}`}
-      </p>
-    );
+    return <ErrorLine>{missing ? 'The ontology view is not available yet.' : `Could not load the ontology: ${readableError(q.error)}`}</ErrorLine>;
   }
 
   const view = q.data;

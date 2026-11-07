@@ -4,26 +4,16 @@ import { rpc, readableError } from './reviewApi';
 import { gradeTrend } from './boardApi';
 import { CALM, FOCUS, LABEL, statusText } from './deskTheme';
 import { Skeleton } from './Skeleton';
-import { Pop } from './Pop';
+import { DeskPopover, GradeBadge as KitGradeBadge, gradeStyle } from './ui';
 
 /**
- * The agent grade badge: A green, B teal, C amber, D red, N grey "New",
- * X black "Blocked", none grey "Not graded". A press opens the grade's
- * make-up from `agent_grade_of(p_agent)`.
+ * The agent grade badge (the kit's GradeBadge) with a week-on-week arrow. A
+ * press opens the grade's make-up from `agent_grade_of(p_agent)`.
  */
 
-const BADGE: Record<string, { cls: string; text: string; words: string }> = {
-  A: { cls: 'bg-emerald-600 text-white border-emerald-600', text: 'A', words: 'grade A' },
-  B: { cls: 'bg-teal-600 text-white border-teal-600', text: 'B', words: 'grade B' },
-  C: { cls: 'bg-amber-500 text-black border-amber-500', text: 'C', words: 'grade C' },
-  D: { cls: 'bg-red-600 text-white border-red-600', text: 'D', words: 'grade D' },
-  N: { cls: 'bg-slate-500/25 text-foreground border-slate-500/50', text: 'New', words: 'new agent, not yet graded' },
-  X: { cls: 'bg-black text-white border-white/30', text: 'Blocked', words: 'blocked' },
-};
-const NONE = { cls: 'bg-slate-500/20 text-muted-foreground border-slate-500/40', text: 'Not graded', words: 'not graded' };
-
+/** The badge style for a grade; the palette lives in the desk UI kit. */
 export function badgeFor(grade: string | null | undefined) {
-  return (grade && BADGE[grade]) || NONE;
+  return gradeStyle(grade);
 }
 
 type GradeOf = {
@@ -67,11 +57,10 @@ function GradeDetail({ agentId }: { agentId: string }) {
   if (q.error) return <p className={`text-xs ${statusText.bad}`}>{readableError(q.error)}</p>;
   const g = q.data;
   if (!g) return <p className="text-xs text-muted-foreground">No grade on record.</p>;
-  const b = badgeFor(g.grade);
   return (
     <span className="block space-y-2 text-xs">
       <span className="flex items-baseline justify-between gap-2">
-        <span className={`desk-pill border px-2 py-0.5 font-semibold ${b.cls}`}>{b.text}</span>
+        <KitGradeBadge grade={g.grade} />
         <span className="text-foreground">Score {show(g.score)}</span>
       </span>
       <span className={`${LABEL} block`}>
@@ -107,17 +96,17 @@ function GradeDetail({ agentId }: { agentId: string }) {
 export function GradeBadge({ agentId, grade, weekAgo }: { agentId: string | null; grade: string | null; weekAgo: string | null }) {
   const b = badgeFor(grade);
   const trend = gradeTrend(grade, weekAgo);
-  const badge = <span className={`desk-pill inline-block border px-1.5 py-0 text-[11px] font-semibold leading-5 ${b.cls}`}>{b.text}</span>;
+  const badge = <KitGradeBadge grade={grade} />;
   return (
-    <span className="inline-flex items-center gap-0.5">
+    <span className="inline-flex items-center gap-0.5" style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
       {agentId ? (
-        <Pop
+        <DeskPopover
           label={`Agent ${b.words} — how it was graded`}
           trigger={badge}
           triggerClass={`rounded-full ${CALM} ${FOCUS}`}
         >
           {() => <GradeDetail agentId={agentId} />}
-        </Pop>
+        </DeskPopover>
       ) : (
         badge
       )}
