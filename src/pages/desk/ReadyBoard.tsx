@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MoreHorizontal, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import {
   GROUP_LABEL,
   PUSHABLE,
   boardKey,
+  boardLimit,
   flagsChip,
   groupsFor,
   loadBoard,
@@ -24,12 +25,15 @@ import {
   opensDrawer,
   ownerLabel,
   primaryLabel,
+  scopeLabels,
+  scopeTotal,
   pushRow,
   setSuggestedWait,
   triesToday,
   useDeskBoard,
   type BoardDecision,
   type BoardRow,
+  type BoardScope,
 } from './boardApi';
 
 /**
@@ -103,6 +107,9 @@ function BoardRowLine({
     <li className="space-y-1 border-t border-[var(--desk-line-color)] py-2.5 first:border-t-0">
       <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${text}`}>
         <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
+        {row.batch && (
+          <span className="desk-pill border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[11px] text-muted-foreground">Aug batch</span>
+        )}
         <span className="text-muted-foreground" aria-hidden>·</span>
         <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
           {row.agent ?? 'No agent'}
@@ -213,12 +220,14 @@ function BoardRowLine({
 /** The confirm sheet and the one-at-a-time run behind "Push all N". */
 function PushAllSheet({
   stage,
+  scope,
   group,
   rows,
   onClose,
   onFailed,
 }: {
   stage: Stage;
+  scope: BoardScope;
   group: BoardDecision;
   rows: BoardRow[];
   onClose: () => void;
@@ -238,7 +247,7 @@ function PushAllSheet({
       // Re-read the board before every row: someone else may have moved it, or its decision changed.
       let fresh: BoardRow | undefined;
       try {
-        const b = await queryClient.fetchQuery({ queryKey: boardKey(stage), queryFn: () => loadBoard(stage), staleTime: 0 });
+        const b = await queryClient.fetchQuery({ queryKey: boardKey(stage, scope), queryFn: () => loadBoard(stage, scope), staleTime: 0 });
         fresh = b.rows.find((r) => r.id === planned.id);
       } catch (e) {
         p.failed.push({ req: planned.req, reason: readableError(e) });
@@ -314,11 +323,85 @@ function PushAllSheet({
   );
 }
 
+const SCOPES: BoardScope[] = ['new', 'batch', 'all'];
+const scopeKey = (userId: string | null) => `desk:sc-scope:${userId ?? 'anon'}`;
+
+function readScope(userId: string | null): BoardScope {
+  try {
+    const v = window.localStorage.getItem(scopeKey(userId));
+    return v === 'batch' || v === 'all' || v === 'new' ? v : 'new';
+  } catch {
+    return 'new';
+  }
+}
+
+/** The Service Centre's last scope, remembered per user on this device. Default New. */
+function useScopeChoice(enabled: boolean, userId: string | null): [BoardScope, (s: BoardScope) => void] {
+  const [scope, set] = useState<BoardScope>(() => (enabled ? readScope(userId) : 'new'));
+  // The user id can arrive after the first render; read their choice once it does.
+  useEffect(() => {
+    if (enabled) set(readScope(userId));
+  }, [enabled, userId]);
+  const choose = (next: BoardScope) => {
+    set(next);
+    try {
+      window.localStorage.setItem(scopeKey(userId), next);
+    } catch {
+      /* private window or blocked storage: the choice simply isn't remembered */
+    }
+  };
+  return [scope, choose];
+}
+
+/** "Showing 300 of 3,580 — oldest first; push or wait some to see more", or null when everything is shown. */
+export function limitNote(stage: Stage, scope: BoardScope, shown: number, counts: { new: number | null; batch: number | null } | null): string | null {
+  const limit = boardLimit(stage);
+  if (shown < limit) return null;
+  const total = stage === 'service_centre' ? scopeTotal(scope, counts) : null;
+  if (total !== null && total <= shown) return null;
+  return `Showing ${shown.toLocaleString('en')} of ${total === null ? 'more' : total.toLocaleString('en')} — oldest first; push or wait some to see more`;
+}
+
+function ScopeSwitch({
+  scope,
+  counts,
+  onChange,
+}: {
+  scope: BoardScope;
+  counts: { new: number | null; batch: number | null } | null;
+  onChange: (s: BoardScope) => void;
+}) {
+  const labels = scopeLabels(counts);
+  return (
+    <div role="radiogroup" aria-label="Which requests" className="inline-flex flex-wrap items-center gap-1 rounded-full border border-[var(--desk-line-color)] p-0.5">
+      {SCOPES.map((s) => {
+        const on = scope === s;
+        return (
+          <button
+            key={s}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(s)}
+            className={`desk-pill px-3 py-1 text-xs ${CALM} ${FOCUS} ${
+              on ? 'bg-[hsl(var(--primary)/0.2)] font-medium text-foreground' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {labels[s]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: boolean; onOpen: OpenDrawer }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { mark, clear } = useReviewStatus();
-  const q = useDeskBoard(stage);
+  const scoped = stage === 'service_centre';
+  const [scope, setScope] = useScopeChoice(scoped, user?.id ?? null);
+  const q = useDeskBoard(stage, true, scoped ? scope : undefined);
   const [only, setOnly] = useState<BoardDecision | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
@@ -405,6 +488,12 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
 
   return (
     <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
+      {scoped && (
+        <div className="flex flex-wrap items-center gap-2">
+          <ScopeSwitch scope={scope} counts={data?.scope_counts ?? null} onChange={setScope} />
+          {q.isPlaceholderData && <span className={LABEL} role="status">Loading…</span>}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         {groupsFor(stage).map((d) => {
           const n = countOf(d);
@@ -432,7 +521,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
             <button
               key={d}
               type="button"
-              disabled={!canAct}
+              disabled={!canAct || q.isPlaceholderData}
               title={canAct ? undefined : NEEDS_ROLE}
               onClick={() => setPushAll(d)}
               className={BTN_QUIET}
@@ -463,11 +552,14 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
           ))}
         </ul>
       )}
-      {(data?.rows.length ?? 0) >= 150 && <p className={LABEL}>Showing the first 150 requests.</p>}
+      {limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null) && (
+        <p className={LABEL}>{limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)}</p>
+      )}
 
       {pushAll && (
         <PushAllSheet
           stage={stage}
+          scope={scope}
           group={pushAll}
           rows={pushable(pushAll)}
           onClose={() => setPushAll(null)}

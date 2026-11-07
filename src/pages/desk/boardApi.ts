@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { rpc } from './reviewApi';
 import { runMove, type MoveResult } from './deskActions';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
@@ -76,7 +76,12 @@ export type BoardRow = {
   wait_suggest: WaitSuggest | null;
   push: BoardPush | null;
   call: { answered_since_stage: string | null; attempts_24h: number | null } | null;
+  /** Service Centre: the request is from the August 2026 batch. */
+  batch?: boolean;
 };
+
+/** Service Centre only: which requests the board shows. Other stages ignore it. */
+export type BoardScope = 'new' | 'batch' | 'all';
 
 export type Board = {
   stage: Stage;
@@ -85,14 +90,29 @@ export type Board = {
   sc_only: boolean;
   counts: Partial<Record<BoardDecision, number>>;
   rows: BoardRow[];
+  /** Service Centre: the scope the server applied, and how many requests each scope holds. */
+  scope: BoardScope;
+  scope_counts: { new: number | null; batch: number | null } | null;
 };
 
 export const BOARD_LIMIT = 150;
+/** The Service Centre carries the August batch, so it reads more rows at once. */
+export const SC_BOARD_LIMIT = 300;
 
-export const boardKey = (stage: Stage) => ['desk-feed', 'board', stage];
+export const boardLimit = (stage: Stage) => (stage === 'service_centre' ? SC_BOARD_LIMIT : BOARD_LIMIT);
 
-export async function loadBoard(stage: Stage): Promise<Board> {
-  const { data, error } = await rpc('pipeline_desk_board', { p_stage: stage, p_limit: BOARD_LIMIT });
+export const boardKey = (stage: Stage, scope?: BoardScope) =>
+  stage === 'service_centre' ? ['desk-feed', 'board', stage, scope ?? 'new'] : ['desk-feed', 'board', stage];
+
+/** The RPC arguments: `p_scope` only on the Service Centre, where it means something. */
+export function boardArgs(stage: Stage, scope?: BoardScope): Record<string, unknown> {
+  const args: Record<string, unknown> = { p_stage: stage, p_limit: boardLimit(stage) };
+  if (stage === 'service_centre') args.p_scope = scope ?? 'new';
+  return args;
+}
+
+export async function loadBoard(stage: Stage, scope?: BoardScope): Promise<Board> {
+  const { data, error } = await rpc('pipeline_desk_board', boardArgs(stage, scope));
   if (error) throw error;
   const b = (data ?? {}) as Partial<Board>;
   return {
@@ -102,14 +122,32 @@ export async function loadBoard(stage: Stage): Promise<Board> {
     sc_only: b.sc_only === true,
     counts: b.counts ?? {},
     rows: Array.isArray(b.rows) ? b.rows : [],
+    scope: b.scope ?? scope ?? 'new',
+    scope_counts: b.scope_counts ?? null,
   };
 }
 
-export function useDeskBoard(stage: Stage, enabled = true) {
+/** "New (213) · August batch (3,580) · All" — the switch's labels, from scope_counts. */
+export function scopeLabels(counts: Board['scope_counts']): Record<BoardScope, string> {
+  const n = (v: number | null | undefined) => (v === null || v === undefined ? '' : ` (${Number(v).toLocaleString('en')})`);
+  return { new: `New${n(counts?.new)}`, batch: `August batch${n(counts?.batch)}`, all: 'All' };
+}
+
+/** How many requests the current scope holds, for "Showing 300 of 3,580". Null when unknown. */
+export function scopeTotal(scope: BoardScope, counts: Board['scope_counts']): number | null {
+  if (!counts) return null;
+  if (scope === 'new') return counts.new ?? null;
+  if (scope === 'batch') return counts.batch ?? null;
+  return counts.new === null || counts.batch === null ? null : Number(counts.new) + Number(counts.batch);
+}
+
+export function useDeskBoard(stage: Stage, enabled = true, scope?: BoardScope) {
   return useQuery({
-    queryKey: boardKey(stage),
+    queryKey: boardKey(stage, scope),
     enabled,
-    queryFn: () => loadBoard(stage),
+    queryFn: () => loadBoard(stage, scope),
+    // Switching scope keeps the last board on screen (switch included) until the new one arrives.
+    placeholderData: keepPreviousData,
     refetchInterval: 60_000,
     staleTime: 20_000,
     retry: 1,
