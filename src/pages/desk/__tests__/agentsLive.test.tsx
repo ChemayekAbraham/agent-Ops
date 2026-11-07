@@ -58,7 +58,7 @@ describe('summary text', () => {
   });
 
   it('reads the today figures for Today', () => {
-    expect(summaryText({ ...SUMMARY, intake_complete_pct: 0.4 }, 'today')).toBe(
+    expect(summaryText({ ...SUMMARY, intake_complete_pct: 40 }, 'today')).toBe(
       '12 agents · 20 requests today · 40% complete at submission · 10 flagged agents with open requests',
     );
   });
@@ -99,10 +99,11 @@ describe('sort order', () => {
 describe('intake colour', () => {
   it('red under 50%, plain from 50%, grey when unknown', () => {
     expect(intakeTone(0)).toBe('bad');
-    expect(intakeTone(0.49)).toBe('bad');
     expect(intakeTone(49)).toBe('bad');
-    expect(intakeTone(0.5)).toBe('plain');
     expect(intakeTone(50)).toBe('plain');
+    expect(intakeTone(100)).toBe('plain');
+    // An integer scale: 1 means 1%, not 100%.
+    expect(intakeTone(1)).toBe('bad');
     expect(intakeTone(null)).toBe('idle');
     expect(INTAKE_CLASS.bad).toContain('--desk-bad');
   });
@@ -110,7 +111,7 @@ describe('intake colour', () => {
   it('paints the cell', () => {
     render(
       <MemoryRouter>
-        <AgentsTable rows={[agent('a', { intake_complete_pct: 0.3 }), agent('b', { intake_complete_pct: 0.8 })]} w={7} deskId="agent-ops" />
+        <AgentsTable rows={[agent('a', { intake_complete_pct: 30 }), agent('b', { intake_complete_pct: 80 })]} w={7} deskId="agent-ops" />
       </MemoryRouter>,
     );
     expect(screen.getByText('30%').className).toContain('--desk-bad');

@@ -79,11 +79,10 @@ export function useAgentsLive(w: AgentsWindow, enabled = true) {
 const int = (v: number | null | undefined) => Number(v ?? 0);
 const whole = (v: number | null | undefined) => int(v).toLocaleString('en');
 
-/** A share as a whole percentage, whether the database sends 0.42 or 42. Null stays null. */
+/** `intake_complete_pct` is a whole percentage, 0–100 (42 means 42%). Null stays null. */
 export function pct(v: number | null | undefined): number | null {
   if (v === null || v === undefined || !Number.isFinite(Number(v))) return null;
-  const n = Number(v);
-  return Math.round(n <= 1 ? n * 100 : n);
+  return Math.round(Number(v));
 }
 
 export const pctText = (v: number | null | undefined) => {
