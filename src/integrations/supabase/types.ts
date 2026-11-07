@@ -82009,6 +82009,7 @@ export type Database = {
         Args: { p_body: string; p_desk: string; p_title: string }
         Returns: Json
       }
+      desk_scripts_reader_ok: { Args: never; Returns: boolean }
       desk_stage_flow: { Args: never; Returns: Json }
       desk_stage_trend: {
         Args: never
