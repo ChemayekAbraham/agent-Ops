@@ -138,9 +138,8 @@ function Toolbar({ updated, failed, board }: { updated: number; failed: string[]
         {density === 'compact' ? 'Compact' : 'Comfortable'}
       </ToolButton>
 
-      {/* Offered only where the theme can actually change: board mode is always
-          dark, and so is every desk while the checklist flag is off. */}
-      {!board && deskChecklistOn() && <ThemeToggle />}
+      {/* Board mode is always dark, so the toggle is offered everywhere else. */}
+      {!board && <ThemeToggle />}
 
       <ToolButton onClick={() => setBoard(!board)} active={board} label={board ? 'Leave board mode' : 'Enter board mode'}>
         {board ? <Minimize2 className="h-3.5 w-3.5" aria-hidden /> : <Maximize2 className="h-3.5 w-3.5" aria-hidden />}
@@ -494,13 +493,8 @@ function DeskShell() {
   // `/desk/funders` is the same desk as `/desk/cfo`.
   const deskId = rawDeskId ? (DESK_ALIASES[rawDeskId] ?? rawDeskId) : rawDeskId;
   const { roles } = useAuth();
-  const { board, rotate, theme } = useDeskPrefs();
-  /**
-   * Board mode is always dark, and so is production until Mark flips the flag —
-   * with the checklist off the desks must look exactly as they do today, so the
-   * light theme never reaches welileapp.com by accident.
-   */
-  const rootTheme: 'light' | 'dark' = board || !deskChecklistOn() ? 'dark' : theme;
+  // Light unless the viewer chose dark; Board mode is always dark (deskPrefs.resolveDeskTheme).
+  const { board, rotate, rootTheme } = useDeskPrefs();
   const navigate = useNavigate();
 
   const mine = (roles ?? []) as unknown as string[];

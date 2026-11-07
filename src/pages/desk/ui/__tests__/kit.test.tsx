@@ -7,6 +7,8 @@ vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), fro
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }));
 
 import {
+  BriefLines,
+  Card,
   Chip,
   CountChip,
   DECISION_WORDS,
@@ -20,10 +22,13 @@ import {
   MenuItem,
   MoreMenu,
   Segmented,
+  StripStep,
   Tile,
   TileRow,
+  TrendArrow,
   decisionVariant,
   gradeStyle,
+  tileFigureSize,
 } from '..';
 import { badgeFor } from '../../agentGrade';
 
@@ -200,6 +205,79 @@ describe('DeskPopover', () => {
   });
 });
 
+/* ───────────── the command-centre look ───────────── */
+
+describe('command-centre look', () => {
+  it('Card is the command-centre panel; the brief variant tightens to 8px', () => {
+    const { container } = render(
+      <div>
+        <Card title="Today&rsquo;s blockers" board={false}>
+          <p>body</p>
+        </Card>
+        <Card title="Today on Welile" variant="brief" board={false} footnote="As at 09:30 Kampala">
+          <BriefLines lines={['One.', 'Two.']} board={false} />
+        </Card>
+      </div>,
+    );
+    const [panel, brief] = [...container.querySelectorAll('section')] as HTMLElement[];
+    expect(panel.className).toContain('desk-panel');
+    expect(panel.style.padding).toBe('var(--desk-card-pad, 20px)');
+    expect(panel.style.gap).toBe('var(--desk-card-gap, 14px)');
+    expect(brief.style.gap).toBe('var(--desk-space-2, 8px)');
+    expect(screen.getByRole('heading', { name: 'Today on Welile' }).className).toContain('text-base');
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('Fold is drawn as a card', () => {
+    const { container } = render(
+      <Fold title="Done today" count={3} board={false}>
+        x
+      </Fold>,
+    );
+    const section = container.querySelector('section') as HTMLElement;
+    expect(section.className).toContain('desk-panel');
+    expect(section.className).toContain('desk-fold');
+  });
+
+  it('Tile figures use the command-centre sizes, stepping down for long money', () => {
+    expect(tileFigureSize('72%', false)).toBe(36);
+    expect(tileFigureSize('72%', true)).toBe(44);
+    expect(tileFigureSize('UGX 14,350,000', false)).toBe(28);
+    expect(tileFigureSize('UGX 14,350,000', true)).toBe(36);
+    render(<Tile label="Waiting" value="113" trend={4} board={false} />);
+    expect(screen.getByText('113').getAttribute('data-figure-size')).toBe('36');
+  });
+
+  it('TrendArrow: up on a queue is red, down green, no data is a dash', () => {
+    const { container, rerender } = render(<TrendArrow change={4} board={false} />);
+    expect(container.querySelector('[data-trend="up"]')?.className).toContain('--desk-bad');
+    rerender(<TrendArrow change={-2} board={false} />);
+    expect(container.querySelector('[data-trend="down"]')?.className).toContain('--desk-ok');
+    rerender(<TrendArrow change={3} board={false} upIsGood />);
+    expect(container.querySelector('[data-trend="up"]')?.className).toContain('--desk-ok');
+    rerender(<TrendArrow change={null} board={false} />);
+    expect(container.textContent).toContain('—');
+    rerender(<TrendArrow change={0} board={false} />);
+    expect(container.textContent).toBe('no change');
+  });
+
+  it('StripStep is a capsule, current step marked', () => {
+    render(
+      <div>
+        <StripStep active board={false}>
+          Agent Ops
+        </StripStep>
+        <StripStep board={false}>COO</StripStep>
+      </div>,
+    );
+    const mine = screen.getByText('Agent Ops');
+    expect(mine.getAttribute('aria-current')).toBe('step');
+    expect(mine.className).toContain('desk-capsule');
+    expect(mine.style.whiteSpace).toBe('nowrap');
+    expect(screen.getByText('COO').getAttribute('aria-current')).toBeNull();
+  });
+});
+
 /* ───────────── late-CSS safety and tokens ───────────── */
 
 describe('late-CSS safety', () => {
@@ -229,7 +307,7 @@ describe('late-CSS safety', () => {
     expect(group.style.gap).toBe('6px');
     const tile = screen.getByText('Fund today').parentElement as HTMLElement;
     expect(tile.style.display).toBe('flex');
-    expect(tile.style.padding).toBe('16px');
+    expect(tile.style.padding).toBe('var(--desk-space-4, 16px)');
   });
 });
 
@@ -243,7 +321,10 @@ describe('colours come from tokens', () => {
   });
   it('every grade token is defined on .desk-root', () => {
     const css = readFileSync(resolve(__dirname, '../../../../index.css'), 'utf8');
-    for (const t of ['--desk-emerald', '--desk-teal', '--desk-amber', '--desk-red', '--desk-slate', '--desk-blocked', '--desk-blocked-line', '--desk-on-fill', '--desk-on-amber']) {
+    for (const t of [
+      '--desk-emerald', '--desk-teal', '--desk-amber', '--desk-red', '--desk-slate', '--desk-blocked', '--desk-blocked-line', '--desk-on-fill', '--desk-on-amber',
+      '--desk-space-1', '--desk-space-6', '--desk-card-pad', '--desk-card-gap', '--desk-section-gap', '--desk-radius-card', '--desk-radius-tile', '--desk-radius-capsule',
+    ]) {
       expect(css, t).toContain(`${t}:`);
     }
   });

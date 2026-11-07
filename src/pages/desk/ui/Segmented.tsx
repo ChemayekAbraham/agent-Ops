@@ -17,7 +17,8 @@ export const SEG_IDLE =
   'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground';
 
 const SIZE = {
-  sm: { cls: 'text-xs font-medium', padX: 12, padY: 4 },
+  // The command centre's toolbar pill (Refresh, Compact, Board mode).
+  sm: { cls: 'text-xs font-medium', padX: 12, padY: 6 },
   md: { cls: 'text-sm', padX: 14, padY: 6 },
 } as const;
 

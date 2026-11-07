@@ -12,6 +12,18 @@ export type Density = 'compact' | 'comfortable';
  */
 export type Theme = 'light' | 'dark';
 export const DEFAULT_THEME: Theme = 'light';
+export const THEME_KEY = 'desk-theme';
+
+/**
+ * The theme a desk renders in, on every desk:
+ *   no saved choice  → light (the device's dark setting is never consulted)
+ *   a saved choice   → that choice
+ *   Board mode       → dark, always
+ */
+export function resolveDeskTheme(board: boolean, saved: string | null | undefined): Theme {
+  if (board) return 'dark';
+  return saved === 'light' || saved === 'dark' ? saved : DEFAULT_THEME;
+}
 
 type Prefs = {
   /** Board mode: a dark, large-type wall display. Driven by ?board=1 so a screen can be bookmarked straight into it. */
@@ -22,12 +34,11 @@ type Prefs = {
   /** Auto-rotation through the desks. Off by default; only offered in board mode. */
   rotate: boolean;
   setRotate: (on: boolean) => void;
-  /**
-   * The viewer's theme. Board mode and a desk with the checklist flag off both
-   * ignore it and stay dark — see DeskPage, which owns that decision.
-   */
+  /** The viewer's saved theme (light until they choose). Board mode ignores it. */
   theme: Theme;
   setTheme: (t: Theme) => void;
+  /** What `.desk-root` should carry right now: `theme`, or dark in Board mode. */
+  rootTheme: Theme;
 };
 
 const Ctx = createContext<Prefs | null>(null);
@@ -76,17 +87,19 @@ export function DeskPrefsProvider({ children }: { children: ReactNode }) {
 
   // A saved choice beats the default; anything else falls back to light.
   const [theme, setThemeState] = useState<Theme>(() =>
-    readStored('desk-theme', DEFAULT_THEME, ['light', 'dark'] as const),
+    resolveDeskTheme(false, readStored<string>(THEME_KEY, '', ['light', 'dark'])),
   );
 
   const setTheme = useCallback((t: Theme) => {
     setThemeState(t);
-    store('desk-theme', t);
+    store(THEME_KEY, t);
   }, []);
 
+  const rootTheme = resolveDeskTheme(board, theme);
+
   const value = useMemo<Prefs>(
-    () => ({ board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme }),
-    [board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme],
+    () => ({ board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme, rootTheme }),
+    [board, setBoard, density, setDensity, rotate, setRotate, theme, setTheme, rootTheme],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

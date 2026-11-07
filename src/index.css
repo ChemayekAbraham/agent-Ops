@@ -1953,6 +1953,25 @@ html.reduce-motion *::after {
   --desk-on-fill: 0 0% 100%;
   --desk-on-amber: 0 0% 0%;
 
+  /* The command centre's measurements, shared by every desk (ui/README.md).
+     Spacing runs 4 · 8 · 12 · 16 · 20 · 24; cards are 24px round with 20px of
+     padding and 14px between their parts; tiles 18px, capsules 16px. */
+  --desk-space-1: 4px;
+  --desk-space-2: 8px;
+  --desk-space-3: 12px;
+  --desk-space-4: 16px;
+  --desk-space-5: 20px;
+  --desk-space-6: 24px;
+  --desk-card-pad: 20px;
+  --desk-card-gap: 14px;
+  --desk-section-gap: 24px;
+  --desk-radius-card: 24px;
+  --desk-radius-tile: 18px;
+  --desk-radius-capsule: 16px;
+  --desk-card-line: rgba(255, 255, 255, 0.07);
+  --desk-card-fill: rgba(255, 255, 255, 0.05);
+  --desk-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
   /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
      an alpha, because light does not want a translucent white — it wants a
      solid lilac-grey line. These values are exactly the white/12, white/5,
@@ -2025,7 +2044,10 @@ html.reduce-motion *::after {
    text #17142B 16:1 on the ground, muted #5B5670 6.5:1, violet 7.1:1 on white,
    red 6.5:1, green 5.0:1, amber 7.0:1, and the LIVE pill 6.3:1.
    --------------------------------------------------------------------------- */
-.desk-root[data-desk-theme='light'] {
+/* A sheet that wraps itself in a bare .desk-root (ReadyBoard, CooBoard) follows
+   the page it opened on, instead of falling back to the dark baseline. */
+.desk-root[data-desk-theme='light'],
+.desk-root[data-desk-theme='light'] .desk-root:not([data-desk-theme]) {
   --background: 250 38% 97%;
   --foreground: 248 37% 12%;
   --card: 0 0% 100%;
@@ -2055,6 +2077,9 @@ html.reduce-motion *::after {
   --desk-live-fg: 143 64% 24%;
   /* A black chip needs a dark edge on white paper. */
   --desk-blocked-line: rgba(0, 0, 0, 0.6);
+  --desk-card-line: #e7e4f0;
+  --desk-card-fill: #ffffff;
+  --desk-card-shadow: 0 1px 2px rgba(23, 20, 43, 0.04);
 
   /* Solid lines and a faintly tinted field, so an input still reads as recessed
      against a white card. */
@@ -2111,9 +2136,17 @@ html.reduce-motion *::after {
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-.desk-panel { border-radius: 24px; }
-.desk-tile { border-radius: 18px; }
-.desk-panel.desk-capsule { border-radius: 16px; }
+.desk-panel { border-radius: var(--desk-radius-card); }
+.desk-tile { border-radius: var(--desk-radius-tile); }
+.desk-panel.desk-capsule { border-radius: var(--desk-radius-capsule); }
+/* A panel inside an open Fold card is part of that card: no second glass layer. */
+.desk-fold .desk-panel:not(.desk-capsule) {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  border-color: var(--desk-line-soft);
+}
 .desk-pill { border-radius: 999px; }
 
 /* Every small label on the desks: one size, one weight of grey. */

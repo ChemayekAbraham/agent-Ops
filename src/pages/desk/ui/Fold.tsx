@@ -1,12 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { CALM, FOCUS, LABEL, statusDot, type Status } from '../deskTheme';
+import { CALM, FOCUS, LABEL, PANEL, statusDot, type Status } from '../deskTheme';
 import { CountChip } from './Chip';
 import { rowLayout, stackLayout } from './layout';
 
 /**
- * A section that opens on a press. Children mount only when open, so a closed
- * section costs nothing and never queries.
+ * A section that opens on a press, drawn as a command-centre card: closed it
+ * is one 24px-round row (16px tall padding, 20px across); open, the body sits
+ * inside the same card 14px below the title. Panels inside an open fold lose
+ * their own glass (`.desk-fold .desk-panel` in index.css), so a table reads as
+ * part of the card rather than a card in a card. Children mount only when
+ * open, so a closed section costs nothing and never queries.
  *
  *   count   — a count chip after the title ("—" while it is loading)
  *   changed — an amber dot: something in here changed this week
@@ -37,7 +41,15 @@ export function Fold({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="border-t border-[var(--desk-line-color)]" style={{ ...stackLayout(12), paddingTop: 12 }}>
+    <section
+      className={`${PANEL} desk-fold min-w-0`}
+      data-open={open ? 'true' : 'false'}
+      style={{
+        ...stackLayout(0),
+        gap: 'var(--desk-card-gap, 14px)',
+        padding: open ? 'var(--desk-card-pad, 20px)' : 'var(--desk-space-4, 16px) var(--desk-card-pad, 20px)',
+      }}
+    >
       <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ margin: 0 }}>
         <button
           type="button"

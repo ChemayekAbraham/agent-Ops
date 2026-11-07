@@ -2,16 +2,71 @@
 
 One version of each piece the ops desks (`/desk/*`) are built from. Import from `src/pages/desk/ui`, never re-style a local copy. If a desk needs something the kit lacks, add it here.
 
+**The rule: copy the command centre.** Every desk should read like `/desk/command`: the same page ground, cards, titles, figures and spacing. When in doubt, open the command centre and match it. The measurements are written down in "The command centre reference" below.
+
 | Piece | Use it for |
 |---|---|
 | `GradeBadge` | Any grade: A green, B teal, C amber, D red, N grey "New", X black "Blocked", none grey "Not graded". `agentGrade.tsx` wraps it with the grade pop-up and the week-on-week arrow. |
 | `DecisionButton` / `MenuItem` | Every button. Variants: `primary`, `quiet`, `danger`, `warn`, `ok`. |
 | `Chip` / `CountChip` | Flags, states and counts. Tone `idle` / `ok` / `warn` / `bad`. |
 | `Segmented` | Period, scope and sort toggles, and filters that can be cleared (`deselectable`). |
-| `Tile` / `TileRow` | Big figures. `TileRow phone={1}` for long UGX figures. |
-| `Fold` | Collapsible sections. `count` shows a count chip, `changed` the amber "changed this week" dot. Closed folds mount nothing and query nothing. |
+| `Card` / `CardTitle` / `BriefLines` | Every section: the command centre's panel, or its "Today on Welile" brief (`variant="brief"`). |
+| `Tile` / `TileRow` | Big figures, as in the command centre's balance strip. `trend` adds the 24-hour arrow. `TileRow phone={1}` for long UGX figures. |
+| `TrendArrow` | The river's 24-hour change: up red and down green on a queue (`upIsGood` flips it). |
+| `StripStep` | One stage in the pipeline strip, as a small river capsule. |
+| `Fold` | Collapsible sections, drawn as a card. `count` shows a count chip, `changed` the amber "changed this week" dot. Closed folds mount nothing and query nothing. |
 | `DeskPopover` / `MoreMenu` | Pop-ups and the row "…" menu. They render inside `.desk-root`, so the desk theme reaches them. |
 | `LoadingRows` · `ErrorLine` · `EmptyState` | The three states besides "has data". |
+
+## The command centre reference
+
+### Tokens
+
+Every token below is on `.desk-root` in `index.css`. Light redefines the surface tokens; the sizes are the same in both themes.
+
+| Token | Value | Used for |
+|---|---|---|
+| `--desk-space-1` … `-6` | 4 · 8 · 12 · 16 · 20 · 24 px | the only spacing steps |
+| `--desk-card-pad` | 20px | padding inside a card |
+| `--desk-card-gap` | 14px | between a card's title and body |
+| `--desk-section-gap` | 24px | between sections on a page |
+| `--desk-radius-card` | 24px | cards, folds, sheets |
+| `--desk-radius-tile` | 18px | figure tiles |
+| `--desk-radius-capsule` | 16px | river capsules, strip steps |
+| `--desk-card-fill` / `--desk-card-line` / `--desk-card-shadow` | dark: 5% white glass, 7% white edge, inset highlight · light: white paper, `#e7e4f0` edge, 1px soft lift | card surface |
+| `--background`, `--foreground`, `--muted-foreground`, `--primary` | as set per theme | page ground, text, grey text, brand |
+| `--desk-ok` / `--desk-warn` / `--desk-bad` | green / amber / red | status only, never decoration |
+
+### Type
+
+| What | Size | Board mode |
+|---|---|---|
+| Section title (card, fold) | 16px semibold | 18px |
+| Body text, brief lines, empty states | 14px, snug leading | 16px |
+| Labels, footnotes (`.desk-label`) | 13px at 70% | 13px |
+| Chips | 11px (`xs`) or 12px (`sm`) | same |
+| Tile figure | 36px, or 28px when the figure is longer than 11 characters | 44px / 36px |
+| Capsule figure (river) | 40px | 52px |
+
+### Cards
+
+- **Panel** (`Card`): 24px corners, 20px padding, 14px between title and body.
+- **Brief** (`Card variant="brief"`): the same shell with 8px between lines, at most three sentences, and a footnote ("As at 09:30 Kampala · refreshes every 5 minutes").
+- **Tile**: 18px corners, 16px padding, 8px between label, figure and the line under it.
+- **Capsule**: 16px corners, 16px padding (20px on a board), 10px between parts.
+- **Panels inside an open Fold** lose their own glass, so a table reads as part of its card.
+- **Sections stack 24px apart**, and grids of cards are 24px apart. Tiles in a row are 12px apart.
+
+### Density
+
+"Comfortable" is the default (the toolbar's Compact / Comfortable switch). The measurements above are the comfortable ones; only table rows tighten in Compact.
+
+### Theme
+
+- **Light is the default on every desk.** If someone has never chosen, they get light; the device's dark setting is not consulted.
+- **The toolbar's Light/Dark toggle** saves the choice (`desk-theme` in local storage), and a saved choice wins.
+- **Board mode is always dark**, whatever was saved. (`resolveDeskTheme` in `deskPrefs.tsx`.)
+- **A sheet that opens its own `.desk-root`** follows the page's theme.
 
 ## The frame
 

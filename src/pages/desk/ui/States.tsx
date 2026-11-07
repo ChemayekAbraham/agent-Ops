@@ -33,7 +33,7 @@ export function ErrorLine({ children }: { children: ReactNode }) {
 
 export function EmptyState({ children, board = false }: { children: ReactNode; board?: boolean }) {
   return (
-    <p className={`${board ? 'text-base' : 'text-sm'} text-muted-foreground`} style={{ margin: 0, paddingTop: 4, paddingBottom: 4 }}>
+    <p className={`${board ? 'text-base' : 'text-sm'} leading-snug text-muted-foreground`} style={{ margin: 0, paddingTop: 4, paddingBottom: 4 }}>
       {children}
     </p>
   );

@@ -2,6 +2,7 @@ import { fmt } from './format';
 import { useDeskFeeds, useStageFlow, type Row } from './useDeskFeed';
 import { useStageTrend } from './deskBriefApi';
 import { Trend, clearText, stageStatus } from './StageFlow';
+import { StripStep } from './ui/StripStep';
 import { statusDot, statusText } from './deskTheme';
 import { Skeleton } from './Skeleton';
 
@@ -83,15 +84,10 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
           if (s.retired) {
             return (
               <li key={s.ord} className="flex shrink-0 items-center gap-1.5">
-                <span
-                  className={`desk-pill whitespace-nowrap border border-dashed border-[var(--desk-line-color)] px-2 py-0.5 text-[11px] text-muted-foreground ${
-                    isMine ? 'border-[hsl(var(--primary)/0.6)]' : ''
-                  }`}
-                  title="Partner Ops is retired; requests forward to the COO"
-                >
+                <StripStep retired active={isMine} board={board} title="Partner Ops is retired; requests forward to the COO">
                   {s.label} · retired — forwards to COO
                   {p && Number(p.n) > 0 ? ` · ${fmt('int', p.n)} left` : ''}
-                </span>
+                </StripStep>
                 {arrow}
               </li>
             );
@@ -100,14 +96,7 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
           const state = f ? stageStatus(f) : 'idle';
           return (
             <li key={s.ord} className="flex shrink-0 items-center gap-1.5">
-              <div
-                aria-current={isMine ? 'step' : undefined}
-                className={`desk-pill flex items-center gap-2 whitespace-nowrap border px-3 py-1 ${text} ${
-                  isMine
-                    ? 'border-[hsl(var(--primary)/0.7)] bg-[hsl(var(--primary)/0.2)] text-foreground'
-                    : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-                }`}
-              >
+              <StripStep active={isMine} board={board}>
                 {s.desk !== null && <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot[state]}`} aria-hidden />}
                 <span className={isMine ? 'font-semibold' : 'font-medium text-foreground'}>{s.label}</span>
                 {isMine && <span className="text-[11px] text-[hsl(var(--desk-lavender))]">you</span>}
@@ -122,7 +111,7 @@ export function PipelineStrip({ deskId, board }: { deskId: string; board: boolea
                   </span>
                 )}
                 <Trend t={trend.byOrd.get(String(f?.ord ?? s.flowOrd))} board={board} />
-              </div>
+              </StripStep>
               {arrow}
             </li>
           );
