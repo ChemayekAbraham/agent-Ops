@@ -11,6 +11,9 @@ import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
 import { DeskCallButton, RequestCallHistory } from './deskCall';
+import { PhotoReview } from './PhotoReview';
+import { IntakeForm } from './IntakeForm';
+import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
   readableError,
@@ -213,12 +216,15 @@ export function ReviewDrawer({
   requestId,
   onClose,
   initial,
+  ctx,
 }: {
   stage: Stage;
   requestId: string;
   onClose: () => void;
   /** Opened from the board: start on this decision, on "Wait on…", or with the call button ready. */
-  initial?: Decision | 'wait' | 'call';
+  initial?: DrawerStart;
+  /** What the board already knew about the row: missing intake items and the suggested wait. */
+  ctx?: DrawerContext;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -228,7 +234,7 @@ export function ReviewDrawer({
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
   const [decision, setDecision] = useState<Decision | null>(() =>
-    initial && initial !== 'wait' && initial !== 'call' && visibleDecisions(stage).includes(initial) ? initial : null,
+    initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
   );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
@@ -241,6 +247,10 @@ export function ReviewDrawer({
   const [outcome, setOutcome] = useState<string | null>(null);
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
   const [waitMode, setWaitMode] = useState(initial === 'wait');
+  // Agent Ops has a second tab for the house photos.
+  const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  const photosTab = stage === 'agent_ops';
+  const showIntake = stage === 'agent_ops' && (initial === 'complete' || (ctx?.itemsMissing?.length ?? 0) > 0);
   // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
   const [liveAnswered, setLiveAnswered] = useState(false);
   const waitDesk = waitDeskForStage(stage);
@@ -425,8 +435,32 @@ export function ReviewDrawer({
             </p>
           )}
 
+          {req && photosTab && (
+            <div role="tablist" aria-label="Review views" className="flex gap-1.5">
+              {(['review', 'photos'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                    tab === t
+                      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+                      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t === 'review' ? 'Review' : 'Photos'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {req && photosTab && tab === 'photos' && <PhotoReview requestId={requestId} />}
+
           {req && (
-            <>
+            // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
+            <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {/* ── The facts, as the agent recorded them ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">What the agent sent</h3>
@@ -504,6 +538,16 @@ export function ReviewDrawer({
                   </Fact>
                 </div>
               </section>
+
+              {showIntake && (
+                <IntakeForm
+                  requestId={requestId}
+                  stage={stage}
+                  agent={{ id: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                  itemsMissing={ctx?.itemsMissing ?? []}
+                  waitSuggest={ctx?.waitSuggest ?? null}
+                />
+              )}
 
               {initial === 'call' && callDesk && (
                 <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.warn}`}>
@@ -770,7 +814,7 @@ export function ReviewDrawer({
                   </ul>
                 </section>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>

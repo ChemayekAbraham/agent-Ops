@@ -24,11 +24,11 @@ import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DeskTabs } from './DeskTabs';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
-import { ReadyBoard, type OpenDrawer } from './ReadyBoard';
+import { ReadyBoard, type DrawerContext, type DrawerStart, type OpenDrawer } from './ReadyBoard';
+import { AgentRankingFold } from './AgentRanking';
 import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
 import { desksFor, useMyScScope } from './scScope';
-import type { Decision } from './reviewTypes';
 import { DeskRules } from './DeskRules';
 import { AgentsLiveFold } from './agents/AgentsLive';
 import { OntologyTab } from './ontology/OntologyTab';
@@ -237,7 +237,8 @@ function DeskView({
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
-  const [openInitial, setOpenInitial] = useState<Decision | 'wait' | 'call' | undefined>(undefined);
+  const [openInitial, setOpenInitial] = useState<DrawerStart | undefined>(undefined);
+  const [openCtx, setOpenCtx] = useState<DrawerContext | undefined>(undefined);
   const [opening, setOpening] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   // `?tab=` opens the second tab straight away, so the budget-room card can
@@ -265,6 +266,7 @@ function DeskView({
     setOpening(null);
     if (found.status === 'ok') {
       setOpenInitial(undefined);
+      setOpenCtx(undefined);
       setOpenRequest(found.id);
       return;
     }
@@ -377,12 +379,14 @@ function DeskView({
       stage={stage}
       requestId={openRequest}
       initial={openInitial}
+      ctx={openCtx}
       onClose={() => setOpenRequest(null)}
     />
   );
 
-  const openFromBoard: OpenDrawer = (id, initial) => {
+  const openFromBoard: OpenDrawer = (id, initial, ctx) => {
     setOpenInitial(initial);
+    setOpenCtx(ctx);
     setOpenRequest(id);
   };
 
@@ -433,6 +437,7 @@ function DeskView({
           )}
         </section>
 
+        {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
         <WaitingOnFold deskId={desk.id} board={board} />
         <DoneTodayFold deskId={desk.id} board={board} />

@@ -11,6 +11,7 @@ import { readableError } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
+import { TransferPicker } from './TransferPicker';
 import {
   GROUP_LABEL,
   PUSHABLE,
@@ -28,6 +29,9 @@ import {
   scopeTotal,
   pushRow,
   setSuggestedWait,
+  drawerStartFor,
+  eligibilityChip,
+  type WaitSuggest,
   triesToday,
   useDeskBoard,
   type BoardDecision,
@@ -46,8 +50,16 @@ import {
  * reason code is asked.
  */
 
-/** `call` opens the drawer with the call button ready. */
-export type OpenDrawer = (requestId: string, initial?: Decision | 'wait' | 'call') => void;
+/**
+ * What the drawer opens on: a decision, "Wait on…", the call button ready
+ * (`call`), the intake form (`complete`), or the photo review tab (`photos`).
+ */
+export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos';
+
+/** What the board already knows about the row, so the drawer need not ask again. */
+export type DrawerContext = { itemsMissing?: string[] | null; waitSuggest?: WaitSuggest | null };
+
+export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
 
@@ -80,6 +92,7 @@ function BoardRowLine({
   onPrimary,
   onRetry,
   onOpen,
+  onPick,
 }: {
   row: BoardRow;
   stage: Stage;
@@ -90,7 +103,10 @@ function BoardRowLine({
   onPrimary: () => void;
   onRetry: () => void;
   onOpen: OpenDrawer;
+  /** Agent Ops transfer rows: choose a different receiving agent. */
+  onPick?: () => void;
 }) {
+  const elig = eligibilityChip(row.eligibility);
   const chip = flagsChip(row.flags);
   const label = primaryLabel(row, stage);
   const others = visibleDecisions(stage).filter((d) => d !== row.decision);
@@ -109,6 +125,11 @@ function BoardRowLine({
         <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
           {row.agent ?? 'No agent'}
           <GradeBadge agentId={row.agent_id} grade={row.agent_grade} weekAgo={row.agent_grade_week_ago} />
+          {elig && (
+            <span className={`desk-pill border px-2 py-0.5 text-[11px] ${statusGlass[elig.tone]}`} data-tone={elig.tone}>
+              {elig.text}
+            </span>
+          )}
           <DeskCallButton
             disabled={!canAct}
             target={{ requestId: row.id, desk: stage, subject: 'agent', calleeId: row.agent_id, name: row.agent, phone: row.agent_phone }}
@@ -151,6 +172,11 @@ function BoardRowLine({
                 {busy ? 'Working…' : label}
               </DecisionButton>
             )
+          )}
+          {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
+            <button type="button" disabled={busy || !canAct} onClick={onPick} className={BTN_QUIET} title={canAct ? undefined : NEEDS_ROLE}>
+              Pick another…
+            </button>
           )}
 
           <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
@@ -387,6 +413,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
+  const [picker, setPicker] = useState<BoardRow | null>(null);
 
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
@@ -413,7 +440,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return;
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
-      onOpen(row.id, row.decision === 'call' ? 'call' : undefined);
+      onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
       return;
     }
     // No push values: the drawer asks for what is missing.
@@ -436,6 +463,26 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     }
     setBusy(null);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+  };
+
+  /** The suggested transfer's review and move, with the agent the reviewer picked. Returns an error, or null. */
+  const pickTransfer = async (row: BoardRow, agentId: string, note: string): Promise<string | null> => {
+    if (!user) return 'Sign in again.';
+    setNote(row.id, null);
+    const out = await pushRow(row, stage, user.id, { targetAgentId: agentId, note });
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    if (out.kind === 'moved') {
+      clear(row.id);
+      mark(row.id, { kind: 'moved', message: out.message });
+      setNote(row.id, { kind: 'ok', text: out.message });
+      return null;
+    }
+    if (out.kind === 'move_failed') {
+      // The review is in; retry only the move, to the agent that was picked.
+      failed({ ...row, push: row.push ? { ...row.push, decision: 'transfer', target_agent_id: agentId, note } : row.push }, 'move_failed', out.message);
+      return null;
+    }
+    return out.message;
   };
 
   const retry = async (row: BoardRow) => {
@@ -509,12 +556,23 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
               onPrimary={() => void primary(r)}
               onRetry={() => void retry(r)}
               onOpen={onOpen}
+              onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
             />
           ))}
         </ul>
       )}
       {limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null) && (
         <p className={LABEL}>{limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)}</p>
+      )}
+
+      {picker && (
+        <TransferPicker
+          requestId={picker.id}
+          tenant={picker.tenant}
+          defaultNote={picker.push?.note ?? picker.why ?? ''}
+          onClose={() => setPicker(null)}
+          onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+        />
       )}
 
       {pushAll && (

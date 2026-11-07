@@ -45,9 +45,13 @@ export type CooRow = {
   auto_forwarded: boolean | null;
   waiting: BoardWaiting | null;
   rank: number | null;
+  /** False when the server will not push this row (frozen, on hold, …). */
+  pushable?: boolean | null;
+  /** Frozen rows go back to Agent Ops on the given date; they are never pushed. */
+  frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
 };
 
-export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number };
+export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number; pushable?: number; frozen?: number };
 
 export type CooBoardData = { counts: CooCounts; can_push: boolean; rows: CooRow[] };
 
@@ -63,11 +67,19 @@ export type PushResult = {
 export const COO_PUSH_DEFAULT = 10;
 const NEEDS_COO = 'Needs the COO role and a staff ID';
 
-/** "113 waiting · A 20 · B 40 · C 30 · D 23", plus unrated / on hold when there are any. */
+/**
+ * "38 pushable · 75 frozen · A 20 · B 40 · C 30 · D 23" once the board counts
+ * pushable and frozen rows; "113 waiting · A 20 · …" before it did. Unrated and
+ * on hold are added when there are any.
+ */
 export function cooTopLine(c: CooCounts): string {
   const n = (k: keyof CooCounts) => Number(c[k] ?? 0);
   const total = n('A') + n('B') + n('C') + n('D') + n('unrated');
-  const parts = [`${fmt('int', total)} waiting`, `A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
+  const head =
+    c.pushable !== undefined && c.pushable !== null
+      ? [`${fmt('int', n('pushable'))} pushable`, `${fmt('int', n('frozen'))} frozen`]
+      : [`${fmt('int', total)} waiting`];
+  const parts = [...head, `A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
   if (n('unrated') > 0) parts.push(`${fmt('int', n('unrated'))} unrated`);
   if (n('waiting') > 0) parts.push(`${fmt('int', n('waiting'))} on hold`);
   return parts.join(' · ');
@@ -78,9 +90,14 @@ export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
 }
 
-/** What "Push top N" would send, as the confirm sheet lists it: the best N not on hold, and their total rent. */
+/** True when the server would push this row: not frozen, not on hold, not marked unpushable. */
+export function isPushable(r: CooRow): boolean {
+  return !r.waiting && !r.frozen && r.pushable !== false;
+}
+
+/** What "Push top N" would send, as the confirm sheet lists it: the best N pushable rows, and their total rent. */
 export function pushPlan(rows: CooRow[], n: number): { rows: CooRow[]; totalUgx: number } {
-  const picked = byRank(rows).filter((r) => !r.waiting).slice(0, Math.max(0, Math.floor(n)));
+  const picked = byRank(rows).filter(isPushable).slice(0, Math.max(0, Math.floor(n)));
   return { rows: picked, totalUgx: picked.reduce((t, r) => t + (Number(r.rent) || 0), 0) };
 }
 
@@ -114,11 +131,26 @@ export function useCooBoard(enabled = true) {
 
 const rating = (v: number | null | undefined) => (v === null || v === undefined ? '—' : String(Math.round(Number(v))));
 
+/** "12 Nov", in Kampala time. */
+const dayMonth = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Africa/Kampala' }) : 'a date not set';
+
+/** "Frozen — <reason>; back to Agent Ops on 12 Nov". */
+export function frozenText(f: NonNullable<CooRow['frozen']>): string {
+  return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
+}
+
 function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpen: OpenDrawer }) {
   const r = row.ratings;
   const w = row.waiting;
+  const frozen = row.frozen;
   return (
-    <li className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'}`}>
+    <li
+      data-frozen={frozen ? 'true' : undefined}
+      className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${
+        frozen ? 'opacity-60 grayscale' : ''
+      }`}
+    >
       <span className={`${LABEL} w-7 text-right tabular-nums`}>{row.rank ?? '—'}</span>
       <GradeBadge grade={row.grade} />
       <span className="min-w-0 font-medium text-foreground">{row.tenant ?? '—'}</span>
@@ -129,6 +161,7 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
       {r?.partly_rated && <span className="text-xs text-muted-foreground">partly rated</span>}
       <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
       <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
+      {frozen && <span className="text-xs text-muted-foreground">{frozenText(frozen)}</span>}
       {w && (
         <span className={`${LABEL} inline-flex items-center gap-1`} title={w.note ?? undefined}>
           On hold for {ownerLabel(w.owner_kind, 'coo')} ·{' '}
@@ -252,7 +285,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
             type="number"
             inputMode="numeric"
             min={1}
-            max={Math.max(1, rows.length)}
+            max={Math.max(1, rows.filter(isPushable).length)}
             value={Number.isFinite(n) ? n : ''}
             onChange={(e) => setN(e.target.value === '' ? Number.NaN : Number(e.target.value))}
             className={`desk-pill h-8 w-16 border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-2 text-sm text-foreground ${FOCUS}`}

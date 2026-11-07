@@ -23,7 +23,20 @@ export type BoardDecision =
   | 'complete'
   /** Tenant/Landlord Ops: no answered call yet — call first. */
   | 'call'
-  | 'call_again';
+  | 'call_again'
+  /** Agent Ops: the house photos need a reviewer before the request can move. */
+  | 'review_photos';
+
+/** Agent Ops: whether the agent may collect on a new plan (collected 50%+ of what was due, or a new agent under the limit). */
+export type Eligibility = {
+  eligible: boolean;
+  /** Whole percentage, 0-100, of what was due that the agent collected. */
+  pct: number | null;
+  /** True for an agent too new to have a collection record. */
+  new: boolean;
+  /** Open requests the agent holds (a new agent may hold up to NEW_AGENT_LIMIT). */
+  open: number | null;
+};
 
 export type BoardFlag = { code: string; label: string; level: 'hard' | 'soft' | 'info'; ok: boolean; detail: string | null };
 
@@ -71,13 +84,19 @@ export type BoardRow = {
   decision: BoardDecision;
   rule_id: string | null;
   why: string | null;
-  receiver: { agent_id: string; name: string | null; grade: string | null; km: number | null; score: number | null } | null;
+  receiver: { agent_id: string; name: string | null; grade: string | null; km: number | null; score: number | null; pct?: number | null } | null;
   waiting: BoardWaiting | null;
   wait_suggest: WaitSuggest | null;
   push: BoardPush | null;
   call: { answered_since_stage: string | null; attempts_24h: number | null } | null;
   /** Service Centre: the request is from the August 2026 batch. */
   batch?: boolean;
+  /** Agent Ops: the agent's collection eligibility. */
+  eligibility?: Eligibility | null;
+  /** Agent Ops: intake items the agent did not send (family size, work, LC1 confirmation...). */
+  items_missing?: string[] | null;
+  /** Agent Ops: the house photos have been reviewed and pass. */
+  photos_ok?: boolean | null;
 };
 
 /** Service Centre only: which requests the board shows. Other stages ignore it. */
@@ -162,9 +181,23 @@ export type PushOutcome =
   | { kind: 'move_failed'; message: string }
   | { kind: 'review_failed'; message: string };
 
+/**
+ * A transfer to an agent the reviewer picked instead of the suggested one.
+ * Same review and same move; only the target and the note differ.
+ */
+export type PushOverride = { targetAgentId: string; note: string };
+
+/** The push values with any override applied. */
+export function effectivePush(row: BoardRow, override?: PushOverride): BoardPush | null {
+  const p = row.push;
+  if (!p) return null;
+  if (!override) return p;
+  return { ...p, decision: 'transfer', target_agent_id: override.targetAgentId, note: override.note };
+}
+
 /** The move half of a push, with the push's own values — also the "retry the move only" path. */
-export function moveFor(row: BoardRow, stage: Stage, userId: string): Promise<MoveResult> {
-  const p = row.push as BoardPush;
+export function moveFor(row: BoardRow, stage: Stage, userId: string, override?: PushOverride): Promise<MoveResult> {
+  const p = effectivePush(row, override) as BoardPush;
   return runMove({
     requestId: row.id,
     stage,
@@ -177,8 +210,8 @@ export function moveFor(row: BoardRow, stage: Stage, userId: string): Promise<Mo
 }
 
 /** Exactly what the drawer does: record the review, then run the move. */
-export async function pushRow(row: BoardRow, stage: Stage, userId: string): Promise<PushOutcome> {
-  const p = row.push;
+export async function pushRow(row: BoardRow, stage: Stage, userId: string, override?: PushOverride): Promise<PushOutcome> {
+  const p = effectivePush(row, override);
   if (!p) return { kind: 'review_failed', message: 'Nothing to push on this row.' };
   const { error } = await rpc('pipeline_record_review', {
     p_request_id: row.id,
@@ -190,16 +223,20 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string): Prom
     p_target_agent_id: p.decision === 'transfer' ? p.target_agent_id : null,
   });
   if (error) return { kind: 'review_failed', message: error.message };
-  const moved = await moveFor(row, stage, userId);
+  const moved = await moveFor(row, stage, userId, override);
   return moved.ok ? { kind: 'moved', message: moved.message } : { kind: 'move_failed', message: moved.message };
 }
 
 /** The suggested wait, set as `pipeline_set_waiting` takes it. Never a move. */
 export async function setSuggestedWait(row: BoardRow, stage: Stage): Promise<{ ok: boolean; message: string }> {
-  const w = row.wait_suggest;
+  return setWait(row.id, stage, row.wait_suggest);
+}
+
+/** Set a server-suggested wait on a request — from the board, or from the drawer's "Wait 24 h on agent". */
+export async function setWait(requestId: string, stage: Stage, w: WaitSuggest | null | undefined): Promise<{ ok: boolean; message: string }> {
   if (!w) return { ok: false, message: 'No wait is suggested for this row.' };
   const { error } = await rpc('pipeline_set_waiting', {
-    p_request_id: row.id,
+    p_request_id: requestId,
     p_desk: stage,
     p_reason_code: w.reason_code,
     p_owner_kind: w.owner_kind,
@@ -219,7 +256,7 @@ export const PUSHABLE: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reje
 /** The decision groups each board shows, in the order the desk works them. */
 export const STAGE_GROUPS: Partial<Record<Stage, BoardDecision[]>> = {
   service_centre: ['pass', 'send_back', 'complete', 'waiting'],
-  agent_ops: ['pass', 'transfer', 'send_back', 'reject', 'wait', 'waiting'],
+  agent_ops: ['pass', 'transfer', 'complete', 'review_photos', 'send_back', 'reject', 'wait', 'waiting'],
   tenant_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
   landlord_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
 };
@@ -232,7 +269,30 @@ export function groupsFor(stage: Stage): BoardDecision[] {
 
 /** Decisions whose button opens the drawer instead of pushing: the reviewer has work to do first. */
 export function opensDrawer(d: BoardDecision): boolean {
-  return d === 'complete' || d === 'call';
+  return d === 'complete' || d === 'call' || d === 'review_photos';
+}
+
+/** What the drawer opens on, for a decision that opens it. */
+export function drawerStartFor(d: BoardDecision): 'call' | 'complete' | 'photos' | undefined {
+  if (d === 'call') return 'call';
+  if (d === 'complete') return 'complete';
+  if (d === 'review_photos') return 'photos';
+  return undefined;
+}
+
+/** A new agent may hold this many open requests before they stop being eligible. */
+export const NEW_AGENT_LIMIT = 3;
+
+/** "62% collected ✓", red "31% — below 50%", or "New agent 2/3". */
+export function eligibilityChip(e: Eligibility | null | undefined): { text: string; tone: 'ok' | 'bad' | 'idle' } | null {
+  if (!e) return null;
+  if (e.new) {
+    const open = Number(e.open ?? 0);
+    return { text: `New agent ${open}/${NEW_AGENT_LIMIT}`, tone: e.eligible ? 'idle' : 'bad' };
+  }
+  if (e.pct === null || e.pct === undefined) return { text: 'No collection record', tone: 'idle' };
+  const p = Math.round(Number(e.pct));
+  return e.eligible ? { text: `${p}% collected ✓`, tone: 'ok' } : { text: `${p}% — below 50%`, tone: 'bad' };
 }
 
 /** "3 tries today", or null when nobody has tried in 24 hours. */
@@ -250,6 +310,7 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   wait: 'Wait',
   waiting: 'Waiting',
   complete: 'Complete',
+  review_photos: 'Review photos',
   call: 'Call',
   call_again: 'Call again',
 };
@@ -335,11 +396,15 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
     case 'call':
       return stage === 'landlord_ops' ? 'Call landlord' : 'Call tenant';
     case 'complete':
-      return stage === 'service_centre' ? 'Call and fill' : 'Finish checks';
+      return stage === 'service_centre' || stage === 'agent_ops' ? 'Call and fill' : 'Finish checks';
+    case 'review_photos':
+      return 'Review photos';
     case 'transfer': {
       const r = row.receiver;
       if (!r) return 'Transfer';
-      const bits = [r.grade, r.km === null || r.km === undefined ? null : `${Number(r.km).toFixed(1)} km`].filter(Boolean).join(', ');
+      // The receiver's collection rate when the board sends it; its grade otherwise.
+      const first = r.pct !== null && r.pct !== undefined ? `${Math.round(Number(r.pct))}%` : r.grade;
+      const bits = [first, r.km === null || r.km === undefined ? null : `${Number(r.km).toFixed(1)} km`].filter(Boolean).join(', ');
       return `Transfer → ${r.name ?? 'agent'}${bits ? ` (${bits})` : ''}`;
     }
     case 'wait': {
