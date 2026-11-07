@@ -152,6 +152,26 @@ describe('accountability rate', () => {
     expect(screen.getByText(/found by Landlord Ops/)).not.toBeNull();
   });
 
+  it('is a table from md up and cards on phones, from the same columns', () => {
+    const rows = [person('Amina', 10, 1), person('Brian', 100, 9)];
+    const t = render(<AccountabilityTable rows={rows} forceLayout="table" />);
+    const table = t.container.querySelector('[data-layout="table"]');
+    expect(table).not.toBeNull();
+    expect([...(table as HTMLElement).querySelectorAll('th')].map((th) => th.textContent)).toEqual([
+      'Name',
+      'Staff ID',
+      'Passed',
+      'Later found unfit',
+      'Rate',
+    ]);
+    t.unmount();
+
+    const c = render(<AccountabilityTable rows={rows} forceLayout="cards" />);
+    expect(c.container.querySelector('[data-layout="cards"]')).not.toBeNull();
+    expect(c.container.querySelectorAll('[data-layout="cards"] > li')).toHaveLength(2);
+    expect(screen.getByText('10%').getAttribute('data-tone')).toBe('bad');
+  });
+
   it('has the agreed empty state', () => {
     render(<AccountabilityTable rows={[]} />);
     expect(screen.getByText(EMPTY_ACCOUNTABILITY)).not.toBeNull();

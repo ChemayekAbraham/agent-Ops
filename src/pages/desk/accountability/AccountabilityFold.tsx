@@ -1,8 +1,8 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { CALM, FOCUS, LABEL, statusText } from '../deskTheme';
-import { EmptyState, ErrorLine, Fold, LoadingRows, Segmented, stackLayout } from '../ui';
+import { CALM, FOCUS, statusText } from '../deskTheme';
+import { DataList, EmptyState, ErrorLine, Fold, LoadingRows, Segmented, stackLayout, type DataColumn } from '../ui';
 import { isMissingDbObject, logMissingOnce } from '../deskLive';
 import { readableError } from '../reviewApi';
 import { RULE_DESKS } from '../DeskRules';
@@ -34,103 +34,133 @@ import {
 
 export const RATE_CLASS = { bad: statusText.bad, plain: 'text-foreground', idle: 'text-muted-foreground' } as const;
 
-const HEAD: { label: string; right?: boolean }[] = [
-  { label: 'Name' },
-  { label: 'Staff ID' },
-  { label: 'Passed', right: true },
-  { label: 'Later found unfit', right: true },
-  { label: 'Rate', right: true },
-];
+const keyOf = (r: AccountabilityRow) => `${r.stage ?? ''}:${r.person_id ?? r.name ?? ''}`;
+const int = (v: number | null | undefined) => Number(v ?? 0).toLocaleString('en');
 
-function PersonRow({ r }: { r: AccountabilityRow }) {
-  const [open, setOpen] = useState(false);
+/** The person's requests that a later desk found unfit: reason, request code, which desk, when. */
+function PersonDetail({ r }: { r: AccountabilityRow }) {
   const items = r.items ?? [];
-  const share = unfitShare(r);
-  const tone = rateTone(share);
-  const cell = 'px-2 py-1.5';
   return (
-    <Fragment>
-      <tr className="desk-row border-t border-[var(--desk-line-color)] align-top">
-        <td className={cell}>
-          {items.length > 0 ? (
-            <button
-              type="button"
-              aria-expanded={open}
-              onClick={() => setOpen(!open)}
-              className={`rounded text-left text-foreground ${CALM} ${FOCUS}`}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              <ChevronRight
-                className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
-                aria-hidden
-              />
-              {r.name ?? '—'}
-            </button>
-          ) : (
-            <span className="text-foreground" style={{ paddingLeft: 18 }}>
-              {r.name ?? '—'}
+    <section
+      className="desk-tile"
+      style={{ ...stackLayout(6), padding: 12 }}
+      aria-label={`Requests ${r.name ?? ''} passed that were later found unfit`}
+    >
+      <p className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+        {r.name ?? '—'}: {items.length.toLocaleString('en')} later found unfit
+      </p>
+      <ul style={{ ...stackLayout(4), margin: 0, padding: 0, listStyle: 'none' }}>
+        {items.map((it, i) => (
+          <li key={`${it.id ?? it.req}-${i}`} className="text-sm leading-snug text-foreground" style={{ overflowWrap: 'anywhere' }}>
+            <span className="font-mono text-xs">{it.req ?? (it.id ? it.id.slice(0, 8) : '—')}</span> · {it.label ?? 'No reason given'}
+            <span className="text-muted-foreground">
+              {' '}
+              · found by {stageName(it.found_on)}
+              {it.found_at ? ` · ${eatTime(it.found_at)}` : ''}
             </span>
-          )}
-        </td>
-        <td className={`${cell} font-mono text-xs text-muted-foreground`}>{r.staff_ref ?? '—'}</td>
-        <td className={`${cell} text-right tabular-nums text-foreground`}>{Number(r.passed ?? 0).toLocaleString('en')}</td>
-        <td className={`${cell} text-right tabular-nums text-foreground`}>{Number(r.flagged ?? 0).toLocaleString('en')}</td>
-        <td className={`${cell} text-right tabular-nums font-medium ${RATE_CLASS[tone]}`} data-tone={tone}>
-          {rateText(share)}
-        </td>
-      </tr>
-      {open && items.length > 0 && (
-        <tr>
-          <td colSpan={HEAD.length} className="px-2 pb-3">
-            <ul style={{ ...stackLayout(4), margin: 0, paddingLeft: 18, listStyle: 'none' }} aria-label={`Requests ${r.name ?? ''} passed that were later found unfit`}>
-              {items.map((it, i) => (
-                <li key={`${it.id ?? it.req}-${i}`} className="text-sm leading-snug text-foreground">
-                  <span className="font-mono text-xs">{it.req ?? (it.id ? it.id.slice(0, 8) : '—')}</span> · {it.label ?? 'No reason given'}
-                  <span className="text-muted-foreground">
-                    {' '}
-                    · found by {stageName(it.found_on)}
-                    {it.found_at ? ` · ${eatTime(it.found_at)}` : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </td>
-        </tr>
-      )}
-    </Fragment>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
-export function AccountabilityTable({ rows, grouped = false }: { rows: AccountabilityRow[]; grouped?: boolean }) {
-  if (rows.length === 0) return <EmptyState>{EMPTY_ACCOUNTABILITY}</EmptyState>;
+/**
+ * Columns for the kit's DataList (a table from md up, cards below). On a card
+ * the name is the title and the rate sits under it; staff ID and the two
+ * counts go on the small line. The name opens the person's requests below the
+ * list — DataList clamps cells to two lines, so they cannot open inside it.
+ */
+export function accountabilityColumns(open: string | null, toggle: (k: string) => void): DataColumn<AccountabilityRow>[] {
+  return [
+    {
+      key: 'name',
+      label: 'Name',
+      priority: 1,
+      text: (r) => r.name ?? '',
+      render: (r) => {
+        const k = keyOf(r);
+        if (!(r.items ?? []).length) return r.name ?? '—';
+        return (
+          <button
+            type="button"
+            aria-expanded={open === k}
+            onClick={() => toggle(k)}
+            className={`rounded text-left text-foreground ${CALM} ${FOCUS}`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 32 }}
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${open === k ? 'rotate-90' : ''}`}
+              aria-hidden
+            />
+            {r.name ?? '—'}
+          </button>
+        );
+      },
+    },
+    { key: 'staff', label: 'Staff ID', priority: 2, text: (r) => r.staff_ref ?? '', render: (r) => <span className="font-mono text-xs">{r.staff_ref ?? '—'}</span> },
+    { key: 'passed', label: 'Passed', priority: 2, align: 'right', text: (r) => int(r.passed), render: (r) => int(r.passed) },
+    { key: 'flagged', label: 'Later found unfit', priority: 2, align: 'right', text: (r) => int(r.flagged), render: (r) => int(r.flagged) },
+    {
+      key: 'rate',
+      label: 'Rate',
+      priority: 1,
+      align: 'right',
+      text: (r) => rateText(unfitShare(r)),
+      render: (r) => {
+        const share = unfitShare(r);
+        const tone = rateTone(share);
+        return (
+          <span className={`font-medium tabular-nums ${RATE_CLASS[tone]}`} data-tone={tone} title="Share of passed requests later found unfit">
+            {rateText(share)}
+          </span>
+        );
+      },
+    },
+  ];
+}
+
+export function AccountabilityTable({
+  rows,
+  grouped = false,
+  board = false,
+  forceLayout,
+}: {
+  rows: AccountabilityRow[];
+  grouped?: boolean;
+  board?: boolean;
+  /** Tests: pin the table or the cards regardless of width. */
+  forceLayout?: 'table' | 'cards';
+}) {
+  const [open, setOpen] = useState<string | null>(null);
+  if (rows.length === 0) return <EmptyState board={board}>{EMPTY_ACCOUNTABILITY}</EmptyState>;
+  const toggle = (k: string) => setOpen((cur) => (cur === k ? null : k));
+  const columns = accountabilityColumns(open, toggle);
   const groups = grouped ? groupByStage(rows) : [{ stage: '', rows: sortAccountability(rows) }];
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left text-sm">
-        <thead className="desk-thead">
-          <tr>
-            {HEAD.map((h) => (
-              <th key={h.label} className={`${LABEL} whitespace-nowrap px-2 py-1.5 font-medium ${h.right ? 'text-right' : ''}`}>
-                {h.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        {groups.map((g) => (
-          <tbody key={g.stage || 'all'}>
+    <div style={stackLayout(16)}>
+      {groups.map((g) => {
+        const sel = g.rows.find((r) => keyOf(r) === open);
+        return (
+          <div key={g.stage || 'all'} style={stackLayout(8)}>
             {grouped && (
-              <tr>
-                <th colSpan={HEAD.length} scope="rowgroup" className="px-2 pb-1 pt-3 text-left text-sm font-semibold text-foreground">
-                  {stageName(g.stage)}
-                </th>
-              </tr>
+              <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+                {stageName(g.stage)}
+              </h3>
             )}
-            {g.rows.map((r, i) => (
-              <PersonRow key={`${r.person_id ?? r.name}-${i}`} r={r} />
-            ))}
-          </tbody>
-        ))}
-      </table>
+            <DataList
+              columns={columns}
+              rows={g.rows}
+              rowKey={keyOf}
+              label={grouped ? `people at ${stageName(g.stage)}` : 'people'}
+              emptyText={EMPTY_ACCOUNTABILITY}
+              board={board}
+              forceLayout={forceLayout}
+            />
+            {sel && <PersonDetail r={sel} />}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -175,7 +205,7 @@ export function AccountabilityFold({ deskId, board }: { deskId: string | null; b
       ) : q.error ? (
         <ErrorLine>Accountability could not load: {readableError(q.error)}</ErrorLine>
       ) : (
-        <AccountabilityTable rows={rows} grouped={deskId === null} />
+        <AccountabilityTable rows={rows} grouped={deskId === null} board={board} />
       )}
     </Fold>
   );
