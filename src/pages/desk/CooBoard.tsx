@@ -8,6 +8,7 @@ import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
 import type { OpenDrawer } from './ReadyBoard';
+import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 
 /**
@@ -408,7 +409,12 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const concerns = useConcernsSummary(rows.map((r) => r.id));
 
   if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the COO board" />;
-  if (q.error) return <ErrorLine>The COO board could not load: {readableError(q.error)}</ErrorLine>;
+  if (q.error)
+    return isNotAssigned(q.error) ? (
+      <ErrorLine>{NOT_ASSIGNED}</ErrorLine>
+    ) : (
+      <ErrorLine>The COO board could not load: {readableError(q.error)}</ErrorLine>
+    );
 
   const canPush = q.data?.can_push === true;
   const valid = Number.isFinite(n) && n >= 1;

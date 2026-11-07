@@ -31,6 +31,7 @@ import { CooBoard, RetiredFundNote } from './CooBoard';
 import { PartnerWatch } from './PartnerWatch';
 import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
+import { accessLanding, desksByAccess, useMyDeskAccess } from './deskAccess';
 import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
@@ -513,7 +514,14 @@ function DeskShell() {
   // Desk roles first; with none, ask whether this account is a Service Centre person.
   const hasDeskRole = DESKS.some((d) => d.roles.some((r) => mine.includes(r)));
   const scScope = useMyScScope(!hasDeskRole && roles !== undefined);
-  const { desks: allowed, scOnly } = desksFor(DESKS, mine, scScope.data);
+  const base = desksFor(DESKS, mine, scScope.data);
+  // HR's desk access, once the COO turns it on: only the desks HR gave this person.
+  // Re-read every 2 minutes and on focus, so a removal lands without a re-login.
+  const access = useMyDeskAccess();
+  const accessEnforced = !!access.data?.enforced && !access.data.all;
+  const allowed = desksByAccess(base.desks, DESKS, access.data);
+  // The board-only view is for a Service Centre person with no other desk.
+  const scOnly = base.scOnly && !(accessEnforced && allowed.some((d) => d.id !== 'service-centre'));
   const desk = allowed.find((d) => d.id === deskId);
   const [search] = useSearchParams();
   const rawDay = search.get('day');
@@ -535,10 +543,22 @@ function DeskShell() {
     return () => window.clearInterval(id);
   }, [board, rotate, deskKey, allowedKey, navigate]);
 
-  if (allowed.length === 0 && !hasDeskRole && scScope.isLoading) {
+  // Wait for the access answer before showing any tab, so no one sees a desk they no longer have.
+  if (access.isLoading || (allowed.length === 0 && !hasDeskRole && scScope.isLoading)) {
     return (
       <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme} aria-busy>
         <p className="text-sm text-muted-foreground">Opening your desk…</p>
+      </main>
+    );
+  }
+
+  if (allowed.length === 0 && accessEnforced) {
+    return (
+      <main className="desk-root min-h-screen px-4 py-16 text-center" data-desk-theme={rootTheme}>
+        <div className="mx-auto max-w-xl space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">No desk assigned — ask HR</h1>
+          <p className="text-sm text-muted-foreground">HR gives desks under People → Desks. Reload this page once they have.</p>
+        </div>
       </main>
     );
   }
@@ -555,7 +575,11 @@ function DeskShell() {
       </main>
     );
   }
-  if (!desk) return <Navigate to={`/desk/${landingDesk(mine, allowed).id}${board ? '?board=1' : ''}`} replace />;
+  if (!desk) {
+    // A desk that is not allowed (or was just removed) goes to the first allowed one.
+    const to = accessEnforced ? accessLanding(allowed, access.data) ?? allowed[0] : landingDesk(mine, allowed);
+    return <Navigate to={`/desk/${to.id}${board ? '?board=1' : ''}`} replace />;
+  }
 
   const updated = Math.max(0, ...Object.values(feeds).map((f) => f.updatedAt || 0));
   const failed = Object.entries(feeds)

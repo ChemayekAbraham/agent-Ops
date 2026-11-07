@@ -12,6 +12,7 @@ import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
+import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { healthChip, useTenantHealthMany, type TenantHealth } from './paymentHealth';
 import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import {
@@ -540,7 +541,12 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   };
 
   if (q.isLoading) return <LoadingRows rows={4} height={40} label="Loading the board" />;
-  if (q.error) return <ErrorLine>The board could not load: {readableError(q.error)}</ErrorLine>;
+  if (q.error)
+    return isNotAssigned(q.error) ? (
+      <ErrorLine>{NOT_ASSIGNED}</ErrorLine>
+    ) : (
+      <ErrorLine>The board could not load: {readableError(q.error)}</ErrorLine>
+    );
 
   const counts = data?.counts ?? {};
   const countOf = (d: BoardDecision) =>
