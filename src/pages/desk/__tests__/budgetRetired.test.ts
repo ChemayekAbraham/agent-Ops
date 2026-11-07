@@ -23,4 +23,18 @@ describe('budgets retired 5 Nov', () => {
     ]).join('\n');
     expect(copy).not.toMatch(/budget/i);
   });
+
+  it("no 'ROI' in desk copy (regulatory wording: Returns)", () => {
+    const g = () => 'X';
+    const copy = DESKS.flatMap((d) => [
+      d.name,
+      d.question,
+      d.lead(g),
+      ...d.tiles.flatMap((t) => [t.label, t.sub?.label ?? '']),
+      ...d.tables.flatMap((t) => [t.title, t.note ?? '', ...t.columns.map((c) => c.label)]),
+    ]).join('
+');
+    expect(copy).not.toMatch(/ROI/);
+    expect(copy).toMatch(/Returns credited to one wallet, 30 days/);
+  });
 });
