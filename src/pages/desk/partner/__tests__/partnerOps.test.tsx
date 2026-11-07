@@ -9,7 +9,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles: [] }) }));
 
 import { PartnerOpsBoard } from '../PartnerOpsBoard';
-import { decisionChip, partnerTiles, rankOfficers, targetProgress, toPartnerBoard, type Officer } from '../partnerApi';
+import { decisionChip, lastFollowUpText, partnerTiles, rankOfficers, targetProgress, toPartnerBoard, type Officer } from '../partnerApi';
 import { FundersDashboard } from '../../cfo/FundersDashboard';
 import { toDashboard } from '../../cfo/cfoApi';
 import { fundedSplitText, isWelileDue, sortRows } from '../../cfo/fundersView';
@@ -32,16 +32,20 @@ const RAW = {
     sell_through_7d: { listed_last_30d: 40, sold_within_7d: 26, pct: 65 },
   },
   listings: [
-    { id: 'l1', req: 'aaaa0001', tenant: 'Amina', agent: 'Okello', agent_id: 'ag1', agent_phone: '+256770000001', rent: 900_000, days_on_board: 2, decision: 'follow_up', why: 'Two funders viewed it; nobody held it.' },
-    { id: 'l2', req: 'aaaa0002', tenant: 'Joseph', agent: 'Achieng', rent: 1_200_000, days_on_board: 8, decision: 'welile_due', why: 'Day 8 on the board.' },
-    { id: 'l3', req: 'aaaa0003', tenant: 'Grace', agent: 'Kato', rent: 500_000, days_on_board: 1, decision: 'frozen', why: 'Agent below 50%.' },
+    {
+      id: 'l1', req: 'aaaa0001', tenant: 'Amina', agent: 'Okello', agent_id: 'ag1', agent_phone: '+256770000001', rent: 900_000, days_on_board: 2,
+      decision: 'follow_up', why: 'Two funders viewed it; nobody held it.',
+      last_followup: { note: 'Agent promised new photos', at: '2026-11-06T07:30:00Z', by: 'Rita' },
+    },
+    { id: 'l2', req: 'aaaa0002', tenant: 'Joseph', agent: 'Achieng', agent_id: 'ag2', agent_phone: null, rent: 1_200_000, days_on_board: 8, decision: 'welile_due', why: 'Day 8 on the board.', last_followup: null },
+    { id: 'l3', req: 'aaaa0003', tenant: 'Grace', agent: 'Kato', agent_id: 'ag3', agent_phone: null, rent: 500_000, days_on_board: 1, decision: 'frozen', why: 'Agent below 50%.', last_followup: null },
   ],
   pending_portfolios: [
     { portfolio_id: 'p1', code: 'PF-01', funder: 'Sarah Auma', funder_phone: '+256780000001', amount: 3_000_000, months: 6, payment_method: 'MoMo', receipt_file_url: 'https://x/r.pdf', officer: 'Officer b', created_at: '2026-11-07T08:00:00Z', hours_waiting: 30 },
   ],
   officers: [
     officer('a', { funded_ugx: 2_000_000, funded: 2 }),
-    officer('b', { funded_ugx: 5_000_000, funded: 3, monthly_target: 10_000_000 }),
+    officer('b', { funded_ugx: 5_000_000, funded: 3, funders: 4, monthly_target: 8, target_unit: 'funders' }),
     officer('c', { funded_ugx: 2_000_000, funded: 4 }),
   ],
   funnel: { invites: 120, signups: 40, funded: 9, funded_ugx: 9_000_000, officers: 12, officers_active: 7, contacts: 300 },
@@ -56,7 +60,13 @@ function mount(ui: JSX.Element) {
 beforeEach(() => {
   rpcMock.mockReset();
   rpcMock.mockImplementation((fn: string) =>
-    Promise.resolve(fn === 'partner_ops_board' ? { data: RAW, error: null } : { data: 'ok', error: null }),
+    Promise.resolve(
+      fn === 'partner_ops_board'
+        ? { data: RAW, error: null }
+        : fn === 'partner_ops_note_followup'
+          ? { data: { ok: true, id: 'note-1' }, error: null }
+          : { data: 'ok', error: null },
+    ),
   );
 });
 
@@ -128,7 +138,7 @@ describe('funder portfolio approvals', () => {
 /* ───────────── listings ───────────── */
 
 describe('listings', () => {
-  it('welile_due gets the red "Welile to fund" chip; frozen is greyed; follow_up can be called and noted', async () => {
+  it('welile_due gets the red "Welile to fund" chip; frozen is greyed; follow_up can be called, shows the last note, and is noted', async () => {
     mount(<PartnerOpsBoard board={false} />);
     await screen.findByText('Joseph');
     const due = document.querySelector('li[data-decision="welile_due"]') as HTMLElement;
@@ -137,27 +147,55 @@ describe('listings', () => {
     expect(decisionChip('welile_due')).toMatchObject({ label: 'Welile to fund', tone: 'bad' });
     expect((document.querySelector('li[data-decision="frozen"]') as HTMLElement).className).toContain('opacity-60');
     const follow = document.querySelector('li[data-decision="follow_up"]') as HTMLElement;
-    expect(within(follow).getByRole('button', { name: /Call Okello/ })).toBeTruthy();
+    expect((within(follow).getByRole('button', { name: /Call Okello/ }) as HTMLButtonElement).disabled).toBe(false);
+    expect(within(follow).getByText(/^Last follow-up · .* · Rita: Agent promised new photos$/)).toBeTruthy();
     fireEvent.click(within(follow).getByRole('button', { name: 'Note follow-up' }));
     fireEvent.change(within(follow).getByRole('textbox'), { target: { value: 'Agent will re-shoot the photos today' } });
     fireEvent.click(within(follow).getByRole('button', { name: 'Save the note' }));
     await waitFor(() =>
-      expect(rpcMock).toHaveBeenCalledWith('add_rent_request_review_note', { p_request_id: 'l1', p_note: 'Agent will re-shoot the photos today', p_stage: 'partner_ops' }),
+      expect(rpcMock).toHaveBeenCalledWith('partner_ops_note_followup', { p_request_id: 'l1', p_note: 'Agent will re-shoot the photos today' }),
     );
+    expect(rpcMock).not.toHaveBeenCalledWith('add_rent_request_review_note', expect.anything());
+    expect(await within(follow).findByText('Follow-up noted.')).toBeTruthy();
+  });
+
+  it('a follow-up refused by the server (ok: false) shows its reason', async () => {
+    rpcMock.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'partner_ops_board' ? { data: RAW, error: null } : { data: { ok: false, message: 'Only Partner Ops or the COO can note follow-ups' }, error: null },
+      ),
+    );
+    mount(<PartnerOpsBoard board={false} />);
+    await screen.findByText('Amina');
+    const follow = document.querySelector('li[data-decision="follow_up"]') as HTMLElement;
+    fireEvent.click(within(follow).getByRole('button', { name: 'Note follow-up' }));
+    fireEvent.change(within(follow).getByRole('textbox'), { target: { value: 'Called twice, no answer yet' } });
+    fireEvent.click(within(follow).getByRole('button', { name: 'Save the note' }));
+    expect(await within(follow).findByText('Only Partner Ops or the COO can note follow-ups')).toBeTruthy();
+  });
+
+  it('last follow-up line, and none when there is none', () => {
+    expect(lastFollowUpText({ note: 'Agent promised new photos', at: 'x', by: 'Rita' }, () => '6 Nov 10:30')).toBe('Last follow-up · 6 Nov 10:30 · Rita: Agent promised new photos');
+    expect(lastFollowUpText(null, () => '')).toBeNull();
   });
 });
 
 /* ───────────── officers ───────────── */
 
 describe('field officers', () => {
-  it('rank by money funded, then plans funded, and show target progress', async () => {
+  it('rank by money funded, then plans funded; the target is a count of funders', async () => {
     expect(rankOfficers(RAW.officers).map((o) => o.agent_id)).toEqual(['b', 'c', 'a']);
+    // 4 funders of a target of 8 funders — not UGX.
     expect(targetProgress(RAW.officers[1])).toBe(50);
+    expect(targetProgress({ funders: 9, funders_this_month: 2, monthly_target: 8 })).toBe(25);
     expect(targetProgress(RAW.officers[0])).toBeNull();
     mount(<PartnerOpsBoard board={false} />);
     await screen.findByText('Officer b');
     expect([...document.querySelectorAll('tr[data-officer]')].map((r) => r.getAttribute('data-officer'))).toEqual(['b', 'c', 'a']);
     expect(screen.getByRole('progressbar', { name: 'Officer b: 50% of the monthly target' })).toBeTruthy();
+    expect(screen.getByText('4 of 8 funders · 50%')).toBeTruthy();
+    // No target, no bar.
+    expect(screen.getAllByRole('progressbar')).toHaveLength(1);
   });
 });
 

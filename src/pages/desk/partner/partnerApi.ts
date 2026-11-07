@@ -28,13 +28,15 @@ export type Listing = {
   req: string | null;
   tenant: string | null;
   agent: string | null;
-  /** Not in the documented shape; used for "Call agent" when the board sends them. */
-  agent_id?: string | null;
-  agent_phone?: string | null;
+  /** For "Call agent". */
+  agent_id: string | null;
+  agent_phone: string | null;
   rent: number | null;
   days_on_board: number | null;
   decision: ListingDecision | string;
   why: string | null;
+  /** The last follow-up Partner Ops noted on this request, or null. */
+  last_followup: { note: string | null; at: string | null; by: string | null } | null;
 };
 
 export type PendingPortfolio = {
@@ -61,7 +63,11 @@ export type Officer = {
   funded: number;
   funded_ugx: number;
   contacts: number;
+  /** A count of funders (target_unit 'funders'), not UGX. Null when no target is set. */
   monthly_target: number | null;
+  target_unit?: string | null;
+  /** New funders this month, when the board sends it; the target is measured against it. */
+  funders_this_month?: number | null;
 };
 
 export type Sold = {
@@ -125,7 +131,15 @@ export function toPartnerBoard(raw: unknown): PartnerBoard {
       },
       sell_through_7d: { listed_last_30d: n0(st.listed_last_30d), sold_within_7d: n0(st.sold_within_7d), pct: num(st.pct) },
     },
-    listings: arr<Listing>(d.listings).map((l) => ({ ...l, id: String(l.id), rent: num(l.rent), days_on_board: num(l.days_on_board) })),
+    listings: arr<Listing>(d.listings).map((l) => ({
+      ...l,
+      id: String(l.id),
+      agent_id: l.agent_id ? String(l.agent_id) : null,
+      agent_phone: l.agent_phone ?? null,
+      rent: num(l.rent),
+      days_on_board: num(l.days_on_board),
+      last_followup: l.last_followup && typeof l.last_followup === 'object' ? l.last_followup : null,
+    })),
     pending_portfolios: arr<PendingPortfolio>(d.pending_portfolios).map((p) => ({
       ...p,
       portfolio_id: String(p.portfolio_id),
@@ -143,6 +157,7 @@ export function toPartnerBoard(raw: unknown): PartnerBoard {
       funded_ugx: n0(o.funded_ugx),
       contacts: n0(o.contacts),
       monthly_target: num(o.monthly_target),
+      funders_this_month: num(o.funders_this_month),
     })),
     funnel: {
       invites: n0(f.invites),
@@ -172,7 +187,7 @@ export function usePartnerOpsBoard(period: PartnerPeriod) {
   });
 }
 
-/* ───────────── writes: the existing portfolio approvals, and a review note ───────────── */
+/* ───────────── writes: the existing portfolio approvals, and a follow-up note ───────────── */
 
 export const REJECT_REASON_MIN = 10;
 export const FOLLOW_UP_MIN = 10;
@@ -194,12 +209,14 @@ export async function rejectPortfolio(portfolioId: string, reason: string): Prom
   return done(error);
 }
 
-/** A follow-up note on the listing's request, through the existing review-note RPC. */
+/** A follow-up note on the listing's request (`partner_ops_note_followup`; Partner Ops and the COO only). */
 export async function noteFollowUp(requestId: string, note: string): Promise<Done> {
   const n = note.trim();
   if (n.length < FOLLOW_UP_MIN) return { ok: false, message: `Write at least ${FOLLOW_UP_MIN} characters.` };
-  const { error } = await rpc('add_rent_request_review_note', { p_request_id: requestId, p_note: n, p_stage: 'partner_ops' });
-  return done(error);
+  const { data, error } = await rpc('partner_ops_note_followup', { p_request_id: requestId, p_note: n });
+  if (error) return done(error);
+  const r = (data ?? {}) as { ok?: boolean; message?: string; error?: string };
+  return r.ok === false ? { ok: false, message: r.message || r.error || 'The note was not saved.' } : { ok: true };
 }
 
 /* ───────────── reading helpers (tested) ───────────── */
@@ -269,10 +286,24 @@ export function rankOfficers(rows: Officer[]): Officer[] {
   );
 }
 
-/** Funded money against the monthly target, 0–100, or null with no target. */
-export function targetProgress(o: Pick<Officer, 'funded_ugx' | 'monthly_target'>): number | null {
+/** Funders counted against the monthly target: this month's new funders when sent, else all funders. */
+export function targetFunders(o: Pick<Officer, 'funders' | 'funders_this_month'>): number {
+  return o.funders_this_month ?? o.funders;
+}
+
+/** Funders against the monthly target (a count of funders), 0–100, or null with no target. */
+export function targetProgress(o: Pick<Officer, 'funders' | 'funders_this_month' | 'monthly_target'>): number | null {
   if (!o.monthly_target || o.monthly_target <= 0) return null;
-  return Math.max(0, Math.min(100, Math.round((o.funded_ugx / o.monthly_target) * 100)));
+  return Math.max(0, Math.min(100, Math.round((targetFunders(o) / o.monthly_target) * 100)));
+}
+
+/** "Last follow-up · 7 Nov 09:30 · Rita: Agent will re-shoot the photos" — or null with none. */
+export function lastFollowUpText(f: Listing['last_followup'], when: (iso: string) => string): string | null {
+  if (!f || !(f.note || f.at)) return null;
+  const parts = ['Last follow-up'];
+  if (f.at) parts.push(when(f.at));
+  if (f.by) parts.push(f.by);
+  return `${parts.join(' · ')}${f.note ? `: ${f.note}` : ''}`;
 }
 
 export const SOLD_BY: Record<string, string> = { officer: "Officer's funder", officers: "Officer's funder", self: 'Self', welile: 'Welile' };

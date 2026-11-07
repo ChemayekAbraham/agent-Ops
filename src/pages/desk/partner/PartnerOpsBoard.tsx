@@ -14,11 +14,13 @@ import {
   REJECT_REASON_MIN,
   approvePortfolio,
   decisionChip,
+  lastFollowUpText,
   noteFollowUp,
   partnerTiles,
   rankOfficers,
   rejectPortfolio,
   soldBy,
+  targetFunders,
   targetProgress,
   ugxC,
   usePartnerOpsBoard,
@@ -206,12 +208,17 @@ function ListingRow({ l, board }: { l: Listing; board: boolean }) {
         {l.decision === 'follow_up' && (
           <span className="ml-auto inline-flex items-center gap-1.5" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span className={LABEL}>Call agent</span>
-            <DeskCallButton target={{ requestId: l.id, desk: 'partner_ops', subject: 'agent', calleeId: l.agent_id ?? null, name: l.agent, phone: l.agent_phone ?? null }} />
+            <DeskCallButton target={{ requestId: l.id, desk: 'partner_ops', subject: 'agent', calleeId: l.agent_id, name: l.agent, phone: l.agent_phone }} />
             {!noting && <DecisionButton onClick={() => setNoting(true)}>Note follow-up</DecisionButton>}
           </span>
         )}
       </div>
       {l.why && <p className={`${LABEL} max-w-4xl`}>{l.why}</p>}
+      {lastFollowUpText(l.last_followup, eatTime) && (
+        <p className={`${LABEL} max-w-4xl`} data-last-followup={l.id}>
+          {lastFollowUpText(l.last_followup, eatTime)}
+        </p>
+      )}
       {noting && <FollowUpNote listing={l} onClose={() => setNoting(false)} />}
     </li>
   );
@@ -262,7 +269,7 @@ function OfficersTable({ rows, board }: { rows: Officer[]; board: boolean }) {
                   ) : (
                     <span className="block space-y-1">
                       <span className="block text-xs tabular-nums text-foreground">
-                        {ugxC(o.funded_ugx)} of {ugxC(o.monthly_target)} · {p}%
+                        {int(targetFunders(o))} of {int(o.monthly_target)} funders · {p}%
                       </span>
                       <span
                         className="block h-1.5 w-full overflow-hidden rounded-full bg-[var(--desk-surface)]"
