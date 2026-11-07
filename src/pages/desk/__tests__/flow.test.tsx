@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -138,5 +140,38 @@ describe('IN / OUT panel', () => {
     const care = withClient(<FlowPanel deskId="customer-care" board={false} />);
     expect(care.container.textContent).toBe('');
     expect(rpcMock).not.toHaveBeenCalled();
+  });
+});
+
+/*
+ * Where the panel sits. The COO read "nothing changed" when it hung under the
+ * board, so it goes straight under the "Ready for your push" heading, before
+ * the board's own lead, period toggle, tiles and rows. The command centre has
+ * it directly under the "Today on Welile" brief, and never on the wall display.
+ */
+describe('IN / OUT placement', () => {
+  const src = (f: string) => readFileSync(resolve(__dirname, '..', f), 'utf8');
+  /** The JSX between the Ready heading's close and the end of its section, comments dropped. */
+  const readySections = (s: string) =>
+    [...s.matchAll(/Ready for your push\s*<\/h2>([\s\S]*?)<\/section>/g)].map((m) => m[1].replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim());
+
+  it('is the first thing under "Ready for your push" on the framed desks, COO, Funders and Partner Ops', () => {
+    const sections = readySections(src('DeskPage.tsx'));
+    // [0] is the Service Centre person's scoped view; [1] the framed desks (SC, Agent, Tenant, Landlord Ops, COO, Funders); [2] Partner Ops.
+    expect(sections).toHaveLength(3);
+    for (const body of sections.slice(1)) expect(body.startsWith('<FlowPanel deskId={desk.id} board={board} />')).toBe(true);
+    // Above the boards (FundersDashboard carries the Funders lead, period toggle and tiles).
+    const framed = sections[1];
+    for (const b of ['<FundersDashboard', '<CooBoard', '<ReadyBoard', '{tabs}']) expect(framed.indexOf('<FlowPanel')).toBeLessThan(framed.indexOf(b));
+    expect(sections[2].indexOf('<FlowPanel')).toBeLessThan(sections[2].indexOf('<PartnerOpsBoard'));
+    // Mounted once per view: nothing left under the section.
+    expect(src('DeskPage.tsx').match(/<FlowPanel /g)).toHaveLength(2);
+  });
+
+  it('sits directly under the "Today on Welile" brief on the command centre, not on the wall', () => {
+    const cc = src('CommandCentre.tsx').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    expect(cc).toMatch(/<MorningBrief board=\{false\} enabled \/>\s*<FlowPanel deskId="command" board=\{false\} \/>/);
+    expect(cc.match(/<FlowPanel /g)).toHaveLength(1);
+    expect(src('CommandAdditions.tsx')).not.toContain('FlowPanel');
   });
 });

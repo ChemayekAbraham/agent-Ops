@@ -9,7 +9,6 @@ import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme'
 import { Skeleton } from './Skeleton';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { AgentsTodayLine } from './agents/AgentsLive';
-import { FlowPanel } from './flow/FlowPanel';
 import {
   OWNER_LABEL,
   WAIT_DESKS,
@@ -116,8 +115,6 @@ export function MoneyLine({ gaps, board }: { gaps: FeedState; board: boolean }) 
       </Figure>
     </p>
     <AgentsTodayLine board={board} />
-    {/* The whole pipeline's IN / OUT. Left off the wall display, which must fit one screen. */}
-    {!board && <FlowPanel deskId="command" board={board} />}
     </>
   );
 }

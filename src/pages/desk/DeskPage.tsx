@@ -641,6 +641,8 @@ function DeskView({
           <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
             Ready for your push
           </h2>
+          {/* IN / OUT first, straight under the heading: above the board's lead, period toggle, tiles and rows (the COO's sketch). */}
+          <FlowPanel deskId={desk.id} board={board} />
           {tabs}
           {extraView}
           {desk.id === 'cfo' ? (
@@ -653,7 +655,6 @@ function DeskView({
             showQueue && ready && table(ready)
           )}
         </section>
-        <FlowPanel deskId={desk.id} board={board} />
 
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
@@ -679,9 +680,9 @@ function DeskView({
           <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
             Ready for your push
           </h2>
+          <FlowPanel deskId={desk.id} board={board} />
           <PartnerOpsBoard board={board} />
         </section>
-        <FlowPanel deskId={desk.id} board={board} />
         <AccountabilityFold deskId={desk.id} board={board} />
         <DeskRules deskId={desk.id} board={board} />
         <Fold title="Classic view" board={board} hint="The funder board watch and every table this desk showed before">
