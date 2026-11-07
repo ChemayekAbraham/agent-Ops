@@ -283,12 +283,12 @@ export function drawerStartFor(d: BoardDecision): 'call' | 'complete' | 'photos'
 /** A new agent may hold this many open requests before they stop being eligible. */
 export const NEW_AGENT_LIMIT = 3;
 
-/** "62% collected ✓", red "31% — below 50%", or "New agent 2/3". */
+/** "62% collected ✓", red "31% — below 50%", or "New agent · 2 open (limit 3)". */
 export function eligibilityChip(e: Eligibility | null | undefined): { text: string; tone: 'ok' | 'bad' | 'idle' } | null {
   if (!e) return null;
   if (e.new) {
     const open = Number(e.open ?? 0);
-    return { text: `New agent ${open}/${NEW_AGENT_LIMIT}`, tone: e.eligible ? 'idle' : 'bad' };
+    return { text: `New agent · ${open} open (limit ${NEW_AGENT_LIMIT})`, tone: e.eligible ? 'idle' : 'bad' };
   }
   if (e.pct === null || e.pct === undefined) return { text: 'No collection record', tone: 'idle' };
   const p = Math.round(Number(e.pct));

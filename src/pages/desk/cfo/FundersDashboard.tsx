@@ -5,7 +5,6 @@ import { FOCUS, LABEL, PANEL, statusText } from '../deskTheme';
 import { clockTime } from '../deskPrefs';
 import {
   Chip,
-  DataList,
   DecisionButton,
   ErrorLine,
   GradeBadge,
@@ -17,12 +16,12 @@ import {
   daysShort,
   moneyCard,
   useBreakpoint,
-  type DataColumn,
 } from '../ui';
+import { DataList, OneLine, type DataColumn } from '../ui/DataList';
 import { stackLayout } from '../ui/layout';
 import { readableError } from '../reviewApi';
 import { FUNDERS_KEY, PERIODS, fundOne, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
-import { canFundRow, fundedSplitText, heldLabel, isWelileDue, rating, sortRows, ugx, type Rank } from './fundersView';
+import { canFundRow, fundedSplitText, fundersLead, heldLabel, isWelileDue, rating, sortRows, ugx, type Rank } from './fundersView';
 
 /** The listing's main photo: the first of the house photos the funders see. */
 export function mainPhoto(r: Pick<FundersRow, 'photos'>): string | null {
@@ -32,18 +31,19 @@ export function mainPhoto(r: Pick<FundersRow, 'photos'>): string | null {
 
 const photoCount = (r: FundersRow) => (Array.isArray(r.photos) ? r.photos.length : 0);
 
-function StatusChips({ r }: { r: FundersRow }) {
+/** `xs` inside a table row (the kit's size for data rows), `sm` on a card. */
+function StatusChips({ r, size = 'sm' }: { r: FundersRow; size?: 'xs' | 'sm' }) {
   const held = heldLabel(r);
   if (!isWelileDue(r) && !held) return null;
   return (
     <span className="flex flex-wrap gap-1" style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
       {isWelileDue(r) && (
-        <Chip tone="bad" size="sm" strong>
+        <Chip tone="bad" size={size} strong>
           Welile to fund
         </Chip>
       )}
       {held && (
-        <Chip tone="warn" size="sm">
+        <Chip tone="warn" size={size}>
           {held}
         </Chip>
       )}
@@ -71,6 +71,17 @@ function GpsPhotos({ r }: { r: FundersRow }) {
         {' '}
         · {photos} photo{photos === 1 ? '' : 's'}
       </span>
+    </span>
+  );
+}
+
+export const ratingsText = (r: Pick<FundersRow, 'ratings'>) =>
+  `${rating(r.ratings?.agent_ops)} / ${rating(r.ratings?.tenant_ops)} / ${rating(r.ratings?.landlord_ops)}`;
+
+function Ratings({ r }: { r: FundersRow }) {
+  return (
+    <span className="whitespace-nowrap text-xs text-muted-foreground" title="Agent / Tenant / Landlord ratings">
+      {ratingsText(r)}
     </span>
   );
 }
@@ -127,6 +138,10 @@ function FundersCard({ r, fund, busy, board }: { r: FundersRow; fund: (() => voi
         <GradeBadge grade={r.grade} />
         <span className="tabular-nums text-muted-foreground">{daysShort(r.days_on_board)} on board</span>
         <StatusChips r={r} />
+      </div>
+      <div className={LABEL} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 12px' }}>
+        <GpsPhotos r={r} />
+        <span title="Agent / Tenant / Landlord ratings">Ratings {ratingsText(r)}</span>
       </div>
       {fund && (
         <DecisionButton variant="primary" size="md" disabled={busy} onClick={fund} style={{ width: '100%' }}>
@@ -270,11 +285,21 @@ export function FundersDashboard({ board }: { board: boolean }) {
         }
       : null;
 
+  /*
+   * The table keeps Request · Tenant · Agent · Grade · Days · Rent · Status
+   * (and Fund for approvers); Landlord, GPS · photos and the three ratings sit
+   * in priority 3, so on a narrower list they open in the row's details. The
+   * list decides by its own width (ui/DataList).
+   */
+  const anyFundable = canFund && rows.some((r) => canFundRow(r, canFund));
   const columns: DataColumn<FundersRow>[] = [
     {
       key: 'req',
       label: 'Request',
-      priority: 3,
+      // For approvers the Fund column needs the room: Request opens in the row's details instead,
+      // so Agent, Grade and Days stay visible at ~950 px.
+      priority: anyFundable ? 3 : 2,
+      kind: 'code',
       render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.req ?? r.id.slice(0, 8)}</span>,
       text: (r) => r.req ?? r.id.slice(0, 8),
     },
@@ -282,70 +307,83 @@ export function FundersDashboard({ board }: { board: boolean }) {
       key: 'tenant',
       label: 'Tenant',
       priority: 1,
+      kind: 'name',
       render: (r) => (
         <>
-          <span className="block text-foreground">{r.tenant ?? '—'}</span>
-          {r.tenant_location && <span className="block text-xs text-muted-foreground">{r.tenant_location}</span>}
+          <OneLine className="text-foreground" title={r.tenant}>{r.tenant ?? '—'}</OneLine>
+          {r.tenant_location && (
+            <OneLine className="text-xs text-muted-foreground" title={r.tenant_location}>
+              {r.tenant_location}
+            </OneLine>
+          )}
         </>
       ),
       text: (r) => [r.tenant, r.tenant_location].filter(Boolean).join(' · '),
     },
-    { key: 'agent', label: 'Agent', priority: 2, render: (r) => r.agent ?? '—' },
-    {
-      key: 'landlord',
-      label: 'Landlord',
-      priority: 2,
-      render: (r) => (
-        <>
-          <span className="block text-foreground">{r.landlord ?? '—'}</span>
-          {r.landlord_phone && <span className="block text-xs text-muted-foreground">{r.landlord_phone}</span>}
-        </>
-      ),
-      text: (r) => [r.landlord, r.landlord_phone].filter(Boolean).join(' · '),
-    },
-    {
-      key: 'grade',
-      label: 'Grade · Agent / Tenant / Landlord',
-      priority: 2,
-      render: (r) => (
-        <span className="whitespace-nowrap">
-          <GradeBadge grade={r.grade} />
-          <span className="ml-2 text-xs text-muted-foreground" title="Agent / Tenant / Landlord ratings">
-            {rating(r.ratings?.agent_ops)} / {rating(r.ratings?.tenant_ops)} / {rating(r.ratings?.landlord_ops)}
-          </span>
-        </span>
-      ),
-      text: (r) => r.grade ?? '',
-    },
-    { key: 'days', label: 'Days on board', priority: 2, align: 'right', render: (r) => (r.days_on_board === null ? '—' : String(r.days_on_board)) },
-    { key: 'rent', label: 'Rent (UGX)', priority: 1, align: 'right', render: (r) => (r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')) },
-    { key: 'gps', label: 'GPS · photos', priority: 3, render: (r) => <GpsPhotos r={r} />, text: () => '' },
+    { key: 'agent', label: 'Agent', priority: 2, kind: 'name', render: (r) => r.agent ?? '—' },
+    { key: 'grade', label: 'Grade', priority: 2, kind: 'number', render: (r) => <GradeBadge grade={r.grade} />, text: (r) => r.grade ?? '' },
+    { key: 'days', label: 'Days', priority: 2, kind: 'number', align: 'right', render: (r) => (r.days_on_board === null ? '—' : String(r.days_on_board)) },
+    { key: 'rent', label: 'Rent (UGX)', priority: 1, kind: 'money', align: 'right', render: (r) => (r.rent === null ? '—' : Math.round(r.rent).toLocaleString('en')) },
     {
       key: 'status',
       label: 'Status',
       priority: 1,
-      render: (r) => <StatusChips r={r} />,
+      kind: 'chips',
+      render: (r) => <StatusChips r={r} size="xs" />,
       text: (r) => [isWelileDue(r) ? 'Welile to fund' : '', heldLabel(r) ?? ''].filter(Boolean).join(' · '),
     },
+    ...(anyFundable
+      ? [
+          {
+            key: 'action',
+            label: 'Action',
+            priority: 1 as const,
+            kind: 'action' as const,
+            minWidth: 84,
+            align: 'right' as const,
+            render: (r: FundersRow) => {
+              const fund = fundFor(r);
+              // "Fund" in the table; the whole action in the tooltip, the accessible name and the confirm sheet.
+              return fund ? (
+                <DecisionButton
+                  variant="primary"
+                  disabled={busy || !!target}
+                  onClick={fund}
+                  title="Fund with Welile money"
+                  aria-label={`Fund with Welile money: ${r.tenant ?? r.req ?? 'this request'}`}
+                >
+                  Fund
+                </DecisionButton>
+              ) : null;
+            },
+            text: () => '',
+          },
+        ]
+      : []),
     {
-      key: 'action',
-      label: 'Action',
-      priority: 1,
-      align: 'right',
-      render: (r) => {
-        const fund = fundFor(r);
-        return fund ? (
-          <DecisionButton variant="primary" disabled={busy || !!target} onClick={fund}>
-            Fund with Welile money
-          </DecisionButton>
-        ) : null;
-      },
-      text: () => '',
+      key: 'landlord',
+      label: 'Landlord',
+      priority: 3,
+      kind: 'name',
+      render: (r) => (
+        <>
+          <OneLine className="text-foreground" title={r.landlord}>{r.landlord ?? '—'}</OneLine>
+          {r.landlord_phone && <OneLine className="text-xs text-muted-foreground">{r.landlord_phone}</OneLine>}
+        </>
+      ),
+      text: (r) => [r.landlord, r.landlord_phone].filter(Boolean).join(' · '),
     },
+    { key: 'gps', label: 'GPS · photos', priority: 3, kind: 'chips', render: (r) => <GpsPhotos r={r} />, text: () => '' },
+    { key: 'ratings', label: 'Ratings · Agent / Tenant / Landlord', priority: 3, kind: 'text', render: (r) => <Ratings r={r} />, text: (r) => ratingsText(r) },
   ];
 
   return (
     <div className="space-y-4">
+      {d && (
+        <p className={`${board ? 'text-2xl' : 'text-lg sm:text-xl'} max-w-4xl leading-snug text-foreground`} style={{ margin: 0 }} data-funders-lead>
+          {fundersLead(d)}
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented
           ariaLabel="Period for the funded figures"

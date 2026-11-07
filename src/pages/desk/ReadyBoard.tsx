@@ -4,7 +4,25 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusText } from './deskTheme';
-import { Chip, DecisionButton, EmptyState, ErrorLine, LoadingRows, MenuItem, MoreMenu, Segmented, decisionVariant } from './ui';
+import {
+  Chip,
+  DecisionButton,
+  EmptyState,
+  ErrorLine,
+  LoadingRows,
+  MenuItem,
+  MoreMenu,
+  RowCard,
+  Segmented,
+  atLeast,
+  daysShort,
+  decisionVariant,
+  moneyCard,
+  moneyFull,
+  stackLayout,
+  useBreakpoint,
+} from './ui';
+import { PHONE_PAGE, groupHeading, groupRows, rowChips, rowMeta, rowReason, shortPrimary, type ChipModel } from './boardRowModel';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
@@ -13,8 +31,8 @@ import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './r
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
-import { healthChip, useTenantHealthMany, type TenantHealth } from './paymentHealth';
-import { ConcernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
+import { useTenantHealthMany, type TenantHealth } from './paymentHealth';
+import { useConcernsSummary, type ConcernSummary } from './concerns';
 import {
   GROUP_LABEL,
   PUSHABLE,
@@ -85,11 +103,19 @@ export function progressText(p: { total: number; done: number; failed: { req: st
   return parts.join(', ');
 }
 
+/**
+ * One board row, two shapes from one model (boardRowModel.ts):
+ *   below md  a RowCard — tenant, agent + grade, three chips, "UGX · days",
+ *             a short main button with its target on the line under it
+ *   md and up a compact grid row — tenant | agent | chips | UGX | days | action,
+ *             the action never wrapping
+ */
 function BoardRowLine({
   row,
   stage,
   canAct,
   board,
+  layout,
   note,
   busy,
   onPrimary,
@@ -103,6 +129,8 @@ function BoardRowLine({
   stage: Stage;
   canAct: boolean;
   board: boolean;
+  /** card below md; md: two-line grid row, chips on the second line; lg: one six-column row. */
+  layout: RowLayout;
   note: RowNote | undefined;
   busy: boolean;
   onPrimary: () => void;
@@ -110,154 +138,178 @@ function BoardRowLine({
   onOpen: OpenDrawer;
   /** Agent Ops transfer rows: choose a different receiving agent. */
   onPick?: () => void;
-  /** Tenant Ops: how the tenant has paid before. */
+  /** Tenant / Landlord Ops: how the tenant has paid before. */
   health?: TenantHealth;
-  /** Tenant/Landlord Ops: concerns any desk logged on this request. */
+  /** Tenant / Landlord Ops and COO: concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
-  // Eligibility belongs to Agent Ops only; other desks never show it.
-  const elig = stage === 'agent_ops' ? eligibilityChip(row.eligibility) : null;
-  const hc = healthChip(health);
-  const chip = flagsChip(row.flags);
-  const label = primaryLabel(row, stage);
+  const chips = rowChips(row, stage, health, concerns);
+  const short = shortPrimary(row, stage);
+  const reason = rowReason(row);
   const others = visibleDecisions(stage).filter((d) => d !== row.decision);
-  const tries = triesToday(row.call);
-  const text = board ? 'text-base' : 'text-sm';
   const w = row.waiting;
+  const waitUp = !!w && (w.expired || (hoursUntil(w.until_at) ?? 1) <= 0);
+  const waitingLine = row.decision === 'waiting' ? `Waiting on ${ownerLabel(w?.owner_kind, stage)} · ${waitUp ? 'Time up' : timeLeftText(hoursUntil(w?.until_at))}` : null;
+
+  const call = (subject: 'agent' | 'tenant' | 'landlord') => (
+    <DeskCallButton
+      disabled={!canAct}
+      target={
+        subject === 'agent'
+          ? { requestId: row.id, desk: stage, subject, calleeId: row.agent_id, name: row.agent, phone: row.agent_phone }
+          : subject === 'tenant'
+            ? { requestId: row.id, desk: stage, subject, calleeId: row.tenant_id, name: row.tenant, phone: row.tenant_phone }
+            : { requestId: row.id, desk: stage, subject, calleeId: null, name: row.landlord, phone: row.landlord_phone }
+      }
+    />
+  );
+
+  const menu = (close: () => void) => (
+    <>
+      {/* Agent Ops transfer rows: a different receiving agent, same review and move. */}
+      {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
+        <MenuItem disabled={busy || !canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onPick(); }}>
+          Pick another agent…
+        </MenuItem>
+      )}
+      <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
+      <MenuItem disabled={!canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
+        Wait on…
+      </MenuItem>
+      {others.map((d) => (
+        <MenuItem key={d} disabled={!canAct} title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, d); }}>
+          {DECISION_LABEL[d]}…
+        </MenuItem>
+      ))}
+    </>
+  );
+
+  // The main button: retry the move only, the row's decision, or nothing (waiting).
+  const primary =
+    note?.kind === 'retry'
+      ? { label: busy ? 'Retrying…' : 'Retry the move only', onClick: onRetry, variant: 'warn' as const, disabled: busy || !canAct, title: note.text, detail: null }
+      : short
+        ? {
+            label: busy ? 'Working…' : short.label,
+            onClick: onPrimary,
+            variant: decisionVariant(row.decision),
+            disabled: busy || !canAct || note?.kind === 'ok',
+            title: canAct ? reason.title : NEEDS_ROLE,
+            detail: short.detail,
+          }
+        : null;
+
+  const noteLine = note && (
+    <p className={`text-xs ${note.kind === 'ok' ? statusText.ok : note.kind === 'retry' ? statusText.warn : statusText.bad}`} role="status">
+      {note.kind === 'retry' ? `${RETRY_LABEL}. ${note.text}` : note.text}
+    </p>
+  );
+  const chipEls = (list: ChipModel[]) =>
+    list.map((c) => (
+      <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
+        {c.text}
+      </Chip>
+    ));
+
+  const tenant = (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <span style={{ overflowWrap: 'anywhere' }}>{row.tenant ?? '—'}</span>
+      {/* Landlord Ops calls the tenant from the row; Tenant Ops calls through "Call tenant". */}
+      {stage === 'landlord_ops' && call('tenant')}
+    </span>
+  );
+  const agent = (
+    <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      {stage === 'landlord_ops' && (
+        <>
+          <span>Landlord {row.landlord ?? '—'}</span>
+          {call('landlord')}
+          <span aria-hidden>·</span>
+        </>
+      )}
+      <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
+      <GradeBadge agentId={row.agent_id} grade={row.agent_grade} weekAgo={row.agent_grade_week_ago} />
+      {call('agent')}
+    </span>
+  );
+  const why = (
+    <>
+      {waitingLine && <span className={waitUp ? statusText.bad : undefined}>{waitingLine}{w?.note ? ` — ${w.note}` : ''}</span>}
+      {!waitingLine && reason.text && <span title={reason.title}>{reason.text}</span>}
+    </>
+  );
+
+  if (layout === 'card') {
+    return (
+      <li data-row={row.id} style={{ ...stackLayout(4), listStyle: 'none' }}>
+        <RowCard
+          board={board}
+          title={tenant}
+          subtitle={agent}
+          chips={chipEls(chips)}
+          meta={<span>{rowMeta(row)}</span>}
+          why={why}
+          primary={primary ?? undefined}
+          menu={menu}
+          menuLabel={`More for ${row.tenant ?? 'this request'}`}
+        />
+        {noteLine}
+      </li>
+    );
+  }
 
   return (
-    <li className="space-y-1 border-t border-[var(--desk-line-color)] py-2.5 first:border-t-0">
-      <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${text}`}>
-        {stage === 'landlord_ops' && (
-          <>
-            <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
-              {row.landlord ?? 'No landlord'}
-              <DeskCallButton
-                disabled={!canAct}
-                target={{ requestId: row.id, desk: stage, subject: 'landlord', calleeId: null, name: row.landlord, phone: row.landlord_phone }}
-              />
-            </span>
-            <span className="text-muted-foreground" aria-hidden>·</span>
-          </>
-        )}
-        <span className="inline-flex min-w-0 items-center gap-1.5 font-medium text-foreground">
-          {row.tenant ?? '—'}
-          {/* Landlord Ops calls the tenant from the row too; Tenant Ops calls through "Call tenant". */}
-          {stage === 'landlord_ops' && (
-            <DeskCallButton
-              disabled={!canAct}
-              target={{ requestId: row.id, desk: stage, subject: 'tenant', calleeId: row.tenant_id, name: row.tenant, phone: row.tenant_phone }}
-            />
-          )}
+    <li
+      data-row={row.id}
+      data-gridrow
+      className={`border-t border-[var(--desk-line-color)] first:border-t-0 ${board ? 'text-base' : 'text-sm'}`}
+      data-layout={layout}
+      style={{ display: 'grid', gridTemplateColumns: layout === 'lg' ? GRID_COLUMNS : GRID_COLUMNS_MD, columnGap: 12, rowGap: 4, alignItems: 'center', paddingTop: 10, paddingBottom: 10, listStyle: 'none' }}
+    >
+      {layout === 'lg' ? (
+        <>
+          <span className="font-medium text-foreground" style={{ minWidth: 0 }}>{tenant}</span>
+          <span className="text-foreground" style={{ minWidth: 0 }}>{agent}</span>
+          <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>{chipEls(chips)}</span>
+        </>
+      ) : (
+        <span style={{ ...stackLayout(2), minWidth: 0 }}>
+          <span className="font-medium text-foreground">{tenant}</span>
+          <span className="text-muted-foreground">{agent}</span>
         </span>
-        {row.batch && (
-          <span className="desk-pill border border-slate-500/40 bg-slate-500/20 px-2 py-0.5 text-[11px] text-muted-foreground">Aug batch</span>
+      )}
+      <span className="tabular-nums text-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} title={moneyFull(row.rent)}>
+        {moneyCard(row.rent)}
+      </span>
+      <span className="tabular-nums text-muted-foreground" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{daysShort(row.days_here)}</span>
+      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6, whiteSpace: 'nowrap' }}>
+        {primary && (
+          <DecisionButton variant={primary.variant} disabled={primary.disabled} onClick={primary.onClick} title={primary.title}>
+            {primary.label}
+          </DecisionButton>
         )}
-        {hc && (
-          <Chip tone={hc.tone} title={hc.title}>
-            {hc.text}
-          </Chip>
-        )}
-        <ConcernsChip summary={concerns} />
-        <span className="text-muted-foreground" aria-hidden>·</span>
-        <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
-          {row.agent ?? 'No agent'}
-          <GradeBadge agentId={row.agent_id} grade={row.agent_grade} weekAgo={row.agent_grade_week_ago} />
-          {elig && (
-            <Chip tone={elig.tone}>{elig.text}</Chip>
-          )}
-          <DeskCallButton
-            disabled={!canAct}
-            target={{ requestId: row.id, desk: stage, subject: 'agent', calleeId: row.agent_id, name: row.agent, phone: row.agent_phone }}
-          />
-        </span>
-        <Chip
-          tone={chip.ok ? 'ok' : 'warn'}
-          title={row.flags.flags.map((f) => `${f.ok ? '✓' : '✗'} ${f.label}${f.detail ? ` — ${f.detail}` : ''}`).join('\n')}
-        >
-          {chip.text}
-        </Chip>
-        <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
-        <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
-        {tries && <span className={`text-xs ${statusText.warn}`}>{tries}</span>}
-
-        <span className="ml-auto inline-flex items-center gap-1.5">
-          {row.decision === 'waiting' ? (
-            <span className={`${LABEL} inline-flex items-center gap-1.5`}>
-              Waiting on {ownerLabel(w?.owner_kind, stage)}
-              {w && (w.expired || (hoursUntil(w.until_at) ?? 1) <= 0) ? (
-                <Chip tone="bad" strong>
-                  Time up
-                </Chip>
-              ) : (
-                <span className="tabular-nums text-foreground">{timeLeftText(hoursUntil(w?.until_at))}</span>
-              )}
-            </span>
-          ) : note?.kind === 'retry' ? (
-            <DecisionButton variant="warn" disabled={busy || !canAct} onClick={onRetry} title={note.text}>
-              {busy ? 'Retrying…' : 'Retry the move only'}
-            </DecisionButton>
-          ) : (
-            label && (
-              <DecisionButton
-                variant={decisionVariant(row.decision)}
-                disabled={busy || !canAct || note?.kind === 'ok'}
-                onClick={onPrimary}
-                title={canAct ? undefined : NEEDS_ROLE}
-              >
-                {busy ? 'Working…' : label}
-              </DecisionButton>
-            )
-          )}
-          <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
-            {(close) => (
-              <>
-                {/* Agent Ops transfer rows: a different receiving agent, same review and move. */}
-                {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
-                  <MenuItem disabled={busy || !canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onPick(); }}>
-                    Pick another agent…
-                  </MenuItem>
-                )}
-                <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
-                <MenuItem disabled={!canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
-                  Wait on…
-                </MenuItem>
-                {others.map((d) => (
-                  <MenuItem
-                    key={d}
-                    disabled={!canAct}
-                    title={canAct ? 'Opens the review so you can give a reason' : NEEDS_ROLE}
-                    onClick={() => { close(); onOpen(row.id, d); }}
-                  >
-                    {DECISION_LABEL[d]}…
-                  </MenuItem>
-                ))}
-              </>
-            )}
-          </MoreMenu>
-        </span>
+        <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
+      </span>
+      {layout === 'md' && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6, minWidth: 0 }}>{chipEls(chips)}</div>}
+      <div className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
+        {primary?.detail && <span className="text-foreground">{short && row.decision === 'transfer' ? 'To ' : ''}{primary.detail}. </span>}
+        {why}
       </div>
-
-      {row.decision === 'waiting' && w?.note && (
-        <p className={`${LABEL} max-w-4xl truncate`} title={w.note}>
-          {w.rule_id && <span className="font-mono">{w.rule_id} </span>}
-          {w.reason_code} · {w.note}
-        </p>
-      )}
-      {(row.why || row.flags.notes.length > 0) && (
-        <p className={`${LABEL} max-w-4xl`}>
-          {row.rule_id && <span className="font-mono">{row.rule_id} </span>}
-          {row.why}
-          {row.flags.notes.length > 0 && <span className={statusText.warn}> · {row.flags.notes.join(' · ')}</span>}
-        </p>
-      )}
-      {note && (
-        <p className={`text-xs ${note.kind === 'ok' ? statusText.ok : note.kind === 'retry' ? statusText.warn : statusText.bad}`} role="status">
-          {note.kind === 'retry' ? `${RETRY_LABEL}. ${note.text}` : note.text}
-        </p>
-      )}
+      {noteLine && <div style={{ gridColumn: '1 / -1' }}>{noteLine}</div>}
     </li>
   );
+}
+
+/** lg: tenant | agent | chips | UGX | days | action — the action column sizes to its button and never wraps. */
+const GRID_COLUMNS = 'minmax(0, 1.2fr) minmax(0, 1.3fr) minmax(0, 2fr) 6.5rem 3.5rem max-content';
+/** md: people | UGX | days | action, with the chips on a line of their own under it. */
+const GRID_COLUMNS_MD = 'minmax(0, 1fr) 5.5rem 3rem max-content';
+
+export type RowLayout = 'card' | 'md' | 'lg';
+
+/** card below md (600), a two-line row from md, one row from lg (1024). */
+export function rowLayoutFor(bp: import('./ui').Breakpoint): RowLayout {
+  return !atLeast(bp, 'md') ? 'card' : atLeast(bp, 'lg') ? 'lg' : 'md';
 }
 
 /** The confirm sheet and the one-at-a-time run behind "Push all N". */
@@ -454,6 +506,13 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
+  // Below md each row is a card and the list pages 20 at a time.
+  const bp = useBreakpoint();
+  const layout = rowLayoutFor(bp);
+  const card = layout === 'card';
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [only, scope]);
+  const visible = card ? rows.slice(0, page * PHONE_PAGE) : rows;
   // One batch call each per board load, for the desks that show them.
   const health = useTenantHealthMany((data?.rows ?? []).map((r) => r.tenant_id), stage === 'tenant_ops' || stage === 'landlord_ops');
   const concerns = useConcernsSummary((data?.rows ?? []).map((r) => r.id), stage === 'tenant_ops' || stage === 'landlord_ops');
@@ -587,25 +646,47 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       {rows.length === 0 ? (
         <EmptyState>{only ? `Nothing in ${GROUP_LABEL[only]}.` : 'Nothing is waiting at this desk.'}</EmptyState>
       ) : (
-        <ul>
-          {rows.map((r) => (
-            <BoardRowLine
-              key={r.id}
-              row={r}
-              stage={stage}
-              canAct={canAct}
-              board={board}
-              note={notes[r.id]}
-              busy={busy === r.id}
-              onPrimary={() => void primary(r)}
-              onRetry={() => void retry(r)}
-              onOpen={onOpen}
-              onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
-              health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
-              concerns={concerns.data?.[r.id]}
-            />
+        <div style={stackLayout(card ? 12 : 4)}>
+          {groupRows(visible).map((g) => (
+            <section key={g.decision} aria-label={`${groupHeading(g.decision, stage)} · ${g.rows.length}`}>
+              {/* Sticky while its rows scroll past; below md it sits under the 56 px header bar. */}
+              <h3
+                data-group-head={g.decision}
+                className="text-sm font-semibold text-foreground"
+                style={{ position: 'sticky', top: card ? 56 : 0, zIndex: 5, margin: 0, padding: '6px 0', background: 'hsl(var(--background))' }}
+              >
+                {groupHeading(g.decision, stage)} · {fmt('int', rows.filter((r) => r.decision === g.decision).length)}
+              </h3>
+              <ul style={{ ...stackLayout(card ? 12 : 0), margin: 0, padding: 0 }}>
+                {g.rows.map((r) => (
+                  <BoardRowLine
+                    key={r.id}
+                    row={r}
+                    stage={stage}
+                    canAct={canAct}
+                    board={board}
+                    layout={layout}
+                    note={notes[r.id]}
+                    busy={busy === r.id}
+                    onPrimary={() => void primary(r)}
+                    onRetry={() => void retry(r)}
+                    onOpen={onOpen}
+                    onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
+                    health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
+                    concerns={concerns.data?.[r.id]}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+          {card && visible.length < rows.length && (
+            <div>
+              <DecisionButton variant="quiet" size="md" onClick={() => setPage((n) => n + 1)} style={{ width: '100%' }}>
+                Show {fmt('int', Math.min(PHONE_PAGE, rows.length - visible.length))} more
+              </DecisionButton>
+            </div>
+          )}
+        </div>
       )}
       {limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null) && (
         <p className={LABEL}>{limitNote(stage, scope, data?.rows.length ?? 0, data?.scope_counts ?? null)}</p>

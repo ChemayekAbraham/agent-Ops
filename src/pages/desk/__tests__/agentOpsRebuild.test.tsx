@@ -88,7 +88,8 @@ describe('Agent Ops board decisions', () => {
   it('eligibility chip text', () => {
     expect(eligibilityChip({ eligible: true, pct: 62, new: false, open: 1 })).toEqual({ text: '62% collected ✓', tone: 'ok' });
     expect(eligibilityChip({ eligible: false, pct: 31, new: false, open: 0 })).toEqual({ text: '31% — below 50%', tone: 'bad' });
-    expect(eligibilityChip({ eligible: true, pct: null, new: true, open: 2 })).toEqual({ text: 'New agent 2/3', tone: 'idle' });
+    expect(eligibilityChip({ eligible: true, pct: null, new: true, open: 2 })).toEqual({ text: 'New agent · 2 open (limit 3)', tone: 'idle' });
+    expect(eligibilityChip({ eligible: false, pct: null, new: true, open: 11 })?.text).toBe('New agent · 11 open (limit 3)');
     expect(eligibilityChip({ eligible: false, pct: null, new: true, open: 4 })?.tone).toBe('bad');
     expect(eligibilityChip(null)).toBeNull();
   });
@@ -190,9 +191,12 @@ describe('COO board — frozen rows', () => {
     const pushable = await screen.findByText('2 pushable');
     expect(pushable.getAttribute('data-tone')).toBe('ok');
     expect(screen.getByText('1 frozen').getAttribute('data-tone')).toBe('idle');
-    const frozenChip = screen.getByText(/^Frozen — Agent below 50%/);
+    // The chip stays short ("Frozen", the sentence in its tooltip); the sentence has its own line.
+    const frozenChip = screen.getByText('Frozen');
     expect(frozenChip.getAttribute('data-tone')).toBe('idle');
+    expect(frozenChip.getAttribute('title')).toMatch(/^Frozen — Agent below 50%/);
     expect(frozenChip.closest('li')?.getAttribute('data-frozen')).toBe('true');
+    expect(screen.getByText(/^Frozen — Agent below 50%; back to Agent Ops on 12 Nov$/)).toBeTruthy();
   });
 
   it('top line and frozen wording', () => {

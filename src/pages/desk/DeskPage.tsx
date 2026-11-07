@@ -37,6 +37,7 @@ import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
 import { AgentsLiveFold } from './agents/AgentsLive';
+import { FlowPanel } from './flow/FlowPanel';
 import { OntologyTab } from './ontology/OntologyTab';
 
 const ROTATE_MS = 45_000;
@@ -640,6 +641,8 @@ function DeskView({
           <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
             Ready for your push
           </h2>
+          {/* IN / OUT first, straight under the heading: above the board's lead, period toggle, tiles and rows (the COO's sketch). */}
+          <FlowPanel deskId={desk.id} board={board} />
           {tabs}
           {extraView}
           {desk.id === 'cfo' ? (
@@ -677,6 +680,7 @@ function DeskView({
           <h2 id="desk-ready" className={`${board ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
             Ready for your push
           </h2>
+          <FlowPanel deskId={desk.id} board={board} />
           <PartnerOpsBoard board={board} />
         </section>
         <AccountabilityFold deskId={desk.id} board={board} />

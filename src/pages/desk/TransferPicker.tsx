@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
-import { DecisionButton, EmptyState, ErrorLine, LoadingRows } from './ui';
+import { DecisionButton, EmptyState, ErrorLine, LoadingRows, atLeast, useBreakpoint } from './ui';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError, rpc } from './reviewApi';
@@ -69,6 +69,8 @@ export function TransferPicker({
   /** Runs the same review + transfer as the suggested push, with this target and note. */
   onConfirm: (agentId: string, note: string) => Promise<string | null>;
 }) {
+  // A bottom sheet on phones, a centred card from md.
+  const sheetCentred = atLeast(useBreakpoint(), 'md');
   const q = useTransferOptions(requestId);
   const rows = useMemo(() => orderOptions(q.data ?? []), [q.data]);
   const [picked, setPicked] = useState<string | null>(null);
@@ -88,9 +90,18 @@ export function TransferPicker({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Pick an agent to transfer to">
+    <div
+      className="fixed inset-0 z-50 flex justify-center"
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: sheetCentred ? 'center' : 'flex-end' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Pick an agent to transfer to"
+    >
       <button type="button" aria-label="Close" onClick={busy ? undefined : onClose} className="absolute inset-0 bg-black/60" />
-      <div className="desk-root relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border border-[var(--desk-line-color)] shadow-2xl sm:rounded-3xl">
+      <div
+        className="desk-root relative flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden border border-[var(--desk-line-color)] shadow-2xl"
+        style={{ borderRadius: sheetCentred ? 24 : '24px 24px 0 0' }}
+      >
         <header className="flex items-start justify-between gap-3 border-b border-[var(--desk-line-color)] px-5 py-4">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold text-foreground">Transfer {tenant ?? 'the tenant'} to…</h2>

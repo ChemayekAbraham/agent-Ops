@@ -79,7 +79,7 @@ describe('Funders Dashboard listing', () => {
     expect(document.querySelector('tr[data-row="b"]')?.hasAttribute('data-welile-due')).toBe(true);
     expect(document.querySelector('tr[data-row="a"]')?.hasAttribute('data-welile-due')).toBe(false);
     // Held rows cannot be funded with Welile money.
-    expect(screen.getAllByRole('button', { name: 'Fund with Welile money' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Fund with Welile money/ })).toHaveLength(2);
     expect(screen.getByRole('searchbox', { name: 'Search listings' })).toBeTruthy();
   });
 

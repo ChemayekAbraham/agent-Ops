@@ -62,3 +62,14 @@ export const ugx = (v: number | null | undefined) =>
 
 export const rating = (v: number | null | undefined) =>
   v === null || v === undefined || Number.isNaN(Number(v)) ? '—' : String(Math.round(Number(v) * 10) / 10);
+
+/**
+ * The desk's lead, from funders_dashboard itself so it matches the tiles and
+ * the list: "11 on the funders' board, worth UGX 31,450,000 · 3 held by funders".
+ * Not the old pipeline feed, which still counted a request a funder had claimed.
+ */
+export function fundersLead(d: Pick<FundersDashboard, 'fund_today' | 'held_by_funders'>): string {
+  const n = Math.round(Number(d.fund_today.n ?? 0)).toLocaleString('en');
+  const held = Math.round(Number(d.held_by_funders.n ?? 0));
+  return `${n} on the funders' board, worth ${ugx(d.fund_today.ugx)}${held > 0 ? ` · ${held.toLocaleString('en')} held by funders` : ''}`;
+}
