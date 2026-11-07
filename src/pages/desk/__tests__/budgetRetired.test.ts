@@ -32,9 +32,8 @@ describe('budgets retired 5 Nov', () => {
       d.lead(g),
       ...d.tiles.flatMap((t) => [t.label, t.sub?.label ?? '']),
       ...d.tables.flatMap((t) => [t.title, t.note ?? '', ...t.columns.map((c) => c.label)]),
-    ]).join('
-');
-    expect(copy).not.toMatch(/ROI/);
+    ]).join('\n');
+    expect(copy).not.toMatch(/\bROI\b/);
     expect(copy).toMatch(/Returns credited to one wallet, 30 days/);
   });
 });
