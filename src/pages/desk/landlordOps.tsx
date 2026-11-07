@@ -5,7 +5,7 @@ import { fmt } from './format';
 import { readableError, rpc } from './reviewApi';
 import { DeskCallButton } from './deskCall';
 import { healthChip, type TenantHealth } from './paymentHealth';
-import { Chip, DecisionButton, ErrorLine, LoadingRows, rowLayout, stackLayout } from './ui';
+import { Chip, DecisionButton, ErrorLine, LoadingRows, rowLayout, stackLayout, atLeast, useBreakpoint } from './ui';
 
 /**
  * Landlord Ops on one screen, from `landlord_ops_context(p_request_id)`: the
@@ -97,12 +97,15 @@ export function ContactCards({ ctx, requestId }: { ctx: LandlordContext; request
   const l = ctx.landlord;
   const t = ctx.tenant;
   const a = ctx.agent;
+  const bp = useBreakpoint();
+  // One card across a phone, two from md, three from lg.
+  const cardCols = atLeast(bp, 'lg') ? 3 : atLeast(bp, 'md') ? 2 : 1;
   const mismatch = mobileMoneyMismatch(l?.name, l?.mobile_money_name);
   const hc = healthChip(t?.payment_health);
   const desk = 'landlord_ops';
 
   return (
-    <div className="grid gap-3 lg:grid-cols-3" style={{ display: 'grid', gap: 12 }}>
+    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: `repeat(${cardCols}, minmax(0, 1fr))` }} data-contact-cols={cardCols}>
       <Card title="Landlord">
         <Person
           name={l?.name}

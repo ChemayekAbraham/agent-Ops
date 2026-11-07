@@ -16,7 +16,7 @@ import { IntakeForm } from './IntakeForm';
 import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
 import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
-import { stackLayout } from './ui';
+import { DecisionButton, atLeast, stackLayout, useBreakpoint } from './ui';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
@@ -408,12 +408,47 @@ export function ReviewDrawer({
 
   const recordedButStuck = !!error && error.startsWith(RETRY_LABEL);
 
+  // Below md the drawer is a full-screen sheet and its two main buttons sit in
+  // a bar pinned to the bottom; from md it is a side drawer with them inline.
+  const bp = useBreakpoint();
+  const phone = !atLeast(bp, 'md');
+  const canSubmit = !!decision && !blockedReason && !busy && !recordedButStuck;
+  const submitButton = (
+    <button
+      type="button"
+      disabled={!decision || !!blockedReason || busy || recordedButStuck}
+      onClick={submit}
+      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
+        canSubmit ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
+      } disabled:cursor-not-allowed`}
+      style={phone ? { flex: '1 1 auto', minHeight: 44 } : undefined}
+    >
+      {busy ? 'Saving…' : 'Record the review and act'}
+    </button>
+  );
+  const retryButton = recordedButStuck && (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={retryMove}
+      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${statusGlass.warn}`}
+      style={phone ? { flex: '1 1 auto', minHeight: 44 } : undefined}
+    >
+      Retry the move only
+    </button>
+  );
+  const showActionBar = phone && !!req && !waitMode && (!photosTab || tab === 'review');
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
       <button type="button" aria-label="Close the review" onClick={onClose} className="absolute inset-0 bg-black/60" />
       {stage === 'coo' && cooReason.picker}
 
-      <div className="desk-root relative flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-[var(--desk-line-color)] shadow-2xl">
+      <div
+        data-drawer={phone ? 'sheet' : 'side'}
+        className={`desk-root relative flex h-full w-full flex-col overflow-hidden shadow-2xl ${phone ? '' : 'max-w-3xl border-l border-[var(--desk-line-color)]'}`}
+        style={phone ? { maxWidth: 'none' } : undefined}
+      >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--desk-line-color)] px-5 py-4">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-lg font-semibold text-foreground">
@@ -823,31 +858,12 @@ export function ReviewDrawer({
                 )}
                 {outcome && !error && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={!decision || !!blockedReason || busy || recordedButStuck}
-                    onClick={submit}
-                    className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-                      decision && !blockedReason && !busy && !recordedButStuck
-                        ? statusGlass.ok
-                        : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-                    } disabled:cursor-not-allowed`}
-                  >
-                    {busy ? 'Saving…' : 'Record the review and act'}
-                  </button>
-
-                  {recordedButStuck && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={retryMove}
-                      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${statusGlass.warn}`}
-                    >
-                      Retry the move only
-                    </button>
-                  )}
-                </div>
+                {!phone && (
+                  <div className="flex flex-wrap gap-2">
+                    {submitButton}
+                    {retryButton}
+                  </div>
+                )}
                 </>
                 )}
               </section>
@@ -873,6 +889,21 @@ export function ReviewDrawer({
             </div>
           )}
         </div>
+
+        {showActionBar && (
+          <div
+            data-action-bar
+            className="shrink-0 border-t border-[var(--desk-line-color)] bg-[hsl(var(--background))]"
+            style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+          >
+            {submitButton}
+            {retryButton || (
+              <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
+                Close
+              </DecisionButton>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

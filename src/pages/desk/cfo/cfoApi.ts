@@ -68,6 +68,9 @@ export type FundersDashboard = {
     ugx: number;
     by_funders: CountUgx;
     by_welile: CountUgx;
+    /** The funders split by who brought them; null while the server does not send them. */
+    by_officers: CountUgx | null;
+    by_self: CountUgx | null;
     avg_days_coo_to_funded: number | null;
   };
   can_fund_welile: boolean;
@@ -99,6 +102,8 @@ export function toDashboard(raw: unknown): FundersDashboard {
       ugx: num(f.ugx) ?? 0,
       by_funders: countUgx(f.by_funders),
       by_welile: countUgx(f.by_welile),
+      by_officers: f.by_officers ? countUgx(f.by_officers) : null,
+      by_self: f.by_self ? countUgx(f.by_self) : null,
       avg_days_coo_to_funded: num(f.avg_days_coo_to_funded),
     },
     can_fund_welile: d.can_fund_welile === true,

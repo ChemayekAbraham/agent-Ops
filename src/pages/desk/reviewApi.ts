@@ -27,6 +27,8 @@ export const NO_STAFF_ID = 'Needs an active employee account with a staff ID —
 export function readableError(error: unknown): string {
   const e = error as { code?: string; message?: string } | null;
   if (!e) return 'Something went wrong.';
+  // Desk access refusals are also 42501; they say so in their own words.
+  if (/not assigned to you/i.test(String(e.message ?? ''))) return 'This desk is not assigned to you';
   if (e.code === '42501') return NO_STAFF_ID;
   const msg = String(e.message ?? '');
   if (/42501/.test(msg) || /not authori[sz]ed/i.test(msg)) return NO_STAFF_ID;

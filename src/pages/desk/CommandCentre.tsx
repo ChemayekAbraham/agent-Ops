@@ -11,6 +11,7 @@ import { TodayByDesk, WentAgainstTheSystem, WhyRequestsBounce } from './Pipeline
 import { MorningBrief } from './MorningBrief';
 import { PushQueueCards } from './PushQueueCards';
 import { CommandAdditionCards, MoneyLine } from './CommandAdditions';
+import { FlowPanel } from './flow/FlowPanel';
 
 const num = (v: unknown): number | null =>
   v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v);
@@ -278,6 +279,8 @@ export function CommandCentre({
       {pipelineCards && (
         <>
           <MorningBrief board={false} enabled />
+          {/* The whole pipeline's IN / OUT, directly under the brief. Left off the wall display, which must fit one screen. */}
+          <FlowPanel deskId="command" board={false} />
           <PushQueueCards board={false} enabled />
         </>
       )}

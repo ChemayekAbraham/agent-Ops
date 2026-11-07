@@ -1,4 +1,8 @@
 # Funders Houses to fund switch
+- [x] Fix obsolete test imports after the restored discovery change.
+- [x] Restore empty-house discovery and amounts with pending-verification labels; preserve server funding enforcement and bookings.
+- [x] Run focused discovery regression tests and check preview signals (8 tests passed; build OK).
+- [ ] Restrict desk-script reading; waiting on user confirmation of intended readers for the automatic security finding.
 - [x] Apply fail-closed empty-house visibility to discovery, pins, recommendations and counts; preserve bookings and server errors.
 - [x] Run focused switch and discovery regression tests; verify available preview signals.
 - [ ] Verify through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.

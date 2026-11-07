@@ -5,7 +5,7 @@ import { fmt } from './format';
 import { LABEL, statusText } from './deskTheme';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
-import { Chip, EmptyState, ErrorLine, Fold, LoadingRows, Segmented } from './ui';
+import { Chip, EmptyState, ErrorLine, Fold, LoadingRows, Segmented, DataList, moneyCard, moneyFull, type DataColumn } from './ui';
 import { readableError, rpc } from './reviewApi';
 
 /**
@@ -87,6 +87,74 @@ function useEligibilityBoard(enabled: boolean) {
 
 const ugx = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
+type Ranked = { r: RankingRow; rank: number };
+
+/** "70%", red under 50% for an agent past the new-agent window, with the week's arrow. */
+function PctCell({ r }: { r: RankingRow }) {
+  const trend = pctTrend(r.pct, r.pct_week_ago);
+  const below = !r.new_agent && r.pct !== null && Number(r.pct) < 50;
+  return (
+    <span className={`whitespace-nowrap tabular-nums ${below ? statusText.bad : 'text-foreground'}`}>
+      {r.pct === null ? '—' : `${Math.round(Number(r.pct))}%`}
+      {trend === 'up' && <ArrowUp className={`ml-0.5 inline h-3.5 w-3.5 ${statusText.ok}`} aria-label={`up from ${Math.round(Number(r.pct_week_ago))}% a week ago`} />}
+      {trend === 'down' && <ArrowDown className={`ml-0.5 inline h-3.5 w-3.5 ${statusText.bad}`} aria-label={`down from ${Math.round(Number(r.pct_week_ago))}% a week ago`} />}
+    </span>
+  );
+}
+
+function StagePills({ r }: { r: RankingRow }) {
+  const open = OPEN_STAGES.filter((st) => Number(r.open?.[st.key] ?? 0) > 0);
+  if (open.length === 0) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {open.map((st) => (
+        <Chip key={st.key} title={`${r.open?.[st.key]} open at ${st.name}`} className="tabular-nums">
+          {st.short} {fmt('int', r.open?.[st.key])}
+        </Chip>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * One definition, two shapes (ui/DataList): a table from md, cards below.
+ *   priority 1  name (with grade and call) and % collected
+ *   priority 2  collected / due and plans
+ *   priority 3  open requests by stage, under "More" on a card
+ */
+export const RANKING_COLUMNS: DataColumn<Ranked>[] = [
+  {
+    key: 'agent',
+    label: 'Agent',
+    priority: 1,
+    text: ({ r, rank }) => `${rank}. ${r.agent ?? ''}`,
+    render: ({ r, rank }) => (
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: 6 }}>
+        <span className="tabular-nums text-muted-foreground">{rank}.</span>
+        <span className="text-foreground">{r.agent ?? '—'}</span>
+        <GradeBadge agentId={r.agent_id} grade={r.grade} weekAgo={null} />
+        <DeskCallButton target={{ requestId: null, desk: 'agent_ops', subject: 'agent', calleeId: r.agent_id, name: r.agent, phone: r.phone }} />
+        {r.new_agent && <span className="text-xs text-muted-foreground">New agent · {fmt('int', r.open_requests)} open</span>}
+      </span>
+    ),
+  },
+  { key: 'pct', label: 'Collected', priority: 1, align: 'right', text: ({ r }) => (r.pct === null ? '' : `${Math.round(Number(r.pct))}%`), render: ({ r }) => <PctCell r={r} /> },
+  {
+    key: 'money',
+    label: 'Collected / due',
+    priority: 2,
+    align: 'right',
+    text: ({ r }) => `${moneyFull(r.collected ?? 0)} / ${moneyFull(r.due ?? 0)}`,
+    render: ({ r }) => (
+      <span className="whitespace-nowrap tabular-nums" title={`${moneyFull(r.collected ?? 0)} of ${moneyFull(r.due ?? 0)}`}>
+        {moneyCard(r.collected ?? 0)} / {moneyCard(r.due ?? 0)}
+      </span>
+    ),
+  },
+  { key: 'plans', label: 'Plans', priority: 2, align: 'right', text: ({ r }) => `${r.plans ?? ''} plans`, render: ({ r }) => <span className="tabular-nums">{fmt('int', r.plans)} plans</span> },
+  { key: 'open', label: 'Open by stage', priority: 3, text: () => '', render: ({ r }) => <StagePills r={r} /> },
+];
+
 function RankingBody() {
   const q = useEligibilityBoard(true);
   const [filter, setFilter] = useState<RankingFilter>('all');
@@ -113,66 +181,13 @@ function RankingBody() {
         onChange={(f) => f !== null && setFilter(f)}
       />
 
-      {shown.length === 0 ? (
-        <EmptyState>No agents in this view.</EmptyState>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
-            <thead>
-              <tr className={`${LABEL} text-left`}>
-                <th className="px-2 py-1.5 text-right font-normal">#</th>
-                <th className="px-2 py-1.5 font-normal">Agent</th>
-                <th className="px-2 py-1.5 text-right font-normal">Collected</th>
-                <th className="px-2 py-1.5 text-right font-normal">Collected / due (UGX)</th>
-                <th className="px-2 py-1.5 text-right font-normal">Plans</th>
-                <th className="px-2 py-1.5 font-normal">Open by stage</th>
-                <th className="px-2 py-1.5 font-normal">Grade</th>
-                <th className="px-2 py-1.5 font-normal" aria-label="Call" />
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map(({ r, rank }) => {
-                const trend = pctTrend(r.pct, r.pct_week_ago);
-                const below = !r.new_agent && r.pct !== null && Number(r.pct) < 50;
-                return (
-                  <tr key={r.agent_id} className="border-t border-[var(--desk-line-color)] align-top">
-                    <td className={`${LABEL} px-2 py-1.5 text-right tabular-nums`}>{rank}</td>
-                    <td className="px-2 py-1.5">
-                      <span className="block text-foreground">{r.agent ?? '—'}</span>
-                      {r.new_agent && <span className="text-xs text-muted-foreground">New agent · {fmt('int', r.open_requests)} open</span>}
-                    </td>
-                    <td className={`whitespace-nowrap px-2 py-1.5 text-right tabular-nums ${below ? statusText.bad : 'text-foreground'}`}>
-                      {r.pct === null ? '—' : `${Math.round(Number(r.pct))}%`}
-                      {trend === 'up' && <ArrowUp className={`ml-0.5 inline h-3.5 w-3.5 ${statusText.ok}`} aria-label={`up from ${Math.round(Number(r.pct_week_ago))}% a week ago`} />}
-                      {trend === 'down' && <ArrowDown className={`ml-0.5 inline h-3.5 w-3.5 ${statusText.bad}`} aria-label={`down from ${Math.round(Number(r.pct_week_ago))}% a week ago`} />}
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-foreground">
-                      {ugx.format(Number(r.collected ?? 0))} / {ugx.format(Number(r.due ?? 0))}
-                    </td>
-                    <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt('int', r.plans)}</td>
-                    <td className="px-2 py-1.5">
-                      <span className="flex flex-wrap gap-1" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                        {OPEN_STAGES.filter((st) => Number(r.open?.[st.key] ?? 0) > 0).map((st) => (
-                          <Chip key={st.key} title={`${r.open?.[st.key]} open at ${st.name}`} className="tabular-nums">
-                            {st.short} {fmt('int', r.open?.[st.key])}
-                          </Chip>
-                        ))}
-                        {OPEN_STAGES.every((st) => !Number(r.open?.[st.key] ?? 0)) && <span className="text-xs text-muted-foreground">—</span>}
-                      </span>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <GradeBadge agentId={r.agent_id} grade={r.grade} weekAgo={null} />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <DeskCallButton target={{ requestId: null, desk: 'agent_ops', subject: 'agent', calleeId: r.agent_id, name: r.agent, phone: r.phone }} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataList<Ranked>
+        label="agents"
+        columns={RANKING_COLUMNS}
+        rows={shown}
+        rowKey={(x) => x.r.agent_id}
+        emptyText="No agents in this view."
+      />
     </div>
   );
 }

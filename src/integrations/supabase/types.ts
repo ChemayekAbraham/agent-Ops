@@ -121,6 +121,30 @@ export type Database = {
         }
         Relationships: []
       }
+      accountability_rules: {
+        Row: {
+          active: boolean
+          found_at: string
+          label: string
+          responsible: string[]
+          signal: string
+        }
+        Insert: {
+          active?: boolean
+          found_at: string
+          label: string
+          responsible: string[]
+          signal: string
+        }
+        Update: {
+          active?: boolean
+          found_at?: string
+          label?: string
+          responsible?: string[]
+          signal?: string
+        }
+        Relationships: []
+      }
       advance_deduction_sms_summary_log: {
         Row: {
           agent_id: string
@@ -16462,6 +16486,93 @@ export type Database = {
           transaction_id?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      desk_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          desk: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          desk: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          desk?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      desk_responsibilities: {
+        Row: {
+          accountability: string
+          desk: string
+          must_not: string | null
+          role_line: string
+          steps: string[]
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          accountability: string
+          desk: string
+          must_not?: string | null
+          role_line: string
+          steps: string[]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          accountability?: string
+          desk?: string
+          must_not?: string | null
+          role_line?: string
+          steps?: string[]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      desk_scripts: {
+        Row: {
+          body: string
+          desk: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          body: string
+          desk: string
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          body?: string
+          desk?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
         }
         Relationships: []
       }
@@ -43262,6 +43373,81 @@ export type Database = {
           },
         ]
       }
+      pipeline_concerns: {
+        Row: {
+          category: string
+          desk: string
+          id: number
+          note: string
+          raised_at: string
+          raised_by: string
+          raised_staff_ref: string | null
+          rent_request_id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+        }
+        Insert: {
+          category: string
+          desk: string
+          id?: number
+          note: string
+          raised_at?: string
+          raised_by: string
+          raised_staff_ref?: string | null
+          rent_request_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+        }
+        Update: {
+          category?: string
+          desk?: string
+          id?: number
+          note?: string
+          raised_at?: string
+          raised_by?: string
+          raised_staff_ref?: string | null
+          rent_request_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+        }
+        Relationships: []
+      }
+      pipeline_followups: {
+        Row: {
+          desk: string
+          id: number
+          note: string
+          noted_at: string
+          noted_by: string
+          noted_staff_ref: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          desk?: string
+          id?: number
+          note: string
+          noted_at?: string
+          noted_by: string
+          noted_staff_ref?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          desk?: string
+          id?: number
+          note?: string
+          noted_at?: string
+          noted_by?: string
+          noted_staff_ref?: string | null
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
       pipeline_intake_details: {
         Row: {
           captured_at: string
@@ -50693,6 +50879,42 @@ export type Database = {
             referencedColumns: ["plan_id"]
           },
         ]
+      }
+      rent_request_stage_events: {
+        Row: {
+          actor: string | null
+          from_status: string | null
+          id: number
+          meta: Json
+          occurred_at: string
+          reason: string | null
+          rent_request_id: string
+          source: string
+          to_status: string
+        }
+        Insert: {
+          actor?: string | null
+          from_status?: string | null
+          id?: never
+          meta?: Json
+          occurred_at?: string
+          reason?: string | null
+          rent_request_id: string
+          source?: string
+          to_status: string
+        }
+        Update: {
+          actor?: string | null
+          from_status?: string | null
+          id?: never
+          meta?: Json
+          occurred_at?: string
+          reason?: string | null
+          rent_request_id?: string
+          source?: string
+          to_status?: string
+        }
+        Relationships: []
       }
       rent_requests: {
         Row: {
@@ -74810,6 +75032,18 @@ export type Database = {
       }
     }
     Functions: {
+      _accountability_events: {
+        Args: { p_since: string }
+        Returns: {
+          found_at: string
+          found_on: string
+          label: string
+          person_id: string
+          rent_request_id: string
+          responsible_stage: string
+          signal: string
+        }[]
+      }
       _advance_day_figures: {
         Args: { p_advance_id: string }
         Returns: Record<string, unknown>
@@ -75250,6 +75484,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      _can_manage_desks: { Args: { p_uid: string }; Returns: boolean }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -75395,6 +75630,7 @@ export type Database = {
         }[]
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
+      _desk_gate: { Args: { p_desks: string[] }; Returns: boolean }
       _desk_stage_counts: {
         Args: never
         Returns: {
@@ -75478,6 +75714,8 @@ export type Database = {
         Returns: boolean
       }
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
+      _is_active_employee: { Args: { p_uid: string }; Returns: boolean }
+      _is_all_desk: { Args: { p_uid: string }; Returns: boolean }
       _is_landlord_payout_owner: { Args: never; Returns: boolean }
       _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
       _landlord_cc_events_in_window: {
@@ -75739,6 +75977,7 @@ export type Database = {
         Returns: Json
       }
       _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
+      _prev_stage: { Args: { p_stage: string }; Returns: string }
       _release_unpaid_commission_budget: {
         Args: {
           p_budget: number
@@ -75999,6 +76238,7 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
+      _stage_rank: { Args: { p: string }; Returns: number }
       _tenant_ops_dormant_days_amclock: {
         Args: never
         Returns: {
@@ -76065,6 +76305,7 @@ export type Database = {
           total_active_tenants: number
         }[]
       }
+      _tenant_payment_health: { Args: { p_tenant: string }; Returns: Json }
       _tenant_payment_score_core: {
         Args: { p_as_at: string; p_tenant_ids: string[] }
         Returns: {
@@ -81642,11 +81883,43 @@ export type Database = {
         Returns: string
       }
       derive_welile_ai_id: { Args: { p_user_id: string }; Returns: string }
+      desk_access_add: {
+        Args: { p_desk: string; p_user: string }
+        Returns: Json
+      }
+      desk_access_candidates: { Args: { p_search?: string }; Returns: Json }
+      desk_access_list: { Args: never; Returns: Json }
+      desk_access_remove: {
+        Args: { p_desk: string; p_user: string }
+        Returns: Json
+      }
+      desk_accountability: {
+        Args: { p_days?: number; p_desk?: string }
+        Returns: Json
+      }
       desk_agents_live: { Args: { p_days?: number }; Returns: Json }
+      desk_assign: {
+        Args: { p_desk: string; p_note?: string; p_user: string }
+        Returns: Json
+      }
+      desk_assignment_list: { Args: never; Returns: Json }
       desk_budget_burn: { Args: never; Returns: Json }
       desk_feed: { Args: { p_feed: string }; Returns: Json }
+      desk_flow: { Args: { p_desk: string }; Returns: Json }
       desk_morning_brief: { Args: never; Returns: Json }
+      desk_my_access: { Args: never; Returns: Json }
       desk_my_sc_scope: { Args: never; Returns: Json }
+      desk_responsibilities_set: {
+        Args: {
+          p_accountability: string
+          p_desk: string
+          p_must_not: string
+          p_role_line: string
+          p_steps: string[]
+          p_title: string
+        }
+        Returns: Json
+      }
       desk_sc_people: {
         Args: never
         Returns: {
@@ -81659,6 +81932,11 @@ export type Database = {
           person_id: string
           phone: string
         }[]
+      }
+      desk_script: { Args: { p_desk: string }; Returns: Json }
+      desk_script_set: {
+        Args: { p_body: string; p_desk: string; p_title: string }
+        Returns: Json
       }
       desk_stage_flow: { Args: never; Returns: Json }
       desk_stage_trend: {
@@ -81675,6 +81953,7 @@ export type Database = {
           waiting_ugx_now: number
         }[]
       }
+      desk_unassign: { Args: { p_user: string }; Returns: Json }
       detect_bulk_payout_stuck_alerts: {
         Args: never
         Returns: {
@@ -89137,6 +89416,7 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_ops_context: { Args: { p_request_id: string }; Returns: Json }
       landlord_ops_district_alias_status: {
         Args: { p_recorded_text: string }
         Returns: Json
@@ -91637,6 +91917,7 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_ops_board: { Args: { p_period?: string }; Returns: Json }
       partner_ops_bulk_delete_proxy_agents: {
         Args: { p_agent_ids: string[]; p_reason: string }
         Returns: Json
@@ -91708,6 +91989,10 @@ export type Database = {
       }
       partner_ops_list_self_topup_reviews: {
         Args: { p_limit?: number; p_status?: string }
+        Returns: Json
+      }
+      partner_ops_note_followup: {
+        Args: { p_note: string; p_request_id: string }
         Returns: Json
       }
       partner_ops_onboard_proxy_agent: {
@@ -92556,6 +92841,11 @@ export type Database = {
         Args: { p_desk: string; p_reason?: string; p_request_id: string }
         Returns: boolean
       }
+      pipeline_concerns_list: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_concerns_summary: {
+        Args: { p_request_ids: string[] }
+        Returns: Json
+      }
       pipeline_coo_board: { Args: never; Returns: Json }
       pipeline_coo_funding_plan: {
         Args: never
@@ -92639,6 +92929,16 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      pipeline_raise_concern: {
+        Args: {
+          p_category: string
+          p_desk: string
+          p_note: string
+          p_request_id: string
+          p_severity: string
+        }
+        Returns: Json
+      }
       pipeline_recommend: {
         Args: { p_request_id: string; p_results: Json; p_stage: string }
         Returns: Json
@@ -92670,6 +92970,10 @@ export type Database = {
         }[]
       }
       pipeline_request_score: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_resolve_concern: {
+        Args: { p_concern_id: number; p_resolution: string }
+        Returns: Json
+      }
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
       pipeline_send_back_reasons: {
@@ -96686,6 +96990,10 @@ export type Database = {
           total_matched: number
           total_repayment: number
         }[]
+      }
+      tenant_payment_health_many: {
+        Args: { p_tenant_ids: string[] }
+        Returns: Json
       }
       tenant_payment_history: {
         Args: { p_limit?: number }

@@ -69,6 +69,41 @@ Every token below is on `.desk-root` in `index.css`. Light redefines the surface
 - **Board mode is always dark**, whatever was saved. (`resolveDeskTheme` in `deskPrefs.tsx`.)
 - **A sheet that opens its own `.desk-root`** follows the page's theme.
 
+## Responsive
+
+### Breakpoints
+
+`ui/breakpoints.ts` is the only source; `index.css` repeats the numbers, and a test checks they agree.
+
+| Band | Width | What changes |
+|---|---|---|
+| xs | < 360 | Segmented becomes a native select; the LIVE pill is a dot |
+| sm | 360–599 | One sticky header bar (≤ 56px), "Desk ▾" switcher, "Pipeline ▸" chip |
+| md | 600–1023 | Header on two rows with the tabs; density and staff ID in "⋯" |
+| lg | 1024–1439 | Light/Dark and Board mode in the bar |
+| xl | ≥ 1440 | The whole toolbar inline |
+| wall | ≥ 1920 | Board mode on a wall |
+
+### Pieces
+
+- **`DataList`**: one column definition gives a table or cards, decided by the list's **own width** (a ResizeObserver), not the window — so a list in a narrow panel on a wide screen still fits.
+  - Each column has a `kind` that sets its minimum width (`COLUMN_MIN`): name 160, money 110, date 90, chips 120, number 72, code 90, text 140, action 120; `minWidth` overrides it.
+  - The table shows only when the visible columns' minimums fit. Too narrow: priority-3 columns hide first (last first), then priority 2; what is hidden opens in the row's details (the chevron column). Only when priority 1 alone won't fit does it become cards. `planColumns(columns, width)` is the rule, pure and tested.
+  - The table is `table-layout: fixed`, so nothing runs off the right edge. `name` cells stay on one line and take an ellipsis only beyond their minimum (use `OneLine` inside a name cell that renders two lines); other cells clamp to two lines. The whole text is in the tooltip.
+  - On a card: priority 1 always, priority 2 a small line, priority 3 under "More"; or a board's own `card`. Search, "Show 10 / Show all" and the three states are built in.
+- **`RowCard`**: the phone card for a decision row. The primary label stays at 24 characters or fewer (`splitDecisionLabel` moves "→ target" to the line under it). Three chips show, then "+n".
+- **`Sheet`**: a bottom sheet on a phone and a centred card from md. Used by the desk switcher, the pipeline stages and the "⋯" menu.
+- **`format`**: on cards, write `daysShort` ("152 d", "<1 d"), `moneyCard` ("UGX 1.2M") and `pctWhole` ("65%"). On tables and in tooltips, write `moneyFull`.
+- **`plainReason` / `Reason`**: rule codes (AO-6, SC-1, …) leave the sentence and stay in the tooltip.
+
+### Rules
+
+- **No horizontal page scroll at any width, or at 200% zoom.** Rows wrap; tables and pill rows scroll inside their own box.
+- **Tiles** fit themselves (`minmax(150px, 1fr)`, at least two across a phone). Figures are `clamp(22px, 5vw, 36px)`, and long money shortens with the full value in the tooltip.
+- **Segmented never wraps.** It scrolls with fade edges and keeps the pressed option in view.
+- **Touch and type:** targets are at least 44px, and body text at least 14px on phones.
+- **Motion:** respect `prefers-reduced-motion`.
+
 ## The frame
 
 Every stage desk runs in this order:

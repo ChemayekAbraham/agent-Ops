@@ -29,6 +29,8 @@ import {
   decisionVariant,
   gradeStyle,
   tileFigureSize,
+  tileFigureCss,
+  TILE_PAD,
 } from '..';
 import { badgeFor } from '../../agentGrade';
 
@@ -239,13 +241,16 @@ describe('command-centre look', () => {
     expect(section.className).toContain('desk-fold');
   });
 
-  it('Tile figures use the command-centre sizes, stepping down for long money', () => {
+  it('Tile figures top out at the command-centre sizes and abbreviate long money', () => {
     expect(tileFigureSize('72%', false)).toBe(36);
     expect(tileFigureSize('72%', true)).toBe(44);
-    expect(tileFigureSize('UGX 14,350,000', false)).toBe(28);
-    expect(tileFigureSize('UGX 14,350,000', true)).toBe(36);
+    expect(tileFigureCss('72%', false)).toContain('clamp(22px, 5vw, 36px)');
     render(<Tile label="Waiting" value="113" trend={4} board={false} />);
     expect(screen.getByText('113').getAttribute('data-figure-size')).toBe('36');
+    render(<Tile label="Fund today" value="UGX 59,200,000" board={false} />);
+    const fig = screen.getByText('UGX 59.2M');
+    expect(fig.getAttribute('title')).toBe('UGX 59,200,000');
+    expect(fig.getAttribute('aria-label')).toBe('UGX 59,200,000');
   });
 
   it('TrendArrow: up on a queue is red, down green, no data is a dash', () => {
@@ -358,7 +363,8 @@ describe('late-CSS safety', () => {
     expect(group.style.gap).toBe('6px');
     const tile = screen.getByText('Fund today').parentElement as HTMLElement;
     expect(tile.style.display).toBe('flex');
-    expect(tile.style.padding).toBe('var(--desk-space-4, 16px)');
+    // Fluid: 12px on a phone to 20px from lg (jsdom cannot parse clamp(), so the constant is checked).
+    expect(TILE_PAD).toBe('clamp(12px, calc(2.4vw - 4.6px), 20px)');
   });
 });
 

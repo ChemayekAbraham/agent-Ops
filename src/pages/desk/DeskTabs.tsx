@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 import { CALM, FOCUS, prefersReducedMotion } from './deskTheme';
+import { Sheet } from './ui/Sheet';
 
 /**
  * The desk tab bar across the top of every desk.
@@ -157,3 +159,75 @@ export function DeskTabs({
     </nav>
   );
 }
+
+/**
+ * Below md the tab bar becomes one "Desk ▾" button that opens a sheet of the
+ * desks this person may open. With a single desk there is nothing to switch
+ * to, so only its name shows.
+ */
+export function DeskSwitcher({
+  desks,
+  activeId,
+  board,
+}: {
+  desks: { id: string; name: string }[];
+  activeId: string;
+  board: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = desks.find((d) => d.id === activeId);
+  const name = current?.name ?? 'Desk';
+
+  if (desks.length <= 1) {
+    return (
+      <span className="truncate text-base font-semibold text-foreground" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} data-desk-name>
+        {name}
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Desk: ${name}. Switch desk`}
+        onClick={() => setOpen(true)}
+        className={`rounded-lg text-base font-semibold text-foreground ${CALM} ${FOCUS}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0, minHeight: 44, maxWidth: '100%' }}
+        data-desk-switcher
+      >
+        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" style={{ flexShrink: 0 }} aria-hidden />
+      </button>
+      {open && (
+        <Sheet title="Switch desk" onClose={() => setOpen(false)}>
+          <nav aria-label="Desks">
+            <ul style={{ display: 'flex', flexDirection: 'column', gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
+              {desks.map((d) => {
+                const active = d.id === activeId;
+                return (
+                  <li key={d.id}>
+                    <Link
+                      to={`/desk/${d.id}${board ? '?board=1' : ''}`}
+                      aria-current={active ? 'page' : undefined}
+                      onClick={() => setOpen(false)}
+                      className={`rounded-xl text-base ${CALM} ${FOCUS} ${
+                        active ? 'bg-[hsl(var(--primary)/0.14)] font-semibold text-foreground' : 'text-foreground hover:bg-[var(--desk-surface-hover)]'
+                      }`}
+                      style={{ display: 'flex', alignItems: 'center', minHeight: 48, padding: '10px 14px' }}
+                    >
+                      {d.name}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </Sheet>
+      )}
+    </>
+  );
+}
+

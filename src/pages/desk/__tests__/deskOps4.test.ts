@@ -57,7 +57,7 @@ describe('PipelineStrip marks', () => {
     expect(stripMarks('agent-ops')).toEqual({ mine: '1', before: '0b' });
     expect(stripMarks('tenant-ops')).toEqual({ mine: '2', before: '1' });
     expect(stripMarks('landlord-ops')).toEqual({ mine: '3', before: '2' });
-    // Partner Ops is retired, so Landlord Ops is what comes to the COO.
+    // Landlord Ops is what comes to the COO.
     expect(stripMarks('coo')).toEqual({ mine: '5', before: '3' });
     expect(stripMarks('cfo')).toEqual({ mine: '6', before: '5' });
   });
@@ -68,9 +68,10 @@ describe('PipelineStrip marks', () => {
     expect(stripMarks('command')).toEqual({ mine: null, before: null });
   });
 
-  it('runs SC new → Landlord paid with Partner Ops retired', () => {
-    expect(STRIP_STAGES.map((s) => s.ord)).toEqual(['0b', '1', '2', '3', '4', '5', '6', '7']);
-    expect(STRIP_STAGES.filter((s) => s.retired).map((s) => s.label)).toEqual(['Partner Ops']);
+  it('runs SC → Agent Ops → Tenant Ops → Landlord Ops → COO → Funders, then Partner Ops selling the funders board', () => {
+    expect(STRIP_STAGES.map((s) => s.label)).toEqual(['SC new', 'Agent Ops', 'Tenant Ops', 'Landlord Ops', 'COO', 'Funders', 'Partner Ops', 'Landlord paid']);
+    expect(STRIP_STAGES.filter((s) => s.companion).map((s) => `${s.label} · ${s.companion}`)).toEqual(['Partner Ops · selling the funders board']);
+    expect(stripMarks('partner-ops')).toEqual({ mine: '4', before: '6' });
   });
 });
 

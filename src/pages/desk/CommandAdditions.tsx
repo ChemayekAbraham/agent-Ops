@@ -7,6 +7,7 @@ import { rpc } from './reviewApi';
 import { isMissingDbObject, logMissingOnce } from './deskLive';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
 import { Skeleton } from './Skeleton';
+import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { AgentsTodayLine } from './agents/AgentsLive';
 import {
   OWNER_LABEL,
@@ -358,10 +359,14 @@ export function CommandAdditionCards({ board, gaps, enabled }: { board: boolean;
   const waiting = useAllWaiting(enabled);
   if (!enabled) return null;
   return (
+    <>
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <WaitingByDesk board={board} waiting={waiting} />
       <TopBlockers board={board} gaps={gaps} waiting={waiting} />
       <ScPeople board={board} enabled={enabled} />
     </div>
+    {/* COO/CEO only; the fold hides itself for everyone else. */}
+    <AccountabilityFold deskId={null} board={board} />
+    </>
   );
 }

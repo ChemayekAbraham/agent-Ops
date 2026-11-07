@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import type { FunderNewReadyPlan } from '@/components/funder-new/types';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { DecisionButton, ErrorLine, LoadingRows, Segmented } from './ui';
+import { DecisionButton, ErrorLine, LoadingRows, Segmented, atLeast, useBreakpoint, type Breakpoint } from './ui';
 import { readableError, rpc } from './reviewApi';
 
 /**
@@ -115,8 +115,17 @@ function useCardPreview(requestId: string) {
 
 const noop = () => {};
 
+/** Photo grid columns: 2 on phones, 3 from md, 4 from lg. */
+export function photoColumns(bp: Breakpoint): 2 | 3 | 4 {
+  return atLeast(bp, 'lg') ? 4 : atLeast(bp, 'md') ? 3 : 2;
+}
+
 export function PhotoReview({ requestId }: { requestId: string }) {
   const queryClient = useQueryClient();
+  const bp = useBreakpoint();
+  const photoCols = photoColumns(bp);
+  // The funders' card goes beside the grid from lg, below it before that.
+  const wide = atLeast(bp, 'lg');
   const state = usePhotoState(requestId);
   const preview = useCardPreview(requestId);
   const [verdict, setVerdict] = useState<Record<string, Verdict>>({});
@@ -183,7 +192,11 @@ export function PhotoReview({ requestId }: { requestId: string }) {
   if (state.error) return <ErrorLine>{readableError(state.error)}</ErrorLine>;
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+    // The preview sits under the grid until lg, then beside it.
+    <div
+      data-layout={wide ? 'beside' : 'below'}
+      style={{ display: 'grid', gap: 16, gridTemplateColumns: wide ? 'minmax(0, 1fr) 18rem' : 'minmax(0, 1fr)' }}
+    >
       <section className={`${PANEL} space-y-3 p-4`} aria-label="House photos">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-sm font-semibold text-foreground">House photos</h3>
@@ -194,7 +207,7 @@ export function PhotoReview({ requestId }: { requestId: string }) {
         {photos.length === 0 ? (
           <p className={`text-sm ${statusText.bad}`}>No photos of the house were sent.</p>
         ) : (
-          <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <ul data-photo-cols={photoCols} style={{ display: 'grid', gap: 8, gridTemplateColumns: `repeat(${photoCols}, minmax(0, 1fr))`, margin: 0, padding: 0 }}>
             {photos.map((u, i) => {
               const v = verdict[u];
               const isMain = main === u;
