@@ -140,7 +140,9 @@ export const DESKS: Desk[] = [
   {
     // The id stays 'cfo' so the switch key stays desk_live:cfo; /desk/funders is an alias (DESK_ALIASES).
     id: 'cfo', name: 'Funders Dashboard', question: 'Which approved requests are funders taking, and which should Welile fund?', roles: DESK_ROLES['cfo'],
-    lead: (g) => `${g(st('6', 'n', 'int'))} requests approved by the COO are on the funders' board, worth ${g(st('6', 'ugx', 'ugx'))}.`,
+    // The lead comes from funders_dashboard itself (fundersLead), so it matches the tiles and the list;
+    // the pipeline feed's count still included a request a funder had claimed.
+    lead: () => '',
     // The Funders Dashboard draws its own tiles from funders_dashboard.
     tiles: [],
     tables: [

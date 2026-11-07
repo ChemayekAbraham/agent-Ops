@@ -46,13 +46,14 @@ const COLS: DataColumn<Row>[] = [
 /* ───────────── DataList ───────────── */
 
 describe('DataList', () => {
-  it('is a table from md (600 px) up and a card list below', () => {
+  it('is a table when its own width fits the columns, a card list when it does not', () => {
+    // jsdom has no layout, so the list falls back to the window's width.
     setWidth(600);
     const { unmount } = render(<DataList label="requests" columns={COLS} rows={ROWS} rowKey={(r) => r.id} />);
     expect(document.querySelector('[data-layout="table"]')).not.toBeNull();
-    expect(document.querySelector('th')?.style.position).toBe('sticky');
+    expect(document.querySelector('th:not(:first-child)')?.getAttribute('style')).toContain('position: sticky');
     unmount();
-    setWidth(599);
+    setWidth(300);
     render(<DataList label="requests" columns={COLS} rows={ROWS} rowKey={(r) => r.id} />);
     expect(document.querySelector('[data-layout="cards"]')).not.toBeNull();
     expect(document.querySelector('table')).toBeNull();

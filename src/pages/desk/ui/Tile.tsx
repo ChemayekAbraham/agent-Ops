@@ -72,8 +72,9 @@ export function Tile({
       </div>
       {sub && (
         <div
-          className={`${LABEL} truncate`}
-          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          className={LABEL}
+          // A sub-line wraps instead of being cut ("18 requests · Officers' funders 8 · Self 4 · Welile 6").
+          style={{ whiteSpace: 'normal', overflowWrap: 'break-word' }}
           title={typeof sub === 'string' ? sub : undefined}
         >
           {sub}

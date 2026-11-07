@@ -78,15 +78,19 @@ Every token below is on `.desk-root` in `index.css`. Light redefines the surface
 | Band | Width | What changes |
 |---|---|---|
 | xs | < 360 | Segmented becomes a native select; the LIVE pill is a dot |
-| sm | 360–599 | One sticky header bar (≤ 56px), "Desk ▾" switcher, "Pipeline ▸" chip, DataList as cards |
-| md | 600–1023 | Header on two rows with the tabs; DataList as a table; density and staff ID in "⋯" |
+| sm | 360–599 | One sticky header bar (≤ 56px), "Desk ▾" switcher, "Pipeline ▸" chip |
+| md | 600–1023 | Header on two rows with the tabs; density and staff ID in "⋯" |
 | lg | 1024–1439 | Light/Dark and Board mode in the bar |
 | xl | ≥ 1440 | The whole toolbar inline |
 | wall | ≥ 1920 | Board mode on a wall |
 
 ### Pieces
 
-- **`DataList`**: one column definition (`priority` 1–3) gives a table from md and cards below. Priority 1 is always on the card, priority 2 a small line, priority 3 under "More". It has search, "Show 10 / Show all", and the three states built in.
+- **`DataList`**: one column definition gives a table or cards, decided by the list's **own width** (a ResizeObserver), not the window — so a list in a narrow panel on a wide screen still fits.
+  - Each column has a `kind` that sets its minimum width (`COLUMN_MIN`): name 160, money 110, date 90, chips 120, number 72, code 90, text 140, action 120; `minWidth` overrides it.
+  - The table shows only when the visible columns' minimums fit. Too narrow: priority-3 columns hide first (last first), then priority 2; what is hidden opens in the row's details (the chevron column). Only when priority 1 alone won't fit does it become cards. `planColumns(columns, width)` is the rule, pure and tested.
+  - The table is `table-layout: fixed`, so nothing runs off the right edge. `name` cells stay on one line and take an ellipsis only beyond their minimum (use `OneLine` inside a name cell that renders two lines); other cells clamp to two lines. The whole text is in the tooltip.
+  - On a card: priority 1 always, priority 2 a small line, priority 3 under "More"; or a board's own `card`. Search, "Show 10 / Show all" and the three states are built in.
 - **`RowCard`**: the phone card for a decision row. The primary label stays at 24 characters or fewer (`splitDecisionLabel` moves "→ target" to the line under it). Three chips show, then "+n".
 - **`Sheet`**: a bottom sheet on a phone and a centred card from md. Used by the desk switcher, the pipeline stages and the "⋯" menu.
 - **`format`**: on cards, write `daysShort` ("152 d", "<1 d"), `moneyCard` ("UGX 1.2M") and `pctWhole` ("65%"). On tables and in tooltips, write `moneyFull`.

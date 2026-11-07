@@ -28,7 +28,11 @@ export type StripStage = {
   /** The desk that works this stage, or null for Landlord paid. */
   desk: string | null;
   label: string;
-  retired?: boolean;
+  /**
+   * A desk beside the flow rather than a stage requests wait in: shown with
+   * its note and no count (Partner Ops sells the funders' board).
+   */
+  companion?: string;
 };
 
 export const STRIP_STAGES: StripStage[] = [
@@ -36,24 +40,23 @@ export const STRIP_STAGES: StripStage[] = [
   { ord: '1', flowOrd: '2', desk: 'agent-ops', label: 'Agent Ops' },
   { ord: '2', flowOrd: '3', desk: 'tenant-ops', label: 'Tenant Ops' },
   { ord: '3', flowOrd: '4', desk: 'landlord-ops', label: 'Landlord Ops' },
-  { ord: '4', flowOrd: '5', desk: 'partner-ops', label: 'Partner Ops', retired: true },
   { ord: '5', flowOrd: '6', desk: 'coo', label: 'COO' },
   { ord: '6', flowOrd: '7', desk: 'cfo', label: 'Funders' },
+  { ord: '4', flowOrd: '5', desk: 'partner-ops', label: 'Partner Ops', companion: 'selling the funders board' },
   { ord: '7', flowOrd: '8', desk: null, label: 'Landlord paid' },
 ];
 
 /**
- * Which stage is this desk's, and which feeds it. Retired stages are skipped
- * when looking back: Partner Ops forwards to the COO, so the COO's "coming to
- * you" is Landlord Ops.
+ * Which stage is this desk's, and which feeds it. Companion steps are skipped
+ * when looking back, so the COO's "coming to you" is Landlord Ops and Partner
+ * Ops' is the Funders board it sells.
  */
 export function stripMarks(deskId: string): { mine: string | null; before: string | null } {
   const i = STRIP_STAGES.findIndex((s) => s.desk === deskId);
   if (i < 0) return { mine: null, before: null };
   const mine = STRIP_STAGES[i];
-  if (mine.retired) return { mine: mine.ord, before: null };
   for (let j = i - 1; j >= 0; j--) {
-    if (!STRIP_STAGES[j].retired) return { mine: mine.ord, before: STRIP_STAGES[j].ord };
+    if (!STRIP_STAGES[j].companion) return { mine: mine.ord, before: STRIP_STAGES[j].ord };
   }
   return { mine: mine.ord, before: null };
 }
@@ -94,7 +97,7 @@ export function PipelineStrip({ deskId, board, forceCompact }: { deskId: string;
           data-pipeline-chip
         >
           Pipeline
-          {mineStage && mineCount && (
+          {mineStage && !mineStage.companion && mineCount && (
             <span className="text-muted-foreground">
               · {mineStage.label} <span className="tabular-nums text-foreground">{fmt('int', mineCount.n)}</span>
             </span>
@@ -114,23 +117,23 @@ export function PipelineStrip({ deskId, board, forceCompact }: { deskId: string;
                     key={st.ord}
                     aria-current={isMine ? 'step' : undefined}
                     className={`rounded-xl border ${isMine ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.1)]' : 'border-[var(--desk-line-soft)]'} text-sm`}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', minHeight: 48, borderWidth: 1, borderStyle: st.retired ? 'dashed' : 'solid', borderRadius: 12 }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', minHeight: 48, borderWidth: 1, borderStyle: 'solid', borderRadius: 12 }}
                   >
-                    {st.desk !== null && !st.retired && <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot[state]}`} style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0 }} aria-hidden />}
+                    {st.desk !== null && !st.companion && <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot[state]}`} style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0 }} aria-hidden />}
                     <span className={`${isMine ? 'font-semibold' : 'font-medium'} text-foreground`} style={{ flex: '1 1 auto', minWidth: 0 }}>
                       {st.label}
-                      {st.retired && <span className="text-muted-foreground"> · retired</span>}
+                      {st.companion && <span className="text-muted-foreground"> · {st.companion}</span>}
                       {isMine && <span className="text-[hsl(var(--desk-lavender))]"> · you</span>}
                     </span>
-                    <span className="tabular-nums text-foreground">{p ? fmt('int', p.n) : '—'}<span className="sr-only"> waiting</span></span>
-                    {st.desk !== null && !st.retired && (
+                    {!st.companion && <span className="tabular-nums text-foreground">{p ? fmt('int', p.n) : '—'}<span className="sr-only"> waiting</span></span>}
+                    {st.desk !== null && !st.companion && (
                       <span className={`tabular-nums ${statusText[state]}`} title="Days to clear">
                         {clearText(f)}
                         {f && !Number.isNaN(Number(f.days_to_clear)) && f.days_to_clear !== null ? ' d' : ''}
                         <span className="sr-only"> to clear</span>
                       </span>
                     )}
-                    {!st.retired && <Trend t={trend.byOrd.get(String(f?.ord ?? st.flowOrd))} board={false} />}
+                    {!st.companion && <Trend t={trend.byOrd.get(String(f?.ord ?? st.flowOrd))} board={false} />}
                   </li>
                 );
               })}
@@ -157,12 +160,13 @@ export function PipelineStrip({ deskId, board, forceCompact }: { deskId: string;
           const isBefore = s.ord === before;
           const arrow = i < STRIP_STAGES.length - 1 ? <span className={`${text} self-center text-muted-foreground`} aria-hidden>→</span> : null;
 
-          if (s.retired) {
+          if (s.companion) {
             return (
-              <li key={s.ord} className="flex shrink-0 items-center gap-1.5">
-                <StripStep retired active={isMine} board={board} title="Partner Ops is retired; requests forward to the COO">
-                  {s.label} · retired — forwards to COO
-                  {p && Number(p.n) > 0 ? ` · ${fmt('int', p.n)} left` : ''}
+              <li key={s.ord} className="flex shrink-0 items-center gap-1.5" data-companion={s.desk ?? undefined}>
+                <StripStep active={isMine} board={board}>
+                  <span className={isMine ? 'font-semibold' : 'font-medium text-foreground'}>{s.label}</span>
+                  <span className="text-muted-foreground">· {s.companion}</span>
+                  {isMine && <span className="text-[11px] text-[hsl(var(--desk-lavender))]">you</span>}
                 </StripStep>
                 {arrow}
               </li>
