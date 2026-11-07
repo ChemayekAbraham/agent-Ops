@@ -11,7 +11,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' }, roles:
 import { drawerStartFor, eligibilityChip, opensDrawer, primaryLabel, type BoardRow } from '../boardApi';
 import { PhotoReview, photoSaveBlocked, previewPhotos } from '../PhotoReview';
 import { orderOptions, type TransferOption } from '../TransferPicker';
-import { cooTopLine, frozenText, isPushable, pushPlan, type CooRow } from '../CooBoard';
+import { CooBoard, cooTopLine, frozenText, isPushable, pushPlan, type CooRow } from '../CooBoard';
 import { matchesFilter, pctTrend, type RankingRow } from '../AgentRanking';
 import { intakeBlocked } from '../IntakeForm';
 
@@ -171,6 +171,28 @@ describe('COO board — frozen rows', () => {
     expect(pushPlan(rows, 10).rows.map((r) => r.id)).toEqual(['p1', 'p2']);
     expect(pushPlan(rows, 10).totalUgx).toBe(300_000);
     expect(isPushable(rows[1])).toBe(false);
+  });
+
+  it('renders the pushable / frozen chips and the frozen row as kit chips', async () => {
+    rpcMock.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'pipeline_coo_board'
+          ? { data: { counts: { A: 1, B: 0, C: 1, D: 0, unrated: 0, waiting: 0, pushable: 2, frozen: 1 }, can_push: true, rows }, error: null }
+          : { data: null, error: null },
+      ),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CooBoard board={false} onOpen={() => {}} />
+      </QueryClientProvider>,
+    );
+    const pushable = await screen.findByText('2 pushable');
+    expect(pushable.getAttribute('data-tone')).toBe('ok');
+    expect(screen.getByText('1 frozen').getAttribute('data-tone')).toBe('idle');
+    const frozenChip = screen.getByText(/^Frozen — Agent below 50%/);
+    expect(frozenChip.getAttribute('data-tone')).toBe('idle');
+    expect(frozenChip.closest('li')?.getAttribute('data-frozen')).toBe('true');
   });
 
   it('top line and frozen wording', () => {

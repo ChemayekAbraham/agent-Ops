@@ -171,15 +171,15 @@ function BoardRowLine({
               </DecisionButton>
             )
           )}
-          {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
-            <DecisionButton variant="quiet" disabled={busy || !canAct} onClick={onPick} title={canAct ? undefined : NEEDS_ROLE}>
-              Pick another…
-            </DecisionButton>
-          )}
-
           <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
             {(close) => (
               <>
+                {/* Agent Ops transfer rows: a different receiving agent, same review and move. */}
+                {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
+                  <MenuItem disabled={busy || !canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onPick(); }}>
+                    Pick another agent…
+                  </MenuItem>
+                )}
                 <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
                 <MenuItem disabled={!canAct} title={canAct ? undefined : NEEDS_ROLE} onClick={() => { close(); onOpen(row.id, 'wait'); }}>
                   Wait on…

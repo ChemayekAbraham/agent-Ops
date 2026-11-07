@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu } from './ui';
+import { Chip, DecisionButton, EmptyState, ErrorLine, GradeBadge, LoadingRows, MenuItem, MoreMenu, rowLayout } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { hoursUntil, ownerLabel, type BoardWaiting } from './boardApi';
 import { timeLeftText } from './waitOn';
@@ -85,6 +85,37 @@ export function cooTopLine(c: CooCounts): string {
   return parts.join(' · ');
 }
 
+/** "A 20 · B 40 · C 30 · D 23", plus unrated / on hold when there are any. */
+export function cooGradeLine(c: CooCounts): string {
+  const n = (k: keyof CooCounts) => Number(c[k] ?? 0);
+  const parts = [`A ${fmt('int', n('A'))}`, `B ${fmt('int', n('B'))}`, `C ${fmt('int', n('C'))}`, `D ${fmt('int', n('D'))}`];
+  if (n('unrated') > 0) parts.push(`${fmt('int', n('unrated'))} unrated`);
+  if (n('waiting') > 0) parts.push(`${fmt('int', n('waiting'))} on hold`);
+  return parts.join(' · ');
+}
+
+/**
+ * The board's top line. Once the server counts pushable and frozen rows they
+ * lead as chips; before that it reads "113 waiting · A 20 · …" as text.
+ */
+function CooTopLine({ counts, board }: { counts: CooCounts; board: boolean }) {
+  const size = board ? 'text-lg' : 'text-base';
+  if (counts.pushable === undefined || counts.pushable === null) {
+    return <p className={`${size} font-medium text-foreground`}>{cooTopLine(counts)}</p>;
+  }
+  return (
+    <div style={rowLayout(8)} aria-label={cooTopLine(counts)}>
+      <Chip size="sm" tone="ok" strong>
+        {fmt('int', counts.pushable)} pushable
+      </Chip>
+      <Chip size="sm" tone="idle">
+        {fmt('int', counts.frozen ?? 0)} frozen
+      </Chip>
+      <span className={`${size} font-medium text-foreground`}>{cooGradeLine(counts)}</span>
+    </div>
+  );
+}
+
 /** Rank order, best first. */
 export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
@@ -148,7 +179,7 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
     <li
       data-frozen={frozen ? 'true' : undefined}
       className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 border-t border-[var(--desk-line-color)] py-2 first:border-t-0 ${board ? 'text-base' : 'text-sm'} ${
-        frozen ? 'opacity-60 grayscale' : ''
+        frozen ? 'opacity-60' : ''
       }`}
     >
       <span className={`${LABEL} w-7 text-right tabular-nums`}>{row.rank ?? '—'}</span>
@@ -161,7 +192,7 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
       {r?.partly_rated && <span className="text-xs text-muted-foreground">partly rated</span>}
       <span className="tabular-nums text-muted-foreground">{fmt('days', row.days_here)} d</span>
       <span className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</span>
-      {frozen && <span className="text-xs text-muted-foreground">{frozenText(frozen)}</span>}
+      {frozen && <Chip tone="idle">{frozenText(frozen)}</Chip>}
       {w && (
         <span className={`${LABEL} inline-flex items-center gap-1`} title={w.note ?? undefined}>
           On hold for {ownerLabel(w.owner_kind, 'coo')} ·{' '}
@@ -276,7 +307,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
 
   return (
     <section className={`${PANEL} space-y-3 p-4 sm:p-5`}>
-      <p className={`${board ? 'text-lg' : 'text-base'} font-medium text-foreground`}>{cooTopLine(q.data?.counts ?? {})}</p>
+      <CooTopLine counts={q.data?.counts ?? {}} board={board} />
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="inline-flex items-center gap-1.5 text-sm text-foreground">
