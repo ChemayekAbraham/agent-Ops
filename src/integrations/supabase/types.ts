@@ -18877,6 +18877,27 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_previews: {
+        Row: {
+          added_at: string
+          added_by: string | null
+          feature: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by?: string | null
+          feature: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string | null
+          feature?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fee_revenue_ledger: {
         Row: {
           created_at: string
@@ -75577,6 +75598,56 @@ export type Database = {
             Args: { p_category: string; p_source_table: string }
             Returns: string
           }
+      _cfo_tenant_repayment_can_view: { Args: never; Returns: boolean }
+      _cfo_tenant_repayment_rows: {
+        Args: { p_only?: string }
+        Returns: {
+          access_fee: number
+          agent_id: string
+          agent_name: string
+          arrears: number
+          books_receivable: number
+          calc_outstanding: number
+          clock_bucket: string
+          clock_end: string
+          clock_start: string
+          days_behind: number
+          disbursed: number
+          duration_days: number
+          exceptions: string[]
+          expected_to_date: number
+          fees: number
+          funded_at: string
+          is_legacy: boolean
+          landlord_name: string
+          last_adjustment_at: string
+          last_receipt_at: string
+          ledger_backed_amount: number
+          manual_reduction_count: number
+          manual_reduction_total: number
+          obligation: number
+          obligation_reduced: number
+          principal: number
+          progress_pct: number
+          receipts_count: number
+          receipts_not_posted: number
+          rent_request_id: string
+          repaid_without_receipts: number
+          request_fee: number
+          reversed_amount: number
+          reversed_count: number
+          status: string
+          stored_outstanding: number
+          stored_repaid: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          unreceipted_repaid_increase: number
+          unverified_amount: number
+          unverified_count: number
+          verified_collected: number
+        }[]
+      }
       _claim_return_cycle: {
         Args: {
           p_actor: string
@@ -82388,6 +82459,7 @@ export type Database = {
         Returns: Json
       }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
+      feature_preview_on: { Args: { p_feature: string }; Returns: boolean }
       fin_correction_review_flags: {
         Args: { p: Json; p_collection_id: string }
         Returns: string[]
@@ -83285,6 +83357,8 @@ export type Database = {
         }[]
       }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
+      funders_home_counts: { Args: never; Returns: Json }
+      funders_map_points: { Args: never; Returns: Json }
       funding_commission_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -84836,6 +84910,59 @@ export type Database = {
           due_day: string
           item_count: number
           product_label: string
+        }[]
+      }
+      get_cfo_tenant_repayment_detail: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      get_cfo_tenant_repayment_register: {
+        Args: never
+        Returns: {
+          access_fee: number
+          agent_id: string
+          agent_name: string
+          arrears: number
+          books_receivable: number
+          calc_outstanding: number
+          clock_bucket: string
+          clock_end: string
+          clock_start: string
+          days_behind: number
+          disbursed: number
+          duration_days: number
+          exceptions: string[]
+          expected_to_date: number
+          fees: number
+          funded_at: string
+          is_legacy: boolean
+          landlord_name: string
+          last_adjustment_at: string
+          last_receipt_at: string
+          ledger_backed_amount: number
+          manual_reduction_count: number
+          manual_reduction_total: number
+          obligation: number
+          obligation_reduced: number
+          principal: number
+          progress_pct: number
+          receipts_count: number
+          receipts_not_posted: number
+          rent_request_id: string
+          repaid_without_receipts: number
+          request_fee: number
+          reversed_amount: number
+          reversed_count: number
+          status: string
+          stored_outstanding: number
+          stored_repaid: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          unreceipted_repaid_increase: number
+          unverified_amount: number
+          unverified_count: number
+          verified_collected: number
         }[]
       }
       get_cfo_treasury_wallet_flow_summary: {
