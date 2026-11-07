@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Navigate, NavLink, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
@@ -22,6 +22,7 @@ import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
+import { DeskTabs } from './DeskTabs';
 import { DoneTodayFold, FRAMED_DESKS, Fold, READY_TABLE, WaitingOnFold } from './DeskFrame';
 import { ReadyBoard, type OpenDrawer } from './ReadyBoard';
 import { CooBoard, RetiredFundNote } from './CooBoard';
@@ -567,23 +568,7 @@ function DeskShell() {
       </div>
 
       {allowed.length > 1 && (
-        <nav aria-label="Desks" className="flex gap-1 overflow-x-auto border-b border-[var(--desk-line-color)] pb-px">
-          {allowed.map((d) => (
-            <NavLink
-              key={d.id}
-              to={`/desk/${d.id}${board ? '?board=1' : ''}`}
-              className={() =>
-                `whitespace-nowrap rounded-t px-3 py-2 ${board ? 'text-base' : 'text-sm'} border-b-2 -mb-px ${CALM} ${FOCUS} ${
-                  d.id === desk.id
-                    ? 'border-[hsl(var(--primary))] text-foreground font-medium'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`
-              }
-            >
-              {d.name}
-            </NavLink>
-          ))}
-        </nav>
+        <DeskTabs desks={allowed} activeId={desk.id} board={board} />
       )}
     </header>
   );
