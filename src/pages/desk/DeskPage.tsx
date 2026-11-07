@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Maximize2, Minimize2, Moon, MoreHorizontal, Play, RefreshCw, Rows3, Square, Sun } from 'lucide-react';
@@ -815,7 +815,7 @@ function DeskShell() {
   }
 
   return (
-    <div className="desk-root min-h-screen" data-desk-theme={rootTheme} style={bannerInset ? { paddingBottom: bannerInset + 16 } : undefined}>
+    <div className="desk-root min-h-screen" data-desk-theme={rootTheme} style={bannerInset ? ({ paddingBottom: bannerInset + 16, '--desk-banner-inset': `${bannerInset}px` } as CSSProperties) : undefined}>
       <main className={`mx-auto w-full min-w-0 max-w-[1440px] space-y-6 px-4 sm:px-8 ${atLeast(bp, 'md') ? 'py-6' : 'pb-6 pt-0'}`}>
         {header}
         <DeskView key={desk.id} desk={desk} feeds={feeds} board={false} scOnly={scOnly} />

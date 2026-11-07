@@ -2079,6 +2079,10 @@ html.reduce-motion *::after {
 @media (max-width: 360px) {
   .desk-root [data-desk-header='compact'] { margin-left: -0.75rem !important; margin-right: -0.75rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
 }
+/* A bar that sticks inside a card on a phone (Approve / Reject): opaque, so the
+   rows scrolling under it never show through the glass. */
+.desk-root .desk-sticky-bar { background: hsl(var(--background)); }
+.desk-root[data-desk-theme='light'] .desk-sticky-bar { background: #ffffff; }
 /* Board mode on a wall (≥ 1920px): the page breathes wider. */
 @media (min-width: 1920px) {
   .desk-root[data-desk-wall] main { max-width: 1760px; }

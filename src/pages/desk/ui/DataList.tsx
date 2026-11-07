@@ -62,6 +62,8 @@ export function DataList<T>({
   limit = DEFAULT_LIMIT,
   board = false,
   forceLayout,
+  card,
+  rowAttrs,
 }: {
   columns: DataColumn<T>[];
   rows: T[];
@@ -76,6 +78,10 @@ export function DataList<T>({
   board?: boolean;
   /** Tests and harnesses: pin the shape regardless of width. */
   forceLayout?: 'table' | 'cards';
+  /** A board's own phone card for a row; replaces the priority layout below md. */
+  card?: (row: T) => ReactNode;
+  /** Extra data-* attributes for a row's <tr> / <li> (tests and styling hooks). */
+  rowAttrs?: (row: T) => Record<string, string | undefined>;
 }) {
   const bp = useBreakpoint();
   const layout = forceLayout ?? (atLeast(bp, 'md') ? 'table' : 'cards');
@@ -121,7 +127,7 @@ export function DataList<T>({
             </thead>
             <tbody>
               {shown.map((r) => (
-                <tr key={rowKey(r)} className="desk-row align-top" data-row={rowKey(r)}>
+                <tr key={rowKey(r)} className="desk-row align-top" data-row={rowKey(r)} {...rowAttrs?.(r)}>
                   {columns.map((c) => (
                     <td
                       key={c.key}
@@ -144,8 +150,15 @@ export function DataList<T>({
         {shown.map((r) => {
           const k = rowKey(r);
           const more = open[k];
+          if (card) {
+            return (
+              <li key={k} data-row={k} {...rowAttrs?.(r)} style={{ minWidth: 0 }}>
+                {card(r)}
+              </li>
+            );
+          }
           return (
-            <li key={k} data-row={k} className="desk-tile" style={{ ...stackLayout(4), padding: 12 }}>
+            <li key={k} data-row={k} {...rowAttrs?.(r)} className="desk-tile" style={{ ...stackLayout(4), padding: 12 }}>
               {titleCol && <div className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ overflowWrap: 'anywhere' }}>{titleCol.render(r)}</div>}
               {p1Rest.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 12px' }} className="text-sm text-foreground">

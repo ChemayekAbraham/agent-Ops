@@ -71,7 +71,11 @@ export function Tile({
         {trend !== undefined && <TrendArrow change={trend} board={board} upIsGood={trendUpIsGood} />}
       </div>
       {sub && (
-        <div className={`${LABEL} truncate`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <div
+          className={`${LABEL} truncate`}
+          style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          title={typeof sub === 'string' ? sub : undefined}
+        >
           {sub}
         </div>
       )}

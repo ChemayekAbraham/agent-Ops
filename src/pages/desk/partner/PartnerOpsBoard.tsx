@@ -4,7 +4,25 @@ import { ExternalLink, X } from 'lucide-react';
 import { CALM, FOCUS, LABEL, statusText } from '../deskTheme';
 import { DeskCallButton } from '../deskCall';
 import { eatTime } from '../ontology/ontologyApi';
-import { Card, Chip, DecisionButton, EmptyState, ErrorLine, LoadingRows, Segmented, Tile, TileRow } from '../ui';
+import {
+  Card,
+  Chip,
+  DataList,
+  DecisionButton,
+  EmptyState,
+  ErrorLine,
+  LoadingRows,
+  Reason,
+  Segmented,
+  Tile,
+  TileRow,
+  atLeast,
+  daysShort,
+  moneyCard,
+  useBreakpoint,
+  type DataColumn,
+} from '../ui';
+import { stackLayout } from '../ui/layout';
 import { readableError } from '../reviewApi';
 import {
   DEFAULT_PERIOD,
@@ -115,11 +133,87 @@ function PortfolioSheet({ p, action, onClose }: { p: PendingPortfolio; action: '
   );
 }
 
+function Receipt({ p }: { p: PendingPortfolio }) {
+  return p.receipt_file_url ? (
+    <a
+      href={p.receipt_file_url}
+      target="_blank"
+      rel="noreferrer"
+      className={`inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] underline-offset-2 hover:underline ${FOCUS}`}
+    >
+      <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Receipt
+    </a>
+  ) : (
+    <span className={`text-xs ${statusText.warn}`}>No receipt</span>
+  );
+}
+
+/**
+ * Below md: one portfolio as a card. Approve and Reject sit in a bar that
+ * sticks to the bottom of the screen while the card is in view, above the
+ * authenticator banner when it shows.
+ */
+function PortfolioCard({ p, onOpen }: { p: PendingPortfolio; onOpen: (action: 'approve' | 'reject') => void }) {
+  return (
+    <li data-portfolio={p.portfolio_id} className="desk-tile" style={{ ...stackLayout(8), padding: 12, paddingBottom: 0 }}>
+      <div style={{ ...stackLayout(2), minWidth: 0 }}>
+        <span className="text-base font-semibold text-foreground" style={{ overflowWrap: 'anywhere' }}>
+          {p.funder ?? '—'}
+        </span>
+        <span className="text-sm text-muted-foreground" style={{ overflowWrap: 'anywhere' }}>
+          via {p.officer ?? 'no officer'}
+          {p.code ? <span className="font-mono"> · {p.code}</span> : null}
+        </span>
+      </div>
+      <div className="text-sm" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px' }}>
+        <span className="font-semibold tabular-nums text-foreground" title={full(p.amount)} aria-label={full(p.amount)}>
+          {moneyCard(p.amount)}
+        </span>
+        {p.months ? <span className="tabular-nums text-muted-foreground">{int(p.months)} months</span> : null}
+        <Chip tone={Number(p.hours_waiting ?? 0) >= 24 ? 'warn' : 'idle'} className="tabular-nums">
+          {int(p.hours_waiting)} h waiting
+        </Chip>
+        <Receipt p={p} />
+      </div>
+      <div
+        data-portfolio-actions
+        className="desk-sticky-bar border-t border-[var(--desk-line-soft)]"
+        style={{
+          position: 'sticky',
+          bottom: 'var(--desk-banner-inset, 0px)',
+          zIndex: 2,
+          display: 'flex',
+          gap: 8,
+          margin: '0 -12px',
+          padding: '10px 12px calc(10px + env(safe-area-inset-bottom, 0px))',
+          borderBottomLeftRadius: 'inherit',
+          borderBottomRightRadius: 'inherit',
+        }}
+      >
+        <DecisionButton variant="primary" size="md" style={{ flex: '1 1 0' }} onClick={() => onOpen('approve')}>
+          Approve
+        </DecisionButton>
+        <DecisionButton size="md" style={{ flex: '1 1 0' }} onClick={() => onOpen('reject')}>
+          Reject…
+        </DecisionButton>
+      </div>
+    </li>
+  );
+}
+
 function PendingPortfolios({ rows, board }: { rows: PendingPortfolio[]; board: boolean }) {
   const [open, setOpen] = useState<{ p: PendingPortfolio; action: 'approve' | 'reject' } | null>(null);
+  const wide = atLeast(useBreakpoint(), 'md');
   if (rows.length === 0) return null;
   return (
     <Card title="Approve funder portfolios" hint={`${rows.length} waiting`} board={board}>
+      {!wide ? (
+        <ul style={{ ...stackLayout(10), margin: 0, padding: 0, listStyle: 'none' }} data-layout="cards">
+          {rows.map((p) => (
+            <PortfolioCard key={p.portfolio_id} p={p} onOpen={(action) => setOpen({ p, action })} />
+          ))}
+        </ul>
+      ) : (
       <ul>
         {rows.map((p) => (
           <li
@@ -135,13 +229,7 @@ function PendingPortfolios({ rows, board }: { rows: PendingPortfolio[]; board: b
             <Chip tone={Number(p.hours_waiting ?? 0) >= 24 ? 'warn' : 'idle'} className="tabular-nums">
               {int(p.hours_waiting)} h waiting
             </Chip>
-            {p.receipt_file_url ? (
-              <a href={p.receipt_file_url} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1 text-xs text-[hsl(var(--primary))] underline-offset-2 hover:underline ${FOCUS}`}>
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden /> Receipt
-              </a>
-            ) : (
-              <span className={`text-xs ${statusText.warn}`}>No receipt</span>
-            )}
+            <Receipt p={p} />
             <span className="ml-auto inline-flex items-center gap-1.5" style={{ display: 'inline-flex', gap: 6 }}>
               <DecisionButton variant="primary" onClick={() => setOpen({ p, action: 'approve' })}>Approve</DecisionButton>
               <DecisionButton onClick={() => setOpen({ p, action: 'reject' })}>Reject…</DecisionButton>
@@ -149,6 +237,7 @@ function PendingPortfolios({ rows, board }: { rows: PendingPortfolio[]; board: b
           </li>
         ))}
       </ul>
+      )}
       {open && <PortfolioSheet p={open.p} action={open.action} onClose={() => setOpen(null)} />}
     </Card>
   );
@@ -190,6 +279,47 @@ function FollowUpNote({ listing, onClose }: { listing: Listing; onClose: () => v
   );
 }
 
+function ListingCard({ l, board }: { l: Listing; board: boolean }) {
+  const [noting, setNoting] = useState(false);
+  const chip = decisionChip(l.decision);
+  const frozen = l.decision === 'frozen';
+  const last = lastFollowUpText(l.last_followup, eatTime);
+  return (
+    <li data-decision={l.decision} className={`desk-tile ${frozen ? 'opacity-60' : ''}`} style={{ ...stackLayout(8), padding: 12 }}>
+      <div style={{ ...stackLayout(2), minWidth: 0 }}>
+        <span className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`} style={{ overflowWrap: 'anywhere' }}>
+          {l.tenant ?? '—'}
+        </span>
+        <span className="text-sm text-muted-foreground" style={{ overflowWrap: 'anywhere' }}>
+          {l.agent ?? 'No agent'} · <span className="font-mono">{l.req ?? l.id.slice(0, 8)}</span>
+        </span>
+      </div>
+      <div className="text-sm" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 12px' }}>
+        <Chip tone={chip.tone} strong={chip.strong}>{chip.label}</Chip>
+        <span className="font-semibold tabular-nums text-foreground" title={full(l.rent)} aria-label={full(l.rent)}>
+          {moneyCard(l.rent)}
+        </span>
+        <span className="tabular-nums text-muted-foreground">{daysShort(l.days_on_board)} on board</span>
+      </div>
+      <Reason text={l.why} />
+      {last && (
+        <p className={LABEL} style={{ margin: 0 }} data-last-followup={l.id}>
+          {last}
+        </p>
+      )}
+      {l.decision === 'follow_up' && !noting && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <DeskCallButton target={{ requestId: l.id, desk: 'partner_ops', subject: 'agent', calleeId: l.agent_id, name: l.agent, phone: l.agent_phone }} />
+          <DecisionButton variant="primary" size="md" style={{ flex: '1 1 auto' }} onClick={() => setNoting(true)}>
+            Note follow-up
+          </DecisionButton>
+        </div>
+      )}
+      {noting && <FollowUpNote listing={l} onClose={() => setNoting(false)} />}
+    </li>
+  );
+}
+
 function ListingRow({ l, board }: { l: Listing; board: boolean }) {
   const [noting, setNoting] = useState(false);
   const chip = decisionChip(l.decision);
@@ -214,7 +344,7 @@ function ListingRow({ l, board }: { l: Listing; board: boolean }) {
           </span>
         )}
       </div>
-      {l.why && <p className={`${LABEL} max-w-4xl`}>{l.why}</p>}
+      <Reason text={l.why} />
       {lastFollowUpText(l.last_followup, eatTime) && (
         <p className={`${LABEL} max-w-4xl`} data-last-followup={l.id}>
           {lastFollowUpText(l.last_followup, eatTime)}
@@ -227,71 +357,74 @@ function ListingRow({ l, board }: { l: Listing; board: boolean }) {
 
 /* ───────────── officers ───────────── */
 
+function TargetBar({ o }: { o: Officer }) {
+  const p = targetProgress(o);
+  if (p === null) return <span className="text-xs text-muted-foreground">—</span>;
+  return (
+    <span className="block space-y-1" style={{ display: 'inline-block', minWidth: '9rem', verticalAlign: 'middle' }}>
+      <span className="block text-xs tabular-nums text-foreground">
+        {int(targetFunders(o))} of {int(o.monthly_target)} funders · {p}%
+      </span>
+      <span
+        className="block h-1.5 w-full overflow-hidden rounded-full bg-[var(--desk-surface)]"
+        role="progressbar"
+        aria-valuenow={p}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${o.officer ?? 'Officer'}: ${p}% of the monthly target`}
+        style={{ display: 'block', height: 6, borderRadius: 999, overflow: 'hidden' }}
+      >
+        <span className="block h-full rounded-full bg-[hsl(var(--primary))]" style={{ display: 'block', height: '100%', width: `${p}%` }} />
+      </span>
+    </span>
+  );
+}
+
+/** Ranked best first; the top 10, then "Show all", with search — the kit's DataList. */
 function OfficersTable({ rows, board }: { rows: Officer[]; board: boolean }) {
   const ranked = useMemo(() => rankOfficers(rows), [rows]);
-  if (ranked.length === 0) return <EmptyState board={board}>No field officers yet.</EmptyState>;
-  const th = `${LABEL} whitespace-nowrap px-2 py-1.5 font-medium`;
+  const place = useMemo(() => new Map(ranked.map((o, i) => [o.agent_id, i + 1])), [ranked]);
+  const columns = useMemo<DataColumn<Officer>[]>(
+    () => [
+      { key: 'rank', label: '#', priority: 3, align: 'right', render: (o) => String(place.get(o.agent_id) ?? '') },
+      { key: 'officer', label: 'Officer', priority: 1, render: (o) => o.officer ?? '—' },
+      {
+        key: 'call',
+        label: 'Call',
+        priority: 1,
+        render: (o) => <DeskCallButton target={{ requestId: null, desk: 'partner_ops', subject: 'agent', calleeId: o.agent_id, name: o.officer, phone: o.phone }} />,
+        text: () => '',
+      },
+      { key: 'invites', label: 'Invites', priority: 2, align: 'right', render: (o) => int(o.invites) },
+      { key: 'signups', label: 'Sign-ups', priority: 3, align: 'right', render: (o) => int(o.signups) },
+      { key: 'funders', label: 'Funders', priority: 2, align: 'right', render: (o) => int(o.funders) },
+      {
+        key: 'funded',
+        label: 'Funded',
+        priority: 1,
+        align: 'right',
+        render: (o) => (
+          <span className="whitespace-nowrap tabular-nums">
+            {int(o.funded)} <span className="text-muted-foreground">/ {ugxC(o.funded_ugx)}</span>
+          </span>
+        ),
+        text: (o) => `${int(o.funded)} / ${ugxC(o.funded_ugx)}`,
+      },
+      { key: 'contacts', label: 'Contacts', priority: 3, align: 'right', render: (o) => int(o.contacts) },
+      { key: 'target', label: 'Monthly target', priority: 2, render: (o) => <TargetBar o={o} />, text: () => '' },
+    ],
+    [place],
+  );
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] text-left text-sm">
-        <thead className="desk-thead">
-          <tr>
-            <th className={`${th} text-right`}>#</th>
-            <th className={th}>Officer</th>
-            <th className={th}><span className="sr-only">Call</span></th>
-            <th className={`${th} text-right`}>Invites</th>
-            <th className={`${th} text-right`}>Sign-ups</th>
-            <th className={`${th} text-right`}>Funders</th>
-            <th className={`${th} text-right`}>Funded</th>
-            <th className={`${th} text-right`}>Contacts</th>
-            <th className={th}>Monthly target</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ranked.map((o, i) => {
-            const p = targetProgress(o);
-            return (
-              <tr key={o.agent_id} data-officer={o.agent_id} className="desk-row border-t border-[var(--desk-line-color)] align-top">
-                <td className={`${LABEL} px-2 py-1.5 text-right tabular-nums`}>{i + 1}</td>
-                <td className="px-2 py-1.5 text-foreground">{o.officer ?? '—'}</td>
-                <td className="px-2 py-1.5">
-                  <DeskCallButton target={{ requestId: null, desk: 'partner_ops', subject: 'agent', calleeId: o.agent_id, name: o.officer, phone: o.phone }} />
-                </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{int(o.invites)}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{int(o.signups)}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{int(o.funders)}</td>
-                <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums text-foreground">
-                  {int(o.funded)} <span className="text-muted-foreground">/ {ugxC(o.funded_ugx)}</span>
-                </td>
-                <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{int(o.contacts)}</td>
-                <td className="min-w-[10rem] px-2 py-1.5">
-                  {p === null ? (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  ) : (
-                    <span className="block space-y-1">
-                      <span className="block text-xs tabular-nums text-foreground">
-                        {int(targetFunders(o))} of {int(o.monthly_target)} funders · {p}%
-                      </span>
-                      <span
-                        className="block h-1.5 w-full overflow-hidden rounded-full bg-[var(--desk-surface)]"
-                        role="progressbar"
-                        aria-valuenow={p}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        aria-label={`${o.officer ?? 'Officer'}: ${p}% of the monthly target`}
-                        style={{ display: 'block', height: 6, borderRadius: 999, overflow: 'hidden' }}
-                      >
-                        <span className="block h-full rounded-full bg-[hsl(var(--primary))]" style={{ display: 'block', height: '100%', width: `${p}%` }} />
-                      </span>
-                    </span>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <DataList<Officer>
+      label="field officers"
+      columns={columns}
+      rows={ranked}
+      rowKey={(o) => o.agent_id}
+      rowAttrs={(o) => ({ 'data-officer': o.agent_id })}
+      emptyText="No field officers yet."
+      board={board}
+    />
   );
 }
 
@@ -299,6 +432,7 @@ function OfficersTable({ rows, board }: { rows: Officer[]; board: boolean }) {
 
 export function PartnerOpsBoard({ board }: { board: boolean }) {
   const [period, setPeriod] = useState<PartnerPeriod>(DEFAULT_PERIOD);
+  const wide = atLeast(useBreakpoint(), 'md');
   const q = usePartnerOpsBoard(period);
   const b = q.data;
 
@@ -323,22 +457,22 @@ export function PartnerOpsBoard({ board }: { board: boolean }) {
         <ErrorLine>The Partner Ops board could not load: {readableError(q.error)}</ErrorLine>
       ) : b ? (
         <>
-          <TileRow max={4}>
+          {/* On a phone the money waiting for a yes comes before the figures. */}
+          {!wide && <PendingPortfolios rows={b.pending_portfolios} board={board} />}
+          <TileRow>
             {partnerTiles(b).map((t) => (
               <Tile key={t.key} label={t.label} value={t.value} sub={t.sub} tone={t.tone} board={board} />
             ))}
           </TileRow>
 
-          <PendingPortfolios rows={b.pending_portfolios} board={board} />
+          {wide && <PendingPortfolios rows={b.pending_portfolios} board={board} />}
 
           <Card title="Listings" hint="What funders can take, and what needs a push" board={board}>
             {b.listings.length === 0 ? (
               <EmptyState board={board}>Nothing is listed for funders right now.</EmptyState>
             ) : (
-              <ul>
-                {b.listings.map((l) => (
-                  <ListingRow key={l.id} l={l} board={board} />
-                ))}
+              <ul style={wide ? undefined : { ...stackLayout(10), margin: 0, padding: 0, listStyle: 'none' }} data-layout={wide ? 'rows' : 'cards'}>
+                {b.listings.map((l) => (wide ? <ListingRow key={l.id} l={l} board={board} /> : <ListingCard key={l.id} l={l} board={board} />))}
               </ul>
             )}
           </Card>
