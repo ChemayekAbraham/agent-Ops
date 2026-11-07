@@ -296,7 +296,9 @@ export function FundersDashboard({ board }: { board: boolean }) {
     {
       key: 'req',
       label: 'Request',
-      priority: 2,
+      // For approvers the Fund column needs the room: Request opens in the row's details instead,
+      // so Agent, Grade and Days stay visible at ~950 px.
+      priority: anyFundable ? 3 : 2,
       kind: 'code',
       render: (r) => <span className="font-mono text-xs text-muted-foreground">{r.req ?? r.id.slice(0, 8)}</span>,
       text: (r) => r.req ?? r.id.slice(0, 8),
@@ -337,13 +339,20 @@ export function FundersDashboard({ board }: { board: boolean }) {
             label: 'Action',
             priority: 1 as const,
             kind: 'action' as const,
-            minWidth: 200,
+            minWidth: 84,
             align: 'right' as const,
             render: (r: FundersRow) => {
               const fund = fundFor(r);
+              // "Fund" in the table; the whole action in the tooltip, the accessible name and the confirm sheet.
               return fund ? (
-                <DecisionButton variant="primary" disabled={busy || !!target} onClick={fund}>
-                  Fund with Welile money
+                <DecisionButton
+                  variant="primary"
+                  disabled={busy || !!target}
+                  onClick={fund}
+                  title="Fund with Welile money"
+                  aria-label={`Fund with Welile money: ${r.tenant ?? r.req ?? 'this request'}`}
+                >
+                  Fund
                 </DecisionButton>
               ) : null;
             },

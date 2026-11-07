@@ -130,15 +130,21 @@ describe('Funders board table', () => {
     expect(headers()).toEqual(['Request', 'Tenant', 'Agent', 'Grade', 'Days', 'Rent (UGX)', 'Status', 'Landlord', 'GPS · photos', 'Ratings · Agent / Tenant / Landlord']);
   });
 
-  it('an approver keeps Fund in the table; the lower-priority columns give way first', async () => {
+  it('an approver at ~950 px: "Fund" in the table, Agent / Grade / Days still visible, Request in the details', async () => {
     canFund = true;
-    setWidth(846);
+    setWidth(841);
     mount();
     await screen.findByText('Tenant a');
-    const h = headers();
-    expect(h).toContain('Action');
-    expect(h).toEqual(expect.arrayContaining(['Request', 'Tenant', 'Rent (UGX)', 'Status']));
-    expect(screen.getAllByRole('button', { name: 'Fund with Welile money' })).toHaveLength(1);
+    expect(headers()).toEqual(['Details', 'Tenant', 'Agent', 'Grade', 'Days', 'Rent (UGX)', 'Status', 'Action']);
+    expect(document.querySelector('table')?.getAttribute('data-hidden')).toBe('req landlord gps ratings');
+    const fund = screen.getByRole('button', { name: 'Fund with Welile money: Tenant a' });
+    expect(fund.textContent).toBe('Fund');
+    expect(fund.getAttribute('title')).toBe('Fund with Welile money');
+    // Held rows cannot be funded with Welile money.
+    expect(screen.getAllByRole('button', { name: /^Fund with Welile money/ })).toHaveLength(1);
+    // The confirm sheet still says the whole action.
+    fireEvent.click(fund);
+    expect(screen.getByRole('dialog', { name: 'Fund with Welile money' })).toBeTruthy();
   });
 
   it('the lead comes from funders_dashboard and matches the Fund today tile', async () => {
