@@ -126,9 +126,7 @@ function BoardRowLine({
           {row.agent ?? 'No agent'}
           <GradeBadge agentId={row.agent_id} grade={row.agent_grade} weekAgo={row.agent_grade_week_ago} />
           {elig && (
-            <span className={`desk-pill border px-2 py-0.5 text-[11px] ${statusGlass[elig.tone]}`} data-tone={elig.tone}>
-              {elig.text}
-            </span>
+            <Chip tone={elig.tone}>{elig.text}</Chip>
           )}
           <DeskCallButton
             disabled={!canAct}
@@ -174,9 +172,9 @@ function BoardRowLine({
             )
           )}
           {row.decision === 'transfer' && row.push && onPick && note?.kind !== 'retry' && note?.kind !== 'ok' && (
-            <button type="button" disabled={busy || !canAct} onClick={onPick} className={BTN_QUIET} title={canAct ? undefined : NEEDS_ROLE}>
+            <DecisionButton variant="quiet" disabled={busy || !canAct} onClick={onPick} title={canAct ? undefined : NEEDS_ROLE}>
               Pick another…
-            </button>
+            </DecisionButton>
           )}
 
           <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
