@@ -169,6 +169,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       ],
     },
     {
+      title: 'Rent Management',
+      items: [
+        { label: 'Tenant Repayment Tracker', icon: ClipboardCheck, id: 'tenant-repayment-tracker', access: CFO_ACCESS },
+      ],
+    },
+    {
       title: 'Money Out',
       items: [
       { label: 'Rent Payouts', icon: Banknote, id: 'rent-payouts' },
