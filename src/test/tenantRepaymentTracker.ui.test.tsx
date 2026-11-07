@@ -16,7 +16,8 @@ const base: RepaymentPlanRow = {
   rent_request_id: '00000000-0000-0000-0000-000000000001', status: 'repaying', tenant_id: 't1', tenant_name: 'Malinga Joel',
   tenant_phone: '+256752560978', agent_id: 'a1', agent_name: 'IAN MUHWEZI', landlord_name: 'musubika bridget', funded_at: '2026-10-08T09:05:40Z',
   clock_bucket: 'counting', clock_start: '2026-10-08', clock_end: '2026-11-06', duration_days: 30, principal: 1_000_000, access_fee: 330_000,
-  request_fee: 20_000, fees: 350_000, obligation: 1_350_000, disbursed: 1_000_000, verified_collected: 568_000, receipts_count: 10,
+  request_fee: 20_000, fees: 350_000, obligation: 1_350_000, disbursed: 1_000_000, verified_collected: 568_000, money_in_collected: 568_000,
+  pre_cutoff_collected: 0, receipts_count: 10,
   last_receipt_at: '2026-10-30T10:00:00Z', reversed_amount: 0, reversed_count: 0, ledger_backed_amount: 0, unverified_amount: 0,
   unverified_count: 0, stored_repaid: 568_000, stored_outstanding: 782_000, calc_outstanding: 782_000, progress_pct: 42.1,
   repaid_without_receipts: 0, manual_reduction_total: 0, manual_reduction_count: 0, unreceipted_repaid_increase: 0, obligation_reduced: 0,
@@ -25,14 +26,15 @@ const base: RepaymentPlanRow = {
 };
 const wasajja: RepaymentPlanRow = {
   ...base, rent_request_id: '00000000-0000-0000-0000-000000000002', status: 'completed', tenant_name: 'Wasajja Simon', tenant_phone: '+256781604060',
-  landlord_name: 'Mafabi Nasser', principal: 4_000_000, access_fee: 1_320_000, obligation: 5_340_000, verified_collected: 820_000, receipts_count: 1,
+  landlord_name: 'Mafabi Nasser', principal: 4_000_000, access_fee: 1_320_000, obligation: 5_340_000, verified_collected: 820_000,
+  money_in_collected: 820_000, receipts_count: 1,
   stored_repaid: 5_340_000, stored_outstanding: 0, calc_outstanding: 4_520_000, progress_pct: 15.4, repaid_without_receipts: 4_520_000,
   manual_reduction_total: 4_520_000, manual_reduction_count: 1, arrears: 4_520_000, days_behind: 25,
   exceptions: ['completed_with_balance', 'repaid_without_receipts', 'manual_balance_reduction'],
 };
 const clean: RepaymentPlanRow = {
   ...base, rent_request_id: '00000000-0000-0000-0000-000000000003', status: 'completed', tenant_name: 'Clean Tenant', tenant_phone: '+256700111222',
-  verified_collected: 1_350_000, stored_repaid: 1_350_000, stored_outstanding: 0, calc_outstanding: 0, progress_pct: 100, arrears: 0, days_behind: 0,
+  verified_collected: 1_350_000, money_in_collected: 0, pre_cutoff_collected: 1_350_000, stored_repaid: 1_350_000, stored_outstanding: 0, calc_outstanding: 0, progress_pct: 100, arrears: 0, days_behind: 0,
 };
 const cancelled: RepaymentPlanRow = { ...base, rent_request_id: '00000000-0000-0000-0000-000000000004', status: 'cancelled', tenant_name: 'Old Plan', arrears: 0 };
 const ROWS = [base, wasajja, clean, cancelled];
@@ -76,14 +78,16 @@ describe('tracker calculations (display layer only)', () => {
   it('CSV columns: numbers stay numbers, Yes/No for flags, exceptions as labels', () => {
     const t = csvTable([wasajja]);
     const at = (h: string) => t.rows[0][t.headers.indexOf(h)];
-    expect(at('Outstanding, verified basis (UGX)')).toBe(4_520_000);
+    expect(at('Outstanding (UGX)')).toBe(4_520_000);
+    expect(at('Collected on Money In from 1 Oct 2026 (UGX)')).toBe(820_000);
+    expect(at('Collected before 1 Oct 2026, receipts (UGX)')).toBe(0);
     expect(at('Recorded outstanding (UGX)')).toBe(0);
     expect(at('Funded before 1 Oct 2026')).toBe('No');
-    expect(at('Exceptions')).toBe('Completed with balance; Repaid without receipts; Balance reduced by an edit');
+    expect(at('Exceptions')).toBe('Completed with balance; Repaid without collections; Balance reduced by an edit');
     expect(t.headers.length).toBe(t.rows[0].length);
   });
   it('labels and adjustment lines are readable', () => {
-    expect(exceptionLabel('receipt_not_in_ledger')).toBe('Receipt missing from ledger');
+    expect(exceptionLabel('receipt_not_in_ledger')).toBe('Receipt not on Money In');
     expect(exceptionLabel('something_new')).toBe('something new');
     const f = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
     expect(adjustmentChange({ at: '', kind: '', status: null, by: null, old_outstanding: 5_340_000, new_outstanding: 820_000 }, f)).toBe('Outstanding UGX 5,340,000 to UGX 820,000');
@@ -108,8 +112,10 @@ describe('Tenant Repayment Tracker page', () => {
       if (fn === 'get_cfo_tenant_repayment_register') return Promise.resolve({ data: ROWS, error: null });
       if (fn === 'get_cfo_tenant_repayment_detail') return Promise.resolve({ data: {
         as_at: '2026-11-07T10:00:00Z', plan: wasajja, repayment_records: [],
+        money_in: [{ at: '2026-10-26T06:27:20Z', category: 'tenant_repayment_collected', direction: 'cash_in', amount: 820000, reference: 'MI-820',
+          group: 'g1', description: 'Tenant rent allocation settled for landlord Mafabi Nasser', counted: true }],
         receipts: [{ id: 'c1', at: '2026-10-26T06:27:00Z', amount: 820000, method: 'cash', reference: 'AGT-c279b10e', tracking_id: 'AGT-c279b10e',
-          agent: 'IAN MUHWEZI', path: 'agent collection', reversed: false, reversed_at: null, ledger_posted: true, ledger_checked: true, notes: null }],
+          agent: 'IAN MUHWEZI', path: 'agent collection', reversed: false, reversed_at: null, ledger_posted: true, ledger_checked: true, counted: false, notes: null }],
         adjustments: [{ at: '2026-10-25T06:13:24Z', kind: 'Tenant balance edit', status: 'approved', by: 'Nankambo sharimah', approved_by: 'SARAH ANGWEN',
           reason: 'system bal correction', old_outstanding: 5340000, new_outstanding: 820000, reduction: 4520000 }],
         ledger: [] }, error: null });
@@ -121,7 +127,7 @@ describe('Tenant Repayment Tracker page', () => {
     renderPage();
     expect(await screen.findByText('Active plans')).toBeTruthy();
     expect(mocks.rpc).toHaveBeenCalledWith('get_cfo_tenant_repayment_register');
-    expect(screen.getByText('1 still owe on verified collections')).toBeTruthy();
+    expect(screen.getByText('1 still owe on collections')).toBeTruthy();
     expect(screen.getByText(/Recorded balances say/)).toBeTruthy();
     expect(screen.getAllByTestId('tracker-row')).toHaveLength(4);
   });
@@ -156,8 +162,13 @@ describe('Tenant Repayment Tracker page', () => {
     const sheet = await screen.findByRole('dialog');
     expect(within(sheet).getByText('Total repayment obligation')).toBeTruthy();
     expect(within(sheet).getByText('Completed with balance')).toBeTruthy();
-    expect(within(sheet).getByText(/is recorded as repaid with no verified receipt behind it/)).toBeTruthy();
+    expect(within(sheet).getByText(/is recorded as repaid with no collection behind it/)).toBeTruthy();
+    expect(within(sheet).getByText(/on Money In \(Tenant Products and Services\) from 1 Oct 2026/)).toBeTruthy();
+    expect(await within(sheet).findByText('MI-820')).toBeTruthy();
+    const receiptsTab = within(sheet).getByRole('tab', { name: /Receipts/ });
+    fireEvent.mouseDown(receiptsTab); fireEvent.click(receiptsTab);
     expect(await within(sheet).findByText('AGT-c279b10e')).toBeTruthy();
+    expect(within(sheet).getByText('On Money In')).toBeTruthy();
     const tab = within(sheet).getByRole('tab', { name: /Balance adjustments/ });
     fireEvent.mouseDown(tab); fireEvent.click(tab);
     expect(await within(sheet).findByText(/system bal correction/)).toBeTruthy();

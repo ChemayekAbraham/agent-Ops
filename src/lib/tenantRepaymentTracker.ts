@@ -1,7 +1,10 @@
 /**
- * Tenant Repayment Tracker (CFO, read-only). Every figure comes from the database functions in migration
- * 20261108090000 (get_cfo_tenant_repayment_register / get_cfo_tenant_repayment_detail); this file only shapes, filters,
- * summarises and exports what they return. It never recomputes a balance from a stored status.
+ * Tenant Repayment Tracker (CFO, read-only). Every figure comes from the database functions in migrations
+ * 20261108090000 / 20261108120000 (get_cfo_tenant_repayment_register / get_cfo_tenant_repayment_detail); this file only
+ * shapes, filters, summarises and exports what they return. It never recomputes a balance from a stored status.
+ *
+ * Collected = Money In (Tenant Products and Services) entries on the plan from 1 Oct 2026, plus collection receipts before
+ * that date (those months were not posted to Money In per collection).
  */
 
 export interface RepaymentPlanRow {
@@ -25,6 +28,10 @@ export interface RepaymentPlanRow {
   obligation: number;
   disbursed: number | null;
   verified_collected: number;
+  /** Money In (Tenant Products and Services) on the plan from 1 Oct 2026, net. */
+  money_in_collected: number;
+  /** Receipts and ledger-backed repayment records before 1 Oct 2026. */
+  pre_cutoff_collected: number;
   receipts_count: number;
   last_receipt_at: string | null;
   reversed_amount: number;
@@ -65,12 +72,12 @@ export type ExceptionCode =
 export const EXCEPTIONS: Record<ExceptionCode, { label: string; meaning: string; severity: 'high' | 'medium' }> = {
   completed_with_balance: {
     label: 'Completed with balance',
-    meaning: 'Marked completed, but verified collections are below what the tenant owed.',
+    meaning: 'Marked completed, but what was collected (Money In) is below what the tenant owed.',
     severity: 'high',
   },
   repaid_without_receipts: {
-    label: 'Repaid without receipts',
-    meaning: 'The plan records more as repaid than the verified receipts add up to.',
+    label: 'Repaid without collections',
+    meaning: 'The plan records more as repaid than was collected (Money In, or receipts before 1 Oct 2026).',
     severity: 'high',
   },
   manual_balance_reduction: {
@@ -84,13 +91,13 @@ export const EXCEPTIONS: Record<ExceptionCode, { label: string; meaning: string;
     severity: 'high',
   },
   receipts_exceed_recorded: {
-    label: 'Receipts above recorded repaid',
-    meaning: 'Verified receipts are higher than what the plan records as repaid.',
+    label: 'Collected above recorded repaid',
+    meaning: 'More was collected than the plan records as repaid.',
     severity: 'medium',
   },
   collected_more_than_owed: {
     label: 'Collected more than owed',
-    meaning: 'Verified collections exceed the total the tenant owed.',
+    meaning: 'What was collected exceeds the total the tenant owed.',
     severity: 'medium',
   },
   unverified_repayment_records: {
@@ -99,8 +106,8 @@ export const EXCEPTIONS: Record<ExceptionCode, { label: string; meaning: string;
     severity: 'medium',
   },
   receipt_not_in_ledger: {
-    label: 'Receipt missing from ledger',
-    meaning: 'A receipt from 1 Oct 2026 has no matching ledger entry.',
+    label: 'Receipt not on Money In',
+    meaning: 'A collection receipt from 1 Oct 2026 has no matching Money In entry, so it is not counted.',
     severity: 'medium',
   },
   books_obligation_mismatch: {
@@ -207,12 +214,13 @@ export const CSV_COLUMNS: Array<[keyof RepaymentPlanRow | 'exception_labels', st
   ['landlord_name', 'Landlord'], ['status', 'Status'], ['funded_at', 'Funded at'], ['clock_bucket', 'Payout clock'],
   ['clock_start', 'Clock start'], ['clock_end', 'Clock end'], ['principal', 'Principal (UGX)'], ['access_fee', 'Access fee (UGX)'],
   ['request_fee', 'Request fee (UGX)'], ['obligation', 'Total obligation (UGX)'], ['disbursed', 'Disbursed per books (UGX)'],
-  ['verified_collected', 'Verified collected (UGX)'], ['receipts_count', 'Receipts'], ['last_receipt_at', 'Last receipt'],
-  ['calc_outstanding', 'Outstanding, verified basis (UGX)'], ['progress_pct', 'Repaid (%)'],
+  ['verified_collected', 'Collected (UGX)'], ['money_in_collected', 'Collected on Money In from 1 Oct 2026 (UGX)'],
+  ['pre_cutoff_collected', 'Collected before 1 Oct 2026, receipts (UGX)'], ['receipts_count', 'Receipts'], ['last_receipt_at', 'Last receipt'],
+  ['calc_outstanding', 'Outstanding (UGX)'], ['progress_pct', 'Repaid (%)'],
   ['stored_repaid', 'Recorded repaid (UGX)'], ['stored_outstanding', 'Recorded outstanding (UGX)'],
-  ['repaid_without_receipts', 'Recorded repaid without receipts (UGX)'], ['manual_reduction_total', 'Manual reductions (UGX)'],
+  ['repaid_without_receipts', 'Recorded repaid above collections (UGX)'], ['manual_reduction_total', 'Manual reductions (UGX)'],
   ['obligation_reduced', 'Obligation lowered after funding (UGX)'], ['reversed_amount', 'Reversed receipts (UGX)'],
-  ['unverified_amount', 'Unverified repayment records (UGX)'], ['expected_to_date', 'Expected to date (UGX)'],
+  ['unverified_amount', 'Unverified repayment records, not counted (UGX)'], ['expected_to_date', 'Expected to date (UGX)'],
   ['arrears', 'Arrears (UGX)'], ['days_behind', 'Days behind'], ['books_receivable', 'Books receivable (UGX)'],
   ['is_legacy', 'Funded before 1 Oct 2026'], ['exception_labels', 'Exceptions'],
 ];
@@ -240,9 +248,12 @@ export function csvFileName(asAt: Date = new Date()): string {
 export interface ReceiptRow {
   id: string; at: string; amount: number; method: string | null; reference: string | null; tracking_id: string | null;
   agent: string | null; path: string; reversed: boolean; reversed_at: string | null; ledger_posted: boolean; ledger_checked: boolean;
+  /** Counted in Collected: receipts before 1 Oct 2026 only (later ones count through Money In). */
+  counted: boolean;
   notes: string | null;
 }
-export interface RepaymentRecordRow { at: string; amount: number; method: string | null; reference: string | null; ledger_backed: boolean }
+export interface RepaymentRecordRow { at: string; amount: number; method: string | null; reference: string | null; ledger_backed: boolean; counted: boolean }
+export interface MoneyInRow { at: string; category: string; direction: string; amount: number; reference: string | null; group: string; description: string | null; counted: boolean }
 export interface AdjustmentRow {
   at: string; kind: string; status: string | null; by: string | null; approved_by?: string | null; reason?: string | null;
   decision_note?: string | null; agent_response?: string | null; old_outstanding?: number | null; new_outstanding?: number | null;
@@ -255,6 +266,7 @@ export interface PlanDetail {
   plan: RepaymentPlanRow;
   receipts: ReceiptRow[];
   repayment_records: RepaymentRecordRow[];
+  money_in: MoneyInRow[];
   adjustments: AdjustmentRow[];
   ledger: LedgerRow[];
 }

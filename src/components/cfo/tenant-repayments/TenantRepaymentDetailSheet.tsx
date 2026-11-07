@@ -65,18 +65,22 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
               <section>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Collections and balance</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <Figure label="Verified collected" value={formatUGX(p.verified_collected)} />
-                  <Figure label="Outstanding (verified basis)" value={formatUGX(p.calc_outstanding)} tone={p.calc_outstanding > 0 ? 'warn' : undefined} />
+                  <Figure label="Collected" value={formatUGX(p.verified_collected)} />
+                  <Figure label="Outstanding" value={formatUGX(p.calc_outstanding)} tone={p.calc_outstanding > 0 ? 'warn' : undefined} />
                   <Figure label="Recorded repaid" value={formatUGX(p.stored_repaid)} tone={p.repaid_without_receipts >= 1000 ? 'bad' : undefined} />
                   <Figure label="Recorded outstanding" value={formatUGX(p.stored_outstanding)} />
                 </div>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Collected = {formatUGX(p.money_in_collected)} on Money In (Tenant Products and Services) from 1 Oct 2026
+                  {p.pre_cutoff_collected > 0 ? ` + ${formatUGX(p.pre_cutoff_collected)} in receipts before 1 Oct 2026` : ''}.
+                </p>
                 <div className="mt-3">
-                  <div className="flex justify-between text-xs mb-1"><span>Repayment progress (verified)</span><span className="tabular-nums">{p.progress_pct ?? 0}%</span></div>
+                  <div className="flex justify-between text-xs mb-1"><span>Repayment progress</span><span className="tabular-nums">{p.progress_pct ?? 0}%</span></div>
                   <Progress value={Number(p.progress_pct ?? 0)} aria-label="Repayment progress" />
                 </div>
                 {(p.repaid_without_receipts >= 1000 || p.manual_reduction_total > 0 || p.reversed_amount > 0 || p.unverified_amount > 0) && (
                   <ul className="mt-3 text-xs text-muted-foreground space-y-0.5 list-disc pl-4">
-                    {p.repaid_without_receipts >= 1000 && <li>{formatUGX(p.repaid_without_receipts)} is recorded as repaid with no verified receipt behind it.</li>}
+                    {p.repaid_without_receipts >= 1000 && <li>{formatUGX(p.repaid_without_receipts)} is recorded as repaid with no collection behind it.</li>}
                     {p.manual_reduction_total > 0 && <li>{formatUGX(p.manual_reduction_total)} of balance reductions by edit ({p.manual_reduction_count}). Not counted as repayment.</li>}
                     {p.reversed_amount > 0 && <li>{formatUGX(p.reversed_amount)} in {p.reversed_count} reversed receipt(s), not counted.</li>}
                     {p.unverified_amount > 0 && <li>{formatUGX(p.unverified_amount)} in {p.unverified_count} repayment record(s) with no receipt and no ledger entry, not counted.</li>}
@@ -102,15 +106,36 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
               {error && <p className="text-xs text-destructive">Could not load the history: {(error as Error).message}</p>}
 
               {data && (
-                <Tabs defaultValue="receipts">
+                <Tabs defaultValue="money-in">
                   <TabsList className="flex-wrap h-auto">
-                    <TabsTrigger value="receipts">Repayments ({data.receipts.length})</TabsTrigger>
+                    <TabsTrigger value="money-in">Money In ({data.money_in.length})</TabsTrigger>
+                    <TabsTrigger value="receipts">Receipts ({data.receipts.length})</TabsTrigger>
                     <TabsTrigger value="adjustments">Balance adjustments ({data.adjustments.length})</TabsTrigger>
                     <TabsTrigger value="records">Other records ({data.repayment_records.length})</TabsTrigger>
                     <TabsTrigger value="ledger">Ledger ({data.ledger.length})</TabsTrigger>
                   </TabsList>
 
+                  <TabsContent value="money-in">
+                    <p className="text-[11px] text-muted-foreground mb-2">The plan's entries on Money In (Tenant Products and Services). Counted from 1 Oct 2026.</p>
+                    {data.money_in.length === 0 ? <p className="text-xs text-muted-foreground py-3">No Money In entries.</p> : (
+                      <Table>
+                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Reference</TableHead><TableHead>Counted</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {data.money_in.map((m, i) => (
+                            <TableRow key={`${m.group}-${i}`}>
+                              <TableCell className="text-xs whitespace-nowrap">{fmtDate(m.at)}</TableCell>
+                              <TableCell className="text-xs text-right tabular-nums">{m.direction === 'cash_out' ? '-' : ''}{formatUGX(Number(m.amount))}</TableCell>
+                              <TableCell className="text-xs"><span className="font-mono">{m.reference ?? String(m.group).slice(0, 8)}</span><div className="text-muted-foreground">{m.description}</div></TableCell>
+                              <TableCell className="text-xs">{m.counted ? <Badge variant="outline">Yes</Badge> : <Badge variant="secondary">Before 1 Oct 2026</Badge>}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </TabsContent>
+
                   <TabsContent value="receipts">
+                    <p className="text-[11px] text-muted-foreground mb-2">Collection receipts. Counted before 1 Oct 2026; from then on a receipt counts through its Money In entry.</p>
                     {data.receipts.length === 0 ? <p className="text-xs text-muted-foreground py-3">No receipts.</p> : (
                       <Table>
                         <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Reference</TableHead><TableHead>How</TableHead><TableHead>Checks</TableHead></TableRow></TableHeader>
@@ -123,7 +148,8 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
                               <TableCell className="text-xs">{r.path}{r.method ? ` · ${r.method}` : ''}{r.agent ? ` · ${r.agent}` : ''}</TableCell>
                               <TableCell className="text-xs space-x-1">
                                 {r.reversed && <Badge variant="secondary">Reversed</Badge>}
-                                {!r.reversed && r.ledger_checked && (r.ledger_posted ? <Badge variant="outline">In ledger</Badge> : <Badge variant="destructive">Not in ledger</Badge>)}
+                                {!r.reversed && r.counted && <Badge variant="outline">Counted</Badge>}
+                                {!r.reversed && r.ledger_checked && (r.ledger_posted ? <Badge variant="outline">On Money In</Badge> : <Badge variant="destructive">Not on Money In</Badge>)}
                               </TableCell>
                             </TableRow>
                           ))}
@@ -155,7 +181,7 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
                   </TabsContent>
 
                   <TabsContent value="records">
-                    <p className="text-[11px] text-muted-foreground mb-2">Repayment records with no matching receipt. Counted only when the ledger carries the cash.</p>
+                    <p className="text-[11px] text-muted-foreground mb-2">Repayment records with no matching receipt. Counted before 1 Oct 2026 when the ledger carries the cash.</p>
                     {data.repayment_records.length === 0 ? <p className="text-xs text-muted-foreground py-3">None.</p> : (
                       <Table>
                         <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Amount</TableHead><TableHead>Reference</TableHead><TableHead>Counted</TableHead></TableRow></TableHeader>
@@ -165,7 +191,7 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
                               <TableCell className="text-xs whitespace-nowrap">{fmtDate(r.at)}</TableCell>
                               <TableCell className="text-xs text-right tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
                               <TableCell className="text-xs font-mono">{r.reference ?? '—'}</TableCell>
-                              <TableCell className="text-xs">{r.ledger_backed ? <Badge variant="outline">Yes, in ledger</Badge> : <Badge variant="destructive">No, unverified</Badge>}</TableCell>
+                              <TableCell className="text-xs">{r.counted ? <Badge variant="outline">Yes, in ledger</Badge> : r.ledger_backed ? <Badge variant="secondary">In ledger, counted on Money In</Badge> : <Badge variant="destructive">No, unverified</Badge>}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>

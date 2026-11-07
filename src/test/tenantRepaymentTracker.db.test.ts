@@ -1,13 +1,13 @@
 // @vitest-environment node
 /**
- * CFO Tenant Repayment Tracker (supabase/migrations/20261108090000_cfo_tenant_repayment_tracker.sql), read-only.
+ * CFO Tenant Repayment Tracker (migrations 20261108090000 + 20261108120000 Money In basis), read-only.
  *
  * Runs the migration verbatim on PGlite over minimal tables carrying production's column names (read-only export
  * 2026-11-07). The shared payout clock (am_plan_clock / am_plan_arrears) is a simple stand-in here: it has its own tests
  * (supabase/tests/am_hardening.sql) and the tracker only displays what it returns.
  *
- * Proves: balances come from verified collections (non-reversed receipts + ledger-backed repayment records), not the stored
- * status; a manual balance reduction is never a repayment and the ops payment-edit mirror is counted once; every exception;
+ * Proves: collected = Money In (Tenant Products and Services) entries on the plan from 1 Oct 2026, net, plus receipts and
+ * ledger-backed repayment records before it; never the stored status; a manual balance reduction is never a repayment and the ops payment-edit mirror is counted once; every exception;
  * legacy plans are not flagged on the newer ledger checks; CFO / super_admin only; grants; nothing is ever written.
  */
 import { readFileSync } from 'node:fs';
@@ -19,7 +19,9 @@ vi.setConfig({ testTimeout: 60_000 });
 
 const read = (p: string) => readFileSync(resolve(__dirname, '../..', p), 'utf8').replace(/\r/g, '');
 const MIG = read('supabase/migrations/20261108090000_cfo_tenant_repayment_tracker.sql');
+const MIG2 = read('supabase/migrations/20261108120000_cfo_tenant_repayment_tracker_money_in.sql');
 const RB = read('supabase/rollbacks/20261108090000_cfo_tenant_repayment_tracker.rollback.sql');
+const RB2 = read('supabase/rollbacks/20261108120000_cfo_tenant_repayment_tracker_money_in.rollback.sql');
 
 const CFO = '00000000-0000-0000-0000-0000000000cf';
 const SA = '00000000-0000-0000-0000-0000000000aa';
@@ -52,7 +54,20 @@ create table public.repayments (id uuid primary key default gen_random_uuid(), t
   created_at timestamptz default now(), payment_method text, paid_by uuid, initiated_by uuid, deposit_request_id uuid, external_reference text);
 create table public.general_ledger (id uuid primary key default gen_random_uuid(), transaction_group_id uuid default gen_random_uuid(),
   ledger_scope text, direction text, amount numeric, category text, source_table text, source_id uuid, reference_id text,
-  description text, user_id uuid, created_at timestamptz default now());
+  description text, user_id uuid, created_at timestamptz default now(), transaction_date timestamptz default now(),
+  classification text default 'production', idempotency_key text);
+-- production's Money In category functions, verbatim (read-only export 2026-11-07)
+create function public._cfo_received_category_for(p_category text) returns text language sql immutable as $$
+  SELECT CASE p_category
+    WHEN 'partner_funding' THEN 'partner' WHEN 'tenant_repayment_collected' THEN 'land' WHEN 'tenant_repayment' THEN 'land'
+    WHEN 'landlord_receivable_collected' THEN 'land' WHEN 'agent_advance_repayment' THEN 'agent' WHEN 'agent_repayment' THEN 'agent'
+    WHEN 'bike_recovery_repayment' THEN 'agent' WHEN 'merchandise_recovery_repayment' THEN 'agent' WHEN 'listing_rejection_recovery' THEN 'agent'
+    WHEN 'platform_fee_collected' THEN 'fees' WHEN 'access_fee_collected' THEN 'fees' WHEN 'agent_advance_fee_revenue' THEN 'fees'
+    WHEN 'agent_advance_access_fee_collected' THEN 'fees' WHEN 'agent_advance_registration_fee_collected' THEN 'fees'
+    WHEN 'share_capital' THEN 'capital' ELSE NULL END $$;
+create function public._cfo_received_category_for(p_category text, p_source_table text) returns text language sql immutable as $$
+  SELECT CASE WHEN p_category = 'landlord_receivable_collected' AND p_source_table = 'welile_homes_subscriptions' THEN 'landlord'
+    ELSE public._cfo_received_category_for(p_category) END $$;
 create table public.tenant_balance_edits (id uuid primary key default gen_random_uuid(), rent_request_id uuid, tenant_id uuid, agent_id uuid,
   editor_id uuid, editor_name text, old_outstanding numeric, new_outstanding numeric, reason text, status text, source text,
   decided_by uuid, decided_at timestamptz, decision_note text, applied_at timestamptz, created_at timestamptz default now());
@@ -90,8 +105,8 @@ const receipt = (db: PGlite, n: number, amount: number, at: string, extra: Recor
       values ($1, $2, $3, $4, 'cash', $5, $6, $7, $8, $9)`,
     [AGENT, T(n), P(n), amount, extra.notes ?? null, extra.reversed_at ?? null, extra.momo ?? null, `AGT-${n}-${amount}`, at]);
 const leg = (db: PGlite, n: number, category: string, direction: string, amount: number, at: string, source = 'agent_collections', scope = 'platform') =>
-  db.query(`insert into public.general_ledger (ledger_scope, direction, amount, category, source_table, source_id, description, created_at)
-      values ($1, $2, $3, $4, $5, $6, 'test', $7)`, [scope, direction, amount, category, source, P(n), at]);
+  db.query(`insert into public.general_ledger (ledger_scope, direction, amount, category, source_table, source_id, description, created_at, transaction_date)
+      values ($1, $2, $3, $4, $5, $6, 'test', $7, $7)`, [scope, direction, amount, category, source, P(n), at]);
 
 let db: PGlite;
 type Row = Record<string, any>;
@@ -170,10 +185,25 @@ beforeAll(async () => {
   await plan(db, 9, { status: 'completed', repaid: 1_320_000, funded: '2026-07-01 08:00+03' });
   await receipt(db, 9, 1_000_000, '2026-07-10 09:00+03'); await receipt(db, 9, 400_000, '2026-07-12 09:00+03');
 
+  // 11 Money In basis from October: an entry with no receipt counts; a reversal leg nets out; a non-cash correction before the
+  //    cut-over (shape of the 16 Sep 92.66M contra) never counts
+  await plan(db, 11, { status: 'repaying', funded: '2026-09-20 08:00+03' });
+  await leg(db, 11, 'tenant_repayment_collected', 'cash_in', 300_000, '2026-10-12 10:00+03');
+  await leg(db, 11, 'tenant_repayment_collected', 'cash_in', 50_000, '2026-10-13 10:00+03');
+  await leg(db, 11, 'tenant_repayment_collected', 'cash_out', 50_000, '2026-10-14 10:00+03');
+  await leg(db, 11, 'tenant_repayment_collected', 'cash_in', 900_000, '2026-09-16 10:00+03');
+  // 12 a Money In entry that the Money In page itself excludes (reclassification key) does not count either
+  await plan(db, 12, { status: 'repaying', funded: '2026-10-05 08:00+03' });
+  await db.query(`insert into public.general_ledger (ledger_scope, direction, amount, category, source_table, source_id, description, created_at, transaction_date, idempotency_key)
+      values ('platform', 'cash_in', 70000, 'tenant_repayment_collected', 'agent_collections', $1, 'reclass', '2026-10-20 10:00+03', '2026-10-20 10:00+03', 'merch_recv_derecog:x')`, [P(12)]);
+  await db.query(`insert into public.general_ledger (ledger_scope, direction, amount, category, source_table, source_id, description, created_at, transaction_date, classification)
+      values ('platform', 'cash_in', 80000, 'tenant_repayment_collected', 'agent_collections', $1, 'test row', '2026-10-21 10:00+03', '2026-10-21 10:00+03', 'admin_correction')`, [P(12)]);
+
   // 10 never funded (pending): not in the register
   await db.query(`insert into public.rent_requests (id, tenant_id, status, rent_amount, access_fee, request_fee, total_repayment) values ($1, $2, 'pending', 1, 0, 0, 1)`, [P(10), T(1)]);
 
   await db.exec(MIG);
+  await db.exec(MIG2);
 }, 120_000);
 afterAll(async () => { await db?.close(); });
 
@@ -181,6 +211,7 @@ describe('balances come from verified collections', () => {
   it('a clean plan: verified = obligation, nothing outstanding, no exception', async () => {
     const r = byPlan(await register(), 1);
     expect([num(r.obligation), num(r.verified_collected), num(r.calc_outstanding), num(r.progress_pct), r.exceptions]).toEqual([1_320_000, 1_320_000, 0, 100, []]);
+    expect([num(r.money_in_collected), num(r.pre_cutoff_collected)]).toEqual([1_320_000, 0]);
     expect([num(r.principal), num(r.fees), num(r.disbursed), num(r.books_receivable), r.receipts_count]).toEqual([1_000_000, 320_000, 1_000_000, 1_320_000, 2]);
   });
   it('reversed receipts (reversed_at or a [REVERSED: note) are never counted', async () => {
@@ -193,6 +224,7 @@ describe('balances come from verified collections', () => {
   it('the Wasajja Simon shape: 4,520,000 cut by an edit is not a repayment, counted once, and the plan is flagged', async () => {
     const r = byPlan(await register(), 3);
     expect([num(r.obligation), num(r.verified_collected), num(r.calc_outstanding), num(r.stored_outstanding)]).toEqual([5_340_000, 820_000, 4_520_000, 0]);
+    expect([num(r.money_in_collected), num(r.pre_cutoff_collected)]).toEqual([820_000, 0]);
     expect([num(r.repaid_without_receipts), num(r.manual_reduction_total), r.manual_reduction_count]).toEqual([4_520_000, 4_520_000, 1]);
     expect([...r.exceptions].sort()).toEqual(['completed_with_balance', 'manual_balance_reduction', 'repaid_without_receipts']);
   });
@@ -209,10 +241,19 @@ describe('balances come from verified collections', () => {
 });
 
 describe('ledger and obligation checks', () => {
-  it('a receipt from 1 Oct 2026 without its ledger entry is flagged; an earlier one is not', async () => {
+  it('a receipt from 1 Oct 2026 that is not on Money In is flagged and NOT counted; an earlier receipt counts', async () => {
     const r = byPlan(await register(), 5);
     expect(r.receipts_not_posted).toBe(1);
     expect(r.exceptions).toContain('receipt_not_in_ledger');
+    expect([num(r.verified_collected), num(r.pre_cutoff_collected), num(r.money_in_collected)]).toEqual([150_000, 150_000, 0]);
+  });
+  it('from 1 Oct 2026 Money In is the basis: an entry without a receipt counts, a reversal nets out, a pre-October entry never counts', async () => {
+    const r = byPlan(await register(), 11);
+    expect([num(r.money_in_collected), num(r.pre_cutoff_collected), num(r.verified_collected), r.receipts_count]).toEqual([300_000, 0, 300_000, 0]);
+  });
+  it('rows the Money In page excludes (reclassification keys, non-production classification) are not counted', async () => {
+    const r = byPlan(await register(), 12);
+    expect([num(r.money_in_collected), num(r.verified_collected)]).toEqual([0, 0]);
   });
   it('books short of the obligation are flagged for plans funded from October only', async () => {
     const rows = await register();
@@ -228,7 +269,7 @@ describe('ledger and obligation checks', () => {
   it('only funded plans appear; schedule figures come from the payout clock', async () => {
     const rows = await register();
     expect(rows.find((r) => r.rent_request_id === P(10))).toBeUndefined();
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(11);
     const r = byPlan(rows, 1);
     const day = (d: unknown) => new Date(d as string).toISOString().slice(0, 10);
     expect([r.clock_bucket, num(r.arrears), r.days_behind, num(r.expected_to_date), day(r.clock_start), day(r.clock_end)])
@@ -243,7 +284,9 @@ describe('plan detail', () => {
     expect(d.receipts.map((r: Row) => [num(r.amount), r.reversed])).toEqual([[100_000, true], [300_000, true], [500_000, false]]);
     expect(num(d.plan.verified_collected)).toBe(500_000);
     const d5 = await detail(5);
-    expect(d5.receipts.map((r: Row) => [num(r.amount), r.ledger_checked, r.ledger_posted])).toEqual([[250_000, true, false], [150_000, false, false]]);
+    expect(d5.receipts.map((r: Row) => [num(r.amount), r.ledger_checked, r.ledger_posted, r.counted])).toEqual([[250_000, true, false, false], [150_000, false, false, true]]);
+    const d11 = await detail(11);
+    expect(d11.money_in.map((m: Row) => [num(m.amount), m.direction, m.counted])).toEqual([[50_000, 'cash_out', true], [50_000, 'cash_in', true], [300_000, 'cash_in', true], [900_000, 'cash_in', false]]);
   });
   it('balance adjustments show who, when and why; the mirrored ops edit is listed once', async () => {
     const d = await detail(3);
@@ -256,7 +299,7 @@ describe('plan detail', () => {
   });
   it('repayment records show whether the ledger backs them; the ledger tab lists the plan entries', async () => {
     const d = await detail(4);
-    expect(d.repayment_records.map((r: Row) => [num(r.amount), r.ledger_backed])).toEqual([[100_000, false], [200_000, true]]);
+    expect(d.repayment_records.map((r: Row) => [num(r.amount), r.ledger_backed, r.counted])).toEqual([[100_000, false, false], [200_000, true, true]]);
     expect(d.ledger.map((l: Row) => l.category)).toEqual(['tenant_repayment']);
   });
   it('an unknown or never-funded plan is refused', async () => {
@@ -266,8 +309,8 @@ describe('plan detail', () => {
 
 describe('permissions, grants and read-only', () => {
   it('CFO and super_admin can read; manager, finance ops, CEO, an agent and no user cannot', async () => {
-    expect((await register(CFO)).length).toBe(9);
-    expect((await register(SA)).length).toBe(9);
+    expect((await register(CFO)).length).toBe(11);
+    expect((await register(SA)).length).toBe(11);
     for (const uid of [MGR, FINOPS, CEO, AGENT]) await expect(register(uid)).rejects.toThrow(/Not authorized/);
     await expect(db.query(`select * from public.get_cfo_tenant_repayment_register()`)).rejects.toThrow(/Not authorized/);
     await expect(asUser(MGR, () => db.query(`select public.get_cfo_tenant_repayment_detail($1)`, [P(1)]))).rejects.toThrow(/Not authorized/);
@@ -297,13 +340,19 @@ describe('permissions, grants and read-only', () => {
     await asUser(CFO, () => db.query(`select public.get_cfo_tenant_repayment_detail($1)`, [P(3)]));
     expect(await snapshot()).toBe(before);
   });
-  it('the migration creates no table and writes no data; the rollback removes exactly its four functions', async () => {
-    const body = MIG.replace(/--[^\n]*/g, '');
-    expect(body).not.toMatch(/\b(CREATE|ALTER|DROP)\s+TABLE\b/i);
-    expect(body).not.toMatch(/\bINSERT\s+INTO\b|\bUPDATE\s+public\.|\bDELETE\s+FROM\b|\bTRUNCATE\b/i);
+  it('neither migration creates a table or writes data; rolling back 120000 restores 090000, rolling back 090000 removes all four', async () => {
+    for (const m of [MIG, MIG2]) {
+      const body = m.replace(/--[^\n]*/g, '');
+      expect(body).not.toMatch(/\b(CREATE|ALTER|DROP)\s+TABLE\b/i);
+      expect(body).not.toMatch(/\bINSERT\s+INTO\b|\bUPDATE\s+public\.|\bDELETE\s+FROM\b|\bTRUNCATE\b/i);
+    }
     const x = new PGlite();
-    await x.exec(SCHEMA); await x.exec(MIG);
+    await x.exec(SCHEMA); await x.exec(MIG); await x.exec(MIG2);
     await x.exec(`create schema supabase_migrations; create table supabase_migrations.schema_migrations (version text);`);
+    await x.exec(RB2);
+    const cols = (await x.query<Row>(`select pg_get_function_result('public.get_cfo_tenant_repayment_register()'::regprocedure) r`)).rows[0].r;
+    expect(cols).not.toContain('money_in_collected');
+    expect((await x.query<Row>(`select has_function_privilege('authenticated', 'public.get_cfo_tenant_repayment_register()', 'EXECUTE') ok`)).rows[0].ok).toBe(true);
     await x.exec(RB);
     const left = (await x.query<Row>(`select count(*)::int n from pg_proc where proname like '%cfo_tenant_repayment%'`)).rows[0].n;
     expect(left).toBe(0);
