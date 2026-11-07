@@ -6,6 +6,7 @@ import { Skeleton } from './Skeleton';
 import { STRIP_STAGES } from './PipelineStrip';
 import { WAIT_DESK_OF, WaitingRows, isTimeUp, useWaitingList } from './waitOn';
 import { DeskRules } from './DeskRules';
+import { AccountabilityFold } from './accountability/AccountabilityFold';
 
 /**
  * The frame every stage desk shares when it is live:
@@ -84,6 +85,7 @@ export function DoneTodayFold({ deskId, board }: { deskId: string; board: boolea
       <Fold title="Done today" board={board} count={n} countTone={n ? 'ok' : 'idle'} hint="Cleared from this desk in the last 24 hours">
         <DoneDetail deskId={deskId} />
       </Fold>
+      <AccountabilityFold deskId={deskId} board={board} />
       <DeskRules deskId={deskId} board={board} />
     </>
   );

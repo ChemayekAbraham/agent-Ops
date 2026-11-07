@@ -32,6 +32,8 @@ import { PartnerWatch } from './PartnerWatch';
 import { PartnerOpsBoard } from './partner/PartnerOpsBoard';
 import { desksFor, useMyScScope } from './scScope';
 import { DeskRules } from './DeskRules';
+import { AccountabilityFold } from './accountability/AccountabilityFold';
+import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
 import { AgentsLiveFold } from './agents/AgentsLive';
 import { OntologyTab } from './ontology/OntologyTab';
 
@@ -464,6 +466,7 @@ function DeskView({
           </h2>
           <PartnerOpsBoard board={board} />
         </section>
+        <AccountabilityFold deskId={desk.id} board={board} />
         <DeskRules deskId={desk.id} board={board} />
         <Fold title="Classic view" board={board} hint="The funder board watch and every table this desk showed before">
           <PartnerWatch board={board} />
@@ -483,6 +486,7 @@ function DeskView({
       {extraView}
       {showQueue && desk.tables.map(table)}
       {/* Partner Ops and Customer Care have no frame, so their rules sit at the foot. */}
+      {checklistOn && <AccountabilityFold deskId={desk.id} board={board} />}
       {checklistOn && <DeskRules deskId={desk.id} board={board} />}
       {/* The COO's settings live on the Ontology desk: the landlord call script. The server lets only the COO save. */}
       {checklistOn && desk.id === 'ontology' && (
@@ -490,6 +494,7 @@ function DeskView({
           <ScriptEditor desk="landlord_ops" />
         </Fold>
       )}
+      {checklistOn && desk.id === 'ontology' && <EditResponsibilitiesFold board={board} />}
       {drawer}
     </div>
   );
