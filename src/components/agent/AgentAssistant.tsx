@@ -24,7 +24,11 @@ const GREETING_FADE_MS = 600;
  * Mounted once by FloatingToolbar; every page can open it without creating another chat.
  * The launcher sits just above the bottom nav (`--fab-above-nav`); nothing else stacks on that side now.
  */
-export function AgentAssistant({ hideLauncher = false }: { hideLauncher?: boolean }) {
+export function AgentAssistant({ hideLauncher = false, compact = false }: {
+  hideLauncher?: boolean;
+  /** Funder screens: icon only (no greeting bubble) and a smaller 48px button. */
+  compact?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   // The session is read straight from the context: this component is also
   // mounted by tests with no provider, where useAuth() would throw.
@@ -60,8 +64,8 @@ export function AgentAssistant({ hideLauncher = false }: { hideLauncher?: boolea
   const bubbleBottom = 'calc(var(--fab-above-nav) + 4.25rem)';
 
   return <>
-    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 h-14 w-14 overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`}><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
-    {!open && !hideLauncher && !!user && phase !== 'done' && createPortal(
+    {!open && !hideLauncher && createPortal(<Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Chat with Welile Assistant" title="Chat with Clara" aria-haspopup="dialog" style={{ zIndex: LAUNCHER_Z }} className={`gradient-assistant fixed bottom-[var(--fab-above-nav)] right-4 ${compact ? 'h-12 w-12' : 'h-14 w-14'} overflow-hidden rounded-full border-2 border-background p-0 shadow-lg`} data-testid="assistant-launcher"><img src={claraAvatar} alt="" width={192} height={192} className="h-full w-full object-cover" /></Button>, document.body)}
+    {!open && !hideLauncher && !compact && !!user && phase !== 'done' && createPortal(
       <AnimatePresence>
         {phase === 'in' && (
           <motion.div

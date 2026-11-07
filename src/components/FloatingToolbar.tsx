@@ -4,6 +4,74 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AgentAssistant } from './agent/AgentAssistant';
 
+const OPEN_OVERLAY_SELECTOR =
+  '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], .app-dialog-content, [data-radix-portal] [role="dialog"]';
+
+/**
+ * Whether a modal/sheet is open, and whether a full screen map (the funder
+ * houses screen) has the page. Cheap by design: dialogs and sheets render in
+ * portals that are direct children of <body>, so only <body>'s own child list
+ * and the portal subtrees are watched — never the app tree under #root, where
+ * every render used to trigger a full-document query.
+ */
+export function useOverlayState(): { overlayOpen: boolean; mapExpanded: boolean } {
+  const [state, setState] = useState({ overlayOpen: false, mapExpanded: false });
+  useEffect(() => {
+    const root = document.getElementById('root');
+    const check = () => {
+      const overlayOpen = Boolean(document.querySelector(OPEN_OVERLAY_SELECTOR));
+      const mapExpanded = document.body.dataset.mapExpanded === 'true';
+      setState((prev) => (prev.overlayOpen === overlayOpen && prev.mapExpanded === mapExpanded ? prev : { overlayOpen, mapExpanded }));
+    };
+    const portalObserver = new MutationObserver(check);
+    const watchPortals = () => {
+      portalObserver.disconnect();
+      for (const child of Array.from(document.body.children)) {
+        if (child === root || child.tagName === 'SCRIPT' || child.tagName === 'NOSCRIPT') continue;
+        portalObserver.observe(child, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-state'] });
+      }
+    };
+    const bodyObserver = new MutationObserver(() => {
+      watchPortals();
+      check();
+    });
+    bodyObserver.observe(document.body, { childList: true, attributes: true, attributeFilter: ['data-map-expanded'] });
+    watchPortals();
+    check();
+    return () => {
+      bodyObserver.disconnect();
+      portalObserver.disconnect();
+    };
+  }, []);
+  return state;
+}
+
+/** Funder screens keep the assistant icon-only (no greeting bubble) and smaller. */
+export function isFunderRoute(pathname: string): boolean {
+  return pathname.startsWith('/dashboard/funder');
+}
+
+/**
+ * Launcher rules: dashboards only; hidden while a dialog is open (unless it is
+ * the assistant's own chat) and while a full screen map/sheet has the page, so
+ * it never sits over the houses list or its Fund buttons.
+ */
+export function launcherHidden({
+  isDashboardRoute,
+  overlayOpen,
+  mapExpanded,
+  assistantChatOpen,
+}: {
+  isDashboardRoute: boolean;
+  overlayOpen: boolean;
+  mapExpanded: boolean;
+  assistantChatOpen: boolean;
+}): boolean {
+  if (!isDashboardRoute) return true;
+  if (mapExpanded) return true;
+  return overlayOpen && !assistantChatOpen;
+}
+
 export default function FloatingToolbar() {
   const location = useLocation();
 
@@ -14,24 +82,7 @@ export default function FloatingToolbar() {
     location.pathname.startsWith('/withdraw') ||
     location.pathname.startsWith('/verification-history');
 
-  const [modalOpen, setModalOpen] = useState(false);
-  useEffect(() => {
-    const check = () => {
-      const open = document.querySelector(
-        '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], .app-dialog-content, [data-radix-portal] [role="dialog"]',
-      );
-      setModalOpen(Boolean(open));
-    };
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['data-state'],
-    });
-    return () => observer.disconnect();
-  }, []);
+  const { overlayOpen: modalOpen, mapExpanded } = useOverlayState();
 
   const shouldHide = modalOpen || isSettingsOrWithdraw;
 
@@ -73,7 +124,15 @@ export default function FloatingToolbar() {
         </>
       )}
 
-      <AgentAssistant hideLauncher={!isDashboardRoute || (modalOpen && !document.querySelector('.assistant-chat[data-state="open"]'))} />
+      <AgentAssistant
+        hideLauncher={launcherHidden({
+          isDashboardRoute,
+          overlayOpen: modalOpen,
+          mapExpanded,
+          assistantChatOpen: Boolean(document.querySelector('.assistant-chat[data-state="open"]')),
+        })}
+        compact={isFunderRoute(location.pathname)}
+      />
     </>
   );
 }
