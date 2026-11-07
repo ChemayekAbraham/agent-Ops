@@ -154,6 +154,7 @@ export default function SupporterDashboard({
   // The houses map and its "Houses to fund" sheet are no longer repeated on the
   // page: the hero card opens them full screen, and they unmount again on close.
   const [mapRequested, setMapRequested] = useState(false);
+  const [shownFundingHomes, setShownFundingHomes] = useState(0);
   const mapWasExpandedRef = useRef(false);
   const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
   const handleListResultsFocus = useCallback((points: { lat: number; lng: number }[]) => {
@@ -760,7 +761,7 @@ export default function SupporterDashboard({
                       Houses to fund
                     </p>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                      {virtualHouses.length > 0 ? `${virtualHouses.length} waiting` : 'Waiting'}
+                      {shownFundingHomes} shown
                     </span>
                   </div>
                   <button
@@ -790,6 +791,7 @@ export default function SupporterDashboard({
                         searchOnMap
                         onListFiltersChange={handleListFiltersChange}
                         onListResultsFocus={handleListResultsFocus}
+                        onListResultCountChange={setShownFundingHomes}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}

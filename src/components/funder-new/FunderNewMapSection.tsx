@@ -15,6 +15,7 @@ import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './t
 import { FunderNewRouteMap, type FunderNewMapCell, type FunderNewViewport } from './FunderNewRouteMap';
 import type { FunderNewLocationController } from './useFunderNewLocation';
 import { amountRange } from './utils';
+import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
 
 /** Reserved box so loading the map never shifts the page. */
 const MAP_BOX = 'h-[330px] sm:h-[440px] lg:h-[520px]';
@@ -61,6 +62,7 @@ export function FunderNewMapSection({
   reserveTopForSearch?: boolean;
   focus?: { points: { lat: number; lng: number }[]; token: number } | null;
 }) {
+  const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
 
   const device = location.coords;
@@ -94,11 +96,12 @@ export function FunderNewMapSection({
       minRent: range.min,
       maxRent: range.max,
     },
-    true,
-    nearPoint,
+    emptyHousesAllowed,
+    emptyHousesAllowed ? nearPoint : null,
   );
 
   const cells = useMemo<FunderNewMapCell[]>(() => {
+    if (!emptyHousesAllowed) return [];
     const raw = (cellQuery.data?.cells ?? []).map((cell) => ({
       key: cell.key,
       count: cell.count,
@@ -109,9 +112,9 @@ export function FunderNewMapSection({
     }));
     // Fewer, clearer pins at city zoom; street level keeps every house.
     return viewport ? coarsenMapCells(raw, viewport.zoom) : raw;
-  }, [cellQuery.data, viewport]);
+  }, [cellQuery.data, viewport, emptyHousesAllowed]);
 
-  const housesInView = cellQuery.data?.housesInView ?? 0;
+  const housesInView = emptyHousesAllowed ? cellQuery.data?.housesInView ?? 0 : 0;
 
   const awaitingDeviceFix = location.permission === 'granted' && !device && location.status !== 'error';
 
@@ -137,13 +140,14 @@ export function FunderNewMapSection({
   const heading = device ? 'Homes near you' : origin?.source === 'area' ? 'Homes in this area' : 'Explore homes by area';
 
   const loadedNote = useMemo(() => {
+    if (!emptyHousesAllowed) return 'No mapped homes in this view.';
     if (awaitingDeviceFix && !cellQuery.data) return 'Finding your location\u2026';
     if (!cellQuery.data && cellQuery.isFetching) return 'Loading homes in this view\u2026';
     if (cellQuery.isError) return 'Homes could not be loaded on the map.';
     if (housesInView === 0) return 'No mapped homes in this view.';
     const suffix = cellQuery.isFetching ? ' Still loading more\u2026' : ' Prices in UGX.';
     return `Showing ${housesInView.toLocaleString()} mapped ${housesInView === 1 ? 'home' : 'homes'} in this view.${suffix}`;
-  }, [awaitingDeviceFix, cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView]);
+  }, [awaitingDeviceFix, cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView, emptyHousesAllowed]);
 
   // Reset refreshes the map in place: the map recentres itself (see the route map)
   // and every cached pin read is marked stale so the view reloads fresh. It must

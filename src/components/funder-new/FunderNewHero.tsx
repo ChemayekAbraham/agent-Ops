@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
 import './FunderNewHero.css';
+import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
 
 /**
  * Compact market-demand hero for /dashboard/funder-new.
@@ -31,6 +32,7 @@ export function FunderNewHero({
   /** Fired when a finger or pointer reaches the card, before the tap lands (to preload what it opens). */
   onIntent?: () => void;
 }) {
+  const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const shell =
     'relative overflow-hidden rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-md sm:px-7 sm:py-6';
 
@@ -56,7 +58,7 @@ export function FunderNewHero({
     );
   }
 
-  if (hasError || !summary) {
+  if (emptyHousesAllowed && (hasError || !summary)) {
     return (
       <section className={shell}>
         {decoration}
@@ -75,9 +77,9 @@ export function FunderNewHero({
   // Full, unabbreviated market total: keep the small currency prefix, but show
   // every digit instead of a compact "5.8B".
   const prefix = getDynamicCurrencySymbol();
-  const formattedTotal = formatDynamic(summary.totalRentNeeded);
+  const formattedTotal = formatDynamic(summary?.totalRentNeeded ?? 0);
   const figure = formattedTotal.replace(prefix, '').replace(/^[^\d.,-]+/, '').trim() || formattedTotal;
-  const hasHouses = summary.houseCount > 0;
+  const hasHouses = (summary?.houseCount ?? 0) > 0;
 
   return (
     <section
@@ -119,7 +121,7 @@ export function FunderNewHero({
             <span className="funder-hero-accent">tenant&apos;s rent</span>
           </h1>
 
-          <div className="mt-5 text-right">
+          {emptyHousesAllowed && summary && <div className="mt-5 text-right">
             <p className="funder-hero-subtle text-xs font-bold">Amount needed to fund houses:</p>
             <p className="mt-0.5 break-words text-[22px] font-black leading-tight text-green-300">
               {prefix} {figure}
@@ -127,7 +129,7 @@ export function FunderNewHero({
             <p className="funder-hero-subtle mt-0.5 text-[11px] font-bold leading-snug">
               over {summary.houseCount.toLocaleString()}+ homes
             </p>
-          </div>
+          </div>}
         </div>
 
       </div>

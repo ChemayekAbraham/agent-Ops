@@ -1,3 +1,8 @@
+# Funders Houses to fund switch
+- [x] Apply fail-closed empty-house visibility to discovery, pins, recommendations and counts; preserve bookings and server errors.
+- [x] Run focused switch and discovery regression tests; verify available preview signals.
+- [ ] Verify through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
+
 # Browser saved items
 - [x] Add a hamburger Saved Items dialog backed by existing browser bookmarks.
 - [x] Remove unavailable houses and Rent Plans using successful, unfiltered server reads; test persistence and cleanup (31 focused tests passed).
