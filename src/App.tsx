@@ -699,7 +699,7 @@ function AppRoutes() {
               }
             />
           )}
-          {import.meta.env.DEV && (
+          {(import.meta.env.DEV || import.meta.env.VITE_E2E_HARNESS === '1') && (
             <Route
               path="/__e2e/funder-v3"
               element={
