@@ -64,6 +64,14 @@ export type PushResult = {
   skipped: { id: string; reason?: string | null; message?: string | null }[];
 };
 
+/** What `coo_push_selected` returns for a one-row push (no `picked_list`). */
+export type PushSelectedResult = {
+  requested: number;
+  approved: { id: string; rent_amount: number | null }[];
+  approved_total: number | null;
+  skipped: { id: string; reason?: string | null; message?: string | null }[];
+};
+
 export const COO_PUSH_DEFAULT = 10;
 const NEEDS_COO = 'Needs the COO role and a staff ID';
 
@@ -171,7 +179,7 @@ export function frozenText(f: NonNullable<CooRow['frozen']>): string {
   return `Frozen — ${f.reason ?? 'no reason given'}; back to Agent Ops on ${dayMonth(f.returns_to_agent_ops_at)}`;
 }
 
-function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpen: OpenDrawer }) {
+function CooRowLine({ row, board, onOpen, onPush }: { row: CooRow; board: boolean; onOpen: OpenDrawer; onPush: (row: CooRow) => void }) {
   const r = row.ratings;
   const w = row.waiting;
   const frozen = row.frozen;
@@ -199,7 +207,12 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
           {w.expired || (hoursUntil(w.until_at) ?? 1) <= 0 ? <span className={statusText.bad}>Time up</span> : timeLeftText(hoursUntil(w.until_at))}
         </span>
       )}
-      <span className="ml-auto">
+      <span className="ml-auto inline-flex items-center gap-2">
+        {isPushable(row) && (
+          <DecisionButton variant="primary" onClick={() => onPush(row)}>
+            Push to funders
+          </DecisionButton>
+        )}
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>
           {(close) => (
             <>
@@ -211,6 +224,83 @@ function CooRowLine({ row, board, onOpen }: { row: CooRow; board: boolean; onOpe
         </MoreMenu>
       </span>
     </li>
+  );
+}
+
+/**
+ * The one-row confirm: tenant, grade and rent, then `coo_push_selected` with
+ * just that id. A skipped row shows the server's reason as-is; a pushed row
+ * says so in one line. Either way the board refetches on close.
+ */
+function RowPushConfirm({ row, onClose }: { row: CooRow; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const push = async () => {
+    setBusy(true);
+    setError(null);
+    const { data, error: e } = await rpc('coo_push_selected', { p_ids: [row.id], p_comment: null });
+    setBusy(false);
+    if (e) {
+      setError(readableError(e));
+      return;
+    }
+    const r = (data ?? {}) as Partial<PushSelectedResult>;
+    const skipped = r.skipped ?? [];
+    const pushed = r.approved?.length ?? 0;
+    if (pushed > 0) {
+      setResult({ ok: true, text: "Pushed to the funders' dashboard" });
+    } else {
+      const reasons = skipped.map((s) => s.message || s.reason || 'no reason given');
+      setResult({ ok: false, text: reasons.join('; ') || 'The server skipped this request.' });
+    }
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={`Push ${row.tenant ?? 'this request'} to funders`}>
+      <button type="button" aria-label="Close" onClick={busy ? undefined : onClose} className="absolute inset-0 bg-black/60" />
+      <div className="desk-root relative w-full max-w-md rounded-t-3xl border border-[var(--desk-line-color)] shadow-2xl sm:rounded-3xl">
+        <header className="flex items-start justify-between gap-3 border-b border-[var(--desk-line-color)] px-5 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Push to funders</h2>
+          <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className={`desk-pill border border-[var(--desk-line-color)] p-2 ${CALM} ${FOCUS} disabled:opacity-40`}>
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </header>
+        <div className="space-y-2 px-5 py-4 text-sm">
+          <p className="flex flex-wrap items-center gap-2 text-foreground">
+            <GradeBadge grade={row.grade} />
+            <span className="font-medium">{row.tenant ?? '—'}</span>
+            <span className={`${LABEL} font-mono`}>{row.req}</span>
+          </p>
+          <p className="tabular-nums text-foreground">UGX {fmt('ugxfull', row.rent)}</p>
+          {error && <ErrorLine>{error}</ErrorLine>}
+          {result && (
+            <p className={`text-sm ${result.ok ? statusText.ok : statusText.warn}`} role="status">
+              {result.text}
+            </p>
+          )}
+        </div>
+        <footer className="flex flex-wrap gap-2 border-t border-[var(--desk-line-color)] px-5 py-4">
+          {result ? (
+            <DecisionButton size="md" onClick={onClose}>
+              Done
+            </DecisionButton>
+          ) : (
+            <>
+              <DecisionButton size="md" variant="primary" disabled={busy} onClick={push}>
+                {busy ? 'Pushing…' : 'Push to funders'}
+              </DecisionButton>
+              <DecisionButton size="md" disabled={busy} onClick={onClose}>
+                Back
+              </DecisionButton>
+            </>
+          )}
+        </footer>
+      </div>
+    </div>
   );
 }
 
@@ -296,6 +386,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const q = useCooBoard();
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
+  const [pushRow, setPushRow] = useState<CooRow | null>(null);
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
 
@@ -326,6 +417,7 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
         </label>
         <DecisionButton
           variant="primary"
+          size="md"
           disabled={!canPush || !valid || plan.rows.length === 0}
           title={canPush ? undefined : NEEDS_COO}
           onClick={() => setConfirm(true)}
@@ -340,12 +432,13 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       ) : (
         <ol>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} />
+            <CooRowLine key={r.id} row={r} board={board} onOpen={onOpen} onPush={setPushRow} />
           ))}
         </ol>
       )}
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
+      {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
     </section>
   );
 }

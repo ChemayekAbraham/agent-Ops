@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const rpcMock = vi.fn();
@@ -140,6 +140,53 @@ describe('COO push top N', () => {
   it('the drawer no longer offers Fund, Attach funder or the COO bucket', () => {
     expect(visibleDecisions('coo')).toEqual(['hold', 'send_back']);
     expect(visibleDecisions('partner_ops')).toEqual(['send_back']);
+  });
+
+  it('a pushable row shows "Push to funders" and pushes only that row; a frozen row shows none', async () => {
+    rpcMock.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'pipeline_coo_board'
+          ? {
+              data: {
+                counts: { A: 1, B: 0, C: 0, D: 0, unrated: 0, waiting: 0, pushable: 1, frozen: 1 },
+                can_push: true,
+                rows: [
+                  cooRow({ id: 'r1', rank: 1, grade: 'A', rent: 1_000_000, pushable: true }),
+                  cooRow({
+                    id: 'fz',
+                    rank: 2,
+                    grade: 'B',
+                    rent: 500_000,
+                    pushable: false,
+                    frozen: { reason: 'ID check', since: '2026-11-01T00:00:00Z', returns_to_agent_ops_at: '2026-11-10T00:00:00Z' },
+                  }),
+                ],
+              },
+              error: null,
+            }
+          : fn === 'coo_push_selected'
+            ? { data: { requested: 1, approved: [{ id: 'r1', rent_amount: 1_000_000 }], approved_total: 1_000_000, skipped: [] }, error: null }
+            : { data: null, error: null },
+      ),
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <CooBoard board={false} onOpen={() => {}} />
+      </QueryClientProvider>,
+    );
+    // Only the pushable row carries the button; the frozen row keeps its chip.
+    await waitFor(() => expect(screen.getAllByRole('button', { name: 'Push to funders' })).toHaveLength(1));
+    expect(screen.getByText(/Frozen — ID check/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Push to funders' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Tenant')).toBeTruthy();
+    expect(within(dialog).getByText(/UGX 1,000,000/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Push to funders' }));
+    await waitFor(() => expect(rpcMock).toHaveBeenCalledWith('coo_push_selected', { p_ids: ['r1'], p_comment: null }));
+    await screen.findByText("Pushed to the funders' dashboard");
   });
 });
 
