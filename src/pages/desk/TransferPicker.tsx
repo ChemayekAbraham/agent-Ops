@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fmt } from './format';
 import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
+import { DecisionButton, EmptyState, ErrorLine, LoadingRows } from './ui';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError, rpc } from './reviewApi';
@@ -102,9 +102,9 @@ export function TransferPicker({
         </header>
 
         <div className="min-h-0 flex-1 overflow-auto px-5 py-3">
-          {q.isLoading && <Skeleton className="h-40 w-full" />}
-          {q.error && <p className={`text-sm ${statusText.bad}`}>{readableError(q.error)}</p>}
-          {!q.isLoading && !q.error && rows.length === 0 && <p className="text-sm text-muted-foreground">No agent can take this tenant right now.</p>}
+          {q.isLoading && <LoadingRows rows={4} height={36} label="Loading agents who can take this tenant" />}
+          {q.error && <ErrorLine>{readableError(q.error)}</ErrorLine>}
+          {!q.isLoading && !q.error && rows.length === 0 && <EmptyState>No agent can take this tenant right now.</EmptyState>}
           <ol className="space-y-1.5">
             {rows.map((a, i) => {
               const on = picked === a.agent_id;
@@ -153,17 +153,10 @@ export function TransferPicker({
               className={`w-full rounded-xl border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 py-2 text-sm text-foreground ${FOCUS}`}
             />
           </label>
-          {error && <p className={`text-sm ${statusText.bad}`} role="alert">{error}</p>}
-          <button
-            type="button"
-            disabled={!picked || !noteOk || busy}
-            onClick={confirm}
-            className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-              picked && noteOk && !busy ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-            } disabled:cursor-not-allowed`}
-          >
+          {error && <ErrorLine>{error}</ErrorLine>}
+          <DecisionButton size="md" variant={picked && noteOk && !busy ? 'ok' : 'quiet'} disabled={!picked || !noteOk || busy} onClick={confirm}>
             {busy ? 'Transferring…' : picked ? `Transfer to ${rows.find((r) => r.agent_id === picked)?.agent ?? 'this agent'}` : 'Choose an agent'}
-          </button>
+          </DecisionButton>
         </footer>
       </div>
     </div>

@@ -2,11 +2,10 @@ import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { fmt } from './format';
-import { CALM, FOCUS, LABEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
+import { LABEL, statusText } from './deskTheme';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
-import { Fold } from './DeskFrame';
+import { Chip, EmptyState, ErrorLine, Fold, LoadingRows, Segmented } from './ui';
 import { readableError, rpc } from './reviewApi';
 
 /**
@@ -88,14 +87,6 @@ function useEligibilityBoard(enabled: boolean) {
 
 const ugx = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
 
-function chip(active: boolean) {
-  return `desk-pill border px-3 py-1 text-xs ${CALM} ${FOCUS} ${
-    active
-      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
-      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
-  }`;
-}
-
 function RankingBody() {
   const q = useEligibilityBoard(true);
   const [filter, setFilter] = useState<RankingFilter>('all');
@@ -103,28 +94,27 @@ function RankingBody() {
   const ranked = useMemo(() => (q.data?.rows ?? []).map((r, i) => ({ r, rank: i + 1 })), [q.data]);
   const shown = ranked.filter(({ r }) => matchesFilter(r, filter));
 
-  if (q.isLoading) return <Skeleton className="h-40 w-full" />;
-  if (q.error) return <p className={`text-sm ${statusText.bad}`}>{readableError(q.error)}</p>;
+  if (q.isLoading) return <LoadingRows rows={4} height={32} label="Loading the agent ranking" />;
+  if (q.error) return <ErrorLine>{readableError(q.error)}</ErrorLine>;
   const s = q.data?.summary;
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5 text-xs">
-        <span className={`desk-pill border px-2.5 py-0.5 ${statusGlass.ok}`}>{fmt('int', s?.eligible_collectors)} eligible collectors</span>
-        <span className={`desk-pill border px-2.5 py-0.5 ${statusGlass.bad}`}>{fmt('int', s?.below_50)} below 50%</span>
-        <span className={`desk-pill border px-2.5 py-0.5 ${statusGlass.idle}`}>{fmt('int', s?.new_ok)} new, within limit</span>
-        <span className={`desk-pill border px-2.5 py-0.5 ${statusGlass.warn}`}>{fmt('int', s?.new_over_limit)} new, over limit</span>
+      <div className="flex flex-wrap gap-1.5" style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <Chip size="sm" tone="ok">{fmt('int', s?.eligible_collectors)} eligible collectors</Chip>
+        <Chip size="sm" tone="bad">{fmt('int', s?.below_50)} below 50%</Chip>
+        <Chip size="sm" tone="idle">{fmt('int', s?.new_ok)} new, within limit</Chip>
+        <Chip size="sm" tone="warn">{fmt('int', s?.new_over_limit)} new, over limit</Chip>
       </div>
-      <div role="group" aria-label="Filter agents" className="flex flex-wrap gap-1.5">
-        {RANKING_FILTERS.map((f) => (
-          <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)} className={chip(filter === f.key)}>
-            {f.label}
-          </button>
-        ))}
-      </div>
+      <Segmented<RankingFilter>
+        ariaLabel="Filter agents"
+        options={RANKING_FILTERS.map((f) => ({ value: f.key, label: f.label }))}
+        value={filter}
+        onChange={(f) => f !== null && setFilter(f)}
+      />
 
       {shown.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No agents in this view.</p>
+        <EmptyState>No agents in this view.</EmptyState>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-sm">
@@ -161,11 +151,11 @@ function RankingBody() {
                     </td>
                     <td className="px-2 py-1.5 text-right tabular-nums text-foreground">{fmt('int', r.plans)}</td>
                     <td className="px-2 py-1.5">
-                      <span className="flex flex-wrap gap-1">
+                      <span className="flex flex-wrap gap-1" style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                         {OPEN_STAGES.filter((st) => Number(r.open?.[st.key] ?? 0) > 0).map((st) => (
-                          <span key={st.key} title={`${r.open?.[st.key]} open at ${st.name}`} className={`desk-pill border px-1.5 py-0 text-[11px] tabular-nums ${statusGlass.idle}`}>
+                          <Chip key={st.key} title={`${r.open?.[st.key]} open at ${st.name}`} className="tabular-nums">
                             {st.short} {fmt('int', r.open?.[st.key])}
-                          </span>
+                          </Chip>
                         ))}
                         {OPEN_STAGES.every((st) => !Number(r.open?.[st.key] ?? 0)) && <span className="text-xs text-muted-foreground">—</span>}
                       </span>

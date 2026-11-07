@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import type { FunderNewReadyPlan } from '@/components/funder-new/types';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
-import { Skeleton } from './Skeleton';
+import { DecisionButton, ErrorLine, LoadingRows, Segmented } from './ui';
 import { readableError, rpc } from './reviewApi';
 
 /**
@@ -179,8 +179,8 @@ export function PhotoReview({ requestId }: { requestId: string }) {
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 
-  if (state.isLoading) return <Skeleton className="h-64 w-full" />;
-  if (state.error) return <p className={`text-sm ${statusText.bad}`}>{readableError(state.error)}</p>;
+  if (state.isLoading) return <LoadingRows rows={3} height={80} label="Loading the house photos" />;
+  if (state.error) return <ErrorLine>{readableError(state.error)}</ErrorLine>;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
@@ -214,31 +214,23 @@ export function PhotoReview({ requestId }: { requestId: string }) {
                       onClick={() => star(u)}
                       className={`absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 ${CALM} ${FOCUS}`}
                     >
-                      <Star className={`h-4 w-4 ${isMain ? 'fill-amber-400 text-amber-400' : 'text-white'}`} aria-hidden />
+                      <Star
+                        className={`h-4 w-4 ${isMain ? 'fill-[hsl(var(--desk-amber))] text-[hsl(var(--desk-amber))]' : 'text-[hsl(var(--desk-on-fill))]'}`}
+                        aria-hidden
+                      />
                     </button>
                   </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      aria-pressed={v === 'approved'}
-                      onClick={() => toggle(u, 'approved')}
-                      className={`desk-pill flex flex-1 items-center justify-center gap-1 border px-2 py-0.5 text-xs ${CALM} ${FOCUS} ${
-                        v === 'approved' ? statusGlass.ok : 'border-[var(--desk-line-color)] text-muted-foreground'
-                      }`}
-                    >
-                      <Check className="h-3 w-3" aria-hidden /> Approve
-                    </button>
-                    <button
-                      type="button"
-                      aria-pressed={v === 'rejected'}
-                      onClick={() => toggle(u, 'rejected')}
-                      className={`desk-pill flex flex-1 items-center justify-center gap-1 border px-2 py-0.5 text-xs ${CALM} ${FOCUS} ${
-                        v === 'rejected' ? statusGlass.bad : 'border-[var(--desk-line-color)] text-muted-foreground'
-                      }`}
-                    >
-                      <X className="h-3 w-3" aria-hidden /> Reject
-                    </button>
-                  </div>
+                  {/* A second press on the pressed verdict clears it, exactly as toggle() does. */}
+                  <Segmented<Verdict>
+                    ariaLabel={`Photo ${i + 1}: approve or reject`}
+                    deselectable
+                    options={[
+                      { value: 'approved', tone: 'ok', label: <><Check className="h-3 w-3" aria-hidden /> Approve</> },
+                      { value: 'rejected', tone: 'bad', label: <><X className="h-3 w-3" aria-hidden /> Reject</> },
+                    ]}
+                    value={v ?? null}
+                    onChange={(next) => toggle(u, next ?? (v as Verdict))}
+                  />
                 </li>
               );
             })}
@@ -251,24 +243,17 @@ export function PhotoReview({ requestId }: { requestId: string }) {
             {message.text}
           </p>
         )}
-        <button
-          type="button"
-          disabled={!!blocked || busy}
-          onClick={save}
-          className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-            !blocked && !busy ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-          } disabled:cursor-not-allowed`}
-        >
+        <DecisionButton size="md" variant={!blocked && !busy ? 'ok' : 'quiet'} disabled={!!blocked || busy} onClick={save}>
           {busy ? 'Saving…' : 'Save the photo review'}
-        </button>
+        </DecisionButton>
       </section>
 
       <aside className="space-y-2" aria-label="What funders will see">
         <h3 className="text-sm font-semibold text-foreground">What funders will see</h3>
         {preview.isLoading ? (
-          <Skeleton className="h-72 w-full" />
+          <LoadingRows rows={1} height={288} label="Loading the funders' card" />
         ) : preview.error ? (
-          <p className={`text-sm ${statusText.bad}`}>{readableError(preview.error)}</p>
+          <ErrorLine>{readableError(preview.error)}</ErrorLine>
         ) : (
           <div data-testid="funder-preview" data-main={plan.house_image_urls?.[0] ?? ''}>
             <FunderNewHouseCard

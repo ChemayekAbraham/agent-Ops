@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
+import { FOCUS, LABEL, PANEL, statusText } from './deskTheme';
+import { DecisionButton, ErrorLine } from './ui';
 import { readableError, rpc } from './reviewApi';
 import { DeskCallButton } from './deskCall';
 import { setWait, type WaitSuggest } from './boardApi';
@@ -133,31 +134,22 @@ export function IntakeForm({
       </div>
 
       {blocked && <p className={`text-sm ${statusText.warn}`}>{blocked}</p>}
-      {message && (
-        <p className={`text-sm ${message.ok ? statusText.ok : statusText.bad}`} role={message.ok ? 'status' : 'alert'}>
-          {message.text}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={!!blocked || busy}
-          onClick={save}
-          className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-            !blocked && !busy ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-          } disabled:cursor-not-allowed`}
-        >
+      {message &&
+        (message.ok ? (
+          <p className={`text-sm ${statusText.ok}`} role="status">
+            {message.text}
+          </p>
+        ) : (
+          <ErrorLine>{message.text}</ErrorLine>
+        ))}
+      <div className="flex flex-wrap gap-2" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <DecisionButton size="md" variant={!blocked && !busy ? 'ok' : 'quiet'} disabled={!!blocked || busy} onClick={save}>
           {busy ? 'Saving…' : 'Save what you filled'}
-        </button>
+        </DecisionButton>
         {waitSuggest && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={wait}
-            className={`desk-pill border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-4 py-2 text-sm text-muted-foreground ${CALM} ${FOCUS} hover:text-foreground disabled:opacity-50`}
-          >
+          <DecisionButton size="md" disabled={busy} onClick={wait}>
             Wait {waitSuggest.hours} h on agent
-          </button>
+          </DecisionButton>
         )}
       </div>
     </section>
