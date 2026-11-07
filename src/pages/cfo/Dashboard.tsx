@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
+const TenantRepaymentTracker = lazy(() => import('@/components/cfo/tenant-repayments/TenantRepaymentTracker'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -585,6 +586,12 @@ export default function CFODashboardPage() {
               <DisbursedAdvancesRegister />
             </div>
           </div>
+        );
+      case 'tenant-repayment-tracker':
+        return (
+          <Suspense fallback={<p className="py-6 text-center text-xs text-muted-foreground">Loading...</p>}>
+            <TenantRepaymentTracker />
+          </Suspense>
         );
       case 'special-advances':
         return (
