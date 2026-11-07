@@ -15,7 +15,7 @@ import { PhotoReview } from './PhotoReview';
 import { IntakeForm } from './IntakeForm';
 import { PaymentHealthPanel } from './paymentHealth';
 import { ConcernsSection, concernDeskFor } from './concerns';
-import { LandlordContextPanel, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
+import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
 import { stackLayout } from './ui';
 import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
@@ -131,7 +131,6 @@ function CheckRow({
   onResult,
   onValue,
   extra,
-  placeholder,
 }: {
   item: ChecklistItem;
   entry: CheckEntry | undefined;
@@ -141,7 +140,6 @@ function CheckRow({
   onValue: (v: unknown) => void;
   /** A line under the question: the rent on the request, the arrears hint. */
   extra?: React.ReactNode;
-  placeholder?: string;
 }) {
   // "Rent confirmed by the landlord" always takes the amount the landlord said; it is sent as the check's value.
   const kind = item.value_kind ?? (item.code === 'lo_rent_confirmed' ? 'amount' : null);
@@ -214,7 +212,6 @@ function CheckRow({
               if (!numeric) return onValue(raw);
               onValue(raw === '' ? null : Number(raw));
             }}
-            placeholder={placeholder}
             className={`desk-pill h-9 w-full max-w-sm border border-[var(--desk-line-color)] bg-[var(--desk-surface)] px-3 text-sm text-foreground placeholder:text-muted-foreground ${FOCUS}`}
           />
         </label>
@@ -628,10 +625,13 @@ export function ReviewDrawer({
                         needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
                         onResult={(r) => setResult(c.code, r)}
                         onValue={(v) => setValue(c.code, v)}
-                        placeholder={c.code === 'lo_rent_confirmed' && lctx ? String(lctx.rent_on_request ?? '') : undefined}
                         extra={
                           stage !== 'landlord_ops' || !lctx ? undefined : c.code === 'lo_rent_confirmed' ? (
-                            <span className="text-foreground">{rentOnRequestText(lctx.rent_on_request)}. The server refuses a pass more than 5% off.</span>
+                            // The box starts empty: the reviewer types what the landlord says, never the request's figure.
+                            <span className="text-foreground">
+                              {rentOnRequestText(lctx.rent_on_request)}
+                              <span className={`block ${statusText.warn}`}>{RENT_EXACT_HINT}</span>
+                            </span>
                           ) : c.code === 'lo_tenant_no_arrears' && lctx.landlord?.arrears_hint ? (
                             <span className={statusText.warn}>Arrears hint: {lctx.landlord.arrears_hint}</span>
                           ) : undefined

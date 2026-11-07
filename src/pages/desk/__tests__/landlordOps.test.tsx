@@ -128,8 +128,13 @@ describe('Landlord Ops drawer', () => {
     // Pass the rent check: the amount box appears; type what the landlord said.
     const rentRow = screen.getByText('Rent confirmed by the landlord').closest('li') as HTMLElement;
     fireEvent.click(within(rentRow).getByRole('button', { name: 'Pass' }));
-    const amount = within(rentRow).getByRole('spinbutton');
-    expect(amount.getAttribute('placeholder')).toBe('500000');
+    // The box starts empty — no pre-fill from the request's rent — with the exact-amount hint beside it.
+    const amount = within(rentRow).getByRole('spinbutton') as HTMLInputElement;
+    expect(amount.value).toBe('');
+    expect(amount.getAttribute('placeholder')).toBeNull();
+    expect(within(rentRow).getByText('Type exactly what the landlord says. Any difference = reject.')).toBeTruthy();
+    expect(within(rentRow).getByText(/Rent on the request: UGX 500,000/)).toBeTruthy();
+    expect(within(rentRow).queryByText(/5%/)).toBeNull();
     fireEvent.change(amount, { target: { value: '480000' } });
 
     // Record a "Call again" (no call needed for it) and check the value went with the check.

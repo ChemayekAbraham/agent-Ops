@@ -58,6 +58,9 @@ export function mobileMoneyMismatch(landlordName: string | null | undefined, mmN
   return !!a && !!b && a !== b;
 }
 
+/** Under "Rent confirmed by the landlord". The database refuses any difference from the request's rent. */
+export const RENT_EXACT_HINT = 'Type exactly what the landlord says. Any difference = reject.';
+
 /** "Rent on the request: UGX 500,000". */
 export const rentOnRequestText = (rent: number | null | undefined) => `Rent on the request: UGX ${fmt('ugxfull', rent ?? 0)}`;
 
