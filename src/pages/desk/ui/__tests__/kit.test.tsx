@@ -278,6 +278,57 @@ describe('command-centre look', () => {
   });
 });
 
+/* ───────────── the solid primary ───────────── */
+
+/** WCAG contrast between two "H S% L%" token values. */
+function contrast(a: string, b: string): number {
+  const rgb = (v: string) => {
+    const [h, s, l] = v.replace(/%/g, '').split(/\s+/).map(Number);
+    const S = s / 100, L = l / 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const f = (n: number) => L - S * Math.min(L, 1 - L) * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    return [f(0), f(8), f(4)];
+  };
+  const lum = (c: number[]) => {
+    const [r, g, b] = c.map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+describe('solid primary', () => {
+  const css = readFileSync(resolve(__dirname, '../../../../index.css'), 'utf8');
+  const block = (start: string) => css.slice(css.indexOf(start), css.indexOf('}', css.indexOf(start)));
+  const token = (src: string, name: string) => (src.match(new RegExp(`${name}:\\s*([^;]+);`)) ?? [])[1]?.trim();
+  const dark = block('.desk-root {');
+  const light = block(".desk-root[data-desk-theme='light'],");
+
+  it('is a filled button with white text, a darker hover and the focus ring', () => {
+    render(<DecisionButton variant="primary">Push to funders</DecisionButton>);
+    const cls = screen.getByRole('button', { name: 'Push to funders' }).className;
+    expect(cls).toContain('bg-[hsl(var(--desk-primary-solid))]');
+    expect(cls).toContain('text-[hsl(var(--desk-primary-solid-fg))]');
+    expect(cls).toContain('hover:bg-[hsl(var(--desk-primary-solid-hover))]');
+    expect(cls).toContain('focus-visible:ring-2');
+    // The ring is a box-shadow, which index.css removes on 1x screens; the outline is what shows there.
+    expect(cls).toContain('focus-visible:outline-2');
+    expect(cls).toContain('focus-visible:outline-[hsl(var(--ring))]');
+    expect(cls).not.toContain('/0.15');
+  });
+
+  it('white on the fill clears 4.5:1 at rest and on hover, in dark (and Board) and light', () => {
+    const fg = token(dark, '--desk-primary-solid-fg') as string;
+    for (const src of [dark, light]) {
+      for (const name of ['--desk-primary-solid', '--desk-primary-solid-hover']) {
+        const v = token(src, name);
+        expect(v, name).toBeTruthy();
+        expect(contrast(fg, v as string), `${name}: ${v}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
 /* ───────────── late-CSS safety and tokens ───────────── */
 
 describe('late-CSS safety', () => {

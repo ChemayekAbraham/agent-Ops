@@ -1972,6 +1972,13 @@ html.reduce-motion *::after {
   --desk-card-fill: rgba(255, 255, 255, 0.05);
   --desk-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
+  /* The one solid button (DecisionButton variant="primary"). White on these
+     fills is 5.7:1 and 7.5:1 on hover; the dark board keeps a brighter violet
+     so the button still lifts off the night ground. Light redefines both. */
+  --desk-primary-solid: 265 72% 56%;
+  --desk-primary-solid-hover: 265 72% 48%;
+  --desk-primary-solid-fg: 0 0% 100%;
+
   /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
      an alpha, because light does not want a translucent white — it wants a
      solid lilac-grey line. These values are exactly the white/12, white/5,
@@ -2080,6 +2087,9 @@ html.reduce-motion *::after {
   --desk-card-line: #e7e4f0;
   --desk-card-fill: #ffffff;
   --desk-card-shadow: 0 1px 2px rgba(23, 20, 43, 0.04);
+  /* White on these is 7.2:1, and 9.1:1 on hover. */
+  --desk-primary-solid: 263 70% 50%;
+  --desk-primary-solid-hover: 263 72% 42%;
 
   /* Solid lines and a faintly tinted field, so an input still reads as recessed
      against a white card. */

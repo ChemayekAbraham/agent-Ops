@@ -6,7 +6,7 @@ import { pillLayout } from './layout';
  * The desk button. One `primary` per row — the decision the rules reached —
  * and everything else `quiet` (or tucked into the row's "…" menu).
  *
- *   primary — violet, the one main move on a row or sheet
+ *   primary — solid violet with white text, the one main move on a row or sheet
  *   quiet   — secondary moves, menu items, "Done"
  *   danger  — a primary that rejects
  *   warn    — retry a half-finished move
@@ -21,10 +21,21 @@ export type ButtonSize = 'sm' | 'md';
 /** The words a row's main button uses. "…" means the rest names who or what. */
 export const DECISION_WORDS = ['Pass', 'Send back', 'Reject', 'Transfer → …', 'Call …', 'Finish checks', 'Wait …'] as const;
 
-const BASE = `desk-pill font-medium ${CALM} ${FOCUS} disabled:cursor-not-allowed disabled:opacity-50`;
+/**
+ * Keyboard focus is an outline as well as FOCUS's ring: index.css turns every
+ * box-shadow off on standard-density screens (`@media (max-resolution:
+ * 1.5dppx)`), and Tailwind's ring is a box-shadow, so on most desktop monitors
+ * the ring alone never shows.
+ */
+const FOCUS_OUTLINE =
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]';
+
+const BASE = `desk-pill font-medium ${CALM} ${FOCUS} ${FOCUS_OUTLINE} disabled:cursor-not-allowed disabled:opacity-50`;
 
 export const VARIANT_CLASS: Record<ButtonVariant, string> = {
-  primary: 'border-[hsl(var(--primary)/0.5)] bg-[hsl(var(--primary)/0.15)] text-foreground hover:bg-[hsl(var(--primary)/0.25)]',
+  // Solid: the brand fill with white text, darker on hover (tokens in index.css, 4.5:1 or better).
+  primary:
+    'border-[hsl(var(--desk-primary-solid))] bg-[hsl(var(--desk-primary-solid))] text-[hsl(var(--desk-primary-solid-fg))] font-semibold shadow-sm hover:border-[hsl(var(--desk-primary-solid-hover))] hover:bg-[hsl(var(--desk-primary-solid-hover))]',
   quiet: 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground',
   danger: statusGlass.bad,
   warn: statusGlass.warn,

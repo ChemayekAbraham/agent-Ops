@@ -33,6 +33,7 @@ Every token below is on `.desk-root` in `index.css`. Light redefines the surface
 | `--desk-radius-card` | 24px | cards, folds, sheets |
 | `--desk-radius-tile` | 18px | figure tiles |
 | `--desk-radius-capsule` | 16px | river capsules, strip steps |
+| `--desk-primary-solid` / `-hover` / `-fg` | light: `263 70% 50%` → `263 72% 42%` · dark and Board: `265 72% 56%` → `265 72% 48%` · white text | the solid primary button |
 | `--desk-card-fill` / `--desk-card-line` / `--desk-card-shadow` | dark: 5% white glass, 7% white edge, inset highlight · light: white paper, `#e7e4f0` edge, 1px soft lift | card surface |
 | `--background`, `--foreground`, `--muted-foreground`, `--primary` | as set per theme | page ground, text, grey text, brand |
 | `--desk-ok` / `--desk-warn` / `--desk-bad` | green / amber / red | status only, never decoration |
@@ -85,6 +86,7 @@ New sections go between 3 and 7, and they start collapsed.
 ## One main button per row
 
 - **One `primary` per row.** It carries out the decision the rules reached. Use `decisionVariant(decision)`: a reject gets `danger`, everything else `primary`.
+- **`primary` is the only solid button**: the brand violet fill (`--desk-primary-solid`), white semibold text (`--desk-primary-solid-fg`), a darker fill on hover (`--desk-primary-solid-hover`), and the 2px focus ring. White on the fill is 7.2:1 in light, 5.7:1 in dark and Board mode, and 7.5:1 or more on hover. `kit.test.tsx` checks it stays at least 4.5:1. Everything else stays tinted, so the main move is the one thing on a row that reads as a button rather than a label.
 - **Main-button wording** (`DECISION_WORDS`): **Pass** · **Send back** · **Reject** · **Transfer → …** · **Call …** · **Finish checks** · **Wait …**. The "…" part names who or what.
 - **Every other move goes in the row's `MoreMenu`.** Moves that need a reason end in "…" and open the review.
 - **Sheets that run a batch** confirm with `ok` ("Push all 12") and close with `quiet` ("Done").
