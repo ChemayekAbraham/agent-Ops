@@ -37,6 +37,7 @@ import { DeskRules } from './DeskRules';
 import { AccountabilityFold } from './accountability/AccountabilityFold';
 import { EditResponsibilitiesFold } from './ontology/ResponsibilitiesEditor';
 import { AgentsLiveFold } from './agents/AgentsLive';
+import { FlowPanel } from './flow/FlowPanel';
 import { OntologyTab } from './ontology/OntologyTab';
 
 const ROTATE_MS = 45_000;
@@ -652,6 +653,7 @@ function DeskView({
             showQueue && ready && table(ready)
           )}
         </section>
+        <FlowPanel deskId={desk.id} board={board} />
 
         {desk.id === 'agent-ops' && <AgentRankingFold board={board} />}
         <AgentsLiveFold deskId={desk.id} board={board} />
@@ -679,6 +681,7 @@ function DeskView({
           </h2>
           <PartnerOpsBoard board={board} />
         </section>
+        <FlowPanel deskId={desk.id} board={board} />
         <AccountabilityFold deskId={desk.id} board={board} />
         <DeskRules deskId={desk.id} board={board} />
         <Fold title="Classic view" board={board} hint="The funder board watch and every table this desk showed before">
