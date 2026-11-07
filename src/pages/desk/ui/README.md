@@ -69,6 +69,37 @@ Every token below is on `.desk-root` in `index.css`. Light redefines the surface
 - **Board mode is always dark**, whatever was saved. (`resolveDeskTheme` in `deskPrefs.tsx`.)
 - **A sheet that opens its own `.desk-root`** follows the page's theme.
 
+## Responsive
+
+### Breakpoints
+
+`ui/breakpoints.ts` is the only source; `index.css` repeats the numbers, and a test checks they agree.
+
+| Band | Width | What changes |
+|---|---|---|
+| xs | < 360 | Segmented becomes a native select; the LIVE pill is a dot |
+| sm | 360–599 | One sticky header bar (≤ 56px), "Desk ▾" switcher, "Pipeline ▸" chip, DataList as cards |
+| md | 600–1023 | Header on two rows with the tabs; DataList as a table; density and staff ID in "⋯" |
+| lg | 1024–1439 | Light/Dark and Board mode in the bar |
+| xl | ≥ 1440 | The whole toolbar inline |
+| wall | ≥ 1920 | Board mode on a wall |
+
+### Pieces
+
+- **`DataList`**: one column definition (`priority` 1–3) gives a table from md and cards below. Priority 1 is always on the card, priority 2 a small line, priority 3 under "More". It has search, "Show 10 / Show all", and the three states built in.
+- **`RowCard`**: the phone card for a decision row. The primary label stays at 24 characters or fewer (`splitDecisionLabel` moves "→ target" to the line under it). Three chips show, then "+n".
+- **`Sheet`**: a bottom sheet on a phone and a centred card from md. Used by the desk switcher, the pipeline stages and the "⋯" menu.
+- **`format`**: on cards, write `daysShort` ("152 d", "<1 d"), `moneyCard` ("UGX 1.2M") and `pctWhole` ("65%"). On tables and in tooltips, write `moneyFull`.
+- **`plainReason` / `Reason`**: rule codes (AO-6, SC-1, …) leave the sentence and stay in the tooltip.
+
+### Rules
+
+- **No horizontal page scroll at any width, or at 200% zoom.** Rows wrap; tables and pill rows scroll inside their own box.
+- **Tiles** fit themselves (`minmax(150px, 1fr)`, at least two across a phone). Figures are `clamp(22px, 5vw, 36px)`, and long money shortens with the full value in the tooltip.
+- **Segmented never wraps.** It scrolls with fade edges and keeps the pressed option in view.
+- **Touch and type:** targets are at least 44px, and body text at least 14px on phones.
+- **Motion:** respect `prefers-reduced-motion`.
+
 ## The frame
 
 Every stage desk runs in this order:

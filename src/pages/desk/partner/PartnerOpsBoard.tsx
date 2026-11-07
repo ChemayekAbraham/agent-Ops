@@ -15,6 +15,7 @@ import {
   approvePortfolio,
   decisionChip,
   lastFollowUpText,
+  partnerLead,
   noteFollowUp,
   partnerTiles,
   rankOfficers,
@@ -303,6 +304,11 @@ export function PartnerOpsBoard({ board }: { board: boolean }) {
 
   return (
     <div className="space-y-5">
+      {b && (
+        <p className={`${board ? 'text-2xl' : 'text-lg sm:text-xl'} max-w-4xl leading-snug text-foreground`} data-partner-lead>
+          {partnerLead(b)}
+        </p>
+      )}
       <Segmented<PartnerPeriod>
         ariaLabel="Period"
         size="md"

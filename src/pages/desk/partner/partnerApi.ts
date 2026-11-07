@@ -308,3 +308,14 @@ export function lastFollowUpText(f: Listing['last_followup'], when: (iso: string
 
 export const SOLD_BY: Record<string, string> = { officer: "Officer's funder", officers: "Officer's funder", self: 'Self', welile: 'Welile' };
 export const soldBy = (by: string | null | undefined) => (by ? SOLD_BY[by] ?? by : '—');
+
+/** The desk's opening sentence, from the board: what is listed, what Welile must fund, what sold. */
+export function partnerLead(b: PartnerBoard): string {
+  const t = b.tiles;
+  const n = (v: number) => Math.round(v).toLocaleString('en');
+  const parts = [`${n(t.listed.n)} tenants are listed for funders (${ugxC(t.listed.ugx)})`];
+  if (t.welile_due.n > 0) parts.push(`${n(t.welile_due.n)} have waited 7 days and Welile funds them`);
+  parts.push(`${n(t.sold.n)} sold in this period, ${pctText(t.sell_through_7d.pct)} within a week`);
+  return `${parts.join('; ')}.`;
+}
+

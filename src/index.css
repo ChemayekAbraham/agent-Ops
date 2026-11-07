@@ -2041,6 +2041,58 @@ html.reduce-motion *::after {
   mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
 }
 
+/* ---- Responsive foundation (ui/breakpoints.ts is the source of these numbers) --------
+   xs < 360 · sm 360–599 · md 600–1023 · lg 1024–1439 · xl ≥ 1440 · wall ≥ 1920.
+   --------------------------------------------------------------------------- */
+/* A row that scrolls sideways instead of wrapping (Segmented, the pipeline strip). */
+.desk-root .desk-scroll-row { scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.desk-root .desk-scroll-row::-webkit-scrollbar { display: none; }
+.desk-root .desk-scroll-row[data-fade='end'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.desk-root .desk-scroll-row[data-fade='start'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+.desk-root .desk-scroll-row[data-fade='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
+/* Sheets: a bottom sheet on a phone, a centred card from md. */
+.desk-root .desk-sheet { border-radius: var(--desk-radius-card) var(--desk-radius-card) 0 0; }
+@media (min-width: 600px) {
+  .desk-root .desk-sheet-wrap { align-items: center !important; padding: 24px; }
+  .desk-root .desk-sheet { border-radius: var(--desk-radius-card); }
+}
+/* Phones: body text at least 14px. The app sets html to 14px on 321–375px
+   screens and 13px at 320px (and shrinks text-sm with !important there), which
+   would leave desk text at 10–12px. */
+@media (max-width: 599.98px) {
+  .desk-root .text-base { font-size: max(14px, 1rem) !important; }
+  .desk-root .text-sm { font-size: 14px !important; line-height: 20px; }
+  .desk-root .text-xs { font-size: 12px !important; line-height: 16px; }
+  .desk-root .text-\[11px\] { font-size: 12px !important; }
+}
+/* The compact header bleeds to the page edge: it follows the page gutter,
+   which the small-screen block above cuts to 0.75rem at 360px and below. */
+@media (max-width: 360px) {
+  .desk-root [data-desk-header='compact'] { margin-left: -0.75rem !important; margin-right: -0.75rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+}
+/* Board mode on a wall (≥ 1920px): the page breathes wider. */
+@media (min-width: 1920px) {
+  .desk-root[data-desk-wall] main { max-width: 1760px; }
+}
+/* Motion only for those who want it. */
+@media (prefers-reduced-motion: reduce) {
+  .desk-root *, .desk-root *::before, .desk-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---- The same board in daylight -------------------------------------------
    Dark above is the baseline; this is the light set, and the desks open on it.
    DeskPage writes the decision into data-desk-theme, so there is one light

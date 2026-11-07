@@ -150,9 +150,10 @@ export const DESKS: Desk[] = [
     ],
   },
   {
-    id: 'partner-ops', name: 'Partner Ops', question: 'Attach the funder side, then forward to the COO.', roles: DESK_ROLES['partner-ops'],
-    lead: (g) => `${g(st('4', 'n', 'int'))} requests wait for Partner Ops. Of requests funded in 30 days, ${g(kp('funder_tagged_30d', 'pct'))} carry a proxy partner and ${g(kp('portfolio_linked_30d', 'pct'))} are linked to a funder's portfolio.`,
-    tiles: [{ label: 'Waiting', ...st('4', 'n', 'int') }, { label: 'Funded with a funder tag, 30 days', ...kp('funder_tagged_30d', 'pct') }],
+    id: 'partner-ops', name: 'Partner Ops', question: 'Which listed tenants are funders taking, and what still needs a push?', roles: DESK_ROLES['partner-ops'],
+    // The lead comes from partner_ops_board itself, so the sales desk writes it (partnerLead); nothing here.
+    lead: () => '',
+    tiles: [],
     tables: [
       { id: 'partner-queue', feed: 'partner_ops_queue', title: 'Partner Ops queue', rowKey: 'req', summarySum: 'rent_ugx', note: 'Funders choosing tenants themselves is planned for new tenants, alongside this model, once the team agrees the logic.', columns: [REQ, { field: 'tenant', label: 'Tenant' }, { field: 'agent', label: 'Agent' }, DAYS, RENT, { field: 'funder_visibility', label: 'Funder visibility' }, { field: 'proxy', label: 'Proxy partner' }, DEC] },
       CAPITAL,
