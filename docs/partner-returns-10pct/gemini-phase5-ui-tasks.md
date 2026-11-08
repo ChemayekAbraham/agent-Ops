@@ -147,7 +147,7 @@ Other checks:
   - `FunderEarningsAssumptions` takes a `rate` prop. `FunderEarningsBreakdown` takes `FunderEarningsAt`, and its rows show "—" for null figures.
   - The `FunderSelectionConfirmDialog` and `FunderTopUpDialog` prop types now allow null.
   - At 15 (switch off), every figure and sentence equals today's; the tests compare against the old helpers.
-- **O5. WithdrawFlow.** A null `roiBalance` is unknown (`roiCap`, `maxUnknown`, `WithdrawFlow.tsx:416-420`).
+- **O5. WithdrawFlow.** A null `roiBalance` is unknown (`roiCap`, `maxUnknown`, `WithdrawFlow.tsx:443-447`).
   - Steps 1 and 4 refuse while the cap is unknown (`:818`, `:843`).
   - `handleNext` refuses before comparing amounts (`:1228`).
   - `FunderQuickActions` types `roiBalance` as `number | null`.
@@ -302,7 +302,7 @@ Not in the gate (signed-in partner screens, own rate, for a later round): `Suppo
 The prefill is already the stored rate (data, done). Only the labels and the toast from item 2 remain.
 
 ### 9. Share sheets: data done; leftovers before release
-- `SelfPortfolioPlanDetailSheet.tsx:463` "15% per month": use the plan's own stored rate, or drop the figure.
+- `SelfPortfolioPlanDetailSheet.tsx:489` "15% per month": use the plan's own stored rate, or drop the figure.
 - `SupportHouse.tsx:301` `{newContractRate}%` prints "null%" while loading. Use `formatRatePct(newContractRate)`, and leave the sentence out when it is null.
 
 ### 10. Signed-in partner screens: before release
@@ -368,7 +368,7 @@ Any figure built from `ownRate` can be null. Use `formatUGXOrDash` for it. Examp
 - `UnifiedWalletHeroCard` and `FunderQuickActions` must show "—" for a null balance.
 - Today the section shows only the viewer's own hub, so nothing changes on screen.
 - The null into WithdrawFlow is handled (Claude, O5 done): a null `roiBalance` is never a cap and never withdrawable.
-- If a Returns source is ever offered in WithdrawFlow, the figures built from `maxAmount` show UGX 0 while `maxUnknown` is true. They must show "—" then: `WithdrawFlow.tsx:1459`, `:1470`, `:1479`, `:2075`, `:2114`, `:2117`. No screen reaches them today, because nothing selects the `'roi'` source.
+- If a Returns source is ever offered in WithdrawFlow, the figures built from `maxAmount` show UGX 0 while `maxUnknown` is true. They must show "—" then: `WithdrawFlow.tsx:1514`, `:1525`, `:1534`, `:2130`, `:2169`, `:2172`. No screen reaches them today, because nothing selects the `'roi'` source.
 
 **11c. Registration answer.** Covered in item 15.
 
