@@ -5,7 +5,7 @@
 -- release_ready is set although the partner agreements (Phase 3, parked) still state 15%. Release scan
 -- §8.5 #2 stays red for that reason only, by the owner's choice.
 --
--- PENDING: apply after 4b (20261108163000) and after the screens are published. It refuses to run unless
+-- APPLIED to production 2026-11-08 18:51 UTC (after 4b and the published screens). It refuses to run unless
 --   * the switch is off,
 --   * every assert_partner_return_policy_intact() row is ok (rates_conform and release_ready aside), and
 --   * every Phase 4 release check is ok (_partner_return_phase4_checks(true): the 4b masks, the note

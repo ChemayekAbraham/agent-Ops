@@ -2,7 +2,7 @@
 -- are shown only to that person, partner staff, or an approved active proxy agent of that supporter (D2).
 -- CREATE OR REPLACE with the production signatures, so grants are kept.
 --
--- PENDING: do not apply until the published browser bundle tolerates NULL Returns figures (design v2 §8.2
+-- APPLIED to production 2026-11-08 18:50 UTC, after the published bundle was checked. Was PENDING until the published browser bundle tolerated NULL Returns figures (design v2 §8.2
 -- step 4: §6.1, Gemini §6.2 items 4, 5, 11). Applied via the CLI; then moved into supabase/migrations/
 -- (sorted after any Lovable copy). Requires 4a (partner_rate_visible_to_caller).
 --
