@@ -87,6 +87,7 @@ export default function PartnerAgreementSignOff({
   const [ratePortfolios, setRatePortfolios] = useState<AgreementRatePortfolio[]>([]);
   const [returnRate, setReturnRate] = useState<number | undefined>();
   const [rateEdited, setRateEdited] = useState(false);
+  const [rateNeedsSave, setRateNeedsSave] = useState(false);
   // Earliest portfolio's roi_mode decides the Return Option (A/B) printed in the contract.
   const [roiMode, setRoiMode] = useState<string | null>(null);
   // How the partner supports — REQUIRED before countersigning.
@@ -108,6 +109,7 @@ export default function PartnerAgreementSignOff({
     setRatePortfolios([]);
     setReturnRate(undefined);
     setRateEdited(false);
+    setRateNeedsSave(false);
     (async () => {
       try {
         const [{ data: ag, error: agErr }, { data: def }, { data: pfAll }] = await Promise.all([
@@ -276,6 +278,10 @@ export default function PartnerAgreementSignOff({
 
   const openConfirm = async () => {
     if (!partner) return;
+    if (rateNeedsSave) {
+      toast({ title: 'Save the Returns rate first', description: 'The contract shows a draft rate. Save it before sending; any required approval still applies.', variant: 'destructive' });
+      return;
+    }
     const hasSignature = !!sigDataUrl || !!defaults?.signature_path;
     if (!repName.trim() || !hasSignature) {
       toast({
@@ -317,6 +323,10 @@ export default function PartnerAgreementSignOff({
 
   const handleCountersign = async () => {
     if (!partner) return;
+    if (rateNeedsSave) {
+      toast({ title: 'Save the Returns rate first', description: 'Draft rate changes cannot be sent as approved contract terms.', variant: 'destructive' });
+      return;
+    }
     const hasSignature = !!sigDataUrl || !!defaults?.signature_path;
     if (!repName.trim() || !hasSignature) {
       toast({
@@ -513,9 +523,13 @@ export default function PartnerAgreementSignOff({
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <AgreementRateInput portfolios={ratePortfolios} initialId={agreement.auto_portfolio_id} onRateSaved={(rate) => {
+                    <AgreementRateInput portfolios={ratePortfolios} initialId={agreement.auto_portfolio_id} initialRate={ratePortfolios.length ? undefined : returnRate} onRatePreview={(rate, unsaved) => {
+                      setReturnRate(rate);
+                      setRateNeedsSave(unsaved);
+                    }} onRateSaved={(rate) => {
                       setReturnRate(rate);
                       setRateEdited(true);
+                      setRateNeedsSave(false);
                     }} />
                     <Label className="text-[11px]">Representative name</Label>
                     <Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Jane Doe" className="h-8 text-xs" />

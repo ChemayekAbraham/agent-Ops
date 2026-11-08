@@ -9,6 +9,20 @@ vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mocks.toast }) }
 describe('agreement Returns rate workflow', () => {
   beforeEach(() => vi.clearAllMocks());
   const portfolios = [{ id: 'portfolio-1', portfolio_code: 'WIP-1', roi_percentage: 15 }];
+  it('updates the draft contract rate while typing, without saving or counter-signing', () => {
+    const preview = vi.fn();
+    render(<AgreementRateInput portfolios={portfolios} onRateSaved={vi.fn()} onRatePreview={preview} />);
+    fireEvent.change(screen.getByLabelText('Monthly Returns rate (%)'), { target: { value: '20' } });
+    expect(preview).toHaveBeenCalledWith(20, true);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it('allows drafting a rate before a portfolio exists', () => {
+    const preview = vi.fn();
+    render(<AgreementRateInput portfolios={[]} initialRate={15} onRateSaved={vi.fn()} onRatePreview={preview} />);
+    fireEvent.change(screen.getByLabelText('Monthly Returns rate (%)'), { target: { value: '12' } });
+    expect(preview).toHaveBeenCalledWith(12, true);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it('sends the selected rate through the existing server workflow', async () => {
     mocks.rpc.mockResolvedValue({ data: { rate_in_force: 20, awaits_cfo: false }, error: null });
     const saved = vi.fn();
