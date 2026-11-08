@@ -12,6 +12,8 @@ export interface AgreementFillData {
   partnerPhone?: string;
   partnerEmail?: string;
   partnershipAmount: number;
+  /** Active monthly Returns percentage returned by the portfolio rate workflow. */
+  monthlyReturnRate?: number;
   /**
    * Return Option elected under clause 4.2: 'A' = Monthly Payout, 'B' = Compounding.
    * Both carry the flat 15% monthly return. Derived from the signup mode
@@ -195,6 +197,25 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   let html = RAW_TEMPLATE;
   for (const [key, value] of Object.entries(tokens)) {
     html = html.split(`{{${key}}}`).join(value);
+  }
+  if (data.monthlyReturnRate !== undefined) {
+    const rate = data.monthlyReturnRate;
+    if (!Number.isFinite(rate) || rate <= 0 || rate > 100) throw new Error('Invalid monthly Returns rate');
+    const monthly = rate / 100;
+    const multiple = Math.pow(1 + monthly, 12);
+    html = html.replace('fifteen per cent (15%)', `${esc(rate)} per cent (${esc(rate)}%)`)
+      .replace('one hundred and eighty per cent (180%)', `${esc(rate * 12)} per cent (${esc(rate * 12)}%)`)
+      .replace('approximately 5.35 times', `approximately ${multiple.toFixed(2)} times`)
+      .split('(15%').join(`(${esc(rate)}%`);
+    // The illustration is contract presentation, never a payout calculation.
+    const principals = [1000000, 5000000, 10000000];
+    const figures = principals.map((principal) => {
+      const accumulated = Math.round(principal * multiple);
+      return `<tr><td><strong>${principal.toLocaleString('en-US')}</strong></td>${[
+        Math.round(principal * monthly), Math.round(principal * monthly * 12), accumulated, accumulated - principal,
+      ].map((value) => `<td class="text-right">${value.toLocaleString('en-US')}</td>`).join('')}</tr>`;
+    }).join('');
+    html = html.replace(/(<table class="contract-table">[\s\S]*?Option A:[\s\S]*?<tbody>)[\s\S]*?(<\/tbody>)/, `$1${figures}$2`);
   }
   return html;
 }
