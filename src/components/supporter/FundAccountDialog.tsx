@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { Wallet, Sparkles, AlertCircle, Plus, CheckCircle2, CalendarClock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,6 +35,8 @@ export function FundAccountDialog({
   const [amount, setAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [confirmedAmount, setConfirmedAmount] = useState<number | null>(null);
+  // The partner's own rate (partner_quote_rate('me')); null while it loads or on error: no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   // Hard, synchronous lock — blocks a second tap before React paints `disabled`,
   // preventing race-condition double top-ups / wallet double-deduction.
   const submitLock = useRef(false);
@@ -58,7 +62,7 @@ export function FundAccountDialog({
   const isValid = amount > 0 && amount <= walletBalance;
   const remainingBalance = walletBalance - amount;
   const newPortfolioBalance = currentBalance + amount;
-  const monthlyReturn = newPortfolioBalance * 0.15;
+  const monthlyReturn = monthlyReturnFor(newPortfolioBalance, ownRate);
   const noFunds = walletBalance <= 0;
 
   const handleClose = (v: boolean) => {

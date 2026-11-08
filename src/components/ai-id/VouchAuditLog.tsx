@@ -19,11 +19,12 @@ export function VouchAuditLog({ profile }: Props) {
   const vb = profile.trust.vouch_breakdown;
   if (!vb) return null;
 
-  const portfolio = profile.supporter_activity?.portfolio_value ?? 0;
+  // null = unknown (Partner Returns 4b masks figures built from this person's Returns), never 0.
+  const portfolio = profile.supporter_activity?.portfolio_value ?? null;
   const shares = profile.supporter_activity?.angel_shares_ugx ?? vb.angel_shares_ugx;
   const b = profile.trust.breakdown;
   const agentTerm = profile.agent_performance?.agent_term ?? 0;
-  const monthlyCashflow = profile.cash_flow_capacity?.monthly_avg ?? 0;
+  const monthlyCashflow = profile.cash_flow_capacity?.monthly_avg ?? null;
   const totalRepaid = profile.payment_history?.total_repaid ?? 0;
 
   const rows: Array<{

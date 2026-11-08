@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 interface Booking {
   intent_id: string;
@@ -43,6 +45,9 @@ export function FunderBookedHousesPanel() {
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyHouse, setBusyHouse] = useState<string | null>(null);
+  // Monthly Returns on a booked house: the partner's own rate (partner_quote_rate('me')); null while
+  // it loads or on error (no figure).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('funder_booked_houses');
@@ -148,7 +153,7 @@ export function FunderBookedHousesPanel() {
                 <div className="text-right shrink-0">
                   <p className="text-xs font-black text-foreground">{formatUGX(b.monthly_rent)}</p>
                   <p className="text-[10px] font-semibold text-success">
-                    +{formatUGX(Math.round(Number(b.monthly_rent || 0) * 0.15))}/mo
+                    +{formatUGX(monthlyReturnFor(Number(b.monthly_rent || 0), ownRate))}/mo
                   </p>
                 </div>
               </div>

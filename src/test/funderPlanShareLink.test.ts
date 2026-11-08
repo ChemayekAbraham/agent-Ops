@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+// The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/usePartnerQuoteRate', () => ({
+  useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
+}));
 import { buildPlanShareLink, buildPlanShareMessage, buildWhatsAppShareUrl } from '@/components/funder-new/FunderNewSelectionPanel';
 
 const item = { id: 'abc-123', category: 'ready' as const, tenantName: 'Test Tenant', tenantPhone: '+256700000000', landlordPhone: '0700000001' };

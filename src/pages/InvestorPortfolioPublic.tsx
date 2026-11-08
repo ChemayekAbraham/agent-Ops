@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
+import { monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { Wallet, Calendar, Clock, User, Shield, PiggyBank } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -69,7 +70,8 @@ export default function InvestorPortfolioPublic() {
   }
 
   const roiModeLabel = portfolio.roi_mode === 'monthly_compounding' ? 'Monthly Compounding' : 'Monthly Payout';
-  const monthlyRoi = Math.round(portfolio.investment_amount * (portfolio.roi_percentage / 100));
+  // The portfolio's own stored rate; null (masked by 4b, or missing) = no figure, never a default.
+  const monthlyRoi = monthlyReturnFor(portfolio.investment_amount, rateOrNull(portfolio.roi_percentage));
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-primary/5 pb-10">

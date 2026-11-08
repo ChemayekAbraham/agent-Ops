@@ -18,8 +18,8 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatDistanceToNow } from 'date-fns';
 import welileWordmark from '@/assets/welile-wordmark.png.asset.json';
-
-const REWARD_RATE = 0.15; // 15% monthly platform rewards
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
 interface MonthlyProjection {
   month: number;
@@ -53,6 +53,22 @@ const SCENARIO_COLORS = [
 
 export function InvestmentCalculator() {
   const { currency, formatAmount, isLoadingRates, lastUpdated, refreshRates, usdRate } = useCurrency();
+  // The partner's own monthly Returns rate for a new portfolio (partner_quote_rate('me')), as a
+  // fraction. null while it loads or on error: every Returns figure is null / empty, never a default.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = rateOrNull(ownRate);
+  const rewardRate = ownRatePct === null ? null : ownRatePct / 100;
+  const ratePctLabel = formatRatePct(ownRatePct);
+  /** Share/save handlers state the rate and the totals: refuse while the rate is unknown. */
+  const rateUnavailable = () => {
+    if (rewardRate !== null) return false;
+    toast({
+      title: "Returns rate not available",
+      description: "Your Returns rate has not loaded yet. Try again in a moment.",
+      variant: "destructive",
+    });
+    return true;
+  };
   const [mode, setMode] = useState<'invest' | 'earn'>('invest');
   const [investAmount, setInvestAmount] = useState(1_000_000);
   const [desiredEarnings, setDesiredEarnings] = useState(150000);
@@ -104,9 +120,18 @@ export function InvestmentCalculator() {
   }, [savedScenarios]);
 
   const calculations = useMemo(() => {
+    if (rewardRate === null) {
+      // No rate: no Returns figure, and "earn" mode cannot work out the contribution.
+      return {
+        requiredContribution: mode === 'invest' ? Math.max(0, investAmount) : null,
+        monthlyReward: null,
+        quarterlyReward: null,
+        yearlyReward: null,
+      };
+    }
     const requiredContribution =
-      mode === 'invest' ? Math.max(0, investAmount) : Math.ceil(desiredEarnings / REWARD_RATE);
-    const monthlyReward = requiredContribution * REWARD_RATE;
+      mode === 'invest' ? Math.max(0, investAmount) : Math.ceil(desiredEarnings / rewardRate);
+    const monthlyReward = requiredContribution * rewardRate;
     const quarterlyReward = monthlyReward * 3;
     const yearlyReward = monthlyReward * 12;
     
@@ -116,15 +141,16 @@ export function InvestmentCalculator() {
       quarterlyReward,
       yearlyReward,
     };
-  }, [mode, investAmount, desiredEarnings]);
+  }, [mode, investAmount, desiredEarnings, rewardRate]);
 
   const projections = useMemo((): MonthlyProjection[] => {
     const results: MonthlyProjection[] = [];
+    if (rewardRate === null || calculations.requiredContribution === null) return results;
     let currentBalance = calculations.requiredContribution;
     let totalEarnings = 0;
 
     for (let month = 1; month <= duration; month++) {
-      const earnings = currentBalance * REWARD_RATE;
+      const earnings = currentBalance * rewardRate;
       totalEarnings += earnings;
       
       if (isCompounding) {
@@ -141,9 +167,10 @@ export function InvestmentCalculator() {
     }
 
     return results;
-  }, [calculations.requiredContribution, duration, isCompounding]);
+  }, [calculations.requiredContribution, duration, isCompounding, rewardRate]);
 
   const comparisonData = useMemo(() => {
+    if (rewardRate === null || calculations.requiredContribution === null) return [];
     const data = [{ 
       month: 0, 
       compoundingBalance: calculations.requiredContribution, 
@@ -157,11 +184,11 @@ export function InvestmentCalculator() {
     let simpleTotalEarnings = 0;
 
     for (let month = 1; month <= duration; month++) {
-      const compoundEarnings = compoundBalance * REWARD_RATE;
+      const compoundEarnings = compoundBalance * rewardRate;
       compoundTotalEarnings += compoundEarnings;
       compoundBalance += compoundEarnings;
 
-      const simpleEarnings = calculations.requiredContribution * REWARD_RATE;
+      const simpleEarnings = calculations.requiredContribution * rewardRate;
       simpleTotalEarnings += simpleEarnings;
 
       data.push({
@@ -174,10 +201,11 @@ export function InvestmentCalculator() {
     }
 
     return data;
-  }, [calculations.requiredContribution, duration]);
+  }, [calculations.requiredContribution, duration, rewardRate]);
 
   const scenarioComparisonData = useMemo(() => {
     if (savedScenarios.length === 0) return [];
+    if (rewardRate === null || calculations.requiredContribution === null) return [];
     
     const maxDuration = Math.max(...savedScenarios.map(s => s.duration), duration);
     const data = [];
@@ -189,7 +217,7 @@ export function InvestmentCalculator() {
         let currentBalance = calculations.requiredContribution;
         let totalEarnings = 0;
         for (let m = 1; m <= month; m++) {
-          const earnings = currentBalance * REWARD_RATE;
+          const earnings = currentBalance * rewardRate;
           totalEarnings += earnings;
           if (isCompounding) currentBalance += earnings;
         }
@@ -201,7 +229,7 @@ export function InvestmentCalculator() {
           let currentBalance = scenario.requiredContribution;
           let totalEarnings = 0;
           for (let m = 1; m <= month; m++) {
-            const earnings = currentBalance * REWARD_RATE;
+            const earnings = currentBalance * rewardRate;
             totalEarnings += earnings;
             if (scenario.isCompounding) currentBalance += earnings;
           }
@@ -213,9 +241,10 @@ export function InvestmentCalculator() {
     }
     
     return data;
-  }, [savedScenarios, calculations.requiredContribution, duration, isCompounding]);
+  }, [savedScenarios, calculations.requiredContribution, duration, isCompounding, rewardRate]);
 
   const handleSaveScenario = () => {
+    if (rateUnavailable()) return;
     if (savedScenarios.length >= 5) {
       toast({
         title: "Maximum Scenarios Reached",
@@ -304,6 +333,7 @@ export function InvestmentCalculator() {
   };
 
   const handleShareComparisonWhatsApp = () => {
+    if (rateUnavailable()) return;
     if (savedScenarios.length === 0) {
       toast({
         title: "No Scenarios to Share",
@@ -346,7 +376,7 @@ export function InvestmentCalculator() {
     message += `💵 Highest Earnings: ${formatUGX(bestScenario.earnings)}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `✅ *WHY SUPPORT WITH WELILE?*\n`;
-    message += `• Partner Returns target 15%, not guaranteed\n`;
+    message += `• Partner Returns target ${ratePctLabel}, not guaranteed\n`;
     message += `• Help tenants access rent facilitation\n`;
     message += `• Trusted agent collection network\n`;
     message += `• 90-day notice for capital withdrawal\n\n`;
@@ -382,12 +412,13 @@ export function InvestmentCalculator() {
   };
 
   const handleShareWhatsApp = () => {
+    if (rateUnavailable()) return;
     const finalBalance = projections[projections.length - 1]?.balance || 0;
     const totalEarnings = projections[projections.length - 1]?.totalEarnings || 0;
     
     const message = `💰 *Welile Earnings Projection*\n\n` +
       `📊 Contribution: ${formatUGX(calculations.requiredContribution)}\n` +
-      `📈 Partner Returns target 15%, not guaranteed\n` +
+      `📈 Partner Returns target ${ratePctLabel}, not guaranteed\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Reinvesting Rewards: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
@@ -401,13 +432,14 @@ export function InvestmentCalculator() {
 
   const handleSharePDFWhatsApp = async () => {
     if (!projectionRef.current) return;
+    if (rateUnavailable()) return;
     
     setIsExporting(true);
     try {
       let breakdownText = `📊 *WELILE EARNINGS PROJECTION*\n`;
       breakdownText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
       breakdownText += `💰 Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-      breakdownText += `📈 Partner Returns target 15%, not guaranteed\n`;
+      breakdownText += `📈 Partner Returns target ${ratePctLabel}, not guaranteed\n`;
       breakdownText += `⏱️ Duration: ${duration} months\n`;
       breakdownText += `🔄 Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
       breakdownText += `📋 *MONTHLY BREAKDOWN*\n`;
@@ -430,7 +462,7 @@ export function InvestmentCalculator() {
       breakdownText += `• Earn by helping tenants access rent facilitation\n`;
       breakdownText += `• Welile coordinates rent collection through our Agent Network\n`;
       breakdownText += `• Withdraw capital with 90-day notice\n\n`;
-      breakdownText += `🚀 Partner Returns target 15%, not guaranteed.\n`;
+      breakdownText += `🚀 Partner Returns target ${ratePctLabel}, not guaranteed.\n`;
       breakdownText += `📱 Visit Welile to become a Supporter`;
       
       const encodedMessage = encodeURIComponent(breakdownText);
@@ -452,9 +484,10 @@ export function InvestmentCalculator() {
   };
 
   const handleShareEmail = () => {
+    if (rateUnavailable()) return;
     let body = `WELILE EARNINGS PROJECTION\n\n`;
     body += `Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-    body += `Partner Returns target 15%, not guaranteed\n`;
+    body += `Partner Returns target ${ratePctLabel}, not guaranteed\n`;
     body += `Duration: ${duration} months\n`;
     body += `Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
     body += `MONTHLY BREAKDOWN\n`;
@@ -472,7 +505,7 @@ export function InvestmentCalculator() {
     body += `FINAL RESULTS\n`;
     body += `Total Earnings: ${formatUGX(projections[projections.length - 1]?.totalEarnings || 0)}\n`;
     body += `Final Balance: ${formatUGX(projections[projections.length - 1]?.balance || 0)}\n\n`;
-    body += `Partner Returns target 15%, not guaranteed.`;
+    body += `Partner Returns target ${ratePctLabel}, not guaranteed.`;
 
     const subject = `Welile Earnings Projection – ${formatUGX(calculations.requiredContribution)} over ${duration} months`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');

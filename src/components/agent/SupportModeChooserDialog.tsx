@@ -1,5 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { HandHeart, Sparkles, ChevronRight } from 'lucide-react';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 export type SupportMode = 'self' | 'auto';
 
@@ -17,6 +19,10 @@ export function SupportModeChooserDialog({
   onOpenChange: (open: boolean) => void;
   onSelect: (mode: SupportMode) => void;
 }) {
+  // Agent screen: the PUBLIC new-partner rate for the copy ("15%" while the switch has never been on);
+  // null while unknown -> the sentence states no rate. Wiring it into the copy is Gemini item 3.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(newContractRate);
   const options: {
     mode: SupportMode;
     title: string;

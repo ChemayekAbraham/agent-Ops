@@ -11,7 +11,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { formatUGX, calculateSupporterReward } from '@/lib/rentCalculations';
+import { formatUGX, calculateSupporterRewardAt } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { useToast } from '@/hooks/use-toast';
 import { useConfetti } from '@/components/Confetti';
 
@@ -52,7 +53,10 @@ export function PayLandlordDialog({
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const reward = request ? calculateSupporterReward(Number(request.rent_amount)) : 0;
+  // The reward is stamped at the supporter's own rate when the request is funded (the rule
+  // partner_quote_rate('me') quotes). null while the rate loads or is unknown: show no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const reward = request ? calculateSupporterRewardAt(Number(request.rent_amount), ownRate) : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

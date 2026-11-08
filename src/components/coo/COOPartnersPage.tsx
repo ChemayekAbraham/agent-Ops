@@ -102,6 +102,9 @@ import { LockPortfolioDialog, type LockablePortfolio } from '@/components/partne
 import { SplitPortfolioDialog, type SplittablePortfolio } from '@/components/partner/SplitPortfolioDialog';
 import { UnlockPortfolioDialog } from '@/components/partner/UnlockPortfolioDialog';
 import { LockOpen } from 'lucide-react';
+import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
 
 /* ─── Types ─── */
 interface PartnerRow {
@@ -570,7 +573,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const [invitePartnerPortfolio, setInvitePartnerPortfolio] = useState<{ id: string; full_name?: string | null; email?: string | null } | null>(null);
   
   const [addPortfolioAmount, setAddPortfolioAmount] = useState('');
-  const [addPortfolioRoi, setAddPortfolioRoi] = useState('20');
+  // Partner Returns (design v2 §6.1 staff form contract): while the switch is seen OFF the field
+  // prefills today's 20 and is always sent; switch on or unknown -> the partner's own rate, sent
+  // only when staff edit it (a different rate waits for the CFO).
+  const addPortfolioRate = useStaffPortfolioRate(detailPartner?.profile?.id, '20');
+  const addPortfolioRoi = addPortfolioRate.value;
+  const setAddPortfolioRoi = addPortfolioRate.setValue;
+  // Rate edits on existing portfolios: today's "always write the rate" only when the switch is seen off.
+  const partnerReturnPolicy = usePartnerReturnPolicy({ fresh: true });
+  const rateSwitchOffSeen = partnerReturnPolicy.fromNetwork && partnerReturnPolicy.enabled === false;
   const [addPortfolioRoiMode, setAddPortfolioRoiMode] = useState('monthly_payout');
   const [addPortfolioDuration, setAddPortfolioDuration] = useState('12');
   const [addPortfolioPayoutDay, setAddPortfolioPayoutDay] = useState('15');
@@ -1506,12 +1517,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     });
     if (!detailPartner) { toast.error('No partner selected'); return; }
     const amt = Number(String(addPortfolioAmount).replace(/[^\d.]/g, ''));
-    const roi = Number(addPortfolioRoi);
     const duration = Number(addPortfolioDuration);
 
     if (isNaN(amt) || amt < 20000) { toast.error('Minimum portfolio invite amount: UGX 20,000'); return; }
     if (amt > MAX_INVEST) { toast.error(`Maximum investment: ${formatUGX(MAX_INVEST)}`); return; }
-    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('ROI must be between 1 and 100'); return; }
+    // Wait for this form's own policy read, and refuse an unedited rate when that read failed.
+    const rateBlock = staffRateSubmitBlock(addPortfolioRate);
+    if (rateBlock) { toast.error(rateBlock); return; }
+    const rateFields = addPortfolioRate.requestFields();
+    if ('error' in rateFields) { toast.error(rateFields.error); return; }
     if (isNaN(duration) || duration < 1 || duration > 60) { toast.error('Duration must be 1-60 months'); return; }
     const partnerId = detailPartner.profile.id;
     if (detailPartner.profile.frozen_at) { toast.error('Partner account is suspended. Unfreeze before sending an invite.'); return; }
@@ -1524,12 +1538,19 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         body: {
           partner_id: partnerId,
           amount: amt,
-          roi_percentage: roi,
+          ...rateFields.fields,
           roi_mode: addPortfolioRoiMode,
           duration_months: duration,
         },
       });
-      if (error) throw new Error(await extractFromErrorObject(error, 'Portfolio invite failed.'));
+      if (error) {
+        if (await isPolicyChangedError(error)) {
+          toast.error(POLICY_CHANGED_MESSAGE);
+          addPortfolioRate.refetchPolicy();
+          return;
+        }
+        throw new Error(await extractFromErrorObject(error, 'Portfolio invite failed.'));
+      }
       if (result?.error) throw new Error(result.error);
 
       toast.success(`Invite sent — portfolio ${result.portfolio_code}`, {
@@ -1538,7 +1559,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       setAddPortfolioOpen(false);
       setAddPortfolioAmount('');
-      setAddPortfolioRoi('20');
+      addPortfolioRate.reset();
       setAddPortfolioRoiMode('monthly_payout');
       setAddPortfolioDuration('12');
       setAddPortfolioPayoutDay('15');
@@ -1625,11 +1646,16 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         updatePayload.created_at = dateOnlyToUtcMiddayIso(editPortfolioDate);
       }
 
-      const { error } = await supabase
+      // Read the stored rate back: with the Partner Returns switch on a changed rate waits for the CFO
+      // and the portfolio keeps its old rate until then (trg_partner_return_rate_policy).
+      const { data: savedRow, error } = await supabase
         .from('investor_portfolios')
         .update(updatePayload)
-        .eq('id', editPortfolio.id);
+        .eq('id', editPortfolio.id)
+        .select('roi_percentage')
+        .maybeSingle();
       if (error) throw error;
+      const storedRoi = savedRow?.roi_percentage != null ? Number(savedRow.roi_percentage) : roi;
 
       toast.success(`Portfolio ${editPortfolio.portfolio_code} updated`);
 
@@ -1641,7 +1667,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // Update local state
       const updated = detailPartner.portfolios.map(p =>
         p.id === editPortfolio.id
-          ? { ...p, investment_amount: amount, roi_percentage: roi, roi_mode: editPortfolioRoiMode, duration_months: duration, status: editPortfolioStatus, created_at: editPortfolioDate ? dateOnlyToUtcMiddayIso(editPortfolioDate) : p.created_at }
+          ? { ...p, investment_amount: amount, roi_percentage: storedRoi, roi_mode: editPortfolioRoiMode, duration_months: duration, status: editPortfolioStatus, created_at: editPortfolioDate ? dateOnlyToUtcMiddayIso(editPortfolioDate) : p.created_at }
           : p
       );
       setDetailPartner({ ...detailPartner, portfolios: updated });
@@ -1971,6 +1997,14 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
   async function handleSaveEdit() {
     if (!editPartner) return;
+    // Wait for this screen's own policy read, and refuse an unedited rate when that read failed: with
+    // the switch actually off, today's save writes the prefilled rate (a blank send would not).
+    const rateBlock = staffRateSubmitBlock({
+      isLoading: partnerReturnPolicy.isLoading,
+      policyEnabled: partnerReturnPolicy.enabled,
+      edited: editRoi.trim() !== String(editPartner.roiPercentage),
+    });
+    if (rateBlock) { toast.error(rateBlock); return; }
     setSaving(true);
     try {
       const { error: profileErr } = await supabase
@@ -1981,7 +2015,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       const newRoi = Number(editRoi);
       const updateFields: Record<string, any> = {};
-      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100) updateFields.roi_percentage = newRoi;
+      // The prefill is one portfolio's rate: writing it to every portfolio unasked would, with the
+      // Partner Returns switch on, open a CFO request for each portfolio on another rate. Send the
+      // rate only when staff changed it (a typed change), or always while the switch is seen off.
+      const roiEdited = editRoi.trim() !== String(editPartner.roiPercentage);
+      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100 && (rateSwitchOffSeen || roiEdited)) updateFields.roi_percentage = newRoi;
       if (editRoiMode === 'monthly_payout' || editRoiMode === 'monthly_compounding') updateFields.roi_mode = editRoiMode;
 
       if (Object.keys(updateFields).length > 0) {

@@ -8,7 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
-import { calcFunderEarnings, sumFunderEarnings } from '@/lib/funderEarnings';
+import { calcFunderEarningsAt, sumFunderEarningsAt } from '@/lib/funderEarnings';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { FunderEarningsAssumptions } from './FunderEarningsAssumptions';
 import { FunderEarningsBreakdown } from './FunderEarningsBreakdown';
 import { useWallet } from '@/hooks/useWallet';
@@ -89,7 +90,7 @@ const SORTS = [
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
-// Minimum projected monthly earning (15% of rent) filters
+// Minimum projected monthly earning (the viewer's own rate × rent) filters
 const MIN_MONTHLY_EARN = [
   { value: 'all', label: 'Any monthly earning' },
   { value: '5000', label: 'Monthly 5k+' },
@@ -145,6 +146,10 @@ export function FunderDirectHouseListing() {
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
   const { user } = useAuth();
+  // Signed-in partner screen: projections use the viewer's own rate for a new portfolio (15 while the
+  // switch is off). null (loading / unknown) -> null figures, and the earnings filters and sorts
+  // cannot apply (no house is hidden for a figure that is not known).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showTopUp, setShowTopUp] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -351,14 +356,14 @@ export function FunderDirectHouseListing() {
       }
     }
 
-    // Projected-earnings filters (15% of monthly rent, anchored on move-in date)
+    // Projected-earnings filters (own rate × monthly rent, anchored on move-in date)
     if (minMonthlyEarn !== 'all') {
       const min = Number(minMonthlyEarn);
-      result = result.filter((h) => calcFunderEarnings(h.monthly_rent, moveInDate).monthly >= min);
+      if (ownRate !== null) result = result.filter((h) => calcFunderEarningsAt(h.monthly_rent, moveInDate, ownRate).monthly >= min);
     }
     if (minAnnualEarn !== 'all') {
       const min = Number(minAnnualEarn);
-      result = result.filter((h) => calcFunderEarnings(h.monthly_rent, moveInDate).annual >= min);
+      if (ownRate !== null) result = result.filter((h) => calcFunderEarningsAt(h.monthly_rent, moveInDate, ownRate).annual >= min);
     }
 
     result.sort((a, b) => {
@@ -369,16 +374,16 @@ export function FunderDirectHouseListing() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
       }
-      if (sortBy === 'earn_desc') {
+      if (sortBy === 'earn_desc' && ownRate !== null) {
         return (
-          calcFunderEarnings(b.monthly_rent, moveInDate).monthly -
-          calcFunderEarnings(a.monthly_rent, moveInDate).monthly
+          calcFunderEarningsAt(b.monthly_rent, moveInDate, ownRate).monthly -
+          calcFunderEarningsAt(a.monthly_rent, moveInDate, ownRate).monthly
         );
       }
-      if (sortBy === 'earn_asc') {
+      if (sortBy === 'earn_asc' && ownRate !== null) {
         return (
-          calcFunderEarnings(a.monthly_rent, moveInDate).monthly -
-          calcFunderEarnings(b.monthly_rent, moveInDate).monthly
+          calcFunderEarningsAt(a.monthly_rent, moveInDate, ownRate).monthly -
+          calcFunderEarningsAt(b.monthly_rent, moveInDate, ownRate).monthly
         );
       }
       if (sortBy === 'price_asc') return a.daily_rate - b.daily_rate;
@@ -541,7 +546,7 @@ export function FunderDirectHouseListing() {
 
   const selectedHouses = (houses ?? []).filter((h) => selectedIds.includes(h.id));
   const earningsFilterActive = minMonthlyEarn !== 'all' || minAnnualEarn !== 'all';
-  const selectionTotals = sumFunderEarnings(selectedHouses.map((h) => h.monthly_rent), moveInDate);
+  const selectionTotals = sumFunderEarningsAt(selectedHouses.map((h) => h.monthly_rent), moveInDate, ownRate);
   const shortfall = Math.max(0, selectionTotals.capital - walletBalance);
 
   if (loading) {
@@ -753,6 +758,7 @@ export function FunderDirectHouseListing() {
         startDate={moveInDate}
         endDate={addMonths(moveInDate, 12)}
         daysInTerm={selectionTotals.daysInTerm}
+        rate={ownRate}
       />
 
       {/* Active filter chips */}
@@ -823,7 +829,7 @@ export function FunderDirectHouseListing() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {paginatedHouses.map((house) => {
-            const earn = calcFunderEarnings(house.monthly_rent, moveInDate);
+            const earn = calcFunderEarningsAt(house.monthly_rent, moveInDate, ownRate);
             const selected = selectedIds.includes(house.id);
             return (
             <motion.div

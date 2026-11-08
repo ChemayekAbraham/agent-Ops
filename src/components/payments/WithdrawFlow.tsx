@@ -68,7 +68,8 @@ interface WithdrawFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availableBalance?: number;
-  roiBalance?: number;
+  /** The Returns balance; null = unknown (masked or not read), which is never withdrawable. */
+  roiBalance?: number | null;
   onSuccess?: () => void;
   /**
    * Optional pre-fill for the amount step. When set (and > 0), the amount
@@ -411,8 +412,12 @@ export default function WithdrawFlow({
   });
   // Daily withdrawal limits removed globally (2026-08-10). The only cap is
   // the caller-supplied or ledger-true available balance.
-  const rawMax = source === 'available' ? trueAvailable : roiBalance;
-  const maxAmount = rawMax;
+  // A null Returns balance is UNKNOWN (a masked or unread figure), not 0 and not a cap: the 'roi'
+  // source then has no cap (maxUnknown) and every step refuses. maxAmount stays a number for display.
+  const roiCap = typeof roiBalance === 'number' && Number.isFinite(roiBalance) ? roiBalance : null;
+  const rawMax = source === 'available' ? trueAvailable : roiCap;
+  const maxUnknown = rawMax === null;
+  const maxAmount = maxUnknown ? 0 : rawMax;
 
   // 20% daily-collection withdrawal gate REMOVED (2026-08-01) — agents can
   // withdraw regardless of today's collection performance. Kept as a constant
@@ -810,6 +815,7 @@ export default function WithdrawFlow({
         // does nothing" reports.
         return (
           amount >= MIN_WITHDRAWAL &&
+          !maxUnknown &&
           // If we have a verified ledger figure, enforce it. If we don't
           // (RPC slow/failed), let the tap through — handleNext will refetch
           // and either advance or show a real error.
@@ -834,6 +840,7 @@ export default function WithdrawFlow({
         // then proceed — so the button must remain clickable.
         return (
           ledgerAvailable !== null &&
+          !maxUnknown &&
           amount <= maxAmount &&
           (!requiresOtp || otpCode.trim().length === 6)
         );
@@ -1218,7 +1225,11 @@ export default function WithdrawFlow({
                 : fresh !== null
                   ? Math.min(availableBalance, fresh)
                   : availableBalance)
-            : roiBalance;
+            : roiCap;
+        if (freshMax === null) {
+          toast.error('Your Returns balance could not be checked. Reload the page and try again.', { duration: 6000 });
+          return false;
+        }
         if (fresh === null && ledgerAvailable === null) {
           toast.error(
             'Could not verify your live balance. Check your connection and try again.',

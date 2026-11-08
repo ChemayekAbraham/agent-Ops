@@ -17,6 +17,8 @@ import { hapticTap } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { InvestmentSelectionSheet, type PoolType } from './InvestmentSelectionSheet';
 import { useAngelPoolAgreement } from '@/hooks/useAngelPoolAgreement';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { AngelPoolAgreementDialog } from './agreement/AngelPoolAgreementDialog';
 
 type ViewState = 'default' | 'investing' | 'committed';
@@ -58,9 +60,14 @@ function AmountInput({
 }
 
 function TenantPreview({ amount, formatAmountCompact }: { amount: number; formatAmountCompact: (n: number) => string }) {
+  // Public page: the PUBLIC new-partner rate (15 while the switch has never been on, so the figures
+  // equal today's: amount x 15% a month, a thirtieth of that a day). null rate -> null figures.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const rate = rateOrNull(newContractRate);
+  const newRatePct = formatRatePct(rate);
   if (amount <= 0) return null;
-  const monthlyReturn = amount * 0.15;
-  const dailyReturn = amount * 0.005;
+  const monthlyReturn = rate === null ? null : (amount * rate) / 100;
+  const dailyReturn = rate === null ? null : (amount * rate) / 3000;
   return (
     <div className="space-y-2 pt-2">
       <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Support Preview</p>

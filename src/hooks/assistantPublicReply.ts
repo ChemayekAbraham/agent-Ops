@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { buildNexaOfflineSalesReply, buildNexaPublicGuideReply, buildInternalStaffRefusalReply, isRestrictedInternalStaffQuery } from '@/lib/nexaSalesEngine';
+import { buildNexaOfflineSalesReply, buildNexaPublicGuideReply, buildInternalStaffRefusalReply, isRestrictedInternalStaffQuery, isPortfolioOrReturnsQuestion } from '@/lib/nexaSalesEngine';
+import { getPublicPartnerRate } from '@/lib/publicPartnerRate';
 
 type Turn = { role: 'user' | 'assistant'; content: string };
 
@@ -7,9 +8,14 @@ type Turn = { role: 'user' | 'assistant'; content: string };
 export async function requestAssistantPublicReply(turns: Turn[], signal: AbortSignal, onText: (text: string) => void): Promise<string> {
   const input = turns.at(-1)?.content ?? '';
   if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-  const { data: { session } } = await supabase.auth.getSession();
-  const fallback = () => { const reply = buildNexaOfflineSalesReply(input, !!session); onText(reply); return reply; };
-  const guide = isRestrictedInternalStaffQuery(input) ? buildInternalStaffRefusalReply() : buildNexaPublicGuideReply(input, !!session);
+  // Local replies quote only the live PUBLIC new-partner rate (null = no figure, design v2 §3.5.9).
+  const [{ data: { session } }, rate] = await Promise.all([supabase.auth.getSession(), getPublicPartnerRate()]);
+  const fallback = () => { const reply = buildNexaOfflineSalesReply(input, !!session, rate); onText(reply); return reply; };
+  // A signed-in person's Portfolio/Returns question goes to the server, which answers with their own rate.
+  const serverAnswers = !!session && isPortfolioOrReturnsQuestion(input);
+  const guide = isRestrictedInternalStaffQuery(input)
+    ? buildInternalStaffRefusalReply()
+    : serverAnswers ? null : buildNexaPublicGuideReply(input, !!session, rate);
   if (guide) { onText(guide); return guide; }
   if (!navigator.onLine) return fallback();
   if (turns.length > 20 || turns.some(turn => turn.content.length > 4000)) throw new Error('This conversation has reached its current limit. Start a new chat to keep asking Welile.');

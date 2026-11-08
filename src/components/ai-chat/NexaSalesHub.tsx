@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { calculateSupporterSalesProjection,calculateTenantRentSalesProjection,toAuthGatedPath,buildPromissoryNoteReminderReply } from '@/lib/nexaSalesEngine';
 import { useAuth } from '@/hooks/useAuth';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import ReactMarkdown from 'react-markdown';
 import { formatFixedUGX } from '@/lib/supportPlanExample';
 import { ACCESS_LIMIT_CAMPAIGN_COPY,buildAgentAccessLimitWhatsAppUrl } from '@/lib/accessLimitMessaging';
@@ -14,7 +15,9 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
   const [amount,setAmount]=useState('100000');
   const [days,setDays]=useState('30');
   const value=Number(amount); const valid=Number.isFinite(value)&&value>0;
-  const supporter=calculateSupporterSalesProjection(valid?value:0);
+  // The public new-partner rate (15 while the switch is off); null while unknown = no Returns figures.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const supporter=calculateSupporterSalesProjection(valid?value:0, undefined, newContractRate);
   const tenant=valid?calculateTenantRentSalesProjection(value,Number(days)):null;
   return <section aria-label="Nexa sales hub" className="border-b border-border p-4 text-sm">
     <Tabs defaultValue="supporter">
@@ -31,7 +34,7 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
         <p className="text-xs text-muted-foreground">Illustrative projection. Approved plan terms apply.</p>
         {valid && <ol className="list-decimal space-y-2 pl-5">{supporter.workedExample.map(step=><li key={step}>{step}</li>)}</ol>}
         <p>{supporter.operationalGuarantee}</p>
-        <div className="space-y-2"><ReactMarkdown>{buildPromissoryNoteReminderReply()}</ReactMarkdown></div>
+        <div className="space-y-2"><ReactMarkdown>{buildPromissoryNoteReminderReply(newContractRate)}</ReactMarkdown></div>
         <Button asChild className="min-h-11 w-full"><a href={user ? '/dashboard/funder-new' : toAuthGatedPath('/dashboard/funder-new')}>Choose a Support Plan<ArrowRight className="h-4 w-4" /></a></Button>
       </TabsContent>
       <TabsContent value="tenant" className="space-y-3">

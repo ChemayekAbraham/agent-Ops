@@ -30,8 +30,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import {
-  HOUSE_SHARE_ROI_RATE,
   clearHouseSupportIntent,
   getHouseSupportIntent,
   houseMapsUrl,
@@ -77,6 +77,9 @@ export default function SupportHouse() {
   const code = params.get('s') || params.get('code') || '';
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  // Public page: the offer's monthly_return is priced at the public new-partner rate
+  // (public_house_support_offer), so the stated rate is that one. null -> no rate.
+  const { newContractRate } = usePartnerReturnPolicy();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -295,7 +298,7 @@ export default function SupportHouse() {
             <p className="mt-1.5">
               You cover one month's rent of {formatDynamic(rent)}. Welile places a family in the
               house and pays the landlord. You receive {formatDynamic(monthlyReturn)} every month
-              for 12 months, which is {HOUSE_SHARE_ROI_RATE}% a month.
+              for 12 months, which is {newContractRate}% a month.
             </p>
           </div>
 

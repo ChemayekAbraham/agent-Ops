@@ -37,8 +37,11 @@ export function AgentVouchHighlightCard({ userId }: Props) {
   if (loading && !profile) return null;
   if (!profile) return null;
 
-  const vouch = profile.trust.borrowing_limit_ugx ?? 0;
-  const score = Math.round(profile.trust.score ?? 0);
+  // Both can be null (Partner Returns 4b masks them for a viewer who may not see the Returns they are
+  // built from): null = unknown, never 0. This card shows the agent's own profile, so null is rare.
+  const vouch = profile.trust.borrowing_limit_ugx;
+  const rawScore = profile.trust.score;
+  const score = rawScore != null && Number.isFinite(rawScore) ? Math.round(rawScore) : null;
   const tier = profile.trust.tier || 'building';
   const isTopAgent = !!profile.agent_performance?.top_performing;
   const ap = profile.agent_performance;

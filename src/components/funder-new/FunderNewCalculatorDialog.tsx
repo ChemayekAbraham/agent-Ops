@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './types';
-import { FUNDER_NEW_RETURN_RATE, emptyHousePlace, emptyHouseTitle, itemAmount, itemMonthlyReturn } from './utils';
+import { emptyHousePlace, emptyHouseTitle, itemAmount } from './utils';
 import { useFunderNewRecommendations } from './useFunderNewOpportunities';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 type Mode = 'per_house' | 'total_budget';
 
@@ -36,6 +38,9 @@ export function FunderNewCalculatorDialog({
   const [mode, setMode] = useState<Mode>('per_house');
   const [amountText, setAmountText] = useState('');
   const [housesText, setHousesText] = useState('3');
+  // A planning estimate for this partner's next portfolio: their own rate (partner_quote_rate('me')).
+  // null while it loads or on error: no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
 
   const entered = Math.max(0, Number(amountText.replace(/[^\d]/g, '')) || 0);
   const houses = Math.max(1, Math.min(50, Number(housesText.replace(/[^\d]/g, '')) || 1));
@@ -43,16 +48,21 @@ export function FunderNewCalculatorDialog({
   // The two modes are explicit — the same number is never treated as both.
   const perHouse = mode === 'per_house' ? entered : Math.floor(entered / houses);
   const hypotheticalTotal = mode === 'per_house' ? entered * houses : entered;
-  const hypotheticalMonthly = Math.round(hypotheticalTotal * FUNDER_NEW_RETURN_RATE);
+  const hypotheticalMonthly = monthlyReturnFor(hypotheticalTotal, ownRate);
 
   const recommendations = useFunderNewRecommendations(perHouse, houses, filters, origin, open);
   const matches = recommendations.data?.items ?? [];
 
   const actual = useMemo(() => {
     const total = matches.reduce((sum, house) => sum + itemAmount('empty', house), 0);
-    const monthly = matches.reduce((sum, house) => sum + (itemMonthlyReturn('empty', house) ?? 0), 0);
+    // Priced at the partner's own rate, not the list's partner_monthly_return (quoted at the public
+    // new-partner rate). A house without a rent adds nothing, as before; null when the rate is unknown.
+    const monthly =
+      ownRate === null
+        ? null
+        : matches.reduce((sum, house) => sum + (monthlyReturnFor(itemAmount('empty', house), ownRate) ?? 0), 0);
     return { total, monthly };
-  }, [matches]);
+  }, [matches, ownRate]);
 
   const searchScope = [
     `homes at or under ${formatDynamic(perHouse)} each`,

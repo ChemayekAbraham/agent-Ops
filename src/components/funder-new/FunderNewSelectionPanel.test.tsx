@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+// The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/usePartnerQuoteRate', () => ({
+  useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
+}));
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FunderNewReviewDialog } from './FunderNewSelectionPanel';
 import type { FunderNewSelectionItem } from './types';

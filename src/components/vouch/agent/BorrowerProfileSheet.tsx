@@ -85,7 +85,9 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
   const open = !!person;
   const name = person?.full_name || 'Welile user';
   const trust = trustQuery.data;
-  const score = Math.max(0, Math.min(100, Number(trust?.score) || 0));
+  // null = unknown (Partner Returns 4b can mask the score), never 0.
+  const rawScore = trust?.score == null ? NaN : Number(trust.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : null;
   const tier = trust?.tier ?? 'unrated';
   const limit = Number(trust?.borrowing_limit_ugx ?? person?.trust?.borrowing_limit_ugx) || 0;
   const b = (trust?.breakdown ?? {}) as Record<string, number>;

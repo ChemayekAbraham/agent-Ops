@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -55,6 +57,11 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
   const { user } = useAuth();
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
+  // Partner Returns: a renewal keeps the portfolio's stored rate (the prefill). While the switch is
+  // seen OFF the rate is written as today; on or unknown, a changed rate goes through
+  // set_portfolio_renewal_rate (queued for the CFO when on) and is never written directly.
+  const partnerReturnPolicy = usePartnerReturnPolicy({ fresh: true });
+  const rateSwitchOffSeen = partnerReturnPolicy.fromNetwork && partnerReturnPolicy.enabled === false;
 
   // Form state
   const [duration, setDuration] = useState('12');
@@ -95,8 +102,28 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
       return;
     }
 
+    const storedRoi = rateOrNull(portfolio.roi_percentage);
+    const roiEdited = storedRoi === null || Math.round(newRoi * 100) !== Math.round(storedRoi * 100);
+
     setSaving(true);
     try {
+      // The rate in force after the renewal: the typed rate while the switch is seen off (today);
+      // otherwise the stored rate, or what set_portfolio_renewal_rate answers for an edited rate.
+      let rateInForce: number = rateSwitchOffSeen ? newRoi : (storedRoi ?? newRoi);
+      let rateAwaitsCfo = false;
+      if (!rateSwitchOffSeen && roiEdited) {
+        // Not in the generated types until Phase 1 is applied and the types are regenerated.
+        const { data: rateRes, error: rateErr } = await (supabase.rpc as unknown as (
+          fn: string, args: Record<string, unknown>,
+        ) => Promise<{ data: { rate_in_force?: unknown; awaits_cfo?: unknown } | null; error: Error | null }>)(
+          'set_portfolio_renewal_rate',
+          { p_portfolio_id: portfolio.id, p_requested_rate: newRoi },
+        );
+        if (rateErr) throw rateErr;
+        rateInForce = rateOrNull(rateRes?.rate_in_force) ?? storedRoi ?? newRoi;
+        rateAwaitsCfo = rateRes?.awaits_cfo === true;
+      }
+
       const maturity = new Date(startDate);
       maturity.setMonth(maturity.getMonth() + newDuration);
 
@@ -115,7 +142,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
         maturity_date: maturity.toISOString().split('T')[0],
         next_roi_date: nextRoi.toISOString().split('T')[0],
         total_roi_earned: 0,
-        roi_percentage: newRoi,
+        ...(rateSwitchOffSeen ? { roi_percentage: newRoi } : {}),
         duration_months: newDuration,
         investment_amount: newAmount,
         status: 'active',
@@ -133,7 +160,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
         old_maturity_date: portfolio.maturity_date || null,
         new_maturity_date: maturity.toISOString().split('T')[0],
         old_roi_percentage: portfolio.roi_percentage,
-        new_roi_percentage: newRoi,
+        new_roi_percentage: rateInForce,
         old_duration_months: portfolio.duration_months || 12,
         new_duration_months: newDuration,
         top_up_amount: topUp,
@@ -152,7 +179,8 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
           old_maturity_date: portfolio.maturity_date,
           new_maturity_date: maturity.toISOString().split('T')[0],
           old_roi: portfolio.roi_percentage,
-          new_roi: newRoi,
+          new_roi: rateInForce,
+          ...(rateInForce !== newRoi ? { requested_roi: newRoi, rate_awaits_cfo: rateAwaitsCfo } : {}),
           old_duration: portfolio.duration_months || 12,
           new_duration: newDuration,
           top_up_amount: topUp,
@@ -191,7 +219,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
                   amount: newAmount,
                   old_principal: portfolio.investment_amount,
                   new_principal: newAmount,
-                  return_rate: `${newRoi}%`,
+                  return_rate: `${rateInForce}%`,
                   renewal_date: fmtDate(startDate),
                   maturity_date: fmtDate(maturity),
                   duration: `${newDuration} months`,

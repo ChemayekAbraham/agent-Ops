@@ -10,6 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Mail, Send } from 'lucide-react';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
 
 interface Props {
   open: boolean;
@@ -28,18 +30,33 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
   const queryClient = useQueryClient();
   const [amount, setAmount] = useState('');
   const [duration, setDuration] = useState('12');
-  const [roi, setRoi] = useState('15');
+  // Partner Returns (design v2 §6.1 staff form contract): switch seen OFF -> today's 15, always
+  // sent; on or unknown -> the partner's own rate, sent only when staff edit it.
+  const rate = useStaffPortfolioRate(partner?.id, '15');
+  const roi = rate.value;
+  const setRoi = rate.setValue;
   const [mode, setMode] = useState<'monthly_payout' | 'monthly_compounding'>('monthly_payout');
   const [nickname, setNickname] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const reset = () => { setAmount(''); setDuration('12'); setRoi('15'); setMode('monthly_payout'); setNickname(''); };
+  const reset = () => { setAmount(''); setDuration('12'); rate.reset(); setMode('monthly_payout'); setNickname(''); };
 
   const submit = async () => {
     if (!partner?.id) return;
     const amt = Number(amount.replace(/[,\s]/g, ''));
     if (!Number.isFinite(amt) || amt < 20000) {
       toast({ title: 'Amount too low', description: 'Minimum portfolio amount is UGX 20,000.', variant: 'destructive' });
+      return;
+    }
+    // Wait for this form's own policy read, and refuse an unedited rate when that read failed.
+    const rateBlock = staffRateSubmitBlock(rate);
+    if (rateBlock) {
+      toast({ title: rateBlock, variant: 'destructive' });
+      return;
+    }
+    const rateFields = rate.requestFields();
+    if ('error' in rateFields) {
+      toast({ title: 'Invite failed', description: rateFields.error, variant: 'destructive' });
       return;
     }
     setBusy(true);
@@ -49,12 +66,17 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
           partner_id: partner.id,
           amount: amt,
           duration_months: Number(duration),
-          roi_percentage: Number(roi),
+          ...rateFields.fields,
           roi_mode: mode,
           nickname: nickname.trim() || null,
         },
       });
       if (error) {
+        if (await isPolicyChangedError(error)) {
+          toast({ title: 'Invite failed', description: POLICY_CHANGED_MESSAGE, variant: 'destructive' });
+          rate.refetchPolicy();
+          return;
+        }
         const msg = await extractFromErrorObject(error, 'Could not send invite.');
         toast({ title: 'Invite failed', description: msg, variant: 'destructive' });
         return;

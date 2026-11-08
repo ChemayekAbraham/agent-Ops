@@ -14,7 +14,8 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { formatUGX } from '@/lib/rentCalculations';
-import { HOUSE_MONTHLY_ROI_RATE } from '@/components/partner/SelfSupportHousesSection';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { PlanShareButton } from '@/components/partner/PlanShareButton';
 import { EmptyHouseShareBrowser } from '@/components/agent/EmptyHouseShareBrowser';
 import { PromissoryNoteDialog } from '@/components/agent/PromissoryNoteDialog';
@@ -35,12 +36,14 @@ interface AgentFundablePlan {
   landlord_name: string | null;
 }
 
-const monthlyReturn = (rent: number) => Math.round((rent * HOUSE_MONTHLY_ROI_RATE) / 100);
+/** Agent screen: the PUBLIC new-partner rate (15 while the switch has never been on), never a
+ *  person's rate. null while the rate is unknown (show no figure). */
+const monthlyReturnAt = (rent: number, rate: number | null) => monthlyReturnFor(rent, rate);
 
 /* ─── Unified cart item ─── */
 type CartEntry =
-  | { kind: 'plan'; id: string; label: string; place: string; amount: number; monthly: number }
-  | { kind: 'house'; id: string; label: string; place: string; amount: number; monthly: number };
+  | { kind: 'plan'; id: string; label: string; place: string; amount: number; monthly: number | null }
+  | { kind: 'house'; id: string; label: string; place: string; amount: number; monthly: number | null };
 
 /* ─────────────────────────── PlanCard ─────────────────────────── */
 
@@ -53,9 +56,11 @@ function PlanCard({
   selected: boolean;
   onToggle: () => void;
 }) {
+  const { newContractRate } = usePartnerReturnPolicy();
   const rent = Number(plan.funding_amount || 0);
   const place = plan.tenant_location || plan.request_city || 'Uganda';
   const category = (plan.house_category || 'Rental home').replace(/[_-]/g, ' ');
+  const monthlyReturn = monthlyReturnAt(rent, newContractRate);
 
   return (
     <div className="group">
@@ -106,7 +111,7 @@ function PlanCard({
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
           Monthly return{' '}
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{money(monthlyReturn(rent))}</span>
+          <span className="font-semibold text-emerald-600 dark:text-emerald-400">{monthlyReturn === null ? '—' : money(monthlyReturn)}</span>
         </p>
 
         {/* Action row: select toggle + share */}
@@ -195,6 +200,7 @@ function CartItemRow({
 export function ProxySupportOpportunities({ className }: { className?: string }) {
   const [plansShown, setPlansShown] = useState(6);
   const [housesTotal, setHousesTotal] = useState(0);
+  const { newContractRate } = usePartnerReturnPolicy();
 
   // ─── Unified cart state (plans + houses share one cart) ───
   const [selectedPlanIds, setSelectedPlanIds] = useState<Set<string>>(new Set());
@@ -278,7 +284,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
         label: (p.house_category || 'Rental home').replace(/[_-]/g, ' '),
         place: p.tenant_location || p.request_city || 'Uganda',
         amount: rent,
-        monthly: monthlyReturn(rent),
+        monthly: monthlyReturnAt(rent, newContractRate),
       });
     }
     for (const [, h] of selectedHouses) {
@@ -289,14 +295,18 @@ export function ProxySupportOpportunities({ className }: { className?: string })
         label: h.title || h.house_category?.replace(/[_-]/g, ' ') || 'Empty house',
         place: [h.village, h.sub_county, h.district].filter(Boolean).join(', ') || h.region || 'Uganda',
         amount: rent,
-        monthly: monthlyReturn(rent),
+        monthly: monthlyReturnAt(rent, newContractRate),
       });
     }
     return entries;
-  }, [plans, selectedPlanIds, selectedHouses]);
+  }, [plans, selectedPlanIds, selectedHouses, newContractRate]);
 
   const cartTotal = useMemo(() => cartEntries.reduce((s, e) => s + e.amount, 0), [cartEntries]);
-  const cartMonthlyReturn = useMemo(() => cartEntries.reduce((s, e) => s + e.monthly, 0), [cartEntries]);
+  // null when any entry's figure is unknown (rate not loaded): show no figure.
+  const cartMonthlyReturn = useMemo(
+    () => cartEntries.reduce<number | null>((s, e) => (s === null || e.monthly === null ? null : s + e.monthly), 0),
+    [cartEntries],
+  );
 
   const perfQ = useQuery({
     queryKey: ['house-share-performance'],
@@ -479,7 +489,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Monthly return</span>
                   <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                    {money(cartMonthlyReturn)}/mo
+                    {cartMonthlyReturn === null ? '—' : money(cartMonthlyReturn)}/mo
                   </span>
                 </div>
               </div>

@@ -1,6 +1,12 @@
 import { supabase } from '@/integrations/supabase/client';
 import { formatDynamic } from '@/lib/currencyFormat';
 
+/**
+ * @deprecated A hard-coded 15%. Share text is composed by the database (get_or_create_plan_share_link
+ * returns it as `description`, at the live public new-partner rate); use
+ * `link.description ?? planShareFallbackDescription(plan)`. Must have no importer at release
+ * (design v2 §6.1, §8.5 #3).
+ */
 export const SHARE_ROI_RATE = 15;
 
 export interface SharePlanInput {
@@ -35,12 +41,25 @@ export function planShareTitle(plan: SharePlanInput): string {
   return `Support a tenant in a ${planHouseTitle(plan)} in ${planLocation(plan)}`;
 }
 
+/** @deprecated Computes a Returns figure at a hard-coded 15%; see SHARE_ROI_RATE. */
 export function planShareDescription(plan: SharePlanInput): string {
   const rent = Number(plan.funding_amount || 0);
   const monthly = Math.round((rent * SHARE_ROI_RATE) / 100);
   return `Support this tenant for ${formatDynamic(rent)} by paying their landlord on the platform and earn ${formatDynamic(
     monthly,
   )} per month for the next 12 months Start here today.`;
+}
+
+/**
+ * Share text when the database did not compose one (the link came from a fallback path). It states
+ * no Returns figure: only SQL composes share text with a rate (design v2 §3.6, C7). Same sentences
+ * og-plan serves for a link without a stored description.
+ */
+export function planShareFallbackDescription(plan: SharePlanInput): string {
+  const rent = Number(plan.funding_amount || 0);
+  return rent > 0
+    ? `Support this tenant for ${formatDynamic(rent)} by paying their landlord on the platform and earn monthly Returns. Start here today.`
+    : "Support a tenant's rent on Welile and earn monthly Returns. Support today.";
 }
 
 /**
@@ -71,26 +90,39 @@ export function planShareDestinationUrl(code: string): string {
   return `${APP_HOST}/?share=${code}`;
 }
 
+export interface PlanShareLink {
+  code: string;
+  short_code: string;
+  share_url: string;
+  shortUrl: string;
+  shareUrl: string;
+  /** The share text the database composed (og_description, at the live public new-partner rate);
+   *  null when the link came from a fallback path. Show `description ?? planShareFallbackDescription(plan)`. */
+  description: string | null;
+}
+
 /**
  * Create (or reuse) a trackable short link for a fundable rent plan.
  *
  * Returns the branded, click-counted link for the existing code:
  * - `short_code` / `code`  the stable short code (never rotated)
  * - `share_url` / `shortUrl` / `shareUrl`  https://welileapp.com/s/<code>
+ * - `description`  the share text the database composed, or null
  * The internal edge-function URL is never returned or shared.
  */
 export async function createPlanShareLink(
   userId: string,
   planId: string,
-): Promise<{ code: string; short_code: string; share_url: string; shortUrl: string; shareUrl: string }> {
+): Promise<PlanShareLink> {
   const targetPath = '/funder-onboarding';
   const targetParams = { plan: planId, ref: userId } as Record<string, string>;
-  const build = (code: string) => ({
+  const build = (code: string, description: string | null = null): PlanShareLink => ({
     code,
     short_code: code,
     share_url: planShareUrl(code),
     shortUrl: planShareUrl(code),
     shareUrl: planShareUrl(code),
+    description,
   });
 
   // Preferred path: the DB does an authoritative, idempotent get-or-create and
@@ -99,7 +131,10 @@ export async function createPlanShareLink(
   const { data: rpc, error: rpcError } = await supabase
     .rpc('get_or_create_plan_share_link', { p_plan_id: planId })
     .maybeSingle();
-  if (!rpcError && (rpc as any)?.code) return build((rpc as any).code as string);
+  if (!rpcError && (rpc as any)?.code) {
+    const desc = (rpc as any).og_description;
+    return build((rpc as any).code as string, typeof desc === 'string' && desc.trim() ? desc : null);
+  }
 
   const findExisting = async () => {
     const { data } = await supabase

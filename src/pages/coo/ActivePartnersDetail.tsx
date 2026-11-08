@@ -7,6 +7,9 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllUserIdsByRole, batchedQuery } from '@/lib/supabaseBatchUtils';
 import { recomputeNextRoiDateForPayoutDay } from '@/lib/portfolioDates';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
 import { Loader2, MoreHorizontal, TrendingUp, Trash2, Wallet, Pencil, ShieldOff, UserX } from 'lucide-react';
 import COODetailLayout, { KPICard, SectionTitle } from '@/components/coo/COODetailLayout';
 import COODataTable, { COOColumn } from '@/components/coo/COODataTable';
@@ -69,6 +72,11 @@ export default function ActivePartnersDetail() {
   const [editPayoutDay, setEditPayoutDay] = useState('15');
   const [editRoiMode, setEditRoiMode] = useState('monthly_payout');
   const [saving, setSaving] = useState(false);
+  // Partner Returns (design v2 §6.1): while the switch is seen OFF the edit writes the rate as
+  // today; on or unknown, the rate goes out only when staff changed it (a typed change: the gate
+  // queues a different rate for the CFO and keeps the old one until then).
+  const partnerReturnPolicy = usePartnerReturnPolicy({ fresh: true });
+  const rateSwitchOffSeen = partnerReturnPolicy.fromNetwork && partnerReturnPolicy.enabled === false;
 
   useEffect(() => {
     if (!loading && (!user || !roles.includes('manager'))) { navigate(roleToSlug(role)); return; }
@@ -277,6 +285,14 @@ export default function ActivePartnersDetail() {
 
   async function handleSaveEdit() {
     if (!editPartner) return;
+    // Wait for this screen's own policy read, and refuse an unedited rate when that read failed: with
+    // the switch actually off, today's save writes the prefilled rate (a blank send would not).
+    const rateBlock = staffRateSubmitBlock({
+      isLoading: partnerReturnPolicy.isLoading,
+      policyEnabled: partnerReturnPolicy.enabled,
+      edited: editRoi.trim() !== String(editPartner.roiPercentage),
+    });
+    if (rateBlock) { toast.error(rateBlock); return; }
     setSaving(true);
     try {
       const { error: profileErr } = await supabase
@@ -289,7 +305,8 @@ export default function ActivePartnersDetail() {
       const newPayoutDay = Number(editPayoutDay);
       const payoutDayValid = !isNaN(newPayoutDay) && newPayoutDay >= 1 && newPayoutDay <= 28;
       const updateFields: Record<string, any> = {};
-      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100) updateFields.roi_percentage = newRoi;
+      const roiEdited = editRoi.trim() !== String(editPartner.roiPercentage);
+      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100 && (rateSwitchOffSeen || roiEdited)) updateFields.roi_percentage = newRoi;
       if (payoutDayValid) updateFields.payout_day = newPayoutDay;
       if (editRoiMode === 'monthly_payout' || editRoiMode === 'monthly_compounding') updateFields.roi_mode = editRoiMode;
 
@@ -338,7 +355,7 @@ export default function ActivePartnersDetail() {
             .update(updateFields)
             .eq('investor_id', editPartner.id)
             .in('status', ['active', 'pending'])
-            .select('id');
+            .select('id, roi_percentage');
           if (err1) throw err1;
           updated1 = data;
 
@@ -348,7 +365,7 @@ export default function ActivePartnersDetail() {
             .eq('agent_id', editPartner.id)
             .is('investor_id', null)
             .in('status', ['active', 'pending'])
-            .select('id');
+            .select('id, roi_percentage');
           if (err2) throw err2;
           updated2 = data2;
         }
@@ -381,13 +398,17 @@ export default function ActivePartnersDetail() {
             const maturityDate = new Date(investedDate);
             maturityDate.setMonth(maturityDate.getMonth() + 12);
 
-            const { error: createErr } = await supabase
+            // The rate goes in only as today (switch seen off) or when staff typed one; otherwise the
+            // database gate stores the person's own rate. Read the stored rate back for the toast.
+            const insertRoi = updateFields.roi_percentage || newRoi;
+            const sendInsertRoi = rateSwitchOffSeen || (roiEdited && rateOrNull(insertRoi) !== null);
+            const { data: createdRow, error: createErr } = await supabase
               .from('investor_portfolios')
               .insert({
                 investor_id: editPartner.id,
                 agent_id: editPartner.id,
                 investment_amount: ledgerEntry.amount,
-                roi_percentage: updateFields.roi_percentage || newRoi,
+                ...(sendInsertRoi ? { roi_percentage: insertRoi } : {}),
                 payout_day: updateFields.payout_day || payoutDay,
                 roi_mode: editRoiMode || 'monthly_payout',
                 duration_months: 12,
@@ -397,13 +418,16 @@ export default function ActivePartnersDetail() {
                 status: 'active',
                 next_roi_date: nextRoiDate.toISOString().slice(0, 10),
                 maturity_date: maturityDate.toISOString().slice(0, 10),
-              });
+              })
+              .select('roi_percentage')
+              .maybeSingle();
+            const createdRoi = rateOrNull(createdRow?.roi_percentage) ?? insertRoi;
 
             if (createErr) {
               console.error('[ActivePartners] Portfolio creation error:', createErr);
               toast.warning(`Profile updated. ROI set to ${newRoi}% but portfolio creation failed: ${createErr.message}`);
             } else {
-              toast.success(`Updated ${editName.trim()} — created missing portfolio with ${newRoi}% ROI`);
+              toast.success(`Updated ${editName.trim()} — created missing portfolio with ${createdRoi}% monthly Returns`);
             }
           } else {
             toast.warning(`Profile updated but no investment records found for ${editName.trim()}`);

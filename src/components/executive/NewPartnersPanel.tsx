@@ -28,6 +28,8 @@ import { useSearchParams } from 'react-router-dom';
 import { clientLog } from '@/lib/clientLogger';
 import { recomputeNextRoiDateForPayoutDay } from '@/lib/portfolioDates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
 
 // ════════════════════════════════════════════════════════════════
 // Shared validators — keep portfolio payout fields clean & DB-safe
@@ -2828,10 +2830,13 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
   const [saving, setSaving] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
-  const [form, setForm] = useState({
+  // Partner Returns (design v2 §6.1 staff form contract): the rate field is held by
+  // useStaffPortfolioRate (switch seen OFF -> today's 20, always sent; on or unknown -> the
+  // partner's own rate, sent only when edited). form.roi_percentage below mirrors it.
+  const rate = useStaffPortfolioRate(partner.id, '20');
+  const [formState, setForm] = useState({
     account_name: '',
     investment_amount: '',
-    roi_percentage: '20',
     duration_months: '12',
     roi_mode: 'monthly_payout',
     portfolio_pin: String(Math.floor(1000 + Math.random() * 9000)),
@@ -2844,7 +2849,11 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
     bank_account_name: '',
     account_number: '',
   });
-  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const form = { ...formState, roi_percentage: rate.value };
+  const set = (k: string, v: string) => {
+    if (k === 'roi_percentage') rate.setValue(v);
+    else setForm(p => ({ ...p, [k]: v }));
+  };
 
   // Load partner total wallet balance (deposits land in float, matches edge fn gate)
   useEffect(() => {
@@ -2883,6 +2892,17 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
       toast({ title: 'Portfolio name too long', variant: 'destructive' });
       return;
     }
+    // Wait for this form's own policy read, and refuse an unedited rate when that read failed.
+    const rateBlock = staffRateSubmitBlock(rate);
+    if (rateBlock) {
+      toast({ title: rateBlock, variant: 'destructive' });
+      return;
+    }
+    const rateFields = rate.requestFields();
+    if ('error' in rateFields) {
+      toast({ title: rateFields.error, variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -2891,7 +2911,7 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           partner_id: partner.id,
           amount: amt,
           duration_months: parseInt(form.duration_months),
-          roi_percentage: parseFloat(form.roi_percentage),
+          ...rateFields.fields,
           roi_mode: form.roi_mode,
           nickname: form.account_name || null,
           // First-time partners in NewPartnersPanel go straight to active
@@ -2900,6 +2920,11 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           direct_confirmation: true,
         },
       });
+      if (response.error && await isPolicyChangedError(response.error)) {
+        toast({ title: POLICY_CHANGED_MESSAGE, variant: 'destructive' });
+        rate.refetchPolicy();
+        return;
+      }
       if (response.error || response.data?.error) {
         const msg = await extractEdgeFunctionError(response, 'Failed to send portfolio invite');
         throw new Error(msg);

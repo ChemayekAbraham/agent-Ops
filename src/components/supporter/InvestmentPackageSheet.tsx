@@ -15,6 +15,8 @@ import welileLogo from '@/assets/welile-logo-small.png';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticTap } from '@/lib/haptics';
 import { format, addMonths } from 'date-fns';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 // jsPDF loaded dynamically when needed
 
 interface InvestmentPackageSheetProps {
@@ -25,14 +27,13 @@ interface InvestmentPackageSheetProps {
     totalHouses: number;
     totalRent: number;
     avgRent: number;
-    expectedReturn: number;
+    /** RentCategoryFeed prices it at the viewer's own rate; null when unknown. */
+    expectedReturn: number | null;
   } | null;
   onAcceptAndDeposit: () => void;
 }
 
 type SheetStep = 'summary' | 'accepted' | 'deposit';
-
-const REWARD_RATE = 0.15; // 15% monthly supporter reward
 
 export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptAndDeposit }: InvestmentPackageSheetProps) {
   const { formatAmount } = useCurrency();
@@ -40,22 +41,31 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
   const [autoCompound, setAutoCompound] = useState(false);
   const [generating, setGenerating] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  // The supporter's own monthly rate (partner_quote_rate('me')): the rate a funding is stamped at.
+  // null while it loads or on error: every reward figure is null (no number), never a default.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = rateOrNull(ownRate);
+  const ratePctLabel = formatRatePct(ownRatePct);
 
   if (!category) return null;
 
+  const rewardRate = ownRatePct === null ? null : ownRatePct / 100;
   const rentAmount = category.avgRent || category.totalRent;
-  const monthlyReward = Math.round(rentAmount * REWARD_RATE);
+  const monthlyReward = monthlyReturnFor(rentAmount, ownRatePct);
   const estimatedLandlords = Math.max(1, Math.ceil(category.totalHouses * 0.7));
 
   // 12-month reward schedule with tenant growth
   const rewardSchedule = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     const date = addMonths(new Date(), month);
-    let payout: number;
+    let payout: number | null;
     let tenantsSupported: number;
-    if (autoCompound) {
-      const compoundedCapital = rentAmount * Math.pow(1 + REWARD_RATE, month);
-      payout = Math.round(rentAmount * (Math.pow(1 + REWARD_RATE, month) - Math.pow(1 + REWARD_RATE, month - 1)));
+    if (rewardRate === null) {
+      payout = null;
+      tenantsSupported = category.totalHouses;
+    } else if (autoCompound) {
+      const compoundedCapital = rentAmount * Math.pow(1 + rewardRate, month);
+      payout = Math.round(rentAmount * (Math.pow(1 + rewardRate, month) - Math.pow(1 + rewardRate, month - 1)));
       tenantsSupported = Math.max(category.totalHouses, Math.round(category.totalHouses * (compoundedCapital / rentAmount)));
     } else {
       payout = monthlyReward;
@@ -64,8 +74,8 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     return { month, date, payout, tenantsSupported };
   });
 
-  const totalRewards12Months = rewardSchedule.reduce((s, r) => s + r.payout, 0);
-  const totalWithCapital = rentAmount + totalRewards12Months;
+  const totalRewards12Months = rewardRate === null ? null : rewardSchedule.reduce((s, r) => s + (r.payout as number), 0);
+  const totalWithCapital = totalRewards12Months === null ? null : rentAmount + totalRewards12Months;
 
   const handleAccept = () => {
     hapticTap();
@@ -167,7 +177,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     doc.setTextColor(mutedText.r, mutedText.g, mutedText.b);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('MONTHLY REWARD (15%)', col2, y + 12);
+    doc.text(`MONTHLY REWARD (${ratePctLabel})`, col2, y + 12);
     doc.setTextColor(green.r, green.g, green.b);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
@@ -270,7 +280,15 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     return doc;
   };
 
+  /** The PDF and the share text state the rate and the rewards: refuse while the rate is unknown. */
+  const rateUnavailable = () => {
+    if (ratePctLabel !== null) return false;
+    toast.error('Your Returns rate has not loaded yet. Try again in a moment.');
+    return true;
+  };
+
   const generatePDF = async () => {
+    if (rateUnavailable()) return;
     setGenerating(true);
     try {
       const doc = await buildPDF();
@@ -285,6 +303,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
   };
 
   const handleShareWhatsApp = async () => {
+    if (rateUnavailable()) return;
     setGenerating(true);
     try {
       const doc = await buildPDF();
@@ -300,7 +319,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
       } else {
         // Fallback: download the PDF and open WhatsApp with a message
         doc.save(fileName);
-        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ 15% Monthly Reward | 90-day lock-in\n\nJoin Welile Supporters today!`;
+        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ ${ratePctLabel} Monthly Reward | 90-day lock-in\n\nJoin Welile Supporters today!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         toast.success('PDF downloaded — attach it in WhatsApp');
       }

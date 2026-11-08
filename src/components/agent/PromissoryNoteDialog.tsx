@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { promissoryFulfilmentError } from '@/lib/promissoryNoteDraft';
@@ -59,6 +61,10 @@ type StepKey = 'who' | 'contact' | 'promise' | 'tenants' | 'review';
 
 export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self', initialAmount, initialHouse }: PromissoryNoteDialogProps) {
   const queryClient = useQueryClient();
+  // Agent screen: quote the PUBLIC new-partner rate (15 while the switch has never been on), never a
+  // per-person rate. The note itself is stamped by the database (stamp_promissory_note_return_rate).
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(newContractRate);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [createdNote, setCreatedNote] = useState<Record<string, unknown> | null>(null);
@@ -400,7 +406,9 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     } catch {
       void 0;
     }
-    const shareText = `Hi ${partnerName}, activate your Welile funding account and start earning 15% Returns! ${activationLink}`;
+    const shareText = newRatePct
+      ? `Hi ${partnerName}, activate your Welile funding account and start earning ${newRatePct} Returns! ${activationLink}`
+      : `Hi ${partnerName}, activate your Welile funding account and start earning monthly Returns! ${activationLink}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile Funding', text: shareText, url: activationLink }).catch(() => {});
     } else {
@@ -410,6 +418,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
   };
 
   const parsedAmount = Number(amount) || 0;
+  // Earnings preview at the public new-partner rate; null while the policy is unknown (show no figure).
+  const previewMonthlyReturn = monthlyReturnFor(parsedAmount, newContractRate);
 
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-1.5 py-1">
@@ -686,7 +696,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
             </div>
             <div className="flex justify-between text-xs">
               <span className="text-muted-foreground">Your Partner earns 15% per month</span>
-              <span className="font-medium">{formatUGX(parsedAmount * 0.15)}</span>
+              <span className="font-medium">{formatUGXOrDash(previewMonthlyReturn)}</span>
             </div>
           </div>
         )}

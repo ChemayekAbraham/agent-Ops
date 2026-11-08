@@ -9,9 +9,13 @@ import type { TrustProfile } from '@/hooks/useTrustProfile';
  * Presentation only: reads the already-fetched trust profile.
  */
 export function BorrowerTrustScorePanel({ profile }: { profile: TrustProfile }) {
-  const score = Math.max(0, Math.min(100, Number(profile.trust?.score) || 0));
+  // Score and limit are null when unknown (Partner Returns 4b masks them for a viewer who may not see
+  // the Returns they are built from): never 0.
+  const rawScore = profile.trust?.score == null ? NaN : Number(profile.trust.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : null;
   const tier = profile.trust?.tier ?? 'unrated';
-  const limit = Number(profile.trust?.borrowing_limit_ugx) || 0;
+  const rawLimit = profile.trust?.borrowing_limit_ugx == null ? NaN : Number(profile.trust.borrowing_limit_ugx);
+  const limit = Number.isFinite(rawLimit) ? rawLimit : null;
   const b = profile.trust?.breakdown ?? ({} as TrustProfile['trust']['breakdown']);
   const onTime = Number(profile.payment_history?.on_time_rate) || 0;
 

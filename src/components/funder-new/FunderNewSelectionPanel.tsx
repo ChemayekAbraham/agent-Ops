@@ -10,10 +10,18 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
 import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
-const MONTHLY_RATE = 0.15;
-
-const monthlyAt15 = (total: number) => Math.round(total * MONTHLY_RATE);
+/**
+ * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
+ * (partner_quote_rate 'me'): today's 15 while the switch has never been on, 10 for a new
+ * partner after it, their own rate for an existing partner. null (loading or unknown) = no figure.
+ */
+function useMonthlyAtOwnRate(): (total: number) => number | null {
+  const { rate } = useOwnNewPortfolioRate();
+  return (total: number) => monthlyReturnFor(total, rate);
+}
 
 /**
  * What the caller reports back when "Confirm and support" is pressed.
@@ -46,6 +54,7 @@ export function FunderNewSelectionBar({
   onClear: () => void;
   onReview: () => void;
 }) {
+  const monthlyAt15 = useMonthlyAtOwnRate();
   if (items.length === 0 || !category) return null;
   const total = items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -130,6 +139,7 @@ export function FunderNewReviewDialog({
   /** Opens the supporter's own portfolio list from the success view. */
   onViewPortfolio?: () => void;
 }) {
+  const monthlyAt15 = useMonthlyAtOwnRate();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<FunderReceipt | null>(null);
@@ -536,6 +546,8 @@ const HOW_STEPS = [
 ];
 
 function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+  // Signed-in partner screen: the worked example is priced at the viewer's own rate (null = no figure).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const link = buildPlanShareLink(item, origin);
   const message = buildPlanShareMessage(item, link);
@@ -599,7 +611,7 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
         </ol>
       </div>
 
-      <SupportPlanExample fundingAmount={item.amount} />
+      <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
 
       <div className="space-y-2">
         <a

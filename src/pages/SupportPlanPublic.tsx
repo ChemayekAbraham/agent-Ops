@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/rentCalculations';
 import { fetchPublicSupportPlan, type PublicSupportPlan } from '@/lib/publicSupportPlan';
 import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 import { toast } from 'sonner';
 
 const POINTS = [
@@ -30,13 +32,18 @@ const HOW_STEPS = [
   { icon: Send, text: 'Welile sends the money straight to the landlord.' },
 ];
 
-function buildShareMessage(plan: PublicSupportPlan, link: string): string {
+/** Share text at the PUBLIC new-partner rate (15 while the switch has never been on). No rate known:
+ *  the text states no rate. */
+function buildShareMessage(plan: PublicSupportPlan, link: string, ratePct: string | null): string {
   const who = plan.tenantFirstName || 'a tenant';
-  return `Help ${who} keep their home. Support their rent on Welile and earn 15% of the rent monthly for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+  const earn = ratePct ? `earn ${ratePct} of the rent monthly for 12 months` : 'earn monthly Returns for 12 months';
+  return `Help ${who} keep their home. Support their rent on Welile and ${earn}, with Welile's operational guarantee. See the plan: ${link}`;
 }
 
 export default function SupportPlanPublic() {
   const { planId } = useParams<{ planId: string }>();
+  // Public page: the worked example uses the public new-partner rate (null while unknown = no figure).
+  const { newContractRate } = usePartnerReturnPolicy();
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'unavailable' }
@@ -95,14 +102,17 @@ export default function SupportPlanPublic() {
   }
 
   const { plan } = state;
-  const message = buildShareMessage(plan, link);
+  const newRatePct = formatRatePct(newContractRate);
+  const message = buildShareMessage(plan, link, newRatePct);
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
   // Signed-out visitors sign up / log in, then land on the funder dashboard
   // with ?plan= so this exact plan opens automatically.
   const fundRedirect = `/dashboard/funder-new?plan=${encodeURIComponent(plan.planId)}`;
   const authUrl = `/auth?redirect=${encodeURIComponent(fundRedirect)}&role=supporter`;
   const title = `Support ${plan.tenantFirstName ?? 'a tenant'}'s rent — Welile`;
-  const description = `Turn rent into an asset. Support this tenant's rent once and earn 15% of their rent every month for 12 months.`;
+  const description = newRatePct
+    ? `Turn rent into an asset. Support this tenant's rent once and earn ${newRatePct} of their rent every month for 12 months.`
+    : `Turn rent into an asset. Support this tenant's rent once and earn monthly Returns for 12 months.`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,7 +196,7 @@ export default function SupportPlanPublic() {
           </ol>
         </div>
 
-        <SupportPlanExample fundingAmount={plan.fundingAmount} headingTag="h2" />
+        <SupportPlanExample fundingAmount={plan.fundingAmount} rate={newContractRate} headingTag="h2" />
 
         <div className="space-y-2">
           <a

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,8 @@ import {
   ArrowRight, RefreshCw, Layers, CircleDollarSign } from
 'lucide-react';
 import { useCurrency } from '@/hooks/useCurrency';
-import { calculateSupporterReward } from '@/lib/rentCalculations';
+import { sumSupporterRewardsAt } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 
 import { hapticTap } from '@/lib/haptics';
 import {
@@ -32,8 +33,15 @@ export interface RentCategory {
   totalHouses: number;
   totalRent: number;
   avgRent: number;
-  expectedReturn: number;
+  /** Each approved request's rent in this tier: the reward is priced per request at render. */
+  rents: number[];
+  /** The monthly reward at the viewer's own rate (sumSupporterRewardsAt); null when the rate is
+   *  unknown (loading, error): show no figure. Never cached: it depends on the viewer and the switch. */
+  expectedReturn: number | null;
 }
+
+/** What the cache and the fetch hold: no Returns figure (it is priced at render with the viewer's rate). */
+type RentCategoryData = Omit<RentCategory, 'expectedReturn'>;
 
 interface RentCategoryFeedProps {
   onFundCategory: (category: RentCategory) => void;
@@ -42,7 +50,10 @@ interface RentCategoryFeedProps {
   onRefreshRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 }
 
-const CACHE_KEY = 'welile_rent_categories';
+// v2: entries hold each tier's rents instead of a reward priced at a fixed 15%. The old key's entries
+// (shared across viewers on a device, 10-minute life) are never read again.
+const CACHE_KEY = 'welile_rent_categories_v2';
+const LEGACY_CACHE_KEY = 'welile_rent_categories';
 const CACHE_TTL = 10 * 60 * 1000;
 const VISIBLE_LIMIT = 3;
 
@@ -83,7 +94,7 @@ function DepositInstructionsDialog({
 
 
 }: {open: boolean;onOpenChange: (v: boolean) => void;cat: RentCategory;onProceed: () => void;formatAmount: (v: number) => string;}) {
-  const monthlyReward = Math.round(cat.totalRent * 0.15);
+  const monthlyReward = cat.expectedReturn;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -191,8 +202,8 @@ function ViewDetailsDialog({
 
 
 }: {open: boolean;onOpenChange: (v: boolean) => void;cat: RentCategory;formatAmount: (v: number) => string;}) {
-  const monthlyReward = Math.round(cat.totalRent * 0.15);
-  const yearlyReward = monthlyReward * 12;
+  const monthlyReward = cat.expectedReturn;
+  const yearlyReward = monthlyReward === null ? null : monthlyReward * 12;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -304,8 +315,8 @@ function AnalyticsDialog({
 
 
 }: {open: boolean;onOpenChange: (v: boolean) => void;cat: RentCategory;formatAmount: (v: number) => string;}) {
-  const monthlyReward = Math.round(cat.totalRent * 0.15);
-  const totalRewards = monthlyReward * 12;
+  const monthlyReward = cat.expectedReturn;
+  const totalRewards = monthlyReward === null ? null : monthlyReward * 12;
   const now = new Date();
 
   const months = Array.from({ length: 12 }, (_, i) => {
@@ -596,18 +607,29 @@ function CategoryCard({
 // ─── Main Component ───
 export function RentCategoryFeed({ onFundCategory, isLocked, onLockedClick, onRefreshRef }: RentCategoryFeedProps) {
   const { formatAmount } = useCurrency();
-  const [categories, setCategories] = useState<RentCategory[]>([]);
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const [categoryData, setCategoryData] = useState<RentCategoryData[]>([]);
+  // The reward is priced at render with the viewer's own rate (the rate the funding stamps).
+  const categories = useMemo<RentCategory[]>(
+    () => categoryData.map((c) => ({ ...c, expectedReturn: sumSupporterRewardsAt(c.rents, ownRate) })),
+    [categoryData, ownRate],
+  );
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
   const fetchCategories = useCallback(async () => {
     try {
+      localStorage.removeItem(LEGACY_CACHE_KEY);
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
-        if (Date.now() - timestamp < CACHE_TTL && data?.length === WELILE_TIERS.length) {
-          setCategories(data);
+        if (
+          Date.now() - timestamp < CACHE_TTL &&
+          data?.length === WELILE_TIERS.length &&
+          data.every((c: Partial<RentCategoryData>) => Array.isArray(c?.rents))
+        ) {
+          setCategoryData(data);
           setLoading(false);
           return;
         }
@@ -622,8 +644,8 @@ export function RentCategoryFeed({ onFundCategory, isLocked, onLockedClick, onRe
     eq('status', 'approved').
     limit(200);
 
-    const tierMap = new Map<string, {tier: CategoryTier;count: number;totalRent: number;totalReward: number;}>();
-    WELILE_TIERS.forEach((t) => tierMap.set(t.name, { tier: t, count: 0, totalRent: 0, totalReward: 0 }));
+    const tierMap = new Map<string, {tier: CategoryTier;count: number;totalRent: number;rents: number[];}>();
+    WELILE_TIERS.forEach((t) => tierMap.set(t.name, { tier: t, count: 0, totalRent: 0, rents: [] }));
 
     if (!error && data) {
       data.forEach((r) => {
@@ -635,21 +657,23 @@ export function RentCategoryFeed({ onFundCategory, isLocked, onLockedClick, onRe
         const existing = tierMap.get(tier.name)!;
         existing.count += 1;
         existing.totalRent += amount;
-        existing.totalReward += calculateSupporterReward(amount);
+        existing.rents.push(amount);
       });
     }
 
-    const cats: RentCategory[] = Array.from(tierMap.values()).
+    const cats: RentCategoryData[] = Array.from(tierMap.values()).
     map((v) => ({
       category: v.tier.label,
       totalHouses: v.count,
       totalRent: v.totalRent,
       avgRent: v.count > 0 ? Math.round(v.totalRent / v.count) : 0,
-      expectedReturn: v.totalReward
+      rents: v.rents
     }));
 
-    setCategories(cats);
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ data: cats, timestamp: Date.now() }));
+    setCategoryData(cats);
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ data: cats, timestamp: Date.now() }));
+    } catch {}
     setLoading(false);
   }, []);
 

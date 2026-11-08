@@ -11,6 +11,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth as useRealAuth } from '@/hooks/useAuth';
 import { buildPartnerReference } from '@/lib/partnerReference';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { numberToWords } from '@/lib/numberToWords';
 import { buildAgreementHtml } from '@/components/partner/agreementTemplate';
@@ -259,13 +261,16 @@ const MONTHS = 12;
 /** Minimum supported contribution, in UGX. Required before a funder can proceed. */
 export const MIN_SUPPORT = 50_000;
 
-function buildPoints(mode: 'tenant' | 'pool', principal: number): number[] {
+/** The chart at a monthly rate (a fraction: 0.15 for 15%). With no rate known the line stays flat
+ *  (shape only; the breakdown then shows no figure). */
+function buildPoints(mode: 'tenant' | 'pool', principal: number, monthlyRate: number | null): number[] {
   const pts: number[] = [];
+  const r = monthlyRate ?? 0;
   let bal = principal;
   for (let m = 0; m <= MONTHS; m++) {
     pts.push(bal);
-    if (mode === 'tenant') bal += principal * 0.15;
-    else bal = bal * 1.15;
+    if (mode === 'tenant') bal += principal * r;
+    else bal = bal * (1 + r);
   }
   return pts;
 }
@@ -283,6 +288,11 @@ function SupportGraph({
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const currency = useCurrency();
+  // A new Supporter signs a new contract: the PUBLIC new-partner rate (15 while the switch has never
+  // been on, so every figure equals today's). Unknown rate -> the breakdown shows no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const ratePct = rateOrNull(newContractRate);
+  const monthlyRate = ratePct === null ? null : ratePct / 100;
   const enteredAmount = Number(amount.replace(/,/g, '')) || 0;
   const hasAmount = enteredAmount >= MIN_SUPPORT;
   const isInvalid = showError && !hasAmount;
@@ -300,7 +310,7 @@ function SupportGraph({
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
-  const points = buildPoints(mode, principal);
+  const points = buildPoints(mode, principal, monthlyRate);
   const maxVal = points[MONTHS];
   const minVal = principal;
   const range = maxVal - minVal || 1;
@@ -321,22 +331,24 @@ function SupportGraph({
   const pathId = `graph-${mode}`;
 
   // ── Breakdown figures (computed strictly from the entered amount) ──
-  const monthlyReward = enteredAmount * 0.15;
+  const monthlyReward = monthlyRate === null ? 0 : enteredAmount * monthlyRate;
   const totalValue = points[MONTHS];
   const totalEarned = totalValue - enteredAmount;
   const dash = '—';
+  // Figures only for a real amount AND a known rate (monthlyReward above is never shown without one).
+  const showFigures = hasAmount && monthlyRate !== null;
   const breakdown = mode === 'tenant'
     ? [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Monthly reward', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
-        { label: 'Rewards · 12 mo', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
-        { label: 'Total after 12 mo', value: hasAmount ? formatCurrencyCompact(enteredAmount + monthlyReward * MONTHS, currency) : dash, accent: true },
+        { label: 'Monthly reward', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Rewards · 12 mo', value: showFigures ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
+        { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(enteredAmount + monthlyReward * MONTHS, currency) : dash, accent: true },
       ]
     : [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Month 1 reward', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
-        { label: 'Total growth', value: hasAmount ? `+${formatCurrencyCompact(totalEarned, currency)}` : dash },
-        { label: 'Total after 12 mo', value: hasAmount ? formatCurrencyCompact(totalValue, currency) : dash, accent: true },
+        { label: 'Month 1 reward', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Total growth', value: showFigures ? `+${formatCurrencyCompact(totalEarned, currency)}` : dash },
+        { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(totalValue, currency) : dash, accent: true },
       ];
 
   return (
@@ -1407,7 +1419,7 @@ export default function FunderOnboarding() {
                   partnerPhone: cleanPhone,
                   partnerEmail: cleanEmail,
                   partnershipAmount: supportAmountNum,
-                  // 'tenant' = monthly payout (Option A), 'pool' = compounding (Option B); both 15%.
+                  // 'tenant' = monthly payout (Option A), 'pool' = compounding (Option B); both at the rate the database stamps.
                   returnOption: form.investPath === 'pool' ? 'B' : 'A',
                   reference: partnerReference,
                   payoutMode: form.payoutMode === 'momo' ? 'momo' : 'bank',

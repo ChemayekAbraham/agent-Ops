@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { ChevronDown, Info } from 'lucide-react';
 import { format } from 'date-fns';
-import { FUNDER_MONTHLY_RATE } from '@/lib/funderEarnings';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
 
 interface Props {
   startDate: Date;
   endDate: Date;
   daysInTerm: number;
+  /** The monthly Returns rate the projections use (e.g. 15), or null when unknown. */
+  rate: number | null;
 }
 
 /** Minimal, professional note explaining how funder projections are computed. */
-export function FunderEarningsAssumptions({ startDate, endDate, daysInTerm }: Props) {
+export function FunderEarningsAssumptions({ startDate, endDate, daysInTerm, rate }: Props) {
   const [open, setOpen] = useState(false);
-  const pct = Math.round(FUNDER_MONTHLY_RATE * 100);
+  // The rate as a number ("15" -> "× 15%"); "—" when unknown, never a guessed rate.
+  const pct = rateOrNull(rate) ?? '—';
 
   return (
     <div className="rounded-2xl border border-border/60 bg-muted/30">

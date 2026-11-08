@@ -23,7 +23,8 @@ export function AgentTenantHealthCard({ userId }: Props) {
   const pct = Math.round(ap.healthy_ratio * 100);
   const isHealthy = ap.healthy_ratio >= 0.5;
   const isTop = !!ap.top_performing;
-  const vouch = profile?.trust.borrowing_limit_ugx ?? 0;
+  // null = unknown (Partner Returns 4b can mask it), never 0.
+  const vouch = profile?.trust.borrowing_limit_ugx ?? null;
 
   return (
     <div

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lock, Wallet, TrendingUp, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
-import type { FunderEarnings } from '@/lib/funderEarnings';
+import type { FunderEarningsAt } from '@/lib/funderEarnings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,7 +26,8 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   houses: ConfirmHouse[];
-  totals: FunderEarnings;
+  /** From sumFunderEarningsAt: the Returns figures are null when the rate is unknown. */
+  totals: FunderEarningsAt;
   walletBalance: number;
   /** Called when the funder confirms — locks the selection and moves to funding. */
   onConfirm: () => void;

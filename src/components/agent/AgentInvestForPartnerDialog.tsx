@@ -14,6 +14,8 @@ import { createShortLink } from '@/lib/createShortLink';
 import { Loader2, HandCoins, Wallet, TrendingUp, CheckCircle2, Copy, Share2, MessageCircle, Link, Smartphone, UserPlus, Info, User, Phone, Upload, FileText, X, Image } from 'lucide-react';
 import { isValidPhoneNumberGlobal } from '@/lib/phoneUtils';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 interface AgentInvestForPartnerDialogProps {
   open: boolean;
@@ -24,7 +26,9 @@ interface AgentInvestForPartnerDialogProps {
 interface SuccessData {
   reference_id: string;
   partner_name: string;
-  monthly_reward: number;
+  /** Present only when the portfolio's rate applies to everyone (switch off); otherwise null:
+   *  the partner's own rate and figure are theirs, not the agent's. */
+  monthly_reward: number | null;
   first_payout_date: string;
   new_balance: number;
   amount: number;
@@ -52,7 +56,9 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
   const [shortActivationLink, setShortActivationLink] = useState<string | null>(null);
 
   const parsedAmount = Number(amount) || 0;
-  const monthlyReward = Math.round(parsedAmount * 0.15);
+  // Preview at the public new-partner rate (15 while the switch is off); null while unknown = no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const monthlyReward = monthlyReturnFor(parsedAmount, newContractRate);
 
   useEffect(() => {
     if (open) {
@@ -252,7 +258,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
       setSuccess({
         reference_id: data.reference_id,
         partner_name: data.partner_name,
-        monthly_reward: data.monthly_reward,
+        monthly_reward: typeof data.monthly_reward === 'number' ? data.monthly_reward : null,
         first_payout_date: data.first_payout_date,
         new_balance: data.new_balance,
         amount: parsedAmount,

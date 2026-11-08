@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLenderVouchAgreement } from '@/hooks/useLenderVouchAgreement';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { recordVouchFigures } from '@/lib/vouch/recordVouchFigures';
 import { toast } from 'sonner';
 import LenderVouchAgreementModal from './LenderVouchAgreementModal';
 import { useNavigate } from 'react-router-dom';
@@ -128,16 +129,19 @@ export default function LenderRecordLoanCard({ profile }: Props) {
 
   const recordLoan = async () => {
     if (!partner) return;
+    // 4b: a masked limit or score refuses to record (never a vouch of 0, never a null score stamped).
+    const figures = recordVouchFigures(profile.trust);
+    if (figures.ok === false) { toast.error(figures.error); return; }
     const principalNum = Number(principal);
     if (!principalNum || principalNum <= 0) { toast.error('Enter a valid principal'); return; }
-    if (principalNum > profile.trust.borrowing_limit_ugx) {
+    if (principalNum > figures.limit) {
       const ok = confirm(
-        `You're lending ${formatUGX(principalNum)} but Welile only vouches up to ${formatUGX(profile.trust.borrowing_limit_ugx)}. The amount above the vouch is your own risk. Continue?`
+        `You're lending ${formatUGX(principalNum)} but Welile only vouches up to ${formatUGX(figures.limit)}. The amount above the vouch is your own risk. Continue?`
       );
       if (!ok) return;
     }
     setSubmitting(true);
-    const vouched = Math.min(principalNum, profile.trust.borrowing_limit_ugx);
+    const vouched = Math.min(principalNum, figures.limit);
     const { error } = await (supabase
       .from('vouch_claims' as any)
       .insert({
@@ -146,8 +150,8 @@ export default function LenderRecordLoanCard({ profile }: Props) {
         borrower_ai_id: profile.ai_id,
         principal_ugx: principalNum,
         vouched_amount_ugx: vouched,
-        trust_score_at_record: profile.trust.score,
-        trust_tier_at_record: profile.trust.tier,
+        trust_score_at_record: figures.score,
+        trust_tier_at_record: figures.tier,
         loan_purpose: loanPurpose.trim() || null,
         expected_repayment_date: repaymentDate || null,
         interest_rate_pct: interestRate ? Number(interestRate) : null,

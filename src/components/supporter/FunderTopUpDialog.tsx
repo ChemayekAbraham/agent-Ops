@@ -23,8 +23,8 @@ interface FunderTopUpDialogProps {
   houseCount: number;
   /** Total capital owed to landlords for the selection. */
   capitalRequired: number;
-  /** Projected monthly earning across the selection. */
-  monthlyEarning: number;
+  /** Projected monthly earning across the selection; null when the rate is unknown. */
+  monthlyEarning: number | null;
   walletBalance: number;
 }
 

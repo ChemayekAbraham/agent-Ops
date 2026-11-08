@@ -15,8 +15,9 @@ import { exportToPDF } from '@/lib/exportUtils';
 import { toast } from '@/hooks/use-toast';
 import { useCurrency } from '@/hooks/useCurrency';
 import { CurrencySwitcher } from '@/components/CurrencySwitcher';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
-const ROI_RATE = 0.15; // 15% per month
 
 interface MonthlyProjection {
   month: number;
@@ -35,20 +36,28 @@ export default function CalculatorPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const projectionRef = useRef<HTMLDivElement>(null);
+  // Public calculator: the PUBLIC new-partner rate (15 while the switch has never been on, so every
+  // figure equals today's). Unknown rate -> null figures and no projection rows (show no number).
+  const { newContractRate } = usePartnerReturnPolicy();
+  const ratePct = rateOrNull(newContractRate);
+  const monthlyRate = ratePct === null ? null : ratePct / 100;
+  const ratePctLabel = formatRatePct(ratePct);
 
   const calculations = useMemo(() => {
-    const requiredInvestment = Math.ceil(desiredEarnings / ROI_RATE);
-    const monthlyReturn = requiredInvestment * ROI_RATE;
+    if (monthlyRate === null) return { requiredInvestment: null as number | null, monthlyReturn: null as number | null };
+    const requiredInvestment = Math.ceil(desiredEarnings / monthlyRate);
+    const monthlyReturn = requiredInvestment * monthlyRate;
     return { requiredInvestment, monthlyReturn };
-  }, [desiredEarnings]);
+  }, [desiredEarnings, monthlyRate]);
 
   const projections = useMemo((): MonthlyProjection[] => {
     const results: MonthlyProjection[] = [];
+    if (monthlyRate === null || calculations.requiredInvestment === null) return results;
     let currentBalance = calculations.requiredInvestment;
     let totalEarnings = 0;
 
     for (let month = 1; month <= duration; month++) {
-      const earnings = currentBalance * ROI_RATE;
+      const earnings = currentBalance * monthlyRate;
       totalEarnings += earnings;
       if (isCompounding) currentBalance += earnings;
 
@@ -61,14 +70,16 @@ export default function CalculatorPage() {
       });
     }
     return results;
-  }, [calculations.requiredInvestment, duration, isCompounding]);
+  }, [calculations.requiredInvestment, duration, isCompounding, monthlyRate]);
 
   const finalProjection = projections[projections.length - 1];
 
   const handleShareWhatsApp = () => {
+    // No rate known: no projection to share.
+    if (calculations.requiredInvestment === null || !ratePctLabel) return;
     const message = `💰 *Welile Support Projection*\n\n` +
       `📊 Support: ${formatAmount(calculations.requiredInvestment)}\n` +
-      `📈 Monthly Returns: 15%\n` +
+      `📈 Monthly Returns: ${ratePctLabel}\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Compounding: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
