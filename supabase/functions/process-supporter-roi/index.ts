@@ -8,6 +8,7 @@ import {
   buildPartnershipTopupRequest,
   resolveManagedProxy,
   dispatchTransactionalEmail,
+  type PartnershipTopupInput,
 } from "../_shared/partnership-emails.ts";
 import {
   kampalaTodayDateOnly,
@@ -17,6 +18,14 @@ import {
 import { evaluateRenewalPayoutGate } from "../_shared/renewalPayoutGate.ts";
 import { classifyRentRewardPost } from "../_shared/rentRewardOutcome.ts";
 import { isRealPartnerEmail, sendRenewalAppliedEmail, sendReturnsReadyEmail } from "../_shared/partnerRenewalEmails.ts";
+import {
+  rateEmailTarget,
+  rateOrNull,
+  ratesPublicBeforeCutoff,
+  readConfirmedLoginEmails,
+  rowRateIsPublic,
+  storedRate,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -107,6 +116,17 @@ Deno.serve(async (req) => {
 
     console.log(`[process-supporter-roi] Found ${fundedRequests?.length || 0} funded requests to check`);
 
+    // The compounding email states the rate the reward was paid at. Before the first switch-on every
+    // rate is today's public rate: the profile email, as today. Afterwards it goes to the supporter's
+    // confirmed login email (one batch read for every auto-reinvesting supporter in this run).
+    const rewardRatesPublic = await ratesPublicBeforeCutoff(supabase);
+    const loginEmails = rewardRatesPublic
+      ? new Map<string, string>()
+      : await readConfirmedLoginEmails(
+        supabase,
+        [...new Set((fundedRequests || []).map((r: any) => r.supporter_id).filter((id: string) => autoReinvestMap.has(id)))],
+      );
+
     // NOTE: the matured-portfolio auto-renew sweep used to run HERE, before the
     // payout loop. That ordering skipped the final-cycle ROI (renewal resets
     // next_roi_date/total_roi_earned, so the payout gate then reads "not due").
@@ -133,7 +153,8 @@ Deno.serve(async (req) => {
 
         results.processed++;
 
-        const roiAmount = Math.round(Number(rr.rent_amount) * 0.15);
+        // The reward amount and rate are decided by the database (the rate stored when this supporter
+        // funded the request); this function never computes them.
         const paymentNumber = (rr.roi_payments_count || 0) + 1;
 
         // Check auto-reinvest preference
@@ -141,11 +162,13 @@ Deno.serve(async (req) => {
         const shouldReinvest = !!reinvestInfo;
 
         // Managed proxy (wallet path only): resolved first, the wallet credit description names the agent.
+        // Rate-free text: the database writes the paid rate into the ledger description and keeps only the
+        // "(managed by …)" suffix from this text.
         const managedProxy = shouldReinvest ? null : await resolveManagedProxy(supabase, rr.supporter_id);
         const walletRecipientId = rr.supporter_id;
         const walletDescription = managedProxy
-          ? `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()} (managed by ${managedProxy.agentName || 'proxy agent'})`
-          : `15% monthly reward (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`;
+          ? `Monthly Returns (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()} (managed by ${managedProxy.agentName || 'proxy agent'})`
+          : `Monthly Returns (payment #${paymentNumber}) on rent facilitation of UGX ${Number(rr.rent_amount).toLocaleString()}`;
 
         // ONE database transaction: payment row + (portfolio principal | wallet credit) + ledger + schedule.
         // If it does not post, nothing is recorded and the next run retries this payment number.
@@ -169,7 +192,15 @@ Deno.serve(async (req) => {
         }
         if (outcome.action === 'error') throw new Error(outcome.reason);
 
-        const postedAmount = Number((posted as { amount?: number }).amount ?? roiAmount);
+        // Every downstream figure is the amount the database actually paid. Missing -> never recompute:
+        // record it and move on (the reward itself is already posted).
+        const amount = Number((posted as { amount?: unknown } | null)?.amount);
+        if (!(amount > 0)) {
+          results.errors.push(`${rr.id}: reward #${paymentNumber} posted without an amount; notices skipped`);
+          logSystemEvent(supabase, 'rent_reward_amount_missing', rr.supporter_id, 'rent_requests', rr.id, { payment_number: paymentNumber, result: posted ?? null });
+          continue;
+        }
+        const paidRate = rateOrNull((posted as { rate?: unknown } | null)?.rate);
 
         if (shouldReinvest) {
           // ═══ AUTO-REINVEST (posted atomically above) ═══
@@ -179,10 +210,10 @@ Deno.serve(async (req) => {
           // Notify supporter
           await supabase.from('notifications').insert({
             user_id: rr.supporter_id,
-            title: '🔄 ROI Auto-Reinvested!',
-            message: `Your reward of UGX ${roiAmount.toLocaleString()} (payment #${paymentNumber}) has been automatically added to your portfolio. New balance: UGX ${newAmount.toLocaleString()}.`,
+            title: '🔄 Returns Auto-Reinvested!',
+            message: `Your reward of UGX ${amount.toLocaleString()} (payment #${paymentNumber}) has been automatically added to your portfolio. New balance: UGX ${newAmount.toLocaleString()}.`,
             type: 'earning',
-            metadata: { portfolio_id: reinvestInfo.portfolio_id, roi_amount: roiAmount, payment_number: paymentNumber },
+            metadata: { portfolio_id: reinvestInfo.portfolio_id, roi_amount: amount, payment_number: paymentNumber },
           });
 
           // Update the cached amount for subsequent iterations
@@ -193,21 +224,25 @@ Deno.serve(async (req) => {
           try {
             const { data: partnerProfile } = await supabase
               .from('profiles').select('email, full_name').eq('id', rr.supporter_id).maybeSingle();
-            if (partnerProfile?.email) {
+            // This email is made of Returns figures (Returns earned, opening and new value), so after the
+            // first switch-on it is sent only where figures may go: the confirmed login email. Without one,
+            // nothing is sent (the in-app notification above already tells the supporter).
+            const target = rateEmailTarget(loginEmails.get(rr.supporter_id) ?? null, partnerProfile?.email ?? null, rewardRatesPublic);
+            if (target.to && target.withFigures) {
               dispatchTransactionalEmail(
                 Deno.env.get('SUPABASE_URL')!,
                 Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
                 buildPartnerCompoundRequest({
-                  recipientEmail: partnerProfile.email,
-                  partnerName: partnerProfile.full_name,
+                  recipientEmail: target.to,
+                  partnerName: partnerProfile?.full_name,
                   partnerId: rr.supporter_id,
                   portfolioId: reinvestInfo.portfolio_id,
                   paymentNumber,
                   initialAmount: prevAmount,
-                  // roiPercentage intentionally omitted — helper derives the
-                  // exact rate from returnAmount/initialAmount so partners on
-                  // non-15% portfolios see their REAL rate.
-                  returnAmount: roiAmount,
+                  // The rate the reward was paid at (never derived from amounts); no rate line when
+                  // the database did not report one.
+                  roiPercentage: paidRate,
+                  returnAmount: amount,
                   newTotal: newAmount,
                   compoundDateIso: now.toISOString(),
                   contributionDateIso: reinvestInfo.contribution_date || undefined,
@@ -229,7 +264,7 @@ Deno.serve(async (req) => {
           try {
             await supabase.rpc('apply_roi_advance_recovery', {
               p_user_id: walletRecipientId,
-              p_roi_amount: roiAmount,
+              p_roi_amount: amount,
               p_source_id: rr.id,
               p_idempotency_key: `sup-roi-${rr.id}-${paymentNumber}`,
             });
@@ -242,7 +277,7 @@ Deno.serve(async (req) => {
           try {
             const { error: pledgeErr } = await supabase.rpc('apply_smartphone_roi_pledge', {
               p_user_id: walletRecipientId,
-              p_roi_amount: roiAmount,
+              p_roi_amount: amount,
               p_reference: `sup-roi-${rr.id}-${paymentNumber}`,
             });
             if (pledgeErr) console.error('[process-supporter-roi] phone pledge failed:', pledgeErr);
@@ -255,11 +290,11 @@ Deno.serve(async (req) => {
             await supabase.from('notifications').insert({
               user_id: rr.supporter_id,
               title: '⏳ Monthly Return Approved — Processing',
-              message: `Your monthly return of UGX ${roiAmount.toLocaleString()} (payment #${paymentNumber}) has been approved and is being processed. Your proxy agent ${managedProxy.agentName || 'agent'} will complete the payout. You'll get a final confirmation once the funds are delivered.`,
+              message: `Your monthly return of UGX ${amount.toLocaleString()} (payment #${paymentNumber}) has been approved and is being processed. Your proxy agent ${managedProxy.agentName || 'agent'} will complete the payout. You'll get a final confirmation once the funds are delivered.`,
               type: 'earning',
               metadata: {
                 rent_request_id: rr.id,
-                roi_amount: roiAmount,
+                roi_amount: amount,
                 payment_number: paymentNumber,
                 routed_to_proxy_agent_id: managedProxy.agentId,
                 proxy_assignment_id: managedProxy.assignmentId,
@@ -269,11 +304,11 @@ Deno.serve(async (req) => {
             await supabase.from('notifications').insert({
               user_id: managedProxy.agentId,
               title: '🤝 Proxy Payout Ready for Delivery',
-              message: `UGX ${roiAmount.toLocaleString()} (reward #${paymentNumber}) was credited to your partner's wallet. Please initiate a withdrawal from the Proxy Partners tab.`,
+              message: `UGX ${amount.toLocaleString()} (reward #${paymentNumber}) was credited to your partner's wallet. Please initiate a withdrawal from the Proxy Partners tab.`,
               type: 'earning',
               metadata: {
                 rent_request_id: rr.id,
-                roi_amount: roiAmount,
+                roi_amount: amount,
                 payment_number: paymentNumber,
                 on_behalf_of_partner_id: rr.supporter_id,
                 proxy_assignment_id: managedProxy.assignmentId,
@@ -283,9 +318,9 @@ Deno.serve(async (req) => {
             await supabase.from('notifications').insert({
               user_id: rr.supporter_id,
               title: '⏳ Monthly Return Approved — Processing',
-              message: `Your monthly return of UGX ${roiAmount.toLocaleString()} (payment #${paymentNumber}) has been approved and is being processed. You'll receive a final confirmation as soon as the payout is delivered.`,
+              message: `Your monthly return of UGX ${amount.toLocaleString()} (payment #${paymentNumber}) has been approved and is being processed. You'll receive a final confirmation as soon as the payout is delivered.`,
               type: 'earning',
-              metadata: { rent_request_id: rr.id, roi_amount: roiAmount, payment_number: paymentNumber },
+              metadata: { rent_request_id: rr.id, roi_amount: amount, payment_number: paymentNumber },
             });
           }
 
@@ -304,7 +339,7 @@ Deno.serve(async (req) => {
                   partnerName: partnerProfile.full_name,
                   partnerId: rr.supporter_id,
                   txGroupId: `${rr.id}-${paymentNumber}`,
-                  amount: roiAmount,
+                  amount: amount,
                   transactionId: `ROI-${rr.id.slice(0, 8).toUpperCase()}-${paymentNumber}`,
                   payoutMethod: 'Wallet',
                   isManagedByAgent: !!managedProxy,
@@ -327,7 +362,7 @@ Deno.serve(async (req) => {
                   agentId: managedProxy.agentId,
                   partnerName: partnerProfile2?.full_name,
                   partnerId: rr.supporter_id,
-                  amount: roiAmount,
+                  amount: amount,
                   transactionId: `ROI-${rr.id.slice(0, 8).toUpperCase()}-${paymentNumber}`,
                   txGroupId: `${rr.id}-${paymentNumber}`,
                   payoutKind: 'Monthly Returns',
@@ -344,11 +379,11 @@ Deno.serve(async (req) => {
         }
 
         // Rent request schedule (next due date, total, count) was advanced in the same database transaction.
-        results.totalAmount += postedAmount;
+        results.totalAmount += amount;
         // Log system event
-        logSystemEvent(supabase, 'roi_distributed', rr.supporter_id, 'supporter_roi_payments', rr.id, { amount: roiAmount, payment_number: paymentNumber, reinvested: shouldReinvest });
+        logSystemEvent(supabase, 'roi_distributed', rr.supporter_id, 'supporter_roi_payments', rr.id, { amount: amount, payment_number: paymentNumber, reinvested: shouldReinvest });
 
-        console.log(`[process-supporter-roi] ${shouldReinvest ? 'Reinvested' : 'Paid'} ${roiAmount} for supporter ${rr.supporter_id} (payment #${paymentNumber})`);
+        console.log(`[process-supporter-roi] ${shouldReinvest ? 'Reinvested' : 'Paid'} ${amount} for supporter ${rr.supporter_id} (payment #${paymentNumber})`);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[process-supporter-roi] Error on ${rr.id}:`, msg);
@@ -389,12 +424,21 @@ Deno.serve(async (req) => {
         )]
       : [];
 
+    // Top-up emails (5b) are queued here and sent after the loop: one profile read and one
+    // login-email read for every partner in the run, never one per portfolio.
+    const topupEmails: Array<{
+      partnerId: string;
+      rateIsPublic: boolean;
+      rate: number | null;
+      input: Omit<PartnershipTopupInput, 'recipientEmail' | 'partnerName' | 'roiPercentage'>;
+    }> = [];
+
     for (const portfolioId of portfolioIdsToMerge) {
       try {
         // Resolve the portfolio — must be active to receive merged capital
         const { data: portfolio } = await supabase
           .from('investor_portfolios')
-          .select('id, investment_amount, portfolio_code, account_name, investor_id, agent_id, status, roi_percentage, next_roi_date, created_at, payout_day')
+          .select('id, investment_amount, portfolio_code, account_name, investor_id, agent_id, status, roi_percentage, rate_basis, next_roi_date, created_at, payout_day')
           .eq('id', portfolioId)
           .maybeSingle();
 
@@ -553,45 +597,32 @@ Deno.serve(async (req) => {
           });
 
           // 5b. Partnership Top-Up email — same template used by the manual approval flow.
-          //     Sent to the partner whose capital just activated automatically at the ROI cycle.
+          //     Sent (after the loop) to the partner whose capital just activated automatically at
+          //     the ROI cycle.
           if (partnerId) {
-            try {
-              const { data: partnerProfile } = await supabase
-                .from('profiles')
-                .select('email, full_name')
-                .eq('id', partnerId)
-                .maybeSingle();
-              if (partnerProfile?.email) {
-                // `currentAmount` is the portfolio's real capital before the
-                // merge (including compounded returns), and `newAmount` is what
-                // the portfolio now shows. Using contributed principal here made
-                // the emailed new total lower than the actual portfolio value.
-                const previousValue = Number(currentAmount) || 0;
-                dispatchTransactionalEmail(
-                  supabaseUrl,
-                  supabaseServiceKey,
-                  buildPartnershipTopupRequest({
-                    recipientEmail: partnerProfile.email,
-                    partnerName: partnerProfile.full_name,
-                    partnerId,
-                    txGroupId: mergeGroupId, // unique per auto-merge batch
-                    topupAmount: totalPending,
-                    previousPortfolioValue: previousValue,
-                    newTotalPartnershipValue: Number(newAmount) || previousValue + totalPending,
-                    roiPercentage: Number((portfolio as any).roi_percentage) || undefined,
-                    portfolioId: portfolio.id,
-                    portfolioName: accountLabel,
-                    reviewedBy: "System",
-                    portfoliosToppedUpCount: 1,
-                    effectiveAt: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                  }),
-                  "process-supporter-roi",
-                );
-              }
-            } catch (emailErr) {
-              console.warn('[process-supporter-roi] Top-up email lookup failed (non-blocking):', emailErr);
-            }
+            // `currentAmount` is the portfolio's real capital before the
+            // merge (including compounded returns), and `newAmount` is what
+            // the portfolio now shows. Using contributed principal here made
+            // the emailed new total lower than the actual portfolio value.
+            const previousValue = Number(currentAmount) || 0;
+            topupEmails.push({
+              partnerId,
+              rateIsPublic: await rowRateIsPublic(supabase, portfolio),
+              rate: storedRate(portfolio),
+              input: {
+                partnerId,
+                txGroupId: mergeGroupId, // unique per auto-merge batch
+                topupAmount: totalPending,
+                previousPortfolioValue: previousValue,
+                newTotalPartnershipValue: Number(newAmount) || previousValue + totalPending,
+                portfolioId: portfolio.id,
+                portfolioName: accountLabel,
+                reviewedBy: "System",
+                portfoliosToppedUpCount: 1,
+                effectiveAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+              },
+            });
           }
 
           // Update reinvest map if applicable
@@ -613,6 +644,39 @@ Deno.serve(async (req) => {
         const msg = mergeErr instanceof Error ? mergeErr.message : String(mergeErr);
         console.error(`[process-supporter-roi] Merge error for portfolio ${portfolioId}:`, msg);
         results.errors.push(`merge:${portfolioId}: ${msg}`);
+      }
+    }
+
+    // Top-up emails state the portfolio's rate: the profile email when the row's rate applies to
+    // everyone (switch off, as before); otherwise the confirmed login email, or the profile email
+    // without the rate when there is none (D4). One profile read and one login-email read in all.
+    if (topupEmails.length) {
+      try {
+        const [{ data: topupProfiles }, topupLogins] = await Promise.all([
+          supabase.from('profiles').select('id, email, full_name').in('id', [...new Set(topupEmails.map((e) => e.partnerId))]),
+          readConfirmedLoginEmails(supabase, topupEmails.filter((e) => !e.rateIsPublic).map((e) => e.partnerId)),
+        ]);
+        const profileById = new Map<string, { email?: string | null; full_name?: string | null }>(
+          (topupProfiles || []).map((p: any) => [p.id, p]),
+        );
+        for (const e of topupEmails) {
+          const profile = profileById.get(e.partnerId);
+          const target = rateEmailTarget(topupLogins.get(e.partnerId) ?? null, profile?.email ?? null, e.rateIsPublic);
+          if (!target.to) continue;
+          dispatchTransactionalEmail(
+            supabaseUrl,
+            supabaseServiceKey,
+            buildPartnershipTopupRequest({
+              ...e.input,
+              recipientEmail: target.to,
+              partnerName: profile?.full_name,
+              roiPercentage: target.withFigures ? e.rate ?? undefined : undefined,
+            }),
+            "process-supporter-roi",
+          );
+        }
+      } catch (emailErr) {
+        console.warn('[process-supporter-roi] Top-up email lookup failed (non-blocking):', emailErr);
       }
     }
 
@@ -699,7 +763,7 @@ Deno.serve(async (req) => {
     fetch(`${supabaseUrl}/functions/v1/notify-managers`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
-      body: JSON.stringify({ title: "💼 ROI Processed", body: "Activity: supporter ROI processed", url: "/dashboard/manager" }),
+      body: JSON.stringify({ title: "💼 Returns Processed", body: "Activity: supporter Returns processed", url: "/dashboard/manager" }),
     }).catch(() => {});
 
 

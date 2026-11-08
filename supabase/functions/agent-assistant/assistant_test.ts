@@ -501,6 +501,24 @@ Deno.test("partner figures from the tools pass the guard; invented ones do not",
   assertEquals(checkAnswer("It was sent to 0777 123 456.", [out], "where did it go").ok, false);
 });
 
+Deno.test("partner new-portfolio rate: the partner's own rate, no arguments, partner persona only", () => {
+  const t = findTool("get_my_new_portfolio_rate")!;
+  assertEquals(t.rpc, "assistant_partner_new_portfolio_rate");
+  assert(t.schema.safeParse({}).success);
+  assertEquals(t.schema.safeParse({ partner_id: "5631cfe1-14b0-4ce2-9b9a-f7a808d3b12d" }).success, false);
+  assertEquals(t.schema.safeParse({ rate: 20 }).success, false);
+  assertEquals(t.toRpcArgs({}), {});
+  assert(toolAllowedFor("partner", "get_my_new_portfolio_rate"));
+  assert(!toolAllowedFor("agent", "get_my_new_portfolio_rate") && !toolAllowedFor("none", "get_my_new_portfolio_rate"));
+  const p = buildSystemPrompt({ todayKampala: "2026-11-07", persona: "partner", page: "funder_dashboard" });
+  assert(p.includes("get_my_new_portfolio_rate") && p.includes("never use it for an existing portfolio"));
+});
+
+Deno.test("360 partner sentence: each partner earns their own Returns rate (D8 wording)", () => {
+  assert(AGENT_KNOWLEDGE.includes("each partner earns their own Returns rate"));
+  assert(!AGENT_KNOWLEDGE.includes("Partner Returns target 15%"));
+});
+
 Deno.test("request schema accepts the funder dashboard page hint and nothing else", () => {
   assert(RequestSchema.safeParse({ action: "message", message: "hi", page: "funder_dashboard" }).success);
   assertEquals(RequestSchema.safeParse({ action: "message", message: "hi", page: "admin_dashboard" }).success, false);

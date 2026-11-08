@@ -17,7 +17,8 @@ interface PromissoryNotePledgeProps {
   attached_amount?: string | number
   monthly_return_amount?: string | number
   annual_return_amount?: string | number
-  roi_percentage?: number
+  /** The rate stored on the queued notice. No default: missing -> no rate shown. */
+  roi_percentage?: number | null
   term_months?: number
   tenants?: TenantLine[]
   activation_url?: string
@@ -49,7 +50,7 @@ export function PromissoryNotePledge({
   attached_amount = 0,
   monthly_return_amount = 0,
   annual_return_amount = 0,
-  roi_percentage = 15,
+  roi_percentage = null,
   term_months = 12,
   tenants = [],
   activation_url = 'https://welileapp.com/activate',
@@ -99,7 +100,7 @@ export function PromissoryNotePledge({
                       <tr>
                         <td style={cell}>
                           <Text style={label}>Return rate</Text>
-                          <Text style={valueSub}>{roi_percentage}% monthly</Text>
+                          <Text style={valueSub}>{Number(roi_percentage) > 0 ? `${Math.round(Number(roi_percentage) * 100) / 100}% monthly` : '—'}</Text>
                         </td>
                         <td style={cell}>
                           <Text style={label}>Over {term_months} months</Text>

@@ -1,9 +1,21 @@
+// Links a promissory note to the signed-in caller through activate_promissory_note (owner-run, bound to
+// the caller's JWT). No service-role client: after the Partner Returns cut-off the database refuses direct
+// linking, and a pre-cut-off note with an open frozen window links only to a caller whose confirmed phone or
+// email matches it (owner decision D3). Built on the security branch's contract (5e2ad5e930): the account
+// is always the caller; a user_id in the body is ignored (old and new pages still send it).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
+import { mapError } from './mapError.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -11,105 +23,31 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { token, user_id } = await req.json();
-    if (!token || !user_id) {
-      return new Response(JSON.stringify({ error: 'Token and user_id are required' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    const jwt = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    if (!jwt) return json({ error: 'Please sign in to activate this note', code: 'AUTH_REQUIRED' }, 401);
+
+    const body = await req.json().catch(() => ({}));
+    const token = (body as { token?: unknown })?.token;
+    if (!token || typeof token !== 'string') {
+      return json({ error: 'Token is required' }, 400);
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
-    // Fetch the note
-    const { data: note, error: noteError } = await supabaseAdmin
-      .from('promissory_notes')
-      .select('*')
-      .eq('activation_token', token)
-      .single();
-
-    if (noteError || !note) {
-      return new Response(JSON.stringify({ error: 'Note not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Notes can be created already 'activated' (e.g. by the agent) with no partner
-    // account linked yet. Opening the link must still attach the partner, not fail.
-    if (note.status === 'activated' && (!note.partner_user_id || note.partner_user_id === user_id)) {
-      if (!note.partner_user_id) {
-        const { error: linkError } = await supabaseAdmin
-          .from('promissory_notes')
-          .update({ partner_user_id: user_id })
-          .eq('id', note.id)
-          .is('partner_user_id', null);
-        if (linkError) throw linkError;
-        await supabaseAdmin.from('system_events').insert({
-          event_type: 'promissory_note_activated',
-          description: `Partner ${note.partner_name} linked to already-active promissory note for ${note.amount}`,
-          metadata: { note_id: note.id, partner_user_id: user_id, agent_id: note.agent_id, amount: note.amount, link_only: true },
-        });
-      }
-      return new Response(JSON.stringify({ success: true, already_active: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (note.status !== 'pending') {
-      return new Response(JSON.stringify({ error: note.status === 'activated' ? 'This note is already linked to another account' : `Note is already ${note.status}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Update note to activated and link partner
-    const { error: updateError } = await supabaseAdmin
-      .from('promissory_notes')
-      .update({
-        status: 'activated',
-        partner_user_id: user_id,
-      })
-      .eq('id', note.id);
-
-    if (updateError) throw updateError;
-
-    // Grant all 4 public roles so partners onboarded via promissory-note links
-    // can access every public dashboard (tenant, agent, landlord, supporter).
-    const PUBLIC_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
-    const { error: roleError } = await supabaseAdmin
-      .from('user_roles')
-      .upsert(
-        PUBLIC_ROLES.map(role => ({ user_id, role, enabled: true })),
-        { onConflict: 'user_id,role' }
-      );
-
-    if (roleError) {
-      console.error('Failed to assign public roles:', roleError);
-    }
-
-    // Log system event
-    await supabaseAdmin.from('system_events').insert({
-      event_type: 'promissory_note_activated',
-      description: `Partner ${note.partner_name} activated promissory note for ${note.amount}`,
-      metadata: {
-        note_id: note.id,
-        partner_user_id: user_id,
-        agent_id: note.agent_id,
-        amount: note.amount,
-      },
+    const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false },
     });
+    const { data, error } = await userClient.rpc('activate_promissory_note', { p_token: token });
+    if (error) {
+      const mapped = mapError(error);
+      if (mapped.status === 500) console.error('[activate-promissory-note] RPC failed:', error.code, error.message);
+      return json(mapped.body, mapped.status);
+    }
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // { success, already_active, note_id, amount, status, return_rate, monthly_return, your_rate }.
+    // The old page reads only success / already_active.
+    return json(data, 200);
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('[activate-promissory-note] failed:', (err as Error)?.message);
+    return json({ error: 'Activation failed. Please try again.', code: 'ACTIVATION_FAILED' }, 500);
   }
 });

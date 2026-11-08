@@ -48,8 +48,8 @@ export function PartnershipAgreement({
   partner_name = 'Partner',
   partnership_amount = 0,
   contribution_date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
-  monthly_return_amount = 0,
-  total_projected_return = 0,
+  monthly_return_amount,
+  total_projected_return,
   first_payment_date = '',
   roi_payment_day = 1,
   roi_percentage,
@@ -61,24 +61,25 @@ export function PartnershipAgreement({
 }: PartnershipAgreementProps) {
   const year = new Date().getFullYear()
   const formattedAmount = formatAmount(partnership_amount, currency)
+  // Returns figures are optional: the sender leaves them out when the recipient may not see them.
+  const monthlyNum = Number(String(monthly_return_amount ?? '').replace(/,/g, ''))
+  const totalNum = Number(String(total_projected_return ?? '').replace(/,/g, ''))
+  const showMonthly = Number.isFinite(monthlyNum) && monthlyNum > 0
+  const showTotal = Number.isFinite(totalNum) && totalNum > 0
   const formattedMonthly = formatAmount(monthly_return_amount, currency)
   const formattedTotal = formatAmount(total_projected_return, currency)
   const dayNum = typeof roi_payment_day === 'number' ? roi_payment_day : Number(roi_payment_day) || 1
   const daySuffix = ordinalSuffix(dayNum)
 
-  // Resolve the actual agreed monthly ROI %. Prefer the explicitly passed
-  // value (sourced from investor_portfolios.roi_percentage); otherwise derive
-  // from the agreed monthly return / principal so the email NEVER
-  // hardcodes 15% for partners on different rates.
-  const principalNum = Number(String(partnership_amount).replace(/,/g, '')) || 0
-  const monthlyNum = Number(String(monthly_return_amount).replace(/,/g, '')) || 0
+  // The agreed monthly Returns rate is the STORED rate passed by the sender
+  // (investor_portfolios.roi_percentage). It is never derived from amounts and
+  // never defaulted: missing -> the line is left out.
   const explicitPct = roi_percentage === undefined || roi_percentage === null || roi_percentage === ''
     ? NaN
     : Number(roi_percentage)
-  const derivedPct = principalNum > 0 ? (monthlyNum / principalNum) * 100 : 0
-  const resolvedPct = Number.isFinite(explicitPct) && explicitPct > 0 ? explicitPct : derivedPct
-  const roundedPct = Math.round(resolvedPct * 100) / 100
-  const roiPctLabel = `${roundedPct}%`
+  const showPct = Number.isFinite(explicitPct) && explicitPct > 0
+  const roiPctLabel = showPct ? `${Math.round(explicitPct * 100) / 100}%` : ''
+  const showFiguresNote = !showPct && !showMonthly
 
   return (
     <Html>
@@ -154,22 +155,34 @@ export function PartnershipAgreement({
                                     <Text style={{ ...sectionLabel, marginBottom: '10px' }}>Return on Partnership</Text>
                                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
                                       <tbody>
+                                        {showPct && (
+                                          <tr>
+                                            <td width="50%" style={kvKey}>Agreed Monthly Return</td>
+                                            <td width="50%" align="right" style={kvVal}>{roiPctLabel}</td>
+                                          </tr>
+                                        )}
+                                        {showMonthly && (
+                                          <tr>
+                                            <td width="50%" style={kvKey}>Monthly Return Amount</td>
+                                            <td width="50%" align="right" style={kvVal}>{formattedMonthly}</td>
+                                          </tr>
+                                        )}
+                                        {showFiguresNote && (
+                                          <tr>
+                                            <td width="50%" style={kvKey}>Monthly Returns</td>
+                                            <td width="50%" align="right" style={kvVal}>Shown on your dashboard</td>
+                                          </tr>
+                                        )}
                                         <tr>
-                                          <td width="50%" style={kvKey}>Agreed Monthly Return</td>
-                                          <td width="50%" align="right" style={kvVal}>{roiPctLabel}</td>
+                                          <td width="50%" style={showTotal ? kvKey : kvKeyLast}>Duration</td>
+                                          <td width="50%" align="right" style={showTotal ? kvVal : kvValLast}>12 Months</td>
                                         </tr>
-                                        <tr>
-                                          <td width="50%" style={kvKey}>Monthly Return Amount</td>
-                                          <td width="50%" align="right" style={kvVal}>{formattedMonthly}</td>
-                                        </tr>
-                                        <tr>
-                                          <td width="50%" style={kvKey}>Duration</td>
-                                          <td width="50%" align="right" style={kvVal}>12 Months</td>
-                                        </tr>
-                                        <tr>
-                                          <td width="50%" style={kvKeyLast}>Total Projected Return</td>
-                                          <td width="50%" align="right" style={kvValAccent}>{formattedTotal}</td>
-                                        </tr>
+                                        {showTotal && (
+                                          <tr>
+                                            <td width="50%" style={kvKeyLast}>Total Projected Return</td>
+                                            <td width="50%" align="right" style={kvValAccent}>{formattedTotal}</td>
+                                          </tr>
+                                        )}
                                       </tbody>
                                     </table>
                                   </td>
@@ -470,6 +483,7 @@ export const template = {
     contribution_date: '21 April 2026',
     monthly_return_amount: 150000,
     total_projected_return: 1800000,
+    roi_percentage: 15,
     first_payment_date: '21 May 2026',
     roi_payment_day: 21,
     currency: 'UGX',

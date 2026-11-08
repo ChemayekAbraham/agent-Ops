@@ -35,9 +35,10 @@ import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { HousePlacementTimeline } from './HousePlacementTimeline';
 import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor, rateOrNull, readQuoteRate } from '@/lib/partnerReturnPolicy';
 
 const MIN_FUNDING = 50000;
-const MONTHLY_ROI_RATE = 15;
 const PLANS_PER_PAGE = 4;
 
 type HouseSort =
@@ -142,6 +143,16 @@ export function SelfPortfolioFundingCard({
   onFeedOrderChange: (value: FeedOrder) => void;
 }) {
   const signedIn = useAuthenticatedAudience();
+  // Plans and houses funded here open (or join) this partner's portfolio: their own rate for a new
+  // portfolio (partner_quote_rate('me')). null while it loads or on error: no figure, no rate.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = rateOrNull(ownRate);
+  /** Sort key for "highest Returns first": the list's figure, else the rent at the partner's rate. */
+  const houseReturnSortKey = useCallback(
+    (h: { partner_monthly_return?: number | null; monthly_rent: number }) =>
+      Number(h.partner_monthly_return ?? monthlyReturnFor(h.monthly_rent, ownRatePct) ?? 0),
+    [ownRatePct],
+  );
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [deployOpen, setDeployOpen] = useState(false);
@@ -578,11 +589,7 @@ export function SelfPortfolioFundingCard({
       setFlashHouseId(target);
       // Index against the default (return high→low) order we just reset to, so
       // the page math matches the next render's feed.
-      const sorted = [...houses].sort(
-        (a, b) =>
-          Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
-          Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100)),
-      );
+      const sorted = [...houses].sort((a, b) => houseReturnSortKey(b) - houseReturnSortKey(a));
       const index = sorted.findIndex((h) => h.house_id === target);
       if (index >= 0) setPage(Math.floor(index / PLANS_PER_PAGE));
       window.setTimeout(() => {
@@ -592,7 +599,7 @@ export function SelfPortfolioFundingCard({
       }, 450);
       window.setTimeout(() => setFlashHouseId(null), 6000);
     },
-    [houses, onFeedOrderChange],
+    [houses, onFeedOrderChange, houseReturnSortKey],
   );
 
   // Notify once when the balance grows enough to fund the saved picks. A
@@ -648,15 +655,20 @@ export function SelfPortfolioFundingCard({
         if (!user?.email) return;
         const ready = houses.filter((h) => houseSelected.includes(h.house_id));
         if (ready.length === 0) return;
+        // The partner's own rate, read now (the screen's copy may still be loading). null -> the
+        // email carries no rate and no earning figures.
+        const rate = await readQuoteRate(supabase, 'me');
         const lines = ready.map((h) => {
           const rent = Number(h.monthly_rent || 0);
           return {
             title: houseTitleLine(h),
             district: h.district || '',
             monthly_rent: rent,
-            monthly_earning: Math.round((rent * MONTHLY_ROI_RATE) / 100),
+            monthly_earning: monthlyReturnFor(rent, rate),
           };
         });
+        const totalMonthlyEarning =
+          rate === null ? null : lines.reduce((sum, l) => sum + (l.monthly_earning ?? 0), 0);
         const firstReturn = new Date();
         firstReturn.setMonth(firstReturn.getMonth() + 1);
         firstReturn.setDate(Math.min(firstReturn.getDate(), 28));
@@ -670,8 +682,8 @@ export function SelfPortfolioFundingCard({
                 (user.user_metadata as { full_name?: string } | undefined)?.full_name || 'Partner',
               houses: lines,
               total_needed: lines.reduce((sum, l) => sum + l.monthly_rent, 0),
-              total_monthly_earning: lines.reduce((sum, l) => sum + l.monthly_earning, 0),
-              return_rate: MONTHLY_ROI_RATE,
+              total_monthly_earning: totalMonthlyEarning,
+              return_rate: rateOrNull(rate),
               first_return_date: firstReturn.toLocaleDateString('en-GB', {
                 day: 'numeric',
                 month: 'short',
@@ -944,10 +956,7 @@ export function SelfPortfolioFundingCard({
         }
         case 'return_desc':
         default:
-          return (
-            Number(b.partner_monthly_return ?? b.monthly_rent * (MONTHLY_ROI_RATE / 100)) -
-            Number(a.partner_monthly_return ?? a.monthly_rent * (MONTHLY_ROI_RATE / 100))
-          );
+          return houseReturnSortKey(b) - houseReturnSortKey(a);
       }
     });
     // Houses are no longer listed here — only rent plans with ready tenants.
@@ -965,6 +974,7 @@ export function SelfPortfolioFundingCard({
     matchesBaseFilters,
     normalizedSearch,
     remaining,
+    houseReturnSortKey,
   ]);
 
   const resetFilters = useCallback(() => {
@@ -1618,7 +1628,7 @@ export function SelfPortfolioFundingCard({
         const heldByOther = !!plan.held_by && plan.held_by !== partnerId;
         const isSelected = selected.includes(plan.rent_request_id);
         const images = (plan.house_image_urls ?? []).filter(Boolean);
-        const monthlyRoi = Math.round((Number(plan.funding_amount || 0) * MONTHLY_ROI_RATE) / 100);
+        const monthlyRoi = monthlyReturnFor(Number(plan.funding_amount || 0), ownRatePct);
         const prettyName = (raw?: string | null) =>
           (raw ?? '')
             .replace(/[_-]/g, ' ')
@@ -1679,9 +1689,11 @@ export function SelfPortfolioFundingCard({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {MONTHLY_ROI_RATE}% / month
-                  </span>
+                  {formatRatePct(ownRatePct) && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      {formatRatePct(ownRatePct)} / month
+                    </span>
+                  )}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (
@@ -1692,7 +1704,7 @@ export function SelfPortfolioFundingCard({
                 <div className="pt-1">
                   <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(plan.funding_amount)}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Earn <span className="font-semibold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
+                    Earn <span className="font-semibold text-primary">{monthlyRoi === null ? '—' : formatDynamic(monthlyRoi)}</span> monthly
                   </p>
                 </div>
 
@@ -1778,12 +1790,16 @@ export function SelfPortfolioFundingCard({
           <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Projected returns · {MONTHLY_ROI_RATE}% monthly</span>
+              <span>{formatRatePct(ownRatePct) ? `Projected Returns · ${formatRatePct(ownRatePct)} monthly` : 'Projected Returns'}</span>
             </div>
-            <SlotAmount
-              value={Math.round((total * MONTHLY_ROI_RATE) / 100)}
-              className="text-sm sm:text-base font-black leading-none text-primary"
-            />
+            {monthlyReturnFor(total, ownRatePct) === null ? (
+              <span className="text-sm sm:text-base font-black leading-none text-primary">—</span>
+            ) : (
+              <SlotAmount
+                value={monthlyReturnFor(total, ownRatePct) as number}
+                className="text-sm sm:text-base font-black leading-none text-primary"
+              />
+            )}
           </div>
 
           {overBudget ? (

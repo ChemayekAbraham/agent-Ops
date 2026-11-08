@@ -11,7 +11,9 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { formatUGX, calculateSupporterReward } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash, calculateSupporterRewardAt } from '@/lib/rentCalculations';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { useToast } from '@/hooks/use-toast';
 import { useConfetti } from '@/components/Confetti';
 
@@ -52,7 +54,11 @@ export function PayLandlordDialog({
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const reward = request ? calculateSupporterReward(Number(request.rent_amount)) : 0;
+  // The reward is stamped at the supporter's own rate when the request is funded (the rule
+  // partner_quote_rate('me') quotes). null while the rate loads or is unknown: show no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const reward = request ? calculateSupporterRewardAt(Number(request.rent_amount), ownRate) : null;
+  const ownRatePct = formatRatePct(ownRate);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -167,9 +173,11 @@ export function PayLandlordDialog({
             <div className="text-center py-3">
               <p className="text-sm text-muted-foreground">Amount to Pay</p>
               <p className="text-3xl font-black text-primary">{formatUGX(Number(request.rent_amount))}</p>
-              <Badge variant="outline" className="mt-2 bg-success/10 text-success border-success/30">
-                You'll earn {formatUGX(reward)}/month (15% ROI)
-              </Badge>
+              {reward !== null && (
+                <Badge variant="outline" className="mt-2 bg-success/10 text-success border-success/30">
+                  You'll earn {formatUGX(reward)}/month{ownRatePct ? ` (${ownRatePct} Returns)` : ''}
+                </Badge>
+              )}
             </div>
 
             {/* Payment Method Selection */}
@@ -332,7 +340,7 @@ export function PayLandlordDialog({
             </div>
             <h3 className="text-xl font-bold mb-2">Support Submitted!</h3>
             <p className="text-muted-foreground text-sm mb-4">
-              Your payment is being verified by our team. Once confirmed, you'll start earning 15% monthly returns on the {formatUGX(Number(request.rent_amount))} you supported.
+              Your payment is being verified by our team. Once confirmed, you'll start earning {ownRatePct ? `${ownRatePct} monthly Returns` : 'monthly Returns'} on the {formatUGX(Number(request.rent_amount))} you supported.
             </p>
             
             {/* Support portfolio info */}
@@ -352,7 +360,7 @@ export function PayLandlordDialog({
             <Card className="border-0 bg-success/10">
               <CardContent className="p-3">
                 <p className="text-sm font-medium text-success">Expected Monthly Reward</p>
-                <p className="text-2xl font-black text-success">{formatUGX(reward)}</p>
+                <p className="text-2xl font-black text-success">{formatUGXOrDash(reward)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   First reward: 30 days from payment verification
                 </p>

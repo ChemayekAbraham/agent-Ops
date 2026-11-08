@@ -17,6 +17,8 @@ import { hapticTap } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { InvestmentSelectionSheet, type PoolType } from './InvestmentSelectionSheet';
 import { useAngelPoolAgreement } from '@/hooks/useAngelPoolAgreement';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { AngelPoolAgreementDialog } from './agreement/AngelPoolAgreementDialog';
 
 type ViewState = 'default' | 'investing' | 'committed';
@@ -57,9 +59,14 @@ function AmountInput({
 }
 
 function TenantPreview({ amount, formatAmountCompact }: { amount: number; formatAmountCompact: (n: number) => string }) {
+  // Public page: the PUBLIC new-partner rate (15 while the switch has never been on, so the figures
+  // equal today's: amount x 15% a month, a thirtieth of that a day). null rate -> null figures.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const rate = rateOrNull(newContractRate);
+  const newRatePct = formatRatePct(rate);
   if (amount <= 0) return null;
-  const monthlyReturn = amount * 0.15;
-  const dailyReturn = amount * 0.005;
+  const monthlyReturn = rate === null ? null : (amount * rate) / 100;
+  const dailyReturn = rate === null ? null : (amount * rate) / 3000;
   return (
     <div className="space-y-2 pt-2">
       <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Support Preview</p>
@@ -69,12 +76,12 @@ function TenantPreview({ amount, formatAmountCompact }: { amount: number; format
           <span className="font-black text-foreground">{formatAmountCompact(amount)}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> Monthly Return (15%)</span>
-          <span className="font-black text-success">+{formatAmountCompact(monthlyReturn)}</span>
+          <span className="text-muted-foreground flex items-center gap-1.5"><TrendingUp className="h-3 w-3" /> {newRatePct ? `Monthly Returns (${newRatePct})` : 'Monthly Returns'}</span>
+          <span className="font-black text-success">{monthlyReturn === null ? '—' : `+${formatAmountCompact(monthlyReturn)}`}</span>
         </div>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-muted-foreground flex items-center gap-1.5"><ArrowUpRight className="h-3 w-3" /> Daily Return</span>
-          <span className="font-bold text-foreground">+{formatAmountCompact(dailyReturn)}/day</span>
+          <span className="text-muted-foreground flex items-center gap-1.5"><ArrowUpRight className="h-3 w-3" /> Daily Returns</span>
+          <span className="font-bold text-foreground">{dailyReturn === null ? '—' : `+${formatAmountCompact(dailyReturn)}/day`}</span>
         </div>
         <div className="h-px bg-border/60" />
         <div className="flex items-center justify-between text-xs">
@@ -140,6 +147,9 @@ function TenantCommittedSummary({
   amount: number; formatAmountCompact: (n: number) => string;
   onSupportMore: () => void; onWithdraw: () => void;
 }) {
+  // Public new-partner rate for the copy; null while unknown -> no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(rateOrNull(newContractRate));
   return (
     <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-sm">
       <div className="px-5 pt-5 pb-1">
@@ -191,7 +201,7 @@ function TenantCommittedSummary({
         {/* Key metrics */}
         <div className="space-y-2">
           {[
-            { icon: TrendingUp, label: 'Monthly Return', value: 'Up to 15%', valueClass: 'text-success font-black' },
+            { icon: TrendingUp, label: 'Monthly Returns', value: newRatePct ? `${newRatePct} for new partners` : '—', valueClass: 'text-success font-black' },
             { icon: Rocket, label: 'Deployment Speed', value: '24–72 hours', valueClass: 'font-bold' },
             { icon: CircleDollarSign, label: 'Payouts', value: 'Monthly to wallet', valueClass: 'font-bold' },
             { icon: Shield, label: 'Risk Control', value: 'Verified & insured', valueClass: 'font-bold' },
@@ -377,7 +387,7 @@ function DefaultEntryCard({
               Put Your Capital to Work
             </h3>
             <p className="text-xs text-muted-foreground font-medium mt-0.5">
-              Verified opportunities. Structured returns. Choose your path.
+              Verified opportunities. Structured Returns. Choose your path.
             </p>
           </div>
         </div>
@@ -416,6 +426,9 @@ export function CapitalOpportunityEntry() {
   const { formatAmountCompact } = useCurrency();
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
+  // Public new-partner rate for the copy; null while unknown -> no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(rateOrNull(newContractRate));
 
   const [viewState, setViewState] = useState<ViewState>('default');
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -581,9 +594,9 @@ export function CapitalOpportunityEntry() {
           <TabsContent value="tenant" className="mt-3 space-y-3">
             <div className="rounded-xl bg-success/5 border border-success/20 p-3">
               <p className="text-xs font-bold text-foreground">Fund verified rent requests</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">Earn monthly returns from tenant repayments</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Earn monthly Returns from tenant repayments</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-muted-foreground font-medium">
-                <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-success" /> Up to 15%/mo</span>
+                <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3 text-success" /> {newRatePct ? `${newRatePct}/mo for new partners` : 'Monthly Returns'}</span>
                 <span className="flex items-center gap-1"><Zap className="h-3 w-3" /> 24–72hr deploy</span>
                 <span className="flex items-center gap-1"><Shield className="h-3 w-3" /> Verified & insured</span>
               </div>

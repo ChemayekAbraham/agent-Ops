@@ -10,6 +10,13 @@
 // one for the partner profile, one batched query for the funded tenants.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
+import {
+  monthlyReturnFor,
+  rateEmailTarget,
+  rateOrNull,
+  ratesPublicBeforeCutoff,
+  readConfirmedLoginEmails,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,13 +74,17 @@ Deno.serve(async (req) => {
       return jsonRes({ skipped: true, reason: `status=${topup.status}` }, 200);
     }
 
-    const { data: partner } = await admin
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", topup.partner_id)
-      .maybeSingle();
-
-    if (!partner?.email) return jsonRes({ skipped: true, reason: "no_partner_email" }, 200);
+    // The email states the partner's own Returns rate. Before the first switch-on every rate is today's
+    // public rate: the profile email with figures, as today. Afterwards it goes to their confirmed login
+    // email, or to the profile email without the rate and monthly figure when there is none.
+    const partnerId = String((topup as unknown as { partner_id: string }).partner_id);
+    const ratePublic = await ratesPublicBeforeCutoff(admin);
+    const [{ data: partner }, loginEmails] = await Promise.all([
+      admin.from("profiles").select("full_name, email").eq("id", topup.partner_id).maybeSingle(),
+      ratePublic ? null : readConfirmedLoginEmails(admin, [partnerId]),
+    ]);
+    const target = rateEmailTarget(loginEmails?.get(partnerId) ?? null, partner?.email ?? null, ratePublic);
+    if (!target.to) return jsonRes({ skipped: true, reason: "no_partner_email" }, 200);
 
     // Batched tenant lookup — one query for every funded plan in this top-up.
     const ids: string[] = Array.isArray(topup.rent_request_ids) ? topup.rent_request_ids : [];
@@ -91,20 +102,21 @@ Deno.serve(async (req) => {
     }
 
     const commitment: any = Array.isArray(topup.commitment) ? topup.commitment[0] : topup.commitment;
-    const rate = Number(commitment?.monthly_rate ?? 15);
+    // The commitment's stored rate; never a default.
+    const rate = target.withFigures ? rateOrNull(commitment?.monthly_rate) : null;
     const amount = Number(topup.amount);
+    const monthly = monthlyReturnFor(amount, rate);
 
     try {
       await dispatchTransactionalEmail(supabaseUrl, serviceKey, {
         templateName: "partner-self-managed-deployment",
-        recipientEmail: partner.email,
+        recipientEmail: target.to,
         idempotencyKey: `partner-self-managed-topup-${topupId}`,
         templateData: {
-          partner_name: partner.full_name || "Partner",
+          partner_name: partner?.full_name || "Partner",
           portfolio_reference: `Top-up · ${commitment?.id ?? ""}`.slice(0, 60),
           principal_amount: amount,
-          monthly_return_amount: Math.round(amount * (rate / 100)),
-          roi_percentage: rate,
+          ...(rate !== null && monthly !== null ? { monthly_return_amount: monthly, roi_percentage: rate } : {}),
           term_months: Number(commitment?.term_months ?? 1),
           deployment_date: fmtDate(topup.effective_at),
           first_payout_date: fmtDate(commitment?.next_payout_at),
@@ -121,7 +133,9 @@ Deno.serve(async (req) => {
       return jsonRes({ sent: false, error: (e as Error)?.message }, 200);
     }
 
-    return jsonRes({ sent: true, recipient: partner.email, tenants: tenants.length }, 200);
+    // The recipient address is not echoed back: this endpoint has no role check and the address may now
+    // be the partner's confirmed login email (the only browser caller ignores the response).
+    return jsonRes({ sent: true, with_figures: target.withFigures, tenants: tenants.length }, 200);
   } catch (e) {
     console.error("[notify-self-topup-approved] fatal:", (e as Error)?.message);
     return jsonRes({ error: (e as Error)?.message ?? "Unexpected error" }, 500);

@@ -1,5 +1,5 @@
 import { ShieldCheck, TrendingUp, Wallet, Users, BadgeCheck, Activity, Home } from 'lucide-react';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGXOrDash } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import type { TrustProfile } from '@/hooks/useTrustProfile';
 
@@ -9,14 +9,21 @@ import type { TrustProfile } from '@/hooks/useTrustProfile';
  * Presentation only: reads the already-fetched trust profile.
  */
 export function BorrowerTrustScorePanel({ profile }: { profile: TrustProfile }) {
-  const score = Math.max(0, Math.min(100, Number(profile.trust?.score) || 0));
+  // Score and limit are null when unknown (Partner Returns 4b masks them for a viewer who may not see
+  // the Returns they are built from): never 0.
+  const rawScore = profile.trust?.score == null ? NaN : Number(profile.trust.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : null;
   const tier = profile.trust?.tier ?? 'unrated';
-  const limit = Number(profile.trust?.borrowing_limit_ugx) || 0;
+  const rawLimit = profile.trust?.borrowing_limit_ugx == null ? NaN : Number(profile.trust.borrowing_limit_ugx);
+  const limit = Number.isFinite(rawLimit) ? rawLimit : null;
   const b = profile.trust?.breakdown ?? ({} as TrustProfile['trust']['breakdown']);
   const onTime = Number(profile.payment_history?.on_time_rate) || 0;
 
+  // A null score gets a neutral tone (null >= 50 is false, so it would otherwise read as High risk).
   const tone =
-    score >= 75
+    score === null
+      ? { text: 'text-muted-foreground', ring: 'stroke-muted-foreground', chip: 'bg-muted text-muted-foreground border-border', label: 'Score hidden' }
+      : score >= 75
       ? { text: 'text-emerald-600', ring: 'stroke-emerald-500', chip: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30', label: 'Low risk' }
       : score >= 50
         ? { text: 'text-amber-600', ring: 'stroke-amber-500', chip: 'bg-amber-500/10 text-amber-700 border-amber-500/30', label: 'Moderate risk' }
@@ -50,11 +57,11 @@ export function BorrowerTrustScorePanel({ profile }: { profile: TrustProfile }) 
               strokeLinecap="round"
               fill="none"
               strokeDasharray={C}
-              strokeDashoffset={C * (1 - score / 100)}
+              strokeDashoffset={score === null ? C : C * (1 - score / 100)}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={cn('text-xl font-bold tabular-nums leading-none', tone.text)}>{score}</span>
+            <span className={cn('text-xl font-bold tabular-nums leading-none', tone.text)}>{score ?? '—'}</span>
             <span className="text-[8px] uppercase tracking-wider text-muted-foreground">/ 100</span>
           </div>
         </div>
@@ -85,7 +92,7 @@ export function BorrowerTrustScorePanel({ profile }: { profile: TrustProfile }) 
           </span>
         </div>
         <span className="text-xs font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-          {formatUGX(limit)}
+          {formatUGXOrDash(limit)}
         </span>
       </div>
 
@@ -101,7 +108,7 @@ export function BorrowerTrustScorePanel({ profile }: { profile: TrustProfile }) 
             </div>
             <div className="h-1 rounded-full bg-border overflow-hidden">
               <div
-                className={cn('h-full rounded-full', score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-destructive')}
+                className={cn('h-full rounded-full', score === null ? 'bg-muted-foreground/50' : score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-destructive')}
                 style={{ width: `${Math.min(100, (value / maxFactor) * 100)}%` }}
               />
             </div>

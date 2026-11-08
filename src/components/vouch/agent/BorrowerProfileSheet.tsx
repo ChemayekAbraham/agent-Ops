@@ -1,3 +1,4 @@
+import type { Database } from '@/integrations/supabase/types';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -10,7 +11,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Banknote, BadgeCheck, MapPin, Phone, ShieldCheck } from 'lucide-react';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
 import { fundingSourceMeta, normalizeFundingSource, FundingSource } from './lendingHelpers';
 import { cn } from '@/lib/utils';
@@ -53,11 +54,12 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
     enabled: !!person,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // borrowing_limit_shown is a computed field the generated types do not know yet.
+      const { data, error } = (await supabase
         .from('welile_trust_score_cache')
-        .select('user_id, ai_id, score, tier, data_points, borrowing_limit_ugx, breakdown, agent_earned_vouch_ugx, last_calculated_at')
+        .select('user_id, ai_id, score, tier, data_points, borrowing_limit_ugx:borrowing_limit_shown, breakdown, agent_earned_vouch_ugx, last_calculated_at')
         .eq('user_id', person!.id)
-        .maybeSingle();
+        .maybeSingle()) as unknown as { data: Database['public']['Tables']['welile_trust_score_cache']['Row'] | null; error: unknown };
       if (error) throw error;
       return data;
     },
@@ -85,12 +87,20 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
   const open = !!person;
   const name = person?.full_name || 'Welile user';
   const trust = trustQuery.data;
-  const score = Math.max(0, Math.min(100, Number(trust?.score) || 0));
+  // null = unknown (Partner Returns 4b can mask the score), never 0.
+  const rawScore = trust?.score == null ? NaN : Number(trust.score);
+  const score = Number.isFinite(rawScore) ? Math.max(0, Math.min(100, rawScore)) : null;
   const tier = trust?.tier ?? 'unrated';
-  const limit = Number(trust?.borrowing_limit_ugx ?? person?.trust?.borrowing_limit_ugx) || 0;
+  // null = hidden (owner decision b: the cache limit is masked for a viewer who may not see the person's
+  // Returns), never 0. Once the cache row loaded, its null is not replaced by the list row's figure.
+  const rawLimit = trust ? trust.borrowing_limit_ugx : person?.trust?.borrowing_limit_ugx;
+  const limit = rawLimit != null && Number.isFinite(Number(rawLimit)) ? Number(rawLimit) : null;
   const b = (trust?.breakdown ?? {}) as Record<string, number>;
-  const risk = score >= 75 ? 'Low risk' : score >= 50 ? 'Moderate risk' : 'High risk';
-  const riskChip = score >= 75
+  // A null score gets a neutral label and tone (null >= 50 is false, so it would read as High risk).
+  const risk = score === null ? 'Score hidden' : score >= 75 ? 'Low risk' : score >= 50 ? 'Moderate risk' : 'High risk';
+  const riskChip = score === null
+    ? 'bg-muted text-muted-foreground border-border'
+    : score >= 75
     ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/30'
     : score >= 50
       ? 'bg-amber-500/10 text-amber-700 border-amber-500/30'
@@ -179,7 +189,7 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
               <Skeleton className="h-10 w-40 rounded-lg" />
             ) : (
               <>
-                <p className="text-3xl font-semibold text-foreground tabular-nums">{formatUGX(limit)}</p>
+                <p className="text-3xl font-semibold text-foreground tabular-nums">{formatUGXOrDash(limit)}</p>
                 <p className="text-xs text-muted-foreground">
                   Maximum amount Welile stands behind for this borrower.
                   {trust?.agent_earned_vouch_ugx != null && Number(trust.agent_earned_vouch_ugx) > 0
@@ -187,7 +197,7 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                     : ''}
                 </p>
                 <div className="flex items-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-2">
-                  <span className="text-2xl font-bold tabular-nums text-foreground">{score}</span>
+                  <span className="text-2xl font-bold tabular-nums text-foreground">{score ?? '—'}</span>
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground">/ 100 trust</span>
                   <span className="ml-auto text-[10px] text-muted-foreground">{trust?.data_points ?? 0} data points</span>
                 </div>
@@ -203,7 +213,7 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                       </div>
                       <div className="h-1 rounded-full bg-border overflow-hidden">
                         <div
-                          className={cn('h-full rounded-full', score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-destructive')}
+                          className={cn('h-full rounded-full', score === null ? 'bg-muted-foreground/50' : score >= 75 ? 'bg-emerald-500' : score >= 50 ? 'bg-amber-500' : 'bg-destructive')}
                           style={{ width: `${Math.min(100, Math.max(0, Number(value) || 0))}%` }}
                         />
                       </div>

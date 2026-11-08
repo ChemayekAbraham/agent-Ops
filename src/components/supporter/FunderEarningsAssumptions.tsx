@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import { ChevronDown, Info } from 'lucide-react';
 import { format } from 'date-fns';
-import { FUNDER_MONTHLY_RATE } from '@/lib/funderEarnings';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 interface Props {
   startDate: Date;
   endDate: Date;
   daysInTerm: number;
+  /** The monthly Returns rate the projections use (e.g. 15), or null when unknown. */
+  rate: number | null;
 }
 
 /** Minimal, professional note explaining how funder projections are computed. */
-export function FunderEarningsAssumptions({ startDate, endDate, daysInTerm }: Props) {
+export function FunderEarningsAssumptions({ startDate, endDate, daysInTerm, rate }: Props) {
   const [open, setOpen] = useState(false);
-  const pct = Math.round(FUNDER_MONTHLY_RATE * 100);
+  // The rate as "15%"; null when unknown, and the formula line is then left out (never a guessed rate).
+  const pct = formatRatePct(rate);
 
   return (
     <div className="rounded-2xl border border-border/60 bg-muted/30">
@@ -34,7 +37,7 @@ export function FunderEarningsAssumptions({ startDate, endDate, daysInTerm }: Pr
       {open && (
         <div className="px-3 pb-3 pt-0 space-y-1.5">
           {[
-            `Monthly earning = house monthly rent × ${pct}%.`,
+            ...(pct ? [`Monthly earning = house monthly rent × ${pct}.`] : []),
             `12-month total = monthly earning × 12 months.`,
             `Daily = 12-month total ÷ ${daysInTerm} days (the actual days from ${format(startDate, 'd MMM yyyy')} to ${format(endDate, 'd MMM yyyy')}).`,
             'Weekly = daily × 7.',

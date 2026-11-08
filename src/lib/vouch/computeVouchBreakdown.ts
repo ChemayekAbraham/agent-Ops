@@ -8,6 +8,10 @@
  *     to portfolio 1×, shares 2×, or any booster cap fail loudly in CI.
  *
  * If you change a formula here, mirror it in the SQL — and vice versa.
+ *
+ * Never feed it a trust profile another viewer fetched: from Partner Returns 4b the principal and the
+ * Returns part of the cash flow arrive as null for them, and nn() below would turn that unknown into 0
+ * and rebuild a wrong, smaller limit. Show the server's figures (null = "—") instead.
  */
 
 export interface VouchInputs {

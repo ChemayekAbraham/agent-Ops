@@ -22661,6 +22661,7 @@ export type Database = {
           phone: string | null
           placed_at: string | null
           principal: number
+          return_rate: number | null
           sms_error: string | null
           sms_sent_at: string | null
           supported_house_id: string | null
@@ -22687,6 +22688,7 @@ export type Database = {
           phone?: string | null
           placed_at?: string | null
           principal?: number
+          return_rate?: number | null
           sms_error?: string | null
           sms_sent_at?: string | null
           supported_house_id?: string | null
@@ -22713,6 +22715,7 @@ export type Database = {
           phone?: string | null
           placed_at?: string | null
           principal?: number
+          return_rate?: number | null
           sms_error?: string | null
           sms_sent_at?: string | null
           supported_house_id?: string | null
@@ -28443,6 +28446,7 @@ export type Database = {
           created_at: string
           display_currency: string
           duration_months: number
+          entitled_rate: number | null
           houses_claimed_count: number
           id: string
           investment_amount: number
@@ -28471,6 +28475,9 @@ export type Database = {
           portfolio_pin: string
           principal_allocated: number
           principal_unallocated: number
+          rate_basis: string | null
+          rate_decided_at: string | null
+          rate_existing_at_decision: boolean | null
           receipt_file_url: string | null
           return_fields_edit_token: string | null
           roi_mode: string
@@ -28494,6 +28501,7 @@ export type Database = {
           created_at?: string
           display_currency?: string
           duration_months: number
+          entitled_rate?: number | null
           houses_claimed_count?: number
           id?: string
           investment_amount: number
@@ -28522,10 +28530,13 @@ export type Database = {
           portfolio_pin: string
           principal_allocated?: number
           principal_unallocated?: number
+          rate_basis?: string | null
+          rate_decided_at?: string | null
+          rate_existing_at_decision?: boolean | null
           receipt_file_url?: string | null
           return_fields_edit_token?: string | null
           roi_mode?: string
-          roi_percentage?: number
+          roi_percentage: number
           status?: string
           total_roi_earned?: number
         }
@@ -28545,6 +28556,7 @@ export type Database = {
           created_at?: string
           display_currency?: string
           duration_months?: number
+          entitled_rate?: number | null
           houses_claimed_count?: number
           id?: string
           investment_amount?: number
@@ -28573,6 +28585,9 @@ export type Database = {
           portfolio_pin?: string
           principal_allocated?: number
           principal_unallocated?: number
+          rate_basis?: string | null
+          rate_decided_at?: string | null
+          rate_existing_at_decision?: boolean | null
           receipt_file_url?: string | null
           return_fields_edit_token?: string | null
           roi_mode?: string
@@ -40833,6 +40848,138 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_return_cohort: {
+        Row: {
+          basis: string
+          live_portfolios: number
+          max_rate: number | null
+          min_rate: number | null
+          partner_id: string
+          snapshot_at: string
+        }
+        Insert: {
+          basis: string
+          live_portfolios?: number
+          max_rate?: number | null
+          min_rate?: number | null
+          partner_id: string
+          snapshot_at: string
+        }
+        Update: {
+          basis?: string
+          live_portfolios?: number
+          max_rate?: number | null
+          min_rate?: number | null
+          partner_id?: string
+          snapshot_at?: string
+        }
+        Relationships: []
+      }
+      partner_return_legacy_portfolios: {
+        Row: {
+          portfolio_id: string
+          snapshot_at: string
+        }
+        Insert: {
+          portfolio_id: string
+          snapshot_at: string
+        }
+        Update: {
+          portfolio_id?: string
+          snapshot_at?: string
+        }
+        Relationships: []
+      }
+      partner_return_note_windows: {
+        Row: {
+          agent_id: string | null
+          contact_email: string | null
+          contact_phones: string[] | null
+          ends_on: string
+          note_id: string
+          partner_user_id: string | null
+          return_rate: number
+          snapshot_at: string
+        }
+        Insert: {
+          agent_id?: string | null
+          contact_email?: string | null
+          contact_phones?: string[] | null
+          ends_on: string
+          note_id: string
+          partner_user_id?: string | null
+          return_rate: number
+          snapshot_at: string
+        }
+        Update: {
+          agent_id?: string | null
+          contact_email?: string | null
+          contact_phones?: string[] | null
+          ends_on?: string
+          note_id?: string
+          partner_user_id?: string | null
+          return_rate?: number
+          snapshot_at?: string
+        }
+        Relationships: []
+      }
+      partner_return_policy: {
+        Row: {
+          alert_emails: string[]
+          cutoff_at: string | null
+          employee_rate: number
+          enabled: boolean
+          enabled_at: string | null
+          existing_partner_cap: number | null
+          existing_partner_mode: string
+          existing_partner_rate: number
+          id: boolean
+          legacy_rate: number
+          new_contract_rate: number
+          note: string | null
+          note_grace_days: number
+          release_ready: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          alert_emails?: string[]
+          cutoff_at?: string | null
+          employee_rate?: number
+          enabled?: boolean
+          enabled_at?: string | null
+          existing_partner_cap?: number | null
+          existing_partner_mode?: string
+          existing_partner_rate?: number
+          id?: boolean
+          legacy_rate?: number
+          new_contract_rate?: number
+          note?: string | null
+          note_grace_days?: number
+          release_ready?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          alert_emails?: string[]
+          cutoff_at?: string | null
+          employee_rate?: number
+          enabled?: boolean
+          enabled_at?: string | null
+          existing_partner_cap?: number | null
+          existing_partner_mode?: string
+          existing_partner_rate?: number
+          id?: boolean
+          legacy_rate?: number
+          new_contract_rate?: number
+          note?: string | null
+          note_grace_days?: number
+          release_ready?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       partner_self_audit: {
         Row: {
           action: string
@@ -44517,6 +44664,82 @@ export type Database = {
           },
         ]
       }
+      portfolio_rate_approvals: {
+        Row: {
+          applied_at: string | null
+          applied_xact: number | null
+          decided_at: string | null
+          decided_by: string | null
+          decided_xact: number | null
+          decision_note: string | null
+          id: string
+          portfolio_id: string
+          rate_in_force: number
+          requested_at: string
+          requested_by: string | null
+          requested_rate: number
+          source: string
+          standard_rate: number
+          status: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_xact?: number | null
+          decision_note?: string | null
+          id?: string
+          portfolio_id: string
+          rate_in_force: number
+          requested_at?: string
+          requested_by?: string | null
+          requested_rate: number
+          source: string
+          standard_rate: number
+          status?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_xact?: number | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decided_xact?: number | null
+          decision_note?: string | null
+          id?: string
+          portfolio_id?: string
+          rate_in_force?: number
+          requested_at?: string
+          requested_by?: string | null
+          requested_rate?: number
+          source?: string
+          standard_rate?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_rate_approvals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_rate_approvals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_rate_approvals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -45967,6 +46190,7 @@ export type Database = {
           phone: string | null
           promised_funding_date: string | null
           release_at: string | null
+          return_rate: number | null
           sms_error: string | null
           sms_sent_at: string | null
           total_rent: number
@@ -45988,6 +46212,7 @@ export type Database = {
           phone?: string | null
           promised_funding_date?: string | null
           release_at?: string | null
+          return_rate?: number | null
           sms_error?: string | null
           sms_sent_at?: string | null
           total_rent?: number
@@ -46009,6 +46234,7 @@ export type Database = {
           phone?: string | null
           promised_funding_date?: string | null
           release_at?: string | null
+          return_rate?: number | null
           sms_error?: string | null
           sms_sent_at?: string | null
           total_rent?: number
@@ -46519,6 +46745,7 @@ export type Database = {
           note_id: string
           partner_name: string
           phone: string | null
+          return_rate: number | null
           sms_status: string
           tenants: Json
           updated_at: string
@@ -46538,6 +46765,7 @@ export type Database = {
           note_id: string
           partner_name: string
           phone?: string | null
+          return_rate?: number | null
           sms_status?: string
           tenants?: Json
           updated_at?: string
@@ -46557,6 +46785,7 @@ export type Database = {
           note_id?: string
           partner_name?: string
           phone?: string | null
+          return_rate?: number | null
           sms_status?: string
           tenants?: Json
           updated_at?: string
@@ -46691,6 +46920,8 @@ export type Database = {
           partner_user_id: string | null
           phone_number: string | null
           recorded_on: string
+          return_rate: number
+          return_rate_basis: string
           status: string
           support_mode: string
           total_collected: number
@@ -46720,6 +46951,8 @@ export type Database = {
           partner_user_id?: string | null
           phone_number?: string | null
           recorded_on?: string
+          return_rate: number
+          return_rate_basis: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -46749,6 +46982,8 @@ export type Database = {
           partner_user_id?: string | null
           phone_number?: string | null
           recorded_on?: string
+          return_rate?: number
+          return_rate_basis?: string
           status?: string
           support_mode?: string
           total_collected?: number
@@ -50146,6 +50381,30 @@ export type Database = {
             referencedColumns: ["plan_id"]
           },
         ]
+      }
+      rent_facilitation_reward_rates: {
+        Row: {
+          basis: string
+          decided_at: string
+          rate: number
+          rent_request_id: string
+          supporter_id: string
+        }
+        Insert: {
+          basis: string
+          decided_at?: string
+          rate: number
+          rent_request_id: string
+          supporter_id: string
+        }
+        Update: {
+          basis?: string
+          decided_at?: string
+          rate?: number
+          rent_request_id?: string
+          supporter_id?: string
+        }
+        Relationships: []
       }
       rent_fee_collection_exceptions: {
         Row: {
@@ -76022,9 +76281,17 @@ export type Database = {
         Args: { p_origin: string; p_sale: string }
         Returns: string
       }
+      _note_contact_proven: {
+        Args: { p_note_id: string; p_user: string }
+        Returns: boolean
+      }
       _ontology_board_stage: { Args: { p_board: string }; Returns: string }
       _ontology_document_text: { Args: never; Returns: string }
       _ontology_inventory: { Args: never; Returns: Json }
+      _partner_commitment_follow_rate: {
+        Args: { p_commitment_id: string; p_rate: number }
+        Returns: undefined
+      }
       _partner_contract_coverage: {
         Args: { p_partner_id: string }
         Returns: {
@@ -76040,6 +76307,22 @@ export type Database = {
           p_status: string
         }
         Returns: Json
+      }
+      _partner_return_alert: {
+        Args: { p_key: string; p_subject: string; p_text: string }
+        Returns: number
+      }
+      _partner_return_phase4_checks: {
+        Args: { p_for_release?: boolean }
+        Returns: {
+          check_name: string
+          detail: string
+          ok: boolean
+        }[]
+      }
+      _partner_return_policy_caller_ok: {
+        Args: { p_roles: string[] }
+        Returns: boolean
       }
       _partner_statement_build: { Args: { p_user_id: string }; Returns: Json }
       _pf_identity: { Args: { p_oid: unknown }; Returns: string }
@@ -76144,6 +76427,30 @@ export type Database = {
       }
       _prepare_bike_priority: { Args: { p_agent: string }; Returns: number }
       _prev_stage: { Args: { p_stage: string }; Returns: string }
+      _promissory_note_funded_house_rates: {
+        Args: { p_note_id: string; p_partner: string }
+        Returns: number[]
+      }
+      _promissory_note_notice_contacts: {
+        Args: {
+          p_note: Database["public"]["Tables"]["promissory_notes"]["Row"]
+        }
+        Returns: Record<string, unknown>
+      }
+      _promissory_note_rate_json: {
+        Args: {
+          p_note: Database["public"]["Tables"]["promissory_notes"]["Row"]
+          p_viewer: string
+        }
+        Returns: Json
+      }
+      _promissory_note_rate_view: {
+        Args: {
+          p_note: Database["public"]["Tables"]["promissory_notes"]["Row"]
+          p_viewer: string
+        }
+        Returns: Json
+      }
       _release_unpaid_commission_budget: {
         Args: {
           p_budget: number
@@ -76664,6 +76971,7 @@ export type Database = {
         Args: { p_check_key: string; p_note?: string }
         Returns: Json
       }
+      activate_promissory_note: { Args: { p_token: string }; Returns: Json }
       add_rent_request_review_note: {
         Args: {
           p_note: string
@@ -76965,6 +77273,10 @@ export type Database = {
         Args: { p_house_ids?: string[]; p_payload: Json }
         Returns: Json
       }
+      agent_create_promissory_notes_split: {
+        Args: { p_house_ids: string[]; p_payload: Json }
+        Returns: Json
+      }
       agent_daily_collections_overview: {
         Args: { p_forecast?: boolean; p_from: string; p_to: string }
         Returns: Json
@@ -77079,6 +77391,8 @@ export type Database = {
           p_near_lat?: number
           p_near_lng?: number
           p_offset?: number
+          p_partner_id?: string
+          p_quote_for?: string
           p_radius_km?: number
           p_search?: string
           p_sort?: string
@@ -78281,6 +78595,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_due_portfolio_rate_changes: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       apply_layer_a_writedown: {
         Args: { p_dry_run?: boolean; p_user_id: string }
         Returns: Json
@@ -78459,6 +78777,14 @@ export type Database = {
         Args: { p_entries: Json }
         Returns: undefined
       }
+      assert_partner_return_policy_intact: {
+        Args: never
+        Returns: {
+          check_name: string
+          detail: string
+          ok: boolean
+        }[]
+      }
       assert_routing_compatible: {
         Args: { p_category: string; p_recipient_type: string }
         Returns: undefined
@@ -78612,6 +78938,7 @@ export type Database = {
       assistant_mask_tail: { Args: { p_value: string }; Returns: string }
       assistant_my_messages: { Args: { p_limit?: number }; Returns: Json }
       assistant_partner_contract: { Args: never; Returns: Json }
+      assistant_partner_new_portfolio_rate: { Args: never; Returns: Json }
       assistant_partner_overview: { Args: never; Returns: Json }
       assistant_partner_portfolio_detail: {
         Args: { p_code: string }
@@ -79222,6 +79549,12 @@ export type Database = {
           hold_days: number
           restricted: boolean
         }[]
+      }
+      borrowing_limit_shown: {
+        Args: {
+          c: Database["public"]["Tables"]["welile_trust_score_cache"]["Row"]
+        }
+        Returns: number
       }
       budget_activity_for_account: {
         Args: { _account_code: string }
@@ -80442,6 +80775,10 @@ export type Database = {
       }
       cfo_decide_landlord_float_misc: {
         Args: { p_decision: string; p_misc_ids: string[]; p_note?: string }
+        Returns: Json
+      }
+      cfo_decide_portfolio_rate_requests: {
+        Args: { p_decision: string; p_note?: string; p_request_ids: string[] }
         Returns: Json
       }
       cfo_decide_service_centre: {
@@ -82265,7 +82602,10 @@ export type Database = {
       }
       elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
-      empty_house_opportunity_summary: { Args: never; Returns: Json }
+      empty_house_opportunity_summary: {
+        Args: { p_partner_id?: string; p_quote_for?: string }
+        Returns: Json
+      }
       end_ledger_maintenance: {
         Args: { p_reason?: string }
         Returns: undefined
@@ -86697,6 +87037,11 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      get_partner_return_policy: { Args: never; Returns: Json }
+      get_partner_return_report: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_partner_statement: { Args: { p_user_id: string }; Returns: Json }
       get_partner_total_trend: { Args: { p_preset?: string }; Returns: Json }
       get_partner_wallet_hub: {
@@ -90142,6 +90487,32 @@ export type Database = {
           target: string
         }[]
       }
+      list_portfolio_rate_requests: {
+        Args: { p_limit?: number; p_status?: string }
+        Returns: {
+          applied_at: string
+          current_rate: number
+          decided_at: string
+          decided_by: string
+          decision_note: string
+          investment_amount: number
+          partner_id: string
+          partner_name: string
+          portfolio_code: string
+          portfolio_id: string
+          portfolio_status: string
+          rate_in_force: number
+          request_id: string
+          requested_at: string
+          requested_by: string
+          requested_by_name: string
+          requested_rate: number
+          source: string
+          stage: string
+          standard_rate: number
+          status: string
+        }[]
+      }
       list_proxy_agent_partners: {
         Args: {
           p_agent_id?: string
@@ -90358,6 +90729,7 @@ export type Database = {
           phone: string
         }[]
       }
+      lookup_promissory_note: { Args: { p_token: string }; Returns: Json }
       lookup_transaction_id: { Args: { p_tid: string }; Returns: Json }
       lunch_next_weekday_slot: { Args: { p_after: string }; Returns: string }
       manager_vendor_pin_flags: {
@@ -92077,6 +92449,13 @@ export type Database = {
         }
         Returns: Json
       }
+      partner_confirmed_login_emails: {
+        Args: { p_ids: string[] }
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       partner_house_placement_status: {
         Args: { p_partner_id?: string }
         Returns: {
@@ -92126,9 +92505,38 @@ export type Database = {
           user_id: string
         }[]
       }
+      partner_live_portfolio_statuses: { Args: never; Returns: string[] }
+      partner_new_contract_rate: { Args: never; Returns: number }
       partner_note_rate: {
         Args: { p_at: string; p_role: string }
         Returns: number
+      }
+      partner_note_rate_for: {
+        Args: { p_partner: string }
+        Returns: {
+          basis: string
+          rate: number
+        }[]
+      }
+      partner_note_window_applies: {
+        Args: {
+          p_agent_now: string
+          p_agent_then: string
+          p_owner: string
+          p_person: string
+        }
+        Returns: boolean
+      }
+      partner_note_window_open: {
+        Args: {
+          p_agent_now: string
+          p_agent_then: string
+          p_ends_on: string
+          p_note_status: string
+          p_owner: string
+          p_person: string
+        }
+        Returns: boolean
       }
       partner_ops_approve_self_topup: {
         Args: { p_notes?: string; p_topup_id: string }
@@ -92393,7 +92801,50 @@ export type Database = {
         Returns: Json
       }
       partner_ops_watch: { Args: never; Returns: Json }
+      partner_quote_rate: {
+        Args: { p_partner_id?: string; p_quote_for?: string }
+        Returns: number
+      }
+      partner_rate_conformance: {
+        Args: { p_since?: string }
+        Returns: {
+          entitled_rate: number
+          investor_id: string
+          issue: string
+          portfolio_id: string
+          rate_basis: string
+          rate_decided_at: string
+          stored_rate: number
+        }[]
+      }
+      partner_rate_for: {
+        Args: { p_partner: string }
+        Returns: {
+          basis: string
+          rate: number
+        }[]
+      }
+      partner_rate_lock: { Args: { p_people: string[] }; Returns: undefined }
+      partner_rate_now: { Args: { p_partner: string }; Returns: number }
+      partner_rate_visible_to_caller: {
+        Args: { p_partner: string }
+        Returns: boolean
+      }
+      partner_rates_for: {
+        Args: { p_ids: string[]; p_include_notes?: boolean }
+        Returns: {
+          basis: string
+          existing: boolean
+          partner_id: string
+          rate: number
+        }[]
+      }
       partner_record_staff_ok: { Args: never; Returns: boolean }
+      partner_return_cutoff_at: { Args: never; Returns: string }
+      partner_returns_visible_to_caller: {
+        Args: { p_person: string }
+        Returns: boolean
+      }
       partner_self_claim_plans: {
         Args: { p_idempotency_key?: string; p_rent_request_ids: string[] }
         Returns: Json
@@ -92516,6 +92967,7 @@ export type Database = {
           created_at: string
           display_currency: string
           duration_months: number
+          entitled_rate: number | null
           houses_claimed_count: number
           id: string
           investment_amount: number
@@ -92544,6 +92996,9 @@ export type Database = {
           portfolio_pin: string
           principal_allocated: number
           principal_unallocated: number
+          rate_basis: string | null
+          rate_decided_at: string | null
+          rate_existing_at_decision: boolean | null
           receipt_file_url: string | null
           return_fields_edit_token: string | null
           roi_mode: string
@@ -93439,6 +93894,13 @@ export type Database = {
       process_weekly_streak_payouts: {
         Args: { p_week_start?: string }
         Returns: Json
+      }
+      profile_ids_by_emails: {
+        Args: { p_emails: string[] }
+        Returns: {
+          email: string
+          id: string
+        }[]
       }
       promissory_catch_up_partner_commission: {
         Args: { p_partner_id: string }
@@ -94414,6 +94876,7 @@ export type Database = {
         Returns: string
       }
       record_money_path_drift: { Args: never; Returns: number }
+      record_partner_return_policy_drift: { Args: never; Returns: number }
       record_payout_acceptance_run: {
         Args: { p_window_days?: number }
         Returns: string
@@ -95809,12 +96272,24 @@ export type Database = {
         }
         Returns: Json
       }
+      set_partner_return_policy: {
+        Args: {
+          p_enabled: boolean
+          p_new_contract_rate?: number
+          p_note?: string
+        }
+        Returns: Json
+      }
       set_payroll_loyalty_bonus: {
         Args: { p_enabled: boolean; p_reason?: string }
         Returns: Json
       }
       set_portfolio_payout_destinations: {
         Args: { p_destinations: Json; p_portfolio_id: string }
+        Returns: Json
+      }
+      set_portfolio_renewal_rate: {
+        Args: { p_portfolio_id: string; p_requested_rate: number }
         Returns: Json
       }
       set_proxy_agent_target: {

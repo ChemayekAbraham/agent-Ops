@@ -15,7 +15,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { formatRatePct, monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { UGANDA_DISTRICTS, CITY_TO_DISTRICT } from '@/lib/ugandaDistricts';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -94,7 +95,9 @@ function HouseProgressBadges({ progress }: { progress?: HouseProgress }) {
  *
  * The partner funds one month of rent for each house they pick. The agent who
  * listed the house places a tenant as soon as the note is fulfilled, and the
- * partner earns 15% of that rent every month for the next 12 months, paid from
+ * partner earns monthly Returns on that rent for the next 12 months (at the rate the
+ * list quotes: the public new-partner rate for an agent, the partner's own in
+ * partner mode), paid from
  * what the tenant repays.
  *
  * mode="agent"   — an agent tags a partner (default).
@@ -187,7 +190,8 @@ export function EmptyHouseOpportunitiesSheet({
 
   const signedIn = useAuthenticatedAudience();
   const { data, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort],
+    // The quote ('public' for an agent, 'me' for a partner) is part of the key: the figures differ.
+    queryKey: ['empty-house-opportunities', debounced, page, district, verifiedOnly, mapPinOnly, minRent, maxRent, nearMe, sort, isPartner ? 'me' : 'public'],
     enabled: open && signedIn,
     queryFn: async () => {
       await requireUserSession();
@@ -206,13 +210,19 @@ export function EmptyHouseOpportunitiesSheet({
         p_near_lng: nearMe?.lng ?? null,
         p_radius_km: nearMe?.radiusKm ?? null,
         p_sort: sort,
-      });
+        // The rate the figures are quoted at (Partner Returns, Phase 2): an agent quotes the PUBLIC
+        // new-partner rate (the default); a partner picking houses for themselves sees their own.
+        ...(isPartner ? { p_quote_for: 'me' } : {}),
+        // p_quote_for is not in the generated types until Phase 2 is applied and the types regenerated.
+      } as { p_sort?: string });
       if (error) throw error;
-      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[] };
+      const payload = (data ?? {}) as { total?: number; houses?: HouseOpportunity[]; districts?: string[]; returns_rate_pct?: unknown };
       return {
         total: Number(payload.total || 0),
         houses: sortFunderHousesByCompleteness(payload.houses ?? []),
         districts: payload.districts ?? [],
+        // null when the database gave no rate: the figures then show no number.
+        returnsRate: rateOrNull(payload.returns_rate_pct),
       };
     },
   });
@@ -303,10 +313,21 @@ export function EmptyHouseOpportunitiesSheet({
   const total = data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // The quote rate from agent_list_empty_house_opportunities (returns_rate_pct), kept across page and
+  // filter changes so the cart figures do not blank while the next page loads. 15 while the switch
+  // has never been on, so every figure equals today's.
+  const [quoteRate, setQuoteRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (data && data.returnsRate !== null) setQuoteRate(data.returnsRate);
+  }, [data]);
+  const quoteRatePct = formatRatePct(quoteRate);
+  const monthlyFor = (amount: number) => monthlyReturnFor(amount, quoteRate);
+  const twelveMonthsOf = (monthly: number | null) => (monthly === null ? null : monthly * 12);
+
   const picked = useMemo(() => Object.values(selected), [selected]);
   const rentTotal = picked.reduce((s, h) => s + Number(h.monthly_rent || 0), 0);
-  const monthlyReturn = Math.round(rentTotal * 0.15);
-  const annualReturn = monthlyReturn * 12;
+  const monthlyReturn = monthlyFor(rentTotal);
+  const annualReturn = twelveMonthsOf(monthlyReturn);
 
   const phoneDigits = (v: string) => v.replace(/\D/g, '');
   const isValidPhone = (v: string) => phoneDigits(v).length === 10;
@@ -481,7 +502,11 @@ export function EmptyHouseOpportunitiesSheet({
   const handleShare = async () => {
     if (!createdNote?.activation_token) return;
     const link = `${getPublicOrigin()}/activate?token=${createdNote.activation_token}`;
-    const text = `Hi ${partnerName}, you are supporting ${picked.length} home${picked.length === 1 ? '' : 's'} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn 15% of that rent every month for 12 months — ${formatUGX(monthlyReturn)} per month. Activate here: ${link}`;
+    const homes = `${picked.length} home${picked.length === 1 ? '' : 's'}`;
+    // No rate known: the text states no rate and no figure.
+    const text = quoteRatePct && monthlyReturn !== null
+      ? `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn ${quoteRatePct} of that rent every month for 12 months — ${formatUGXOrDash(monthlyReturn)} per month. Activate here: ${link}`
+      : `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn monthly Returns on that rent for 12 months. Activate here: ${link}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile funding opportunity', text, url: link }).catch(() => {});
     } else {
@@ -504,13 +529,13 @@ export function EmptyHouseOpportunitiesSheet({
                 <>
                   Pick the empty houses you want to fund. You pay one month of rent, the agent who listed
                   the house moves a tenant in once your note is fulfilled, and you earn
-                  <span className="font-semibold text-emerald-600"> 15% of that rent every month for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
                 </>
               ) : (
                 <>
                   Pick the empty houses this partner will fund. They pay one month of rent, the agent who
                   listed the house moves a tenant in once the note is fulfilled, and the partner earns
-                  <span className="font-semibold text-emerald-600"> 15% of that rent every month for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
                 </>
               )}
             </SheetDescription>
@@ -543,11 +568,11 @@ export function EmptyHouseOpportunitiesSheet({
               <span className="font-bold">{formatUGX(rentTotal)}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
-              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} 15% per month</span>
-              <span className="text-sm font-bold text-emerald-600">{formatUGX(monthlyReturn)}</span>
+              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} {quoteRatePct ? `${quoteRatePct} per month` : 'monthly Returns'}</span>
+              <span className="text-sm font-bold text-emerald-600">{formatUGXOrDash(monthlyReturn)}</span>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
-              {formatUGX(annualReturn)} over 12 months, paid monthly from what the tenant repays.
+              {formatUGXOrDash(annualReturn)} over 12 months, paid monthly from what the tenant repays.
             </p>
             {isPartner ? (
               <div className="space-y-2">
@@ -605,13 +630,13 @@ export function EmptyHouseOpportunitiesSheet({
               <p className="text-lg font-bold text-primary">{formatUGX(rentTotal)}</p>
               <p className="text-[11px] text-muted-foreground">
                 {isPartner ? 'You earn' : 'Partner earns'}{' '}
-                <span className="font-semibold text-emerald-600">{formatUGX(monthlyReturn)}</span> per month
-                ({formatUGX(annualReturn)} over 12 months)
+                <span className="font-semibold text-emerald-600">{formatUGXOrDash(monthlyReturn)}</span> per month
+                ({formatUGXOrDash(annualReturn)} over 12 months)
               </p>
             </div>
             <div className="space-y-2">
               {createdNotes.map((n) => {
-                const m = Math.round(Number(n.amount || 0) * 0.15);
+                const m = monthlyFor(Number(n.amount || 0));
                 return (
                 <div key={n.id} className="rounded-xl border p-3 space-y-2">
                   <div className="flex items-center gap-3">
@@ -635,12 +660,12 @@ export function EmptyHouseOpportunitiesSheet({
                   </div>
                   <div className="grid grid-cols-2 gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[10px]">
                     <div>
-                      <p className="text-muted-foreground">15% monthly</p>
-                      <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                      <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                      <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">12-month total</p>
-                      <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                      <p className="font-semibold text-emerald-600">{formatUGXOrDash(twelveMonthsOf(m))}</p>
                     </div>
                   </div>
                 </div>
@@ -662,8 +687,8 @@ export function EmptyHouseOpportunitiesSheet({
               <p className="text-[11px] text-muted-foreground">
                 {picked.length} empty house{picked.length === 1 ? '' : 's'} tagged ·{' '}
                 {isPartner ? 'you earn' : 'partner earns'}{' '}
-                <span className="font-semibold text-emerald-600">{formatUGX(monthlyReturn)}</span> per month
-                ({formatUGX(annualReturn)} over 12 months)
+                <span className="font-semibold text-emerald-600">{formatUGXOrDash(monthlyReturn)}</span> per month
+                ({formatUGXOrDash(annualReturn)} over 12 months)
               </p>
             </div>
             {picked.length > 0 && (
@@ -671,7 +696,7 @@ export function EmptyHouseOpportunitiesSheet({
                 <p className="text-xs font-bold">Earnings breakdown per house</p>
                 {picked.map((h) => {
                   const rent = Number(h.monthly_rent || 0);
-                  const m = Math.round(rent * 0.15);
+                  const m = monthlyFor(rent);
                   return (
                     <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
                       <p className="text-[11px] font-semibold truncate">{h.title || housePlace(h)}</p>
@@ -681,12 +706,12 @@ export function EmptyHouseOpportunitiesSheet({
                           <p className="font-semibold">{formatUGX(rent)}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">15% monthly</p>
-                          <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                          <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                          <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground">12-month total</p>
-                          <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                          <p className="font-semibold text-emerald-600">{formatUGXOrDash(twelveMonthsOf(m))}</p>
                         </div>
                       </div>
                     </div>
@@ -1148,7 +1173,7 @@ export function EmptyHouseOpportunitiesSheet({
                 <div className="space-y-1.5">
                   {picked.map((h) => {
                     const rent = Number(h.monthly_rent || 0);
-                    const m = Math.round(rent * 0.15);
+                    const m = monthlyFor(rent);
                     return (
                       <div key={h.house_id} className="rounded-xl bg-muted/40 px-3 py-2">
                         <div className="flex items-start gap-2">
@@ -1168,12 +1193,12 @@ export function EmptyHouseOpportunitiesSheet({
                             <p className="font-semibold">{formatUGX(rent)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">15% monthly</p>
-                            <p className="font-semibold text-emerald-600">{formatUGX(m)}</p>
+                            <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                            <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                           </div>
                           <div>
                             <p className="text-muted-foreground">12-month total</p>
-                            <p className="font-semibold text-emerald-600">{formatUGX(m * 12)}</p>
+                            <p className="font-semibold text-emerald-600">{formatUGXOrDash(twelveMonthsOf(m))}</p>
                           </div>
                         </div>
                       </div>
@@ -1183,7 +1208,7 @@ export function EmptyHouseOpportunitiesSheet({
                 <div className="flex items-center justify-between border-t pt-2 text-[11px]">
                   <span className="text-muted-foreground">All houses</span>
                   <span className="font-bold">
-                    {formatUGX(monthlyReturn)}/month · {formatUGX(annualReturn)} over 12 months
+                    {formatUGXOrDash(monthlyReturn)}/month · {formatUGXOrDash(annualReturn)} over 12 months
                   </span>
                 </div>
                 <Button variant="outline" className="w-full h-9 gap-1.5 text-xs" onClick={() => setStep('browse')}>

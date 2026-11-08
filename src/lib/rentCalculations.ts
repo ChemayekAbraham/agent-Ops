@@ -1,4 +1,5 @@
 // Rent calculation utilities for the platform
+import { monthlyReturnFor, rateOrNull } from './partnerReturnPolicy';
 
 export interface RentCalculation {
   rentAmount: number;
@@ -192,9 +193,38 @@ export function calculateCommissionSplit(repaidAmount: number, options: {
 /**
  * Calculate supporter reward
  * 15% of rent facilitation
+ *
+ * @deprecated A hard-coded 15%. After the Partner Returns switch-on a new partner's reward rate is
+ * the new-partner rate and an existing partner keeps their own, so use calculateSupporterRewardAt
+ * with the person's own rate (useOwnNewPortfolioRate on signed-in supporter screens). Kept only so
+ * today's screens behave as they do until they move over; must have no importer at release
+ * (design v2 §8.5 #3; release gate and release scan).
  */
 export function calculateSupporterReward(rentAmount: number): number {
   return Math.round(rentAmount * 0.15);
+}
+
+/**
+ * The monthly rent-facilitation reward on `rentAmount` at `ratePct` (monthly %, e.g. 10), rounded as
+ * the database pays it (round(rent * rate / 100)). `ratePct` comes from the database: the signed-in
+ * supporter's own rate (useOwnNewPortfolioRate, partner_quote_rate('me'), the rule the funding stamps
+ * into rent_facilitation_reward_rates). No rate, or a rent that is not a number, gives null: show no
+ * figure, never a default rate.
+ */
+export function calculateSupporterRewardAt(rentAmount: unknown, ratePct: number | null): number | null {
+  return monthlyReturnFor(rentAmount, ratePct);
+}
+
+/**
+ * The total reward on several rent requests at `ratePct`: each request is rounded on its own, as each
+ * is paid, so the total equals the sum of calculateSupporterRewardAt. A request whose rent is not a
+ * number adds nothing. null when the rate is unknown.
+ */
+export function sumSupporterRewardsAt(rentAmounts: Iterable<unknown>, ratePct: number | null): number | null {
+  if (rateOrNull(ratePct) === null) return null;
+  let total = 0;
+  for (const rent of rentAmounts) total += calculateSupporterRewardAt(rent, ratePct) ?? 0;
+  return total;
 }
 
 /**
@@ -211,4 +241,13 @@ import { formatDynamic } from '@/lib/currencyFormat';
  */
 export function formatUGX(amount: number): string {
   return formatDynamic(amount);
+}
+
+/**
+ * formatUGX for a figure this viewer may not know: a Returns figure masked by Partner Returns 4b (null),
+ * or a figure priced at a rate the database did not give. Unknown shows '—', never a 0 amount
+ * (formatUGX(null) prints 0).
+ */
+export function formatUGXOrDash(amount: number | null | undefined): string {
+  return typeof amount === 'number' && Number.isFinite(amount) ? formatUGX(amount) : '—';
 }

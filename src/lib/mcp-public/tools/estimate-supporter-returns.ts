@@ -3,22 +3,22 @@ import { z } from "zod";
 import { buildSignupLinks } from "../links";
 import { enforceRateLimit } from "../rateLimit";
 import { publicToolResult, spanRange, pointRange, ugx, type EstimateRange } from "../response";
+import { newPartnerReturnRate } from "../partnerRate";
 
 // PUBLIC, no-auth tool. Gives a prospective Supporter an ILLUSTRATIVE returns
 // range in UGX for a chosen support amount and duration, then hands back the
 // free Supporter signup link. It mirrors the in-app InvestmentCalculator math
-// (15% monthly platform rewards), showing a range from simple (non-reinvested)
+// (the monthly rate a NEW Supporter gets, read live from the public partner Returns
+// policy; when it cannot be read the tool states no figure), showing a range from simple (non-reinvested)
 // to compounding (rewards reinvested each month) so the figure is honest, not a
 // single hero number. Nothing here is a guarantee — rates and terms are shown
 // in the app after signup. (Terminology: Supporter, not lender; Returns, not
 // interest.)
 //
-// Mirrors src/components/supporter/InvestmentCalculator.tsx:
-//   REWARD_RATE = 0.15 (15% monthly)
-//   simple:   monthlyReward = amount * 0.15; total = monthlyReward * months
-//   compound: each month balance += balance * 0.15
+// Mirrors src/components/supporter/InvestmentCalculator.tsx (rate = new-Supporter rate):
+//   simple:   monthlyReward = amount * rate; total = monthlyReward * months
+//   compound: each month balance += balance * rate
 
-const REWARD_RATE = 0.15;
 const DEFAULT_DURATIONS = [3, 6, 12] as const;
 
 // Guard rails for a compliance-safe, sensible illustration (UGX).
@@ -27,15 +27,15 @@ const MAX_AMOUNT = 500_000_000;
 const MIN_MONTHS = 1;
 const MAX_MONTHS = 36;
 
-function project(amount: number, months: number) {
+function project(amount: number, months: number, rate: number) {
   // Simple: rewards paid out, not reinvested.
-  const monthlyReward = amount * REWARD_RATE;
+  const monthlyReward = amount * rate;
   const simpleEarnings = monthlyReward * months;
   const simpleTotal = amount + simpleEarnings;
 
   // Compound: rewards reinvested each month.
   let balance = amount;
-  for (let m = 1; m <= months; m++) balance += balance * REWARD_RATE;
+  for (let m = 1; m <= months; m++) balance += balance * rate;
   const compoundEarnings = balance - amount;
 
   return {
@@ -52,7 +52,7 @@ export default defineTool({
   name: "estimate_supporter_returns",
   title: "Estimate Supporter Returns (illustrative)",
   description:
-    "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target 15%, not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+    "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
   inputSchema: {
     amount: z
       .number()
@@ -114,7 +114,32 @@ export default defineTool({
       months = [...DEFAULT_DURATIONS];
     }
 
-    const projections = months.map((m) => project(roundedAmount, m));
+    const ratePct = await newPartnerReturnRate();
+    if (ratePct === null) {
+      // The live rate could not be read: give no figure at all (never a fallback rate).
+      return publicToolResult({
+        tool: "estimate_supporter_returns",
+        kind: "info",
+        summary: "The current monthly Returns rate for new Supporters is not available right now. Sign up free to see it in the app.",
+        estimates: {
+          basis: "No figure: the current monthly Returns rate for new Supporters could not be read right now.",
+          confidence: "illustrative",
+          currency: "UGX",
+          ranges: [],
+        },
+        data: { amount: roundedAmount, monthly_reward_rate_pct: null, projections: [] },
+        disclaimers: [
+          "Partner Returns are not guaranteed. This is an illustration only.",
+          "Actual rates and terms are shown in the app after you create a free account.",
+          "Supporter withdrawals require a 90-day notice period.",
+        ],
+        next_steps: [
+          "Create a free Supporter account to view current Returns and start supporting tenants.",
+        ],
+        links,
+      });
+    }
+    const projections = months.map((m) => project(roundedAmount, m, ratePct / 100));
 
     const lines = projections
       .map(
@@ -152,7 +177,7 @@ export default defineTool({
       )} depending on horizon and whether Returns are paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Partner Returns target 15%, not guaranteed. This illustration uses ${REWARD_RATE * 100}% a month on the supported amount.`,
+        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
         "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
         projections.length > 1
           ? `No horizon was given, so ${DEFAULT_DURATIONS.join("/")}-month options are compared.`
@@ -160,14 +185,14 @@ export default defineTool({
         "Principal is assumed to stay in place for the whole horizon, with no withdrawal.",
       ],
       estimates: {
-        basis: `${REWARD_RATE * 100}% monthly platform rewards, shown both paid out (simple) and reinvested (compounding).`,
+        basis: `${ratePct}% monthly platform rewards, shown both paid out (simple) and reinvested (compounding).`,
         confidence: "illustrative",
         currency: "UGX",
         ranges,
       },
       data: {
         amount: roundedAmount,
-        monthly_reward_rate_pct: REWARD_RATE * 100,
+        monthly_reward_rate_pct: ratePct,
         projections: projections.map((p) => ({
           duration_months: p.durationMonths,
           monthly_reward: p.monthlyReward,
@@ -178,7 +203,7 @@ export default defineTool({
         })),
       },
       disclaimers: [
-        "Partner Returns target 15%, not guaranteed. This is an illustration only.",
+        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period.",
       ],

@@ -174,7 +174,7 @@ export async function dispatchWithdrawal(
     ? "New Partner Returns payout to deliver"
     : "New withdrawal to claim";
   const pushBody = isPartnerReturns
-    ? `${amountLabel} · Partner ROI · ${serviceArea}. Proxy agent initiated — tap to process.`
+    ? `${amountLabel} · Partner Returns · ${serviceArea}. Proxy agent initiated — tap to process.`
     : `${amountLabel} · ${serviceArea}. Tap to claim before it expires.`;
 
   // 6. Expire the previous round's still-pending log rows.

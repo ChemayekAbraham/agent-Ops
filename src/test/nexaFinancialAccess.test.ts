@@ -9,11 +9,13 @@ describe('public financial access guidance', () => {
     expect(isFinancialAccessQuery(input)).toBe(false);
   });
   it('uses the requested public programme figures without changing financial eligibility', () => {
-    const reply = buildFinancialAccessFallbackReply('financial inclusion');
+    // The Returns example takes the live public new-partner rate (here 10%); without one it states no figure.
+    const reply = buildFinancialAccessFallbackReply('financial inclusion', false, 10);
     expect(reply).toContain('+UGX 10,000/day up to UGX 30,000,000');
     expect(reply).toContain('UGX 7,000/day');
     expect(reply).toContain('UGX 100,000 illustrates UGX 10,000/month');
     expect(reply).toContain('UGX 120,000 over 12 months');
+    expect(buildFinancialAccessFallbackReply('financial inclusion')).not.toContain('UGX 100,000 illustrates');
     expect(reply).toContain('90-day withdrawal notice');
     expect(reply).toContain('MTN Merchant 090777');
     expect(reply).toContain('Airtel Merchant 4380664');

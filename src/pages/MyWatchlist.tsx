@@ -39,7 +39,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useToast } from '@/hooks/use-toast';
 import { useConfetti } from '@/components/Confetti';
-import { formatUGX, calculateSupporterReward } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash, calculateSupporterRewardAt, sumSupporterRewardsAt } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { playSuccessSound } from '@/lib/notificationSound';
 import { hapticSuccess } from '@/lib/haptics';
 import { useMemo } from 'react';
@@ -63,6 +64,9 @@ interface WatchedOpportunity {
 
 export default function MyWatchlist() {
   const { user, loading: authLoading, role } = useAuth();
+  // The reward a supporter earns for funding a request is stamped at their own rate; null while the
+  // rate loads or is unknown (show no figure).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const navigate = useNavigate();
   const { formatAmount } = useCurrency();
   const { toast } = useToast();
@@ -281,20 +285,22 @@ export default function MyWatchlist() {
   const stats = useMemo(() => {
     let totalValue = 0;
     let readyCount = 0;
-    let potentialReward = 0;
+    const readyRents: number[] = [];
 
     opportunities.forEach(item => {
       if (item.rent_request) {
         totalValue += item.rent_request.rent_amount;
         if (isReadyToFund(item.rent_request)) {
           readyCount++;
-          potentialReward += calculateSupporterReward(item.rent_request.rent_amount);
+          readyRents.push(item.rent_request.rent_amount);
         }
       }
     });
 
+    // Each request rounded as it is paid; null when the rate is unknown.
+    const potentialReward = sumSupporterRewardsAt(readyRents, ownRate);
     return { totalValue, readyCount, potentialReward };
-  }, [opportunities]);
+  }, [opportunities, ownRate]);
 
   if (authLoading || loading) {
     return (
@@ -381,7 +387,7 @@ export default function MyWatchlist() {
               <CardContent className="p-3 text-center">
                 <Sparkles className="h-4 w-4 mx-auto mb-1 text-warning" />
                 <p className="text-xs text-muted-foreground">Potential</p>
-                <p className="font-semibold text-sm">{formatAmount(stats.potentialReward)}</p>
+                <p className="font-semibold text-sm">{stats.potentialReward === null ? '—' : formatAmount(stats.potentialReward)}</p>
               </CardContent>
             </Card>
           </motion.div>
@@ -558,9 +564,11 @@ export default function MyWatchlist() {
                                     </>
                                   )}
                                 </Button>
-                                <p className="text-xs text-center text-muted-foreground mt-1.5">
-                                  Earn {formatUGX(calculateSupporterReward(request.rent_amount))} reward
-                                </p>
+                                {calculateSupporterRewardAt(request.rent_amount, ownRate) !== null && (
+                                  <p className="text-xs text-center text-muted-foreground mt-1.5">
+                                    Earn {formatUGXOrDash(calculateSupporterRewardAt(request.rent_amount, ownRate))} reward
+                                  </p>
+                                )}
                               </div>
                             )}
 
@@ -621,7 +629,7 @@ export default function MyWatchlist() {
                   </div>
                   <div className="flex justify-between text-success">
                     <span>Your Reward</span>
-                    <span className="font-medium">{formatUGX(calculateSupporterReward(confirmFunding?.amount || 0))}</span>
+                    <span className="font-medium">{formatUGXOrDash(calculateSupporterRewardAt(confirmFunding?.amount || 0, ownRate))}</span>
                   </div>
                 </div>
                 <p className="text-xs">This action cannot be undone.</p>
@@ -665,7 +673,7 @@ export default function MyWatchlist() {
                   </div>
                   <div className="flex justify-between text-success">
                     <span>Total Reward</span>
-                    <span className="font-medium">{formatUGX(stats.potentialReward)}</span>
+                    <span className="font-medium">{formatUGXOrDash(stats.potentialReward)}</span>
                   </div>
                 </div>
                 <div className="text-xs space-y-1">

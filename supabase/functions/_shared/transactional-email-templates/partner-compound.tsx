@@ -66,7 +66,8 @@ const resolveRoiLabel = (
     return `${r}%`
   }
   if (typeof roi_return === 'string' && roi_return.trim().length > 0) return roi_return
-  return '0%'
+  // No rate passed: no label (never "0%", never a rate worked out from amounts).
+  return ''
 }
 
 export function PartnerCompound({
@@ -117,17 +118,13 @@ export function PartnerCompound({
   // Newly created portfolio: always show the full 12-month compounding year.
   const PROJECTION_MONTHS = 12
 
+  // The projection uses only the STORED rate the sender passed. No rate -> no projection
+  // (a rate is never worked out from the amounts).
   const ratePct = (() => {
     const explicit = roi_percentage === undefined || roi_percentage === null || roi_percentage === ''
       ? NaN
       : Number(roi_percentage)
-    if (Number.isFinite(explicit) && explicit > 0) return explicit
-    const retPct = principalNum > 0 ? (retNum / principalNum) * 100 : 0
-    if (retPct > 0) return retPct
-    const newPct = (principalNum > 0 && newTotalNum > principalNum)
-      ? ((newTotalNum - principalNum) / principalNum) * 100
-      : 0
-    return newPct
+    return Number.isFinite(explicit) && explicit > 0 ? explicit : 0
   })()
   const r = ratePct / 100
 
@@ -228,7 +225,9 @@ export function PartnerCompound({
                   <td className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <Text style={timelineTitle}>Projected compounding schedule</Text>
                     <Text style={timelineSubtitle}>
-                      This is projected basing on your Principal ({formattedPrincipal}) at the rate of ({roiLabel}).
+                      {roiLabel
+                        ? `This is projected basing on your Principal (${formattedPrincipal}) at the rate of (${roiLabel}).`
+                        : `This is projected basing on your Principal (${formattedPrincipal}).`}
                     </Text>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={timelineCard}>
                       <tbody>
@@ -252,7 +251,7 @@ export function PartnerCompound({
                                       <td align="right" style={timelineKvValue}>{formatAmount(row.before, currency)}</td>
                                     </tr>
                                     <tr>
-                                      <td style={timelineKvLabel}>Return compounded ({roiLabel})</td>
+                                      <td style={timelineKvLabel}>{roiLabel ? `Return compounded (${roiLabel})` : 'Return compounded'}</td>
                                       <td align="right" style={timelineKvEarned}>+{formatAmount(row.earned, currency)}</td>
                                     </tr>
                                     <tr>

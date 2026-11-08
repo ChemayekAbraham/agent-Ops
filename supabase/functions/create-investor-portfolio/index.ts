@@ -5,6 +5,21 @@ import {
   buildPartnerCompoundCreationRequest,
   dispatchTransactionalEmail,
 } from "../_shared/partnership-emails.ts";
+import {
+  cachedPublicPolicy,
+  callerIsPartnerStaff,
+  monthlyReturnFor,
+  POLICY_CHANGED_RESPONSE,
+  RATE_NOTE_FOR_OTHER_STAFF,
+  rateAwaitsCfo,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  rowIsSwitchOff,
+  storedRate,
+  typedRate,
+  typedRateNeedsReload,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -39,7 +54,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Built per request with the caller as x-welile-actor, so a typed rate the gate queues for the
+    // CFO records who typed it (trg_portfolio_rate_requests_stamp_actor; service role only).
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { "x-welile-actor": user.id } },
+      auth: { persistSession: false },
+    });
 
     // Verify role (agent, manager, coo, super_admin, operations)
     const { data: roleData } = await adminClient
@@ -66,6 +86,11 @@ Deno.serve(async (req) => {
     // become the portfolio owner and the wallet deduction must be instant.
     const creatorIsFieldAgent = creatorRoles.includes('agent') && !creatorIsBackOffice;
 
+    // Public policy (cached, display-grade): used ONLY to decide whether a field agent's typed rate is
+    // forwarded (owner decision D1). A stale answer can only route a typed rate to the CFO; privacy
+    // decisions below read the inserted row's rate_basis instead.
+    const policy = await cachedPublicPolicy(adminClient);
+
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch {
       return new Response(JSON.stringify({ error: "Invalid request body" }), {
@@ -76,7 +101,13 @@ Deno.serve(async (req) => {
     // Validate required fields
     const investmentAmount = typeof body.investment_amount === 'number' && Number.isFinite(body.investment_amount) ? body.investment_amount : null;
     const durationMonths = typeof body.duration_months === 'number' && [3, 6, 12].includes(body.duration_months) ? body.duration_months : null;
-    const roiPercentage = typeof body.roi_percentage === 'number' && body.roi_percentage > 0 && body.roi_percentage <= 100 ? body.roi_percentage : 15;
+    // Partner Returns: only a typed NUMBER counts as a typed rate (origin's typing); invalid or missing ->
+    // no rate, and the database gate decides (15 while the switch is off, as before). A field agent's
+    // typed rate is forwarded only while the switch is off (D1).
+    const t = typeof body.roi_percentage === 'number' ? typedRate(body.roi_percentage) : null;
+    const typed = t === 'invalid' ? null : t;
+    const agentMayType = !creatorIsFieldAgent || (policy !== null && !policy.enabled);
+    const requested = agentMayType ? typed : null;
     const roiMode = typeof body.roi_mode === 'string' && ['monthly_payout', 'monthly_compounding'].includes(body.roi_mode) ? body.roi_mode : 'monthly_payout';
     const portfolioPin = typeof body.portfolio_pin === 'string' && /^\d{4}$/.test(body.portfolio_pin) ? body.portfolio_pin : null;
     const inviteId = typeof body.invite_id === 'string' && body.invite_id.length > 0 ? body.invite_id : null;
@@ -133,6 +164,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Back office: a screen that typed a rate without seeing the switch on is stale once it is on (409).
+    if (!creatorIsFieldAgent && await typedRateNeedsReload(adminClient, requested !== null, body.policy_enabled_seen)) {
+      return new Response(JSON.stringify(POLICY_CHANGED_RESPONSE), {
+        status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Generate portfolio code via DB function
     const { data: codeData, error: codeError } = await adminClient.rpc('generate_portfolio_code');
     if (codeError || !codeData) {
@@ -162,7 +200,8 @@ Deno.serve(async (req) => {
         portfolio_code: codeData,
         investment_amount: investmentAmount,
         duration_months: durationMonths,
-        roi_percentage: roiPercentage,
+        // Rate only when typed (and allowed); otherwise the gate decides the person's rate.
+        ...(requested !== null ? { roi_percentage: requested } : {}),
         roi_mode: roiMode,
         payment_method: paymentMethod,
         mobile_network: mobileNetwork,
@@ -176,7 +215,7 @@ Deno.serve(async (req) => {
         next_roi_date: nextRoiDate.toISOString().split('T')[0],
         status: instantDeduct ? 'active' : 'pending_approval',
       })
-      .select()
+      .select("id, portfolio_code, activation_token, investment_amount, duration_months, roi_percentage, rate_basis, roi_mode, maturity_date, next_roi_date")
       .single();
 
     if (insertError) {
@@ -185,6 +224,11 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // The rate the gate stored, and whether it applies to everyone (read from the row, never from
+    // the cached policy).
+    const stored = storedRate(portfolio);
+    const rateIsPublic = await rowRateIsPublic(adminClient, portfolio);
 
     const txGroupId = crypto.randomUUID();
     const agentProfile = await adminClient.from("profiles").select("full_name").eq("id", user.id).single();
@@ -342,7 +386,8 @@ Deno.serve(async (req) => {
           initiated_by_role: creatorRoles[0],
           agent_name: agentName,
           portfolio_code: codeData,
-          roi_percentage: roiPercentage,
+          roi_percentage: stored,
+          requested_roi_percentage: requested,
           duration_months: durationMonths,
           pre_approved: true,
           source: fundingLabel === "proxy_agent" ? "proxy_agent_wallet" : fundingLabel === "user_wallet" ? "user_wallet" : "wallet",
@@ -399,7 +444,8 @@ Deno.serve(async (req) => {
           agent_id: user.id,
           agent_name: agentName,
           portfolio_code: codeData,
-          roi_percentage: roiPercentage,
+          roi_percentage: stored,
+          requested_roi_percentage: requested,
           duration_months: durationMonths,
         },
       });
@@ -435,28 +481,35 @@ Deno.serve(async (req) => {
         firstPayout.setUTCMonth(firstPayout.getUTCMonth() + 1);
         firstPayout.setUTCDate(payoutDay);
         const firstPayoutIso = firstPayout.toISOString();
-        if (partnerProfile?.email) {
+        // Rate-bearing email: the profile email when the row's rate applies to everyone; otherwise the
+        // confirmed login email, or the profile email without figures when there is none (D4).
+        const loginEmail = rateIsPublic
+          ? null
+          : (await readConfirmedLoginEmails(adminClient, [investorId])).get(investorId) ?? null;
+        const target = rateEmailTarget(loginEmail, partnerProfile?.email ?? null, rateIsPublic);
+        const figureRate = target.withFigures ? stored : null;
+        if (target.to) {
           const emailRequest = roiMode === "monthly_compounding"
               ? buildPartnerCompoundCreationRequest({
-                recipientEmail: partnerProfile.email,
-                partnerName: partnerProfile.full_name,
+                recipientEmail: target.to,
+                partnerName: partnerProfile?.full_name,
                 partnerId: investorId,
                 portfolioId: portfolio.id,
                 initialAmount: investmentAmount as number,
-                roiPercentage,
+                roiPercentage: figureRate,
                 contributionDateIso: contributionIso,
               })
             : buildPartnershipAgreementRequest({
-                recipientEmail: partnerProfile.email,
-                partnerName: partnerProfile.full_name,
+                recipientEmail: target.to,
+                partnerName: partnerProfile?.full_name,
                 partnerId: investorId,
                 portfolioId: portfolio.id,
                 amount: investmentAmount as number,
-                monthlyReward: Math.round((investmentAmount as number) * (roiPercentage / 100)),
+                monthlyReward: monthlyReturnFor(investmentAmount, figureRate),
                 contributionDateIso: contributionIso,
                 firstPayoutDateIso: firstPayoutIso,
                 payoutDay,
-                roiPercentage,
+                roiPercentage: figureRate,
               });
           dispatchTransactionalEmail(
             supabaseUrl,
@@ -470,15 +523,34 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Response. A field agent gets the rate only when the row's rate applies to everyone, and the
+    // activation token (which opens a page showing the rate) only for a switch-off row or a portfolio
+    // with no partner yet. Back office: stored rates for partner staff (D11) or a public-basis row;
+    // other staff get a note instead.
+    let ratePart: Record<string, unknown>;
+    let showToken = true;
+    if (creatorIsFieldAgent) {
+      ratePart = rateIsPublic ? { roi_percentage: portfolio.roi_percentage } : {};
+      showToken = rowIsSwitchOff(portfolio) || investorId === null;
+    } else if (rateIsPublic || await callerIsPartnerStaff(adminClient, user.id)) {
+      ratePart = {
+        roi_percentage: portfolio.roi_percentage,
+        requested_roi_percentage: requested,
+        rate_awaits_cfo: rateAwaitsCfo(requested, stored),
+      };
+    } else {
+      ratePart = { rate_note: RATE_NOTE_FOR_OTHER_STAFF };
+    }
+
     return new Response(JSON.stringify({
       success: true,
       portfolio: {
         id: portfolio.id,
         portfolio_code: portfolio.portfolio_code,
-        activation_token: portfolio.activation_token,
+        ...(showToken ? { activation_token: portfolio.activation_token } : {}),
         investment_amount: portfolio.investment_amount,
         duration_months: portfolio.duration_months,
-        roi_percentage: portfolio.roi_percentage,
+        ...ratePart,
         roi_mode: portfolio.roi_mode,
         maturity_date: portfolio.maturity_date,
         next_roi_date: portfolio.next_roi_date,

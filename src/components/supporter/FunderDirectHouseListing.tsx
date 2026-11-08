@@ -7,8 +7,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
-import { calcFunderEarnings, sumFunderEarnings } from '@/lib/funderEarnings';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
+import { calcFunderEarningsAt, sumFunderEarningsAt } from '@/lib/funderEarnings';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { FunderEarningsAssumptions } from './FunderEarningsAssumptions';
 import { FunderEarningsBreakdown } from './FunderEarningsBreakdown';
 import { useWallet } from '@/hooks/useWallet';
@@ -89,7 +91,7 @@ const SORTS = [
   { value: 'rooms_desc', label: 'Most rooms' },
 ];
 
-// Minimum projected monthly earning (15% of rent) filters
+// Minimum projected monthly earning (the viewer's own rate × rent) filters
 const MIN_MONTHLY_EARN = [
   { value: 'all', label: 'Any monthly earning' },
   { value: '5000', label: 'Monthly 5k+' },
@@ -145,6 +147,10 @@ export function FunderDirectHouseListing() {
   const { wallet } = useWallet();
   const walletBalance = wallet?.balance ?? 0;
   const { user } = useAuth();
+  // Signed-in partner screen: projections use the viewer's own rate for a new portfolio (15 while the
+  // switch is off). null (loading / unknown) -> null figures, and the earnings filters and sorts
+  // cannot apply (no house is hidden for a figure that is not known).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showTopUp, setShowTopUp] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -351,14 +357,14 @@ export function FunderDirectHouseListing() {
       }
     }
 
-    // Projected-earnings filters (15% of monthly rent, anchored on move-in date)
+    // Projected-earnings filters (own rate × monthly rent, anchored on move-in date)
     if (minMonthlyEarn !== 'all') {
       const min = Number(minMonthlyEarn);
-      result = result.filter((h) => calcFunderEarnings(h.monthly_rent, moveInDate).monthly >= min);
+      if (ownRate !== null) result = result.filter((h) => calcFunderEarningsAt(h.monthly_rent, moveInDate, ownRate).monthly >= min);
     }
     if (minAnnualEarn !== 'all') {
       const min = Number(minAnnualEarn);
-      result = result.filter((h) => calcFunderEarnings(h.monthly_rent, moveInDate).annual >= min);
+      if (ownRate !== null) result = result.filter((h) => calcFunderEarningsAt(h.monthly_rent, moveInDate, ownRate).annual >= min);
     }
 
     result.sort((a, b) => {
@@ -369,16 +375,16 @@ export function FunderDirectHouseListing() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
       }
-      if (sortBy === 'earn_desc') {
+      if (sortBy === 'earn_desc' && ownRate !== null) {
         return (
-          calcFunderEarnings(b.monthly_rent, moveInDate).monthly -
-          calcFunderEarnings(a.monthly_rent, moveInDate).monthly
+          calcFunderEarningsAt(b.monthly_rent, moveInDate, ownRate).monthly -
+          calcFunderEarningsAt(a.monthly_rent, moveInDate, ownRate).monthly
         );
       }
-      if (sortBy === 'earn_asc') {
+      if (sortBy === 'earn_asc' && ownRate !== null) {
         return (
-          calcFunderEarnings(a.monthly_rent, moveInDate).monthly -
-          calcFunderEarnings(b.monthly_rent, moveInDate).monthly
+          calcFunderEarningsAt(a.monthly_rent, moveInDate, ownRate).monthly -
+          calcFunderEarningsAt(b.monthly_rent, moveInDate, ownRate).monthly
         );
       }
       if (sortBy === 'price_asc') return a.daily_rate - b.daily_rate;
@@ -541,7 +547,7 @@ export function FunderDirectHouseListing() {
 
   const selectedHouses = (houses ?? []).filter((h) => selectedIds.includes(h.id));
   const earningsFilterActive = minMonthlyEarn !== 'all' || minAnnualEarn !== 'all';
-  const selectionTotals = sumFunderEarnings(selectedHouses.map((h) => h.monthly_rent), moveInDate);
+  const selectionTotals = sumFunderEarningsAt(selectedHouses.map((h) => h.monthly_rent), moveInDate, ownRate);
   const shortfall = Math.max(0, selectionTotals.capital - walletBalance);
 
   if (loading) {
@@ -668,14 +674,14 @@ export function FunderDirectHouseListing() {
                   </SelectTrigger>
                   <SelectContent>
                     {SORTS.map((s) => (
-                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                      <SelectItem key={s.value} value={s.value} className="text-xs" disabled={ownRate === null && s.value.startsWith('earn_')}>
                         {s.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={draftMinMonthlyEarn} onValueChange={setDraftMinMonthlyEarn}>
+                <Select value={draftMinMonthlyEarn} onValueChange={setDraftMinMonthlyEarn} disabled={ownRate === null}>
                   <SelectTrigger className="h-9 text-xs" aria-label="Filter by projected monthly earning">
                     <SelectValue placeholder="Monthly earning" />
                   </SelectTrigger>
@@ -688,7 +694,7 @@ export function FunderDirectHouseListing() {
                   </SelectContent>
                 </Select>
 
-                <Select value={draftMinAnnualEarn} onValueChange={setDraftMinAnnualEarn}>
+                <Select value={draftMinAnnualEarn} onValueChange={setDraftMinAnnualEarn} disabled={ownRate === null}>
                   <SelectTrigger className="h-9 text-xs" aria-label="Filter by projected 12-month earning">
                     <SelectValue placeholder="12-month earning" />
                   </SelectTrigger>
@@ -753,6 +759,7 @@ export function FunderDirectHouseListing() {
         startDate={moveInDate}
         endDate={addMonths(moveInDate, 12)}
         daysInTerm={selectionTotals.daysInTerm}
+        rate={ownRate}
       />
 
       {/* Active filter chips */}
@@ -823,7 +830,7 @@ export function FunderDirectHouseListing() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {paginatedHouses.map((house) => {
-            const earn = calcFunderEarnings(house.monthly_rent, moveInDate);
+            const earn = calcFunderEarningsAt(house.monthly_rent, moveInDate, ownRate);
             const selected = selectedIds.includes(house.id);
             return (
             <motion.div
@@ -898,19 +905,21 @@ export function FunderDirectHouseListing() {
                   View repayment terms
                 </button>
 
-                {/* Funder earning projection — 15% of monthly rent */}
+                {/* Funder earning projection at the viewer's own rate */}
                 {earn.capital > 0 && (
                   <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
                         <TrendingUp className="h-3 w-3 text-primary" /> You earn
                       </span>
-                      <span className="text-[9px] font-semibold text-muted-foreground">
-                        15% / month
-                      </span>
+                      {formatRatePct(ownRate) && (
+                        <span className="text-[9px] font-semibold text-muted-foreground">
+                          {formatRatePct(ownRate)} / month
+                        </span>
+                      )}
                     </div>
                     <p className="text-base font-black text-primary leading-none">
-                      {formatUGX(earn.monthly)}
+                      {formatUGXOrDash(earn.monthly)}
                       <span className="text-[9px] font-normal text-muted-foreground"> /month</span>
                     </p>
                     <div className="grid grid-cols-3 gap-1 pt-0.5">
@@ -921,7 +930,7 @@ export function FunderDirectHouseListing() {
                       ].map((m) => (
                         <div key={m.label} className="text-center">
                           <p className="text-[10px] font-black text-foreground leading-tight">
-                            {formatUGX(m.value)}
+                            {formatUGXOrDash(m.value)}
                           </p>
                           <p className="text-[8px] text-muted-foreground font-medium">{m.label}</p>
                         </div>
@@ -1045,7 +1054,7 @@ export function FunderDirectHouseListing() {
                   {selectedHouses.length} {selectedHouses.length === 1 ? 'house' : 'houses'} selected
                 </p>
                 <p className="text-xl font-black text-primary leading-tight">
-                  {formatUGX(selectionTotals.monthly)}
+                  {formatUGXOrDash(selectionTotals.monthly)}
                   <span className="text-[10px] font-normal text-muted-foreground"> /month</span>
                 </p>
               </div>
@@ -1073,7 +1082,7 @@ export function FunderDirectHouseListing() {
               ].map((m) => (
                 <div key={m.label} className="rounded-xl bg-muted/40 py-1.5 text-center">
                   <p className="text-[11px] font-black text-foreground leading-tight">
-                    {formatUGX(m.value)}
+                    {formatUGXOrDash(m.value)}
                   </p>
                   <p className="text-[8px] text-muted-foreground font-medium">{m.label}</p>
                 </div>
@@ -1112,7 +1121,7 @@ export function FunderDirectHouseListing() {
                 : 'Review & lock selection'}
             </Button>
             <p className="text-[9px] text-muted-foreground/80 text-center leading-relaxed">
-              You earn 15% of each house's monthly rent while the tenant repays.
+              You earn monthly Returns on each house's rent while the tenant repays.
             </p>
           </motion.div>
         )}
@@ -1130,6 +1139,7 @@ export function FunderDirectHouseListing() {
         }))}
         totals={selectionTotals}
         walletBalance={walletBalance}
+        rate={ownRate}
         onConfirm={() => {
           hapticTap();
           setSelectionLocked(true);

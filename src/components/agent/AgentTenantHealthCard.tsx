@@ -23,7 +23,8 @@ export function AgentTenantHealthCard({ userId }: Props) {
   const pct = Math.round(ap.healthy_ratio * 100);
   const isHealthy = ap.healthy_ratio >= 0.5;
   const isTop = !!ap.top_performing;
-  const vouch = profile?.trust.borrowing_limit_ugx ?? 0;
+  // null = unknown (Partner Returns 4b can mask it), never 0.
+  const vouch = profile?.trust.borrowing_limit_ugx ?? null;
 
   return (
     <div
@@ -61,7 +62,7 @@ export function AgentTenantHealthCard({ userId }: Props) {
           {pct}% paying on schedule
           <span className="text-muted-foreground font-normal"> · {ap.healthy_tenants}/{ap.qualifying_tenants}</span>
         </p>
-        {vouch > 0 && (
+        {vouch != null && vouch > 0 && (
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
             Welile vouches up to <span className="font-semibold text-emerald-600">{formatUGX(vouch)}</span>
           </p>

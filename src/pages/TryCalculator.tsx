@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { motion, AnimatePresence } from 'framer-motion';
 // jsPDF loaded dynamically when needed
@@ -29,7 +31,6 @@ interface MonthlyProjection {
   balance: number;
 }
 
-const ROI_RATE = 0.15; // 15% monthly
 
 export default function TryCalculator() {
   const navigate = useNavigate();
@@ -41,6 +42,12 @@ export default function TryCalculator() {
   const { t, language } = useLanguage();
   
   const [amount, setAmount] = useState(500000);
+  // Public calculator: the PUBLIC new-partner rate (15 while the switch has never been on, so every
+  // figure equals today's). Unknown rate -> no projection rows and null figures (show no number).
+  const { newContractRate } = usePartnerReturnPolicy();
+  const ratePct = rateOrNull(newContractRate);
+  const monthlyRate = ratePct === null ? null : ratePct / 100;
+  const ratePctLabel = formatRatePct(ratePct);
   const [months, setMonths] = useState(12);
   const [isCompounding, setIsCompounding] = useState(false);
   const [hasTriedCalculator, setHasTriedCalculator] = useState(false);
@@ -65,11 +72,12 @@ export default function TryCalculator() {
   // Calculate projections
   const projections = useMemo((): MonthlyProjection[] => {
     const results: MonthlyProjection[] = [];
+    if (monthlyRate === null) return results;
     let currentBalance = amount;
     let totalEarnings = 0;
 
     for (let month = 1; month <= months; month++) {
-      const earnings = currentBalance * ROI_RATE;
+      const earnings = currentBalance * monthlyRate;
       totalEarnings += earnings;
       if (isCompounding) currentBalance += earnings;
 
@@ -82,10 +90,10 @@ export default function TryCalculator() {
       });
     }
     return results;
-  }, [amount, months, isCompounding]);
+  }, [amount, months, isCompounding, monthlyRate]);
 
   const finalProjection = projections[projections.length - 1];
-  const monthlyEarnings = amount * ROI_RATE;
+  const monthlyEarnings = monthlyRate === null ? null : amount * monthlyRate;
 
   const handleCalculate = () => {
     hapticTap();
@@ -102,7 +110,7 @@ export default function TryCalculator() {
   const handleShare = async () => {
     hapticTap();
     const shareLink = `${window.location.origin}/try-calculator${referrerId ? `?ref=${referrerId}` : ''}`;
-    const shareMessage = `💰 Want to earn 15% monthly returns?
+    const shareMessage = `💰 Want to earn ${ratePctLabel ? `${ratePctLabel} monthly Returns` : 'monthly Returns'}?
 
 📊 Try this FREE Support Calculator - no signup needed!
 📈 See exactly how much you can earn
@@ -167,7 +175,7 @@ export default function TryCalculator() {
       doc.text(`Principal: ${formatUGX(amount)}`, 20, summaryY);
       doc.text(`Duration: ${months} months`, 80, summaryY);
       doc.text(`Compounding: ${isCompounding ? 'Yes' : 'No'}`, 140, summaryY);
-      doc.text(`Monthly Returns: 15%`, 20, summaryY + 8);
+      if (ratePctLabel) doc.text(`Monthly Returns: ${ratePctLabel}`, 20, summaryY + 8);
       doc.text(`Total Earnings: ${formatUGX(finalProjection?.totalEarnings || 0)}`, 80, summaryY + 8);
       doc.setTextColor(34, 197, 94);
       doc.text(`Final Balance: ${formatUGX(finalProjection?.balance || 0)}`, 140, summaryY + 8);
@@ -386,7 +394,7 @@ export default function TryCalculator() {
         <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2.5 rounded-full text-sm font-semibold mb-3">
             <TrendingUp className="h-4 w-4" />
-            Partner Returns target 15%, not guaranteed
+            {ratePctLabel ? `Partner Returns target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Returns are not guaranteed'}
           </div>
           <h1 className="text-xl font-bold mb-1">
             Support Calculator
@@ -561,10 +569,10 @@ export default function TryCalculator() {
                     <p className="text-sm text-muted-foreground mb-1">
                       After {months} months {isCompounding ? '(compounded)' : ''}
                     </p>
-                    <p className="text-3xl font-bold text-success">{formatAmount(finalProjection?.balance || 0)}</p>
+                    <p className="text-3xl font-bold text-success">{finalProjection ? formatAmount(finalProjection.balance || 0) : '—'}</p>
                     {currency.code !== 'UGX' && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        ≈ {formatUGX(finalProjection?.balance || 0)}
+                        ≈ {finalProjection ? formatUGX(finalProjection.balance || 0) : '—'}
                       </p>
                     )}
                   </div>
@@ -579,9 +587,9 @@ export default function TryCalculator() {
                     </div>
                     <div className="text-center p-3 bg-background rounded-xl">
                       <p className="text-xs text-muted-foreground mb-1">Total Earnings</p>
-                      <p className="font-bold text-success">+{formatAmount(finalProjection?.totalEarnings || 0)}</p>
+                      <p className="font-bold text-success">{finalProjection ? `+${formatAmount(finalProjection.totalEarnings || 0)}` : '—'}</p>
                       {currency.code !== 'UGX' && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">+{formatUGX(finalProjection?.totalEarnings || 0)}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{finalProjection ? `+${formatUGX(finalProjection.totalEarnings || 0)}` : '—'}</p>
                       )}
                     </div>
                   </div>
@@ -589,7 +597,7 @@ export default function TryCalculator() {
                   {!isCompounding && (
                     <div className="p-3 bg-primary/5 rounded-xl mb-4">
                       <p className="text-center text-sm">
-                        <span className="font-bold">{formatAmount(monthlyEarnings)}</span>
+                        <span className="font-bold">{monthlyEarnings === null ? '—' : formatAmount(monthlyEarnings)}</span>
                         <span className="text-muted-foreground"> earned every month</span>
                       </p>
                     </div>

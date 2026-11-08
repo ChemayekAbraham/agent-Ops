@@ -23,7 +23,8 @@ import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
  */
 interface Props {
   availableBalance: number;
-  roiBalance?: number;
+  /** The Returns balance; null = unknown (WithdrawFlow never treats it as withdrawable). */
+  roiBalance?: number | null;
   /** Called after any flow closes so caller can refresh wallet caches. */
   onChanged?: () => void;
   /**

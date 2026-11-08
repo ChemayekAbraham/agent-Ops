@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Phone, Building2, Banknote, Check, Wallet, TrendingUp } from 'lucide-react';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import DepositFlow from '@/components/payments/DepositFlow';
 
@@ -23,8 +23,8 @@ interface FunderTopUpDialogProps {
   houseCount: number;
   /** Total capital owed to landlords for the selection. */
   capitalRequired: number;
-  /** Projected monthly earning across the selection. */
-  monthlyEarning: number;
+  /** Projected monthly earning across the selection; null when the rate is unknown. */
+  monthlyEarning: number | null;
   walletBalance: number;
 }
 
@@ -92,7 +92,7 @@ export function FunderTopUpDialog({
               </div>
               <div className="flex items-center gap-1.5 pt-1 text-[10px] text-muted-foreground">
                 <TrendingUp className="h-3 w-3 text-success" />
-                Projected earning {formatUGX(monthlyEarning)} / month
+                Projected earning {formatUGXOrDash(monthlyEarning)} / month
               </div>
             </div>
 

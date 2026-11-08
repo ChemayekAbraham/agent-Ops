@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ShieldCheck, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { onVouchUpdated } from '@/lib/vouchEvents';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -17,7 +17,9 @@ interface Props {
 }
 
 interface VouchSnapshot {
-  borrowing_limit_ugx: number;
+  /** null = hidden (owner decision b masks the cache limit for a viewer who may not see the person's
+   *  Returns), never 0. */
+  borrowing_limit_ugx: number | null;
   agent_earned_vouch_ugx: number;
 }
 
@@ -47,16 +49,17 @@ export function BorrowerVouchBadge({ aiId, className }: Props) {
     if (!aiId) return;
 
     (async () => {
-      const { data } = await supabase
+      // borrowing_limit_shown is a computed field the generated types do not know yet.
+      const { data } = (await supabase
         .from('welile_trust_score_cache')
-        .select('borrowing_limit_ugx, agent_earned_vouch_ugx')
+        .select('borrowing_limit_ugx:borrowing_limit_shown, agent_earned_vouch_ugx')
         .eq('ai_id', aiId.toUpperCase())
-        .maybeSingle();
+        .maybeSingle()) as unknown as { data: { borrowing_limit_ugx: number | null; agent_earned_vouch_ugx: number | null } | null };
 
       if (cancelled) return;
       if (data) {
         setSnap({
-          borrowing_limit_ugx: Number(data.borrowing_limit_ugx) || 0,
+          borrowing_limit_ugx: data.borrowing_limit_ugx == null ? null : Number(data.borrowing_limit_ugx) || 0,
           agent_earned_vouch_ugx: Number(data.agent_earned_vouch_ugx) || 0,
         });
       }
@@ -65,14 +68,15 @@ export function BorrowerVouchBadge({ aiId, className }: Props) {
     return () => { cancelled = true; };
   }, [aiId, refreshTick]);
 
-  if (!snap || snap.borrowing_limit_ugx <= 0) return null;
+  // A hidden (null) limit keeps the badge with "—"; a real 0 hides it as before.
+  if (!snap || (snap.borrowing_limit_ugx !== null && snap.borrowing_limit_ugx <= 0)) return null;
 
   const earned = snap.agent_earned_vouch_ugx;
   // Earned portion comes from 2× collected rent — derive collected for display.
   const collected = earned > 0 ? earned / WELILE_VOUCH_MULTIPLIER : 0;
   // Whatever the trust engine added on top of (floor + earned) — surface it
   // so the math in the tooltip always reconciles to the headline limit.
-  const trustBoost = Math.max(
+  const trustBoost = snap.borrowing_limit_ugx === null ? null : Math.max(
     0,
     snap.borrowing_limit_ugx - WELILE_VOUCH_FLOOR_UGX - earned,
   );
@@ -89,7 +93,7 @@ export function BorrowerVouchBadge({ aiId, className }: Props) {
           >
             <ShieldCheck className="h-3 w-3 text-emerald-700 dark:text-emerald-400" />
             <span className="font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
-              Welile vouches {formatUGX(snap.borrowing_limit_ugx)}
+              Welile vouches {formatUGXOrDash(snap.borrowing_limit_ugx)}
             </span>
             {collected > 0 && (
               <span className="text-emerald-700/70 dark:text-emerald-400/70">
@@ -111,13 +115,13 @@ export function BorrowerVouchBadge({ aiId, className }: Props) {
               label={`Earned from collecting (${WELILE_VOUCH_MULTIPLIER}× ${formatUGX(collected)})`}
               value={formatUGX(earned)}
             />
-            {trustBoost > 0 && (
+            {trustBoost !== null && trustBoost > 0 && (
               <Row label="Trust score boost" value={formatUGX(trustBoost)} />
             )}
             <div className="flex items-center justify-between pt-1 mt-1 border-t border-border/60">
               <span className="text-[11px] font-bold text-foreground">Effective Welile vouch</span>
               <span className="text-[11px] font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                {formatUGX(snap.borrowing_limit_ugx)}
+                {formatUGXOrDash(snap.borrowing_limit_ugx)}
               </span>
             </div>
           </div>

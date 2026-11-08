@@ -6,6 +6,9 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { investBounds, defaultUGXFormatter, isInvestAmountValid } from '@/lib/partnershipInvestment';
 import { parseContributionDate } from '@/lib/portfolioDates';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { PARTNER_RETURN_POLICY_QUERY_KEY, usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE } from '@/lib/staffPortfolioRate';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '@/components/ui/dialog';
@@ -25,7 +28,8 @@ interface ParsedRow {
   phone: string;
   email: string;
   investmentAmount: number;
-  roiPercentage: number;
+  /** Typed Returns rate; null = blank (the database gate stores the person's rate). */
+  roiPercentage: number | null;
   durationMonths: number;
   roiMode: string;
   contributionDate: string | null;
@@ -38,7 +42,7 @@ interface ImportGroup {
   email: string;
   portfolios: {
     amount: number;
-    roiPercentage: number;
+    roiPercentage: number | null;
     durationMonths: number;
     roiMode: string;
     contributionDate: string | null;
@@ -63,9 +67,10 @@ const HEADER_ALIASES: Record<string, string[]> = {
   'Phone': ['Phone', 'PHONE', 'Phone Number', 'Mobile', 'Tel'],
   'Email': ['Email', 'EMAIL', 'Email Address', 'E-mail'],
   'Investment Amount': ['Investment Amount', 'Principal (UGX)', 'Principal', 'Amount', 'Amount (UGX)', 'PRINCIPAL (UGX)'],
-  'ROI %': ['ROI %', 'Rate', 'RATE', 'ROI', 'Interest Rate', 'ROI Percentage', 'Interest'],
+  // Canonical key stays 'ROI %' internally; 'Returns %' is the template header (Partner Returns).
+  'ROI %': ['Returns %', 'Returns', 'Monthly Returns (%)', 'Returns Rate', 'ROI %', 'Rate', 'RATE', 'ROI', 'Interest Rate', 'ROI Percentage', 'Interest'],
   'Duration (Months)': ['Duration (Months)', 'Duration', 'Months', 'Term', 'Period'],
-  'ROI Mode': ['ROI Mode', 'Mode', 'Payout Mode', 'ROI Type'],
+  'ROI Mode': ['Returns mode', 'ROI Mode', 'Mode', 'Payout Mode', 'ROI Type'],
   'Contribution Date': ['Contribution Date', 'Date', 'Investment Date', 'Start Date', 'CONTRIBUTION DATE'],
 };
 
@@ -90,12 +95,13 @@ const VALID_ROI_MODES = ['monthly_payout', 'monthly_compounding'];
 
 async function downloadTemplate() {
   const XLSX = await loadXLSX();
-  const headers = ['Partner Name', 'Phone', 'Email', 'Investment Amount', 'Contribution Date', 'ROI %', 'Duration (Months)', 'ROI Mode'];
+  const headers = ['Partner Name', 'Phone', 'Email', 'Investment Amount', 'Contribution Date', 'Returns %', 'Duration (Months)', 'Returns mode'];
+  // The Returns % column is optional: a blank cell sends no typed rate (the database decides).
   const samples = [
     ['Ssenkaali Pius', '0700123456', 'pius@example.com', 500000, '2025-03-09', 15, 12, 'monthly_compounding'],
     ['Ssenkaali Pius', '0700123456', 'pius@example.com', 300000, '2025-01-15', 15, 12, 'monthly_payout'],
     ['Namukisha Esther', '0754155112', 'esther@example.com', 1000000, '2024-11-20', 15, 12, 'monthly_compounding'],
-    ['John Doe', '', '', 200000, '', 15, 6, 'monthly_payout'],
+    ['John Doe', '', '', 200000, '', '', 6, 'monthly_payout'],
   ];
   const ws = XLSX.utils.aoa_to_sheet([headers, ...samples]);
   ws['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 16 }, { wch: 8 }, { wch: 18 }, { wch: 22 }];
@@ -126,7 +132,10 @@ function validateRow(row: any, rowNum: number): ParsedRow {
   const phone = normalizePhone(mapped['Phone'] || '');
   const email = String(mapped['Email'] || '').trim();
   const amount = parseAmount(mapped['Investment Amount']);
-  const roi = Number(mapped['ROI %']);
+  // Partner Returns: the rate column may be blank (no typed rate -> the database gate decides,
+  // today's 15 while the switch is off). A typed rate keeps today's 1-30 check.
+  const rawRoi = mapped['ROI %'];
+  const roi: number | null = rawRoi == null || String(rawRoi).trim() === '' ? null : Number(rawRoi);
   const rawDuration = mapped['Duration (Months)'];
   const duration = rawDuration != null && String(rawDuration).trim() !== '' ? Number(rawDuration) : 12;
   const rawRoiMode = mapped['ROI Mode'];
@@ -142,9 +151,9 @@ function validateRow(row: any, rowNum: number): ParsedRow {
     if (isNaN(amount) || amount < min) errors.push(`Amount must be ≥ ${min.toLocaleString('en-US')}`);
     else errors.push(`Amount must be ≤ ${max.toLocaleString('en-US')}`);
   }
-  if (isNaN(roi) || roi < 1 || roi > 30) errors.push('ROI must be 1-30%');
+  if (roi !== null && (isNaN(roi) || roi < 1 || roi > 30)) errors.push('Returns rate must be 1-30%');
   if (isNaN(duration) || duration < 1 || duration > 36) errors.push('Duration must be 1-36 months');
-  if (!VALID_ROI_MODES.includes(roiMode)) errors.push(`ROI mode must be: ${VALID_ROI_MODES.join(' or ')}`);
+  if (!VALID_ROI_MODES.includes(roiMode)) errors.push(`Returns mode must be: ${VALID_ROI_MODES.join(' or ')}`);
 
   return { rowNum, partnerName: name, phone, email, investmentAmount: amount, roiPercentage: roi, durationMonths: duration, roiMode, contributionDate, errors };
 }
@@ -249,6 +258,10 @@ export default function PartnerImportDialog({ open, onOpenChange, onSuccess }: P
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Partner Returns: the server refuses typed rates with 409 POLICY_CHANGED unless this screen saw
+  // the switch on (design v2 §3.1.0); fresh read on mount.
+  const qc = useQueryClient();
+  const partnerReturnPolicy = usePartnerReturnPolicy({ fresh: true });
 
   const handleClose = () => {
     setStep('upload');
@@ -339,9 +352,13 @@ export default function PartnerImportDialog({ open, onOpenChange, onSuccess }: P
       }));
 
       const { data, error } = await supabase.functions.invoke('import-partners', {
-        body: { partners: payload },
+        body: { partners: payload, policy_enabled_seen: partnerReturnPolicy.enabled === true },
       });
 
+      if (error && await isPolicyChangedError(error)) {
+        qc.invalidateQueries({ queryKey: PARTNER_RETURN_POLICY_QUERY_KEY });
+        throw new Error(POLICY_CHANGED_MESSAGE);
+      }
       if (error) {
         let errMsg = error.message || 'Import failed';
         try {
@@ -465,7 +482,7 @@ export default function PartnerImportDialog({ open, onOpenChange, onSuccess }: P
                       {g.portfolios.map((p, j) => (
                         <div key={j} className="flex gap-3">
                           <span>{formatUGX(p.amount)}</span>
-                          <span>{p.roiPercentage}% ROI</span>
+                          <span>{p.roiPercentage != null ? `${p.roiPercentage}% Returns` : "Partner's rate"}</span>
                           <span>{p.durationMonths}mo</span>
                           <span className="capitalize">{p.roiMode.replace('_', ' ')}</span>
                           {p.contributionDate && <span className="text-xs text-muted-foreground/70">📅 {p.contributionDate}</span>}

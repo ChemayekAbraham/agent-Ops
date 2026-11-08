@@ -4,6 +4,7 @@ import { extractInquiryLeadDetails, buildSignupPersuasionPitch } from '../_share
 import { sendWhatsApp } from '../_shared/whatsapp.ts';
 import { buildNexaSystemPrompt, wantsHuman, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from '../_shared/nexa.ts';
 import { recordAccessAlert } from '../_shared/nexaAccess.ts';
+import { cachedPublicPolicy } from '../_shared/partnerReturnPolicy.ts';
 import { verifyMetaSignature } from './security.ts';
 import { buildWhatsAppAiReply } from './ai.ts';
 const corsHeaders = { 'Access-Control-Allow-Origin':'*', 'Access-Control-Allow-Headers':'content-type, x-hub-signature-256' };
@@ -30,6 +31,10 @@ Deno.serve(async req => {
     const url=Deno.env.get('SUPABASE_URL'), key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if(!url || !key) return reply('Service unavailable',503);
     const admin=createClient(url,key);
+    // PUBLIC new-partner rate only (a phone number is not an identity): read once per inbound
+    // webhook call, lazily, from the 60 s isolate cache. null = unknown -> replies give no figure.
+    let publicRateRead:Promise<number|null>|null=null;
+    const publicRate=()=>publicRateRead ??= cachedPublicPolicy(admin).then(p=>p?.newContractRate ?? null);
     for(const entry of payload.entry.slice(0,10)) for(const change of (entry.changes ?? []).slice(0,10)) {
       if(change.field!=='messages') continue;
       if(change.value?.metadata?.phone_number_id!==Deno.env.get('META_WHATSAPP_PHONE_NUMBER_ID')) continue;
@@ -45,7 +50,8 @@ Deno.serve(async req => {
         // A WhatsApp number is a contact channel, NOT an authenticated app identity.
         // Never attach private in-app data based on a phone match alone.
         let answer:string;
-        const guide = buildNexaPublicGuideReply(text);
+        const returnsRate = await publicRate();
+        const guide = buildNexaPublicGuideReply(text, false, returnsRate);
         if(isRestrictedInternalStaffQuery(text)) {
           await recordAccessAlert(admin,{userId:null,phone:`+${msg.from}`,channel:'whatsapp',roles:[],attemptedResource:'internal_staff_query',userMessage:text,reason:'Non-staff caller asked for internal staff-only information'});
           answer=buildInternalStaffRefusalReply();
@@ -59,11 +65,11 @@ Deno.serve(async req => {
         } else {
           const {data:knowledge}=await admin.from('nexa_learned_knowledge').select('topic,question_pattern,canonical_answer').eq('active',true).eq('role_scope','all').limit(20);
           const aiKey=Deno.env.get('LOVABLE_API_KEY'); if(!aiKey) return reply('AI unavailable',503);
-          answer=await buildWhatsAppAiReply(aiKey,buildNexaSystemPrompt([], false)+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
+          answer=await buildWhatsAppAiReply(aiKey,buildNexaSystemPrompt([], false, returnsRate)+' Never claim a phone inquiry creates an account or proves ownership. Never supply passwords, reveal account existence or promise unverified signup bonuses. Use the secure consent-based signup flow.'+knowledgeContext(knowledge ?? []),text,req.signal);
         }
         if (!isRestrictedInternalStaffQuery(text) && !isFinancialAccessQuery(text)) {
           const lead = extractInquiryLeadDetails(text, {leadPhone:msg.from});
-          answer += `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
+          answer += `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone, returnsRate)}`;
         }
         const sent=await sendWhatsApp(msg.from,answer);
         // On unknown delivery do not retry the same provider event and duplicate messages.

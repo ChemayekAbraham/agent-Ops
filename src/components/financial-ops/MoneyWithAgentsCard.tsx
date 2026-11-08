@@ -201,7 +201,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
         <button
           type="button"
           onClick={() => setDeskSheetFor(r)}
-          className="ml-2 rounded-md border border-[#C9CFDA] px-2 py-0.5 align-middle text-xs font-semibold text-slate-600 hover:border-[#6D2EE8] hover:text-[#5A1FD0] dark:border-slate-600 dark:text-slate-300"
+          className="mt-1.5 block w-fit whitespace-nowrap rounded-md border border-[#C9CFDA] px-2 py-0.5 text-xs font-semibold text-slate-600 hover:border-[#6D2EE8] hover:text-[#5A1FD0] dark:border-slate-600 dark:text-slate-300"
         >
           Desk sheet
         </button>
@@ -300,7 +300,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
     const booksProveLess = spendableFloat(r) < Math.max(0, r.ledgerFloatHeld);
     return (
       <div>
-        <p className="text-xl font-extrabold tabular-nums text-foreground">{formatUGX(spendableFloat(r))}</p>
+        <p className="text-xl font-extrabold text-foreground">{formatUGX(spendableFloat(r))}</p>
         <p className="text-sm text-muted-foreground">
           {spendableFloat(r) > 0 ? 'Float balance on their phone' : holding ? 'Our money still on their phone' : settled ? 'Nothing outstanding either way' : 'We must send this back to them'}
         </p>
@@ -351,7 +351,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
             <p className="text-sm text-muted-foreground">Company funds held by agents and reimbursements owed</p>
           </div>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 sm:w-auto sm:shrink-0 sm:justify-start sm:gap-3">
           {onOpenTimeline && (
             <button type="button" onClick={onOpenTimeline} className="inline-flex min-h-[44px] items-center gap-2 text-sm font-bold text-[#5A1FD0] hover:underline dark:text-violet-300 sm:min-h-0">
               <ArrowRightLeft className="h-[18px] w-[18px]" aria-hidden="true" /> Settlement timeline <ArrowRight className="h-[18px] w-[18px]" aria-hidden="true" />
@@ -375,14 +375,14 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           <span className={tile}><Coins className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Float they can spend now</p>
-            <p className="break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(floatTotal)}</p>
+            <p className="break-all text-2xl font-black tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(floatTotal)}</p>
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-4 py-3 sm:px-6 sm:py-0">
           <span className={tile}><Smartphone className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <div className="min-w-0">
             <p className="text-sm text-muted-foreground">Our cash still on their phones</p>
-            <p className="break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(heldTotal)}</p>
+            <p className="break-all text-2xl font-black tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(heldTotal)}</p>
           </div>
         </div>
         <button
@@ -394,7 +394,7 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
           <span className={tile}><Undo2 className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" /></span>
           <span className="min-w-0">
             <span className="block text-sm text-muted-foreground">Money we must send back to them</span>
-            <span className="block break-all text-2xl font-black tabular-nums tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(owedTotal)}</span>
+            <span className="block break-all text-2xl font-black tracking-tight text-foreground sm:text-[28px]">{isLoading ? '—' : formatUGX(owedTotal)}</span>
             {!isLoading && underReviewTotal > 0 && (
               <span className="mt-0.5 block text-xs font-semibold text-[#B42318]">
                 + {formatUGX(underReviewTotal)} filed but not supported by the books across {underReviewDesks} {underReviewDesks === 1 ? 'desk' : 'desks'}. Not payable.
@@ -557,9 +557,9 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
                 <ul className="mt-3 space-y-3 lg:hidden">
                   {rows.map((r) => (
                     <li key={r.deskId} className={`space-y-3 rounded-2xl border p-4 ${isUnverified(r) ? 'border-dashed border-[#E8605A] bg-[#FFF3F2] dark:bg-red-500/10' : 'border-border bg-background'}`}>
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         {agentCell(r)}
-                        <div className="shrink-0 text-right">{floatCell(r)}</div>
+                        <div className="min-w-0 sm:max-w-[55%] sm:shrink-0 sm:text-right">{floatCell(r)}</div>
                       </div>
                       {capacityCell(r)}
                       <div className="grid gap-3 sm:grid-cols-2">
