@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
-import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { Wallet, Sparkles, AlertCircle, Plus, CheckCircle2, CalendarClock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -240,9 +240,9 @@ export function FundAccountDialog({
                       <div className="flex items-center justify-between pt-1.5 border-t border-success/15">
                         <span className="text-[10px] text-success/70 flex items-center gap-1">
                           <Sparkles className="h-3 w-3" />
-                          Projected return (15%/mo)
+                          Projected Returns{formatRatePct(ownRate) ? ` (${formatRatePct(ownRate)}/mo)` : ''}
                         </span>
-                        <span className="text-xs font-bold text-success">{formatUGX(monthlyReturn)}/mo</span>
+                        <span className="text-xs font-bold text-success">{formatUGXOrDash(monthlyReturn)}/mo</span>
                       </div>
                     </div>
                   </motion.div>

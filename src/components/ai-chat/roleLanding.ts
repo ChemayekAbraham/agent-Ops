@@ -4,6 +4,7 @@
 // right role, with tailored suggestions and the correct signup CTA.
 
 import { toAuthGatedPath } from '@/lib/nexaSalesEngine';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 export const AI_ROLES = ["tenant", "agent", "landlord", "supporter"] as const;
 export type AiRole = (typeof AI_ROLES)[number];
 
@@ -24,13 +25,21 @@ export interface RoleLanding {
   suggestions: { icon: string; text: string }[];
 }
 
-export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
+/**
+ * Role landings with the public new-partner rate passed in by the component that renders them
+ * (`usePartnerReturnPolicy().newContractRate`). A null rate (unknown) gives copy with no figure.
+ * Never pass a person's own rate here: this is public copy.
+ */
+export function roleLandingsAt(newContractRate: number | null): Record<AiRole, RoleLanding> {
+  const pct = formatRatePct(newContractRate);
+  const returnsFor = pct ? `${pct} monthly Returns for new partners` : 'monthly Returns';
+  return {
   tenant: {
     role: "tenant",
     emoji: "🏠",
     cta: "Get rent help — free account",
     headline: "Need help with rent? 🏠",
-    subtitle: "Grow Rent Access up to UGX 30,000,000 with daily payments, or support tenants for 15% monthly Returns.",
+    subtitle: `Grow Rent Access up to UGX 30,000,000 with daily payments, or support tenants for ${returnsFor}.`,
     suggestions: [
       { icon: "💸", text: "How does a Rent Plan work?" },
       { icon: "🧮", text: "Estimate my rent access" },
@@ -43,7 +52,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "⚡",
     cta: "Become an agent — free account",
     headline: "Earn as a Welile agent ⚡",
-    subtitle: "Help tenants grow Rent Access up to UGX 30,000,000. Tenant Support projects 15% monthly Returns.",
+    subtitle: `Help tenants grow Rent Access up to UGX 30,000,000. Tenant Support projects ${returnsFor}.`,
     suggestions: [
       { icon: "💰", text: "How much can agents make?" },
       { icon: "📋", text: "What does an agent do daily?" },
@@ -56,7 +65,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "🏢",
     cta: "List your house — free account",
     headline: "Guaranteed rent for landlords 🏢",
-    subtitle: "Support tenants for 15% monthly Returns, and help them grow Rent Access up to UGX 30,000,000.",
+    subtitle: `Support tenants for ${returnsFor}, and help them grow Rent Access up to UGX 30,000,000.`,
     suggestions: [
       { icon: "✅", text: "How do I get guaranteed rent?" },
       { icon: "🏠", text: "How do I list my house?" },
@@ -69,7 +78,7 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
     emoji: "💰",
     cta: "Become a Supporter — free account",
     headline: "Support tenants, earn Returns 💰",
-    subtitle: "Tenant Support projects 15% monthly Returns. Daily payments grow Rent Access up to UGX 30,000,000.",
+    subtitle: `Tenant Support projects ${returnsFor}. Daily payments grow Rent Access up to UGX 30,000,000.`,
     suggestions: [
       { icon: "📈", text: "Estimate my Supporter Returns" },
       { icon: "❓", text: "What is the Supporter programme?" },
@@ -77,7 +86,8 @@ export const ROLE_LANDINGS: Record<AiRole, RoleLanding> = {
       { icon: "🪙", text: "What is the minimum to start?" },
     ],
   },
-};
+  };
+}
 
 /** Builds the role-scoped signup CTA link, preserving attribution params. */
 export function buildRoleSignupHref(

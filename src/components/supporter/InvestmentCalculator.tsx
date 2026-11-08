@@ -971,8 +971,8 @@ export function InvestmentCalculator() {
               <p className="font-bold text-primary text-xs sm:text-sm">{formatUGX(calculations.requiredContribution)}</p>
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Rewards</p>
-              <p className="font-bold text-success text-xs sm:text-sm">target 15%, not guaranteed</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Returns</p>
+              <p className="font-bold text-success text-xs sm:text-sm">{ratePctLabel ? `target ${ratePctLabel}, not guaranteed` : '—'}</p>
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-muted">
               <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Duration</p>

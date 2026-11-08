@@ -88,10 +88,11 @@ describe('RentCategoryFeed: reward priced at render, never cached', () => {
     expect(await screen.findByText(`+F${at10}`)).toBeInTheDocument();
   });
 
-  it('no rate: no figure is computed (null reaches the markup, never a 15% default)', async () => {
+  it('no rate: no figure is computed (the card shows "—", never a 15% default)', async () => {
     mocks.rate = null;
     render(<RentCategoryFeed onFundCategory={() => {}} />);
-    await screen.findAllByText('+Fnull');
+    await screen.findAllByText('—');
+    expect(screen.queryByText('+Fnull')).toBeNull();
     expect(screen.queryByText(`+F${OLD_REWARD}`)).toBeNull();
   });
 });

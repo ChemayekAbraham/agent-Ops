@@ -13,7 +13,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { fetchAgentLedgerEarnings } from '@/lib/agentLedgerEarnings';
 import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { cn } from '@/lib/utils';
-import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import {
   Users, TrendingUp, Wallet, Banknote, Copy, Check, Share2,
   Activity, Clock, ArrowUpRight, Loader2, RefreshCw, Link2,
@@ -424,7 +424,7 @@ I'll personally guide you.`;
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground">Monthly ROI</p>
-                              <p className="text-xs font-bold text-success">{p.roiPercentage}%</p>
+                              <p className="text-xs font-bold text-success">{formatRatePct(p.roiPercentage) ?? '—'}</p>
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground">Joined</p>

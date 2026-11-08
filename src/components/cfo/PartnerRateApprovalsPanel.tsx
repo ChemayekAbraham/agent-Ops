@@ -199,6 +199,11 @@ export function PartnerRateApprovalsPanel() {
                     {r.current_rate != null && Number(r.current_rate) !== Number(r.rate_in_force) && (
                       <span className="block text-xs text-muted-foreground">now {pct(r.current_rate)}</span>
                     )}
+                    {r.requested_rate != null && r.standard_rate != null && Number(r.requested_rate) < Number(r.standard_rate) && (
+                      <Badge variant="outline" className="mt-1 flex w-fit border-amber-500/50 text-amber-700 dark:text-amber-400">
+                        lower than this person&apos;s rate
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="min-w-[8rem]">
                     <span className="block">{r.requested_by_name || '—'}</span>

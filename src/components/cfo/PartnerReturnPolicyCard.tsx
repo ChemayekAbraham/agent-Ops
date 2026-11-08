@@ -22,8 +22,8 @@ import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 const when = (iso: string | null | undefined) => (iso ? format(new Date(iso), 'd MMM yyyy, HH:mm') : '—');
 
 /**
- * The partner Returns switch (partner_return_policy). Shows what new contracts earn now;
- * CFO, CEO and Super Admin can turn it on or off after a confirmation that spells out the effect.
+ * The partner Returns switch (partner_return_policy). Shows what new partners earn now;
+ * only the CEO can turn it on or off, after a confirmation that spells out the owner's rule (6 Nov).
  * The database re-checks the role and the authenticator step on every change.
  */
 export function PartnerReturnPolicyCard() {
@@ -66,7 +66,7 @@ export function PartnerReturnPolicyCard() {
           <Percent className="h-4 w-4 text-primary" /> Partner Returns rate for new contracts
         </CardTitle>
         <CardDescription>
-          While the switch is on, new portfolios and renewals earn the policy rate; top-ups and existing portfolios keep their own rate.
+          While the switch is on, new partners earn the new-partner rate; existing partners keep their own rate, employees earn 20% and renewals keep their rate.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -83,7 +83,7 @@ export function PartnerReturnPolicyCard() {
               <div className="flex items-center gap-2">
                 <Badge variant={p.enabled ? 'default' : 'secondary'}>{p.enabled ? 'On' : 'Off'}</Badge>
                 <span className="text-sm">
-                  New contracts earn <strong className="tabular-nums">{formatRatePct(Number(p.new_contract_rate))}</strong>
+                  New contracts earn <strong className="tabular-nums">{newContractRatePct}</strong>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -110,7 +110,7 @@ export function PartnerReturnPolicyCard() {
               ))}
             </dl>
             {!canSwitch && (
-              <p className="text-xs text-muted-foreground">Only the CFO, CEO or Super Admin can turn this switch on or off.</p>
+              <p className="text-xs text-muted-foreground">Only the CEO can turn this switch on or off.</p>
             )}
           </>
         )}
@@ -123,17 +123,18 @@ export function PartnerReturnPolicyCard() {
             <AlertDialogDescription asChild>
               {target ? (
                 <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Every new portfolio, including a new one for an existing partner, earns {policyRate}.</li>
-                  <li>Renewals move to {policyRate} for the new term.</li>
-                  <li>Top-ups and existing portfolios keep their own rate.</li>
-                  <li>Any other rate staff type goes to the CFO queue: a new portfolio earns {policyRate} and an edited one keeps its rate until the CFO approves; an approved rate applies from the next cycle.</li>
+                  <li>New partners earn the new-partner rate ({policyRate}) from the cut-off. The cut-off is set the first time the switch goes on and never moves.</li>
+                  <li>Existing partners keep their own rate on new portfolios, with no cap.</li>
+                  <li>Employees earn 20%.</li>
+                  <li>Renewals keep their rate. Top-ups and existing portfolios keep their own rate too.</li>
+                  <li>If staff type a rate different from the person&apos;s rate, the portfolio is stored at the person&apos;s rate and the typed rate waits for the CFO; an approved rate applies from the next cycle.</li>
                 </ul>
               ) : (
                 <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
                   <li>New contracts go back to {legacyRate}.</li>
                   <li>Renewals keep their current rate.</li>
                   <li>Typed rates are no longer held for the CFO. Requests already in the queue stay there and can still be decided.</li>
-                  <li>Portfolios opened at {policyRate} keep that rate.</li>
+                  <li>Portfolios already opened keep their stored rate. If the switch goes on again, the first cut-off still applies.</li>
                 </ul>
               )}
             </AlertDialogDescription>

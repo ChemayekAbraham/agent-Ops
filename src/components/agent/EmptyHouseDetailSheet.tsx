@@ -288,7 +288,7 @@ export function EmptyHouseDetailSheet({
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Potential earnings</p>
               <div className="grid grid-cols-2 gap-3 text-[12px]">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Monthly Returns (15%)</p>
+                  <p className="text-[10px] text-muted-foreground">{returnsRatePct ? `Monthly Returns (${returnsRatePct})` : 'Monthly Returns'}</p>
                   <p className="text-base font-black text-primary">{formatUGXOrDash(house.partner_monthly_return)}</p>
                 </div>
                 <div>
@@ -358,7 +358,7 @@ export function EmptyHouseDetailSheet({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Monthly Returns</span>
-                <span className="font-bold text-primary">15%</span>
+                <span className="font-bold text-primary">{returnsRatePct ?? '—'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{isPartner ? 'You earn today' : 'Partner earns today'}</span>

@@ -349,3 +349,15 @@ BEGIN
     RAISE EXCEPTION '4b rollback: restored text differs from production:%', v_bad USING ERRCODE = '55000';
   END IF;
 END $chk$;
+
+-- 6. Give the browser back its table-level SELECT on welile_trust_score_cache (as before 4b).
+DO $cache$
+DECLARE v_cols text;
+BEGIN
+  SELECT string_agg(quote_ident(a.attname), ', ') INTO v_cols FROM pg_attribute a
+   WHERE a.attrelid = 'public.welile_trust_score_cache'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+     AND a.attname <> 'borrowing_limit_ugx';
+  EXECUTE format('REVOKE SELECT (%s) ON public.welile_trust_score_cache FROM authenticated', v_cols);
+  GRANT SELECT ON public.welile_trust_score_cache TO anon, authenticated;
+END $cache$;
+NOTIFY pgrst, 'reload schema';

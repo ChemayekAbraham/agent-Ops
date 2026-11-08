@@ -28,6 +28,8 @@ import { Shield, Lock } from 'lucide-react';
 import { extractEdgeFunctionError, extractEdgeFunctionErrorDetails, type EdgeFunctionErrorDetails } from '@/lib/extractEdgeFunctionError';
 import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
 import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, createResponseRateMessage } from '@/components/shared/PartnerRateCfoNote';
 
 interface CreateInvestmentAccountDialogProps {
   open: boolean;
@@ -304,15 +306,17 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
       const data = response.data;
 
       const code = data?.portfolio_code || '';
+      const rateMessage = createResponseRateMessage(data);
+      const withRateMessage = (text: string) => (rateMessage ? `${text} ${rateMessage}` : text);
       if (mode === 'direct_confirmation') {
         toast({
           title: `Portfolio ${code} created`,
-          description: `${selectedUser.full_name} has been emailed the Tenant Partnership Confirmation.`,
+          description: withRateMessage(`${selectedUser.full_name} has been emailed the Tenant Partnership Confirmation.`),
         });
       } else {
         toast({
           title: `Invite sent — portfolio ${code}`,
-          description: `${selectedUser.full_name} will get an email to review and sign. It’s now in the Invited Portfolios tab.`,
+          description: withRateMessage(`${selectedUser.full_name} will get an email to review and sign. It’s now in the Invited Portfolios tab.`),
         });
       }
       qc.invalidateQueries({ queryKey: ['invited-portfolios'] });
@@ -453,8 +457,9 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">ROI %</Label>
+              <Label className="text-xs">Monthly Returns (%)</Label>
               <Input type="number" min={0} max={100} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-9" />
+              <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Duration</Label>
@@ -471,7 +476,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">ROI Mode</Label>
+              <Label className="text-xs">Returns Mode</Label>
               <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -695,8 +700,8 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
                     <span>{form.duration_months} months</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">ROI</span>
-                    <span>{form.roi_percentage}% ({form.roi_mode === 'monthly_payout' ? 'monthly payout' : 'compounding'})</span>
+                    <span className="text-muted-foreground">Monthly Returns (%)</span>
+                    <span>{formatRatePct(rateOrNull(form.roi_percentage)) ?? (rate.edited ? '—' : "the partner's rate")} ({form.roi_mode === 'monthly_payout' ? 'monthly payout' : 'compounding'})</span>
                   </div>
                   {existingPortfolioCount != null && existingPortfolioCount > 0 && (
                     <div className="flex justify-between">

@@ -131,7 +131,7 @@ export default function CalculatorPage() {
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
             <Sparkles className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs font-bold text-success">Partner Returns target 15%, not guaranteed</span>
+            <span className="text-xs font-bold text-success">{ratePctLabel ? `Partner Returns target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Returns are not guaranteed'}</span>
           </div>
         </motion.div>
 
@@ -228,7 +228,7 @@ export default function CalculatorPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-base font-black leading-tight"
                 >
-                  {formatAmount(calculations.requiredInvestment)}
+                  {calculations.requiredInvestment === null ? '—' : formatAmount(calculations.requiredInvestment)}
                 </motion.p>
               </AnimatePresence>
             </CardContent>
@@ -249,7 +249,7 @@ export default function CalculatorPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-base font-black text-success leading-tight"
                 >
-                  {formatAmount(isCompounding ? finalProjection?.totalEarnings || 0 : calculations.monthlyReturn)}
+                  {calculations.monthlyReturn === null ? '—' : formatAmount(isCompounding ? finalProjection?.totalEarnings || 0 : calculations.monthlyReturn)}
                 </motion.p>
               </AnimatePresence>
             </CardContent>
@@ -313,11 +313,11 @@ export default function CalculatorPage() {
                   <div className="grid grid-cols-3 gap-2 p-3 border-b bg-muted/30">
                     <div className="text-center p-2 rounded-lg bg-primary/10">
                       <p className="text-[9px] text-muted-foreground">Support</p>
-                      <p className="text-xs font-bold text-primary">{formatAmount(calculations.requiredInvestment)}</p>
+                      <p className="text-xs font-bold text-primary">{calculations.requiredInvestment === null ? '—' : formatAmount(calculations.requiredInvestment)}</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-success/10">
                       <p className="text-[9px] text-muted-foreground">Returns</p>
-                      <p className="text-xs font-bold text-success">15%/mo</p>
+                      <p className="text-xs font-bold text-success">{ratePctLabel ? `${ratePctLabel}/mo` : '—'}</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-muted">
                       <p className="text-[9px] text-muted-foreground">Compound</p>
@@ -351,11 +351,11 @@ export default function CalculatorPage() {
                   <div className="p-4 bg-gradient-to-r from-success/10 to-success/5 border-t">
                     <div className="flex justify-between items-center">
                       <span className="font-semibold">Final Balance</span>
-                      <span className="text-lg font-black text-success">{formatAmount(finalProjection?.balance || 0)}</span>
+                      <span className="text-lg font-black text-success">{finalProjection ? formatAmount(finalProjection.balance || 0) : '—'}</span>
                     </div>
                     <div className="flex justify-between items-center mt-1">
                       <span className="text-sm text-muted-foreground">Total Earnings</span>
-                      <span className="font-bold text-success">{formatAmount(finalProjection?.totalEarnings || 0)}</span>
+                      <span className="font-bold text-success">{finalProjection ? formatAmount(finalProjection.totalEarnings || 0) : '—'}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -374,7 +374,7 @@ export default function CalculatorPage() {
             <CardContent className="p-4 text-center space-y-3">
               <h3 className="font-bold text-sm">Start Earning Today</h3>
               <p className="text-xs text-muted-foreground">
-                Support with Welile and earn 15% monthly returns by supporting tenants
+                {ratePctLabel ? `Support with Welile and earn ${ratePctLabel} monthly Returns by supporting tenants` : 'Support with Welile and earn monthly Returns by supporting tenants'}
               </p>
               <Button 
                 onClick={() => navigate('/become-supporter')} 

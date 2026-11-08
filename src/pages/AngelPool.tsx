@@ -184,9 +184,9 @@ export default function AngelPool() {
                     <TrendingUp className="h-3.5 w-3.5 text-emerald-400/80" />
                   </div>
                   <p className="text-sm font-black leading-none text-primary-foreground truncate">
-                    {formatAmountCompact(monthlyReturn)}
+                    {monthlyReturn === null ? '—' : formatAmountCompact(monthlyReturn)}
                   </p>
-                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Return/mo</p>
+                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Returns/mo</p>
                 </div>
 
                 <div className="portfolio-stat-cell-v2 rounded-xl px-1.5 py-3 text-center overflow-hidden">

@@ -7,7 +7,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 import { calcFunderEarningsAt, sumFunderEarningsAt } from '@/lib/funderEarnings';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { FunderEarningsAssumptions } from './FunderEarningsAssumptions';
@@ -673,14 +674,14 @@ export function FunderDirectHouseListing() {
                   </SelectTrigger>
                   <SelectContent>
                     {SORTS.map((s) => (
-                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                      <SelectItem key={s.value} value={s.value} className="text-xs" disabled={ownRate === null && s.value.startsWith('earn_')}>
                         {s.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={draftMinMonthlyEarn} onValueChange={setDraftMinMonthlyEarn}>
+                <Select value={draftMinMonthlyEarn} onValueChange={setDraftMinMonthlyEarn} disabled={ownRate === null}>
                   <SelectTrigger className="h-9 text-xs" aria-label="Filter by projected monthly earning">
                     <SelectValue placeholder="Monthly earning" />
                   </SelectTrigger>
@@ -693,7 +694,7 @@ export function FunderDirectHouseListing() {
                   </SelectContent>
                 </Select>
 
-                <Select value={draftMinAnnualEarn} onValueChange={setDraftMinAnnualEarn}>
+                <Select value={draftMinAnnualEarn} onValueChange={setDraftMinAnnualEarn} disabled={ownRate === null}>
                   <SelectTrigger className="h-9 text-xs" aria-label="Filter by projected 12-month earning">
                     <SelectValue placeholder="12-month earning" />
                   </SelectTrigger>
@@ -904,19 +905,21 @@ export function FunderDirectHouseListing() {
                   View repayment terms
                 </button>
 
-                {/* Funder earning projection — 15% of monthly rent */}
+                {/* Funder earning projection at the viewer's own rate */}
                 {earn.capital > 0 && (
                   <div className="mt-2 rounded-xl border border-primary/20 bg-primary/5 p-2.5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
                         <TrendingUp className="h-3 w-3 text-primary" /> You earn
                       </span>
-                      <span className="text-[9px] font-semibold text-muted-foreground">
-                        15% / month
-                      </span>
+                      {formatRatePct(ownRate) && (
+                        <span className="text-[9px] font-semibold text-muted-foreground">
+                          {formatRatePct(ownRate)} / month
+                        </span>
+                      )}
                     </div>
                     <p className="text-base font-black text-primary leading-none">
-                      {formatUGX(earn.monthly)}
+                      {formatUGXOrDash(earn.monthly)}
                       <span className="text-[9px] font-normal text-muted-foreground"> /month</span>
                     </p>
                     <div className="grid grid-cols-3 gap-1 pt-0.5">
@@ -927,7 +930,7 @@ export function FunderDirectHouseListing() {
                       ].map((m) => (
                         <div key={m.label} className="text-center">
                           <p className="text-[10px] font-black text-foreground leading-tight">
-                            {formatUGX(m.value)}
+                            {formatUGXOrDash(m.value)}
                           </p>
                           <p className="text-[8px] text-muted-foreground font-medium">{m.label}</p>
                         </div>
@@ -1051,7 +1054,7 @@ export function FunderDirectHouseListing() {
                   {selectedHouses.length} {selectedHouses.length === 1 ? 'house' : 'houses'} selected
                 </p>
                 <p className="text-xl font-black text-primary leading-tight">
-                  {formatUGX(selectionTotals.monthly)}
+                  {formatUGXOrDash(selectionTotals.monthly)}
                   <span className="text-[10px] font-normal text-muted-foreground"> /month</span>
                 </p>
               </div>
@@ -1079,7 +1082,7 @@ export function FunderDirectHouseListing() {
               ].map((m) => (
                 <div key={m.label} className="rounded-xl bg-muted/40 py-1.5 text-center">
                   <p className="text-[11px] font-black text-foreground leading-tight">
-                    {formatUGX(m.value)}
+                    {formatUGXOrDash(m.value)}
                   </p>
                   <p className="text-[8px] text-muted-foreground font-medium">{m.label}</p>
                 </div>
@@ -1118,7 +1121,7 @@ export function FunderDirectHouseListing() {
                 : 'Review & lock selection'}
             </Button>
             <p className="text-[9px] text-muted-foreground/80 text-center leading-relaxed">
-              You earn 15% of each house's monthly rent while the tenant repays.
+              You earn monthly Returns on each house's rent while the tenant repays.
             </p>
           </motion.div>
         )}
@@ -1136,6 +1139,7 @@ export function FunderDirectHouseListing() {
         }))}
         totals={selectionTotals}
         walletBalance={walletBalance}
+        rate={ownRate}
         onConfirm={() => {
           hapticTap();
           setSelectionLocked(true);

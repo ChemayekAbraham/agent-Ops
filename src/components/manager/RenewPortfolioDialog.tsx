@@ -8,7 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { formatUGX } from '@/lib/rentCalculations';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
-import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, rateAwaitsCfoMessage } from '@/components/shared/PartnerRateCfoNote';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
@@ -91,7 +92,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
 
     const newRoi = parseFloat(roiPercentage);
     if (isNaN(newRoi) || newRoi <= 0 || newRoi > 100) {
-      toast({ title: 'ROI must be between 0.1% and 100%', variant: 'destructive' });
+      toast({ title: 'Monthly Returns rate must be between 0.1% and 100%', variant: 'destructive' });
       return;
     }
 
@@ -189,7 +190,9 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
         },
       });
 
-      toast({ title: 'Portfolio renewed successfully' });
+      toast(rateAwaitsCfo
+        ? { title: 'Portfolio renewed successfully', description: rateAwaitsCfoMessage(newRoi, rateInForce) }
+        : { title: 'Portfolio renewed successfully' });
 
       // Fire-and-forget renewal confirmation email to the partner
       try {
@@ -259,7 +262,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
             <RefreshCw className="h-5 w-5 text-amber-600" /> Renew Portfolio
           </DialogTitle>
           <DialogDescription>
-            Renew <strong>{displayName}</strong> — resets the cycle, ROI earned to zero, and sets the portfolio to active.
+            Renew <strong>{displayName}</strong> — resets the cycle, Returns earned to zero, and sets the portfolio to active.
           </DialogDescription>
         </DialogHeader>
 
@@ -267,7 +270,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
           {/* Current summary */}
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-1 text-xs">
             <p><span className="text-muted-foreground">Current Amount:</span> <strong>{formatUGX(portfolio?.investment_amount || 0)}</strong></p>
-            <p><span className="text-muted-foreground">Current ROI:</span> <strong>{portfolio?.roi_percentage}%</strong></p>
+            <p><span className="text-muted-foreground">Current Monthly Returns (%):</span> <strong>{formatRatePct(rateOrNull(portfolio?.roi_percentage)) ?? '—'}</strong></p>
             <p><span className="text-muted-foreground">Duration:</span> <strong>{portfolio?.duration_months || 12} months</strong></p>
             <p><span className="text-muted-foreground">Started:</span> <strong>{portfolio?.created_at ? format(new Date(portfolio.created_at), 'PPP') : '—'}</strong></p>
           </div>
@@ -300,7 +303,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
             </Popover>
           </div>
 
-          {/* Duration & ROI */}
+          {/* Duration & Returns rate */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">New Duration</Label>
@@ -314,7 +317,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">New ROI %</Label>
+              <Label className="text-xs font-medium">New Monthly Returns (%)</Label>
               <Input
                 type="number"
                 min={0.1}
@@ -324,6 +327,12 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
                 onChange={e => setRoiPercentage(e.target.value)}
                 className="h-9"
                 placeholder="e.g. 20"
+              />
+              <PartnerRateCfoNote
+                policyEnabled={partnerReturnPolicy.enabled}
+                personRate={null}
+                typedRate={roiPercentage}
+                currentRate={rateOrNull(portfolio?.roi_percentage)}
               />
             </div>
           </div>

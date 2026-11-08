@@ -55,7 +55,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
       // 1–2 characters cannot use the trigram index. Do not ILIKE the directory.
       if (term.length > 0 && term.length < 3) return { rows: [], count: 0 };
       let peopleQuery = supabase.from('profiles')
-        .select('id, full_name, phone, avatar_url, village, parish, sub_county, district, city, welile_trust_score_cache!welile_trust_score_cache_user_id_fkey(ai_id, borrowing_limit_ugx)', { count: 'exact' })
+        .select('id, full_name, phone, avatar_url, village, parish, sub_county, district, city, welile_trust_score_cache!welile_trust_score_cache_user_id_fkey(ai_id, borrowing_limit_ugx:borrowing_limit_shown)', { count: 'exact' })
         .neq('id', user.id);
       if (term.length >= 3) {
         const clause = profileTypeaheadFilter(term);
@@ -67,10 +67,10 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
           `village.ilike.%${locationTerm}%,parish.ilike.%${locationTerm}%,sub_county.ilike.%${locationTerm}%,district.ilike.%${locationTerm}%,city.ilike.%${locationTerm}%`
         );
       }
-      if (minVouch !== null) peopleQuery = peopleQuery.gte('welile_trust_score_cache.borrowing_limit_ugx', minVouch);
+      if (minVouch !== null) peopleQuery = peopleQuery.gte('welile_trust_score_cache.borrowing_limit_shown', minVouch);
       if (sort === 'vouch') {
         peopleQuery = peopleQuery
-          .order('welile_trust_score_cache(borrowing_limit_ugx)', { ascending: false, nullsFirst: false })
+          .order('welile_trust_score_cache(borrowing_limit_shown)', { ascending: false, nullsFirst: false })
           .order('full_name')
           .order('id');
       } else {
@@ -168,7 +168,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
             </button>
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
               <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5 text-success" />Welile vouches up to</p>
-                <p className="mt-1 text-lg font-semibold text-foreground">{person.trust ? formatUGX(Number(person.trust.borrowing_limit_ugx)) : 'Not available'}</p></div>
+                <p className="mt-1 text-lg font-semibold text-foreground">{!person.trust ? 'Not available' : person.trust.borrowing_limit_ugx != null ? formatUGX(Number(person.trust.borrowing_limit_ugx)) : '—'}</p></div>
               <Button variant="outline" className="h-11 min-w-20" disabled={!person.phone} onClick={() => { if (person.phone) onLend(person.phone); }}>Lend</Button>
             </div>
           </article>

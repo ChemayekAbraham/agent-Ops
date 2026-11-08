@@ -36,7 +36,7 @@ function renderCard() {
 beforeEach(() => {
   cleanup();
   vi.clearAllMocks();
-  mocks.enabledRoles = ['cfo'];
+  mocks.enabledRoles = ['ceo'];
   let current = OFF;
   mocks.rpc.mockImplementation(async (fn: string) => {
     if (fn === 'get_partner_return_policy') return { data: current, error: null };
@@ -56,7 +56,7 @@ describe('PartnerReturnPolicyCard', () => {
   it('confirms the effect, calls set_partner_return_policy and refreshes the policy', async () => {
     const { invalidate } = renderCard();
     fireEvent.click(await screen.findByRole('switch', { name: 'Partner Returns switch' }));
-    expect(await screen.findByText(/Every new portfolio, including a new one for an existing partner, earns 10%/)).toBeInTheDocument();
+    expect(await screen.findByText(/New partners earn the new-partner rate \(10%\) from the cut-off/)).toBeInTheDocument();
     expect(screen.getByText(/Top-ups and existing portfolios keep their own rate/)).toBeInTheDocument();
     expect(mocks.rpc).not.toHaveBeenCalledWith('set_partner_return_policy', expect.anything());
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: 'Board decision' } });
@@ -81,6 +81,6 @@ describe('PartnerReturnPolicyCard', () => {
     mocks.enabledRoles = ['coo'];
     renderCard();
     expect(await screen.findByRole('switch', { name: 'Partner Returns switch' })).toBeDisabled();
-    expect(screen.getByText(/Only the CFO, CEO or Super Admin/)).toBeInTheDocument();
+    expect(screen.getByText(/Only the CEO can turn this switch/)).toBeInTheDocument();
   });
 });

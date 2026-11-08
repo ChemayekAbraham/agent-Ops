@@ -30,6 +30,7 @@ import { recomputeNextRoiDateForPayoutDay } from '@/lib/portfolioDates';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
 import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { PartnerRateCfoNote, createResponseRateMessage } from '@/components/shared/PartnerRateCfoNote';
 
 // ════════════════════════════════════════════════════════════════
 // Shared validators — keep portfolio payout fields clean & DB-safe
@@ -2937,7 +2938,8 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
         record_id: response.data?.portfolio_id || partner.id,
         metadata: { source: 'PartnerOps NewPartnersPanel inline', partner: partner.full_name, amount: amt, code },
       });
-      toast({ title: `✅ Invite sent — portfolio ${code}`, description: 'It now appears in Invited Portfolios for tracking.' });
+      const rateMessage = createResponseRateMessage(response.data);
+      toast({ title: `✅ Invite sent — portfolio ${code}`, description: rateMessage ? `It now appears in Invited Portfolios for tracking. ${rateMessage}` : 'It now appears in Invited Portfolios for tracking.' });
       onCreated();
     } catch (e: any) {
       toast({ title: 'Invite failed', description: e?.message || 'Try again', variant: 'destructive' });
@@ -2977,8 +2979,9 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           </p>
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px]">ROI %</Label>
+          <Label className="text-[10px]">Monthly Returns (%)</Label>
           <Input type="number" min={0} max={100} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-8 text-xs" />
+          <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
         </div>
         <div className="space-y-1">
           <Label className="text-[10px]">Duration</Label>
@@ -2992,7 +2995,7 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px]">ROI Mode</Label>
+          <Label className="text-[10px]">Returns Mode</Label>
           <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>

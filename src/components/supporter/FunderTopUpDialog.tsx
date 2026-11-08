@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Phone, Building2, Banknote, Check, Wallet, TrendingUp } from 'lucide-react';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import DepositFlow from '@/components/payments/DepositFlow';
 
@@ -92,7 +92,7 @@ export function FunderTopUpDialog({
               </div>
               <div className="flex items-center gap-1.5 pt-1 text-[10px] text-muted-foreground">
                 <TrendingUp className="h-3 w-3 text-success" />
-                Projected earning {formatUGX(monthlyEarning)} / month
+                Projected earning {formatUGXOrDash(monthlyEarning)} / month
               </div>
             </div>
 

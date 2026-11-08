@@ -22,7 +22,8 @@ async function call<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
 }
 
 /** Roles the database lets flip the switch (set_partner_return_policy). */
-export const PARTNER_RETURN_POLICY_SWITCH_ROLES = ['cfo', 'ceo', 'super_admin'] as const;
+// Only the CEO may turn Partner Returns on or off (owner rule; set_partner_return_policy enforces ARRAY['ceo']).
+export const PARTNER_RETURN_POLICY_SWITCH_ROLES = ['ceo'] as const;
 /** The only role the database lets decide rate requests (cfo_decide_portfolio_rate_requests). */
 export const PARTNER_RATE_DECIDER_ROLE = 'cfo' as const;
 

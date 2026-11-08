@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 import {
   clearHouseSupportIntent,
   getHouseSupportIntent,
@@ -298,7 +299,7 @@ export default function SupportHouse() {
             <p className="mt-1.5">
               You cover one month's rent of {formatDynamic(rent)}. Welile places a family in the
               house and pays the landlord. You receive {formatDynamic(monthlyReturn)} every month
-              for 12 months, which is {newContractRate}% a month.
+              for 12 months{formatRatePct(newContractRate) ? `, which is ${formatRatePct(newContractRate)} a month` : ''}.
             </p>
           </div>
 

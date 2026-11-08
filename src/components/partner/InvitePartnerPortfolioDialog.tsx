@@ -12,6 +12,7 @@ import { Loader2, Mail, Send } from 'lucide-react';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
 import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { PartnerRateCfoNote, createResponseRateMessage } from '@/components/shared/PartnerRateCfoNote';
 
 interface Props {
   open: boolean;
@@ -85,9 +86,11 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
         toast({ title: 'Invite failed', description: data.error, variant: 'destructive' });
         return;
       }
+      const rateMessage = createResponseRateMessage(data);
+      const sentText = `${partner.full_name || 'The partner'} will receive a secure link at ${data?.partner_email || 'their email'}.`;
       toast({
         title: 'Invite sent',
-        description: `${partner.full_name || 'The partner'} will receive a secure link at ${data?.partner_email || 'their email'}.`,
+        description: rateMessage ? `${sentText} ${rateMessage}` : sentText,
       });
       queryClient.invalidateQueries({ queryKey: ['invited-portfolios'] });
       queryClient.invalidateQueries({ queryKey: ['exec-partner-portfolios'] });
@@ -139,12 +142,13 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
               <Input id="dur" type="number" min={1} max={60} value={duration} onChange={(e) => setDuration(e.target.value)} disabled={busy} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="roi" className="text-xs">Monthly ROI (%)</Label>
+              <Label htmlFor="roi" className="text-xs">Monthly Returns (%)</Label>
               <Input id="roi" type="number" min={1} max={100} step="0.5" value={roi} onChange={(e) => setRoi(e.target.value)} disabled={busy} />
+              <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">ROI mode</Label>
+            <Label className="text-xs">Returns mode</Label>
             <Select value={mode} onValueChange={(v: 'monthly_payout' | 'monthly_compounding') => setMode(v)} disabled={busy}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -161,7 +165,7 @@ export function InvitePartnerPortfolioDialog({ open, onOpenChange, partner, onSe
           {previewMonthly > 0 && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs">
               <p className="font-semibold text-foreground">Preview</p>
-              <p className="text-muted-foreground mt-1">Monthly return: <span className="font-medium text-foreground">{formatUGX(previewMonthly)}</span></p>
+              <p className="text-muted-foreground mt-1">Monthly Returns: <span className="font-medium text-foreground">{formatUGX(previewMonthly)}</span></p>
               <p className="text-muted-foreground">Projected over {duration} months: <span className="font-medium text-foreground">{formatUGX(previewMonthly * Number(duration))}</span></p>
             </div>
           )}

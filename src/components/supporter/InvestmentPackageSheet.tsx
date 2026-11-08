@@ -429,9 +429,11 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Facilitation Amount</p>
                     <p className="text-2xl font-black mt-0.5">{formatAmount(rentAmount)}</p>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
-                    15% Monthly Reward
-                  </Badge>
+                  {ratePctLabel && (
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
+                      {ratePctLabel} Monthly Reward
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -457,14 +459,14 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                       <TrendingUp className="h-3.5 w-3.5 text-success" />
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Monthly Reward</span>
                     </div>
-                    <p className="text-lg font-bold text-success">{formatAmount(monthlyReward)}</p>
+                    <p className="text-lg font-bold text-success">{monthlyReward === null ? '—' : formatAmount(monthlyReward)}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Calendar className="h-3.5 w-3.5 text-primary" />
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">12-Mo Rewards</span>
                     </div>
-                    <p className="text-lg font-bold text-primary">{formatAmount(totalRewards12Months)}</p>
+                    <p className="text-lg font-bold text-primary">{totalRewards12Months === null ? '—' : formatAmount(totalRewards12Months)}</p>
                   </div>
                 </div>
 
@@ -479,7 +481,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile pays rent <strong className="text-foreground">upfront</strong> for tenants — never in arrears. Your funds are deployed immediately.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile Agents hold <strong className="text-foreground">tenant placement rights</strong> — if a tenant defaults, the agent replaces them with a paying tenant.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Defaults <strong className="text-foreground">do not affect supporters</strong>. Welile's operational model absorbs and mitigates all default risk.</span></li>
-                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">15% monthly reward</strong> is a platform service reward — not an investment return.</span></li>
+                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">{ratePctLabel ? `${ratePctLabel} monthly reward` : 'monthly reward'}</strong> is a platform service reward — not an investment return.</span></li>
                   </ul>
                 </div>
 
@@ -530,14 +532,14 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                           <span className="text-xs text-foreground font-medium">Month {r.month}</span>
                           <span className="text-xs text-muted-foreground">{format(r.date, 'MMM yyyy')}</span>
                           {autoCompound && <span className="text-xs font-bold text-primary text-center">{r.tenantsSupported}</span>}
-                          <span className="text-xs font-bold text-success text-right">+{formatAmount(r.payout)}</span>
+                          <span className="text-xs font-bold text-success text-right">{r.payout === null ? '—' : `+${formatAmount(r.payout)}`}</span>
                         </div>
                       ))}
                     </div>
                     {/* Total */}
                     <div className="grid grid-cols-3 gap-0 px-3 py-2.5 bg-success/5 border-t border-success/20">
                       <span className="text-xs font-bold text-foreground col-span-2">Total Rewards</span>
-                      <span className="text-sm font-black text-success text-right">{formatAmount(totalRewards12Months)}</span>
+                      <span className="text-sm font-black text-success text-right">{totalRewards12Months === null ? '—' : formatAmount(totalRewards12Months)}</span>
                     </div>
                   </div>
                 </div>

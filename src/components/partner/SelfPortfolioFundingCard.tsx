@@ -36,7 +36,7 @@ import { FundHouseTooltip } from './FundHouseTooltip';
 import { HousePlacementTimeline } from './HousePlacementTimeline';
 import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
-import { monthlyReturnFor, rateOrNull, readQuoteRate } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor, rateOrNull, readQuoteRate } from '@/lib/partnerReturnPolicy';
 
 const MIN_FUNDING = 50000;
 const PLANS_PER_PAGE = 4;
@@ -1689,9 +1689,11 @@ export function SelfPortfolioFundingCard({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-                    {ownRatePct}% / month
-                  </span>
+                  {formatRatePct(ownRatePct) && (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
+                      {formatRatePct(ownRatePct)} / month
+                    </span>
+                  )}
                   {isFunded ? (
                     <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">Funded by you</Badge>
                   ) : heldByOther ? (
@@ -1702,7 +1704,7 @@ export function SelfPortfolioFundingCard({
                 <div className="pt-1">
                   <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(plan.funding_amount)}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
-                    Earn <span className="font-semibold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
+                    Earn <span className="font-semibold text-primary">{monthlyRoi === null ? '—' : formatDynamic(monthlyRoi)}</span> monthly
                   </p>
                 </div>
 
@@ -1788,12 +1790,16 @@ export function SelfPortfolioFundingCard({
           <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Projected returns · {ownRatePct}% monthly</span>
+              <span>{formatRatePct(ownRatePct) ? `Projected Returns · ${formatRatePct(ownRatePct)} monthly` : 'Projected Returns'}</span>
             </div>
-            <SlotAmount
-              value={monthlyReturnFor(total, ownRatePct)}
-              className="text-sm sm:text-base font-black leading-none text-primary"
-            />
+            {monthlyReturnFor(total, ownRatePct) === null ? (
+              <span className="text-sm sm:text-base font-black leading-none text-primary">—</span>
+            ) : (
+              <SlotAmount
+                value={monthlyReturnFor(total, ownRatePct) as number}
+                className="text-sm sm:text-base font-black leading-none text-primary"
+              />
+            )}
           </div>
 
           {overBudget ? (

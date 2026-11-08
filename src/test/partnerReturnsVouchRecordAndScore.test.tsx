@@ -64,7 +64,6 @@ import type { TrustProfile } from '@/hooks/useTrustProfile';
 import { formatUGX } from '@/lib/rentCalculations';
 import { buildWhatsAppMessage, shownTrustScore, shownVouchLimit } from '@/lib/shareTrustProfile';
 import { generateTrustProfilePdf } from '@/lib/trustProfilePdf';
-import { VOUCH_FIGURES_UNAVAILABLE } from '@/lib/vouch/recordVouchFigures';
 import LenderRecordLoanCard from '@/components/vouch/lender/LenderRecordLoanCard';
 
 const LIMIT = 1_050_000;
@@ -207,21 +206,30 @@ describe('G2: LenderRecordLoanCard.recordLoan', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Record Loan$/i }));
   }
 
+  async function expectRecordDisabled(p: TrustProfile) {
+    render(<LenderRecordLoanCard profile={p} />);
+    const open = await screen.findByRole('button', { name: /Record a Vouched Loan/i });
+    expect(open).toBeDisabled();
+    expect(screen.getByText(/vouch figures for this person are hidden from you/i)).toBeInTheDocument();
+    fireEvent.click(open);
+    expect(screen.queryByPlaceholderText('500000')).toBeNull();
+  }
+
   it.each([
     ['limit masked', { score: 62, borrowing_limit_ugx: null }],
     ['score masked', { score: null, borrowing_limit_ugx: LIMIT }],
     ['both masked', { score: null, borrowing_limit_ugx: null }],
   ])('%s: refuses, saves nothing, never asks to confirm a UGX 0 vouch', async (_label, t) => {
-    await submit(profile(t), '500000');
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(VOUCH_FIGURES_UNAVAILABLE));
+    // Owner decision (a), 8 Nov: the "Record a Vouched Loan" button is disabled with a one-line reason
+    // while the figures are hidden, so the form never opens (recordLoan still refuses on its own).
+    await expectRecordDisabled(profile(t));
     expect(mocks.insert).not.toHaveBeenCalled();
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
   });
 
   it('masked, principal above any limit: still refuses before the over-the-vouch confirm', async () => {
-    await submit(profile({ score: 62, borrowing_limit_ugx: null }), '5000000');
-    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(VOUCH_FIGURES_UNAVAILABLE));
+    await expectRecordDisabled(profile({ score: 62, borrowing_limit_ugx: null }));
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(mocks.insert).not.toHaveBeenCalled();
   });

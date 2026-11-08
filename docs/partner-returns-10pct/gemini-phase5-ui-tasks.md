@@ -15,6 +15,8 @@ Line numbers were checked against the working tree on 7 Nov 2026.
 
 ---
 
+> **Status 8 Nov 2026 (evening): done by Claude at the owner's request.** Every item in A, B and C below (except the parked agreements, §8.5 #2, which the owner accepted) was implemented on `dev/partner-returns-10pct`: copy and "—" null display only, JSX structure kept. Gates: partnerRateRelease 37 passed / 1 skipped; masked-figure scan green; releaseScan red only on §8.5 #2. Owner decisions: (a) a lender sees another person's vouch limit as "—" and "Record a Vouched Loan" is disabled while the figures are hidden; (b) the cached limit is masked: screens read the computed field `borrowing_limit_shown` (migration 20261108164500, live) and 4b closes the raw column. The switch is CEO-only on screen too (`PARTNER_RETURN_POLICY_SWITCH_ROLES = ['ceo']`). Gemini may still polish the wording; keep the null rules.
+
 ## Ordered checklist
 
 ### A. Before the Phase 4 merge into `lovable`

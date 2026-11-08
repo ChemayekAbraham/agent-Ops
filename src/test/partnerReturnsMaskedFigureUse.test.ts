@@ -44,7 +44,7 @@ const HUB_READER = /\b(?:usePartnerWalletHub|fetchPartnerWalletHub|get_partner_w
 const NOT_4B: Record<string, string> = {
   // person.trust is built from welile_trust_score_cache.borrowing_limit_ugx, which 4b does not mask
   // (open owner decision; gemini_tasks.md 11a lists the cache readers conditionally).
-  'components/vouch/agent/LendingUserDirectory.tsx': 'welile_trust_score_cache column, not the 4b profile',
+  'components/vouch/agent/LendingUserDirectory.tsx': 'reads the welile_trust_score_cache computed field borrowing_limit_shown (masked since 20261108164500), not the 4b profile; null shows "—"',
 };
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

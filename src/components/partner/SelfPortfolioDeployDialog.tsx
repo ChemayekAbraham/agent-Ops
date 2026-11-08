@@ -298,9 +298,9 @@ export function SelfPortfolioDeployDialog({
                 {canTopUp ? (
                   <div className="mt-2 grid grid-cols-3 gap-2">
                     {[
-                      { label: 'Rest of this month', value: formatDynamic(prorata) },
-                      { label: 'Then per month', value: formatDynamic(fullMonthly) },
-                      { label: `Over ${cyclesRemaining} cycle${cyclesRemaining === 1 ? '' : 's'}`, value: formatDynamic(topupProjection) },
+                      { label: 'Rest of this month', value: prorata === null ? '—' : formatDynamic(prorata) },
+                      { label: 'Then per month', value: fullMonthly === null ? '—' : formatDynamic(fullMonthly) },
+                      { label: `Over ${cyclesRemaining} cycle${cyclesRemaining === 1 ? '' : 's'}`, value: topupProjection === null ? '—' : formatDynamic(topupProjection) },
                     ].map((f) => (
                       <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                         <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
@@ -350,9 +350,9 @@ export function SelfPortfolioDeployDialog({
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {[
-                  { label: 'Per month', value: formatDynamic(newMonthly) },
+                  { label: 'Per month', value: newMonthly === null ? '—' : formatDynamic(newMonthly) },
                   { label: 'Term', value: '12 months' },
-                  { label: 'Over the term', value: formatDynamic(newProjection) },
+                  { label: 'Over the term', value: newProjection === null ? '—' : formatDynamic(newProjection) },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                     <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
@@ -403,7 +403,7 @@ export function SelfPortfolioDeployDialog({
                 {[
                   { label: 'Available now', value: capacity === null ? '—' : formatDynamic(capacity) },
                   { label: 'To landlord float', value: formatDynamic(total) },
-                  { label: 'Per month', value: formatDynamic(newMonthly) },
+                  { label: 'Per month', value: newMonthly === null ? '—' : formatDynamic(newMonthly) },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                     <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">

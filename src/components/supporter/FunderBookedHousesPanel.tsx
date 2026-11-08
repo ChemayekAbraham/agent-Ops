@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
@@ -153,7 +153,7 @@ export function FunderBookedHousesPanel() {
                 <div className="text-right shrink-0">
                   <p className="text-xs font-black text-foreground">{formatUGX(b.monthly_rent)}</p>
                   <p className="text-[10px] font-semibold text-success">
-                    +{formatUGX(monthlyReturnFor(Number(b.monthly_rent || 0), ownRate))}/mo
+                    +{formatUGXOrDash(monthlyReturnFor(Number(b.monthly_rent || 0), ownRate))}/mo
                   </p>
                 </div>
               </div>

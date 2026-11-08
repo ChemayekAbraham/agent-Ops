@@ -3,7 +3,7 @@ import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
 import { useEffect, useState, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { MIN_INVEST, MAX_INVEST, investHelperRange, isInvestAmountValid } from '@/lib/partnershipInvestment';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
@@ -105,6 +105,8 @@ import { LockOpen } from 'lucide-react';
 import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { monthlyReturnFor, rateAwaitsCfo, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, createResponseRateMessage, rateAwaitsCfoMessage } from '@/components/shared/PartnerRateCfoNote';
 
 /* ─── Types ─── */
 interface PartnerRow {
@@ -1553,8 +1555,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       }
       if (result?.error) throw new Error(result.error);
 
+      const rateMessage = createResponseRateMessage(result);
+      const inviteText = `${detailPartner.profile.full_name} will review, complete details and sign by email. It now appears in Invited Portfolios.`;
       toast.success(`Invite sent — portfolio ${result.portfolio_code}`, {
-        description: `${detailPartner.profile.full_name} will review, complete details and sign by email. It now appears in Invited Portfolios.`,
+        description: rateMessage ? `${inviteText} ${rateMessage}` : inviteText,
       });
 
       setAddPortfolioOpen(false);
@@ -1594,7 +1598,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     const roi = Number(editPortfolioRoi);
     const duration = Number(editPortfolioDuration);
     if (isNaN(amount) || amount < MIN_INVEST) { toast.error(`Min investment: ${formatUGX(MIN_INVEST)}`); return; }
-    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('ROI must be 1-100%'); return; }
+    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('Monthly Returns rate must be 1-100%'); return; }
     if (isNaN(duration) || duration < 1 || duration > 120) { toast.error('Duration must be 1-120 months'); return; }
 
     setSavingEditPortfolio(true);
@@ -1657,7 +1661,9 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (error) throw error;
       const storedRoi = savedRow?.roi_percentage != null ? Number(savedRow.roi_percentage) : roi;
 
-      toast.success(`Portfolio ${editPortfolio.portfolio_code} updated`);
+      toast.success(`Portfolio ${editPortfolio.portfolio_code} updated`, rateAwaitsCfo(roi, storedRoi)
+        ? { description: rateAwaitsCfoMessage(roi, storedRoi) }
+        : undefined);
 
       // NOTE: mode-switch into "compounding" does NOT send the compound
       // confirmation email. That email is reserved for an ACTUAL compound
@@ -3364,6 +3370,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 <Label>Returns Rate (%)</Label>
                 <Input type="number" min={1} max={100} value={addPortfolioRoi}
                   onChange={e => setAddPortfolioRoi(e.target.value)} />
+                <PartnerRateCfoNote policyEnabled={addPortfolioRate.policyEnabled} personRate={addPortfolioRate.personRate} typedRate={addPortfolioRate.value} />
               </div>
               <div className="space-y-2">
                 <Label>Duration (months)</Label>
@@ -3404,7 +3411,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Monthly Returns:</span>
-                  <span className="font-bold text-primary">{formatUGX(Math.round(Number(addPortfolioAmount) * (Number(addPortfolioRoi) / 100)))}</span>
+                  <span className="font-bold text-primary">{formatUGXOrDash(monthlyReturnFor(Number(addPortfolioAmount), rateOrNull(addPortfolioRoi)))}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Maturity:</span>
@@ -3530,6 +3537,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             <div className="space-y-1.5">
               <Label className="text-xs">Returns Percentage (%)</Label>
               <Input type="number" min={1} max={100} value={editRoi} onChange={e => setEditRoi(e.target.value)} />
+              <PartnerRateCfoNote
+                policyEnabled={partnerReturnPolicy.enabled}
+                personRate={null}
+                typedRate={editRoi}
+                currentRate={editPartner ? rateOrNull(editPartner.roiPercentage) : null}
+              />
               <div className="flex gap-1.5">
                 {[10, 15, 20, 25].map(v => (
                   <Button key={v} variant={editRoi === String(v) ? 'default' : 'outline'} size="sm" className="text-[10px] h-6 px-2 flex-1"
@@ -3836,6 +3849,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               <div className="space-y-1.5">
                 <Label className="text-xs">Returns Percentage (%)</Label>
                 <Input type="number" min={1} max={100} value={editPortfolioRoi} onChange={e => setEditPortfolioRoi(e.target.value)} />
+                <PartnerRateCfoNote
+                  policyEnabled={partnerReturnPolicy.enabled}
+                  personRate={null}
+                  typedRate={editPortfolioRoi}
+                  currentRate={editPortfolio ? rateOrNull(editPortfolio.roi_percentage) : null}
+                />
                 <div className="flex gap-1.5">
                   {[10, 15, 20, 25].map(v => (
                     <Button key={v} variant={editPortfolioRoi === String(v) ? 'default' : 'outline'} size="sm" className="text-[10px] h-6 px-2 flex-1"

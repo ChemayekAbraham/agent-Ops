@@ -8,7 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchAllUserIdsByRole, batchedQuery } from '@/lib/supabaseBatchUtils';
 import { recomputeNextRoiDateForPayoutDay } from '@/lib/portfolioDates';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
-import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, rateAwaitsCfo, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, rateAwaitsCfoMessage } from '@/components/shared/PartnerRateCfoNote';
 import { staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
 import { Loader2, MoreHorizontal, TrendingUp, Trash2, Wallet, Pencil, ShieldOff, UserX } from 'lucide-react';
 import COODetailLayout, { KPICard, SectionTitle } from '@/components/coo/COODetailLayout';
@@ -425,7 +426,7 @@ export default function ActivePartnersDetail() {
 
             if (createErr) {
               console.error('[ActivePartners] Portfolio creation error:', createErr);
-              toast.warning(`Profile updated. ROI set to ${newRoi}% but portfolio creation failed: ${createErr.message}`);
+              toast.warning(`Profile updated, but the missing portfolio could not be created: ${createErr.message}`);
             } else {
               toast.success(`Updated ${editName.trim()} — created missing portfolio with ${createdRoi}% monthly Returns`);
             }
@@ -434,7 +435,20 @@ export default function ActivePartnersDetail() {
           }
         } else {
           const changes = [];
-          if (updateFields.roi_percentage) changes.push(`ROI ${updateFields.roi_percentage}%`);
+          if (updateFields.roi_percentage) {
+            // Show the stored rate read back from the update (the database gate may keep the old rate
+            // while a changed one waits for the CFO). The payout-day branch reads no rate back.
+            const typedRoi = Number(updateFields.roi_percentage);
+            const storedRoi = [...(updated1 ?? []), ...(updated2 ?? [])]
+              .map(row => rateOrNull((row as { roi_percentage?: unknown }).roi_percentage))
+              .find((v): v is number => v !== null) ?? null;
+            if (storedRoi !== null) {
+              changes.push(`Returns ${formatRatePct(storedRoi)}`);
+              if (rateAwaitsCfo(typedRoi, storedRoi)) changes.push(rateAwaitsCfoMessage(typedRoi, storedRoi));
+            } else {
+              changes.push(rateSwitchOffSeen ? `Returns ${typedRoi}%` : `Returns rate ${typedRoi}% requested`);
+            }
+          }
           if (updateFields.payout_day) changes.push(`Payout day ${updateFields.payout_day}`);
           if (updateFields.roi_mode) changes.push(`Mode: ${updateFields.roi_mode === 'monthly_compounding' ? 'Compounding' : 'Payout'}`);
           toast.success(`Updated ${editName.trim()} — ${changes.join(', ')}`);
@@ -461,13 +475,13 @@ export default function ActivePartnersDetail() {
     { key: 'funded', label: 'Total Funded', align: 'right', render: (r) => formatUGX(r.funded) },
     { key: 'activeDeals', label: 'Deals', align: 'right' },
     { key: 'avgDeal', label: 'Avg Deal', align: 'right', render: (r) => formatUGX(r.avgDeal) },
-    { key: 'roiPercentage', label: 'ROI %', align: 'right', render: (r) => (
+    { key: 'roiPercentage', label: 'Monthly Returns (%)', align: 'right', render: (r) => (
       <span className="font-semibold text-primary">{r.roiPercentage}%</span>
     )},
     { key: 'payoutDay', label: 'Payout Cycle', align: 'right', render: (r) => (
       <span className="text-muted-foreground">{r.payoutDay}{getOrdinalSuffix(r.payoutDay)}</span>
     )},
-    { key: 'roiMode', label: 'ROI Mode', render: (r) => (
+    { key: 'roiMode', label: 'Returns Mode', render: (r) => (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.roiMode === 'monthly_compounding' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
         {r.roiMode === 'monthly_compounding' ? 'Compounding' : 'Payout'}
       </span>
@@ -629,7 +643,7 @@ export default function ActivePartnersDetail() {
               <Pencil className="h-5 w-5 text-primary" />
               Edit Partner
             </DialogTitle>
-            <DialogDescription>Update partner information, ROI percentage, and payment mode.</DialogDescription>
+            <DialogDescription>Update partner information, monthly Returns rate, and payment mode.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -642,8 +656,14 @@ export default function ActivePartnersDetail() {
               <Input id="edit-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-roi">ROI Percentage (%)</Label>
+              <Label htmlFor="edit-roi">Monthly Returns (%)</Label>
               <Input id="edit-roi" type="number" min={1} max={100} value={editRoi} onChange={(e) => setEditRoi(e.target.value)} />
+              <PartnerRateCfoNote
+                policyEnabled={partnerReturnPolicy.enabled}
+                personRate={null}
+                typedRate={editRoi}
+                currentRate={editPartner ? rateOrNull(editPartner.roiPercentage) : null}
+              />
               <div className="flex gap-2">
                 {[10, 15, 20, 25].map(v => (
                   <Button key={v} variant={editRoi === String(v) ? 'default' : 'outline'} size="sm" className="text-xs h-7"
@@ -665,7 +685,7 @@ export default function ActivePartnersDetail() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>ROI Payment Mode</Label>
+              <Label>Returns Payment Mode</Label>
               <div className="flex gap-2">
                 <Button
                   variant={editRoiMode === 'monthly_payout' ? 'default' : 'outline'}

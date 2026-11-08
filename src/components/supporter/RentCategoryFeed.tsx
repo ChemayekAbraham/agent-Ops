@@ -12,6 +12,7 @@ import {
 import { useCurrency } from '@/hooks/useCurrency';
 import { sumSupporterRewardsAt } from '@/lib/rentCalculations';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 import { hapticTap } from '@/lib/haptics';
 import {
@@ -195,13 +196,15 @@ function ViewDetailsDialog({
   open,
   onOpenChange,
   cat,
-  formatAmount
+  formatAmount,
+  ownRate
 
 
 
 
 
-}: {open: boolean;onOpenChange: (v: boolean) => void;cat: RentCategory;formatAmount: (v: number) => string;}) {
+}: {open: boolean;onOpenChange: (v: boolean) => void;cat: RentCategory;formatAmount: (v: number) => string;ownRate: number | null;}) {
+  const ownRatePct = formatRatePct(ownRate);
   const monthlyReward = cat.expectedReturn;
   const yearlyReward = monthlyReward === null ? null : monthlyReward * 12;
 
@@ -221,9 +224,11 @@ function ViewDetailsDialog({
             <p className="text-[10px] text-blue-200 uppercase font-semibold tracking-wider">Facilitation Amount</p>
             <p className="text-2xl font-black tracking-tight">{formatAmount(cat.totalRent)}</p>
           </div>
-          <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 text-[10px] font-bold">
-            15% Monthly Reward
-          </Badge>
+          {ownRatePct && (
+            <Badge className="bg-emerald-500/20 text-emerald-200 border-emerald-400/30 text-[10px] font-bold">
+              {ownRatePct} Monthly Reward
+            </Badge>
+          )}
         </div>
 
         <div className="space-y-4 mt-2">
@@ -252,14 +257,14 @@ function ViewDetailsDialog({
                 <CircleDollarSign className="h-3 w-3 text-emerald-600" />
                 <span className="text-[9px] text-emerald-600 font-semibold uppercase tracking-wider">Monthly Reward</span>
               </div>
-              <p className="text-sm font-black text-emerald-600">{formatAmount(monthlyReward)}</p>
+              <p className="text-sm font-black text-emerald-600">{monthlyReward === null ? '—' : formatAmount(monthlyReward)}</p>
             </div>
             <div className="rounded-xl border border-border/40 bg-muted/20 p-3">
               <div className="flex items-center gap-1.5 mb-1">
                 <Calendar className="h-3 w-3 text-muted-foreground" />
                 <span className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">12-Mo Rewards</span>
               </div>
-              <p className="text-sm font-black text-foreground">{formatAmount(yearlyReward)}</p>
+              <p className="text-sm font-black text-foreground">{yearlyReward === null ? '—' : formatAmount(yearlyReward)}</p>
             </div>
           </div>
 
@@ -274,7 +279,7 @@ function ViewDetailsDialog({
               'Welile pays rent upfront for tenants — never in arrears. Your funds are deployed immediately.',
               'Welile Agents hold tenant placement rights — if a tenant defaults, the agent replaces them with a paying tenant.',
               'Defaults do not affect supporters. Welile\'s operational model absorbs and mitigates all default risk.',
-              'Your 15% monthly reward is a platform service reward — not an investment return.'].
+              'Your monthly reward is a platform service reward — not an investment return.'].
               map((text, i) =>
               <div key={i} className="flex items-start gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 mt-0.5 shrink-0" />
@@ -359,14 +364,14 @@ function AnalyticsDialog({
                 
                   <span className="font-medium text-foreground">Month {m.month}</span>
                   <span className="text-muted-foreground font-medium">{m.date}</span>
-                  <span className="text-right font-bold text-emerald-600">+{formatAmount(m.reward)}</span>
+                  <span className="text-right font-bold text-emerald-600">{m.reward === null ? '—' : `+${formatAmount(m.reward)}`}</span>
                 </div>
               )}
             </div>
             {/* Total row */}
             <div className="grid grid-cols-3 gap-2 px-4 py-3 bg-muted/30 border-t border-border/40">
               <span className="text-xs font-black text-foreground col-span-2">Total Rewards</span>
-              <span className="text-right text-sm font-black text-emerald-600">{formatAmount(totalRewards)}</span>
+              <span className="text-right text-sm font-black text-emerald-600">{totalRewards === null ? '—' : formatAmount(totalRewards)}</span>
             </div>
           </div>
         </div>
@@ -448,7 +453,8 @@ function CategoryCard({
   onFund,
   onLockedClick,
   formatAmount,
-  comingSoon
+  comingSoon,
+  ownRate
 
 
 
@@ -458,7 +464,7 @@ function CategoryCard({
 
 
 
-}: {cat: RentCategory;index: number;tier: CategoryTier | undefined;isLocked?: boolean;onFund: () => void;onLockedClick?: () => void;formatAmount: (v: number) => string;comingSoon?: boolean;}) {
+}: {cat: RentCategory;index: number;tier: CategoryTier | undefined;isLocked?: boolean;onFund: () => void;onLockedClick?: () => void;formatAmount: (v: number) => string;comingSoon?: boolean;ownRate: number | null;}) {
   const [showDeposit, setShowDeposit] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -542,7 +548,7 @@ function CategoryCard({
             </div>
             <div className="rounded-lg bg-emerald-500/5 dark:bg-emerald-500/8 p-2">
               <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-0.5">Expected Return</p>
-              <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">+{formatAmount(cat.expectedReturn)}</p>
+              <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">{cat.expectedReturn === null ? '—' : `+${formatAmount(cat.expectedReturn)}`}</p>
             </div>
           </div>
         </div>
@@ -587,7 +593,8 @@ function CategoryCard({
         open={showDetails}
         onOpenChange={setShowDetails}
         cat={cat}
-        formatAmount={formatAmount} />
+        formatAmount={formatAmount}
+        ownRate={ownRate} />
       
       <AnalyticsDialog
         open={showAnalytics}
@@ -756,7 +763,8 @@ export function RentCategoryFeed({ onFundCategory, isLocked, onLockedClick, onRe
                   onFund={() => onFundCategory(cat)}
                   onLockedClick={onLockedClick}
                   formatAmount={formatAmount}
-                  comingSoon={isComingSoon} />);
+                  comingSoon={isComingSoon}
+                  ownRate={ownRate} />);
 
 
             })}

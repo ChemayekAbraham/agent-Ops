@@ -20,7 +20,7 @@ import BorrowerVouchDisclosureModal from '@/components/vouch/borrower/BorrowerVo
 import { useBorrowerVouchDisclosure } from '@/hooks/useBorrowerVouchDisclosure';
 import { EarnedVouchRangeBreakdown } from '@/components/agent/EarnedVouchRangeBreakdown';
 import { VouchAuditLog } from '@/components/ai-id/VouchAuditLog';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { buildProfileShareUrl, shareProfileOnWhatsApp } from '@/lib/shareTrustProfile';
 import { isValidAiId } from '@/lib/welileAiId';
 import { toast } from 'sonner';
@@ -211,8 +211,8 @@ export default function HolisticProfile({ publicMode = false }: Props) {
                         {Math.round(profile.agent_performance.healthy_ratio * 100)}%
                       </span>{' '}
                       paying on schedule
-                      {profile.trust.borrowing_limit_ugx > 0 && (
-                        <> · <span className="font-semibold text-foreground">{formatUGX(profile.trust.borrowing_limit_ugx)}</span> Welile vouch</>
+                      {profile.trust.borrowing_limit_ugx != null && profile.trust.borrowing_limit_ugx > 0 && (
+                        <> · <span className="font-semibold text-foreground">{formatUGXOrDash(profile.trust.borrowing_limit_ugx)}</span> Welile vouch</>
                       )}
                     </p>
                   )}
@@ -252,7 +252,8 @@ export default function HolisticProfile({ publicMode = false }: Props) {
         {/* Welile Vouch tile — visible whenever a vouch limit exists. The 2×
             agent_earned_vouch driver is rolled into borrowing_limit_ugx by
             get_agent_vouch_limit_ugx() so we just present the result. */}
-        {profile.trust.borrowing_limit_ugx > 0 && (
+        {/* A null limit is hidden (4b), not zero: keep the tile and show "—". */}
+        {(profile.trust.borrowing_limit_ugx != null ? profile.trust.borrowing_limit_ugx > 0 : true) && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}>
             <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/[0.04] to-transparent">
               <CardContent className="p-4 flex items-center gap-3">
@@ -264,7 +265,7 @@ export default function HolisticProfile({ publicMode = false }: Props) {
                     Welile Vouches
                   </p>
                   <p className="text-2xl font-black tabular-nums leading-tight">
-                    {formatUGX(profile.trust.borrowing_limit_ugx)}
+                    {formatUGXOrDash(profile.trust.borrowing_limit_ugx)}
                   </p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {profile.identity.primary_role === 'agent'
@@ -330,7 +331,7 @@ export default function HolisticProfile({ publicMode = false }: Props) {
                       <div className="flex items-center justify-between pt-2 mt-1 border-t border-border">
                         <span className="text-[12px] font-bold">Total Welile vouch</span>
                         <span className="text-[13px] font-black tabular-nums text-emerald-700 dark:text-emerald-400">
-                          {formatUGX(profile.trust.vouch_breakdown.total_ugx)}
+                          {formatUGXOrDash(profile.trust.vouch_breakdown.total_ugx)}
                         </span>
                       </div>
                     </div>
@@ -421,10 +422,13 @@ export default function HolisticProfile({ publicMode = false }: Props) {
               <div className="grid grid-cols-2 gap-3">
                 <Stat label="Referrals" value={String(profile.network.referrals)} />
                 <Stat label="Sub-agents" value={String(profile.network.sub_agents)} />
-                {profile.permissions.can_see_pii && (profile.network.portfolio_value || 0) > 0 && (
+                {typeof profile.supporter_activity?.earning_returns === 'boolean' && (
+                  <Stat label="Earning Returns" value={profile.supporter_activity.earning_returns ? 'Yes' : 'No'} />
+                )}
+                {profile.permissions.can_see_pii && profile.network.portfolio_value != null && profile.network.portfolio_value > 0 && (
                   <Stat
                     label="Portfolio"
-                    value={formatUGX(profile.network.portfolio_value || 0)}
+                    value={formatUGXOrDash(profile.network.portfolio_value)}
                     accent
                     span2
                   />
@@ -513,7 +517,7 @@ export default function HolisticProfile({ publicMode = false }: Props) {
         isOpen={showDisclosure}
         onClose={() => { setShowDisclosure(false); setPendingShareAction(null); }}
         onAcknowledge={handleDisclosureAcknowledge}
-        vouchedAmountText={profile ? formatUGX(profile.trust.borrowing_limit_ugx) : undefined}
+        vouchedAmountText={profile && profile.trust.borrowing_limit_ugx != null ? formatUGX(profile.trust.borrowing_limit_ugx) : undefined}
       />
     </div>
   );
@@ -557,12 +561,12 @@ function Stat({
   );
 }
 
-function VouchRow({ label, value, emphasis }: { label: string; value: number; emphasis?: boolean }) {
+function VouchRow({ label, value, emphasis }: { label: string; value: number | null; emphasis?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className={`text-[11px] ${emphasis ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{label}</span>
       <span className={`text-[11px] tabular-nums ${emphasis ? 'font-bold text-foreground' : 'font-semibold text-foreground/80'}`}>
-        {formatUGX(value)}
+        {formatUGXOrDash(value)}
       </span>
     </div>
   );

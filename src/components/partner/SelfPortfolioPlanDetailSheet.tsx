@@ -11,7 +11,7 @@ import { PlanShareButton } from './PlanShareButton';
 import { planShareFallbackDescription } from '@/lib/planShareLink';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
-import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
 export interface PlanDetail {
   rent_request_id: string;
@@ -485,9 +485,11 @@ export function SelfPortfolioPlanDetailSheet({
               <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">Your projected returns</p>
-                  <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
-                    15% per month
-                  </span>
+                  {formatRatePct(ownRatePct) && (
+                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
+                      {formatRatePct(ownRatePct)} per month
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Based on a rent amount of {formatDynamic(plan.funding_amount)}.
@@ -500,7 +502,7 @@ export function SelfPortfolioPlanDetailSheet({
                     <li key={row.label} className="flex items-center justify-between gap-3 py-2.5">
                       <span className="text-xs text-muted-foreground">{row.label}</span>
                       <span className="text-sm font-black text-primary">
-                        {formatDynamic(Math.round(row.value))}
+                        {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
                       </span>
                     </li>
                   ))}
@@ -509,7 +511,7 @@ export function SelfPortfolioPlanDetailSheet({
                       Over {months} months
                     </span>
                     <span className="text-base font-black text-primary">
-                      {formatDynamic(Math.round(total))}
+                      {total === null ? '—' : formatDynamic(Math.round(total))}
                     </span>
                   </li>
                 </ul>

@@ -695,7 +695,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               Earnings preview
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Your Partner earns 15% per month</span>
+              <span className="text-muted-foreground">{newRatePct ? `Your Partner earns ${newRatePct} per month` : 'Your Partner earns monthly Returns'}</span>
               <span className="font-medium">{formatUGXOrDash(previewMonthlyReturn)}</span>
             </div>
           </div>

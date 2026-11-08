@@ -1511,7 +1511,7 @@ export default function WithdrawFlow({
               />
               <p className="text-xs text-muted-foreground text-center">
                 Withdraw between {formatCurrency(MIN_WITHDRAWAL, currency)} and{' '}
-                {formatCurrency(maxAmount, currency)}
+                {maxUnknown ? '—' : formatCurrency(maxAmount, currency)}
               </p>
               {/* Inline validation — fires the moment the user crosses a
                   boundary so they don't tap Continue and get a silent no-op. */}
@@ -1522,7 +1522,7 @@ export default function WithdrawFlow({
               )}
               {amount > maxAmount && (
                 <p className="text-xs text-destructive text-center font-medium">
-                  Insufficient funds — exceeds available balance ({formatCurrency(maxAmount, currency)})
+                  Insufficient funds — exceeds available balance ({maxUnknown ? '—' : formatCurrency(maxAmount, currency)})
                 </p>
               )}
               {/* Live ledger sync indicator — gates Continue */}
@@ -1531,7 +1531,7 @@ export default function WithdrawFlow({
                   ? 'Checking live ledger balance…'
                   : isStale
                     ? 'Balance may be stale — re-checking…'
-                    : `Verified against live ledger · ${formatCurrency(maxAmount, currency)} available`}
+                    : `Verified against live ledger · ${maxUnknown ? '—' : formatCurrency(maxAmount, currency)} available`}
               </p>
               {/* Zero-fee assurance — Welile wallet has no withdrawal fees,
                   so users see the full amount on the other side. */}
@@ -2127,7 +2127,7 @@ export default function WithdrawFlow({
               } else if (ledgerAvailable === null) {
                 reason = 'Waiting for your ledger balance to load…';
               } else if (amount > maxAmount) {
-                reason = `Amount exceeds your available balance (UGX ${maxAmount.toLocaleString()}).`;
+                reason = `Amount exceeds your available balance (${maxUnknown ? '—' : `UGX ${maxAmount.toLocaleString()}`}).`;
               }
 
               return (
@@ -2166,10 +2166,10 @@ export default function WithdrawFlow({
               ]}
               fees={[
                 { label: 'Withdrawal fee', value: 'Free' },
-                { label: 'Available balance', value: formatCurrency(maxAmount, currency) },
+                { label: 'Available balance', value: maxUnknown ? '—' : formatCurrency(maxAmount, currency) },
                 {
                   label: 'Balance after withdrawal',
-                  value: formatCurrency(Math.max(0, maxAmount - amount), currency),
+                  value: maxUnknown ? '—' : formatCurrency(Math.max(0, maxAmount - amount), currency),
                 },
               ]}
               total={{ label: "You'll Receive", value: formatCurrency(amount, currency) }}

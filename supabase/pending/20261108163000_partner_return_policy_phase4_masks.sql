@@ -494,3 +494,31 @@ begin /* advisor_guard */ if public._direct_client_call() then if not (public.ca
            ws.restricted_held, ps.roi, ps.deposits;
 END;
 $function$;
+
+-- ===========================================================================
+-- 6. welile_trust_score_cache.borrowing_limit_ugx (owner decision 2026-11-08, "hide it"): the browser reads
+--    the computed field borrowing_limit_shown (20261108164500) instead. Remove the browser's SELECT on the raw
+--    column: the table-level SELECT goes, and authenticated gets SELECT on every other column (built from the
+--    live column list, so a column added later is not silently opened or closed by this file). anon had no
+--    row policy, so it gets nothing back. Writes are unchanged (only the service-role policy allows them).
+-- ===========================================================================
+DO $cache$
+DECLARE
+  v_cols text;
+BEGIN
+  IF to_regprocedure('public.borrowing_limit_shown(public.welile_trust_score_cache)') IS NULL THEN
+    RAISE EXCEPTION '4b needs 20261108164500 (borrowing_limit_shown is missing)' USING ERRCODE = '55000';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_depend d JOIN pg_rewrite r ON r.oid = d.objid
+              WHERE d.refobjid = 'public.welile_trust_score_cache'::regclass AND d.classid = 'pg_rewrite'::regclass
+                AND r.ev_class <> 'public.welile_trust_score_cache'::regclass) THEN
+    RAISE EXCEPTION '4b: a view reads welile_trust_score_cache; check it before closing borrowing_limit_ugx' USING ERRCODE = '55000';
+  END IF;
+  SELECT string_agg(quote_ident(a.attname), ', ' ORDER BY a.attnum) INTO v_cols
+    FROM pg_attribute a
+   WHERE a.attrelid = 'public.welile_trust_score_cache'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+     AND a.attname <> 'borrowing_limit_ugx';
+  REVOKE SELECT ON public.welile_trust_score_cache FROM anon, authenticated;
+  EXECUTE format('GRANT SELECT (%s) ON public.welile_trust_score_cache TO authenticated', v_cols);
+END $cache$;
+NOTIFY pgrst, 'reload schema';

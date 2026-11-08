@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
-import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { UGANDA_BANKS } from '@/lib/ugandaBanks';
 import {
   validateFullName,
@@ -214,7 +214,9 @@ export default function RegisterPartnerPublic() {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-left space-y-1">
               <p className="text-xs text-muted-foreground">Support Summary</p>
               <p className="font-semibold">{formatUGX(amount)} in support</p>
-              <p className="text-sm text-primary font-medium">Monthly Returns: {formatUGX(monthlyROI)}</p>
+              {monthlyROI !== null && (
+                <p className="text-sm text-primary font-medium">Monthly Returns: {formatUGXOrDash(monthlyROI)}</p>
+              )}
             </div>
           )}
           <AgentFooter agentInfo={agentInfo} />
@@ -286,7 +288,7 @@ export default function RegisterPartnerPublic() {
             </div>
 
             {/* Marketing Insight Popup */}
-            {insightVisible && amount > 0 && (
+            {insightVisible && amount > 0 && monthlyROI !== null && (
               <div className="relative bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 animate-in slide-in-from-top-2 duration-300">
                 <button
                   type="button"
@@ -300,10 +302,10 @@ export default function RegisterPartnerPublic() {
                   With a support of <span className="font-bold">{formatUGX(amount)}</span>, you could earn up to:
                 </p>
                 <p className="text-lg font-bold text-emerald-600 mt-1">
-                  {formatUGX(annualROI)} per year
+                  {formatUGXOrDash(annualROI)} per year
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  That's {formatUGX(monthlyROI)} every 30 days — deposited directly to your preferred payout method.
+                  That's {formatUGXOrDash(monthlyROI)} every 30 days — deposited directly to your preferred payout method.
                 </p>
               </div>
             )}
@@ -312,13 +314,13 @@ export default function RegisterPartnerPublic() {
             {amount >= 100000 && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Monthly Returns (15%)</span>
-                  <span className="font-bold text-primary">{formatUGX(monthlyROI)}</span>
+                  <span className="text-xs text-muted-foreground">Monthly Returns{formatRatePct(newContractRate) ? ` (${formatRatePct(newContractRate)} for new partners)` : ''}</span>
+                  <span className="font-bold text-primary">{formatUGXOrDash(monthlyROI)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">You will earn this amount every 30 days.</p>
                 <div className="flex items-center justify-between pt-1 border-t border-border/30">
                   <span className="text-xs text-muted-foreground">Estimated Annual Earnings</span>
-                  <span className="font-semibold text-sm">{formatUGX(annualROI)}</span>
+                  <span className="font-semibold text-sm">{formatUGXOrDash(annualROI)}</span>
                 </div>
               </div>
             )}

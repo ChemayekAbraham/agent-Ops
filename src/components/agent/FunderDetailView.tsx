@@ -10,11 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { AgentProxyWithdrawalDialog } from './AgentProxyWithdrawalDialog';
 import { ProxyPartnerDepositDialog } from './ProxyPartnerDepositDialog';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { useFunderAccountsRealtime } from '@/hooks/useFunderAccountsRealtime';
 import { fetchAgentOnboardedPortfolios, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
-import { rateOrNull } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import {
   ArrowLeft, Phone, MessageSquare, Banknote, ArrowDownToLine,
   Wallet, Home, TrendingUp, Calendar, CircleDot, Loader2, Send,
@@ -235,7 +235,7 @@ export function FunderDetailView({
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
                   <p className="text-[9px] text-muted-foreground">Returns</p>
-                  <p className="text-xs font-bold text-success truncate">{formatUGX(stats.totalROI)}</p>
+                  <p className="text-xs font-bold text-success truncate">{formatUGXOrDash(stats.totalROI)}</p>
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
                   <p className="text-[9px] text-muted-foreground">Wallet</p>
@@ -437,11 +437,11 @@ export function FunderDetailView({
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <p className="text-[10px] text-muted-foreground">ROI Earned</p>
-                          <p className="text-xs font-bold text-success">{formatUGX(p.total_roi_earned)}</p>
+                          <p className="text-xs font-bold text-success">{formatUGXOrDash(p.total_roi_earned)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <p className="text-[10px] text-muted-foreground">Rate</p>
-                          <p className="text-xs font-bold">{p.roi_percentage}%</p>
+                          <p className="text-xs font-bold">{formatRatePct(p.roi_percentage) ?? '—'}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground">

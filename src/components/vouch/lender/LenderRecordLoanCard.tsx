@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useLenderVouchAgreement } from '@/hooks/useLenderVouchAgreement';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { recordVouchFigures } from '@/lib/vouch/recordVouchFigures';
 import { toast } from 'sonner';
 import LenderVouchAgreementModal from './LenderVouchAgreementModal';
@@ -168,6 +168,10 @@ export default function LenderRecordLoanCard({ profile }: Props) {
     setPrincipal(''); setInterestRate(''); setExternalRef(''); setRepaymentDate(''); setLoanPurpose('');
   };
 
+  // Owner decision (a): a viewer who may not see the person's Returns sees the limit and score as hidden
+  // ("—"), and cannot record a vouched loan (recordLoan refuses too).
+  const vouchFiguresOk = recordVouchFigures(profile.trust).ok;
+
   // Not registered yet
   if (!partner) {
     return (
@@ -176,12 +180,12 @@ export default function LenderRecordLoanCard({ profile }: Props) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Banknote className="h-4 w-4 text-primary" />
-              Lender Tools — Welile Vouches Up To {formatUGX(profile.trust.borrowing_limit_ugx)}
+              Lender Tools — Welile Vouches Up To {formatUGXOrDash(profile.trust.borrowing_limit_ugx)}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-2 space-y-3">
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Welile guarantees this borrower up to <span className="font-bold text-foreground">{formatUGX(profile.trust.borrowing_limit_ugx)}</span> if you record a loan as a registered Lending Partner. Default risk on the vouched portion is on Welile.
+              Welile guarantees this borrower up to <span className="font-bold text-foreground">{formatUGXOrDash(profile.trust.borrowing_limit_ugx)}</span> if you record a loan as a registered Lending Partner. Default risk on the vouched portion is on Welile.
             </p>
             {!showRegisterForm ? (
               <Button size="sm" className="w-full" onClick={() => setShowRegisterForm(true)}>
@@ -275,17 +279,24 @@ export default function LenderRecordLoanCard({ profile }: Props) {
           <CardContent className="pt-2 space-y-3">
             <div className="p-3 rounded-lg bg-background/60 border border-border/50">
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Welile vouches up to</p>
-              <p className="text-2xl font-bold text-emerald-600">{formatUGX(profile.trust.borrowing_limit_ugx)}</p>
+              <p className="text-2xl font-bold text-emerald-600">{formatUGXOrDash(profile.trust.borrowing_limit_ugx)}</p>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Score {profile.trust.score} / 100 · {profile.trust.tier}
+                Score {profile.trust.score ?? '—'} / 100 · {profile.trust.tier}
               </p>
             </div>
 
             {!showLoanForm ? (
-              <Button size="sm" className="w-full" onClick={() => setShowLoanForm(true)}>
-                <Plus className="h-4 w-4 mr-1.5" />
-                Record a Vouched Loan
-              </Button>
+              <>
+                <Button size="sm" className="w-full" onClick={() => setShowLoanForm(true)} disabled={!vouchFiguresOk}>
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Record a Vouched Loan
+                </Button>
+                {!vouchFiguresOk && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Welile's vouch figures for this person are hidden from you, so a vouched loan can't be recorded.
+                  </p>
+                )}
+              </>
             ) : (
               <div className="space-y-2 p-3 rounded-lg bg-background border">
                 <div>

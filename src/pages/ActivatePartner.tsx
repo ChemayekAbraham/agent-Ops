@@ -233,12 +233,20 @@ export default function ActivatePartner() {
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
               <TrendingUp className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-xs font-medium text-emerald-700">
-                Earn <span className="text-base font-bold">15%</span> monthly returns on your support
-              </p>
-              <p className="text-xs text-emerald-600 mt-1">
-                Expected: {formatUGX(Number(note.amount) * 0.15)}/month
-              </p>
+              {noteRatePct ? (
+                <>
+                  <p className="text-xs font-medium text-emerald-700">
+                    Earn <span className="text-base font-bold">{noteRatePct}</span> monthly Returns on your support
+                  </p>
+                  {noteMonthlyReturn != null && (
+                    <p className="text-xs text-emerald-600 mt-1">
+                      Expected: {formatUGX(noteMonthlyReturn)}/month
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs font-medium text-emerald-700">Sign in to see your Returns rate</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -250,8 +258,11 @@ export default function ActivatePartner() {
               <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto" />
               <h2 className="text-lg font-bold text-emerald-700">Account Activated!</h2>
               <p className="text-sm text-emerald-600">
-                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning 15% monthly returns.
+                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning monthly Returns.
               </p>
+              {yourRatePct && (
+                <p className="text-xs text-emerald-600">A deposit opens at {yourRatePct} monthly Returns for you.</p>
+              )}
               <Button onClick={() => navigate('/dashboard/funder')} className="w-full gap-2">
                 Go to Dashboard <ArrowRight className="h-4 w-4" />
               </Button>
@@ -268,6 +279,9 @@ export default function ActivatePartner() {
                 {authLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                 Activate Support
               </Button>
+              {activationError && activationError.kind !== 'sign_in' && (
+                <p role="alert" className="text-sm text-destructive text-center">{activationError.message}</p>
+              )}
             </CardContent>
           </Card>
         ) : (

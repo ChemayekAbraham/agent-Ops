@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, ScrollText } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import type { TrustProfile } from '@/hooks/useTrustProfile';
 
 interface Props {
@@ -26,17 +26,22 @@ export function VouchAuditLog({ profile }: Props) {
   const agentTerm = profile.agent_performance?.agent_term ?? 0;
   const monthlyCashflow = profile.cash_flow_capacity?.monthly_avg ?? null;
   const totalRepaid = profile.payment_history?.total_repaid ?? 0;
+  // Any figure 4b hid (explicit null): say so once under the total.
+  const anyHidden = vb.total_ugx == null || vb.portfolio_component_ugx == null
+    || vb.booster_breakdown?.payment_history == null
+    || profile.supporter_activity?.portfolio_value === null
+    || profile.cash_flow_capacity?.monthly_avg === null;
 
   const rows: Array<{
     label: string;
     inputs: string;
     formula: string;
-    result: number;
+    result: number | null;
     primary?: boolean;
   }> = [
     {
       label: 'Partnership portfolio (primary)',
-      inputs: `Portfolio value = ${formatUGX(portfolio)}`,
+      inputs: `Portfolio value = ${formatUGXOrDash(portfolio)}`,
       formula: '1× portfolio value',
       result: vb.portfolio_component_ugx,
       primary: true,
@@ -80,7 +85,7 @@ export function VouchAuditLog({ profile }: Props) {
     },
     {
       label: 'Payment history',
-      inputs: `Total repaid = ${formatUGX(totalRepaid)}, monthly cash flow = ${formatUGX(monthlyCashflow)}`,
+      inputs: `Total repaid = ${formatUGX(totalRepaid)}, monthly cash flow = ${formatUGXOrDash(monthlyCashflow)}`,
       formula: '(0.30 × total repaid) + (0.25 × monthly cash flow)',
       result: vb.booster_breakdown.payment_history,
     },
@@ -129,7 +134,7 @@ export function VouchAuditLog({ profile }: Props) {
                   <span
                     className={`text-[12px] tabular-nums ${row.result > 0 ? 'font-bold text-emerald-700 dark:text-emerald-400' : 'font-semibold text-muted-foreground'}`}
                   >
-                    +{formatUGX(row.result)}
+                    {row.result == null ? '—' : `+${formatUGX(row.result)}`}
                   </span>
                 </div>
                 <p className="text-[10.5px] text-muted-foreground leading-snug">
@@ -145,9 +150,15 @@ export function VouchAuditLog({ profile }: Props) {
           <div className="flex items-center justify-between gap-3 pt-1">
             <span className="text-[12px] font-bold">Total Welile vouch</span>
             <span className="text-[13px] font-black tabular-nums text-emerald-700 dark:text-emerald-400">
-              {formatUGX(vb.total_ugx)}
+              {formatUGXOrDash(vb.total_ugx)}
             </span>
           </div>
+
+          {anyHidden && (
+            <p className="text-[10px] text-muted-foreground leading-snug">
+              Hidden: built from this person's Returns
+            </p>
+          )}
 
           <p className="text-[10px] text-muted-foreground leading-snug pt-1">
             Source: `public.get_user_trust_profile` — snapshot generated {new Date(profile.generated_at).toLocaleString()}.

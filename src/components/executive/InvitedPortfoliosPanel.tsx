@@ -407,7 +407,7 @@ export function InvitedPortfoliosPanel() {
       if (error) throw error;
       if (res?.error) throw new Error(res.error);
       toast.success('Invite resent', {
-        description: `A fresh completion link for ${row.portfolio_code} was sent to ${row.partner_email}. It is valid for 7 days.`,
+        description: `A fresh completion link for ${row.portfolio_code} was sent to ${res?.sent_to ?? row.partner_email}. It is valid for 7 days.`,
       });
       await queryClient.invalidateQueries({ queryKey: ['invited-portfolios'] });
     } catch (err: unknown) {

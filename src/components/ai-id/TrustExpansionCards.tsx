@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Activity, MapPin, Home } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGXOrDash } from '@/lib/rentCalculations';
 import type { TrustProfile } from '@/hooks/useTrustProfile';
 
 interface Props {
@@ -12,7 +12,8 @@ interface Props {
 /** Cash-flow capacity card — daily/weekly/monthly money movement */
 export function CashFlowCapacityCard({ profile }: Props) {
   const cf = profile.cash_flow_capacity;
-  const hasFlow = cf && cf.monthly_avg > 0;
+  // A null monthly_avg is hidden (4b), not "no activity": show the card with "—" figures.
+  const hasFlow = !!cf && (cf.monthly_avg != null ? cf.monthly_avg > 0 : true);
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
@@ -32,9 +33,9 @@ export function CashFlowCapacityCard({ profile }: Props) {
           ) : (
             <>
               <div className="grid grid-cols-3 gap-2">
-                <FlowStat label="Daily" value={formatUGX(cf.daily_avg)} />
-                <FlowStat label="Weekly" value={formatUGX(cf.weekly_avg)} />
-                <FlowStat label="Monthly" value={formatUGX(cf.monthly_avg)} accent />
+                <FlowStat label="Daily" value={formatUGXOrDash(cf.daily_avg)} />
+                <FlowStat label="Weekly" value={formatUGXOrDash(cf.weekly_avg)} />
+                <FlowStat label="Monthly" value={formatUGXOrDash(cf.monthly_avg)} accent />
               </div>
               <p className="text-[10px] text-muted-foreground mt-3 text-center">
                 Average money flowing through this user (last {cf.window_days} days)

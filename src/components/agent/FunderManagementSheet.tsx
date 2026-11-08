@@ -266,7 +266,7 @@ export function FunderManagementSheet({ open, onOpenChange }: { open: boolean; o
                             {stats && (
                               <>
                                 <p className="text-xs font-bold">{formatUGX(stats.totalInvested)}</p>
-                                <p className="text-[10px] text-success">+{formatUGX(stats.totalROI)}</p>
+                                <p className="text-[10px] text-success">{stats.totalROI == null ? '—' : `+${formatUGX(stats.totalROI)}`}</p>
                               </>
                             )}
                           </div>

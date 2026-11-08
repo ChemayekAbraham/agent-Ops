@@ -10,7 +10,7 @@ import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './t
 import { emptyHousePlace, emptyHouseTitle, itemAmount } from './utils';
 import { useFunderNewRecommendations } from './useFunderNewOpportunities';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
-import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 type Mode = 'per_house' | 'total_budget';
 
@@ -41,6 +41,7 @@ export function FunderNewCalculatorDialog({
   // A planning estimate for this partner's next portfolio: their own rate (partner_quote_rate('me')).
   // null while it loads or on error: no figure.
   const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = formatRatePct(ownRate);
 
   const entered = Math.max(0, Number(amountText.replace(/[^\d]/g, '')) || 0);
   const houses = Math.max(1, Math.min(50, Number(housesText.replace(/[^\d]/g, '')) || 1));
@@ -80,7 +81,7 @@ export function FunderNewCalculatorDialog({
             <Calculator className="h-5 w-5 text-primary" aria-hidden /> Return calculator
           </DialogTitle>
           <DialogDescription>
-            A planning estimate at the current 15% rate. Nothing is funded from this screen.
+            A planning estimate{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}. Nothing is funded from this screen.
           </DialogDescription>
         </DialogHeader>
 
@@ -136,8 +137,8 @@ export function FunderNewCalculatorDialog({
               ) : null}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Projected return each month (15%)</p>
-              <p className="break-words text-xl font-bold text-success">{formatDynamic(hypotheticalMonthly)}</p>
+              <p className="text-xs text-muted-foreground">Projected Returns each month{ownRatePct ? ` (${ownRatePct})` : ''}</p>
+              <p className="break-words text-xl font-bold text-success">{hypotheticalMonthly === null ? '—' : formatDynamic(hypotheticalMonthly)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Hypothetical scenario, returns only — your support amount is not included.
               </p>
@@ -177,7 +178,7 @@ export function FunderNewCalculatorDialog({
                 </p>
                 <p className="text-sm">
                   <span className="text-muted-foreground">Their real monthly return </span>
-                  <span className="font-semibold text-success">{formatDynamic(actual.monthly)}</span>
+                  <span className="font-semibold text-success">{actual.monthly === null ? '—' : formatDynamic(actual.monthly)}</span>
                 </p>
               </div>
               <ul className="space-y-2">
@@ -211,7 +212,7 @@ export function FunderNewCalculatorDialog({
 
         <p className="flex items-start gap-2 rounded-2xl border bg-muted/40 p-4 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
-          Returns are projections at the current 15% rate, not a guarantee. Selecting homes here is planning only.
+          Returns are projections{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}, not a guarantee. Selecting homes here is planning only.
         </p>
 
         {matches.length > 0 ? (

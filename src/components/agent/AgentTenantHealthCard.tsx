@@ -62,7 +62,7 @@ export function AgentTenantHealthCard({ userId }: Props) {
           {pct}% paying on schedule
           <span className="text-muted-foreground font-normal"> · {ap.healthy_tenants}/{ap.qualifying_tenants}</span>
         </p>
-        {vouch > 0 && (
+        {vouch != null && vouch > 0 && (
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
             Welile vouches up to <span className="font-semibold text-emerald-600">{formatUGX(vouch)}</span>
           </p>

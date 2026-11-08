@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { MAX_INVEST, investHelperRange, isInvestAmountValid } from '@/lib/partnershipInvestment';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { createShortLink } from '@/lib/createShortLink';
@@ -15,7 +15,7 @@ import { Loader2, HandCoins, Wallet, TrendingUp, CheckCircle2, Copy, Share2, Mes
 import { isValidPhoneNumberGlobal } from '@/lib/phoneUtils';
 import { collectAgentSignupTelemetry } from '@/lib/agentSignupTelemetry';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
-import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 interface AgentInvestForPartnerDialogProps {
   open: boolean;
@@ -59,6 +59,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
   // Preview at the public new-partner rate (15 while the switch is off); null while unknown = no figure.
   const { newContractRate } = usePartnerReturnPolicy();
   const monthlyReward = monthlyReturnFor(parsedAmount, newContractRate);
+  const newRatePct = formatRatePct(newContractRate);
 
   useEffect(() => {
     if (open) {
@@ -296,14 +297,21 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
     const activationLink = shortActivationLink
       || (s.activation_token ? `${getPublicOrigin()}/join?t=${s.activation_token}` : null);
 
-    let msg = `🎉 Your Welile Funding is Active!\n\nHi ${s.partner_name}, ${s.agent_name} has funded ${formatUGX(s.amount)} on your behalf into the Rent Management Pool.\n\n✅ Your portfolio is now active!\n\n💰 Monthly Reward: ${formatUGX(s.monthly_reward)} (15%)\n📅 Payout Cycle: Every 30 days\n🗓️ First Payout: ${s.first_payout_date}`;
+    let msg = `🎉 Your Welile Funding is Active!\n\nHi ${s.partner_name}, ${s.agent_name} has funded ${formatUGX(s.amount)} on your behalf into the Rent Management Pool.\n\n✅ Your portfolio is now active!\n`;
+
+    // An existing partner on their own rate gets no figure from the server (null): leave the line out.
+    if (s.monthly_reward !== null) {
+      msg += `\n💰 Monthly Returns: ${formatUGX(s.monthly_reward)}`;
+    }
+
+    msg += `\n📅 Payout Cycle: Every 30 days\n🗓️ First Payout: ${s.first_payout_date}`;
 
     if (s.portfolio_code) {
       msg += `\n📋 Portfolio: ${s.portfolio_code}`;
     }
 
     if (activationLink) {
-      msg += `\n\n👉 Activate your account to start receiving rewards:\n${activationLink}`;
+      msg += `\n\n👉 Activate your account to start receiving Returns:\n${activationLink}`;
     }
 
     msg += `\n\nRef: ${s.reference_id}`;
@@ -363,7 +371,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
               {success.portfolio_code && (
                 <p>Portfolio: <strong className="font-mono text-foreground">{success.portfolio_code}</strong></p>
               )}
-              <p>Monthly reward: <strong className="text-success">{formatUGX(success.monthly_reward)}</strong></p>
+              <p>Monthly Returns: <strong className="text-success">{formatUGXOrDash(success.monthly_reward)}</strong></p>
               <p>First payout: <strong className="text-foreground">{success.first_payout_date}</strong></p>
               <p>Your new balance: <strong className="text-foreground">{formatUGX(success.new_balance)}</strong></p>
               <p className="font-mono text-xs">Ref: {success.reference_id}</p>
@@ -575,10 +583,10 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
               <div className="p-3 rounded-lg bg-success/10 border border-success/20 space-y-1">
                 <div className="flex items-center gap-2 text-sm font-medium text-success">
                   <TrendingUp className="h-4 w-4" />
-                  15% Monthly Reward Preview
+                  {newRatePct ? `Monthly Returns Preview (${newRatePct} for new partners)` : 'Monthly Returns Preview'}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Monthly: <strong className="text-foreground">{formatUGX(monthlyReward)}</strong> ×12 months = <strong className="text-foreground">{formatUGX(monthlyReward * 12)}</strong>
+                  Monthly: <strong className="text-foreground">{formatUGXOrDash(monthlyReward)}</strong> ×12 months = <strong className="text-foreground">{formatUGXOrDash(monthlyReward === null ? null : monthlyReward * 12)}</strong>
                 </p>
               </div>
             )}
@@ -633,8 +641,8 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
                     </div>
                     <hr className="border-border" />
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Monthly reward (15%)</span>
-                      <span className="font-medium text-success">{formatUGX(monthlyReward)}</span>
+                      <span className="text-muted-foreground">{newRatePct ? `Monthly Returns (${newRatePct})` : 'Monthly Returns'}</span>
+                      <span className="font-medium text-success">{formatUGXOrDash(monthlyReward)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Payout cycle</span>

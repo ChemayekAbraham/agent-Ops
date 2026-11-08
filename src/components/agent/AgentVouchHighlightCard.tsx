@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Fingerprint, ShieldCheck, Sparkles, ChevronRight, ChevronDown, Info, Clock } from 'lucide-react';
 import { useTrustProfile } from '@/hooks/useTrustProfile';
 import { generateWelileAiId } from '@/lib/welileAiId';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { AgentVouchHistoryFeed } from './AgentVouchHistoryFeed';
@@ -61,8 +61,11 @@ export function AgentVouchHighlightCard({ userId }: Props) {
     { key: 'fair', label: 'Fair', min: 40 },
     { key: 'building', label: 'Building', min: 0 },
   ];
-  const currentTier = tierThresholds.find((t) => score >= t.min) ?? tierThresholds[3];
-  const nextTier = [...tierThresholds].reverse().find((t) => t.min > score);
+  // A null score is unknown: take the stored tier and show no next tier (null >= 0 would read as a score of 0).
+  const currentTier = score === null
+    ? tierThresholds.find((t) => t.key === tier) ?? { key: tier, label: tierLabel, min: 0 }
+    : tierThresholds.find((t) => score >= t.min) ?? tierThresholds[3];
+  const nextTier = score === null ? undefined : [...tierThresholds].reverse().find((t) => t.min > score);
 
   const goToProfile = () => {
     hapticTap();
@@ -118,10 +121,10 @@ export function AgentVouchHighlightCard({ userId }: Props) {
             )}
           </div>
           <p className="text-[clamp(1.25rem,6vw,1.75rem)] font-black tracking-tight leading-tight mt-1 text-foreground truncate">
-            {vouch > 0 ? `Up to ${formatUGX(vouch)}` : 'Build your vouch limit'}
+            {vouch == null ? '—' : vouch > 0 ? `Up to ${formatUGX(vouch)}` : 'Build your vouch limit'}
           </p>
           <p className="text-[11px] text-muted-foreground mt-1 truncate">
-            Trust Score <span className="font-semibold text-foreground">{score}</span>
+            Trust Score <span className="font-semibold text-foreground">{score ?? '—'}</span>
             <span className="mx-1">·</span>
             <span className="font-semibold text-foreground">{tierLabel}</span>
           </p>
@@ -145,7 +148,7 @@ export function AgentVouchHighlightCard({ userId }: Props) {
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >
           <Fingerprint className="h-4 w-4" />
-          {vouch > 0 ? 'Open my AI ID' : 'Build my vouch limit'}
+          {vouch == null || vouch > 0 ? 'Open my AI ID' : 'Build my vouch limit'}
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -237,12 +240,12 @@ export function AgentVouchHighlightCard({ userId }: Props) {
               <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Trust Tier</p>
               <p className="text-[11px] font-bold text-foreground">
                 {currentTier.label}
-                <span className="text-muted-foreground font-normal"> · {score}/100</span>
+                <span className="text-muted-foreground font-normal"> · {score ?? '—'}/100</span>
               </p>
             </div>
             <div className="flex items-center gap-1">
               {tierThresholds.slice().reverse().map((t) => {
-                const reached = score >= t.min;
+                const reached = score !== null && score >= t.min;
                 const active = t.key === currentTier.key;
                 return (
                   <div
@@ -270,7 +273,7 @@ export function AgentVouchHighlightCard({ userId }: Props) {
           {qualifying >= 3 && (
             <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-2.5">
               <p className="text-[10px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-400 mb-1">
-                Why your vouch is {formatUGX(vouch)}
+                Why your vouch is {formatUGXOrDash(vouch)}
               </p>
               <p className="text-[11px] text-foreground/80 leading-relaxed">
                 Monthly tenant book <span className="font-semibold">{formatUGX(monthlyBook)}</span>
@@ -319,7 +322,7 @@ export function AgentVouchHighlightCard({ userId }: Props) {
               </dd>
               <dt className="text-muted-foreground">Trust score</dt>
               <dd className="text-right font-bold tabular-nums text-foreground">
-                {score} / 100
+                {score ?? '—'} / 100
               </dd>
               <dt className="text-muted-foreground">Current tier</dt>
               <dd className="text-right font-bold text-foreground">
@@ -327,7 +330,7 @@ export function AgentVouchHighlightCard({ userId }: Props) {
               </dd>
               <dt className="text-muted-foreground">Vouch limit</dt>
               <dd className="text-right font-bold tabular-nums text-emerald-700 dark:text-emerald-400">
-                {formatUGX(vouch)}
+                {formatUGXOrDash(vouch)}
               </dd>
             </dl>
             {generatedAt && (
