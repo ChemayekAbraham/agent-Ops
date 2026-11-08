@@ -1,0 +1,19 @@
+-- Rolls back 20261105180000_partner_receipts.sql. DESTRUCTIVE: drops every digital receipt. Only run before go-live.
+DROP FUNCTION IF EXISTS public.partner_receipts_daily_closing(date);
+DROP FUNCTION IF EXISTS public.get_partner_receipt_history(uuid);
+DROP FUNCTION IF EXISTS public.search_partner_receipts(text,date,date,text,text,integer,integer);
+DROP FUNCTION IF EXISTS public.decide_partner_receipt_correction(uuid,boolean,text);
+DROP FUNCTION IF EXISTS public.request_partner_receipt_correction(uuid,text,text,jsonb);
+DROP FUNCTION IF EXISTS public.mark_partner_receipt_delivered(uuid,text);
+DROP FUNCTION IF EXISTS public.confirm_partner_receipt_cash(uuid);
+DROP FUNCTION IF EXISTS public.issue_partner_receipt(text,numeric,text,text,date,uuid,text,text,text,text,uuid,text);
+DROP FUNCTION IF EXISTS public._partner_receipt_insert(uuid,text,numeric,text,text,date,uuid,text,text,text,text,uuid,text,uuid);
+DROP TABLE IF EXISTS public.partner_receipt_events;
+DROP TABLE IF EXISTS public.partner_receipt_corrections;
+DROP TABLE IF EXISTS public.partner_receipts;
+DROP TABLE IF EXISTS public.partner_receipt_counter;
+DROP FUNCTION IF EXISTS public.partner_receipts_protect();
+DROP FUNCTION IF EXISTS public.partner_receipt_events_protect();
+DROP FUNCTION IF EXISTS public.can_approve_partner_receipt_correction(uuid);
+DROP FUNCTION IF EXISTS public.can_view_partner_receipts(uuid);
+DROP FUNCTION IF EXISTS public.can_issue_partner_receipt(uuid);

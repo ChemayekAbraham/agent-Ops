@@ -275,7 +275,7 @@ export function AssignPersonDialog({ open, onClose, listingId, listingTitle, per
 
         {mode === 'create' && personType === 'landlord' && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="space-y-1">
                 <Label className="text-xs">Name *</Label>
                 <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Landlord name" />

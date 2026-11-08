@@ -629,7 +629,7 @@ export function FieldDepositVerificationQueue({
                               {channelLabel(r.channel)}
                             </Badge>
                             {r.surplus > 0 && (
-                              <Badge variant="outline" className="text-[9px] h-4 px-1 border-warning/30 text-warning">
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 border-primary/25 bg-primary/10 text-primary">
                                 <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
                                 Surplus
                               </Badge>
@@ -656,15 +656,15 @@ export function FieldDepositVerificationQueue({
                         {isVisible('status') && (
                         <td className="px-2 py-2 align-top">
                           {isPending ? (
-                            <Badge variant="outline" className="text-[9px] h-4 px-1 gap-0.5">
+                            <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-0.5 border-border/80 text-muted-foreground">
                               <Clock className="h-2.5 w-2.5" /> Pending
                             </Badge>
                           ) : r.status === 'verified' ? (
-                            <Badge className="text-[9px] h-4 px-1 gap-0.5 bg-emerald-600 hover:bg-emerald-600">
+                            <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-0.5 border-primary/30 bg-primary/10 text-primary">
                               <CheckCircle2 className="h-2.5 w-2.5" /> Verified
                             </Badge>
                           ) : (
-                            <Badge variant="destructive" className="text-[9px] h-4 px-1 gap-0.5">
+                            <Badge variant="outline" className="text-[9px] h-4 px-1.5 gap-0.5 border-border/80 bg-muted/40 text-muted-foreground">
                               <XCircle className="h-2.5 w-2.5" /> Rejected
                             </Badge>
                           )}
@@ -704,12 +704,12 @@ export function FieldDepositVerificationQueue({
                                   <div className="flex items-center gap-1.5 font-semibold">
                                     {r.status === 'verified' ? (
                                       <>
-                                        <CheckCircle2 className="h-3 w-3 text-success" />
+                                        <CheckCircle2 className="h-3 w-3 text-primary" />
                                         Approved
                                       </>
                                     ) : (
                                       <>
-                                        <XCircle className="h-3 w-3 text-destructive" />
+                                        <XCircle className="h-3 w-3 text-muted-foreground" />
                                         Rejected
                                       </>
                                     )}

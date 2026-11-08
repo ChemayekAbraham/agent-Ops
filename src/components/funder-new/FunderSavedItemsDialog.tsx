@@ -47,7 +47,14 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
           <DialogDescription>Houses booked for you, and houses and Rent Plans you bookmarked</DialogDescription>
         </DialogHeader>
         <div className="min-h-0 space-y-5 overflow-y-auto">
-        {open ? <FunderBookedHousesSection /> : null}
+        {open ? (
+          <FunderBookedHousesSection
+            onOpenHouse={(house) => {
+              setDetail({ category: 'empty', item: house });
+              onOpenChange(false);
+            }}
+          />
+        ) : null}
         <section aria-labelledby="bookmarked-h" className="space-y-1">
         <h3 id="bookmarked-h" className="font-semibold">Bookmarked</h3>
         {query.isPending || query.isFetching ? <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Checking availability</div>

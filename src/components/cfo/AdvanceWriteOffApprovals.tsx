@@ -90,39 +90,49 @@ export function AdvanceWriteOffApprovals({ hideWhenEmpty = false }: { hideWhenEm
   if (hideWhenEmpty && !isLoading && !error && rows.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm flex items-center gap-2">
-          <ShieldCheck className="h-4 w-4 text-primary" /> Write-off approvals
-          {rows.length > 0 && <Badge variant="secondary">{rows.length}</Badge>}
-        </CardTitle>
+    <Card className="rounded-xl border-border/80 shadow-2xs">
+      <CardHeader className="pb-3 border-b border-border/50">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </span>
+            <span>Write-off approvals</span>
+            {rows.length > 0 && <Badge variant="secondary" className="text-xs font-semibold">{rows.length}</Badge>}
+          </CardTitle>
+        </div>
         <p className="text-xs text-muted-foreground">
           A write-off needs a second person: another CFO or the CEO, never the requester.
         </p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="pt-4 space-y-3">
         {isLoading ? (
-          <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading...</p>
+          <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5 py-2"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /> Loading...</p>
         ) : error ? (
           <p className="text-xs text-destructive">Could not load write-off requests: {advanceControlMessage((error as any)?.message)}</p>
         ) : rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No write-off requests waiting.</p>
+          <div className="rounded-lg border border-dashed border-border/70 bg-muted/15 px-3 py-4 text-center space-y-1">
+            <p className="text-xs text-muted-foreground">No write-off requests waiting.</p>
+            <p className="text-[11px] text-muted-foreground/80">
+              To request a write-off, open an active or overdue advance&apos;s row actions (⋯) and choose Cancel / Transfer / Write-off.
+            </p>
+          </div>
         ) : rows.map((row) => {
           const own = row.requested_by === user?.id;
           const note = notes[row.id] ?? '';
           const changed = row.outstanding_now !== null && Math.abs(row.outstanding_now - Number(row.amount)) >= 1;
           return (
-            <div key={row.id} className="rounded-lg border border-border p-3 space-y-2" data-testid="write-off-request">
+            <div key={row.id} className="rounded-xl border border-border/80 bg-muted/15 p-3.5 space-y-2.5" data-testid="write-off-request">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="text-sm font-semibold">{row.agent_name ?? 'Unknown agent'}</p>
-                <p className="text-sm font-bold">{formatUGX(Number(row.amount))}</p>
+                <p className="text-sm font-semibold text-foreground">{row.agent_name ?? 'Unknown agent'}</p>
+                <p className="text-sm font-bold tabular-nums text-foreground">{formatUGX(Number(row.amount))}</p>
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 Requested by {own ? 'you' : row.requester_name ?? 'unknown'} on {new Date(row.requested_at).toLocaleDateString()}
               </p>
-              <p className="text-xs">{row.reason}</p>
+              <p className="text-xs bg-background/80 rounded-md px-2.5 py-1.5 border border-border/50">{row.reason}</p>
               {changed && (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
+                <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-500/10 rounded-md px-2.5 py-1.5 border border-amber-500/20">
                   The balance is now {formatUGX(row.outstanding_now ?? 0)}. At most the requested {formatUGX(Number(row.amount))} can ever be written off; if the balance is higher, a new request is needed.
                 </p>
               )}
@@ -131,12 +141,12 @@ export function AdvanceWriteOffApprovals({ hideWhenEmpty = false }: { hideWhenEm
               ) : (
                 <>
                   <Textarea value={note} onChange={(e) => setNotes((n) => ({ ...n, [row.id]: e.target.value }))}
-                    placeholder={`Decision note (min ${MIN_NOTE} characters)`} className="min-h-[52px] text-xs" aria-label="Decision note" />
+                    placeholder={`Decision note (min ${MIN_NOTE} characters)`} className="min-h-[56px] text-xs bg-background" aria-label="Decision note" />
                   <div className="flex flex-wrap gap-2 justify-end">
-                    <Button size="sm" variant="outline" disabled={busy === row.id || note.trim().length < MIN_NOTE} onClick={() => decide(row, false)}>
+                    <Button size="sm" variant="outline" className="h-8 text-xs" disabled={busy === row.id || note.trim().length < MIN_NOTE} onClick={() => decide(row, false)}>
                       <XCircle className="h-3.5 w-3.5 mr-1" /> Reject
                     </Button>
-                    <Button size="sm" disabled={busy === row.id || note.trim().length < MIN_NOTE} onClick={() => decide(row, true)}>
+                    <Button size="sm" className="h-8 text-xs" disabled={busy === row.id || note.trim().length < MIN_NOTE} onClick={() => decide(row, true)}>
                       {busy === row.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve</>}
                     </Button>
                   </div>

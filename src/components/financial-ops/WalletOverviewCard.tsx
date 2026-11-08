@@ -203,6 +203,16 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
             </div>
           </div>
         </div>
+        {!strictLoading && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold ${
+              driftIsMaterial ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+            }`}
+          >
+            {driftIsMaterial ? <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            {driftIsMaterial ? 'Drift' : 'Reconciled'}
+          </span>
+        )}
         {interactive && (
           <span
             className="hidden sm:inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary shrink-0"
@@ -240,8 +250,8 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
         {strictLoading ? (
           <span className="text-muted-foreground">Checking ledger alignment…</span>
         ) : driftIsMaterial ? (
-          <span className="flex flex-wrap items-center gap-x-1.5 text-amber-700 dark:text-amber-400 font-medium">
-            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" aria-hidden="true" />
+          <span className="flex flex-wrap items-center gap-x-1.5 text-primary font-medium">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <span>Drift: {formatUGX(strict?.totalDrift ?? 0)} across {strict?.driftedWallets} wallet(s)</span>
             {driftClickable && (
               <>
@@ -249,7 +259,7 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
                 <button
                   type="button"
                   onClick={onOpenReconciliation}
-                  className="font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  className="font-bold text-primary underline underline-offset-2 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                 >
                   Reconcile
                 </button>
@@ -257,8 +267,8 @@ export function WalletOverviewCard({ onOpenDeductions, onViewActiveWallets, onOp
             )}
           </span>
         ) : (
-          <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" aria-hidden="true" />
+          <span className="flex items-center gap-1.5 text-primary font-medium">
+            <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
             Ledger reconciled
           </span>
         )}

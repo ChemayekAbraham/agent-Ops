@@ -3122,7 +3122,11 @@ function EnrollDialog({
       }
     } catch (err: any) {
       if (promptIfNotVetted(err)) return;
-      toast({ title: 'Enrollment failed', description: err.message, variant: 'destructive' });
+      const msg = String(err?.message ?? '');
+      const friendly = /invalid input syntax for type uuid/i.test(msg)
+        ? 'Something went wrong saving the tenant record. Please try again; if it keeps happening, contact Agent Ops.'
+        : msg;
+      toast({ title: 'Enrollment failed', description: friendly, variant: 'destructive' });
     } finally {
       setSubmitting(false);
     }

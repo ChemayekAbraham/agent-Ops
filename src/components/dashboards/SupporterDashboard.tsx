@@ -8,7 +8,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
+import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -158,6 +158,7 @@ export default function SupporterDashboard({
   // The houses map and its "Houses to fund" sheet are no longer repeated on the
   // page: the hero card opens them full screen, and they unmount again on close.
   const [mapRequested, setMapRequested] = useState(false);
+  const [shownFundingHomes, setShownFundingHomes] = useState(0);
   const mapWasExpandedRef = useRef(false);
   const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
   const handleListResultsFocus = useCallback((points: { lat: number; lng: number }[]) => {
@@ -723,7 +724,7 @@ export default function SupporterDashboard({
             {/* Bottom summary strip */}
             <div className="mt-4 flex items-center gap-4 border-t border-border/40 pt-3">
               <p className="text-[11px] font-medium leading-snug text-muted-foreground">
-                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
+                <span className="font-bold text-green-600 dark:text-green-400">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
                 {avgRent > 0 && <> · avg <span className="font-bold text-foreground">{formatAmountCompact(avgRent)}</span>/mo</>}
               </p>
             </div>
@@ -776,15 +777,16 @@ export default function SupporterDashboard({
                       Houses to fund
                     </p>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                      {virtualHouses.length > 0 ? `${virtualHouses.length} waiting` : 'Waiting'}
+                      {shownFundingHomes} shown
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
-                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground touch-manipulation py-1 px-2 rounded-lg hover:bg-muted/60 transition-colors"
+                    className="flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground touch-manipulation transition active:scale-95 hover:bg-muted/70"
                   >
                     <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
+                    {snap === 'collapsed' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                 </div>
               )}
@@ -805,6 +807,7 @@ export default function SupporterDashboard({
                         searchOnMap
                         onListFiltersChange={handleListFiltersChange}
                         onListResultsFocus={handleListResultsFocus}
+                        onListResultCountChange={setShownFundingHomes}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}

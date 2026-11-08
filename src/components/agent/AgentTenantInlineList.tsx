@@ -209,9 +209,9 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
 
       {/* Outstanding summary — deduped per tenant, only owing > 0 (matches COO) */}
       {!loading && owingCount > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-rose-200 bg-rose-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border-2 border-border/60 bg-card px-4 py-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="rounded-full bg-rose-100 p-1.5 shrink-0">
+            <div className="rounded-full p-1.5 shrink-0">
               <AlertCircle className="h-4 w-4 text-rose-600" />
             </div>
             <div className="min-w-0">

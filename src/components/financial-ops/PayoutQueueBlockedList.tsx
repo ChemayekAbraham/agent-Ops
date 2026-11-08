@@ -36,8 +36,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Auto-verified',
       text: 'Auto-verified via National ID link.',
       Icon: BadgeCheck,
-      tone: 'text-emerald-700 dark:text-emerald-400',
-      chipClasses: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/25',
     };
   }
   if (row.status === 'verified') {
@@ -46,8 +46,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Already verified',
       text: 'Blocked because this account is already verified by Financial Ops — reject it first if anything needs to change.',
       Icon: BadgeCheck,
-      tone: 'text-emerald-700 dark:text-emerald-400',
-      chipClasses: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 ring-1 ring-inset ring-emerald-500/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/25',
     };
   }
   if (row.status === 'rejected') {
@@ -56,8 +56,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Rejected',
       text: `Blocked because this case was rejected${row.decision_reason ? `: ${row.decision_reason}` : '. It needs a fresh submission.'}`,
       Icon: XCircle,
-      tone: 'text-destructive',
-      chipClasses: 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
+      tone: 'text-muted-foreground',
+      chipClasses: 'bg-muted text-muted-foreground ring-1 ring-inset ring-border',
     };
   }
   if (row.double_submission) {
@@ -66,8 +66,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Double submission',
       text: `Blocked because this ${what} already verifies ${row.double_of_name || 'an earlier account'} — only the account that submitted first may be verified.`,
       Icon: AlertTriangle,
-      tone: 'text-destructive',
-      chipClasses: 'bg-destructive/15 text-destructive ring-1 ring-inset ring-destructive/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/15 text-primary ring-1 ring-inset ring-primary/25',
     };
   }
   if (!row.national_id) {
@@ -76,8 +76,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Waiting for ID',
       text: 'Waiting because no National ID number has been entered on this account yet.',
       Icon: Clock,
-      tone: 'text-amber-700 dark:text-amber-400',
-      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
     };
   }
   if (!assessIdNameConfidence(row.national_id_name).confident) {
@@ -86,8 +86,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Unreadable ID',
       text: `Waiting because the name could not be read from the ID photo — ${assessIdNameConfidence(row.national_id_name).reason} A clearer photo is needed.`,
       Icon: Clock,
-      tone: 'text-amber-700 dark:text-amber-400',
-      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
     };
   }
   if (row.name_match_score !== null && row.name_match_score < 0.5) {
@@ -96,8 +96,8 @@ export function blockedReasonFor(row: PayoutDestinationRow): BlockedReason | nul
       chip: 'Name mismatch',
       text: 'Names do not match between payout destination and National ID.',
       Icon: AlertTriangle,
-      tone: 'text-amber-700 dark:text-amber-400',
-      chipClasses: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 ring-1 ring-inset ring-amber-500/30',
+      tone: 'text-primary',
+      chipClasses: 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/20',
     };
   }
   return {

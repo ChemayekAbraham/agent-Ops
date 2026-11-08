@@ -8,6 +8,7 @@ import {
   parseAgentVetting,
   parseVettingQueue,
   vettingChecklist,
+  vettingApplies,
   vettingProgress,
 } from './agentVetting';
 
@@ -217,5 +218,19 @@ describe('idComparison', () => {
 
   it('survives an empty detail', () => {
     expect(idComparison(null)).toMatchObject({ previous: null, current: { source: null, nin_masked: null } });
+  });
+});
+
+describe('vettingApplies', () => {
+  it('applies to agents by footprint and to anyone who started verification, not to bare role holders', () => {
+    expect(vettingApplies({ in_scope: true, status: 'unverified' })).toBe(true);
+    expect(vettingApplies({ in_scope: false, status: 'unverified' })).toBe(false);
+    expect(vettingApplies({ in_scope: false, status: 'submitted' })).toBe(true);
+    expect(vettingApplies({ in_scope: false, status: 'verified' })).toBe(true);
+    expect(vettingApplies({ in_scope: false, status: 'rejected' })).toBe(true);
+  });
+  it('reads in_scope from the record, false when missing', () => {
+    expect(parseAgentVetting({ status: 'unverified', in_scope: true }).in_scope).toBe(true);
+    expect(parseAgentVetting({ status: 'unverified' }).in_scope).toBe(false);
   });
 });

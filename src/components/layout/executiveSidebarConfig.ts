@@ -6,7 +6,7 @@ import {
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
   Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot, Boxes,
-  Sparkles,
+  Sparkles, ScrollText, ClipboardCheck,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -120,7 +120,9 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Quick Actions',
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
+        { label: 'Funders Dashboard', icon: Banknote, id: 'funders-dashboard', route: '/desk/funders' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
+        { label: 'Partner Receipts', icon: Receipt, id: 'partner-receipts' },
         { label: 'Lunch Allowance', icon: Banknote, id: 'lunch-allowance' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
@@ -129,6 +131,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll History & Advances', icon: History, id: 'cfo-payroll-history', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
+        { label: 'General Payout Activity', icon: ClipboardCheck, id: 'general-payout-activity' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
         { label: 'How Did They Earn?', icon: ClipboardList, id: 'earnings-explainer' },
@@ -142,7 +145,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Advances Overview', icon: BarChart3, id: 'advances-analytics' },
         { label: 'Advance Requests', icon: HandCoins, id: 'advances' },
-        { label: 'Special Advances', icon: Sparkles, id: 'special-advances' },
+        { label: 'Special Transactions', icon: Sparkles, id: 'special-advances' },
         { label: 'Disbursed Advances', icon: Banknote, id: 'advances-disbursed' },
         { label: 'Advance Repayments', icon: Receipt, id: 'advance-repayments' },
         {
@@ -166,11 +169,18 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       ],
     },
     {
+      title: 'Rent Management',
+      items: [
+        { label: 'Tenant Repayment Tracker', icon: ClipboardCheck, id: 'tenant-repayment-tracker', access: CFO_ACCESS },
+      ],
+    },
+    {
       title: 'Money Out',
       items: [
       { label: 'Rent Payouts', icon: Banknote, id: 'rent-payouts' },
         { label: 'Approved Rent Requests', icon: ClipboardList, id: 'approved-rent-payouts' },
         { label: 'Landlord Payout Float', icon: Home, id: 'landlord-payout-float' },
+        { label: 'Tenant Balance Changes', icon: ScrollText, id: 'tenant-balance-changes', access: CFO_ACCESS },
         { label: 'Welile Homes Float Payouts', icon: Home, id: 'welile-homes-payouts' },
         { label: 'Welile Signages', icon: Megaphone, id: 'signages' },
         { label: 'Landlord Float Budget', icon: Gauge, id: 'landlord-float-budget' },
@@ -262,6 +272,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Financial Operations',
       items: [
         { label: 'Overview', icon: Activity, id: 'overview' },
+        { label: 'COO desk', icon: Gauge, id: 'coo-desk', route: '/desk/coo' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
         { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },

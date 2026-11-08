@@ -5,6 +5,8 @@ import StaffDirectory from '../components/StaffDirectory';
 import PayrollEnrollment from '@/hr/pay/PayrollEnrollment';
 import Contracts from '@/hr/contracts/Contracts';
 import HRBirthdayRegister from '@/components/hr/HRBirthdayRegister';
+import DeskAccessManager from '../components/DeskAccessManager';
+import { useMyDeskAccess } from '@/pages/desk/deskAccess';
 
 const TABS = [
   { value: 'directory', label: 'Directory' },
@@ -14,10 +16,16 @@ const TABS = [
   { value: 'birthdays', label: 'Birthdays' },
 ] as const;
 
+/** Shown only to people who may manage desk access (desk_my_access().can_manage). */
+const DESKS_TAB = { value: 'desks', label: 'Desks' } as const;
+
 export default function PeoplePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
-  const active = TABS.some((t) => t.value === requested) ? (requested as string) : 'directory';
+  const access = useMyDeskAccess();
+  const canManageDesks = access.data?.can_manage === true;
+  const tabs = canManageDesks ? [...TABS, DESKS_TAB] : TABS;
+  const active = tabs.some((t) => t.value === requested) ? (requested as string) : 'directory';
 
   const handleChange = (value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -32,7 +40,7 @@ export default function PeoplePage() {
     >
       <Tabs value={active} onValueChange={handleChange} className="space-y-4">
         <TabsList className="flex flex-wrap h-auto">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value}>
               {tab.label}
             </TabsTrigger>
@@ -63,6 +71,12 @@ export default function PeoplePage() {
         <TabsContent value="birthdays">
           <HRBirthdayRegister />
         </TabsContent>
+
+        {canManageDesks && (
+          <TabsContent value="desks">
+            <DeskAccessManager />
+          </TabsContent>
+        )}
       </Tabs>
     </HRPlaceholderPage>
   );

@@ -533,7 +533,7 @@ export function WalletBreakdownReadOnly({
                         <td className="px-3 py-2 text-right font-mono tabular-nums font-semibold">{formatUGX(row.balance)}</td>
                         <td className={`px-3 py-2 text-right font-mono tabular-nums ${effectiveBucket === 'withdrawable' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.withdrawable)}</td>
                         <td className={`px-3 py-2 text-right font-mono tabular-nums ${effectiveBucket === 'float' ? 'text-primary font-semibold' : ''}`}>{formatUGX(row.float)}</td>
-                        <td className="px-3 py-2 text-right font-mono tabular-nums text-warning">{row.advance > 0 ? formatUGX(row.advance) : '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">{row.advance > 0 ? formatUGX(row.advance) : '—'}</td>
                         <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{row.locked > 0 ? formatUGX(row.locked) : '—'}</td>
                         <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
@@ -557,7 +557,7 @@ export function WalletBreakdownReadOnly({
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-emerald-600 hover:bg-emerald-500/10"
+                              className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10"
                               title="Share wallet statement via WhatsApp"
                               disabled={busyId === row.user_id}
                               onClick={(e) => handleShareStatement(row, e)}
@@ -589,7 +589,7 @@ export function WalletBreakdownReadOnly({
                                   <div className="text-[11px] text-muted-foreground">
                                     Withdrawable: <span className="font-mono font-medium text-foreground">{formatUGX(row.withdrawable)}</span>
                                     {' · '}Float: <span className="font-mono font-medium text-foreground">{formatUGX(row.float)}</span>
-                                    {row.advance > 0 && <> · Advance: <span className="font-mono font-medium text-warning">{formatUGX(row.advance)}</span></>}
+                                    {row.advance > 0 && <> · Advance: <span className="font-mono font-medium text-foreground">{formatUGX(row.advance)}</span></>}
                                   </div>
                                 </div>
                               </div>
@@ -615,7 +615,7 @@ export function WalletBreakdownReadOnly({
                                   variant="outline"
                                   onClick={(e) => handleShareStatement(row, e)}
                                   disabled={busyId === row.user_id}
-                                  className="h-8 gap-1.5 text-xs font-semibold border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                  className="h-8 gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/10"
                                 >
                                   {busyId === row.user_id && busyAction === 'share' ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />

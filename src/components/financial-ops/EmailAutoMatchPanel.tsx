@@ -403,14 +403,14 @@ export function EmailAutoMatchPanel() {
           new operator can read it once and understand the whole panel. */}
       <div className="px-3 sm:px-4 py-2 border-b bg-muted/30 text-[11px] text-muted-foreground leading-snug">
         <span className="font-semibold text-foreground">Tip:</span>{' '}
-        <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-600" /> Exact TID</span> is safe to approve.{' '}
-        <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-sky-600" /> Verified match</span> is usually safe.{' '}
-        <span className="inline-flex items-center gap-1"><AlertCircle className="h-3 w-3 text-amber-600" /> Amount only</span> — open the details and double-check before approving.
+        <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> Exact TID</span> is safe to approve.{' '}
+        <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> Verified match</span> is usually safe.{' '}
+        <span className="inline-flex items-center gap-1"><AlertCircle className="h-3 w-3 text-muted-foreground" /> Amount only</span> — open the details and double-check before approving.
       </div>
 
       {error && (
-        <div className="p-3 text-xs text-destructive bg-destructive/5 border-b border-destructive/20 flex items-center gap-2">
-          <AlertCircle className="h-3.5 w-3.5" /> {error}
+        <div className="p-3 text-xs text-muted-foreground bg-muted/30 border-b border-border/70 flex items-center gap-2">
+          <AlertCircle className="h-3.5 w-3.5 text-primary" /> {error}
         </div>
       )}
 
@@ -425,10 +425,10 @@ export function EmailAutoMatchPanel() {
             const isApproving = approving.has(m.deposit_request_id);
             const badgeClass =
               m.method === 'tid'
-                ? 'bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15 border-emerald-500/30'
+                ? 'bg-primary/15 text-primary hover:bg-primary/15 border-primary/30'
                 : m.method === 'amount_strong'
-                  ? 'bg-sky-500/15 text-sky-700 hover:bg-sky-500/15 border-sky-500/30'
-                  : 'bg-amber-500/15 text-amber-700 hover:bg-amber-500/15 border-amber-500/30';
+                  ? 'bg-primary/10 text-primary hover:bg-primary/10 border-primary/25'
+                  : 'bg-muted text-muted-foreground hover:bg-muted border-border/80';
             const signalLabels: Record<string, string> = {
               amount: 'Amount',
               name: 'Payer name',
@@ -456,16 +456,16 @@ export function EmailAutoMatchPanel() {
                     </Badge>
                     <span className="font-semibold text-sm">{fmtUgx(m.amount)}</span>
                     {m.provider && (
-                      <span className="text-[11px] text-muted-foreground uppercase">{m.provider}</span>
+                      <span className="text-[11px] text-muted-foreground uppercase font-mono">{m.provider}</span>
                     )}
                     {extraSignals.map((s) => (
-                      <Badge key={s} variant="outline" className="text-[10px] py-0 px-1.5 font-normal">
+                      <Badge key={s} variant="outline" className="text-[10px] py-0 px-1.5 font-normal border-border/70 text-muted-foreground">
                         ✓ {signalLabels[s] ?? s}
                       </Badge>
                     ))}
                     {m.auto_created_from_email && (
                       <Badge
-                        className="bg-violet-500/15 text-violet-700 hover:bg-violet-500/15 border-violet-500/30 text-[10px] py-0 px-1.5 font-medium"
+                        className="bg-primary/10 text-primary hover:bg-primary/10 border-primary/25 text-[10px] py-0 px-1.5 font-medium"
                         title="This pending deposit was created automatically from the Gmail confirmation because the depositor had not submitted a request in-app. It will be auto-approved on the next matcher scan (every 30s)."
                       >
                         <Bot className="h-3 w-3 mr-1" /> Auto-created from email
@@ -517,7 +517,7 @@ export function EmailAutoMatchPanel() {
                   ) : m.method === 'amount_strong' ? (
                     <>Tap <span className="font-semibold text-foreground">Approve</span> if the depositor and amount look right. Tap <span className="font-semibold text-foreground">Skip</span> if you're not sure.</>
                   ) : (
-                    <><span className="text-amber-700 font-semibold">Read carefully.</span> Only the amount matches — confirm the depositor before tapping <span className="font-semibold text-foreground">Approve</span>, otherwise tap <span className="font-semibold text-foreground">Skip</span>.</>
+                    <><span className="text-foreground font-semibold">Read carefully.</span> Only the amount matches — confirm the depositor before tapping <span className="font-semibold text-foreground">Approve</span>, otherwise tap <span className="font-semibold text-foreground">Skip</span>.</>
                   )}
                 </p>
 

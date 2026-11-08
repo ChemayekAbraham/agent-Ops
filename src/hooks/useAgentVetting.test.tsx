@@ -78,6 +78,7 @@ function wrapperFor(queryClient: QueryClient) {
 
 const agentRecord = {
   status: 'unverified',
+  in_scope: true,
   phone: { value: '+256771234567', verified_at: null },
   parent_agent: { id: 'parent-1', name: 'Parent Agent', phone: '+256700000001' },
 };
@@ -232,6 +233,24 @@ describe('useAgentVetting', () => {
     expect(result.current).toBe(expected);
   });
 
+  it('gives no badge state to an agent-role holder who does not work as an agent', async () => {
+    auth.enabledRoles = ['agent'];
+    rpc.mockImplementation((fn: string) =>
+      Promise.resolve({ data: fn === 'get_my_agent_vetting' ? { ...agentRecord, in_scope: false } : { found: false }, error: null }));
+    const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current).toBeNull();
+  });
+
+  it('keeps the badge for someone outside the footprint who has started verification', async () => {
+    auth.enabledRoles = ['agent'];
+    rpc.mockImplementation((fn: string) =>
+      Promise.resolve({ data: fn === 'get_my_agent_vetting' ? { ...agentRecord, in_scope: false, status: 'submitted' } : { found: false }, error: null }));
+    const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current).toBe('unverified');
+  });
+
   it('gives no badge state to someone who is not a real agent', async () => {
     const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
@@ -269,6 +288,14 @@ describe('agent vetting surfaces', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
     expect(screen.queryByText('Verify your agent account')).toBeNull();
     expect(vettingCalls()).toHaveLength(0);
+  });
+
+  it('hides the dashboard banner from an agent-role holder who does not work as an agent', async () => {
+    auth.enabledRoles = ['agent'];
+    rpc.mockResolvedValue({ data: { ...agentRecord, in_scope: false }, error: null });
+    renderBanner();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.queryByText('Verify your agent account')).toBeNull();
   });
 
   it('shows the dashboard banner for a real agent who is not verified yet', async () => {

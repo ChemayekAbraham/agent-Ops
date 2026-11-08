@@ -352,7 +352,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       </nav>
 
       <TabsContent value="overview" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">
-        <AgentProductsPanel category={category} />
+        <AgentProductsPanel category={category} showReceivablesReconciliation={false} />
       </TabsContent>
 
       <TabsContent value="dormant" forceMount={true} className="space-y-6 max-w-full data-[state=inactive]:hidden data-[state=active]:animate-none">

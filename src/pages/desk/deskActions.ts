@@ -12,7 +12,7 @@ import { cooDecide, cooDecisionSummary, mergeApproveResults, type AskReason } fr
  * state as one reviewed on the old screen.
  *
  * Nothing here invents a money path: the COO's `fund` is the existing
- * `coo_approve_rent_requests`, which is what enforces the CFO float budget.
+ * `coo_approve_rent_requests`, the server's own COO approval.
  */
 
 type Ok = { ok: true; message: string };
@@ -132,7 +132,7 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
       const res = mergeApproveResults(o.response);
       const summary = cooDecisionSummary(o.response, input.reasonMeaning?.(o.reasonCode) ?? o.reasonCode);
       if (res.approved.length > 0) return done(`Approved and sent to the CFO for funding. ${summary}.`);
-      return fail(res.skipped[0]?.message || 'The COO approval did not go through — check the float budget room.');
+      return fail(res.skipped[0]?.message || 'The COO approval did not go through — check the reason on the request and try again.');
     } catch (e) {
       return fail((e as Error).message);
     }

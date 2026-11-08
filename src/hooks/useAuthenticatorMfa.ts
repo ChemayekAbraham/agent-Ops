@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
  *   'loading'      status not known yet
  *   'not_required' nothing to do (not staff, or the server is not enforcing for this account)
  *   'prompt'       not enforced yet but this staff member has no authenticator: offer to set one up
+ *                  (becomes 'enrol' once the server's forced-enrol date has passed, doc 264)
  *   'enrol'        required and no authenticator: show the QR code, then verifyEnrol(code)
  *   'challenge'    required, authenticator exists, session is password-only: ask for the code
  *   'verified'     session is already at the authenticator level
@@ -27,6 +28,8 @@ interface MfaStatus {
   enrolled: boolean;
   required: boolean;
   prompt: boolean;
+  /** True once the server's forced-enrol date (staff_mfa_config.force_enrol_from) has passed for a staff member with no authenticator. Absent = false. */
+  force_enrol?: boolean;
 }
 
 /**
@@ -70,6 +73,11 @@ export function useAuthenticatorMfa(userId: string | undefined) {
     }
     if (s.required) {
       setStage(s.enrolled ? 'challenge' : 'enrol');
+      return;
+    }
+    // Forced-enrol date reached (doc 264): the full-screen set-up step, even while the database mode is still 'shadow'.
+    if (s.force_enrol && !s.enrolled) {
+      setStage('enrol');
       return;
     }
     setStage(s.prompt ? 'prompt' : 'not_required');

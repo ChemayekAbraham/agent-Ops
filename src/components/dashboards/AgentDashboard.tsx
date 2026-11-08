@@ -122,6 +122,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { usePayoutsUiEnabled } from '@/hooks/usePayoutsUiEnabled';
 import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
+import { useLandlordFloatGate } from '@/hooks/useLandlordFloatGate';
 import { useAgentDashboardRealtime } from '@/hooks/useAgentDashboardRealtime';
 import { type AgentHubTab } from '@/components/agent/AgentHubTabs';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
@@ -304,6 +305,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
     reservedBalance: landlordFloatReserved,
     isLoading: floatLoading,
   } = useAgentLandlordFloat();
+  // Under 50% performance the Landlord Float tiles lock and show why instead of opening the withdrawal.
+  const { gate: landlordFloatGate, locked: landlordFloatLocked } = useLandlordFloatGate();
   const { isOnline } = useOffline();
 
   // Instant mobile dashboard refresh: one debounced channel listens for any
@@ -1526,7 +1529,11 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                     tone: 'text-[#9234EA]',
                     ring: 'ring-[#9234EA]/30',
                     bg: 'bg-[#9234EA]/10',
-                    onClick: () => { hapticTap(); setFloatAllocationsOpen(true); },
+                    onClick: () => {
+                      hapticTap();
+                      if (landlordFloatLocked) { toast.error(landlordFloatGate?.blockReason ?? 'Landlord float is locked: your collection rate is under 50%.'); return; }
+                      setFloatAllocationsOpen(true);
+                    },
                   },
                 ].filter((c) => !(isMerchant && c.key === 'landlord')).map((c) => {
                   const Icon = c.icon;
@@ -1572,7 +1579,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <EarnedSinceLastWithdrawalCard />
             {!isMerchant && (
             <AgentLandlordFloatCard
-              onPayLandlord={() => { hapticTap(); setFloatAllocationsOpen(true); }}
+              onPayLandlord={() => { hapticTap(); if (landlordFloatLocked) return; setFloatAllocationsOpen(true); }}
               onOpenRecovery={() => { hapticTap(); setRecoveryLedgerOpen(true); }}
               onOpenHistory={() => { hapticTap(); setFloatHistoryOpen(true); }}
               onOpenStatusTracker={() => { hapticTap(); setPayoutStatusOpen(true); }}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, FileText, MapPin, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +10,14 @@ import { isRecordOnly, needsNote, runMove } from './deskActions';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
+import { DeskCallButton, RequestCallHistory } from './deskCall';
+import { PhotoReview } from './PhotoReview';
+import { IntakeForm } from './IntakeForm';
+import { PaymentHealthPanel } from './paymentHealth';
+import { ConcernsSection, concernDeskFor } from './concerns';
+import { LandlordContextPanel, RENT_EXACT_HINT, ScriptPanel, rentOnRequestText, useLandlordContext } from './landlordOps';
+import { DecisionButton, atLeast, stackLayout, useBreakpoint } from './ui';
+import type { DrawerContext, DrawerStart } from './ReadyBoard';
 import {
   lcLetterUrl,
   readableError,
@@ -23,7 +31,7 @@ import {
 import {
   DECISION_HELP,
   DECISION_LABEL,
-  STAGE_DECISIONS,
+  visibleDecisions,
   type CheckEntry,
   type CheckResult,
   type ChecklistItem,
@@ -122,6 +130,7 @@ function CheckRow({
   needsText,
   onResult,
   onValue,
+  extra,
 }: {
   item: ChecklistItem;
   entry: CheckEntry | undefined;
@@ -129,8 +138,11 @@ function CheckRow({
   needsText: boolean;
   onResult: (r: CheckResult) => void;
   onValue: (v: unknown) => void;
+  /** A line under the question: the rent on the request, the arrears hint. */
+  extra?: React.ReactNode;
 }) {
-  const kind = item.value_kind;
+  // "Rent confirmed by the landlord" always takes the amount the landlord said; it is sent as the check's value.
+  const kind = item.value_kind ?? (item.code === 'lo_rent_confirmed' ? 'amount' : null);
   const showInput = (!!kind || needsText) && entry?.result === 'pass';
   const numeric = kind === 'number' || kind === 'amount';
 
@@ -143,6 +155,7 @@ function CheckRow({
             {item.required && <span className="ml-1.5 text-xs text-muted-foreground">(required)</span>}
           </p>
           <p className="text-xs leading-snug text-muted-foreground">{item.question}</p>
+          {extra && <div className="text-xs leading-snug">{extra}</div>}
           {item.system_said && (
             <p className="text-xs leading-snug">
               <span className="text-[hsl(var(--desk-lavender))]">The system sees: {item.system_said}</span>
@@ -211,10 +224,16 @@ export function ReviewDrawer({
   stage,
   requestId,
   onClose,
+  initial,
+  ctx,
 }: {
   stage: Stage;
   requestId: string;
   onClose: () => void;
+  /** Opened from the board: start on this decision, on "Wait on…", or with the call button ready. */
+  initial?: DrawerStart;
+  /** What the board already knew about the row: missing intake items and the suggested wait. */
+  ctx?: DrawerContext;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -223,7 +242,9 @@ export function ReviewDrawer({
   const reasons = useReasonCodes();
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
-  const [decision, setDecision] = useState<Decision | null>(null);
+  const [decision, setDecision] = useState<Decision | null>(() =>
+    initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
+  );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
   const [note, setNote] = useState('');
@@ -234,12 +255,23 @@ export function ReviewDrawer({
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
   // "Wait on…" is not a review decision: it parks the request here and never calls runMove.
-  const [waitMode, setWaitMode] = useState(false);
+  const [waitMode, setWaitMode] = useState(initial === 'wait');
+  // Agent Ops has a second tab for the house photos.
+  const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  const photosTab = stage === 'agent_ops';
+  const showIntake = stage === 'agent_ops' && (initial === 'complete' || (ctx?.itemsMissing?.length ?? 0) > 0);
+  // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
+  const [liveAnswered, setLiveAnswered] = useState(false);
   const waitDesk = waitDeskForStage(stage);
   const waitList = useWaitingList(waitDesk);
   const canWait = !!waitDesk && !waitList.missing;
 
   const callDesk = stage === 'tenant_ops' ? 'tenant' : stage === 'landlord_ops' ? 'landlord' : null;
+  // Concerns follow the request; every desk but the retired Partner Ops can log and read them.
+  const concernDesk = concernDeskFor(stage);
+  // Landlord Ops reads the whole request from one RPC; the panel and the checks share the cached answer.
+  const landlordCtx = useLandlordContext(requestId, stage === 'landlord_ops');
+  const lctx = landlordCtx.data;
   const suggested = useSuggestedAgents(requestId, decision === 'transfer');
   const proxies = useProxyAgents(decision === 'attach_funder');
 
@@ -376,12 +408,47 @@ export function ReviewDrawer({
 
   const recordedButStuck = !!error && error.startsWith(RETRY_LABEL);
 
+  // Below md the drawer is a full-screen sheet and its two main buttons sit in
+  // a bar pinned to the bottom; from md it is a side drawer with them inline.
+  const bp = useBreakpoint();
+  const phone = !atLeast(bp, 'md');
+  const canSubmit = !!decision && !blockedReason && !busy && !recordedButStuck;
+  const submitButton = (
+    <button
+      type="button"
+      disabled={!decision || !!blockedReason || busy || recordedButStuck}
+      onClick={submit}
+      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
+        canSubmit ? statusGlass.ok : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
+      } disabled:cursor-not-allowed`}
+      style={phone ? { flex: '1 1 auto', minHeight: 44 } : undefined}
+    >
+      {busy ? 'Saving…' : 'Record the review and act'}
+    </button>
+  );
+  const retryButton = recordedButStuck && (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={retryMove}
+      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${statusGlass.warn}`}
+      style={phone ? { flex: '1 1 auto', minHeight: 44 } : undefined}
+    >
+      Retry the move only
+    </button>
+  );
+  const showActionBar = phone && !!req && !waitMode && (!photosTab || tab === 'review');
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
       <button type="button" aria-label="Close the review" onClick={onClose} className="absolute inset-0 bg-black/60" />
       {stage === 'coo' && cooReason.picker}
 
-      <div className="desk-root relative flex h-full w-full max-w-3xl flex-col overflow-hidden border-l border-[var(--desk-line-color)] shadow-2xl">
+      <div
+        data-drawer={phone ? 'sheet' : 'side'}
+        className={`desk-root relative flex h-full w-full flex-col overflow-hidden shadow-2xl ${phone ? '' : 'max-w-3xl border-l border-[var(--desk-line-color)]'}`}
+        style={phone ? { maxWidth: 'none' } : undefined}
+      >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--desk-line-color)] px-5 py-4">
           <div className="min-w-0 space-y-1">
             <h2 className="truncate text-lg font-semibold text-foreground">
@@ -417,8 +484,32 @@ export function ReviewDrawer({
             </p>
           )}
 
+          {req && photosTab && (
+            <div role="tablist" aria-label="Review views" className="flex gap-1.5">
+              {(['review', 'photos'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === t}
+                  onClick={() => setTab(t)}
+                  className={`desk-pill border px-3.5 py-1.5 text-sm ${CALM} ${FOCUS} ${
+                    tab === t
+                      ? 'border-[hsl(var(--primary)/0.6)] bg-[hsl(var(--primary)/0.18)] text-foreground'
+                      : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {t === 'review' ? 'Review' : 'Photos'}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {req && photosTab && tab === 'photos' && <PhotoReview requestId={requestId} />}
+
           {req && (
-            <>
+            // Hidden rather than unmounted on the Photos tab, so ticks and notes survive a tab switch.
+            <div className={photosTab && tab !== 'review' ? 'hidden' : 'space-y-5'}>
               {/* ── The facts, as the agent recorded them ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">What the agent sent</h3>
@@ -430,6 +521,15 @@ export function ReviewDrawer({
                   </Fact>
                   <Fact label="Tenant">
                     {req.tenant?.name ?? '—'}
+                    {stage === 'tenant_ops' && (
+                      <span className="ml-1.5 align-middle">
+                        <DeskCallButton
+                          target={{ requestId, desk: stage, subject: 'tenant', calleeId: req.tenant?.id ?? null, name: req.tenant?.name ?? null, phone: req.tenant?.phone ?? null }}
+                          autoFocus={initial === 'call'}
+                          onEnded={(ok) => ok && setLiveAnswered(true)}
+                        />
+                      </span>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {req.tenant?.phone ?? 'no number'}
                       {req.tenant?.occupation ? ` · ${req.tenant.occupation}` : ''}
@@ -437,10 +537,24 @@ export function ReviewDrawer({
                   </Fact>
                   <Fact label="Agent">
                     {req.agent?.name ?? '—'}
+                    <span className="ml-1.5 align-middle">
+                      <DeskCallButton
+                        target={{ requestId, desk: stage, subject: 'agent', calleeId: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                      />
+                    </span>
                     <div className="text-xs text-muted-foreground">{req.agent?.phone ?? 'no number'}</div>
                   </Fact>
                   <Fact label="Landlord">
                     {req.landlord?.name ?? '—'}
+                    {stage === 'landlord_ops' && (
+                      <span className="ml-1.5 align-middle">
+                        <DeskCallButton
+                          target={{ requestId, desk: stage, subject: 'landlord', calleeId: null, name: req.landlord?.name ?? null, phone: req.landlord?.phone ?? null }}
+                          autoFocus={initial === 'call'}
+                          onEnded={(ok) => ok && setLiveAnswered(true)}
+                        />
+                      </span>
+                    )}
                     <div className="text-xs text-muted-foreground">{req.landlord?.phone ?? 'no number'}</div>
                     <span className={`desk-pill mt-1 inline-block border px-2 py-0.5 text-xs ${req.landlord?.verified ? statusGlass.ok : statusGlass.warn}`}>
                       {req.landlord?.verified ? 'Verified' : 'Not verified'}
@@ -474,6 +588,44 @@ export function ReviewDrawer({
                 </div>
               </section>
 
+              {stage === 'landlord_ops' && <LandlordContextPanel requestId={requestId} />}
+
+              {/* ── Tenant Ops: how the tenant has paid, and the agent who brought them ── */}
+              {stage === 'tenant_ops' && (
+                <div className="grid gap-4 sm:grid-cols-2" style={{ display: 'grid', gap: 16 }}>
+                  <PaymentHealthPanel tenantId={req.tenant?.id ?? null} />
+                  <section className={`${PANEL} p-4`} style={stackLayout(6)} aria-label="Agent">
+                    <h3 className="text-sm font-semibold text-foreground" style={{ margin: 0 }}>
+                      Agent
+                    </h3>
+                    <p className="text-sm text-foreground">{req.agent?.name ?? 'No agent recorded'}</p>
+                    <p className="font-mono text-xs text-muted-foreground">{req.agent?.phone ?? 'no number'}</p>
+                    <span className="inline-flex items-center gap-1.5 text-sm text-foreground">
+                      Call agent
+                      <DeskCallButton
+                        target={{ requestId, desk: stage, subject: 'agent', calleeId: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                      />
+                    </span>
+                  </section>
+                </div>
+              )}
+
+              {showIntake && (
+                <IntakeForm
+                  requestId={requestId}
+                  stage={stage}
+                  agent={{ id: req.agent?.id ?? null, name: req.agent?.name ?? null, phone: req.agent?.phone ?? null }}
+                  itemsMissing={ctx?.itemsMissing ?? []}
+                  waitSuggest={ctx?.waitSuggest ?? null}
+                />
+              )}
+
+              {initial === 'call' && callDesk && (
+                <p className={`rounded-xl border px-3 py-2 text-sm ${statusGlass.warn}`}>
+                  Call the {callDesk} first: press the phone button next to their name above, then log the call below.
+                </p>
+              )}
+
               {/* ── The call, which must come before the decision ── */}
               {callDesk && (
                 <CallLog
@@ -482,22 +634,45 @@ export function ReviewDrawer({
                   subjectUserId={callDesk === 'tenant' ? req.tenant?.id : null}
                   defaultPhone={callDesk === 'tenant' ? (req.tenant?.phone ?? null) : (req.landlord?.phone ?? null)}
                   onLogged={(answered) => setCallAnswered((prev) => prev || answered)}
+                  answeredHint={liveAnswered}
                 />
               )}
+
+              <RequestCallHistory requestId={requestId} />
+
+              {concernDesk && <ConcernsSection requestId={requestId} desk={concernDesk} />}
 
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">The checks for this desk</h3>
                 <ul>
                   {items.map((c) => (
-                    <CheckRow
-                      key={c.code}
-                      item={c}
-                      entry={entries[c.code]}
-                      needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
-                      onResult={(r) => setResult(c.code, r)}
-                      onValue={(v) => setValue(c.code, v)}
-                    />
+                    <Fragment key={c.code}>
+                      {/* The call script sits right above "Value proposition offered". */}
+                      {stage === 'landlord_ops' && c.code === 'lo_value_prop' && lctx?.script && (
+                        <li className="py-3">
+                          <ScriptPanel script={lctx.script} />
+                        </li>
+                      )}
+                      <CheckRow
+                        item={c}
+                        entry={entries[c.code]}
+                        needsText={c.code === 'sc_lc1_letter' && lc1NeedsText}
+                        onResult={(r) => setResult(c.code, r)}
+                        onValue={(v) => setValue(c.code, v)}
+                        extra={
+                          stage !== 'landlord_ops' || !lctx ? undefined : c.code === 'lo_rent_confirmed' ? (
+                            // The box starts empty: the reviewer types what the landlord says, never the request's figure.
+                            <span className="text-foreground">
+                              {rentOnRequestText(lctx.rent_on_request)}
+                              <span className={`block ${statusText.warn}`}>{RENT_EXACT_HINT}</span>
+                            </span>
+                          ) : c.code === 'lo_tenant_no_arrears' && lctx.landlord?.arrears_hint ? (
+                            <span className={statusText.warn}>Arrears hint: {lctx.landlord.arrears_hint}</span>
+                          ) : undefined
+                        }
+                      />
+                    </Fragment>
                   ))}
                   {items.length === 0 && <li className="py-3 text-sm text-muted-foreground">No checks are configured for this desk.</li>}
                 </ul>
@@ -522,7 +697,7 @@ export function ReviewDrawer({
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
                 <div className="flex flex-wrap gap-2">
-                  {STAGE_DECISIONS[stage].map((d) => {
+                  {visibleDecisions(stage).map((d) => {
                     const on = decision === d;
                     const isRec = recommended === d;
                     const off = d === 'pass' && !canPass;
@@ -683,31 +858,12 @@ export function ReviewDrawer({
                 )}
                 {outcome && !error && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
 
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={!decision || !!blockedReason || busy || recordedButStuck}
-                    onClick={submit}
-                    className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${
-                      decision && !blockedReason && !busy && !recordedButStuck
-                        ? statusGlass.ok
-                        : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground'
-                    } disabled:cursor-not-allowed`}
-                  >
-                    {busy ? 'Saving…' : 'Record the review and act'}
-                  </button>
-
-                  {recordedButStuck && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={retryMove}
-                      className={`desk-pill border px-4 py-2 text-sm font-medium ${CALM} ${FOCUS} ${statusGlass.warn}`}
-                    >
-                      Retry the move only
-                    </button>
-                  )}
-                </div>
+                {!phone && (
+                  <div className="flex flex-wrap gap-2">
+                    {submitButton}
+                    {retryButton}
+                  </div>
+                )}
                 </>
                 )}
               </section>
@@ -730,9 +886,24 @@ export function ReviewDrawer({
                   </ul>
                 </section>
               )}
-            </>
+            </div>
           )}
         </div>
+
+        {showActionBar && (
+          <div
+            data-action-bar
+            className="shrink-0 border-t border-[var(--desk-line-color)] bg-[hsl(var(--background))]"
+            style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+          >
+            {submitButton}
+            {retryButton || (
+              <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
+                Close
+              </DecisionButton>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

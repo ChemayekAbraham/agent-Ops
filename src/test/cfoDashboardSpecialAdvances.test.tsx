@@ -9,7 +9,7 @@ describe('CFO Dashboard Special Advances accessibility', () => {
 
     const specialItem = advancesSection?.items.find((i) => i.id === 'special-advances');
     expect(specialItem).toBeDefined();
-    expect(specialItem?.label).toBe('Special Advances');
+    expect(specialItem?.label).toBe('Special Transactions');
   });
 
   it('preserves sidebar order: Overview -> Requests -> Special Advances -> Disbursed -> Repayments', () => {

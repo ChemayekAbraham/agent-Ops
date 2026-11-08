@@ -163,6 +163,7 @@ const MerchantClaimsLog = lz(() => import('./MerchantClaimsLog'), 'MerchantClaim
 const CashoutAgentManager = lz(() => import('@/components/cfo/CashoutAgentManager'), 'CashoutAgentManager');
 const MerchantFloatRequestsPanel = lz(() => import('@/components/cfo/MerchantFloatRequestsPanel'), 'MerchantFloatRequestsPanel');
 const MerchantFloatRequisitionPanel = lz(() => import('./MerchantFloatRequisitionPanel'), 'MerchantFloatRequisitionPanel');
+const PartnerReceiptsPanel = lz(() => import('@/components/shared/PartnerReceiptsPanel'), 'PartnerReceiptsPanel');
 const ReceiptArchivePanel = lz(() => import('@/components/shared/ReceiptArchivePanel'), 'ReceiptArchivePanel');
 const EarningsExplainer = lz(() => import('@/components/shared/EarningsExplainer'), 'EarningsExplainer');
 const DepositBridgeHealthPanel = lz(() => import('@/components/bridge/DepositBridgeHealthPanel'), 'DepositBridgeHealthPanel');
@@ -183,7 +184,7 @@ import {
   ArrowRightLeft, ScrollText, KeyRound, ReceiptText
   , Bell, HandCoins, MessageSquare
   , Store, Archive, Activity, CheckCircle2, Sparkles, PanelLeftClose, PanelLeftOpen, Wallet, CalendarClock,
-  Smartphone, LayoutGrid
+  Smartphone, LayoutGrid, ArrowDownToLine, Building, RefreshCw
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -197,13 +198,13 @@ type View = 'home' | 'deposits' | 'offline_collections';
 type Tool =
   | null
   | 'ops' | 'queue' | 'search' | 'recon' | 'ledgers' | 'audit'
-  | 'withdrawals' | 'opportunities' | 'requisitions'
+  | 'withdrawals' | 'payout_queue' | 'opportunities' | 'requisitions'
   | 'mismatch_metrics' | 'recon_review' | 'withdrawal_history' | 'wallet_breakdown'
   | 'email_tx' | 'funded_tenants' | 'auto_credit_review' | 'proxy_diagnostics'
   | 'topup_audit'
   | 'float_to_withdrawable' | 'momo_sms_template' | 'cash_codes' | 'user_statements'
   | 'withdrawal_notif_log' | 'cashout_settlement' | 'merchant_claims' | 'sms_delivery_log'
-  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'merchant_float_allocation' | 'receipt_archive'
+  | 'merchant_agents' | 'merchant_float' | 'merchant_float_requisition' | 'merchant_float_allocation' | 'receipt_archive' | 'partner_receipts'
   | 'employee_requisition_links' | 'employee_requisition_queue'
   | 'bridge_health' | 'manual_float_credit'
   | 'earnings_explainer'
@@ -230,9 +231,10 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'unverified_withdrawals', label: 'Unverified Withdrawals', desc: 'Open withdrawal requests hidden from merchant agents because the owner has not finished ID verification — call them and help them verify.', icon: ShieldAlert },
   { kind: 'tool', id: 'liquidity_forecast', label: 'Liquidity Forecast', desc: 'Withdrawable across all wallets today + ROI due per day for the next 7–60 days, so you can pre-fund before payouts.', icon: CalendarClock },
   { kind: 'tool', id: 'reports', label: 'Reports', desc: 'Daily Wallet Financial Summary Reports — auto-generated at 00:00 EAT from the ledger. View, filter, regenerate & download PDF/Excel/CSV.', icon: FileText },
-  { kind: 'tool', id: 'earnings_explainer', label: 'How Did They Earn?', desc: 'Plain-English breakdown of every UGX that landed in a user\u2019s wallet — grouped by source (commissions, deposits, ROI, payroll, corrections) with counts and samples.', icon: Sparkles },
+  { kind: 'tool', id: 'earnings_explainer', label: 'How Did They Earn?', desc: 'Plain-English breakdown of every UGX that landed in a user’s wallet — grouped by source (commissions, deposits, ROI, payroll, corrections) with counts and samples.', icon: Sparkles },
   { kind: 'tool', id: 'bridge_health', label: 'Deposit Bridge Health', desc: 'Reliability of the queue between Financial Ops and the wallet ledger — pending, retries, DLQ, gap alerts', icon: Activity },
-  { kind: 'tool', id: 'manual_float_credit', label: 'Manual Float Credit', desc: 'Credit an agent\u2019s float wallet from a MoMo SMS — TID, amount, date/time & depositor. TID is locked so late feeds cannot double-credit.', icon: Wallet },
+  { kind: 'tool', id: 'manual_float_credit', label: 'Manual Float Credit', desc: 'Credit an agent’s float wallet from a MoMo SMS — TID, amount, date/time & depositor. TID is locked so late feeds cannot double-credit.', icon: Wallet },
+  { kind: 'tool', id: 'partner_receipts', label: 'Partner Receipts', desc: 'Issue and look up numbered digital receipts for money partners hand in; corrections go to the CFO', icon: Receipt },
   { kind: 'tool', id: 'receipt_archive', label: 'Receipt Archive', desc: 'Permanent record of every payout receipt — searchable, one URL per receipt', icon: Archive },
   { kind: 'tool', id: 'merchant_agents', label: 'Merchant Agents', desc: 'Manage cash-out (merchant) agents — same module as the CFO Dashboard', icon: Store },
   { kind: 'tool', id: 'merchant_float', label: 'Merchant Float', desc: 'Fund or reject merchant agent operational float requests', icon: HandCoins },
@@ -263,14 +265,22 @@ const moreActions: MoreAction[] = [
   { kind: 'tool', id: 'employee_requisition_queue', label: 'Manual Requisition Review', desc: 'Review shareable-link requisitions through COO and CFO approval stages', icon: ClipboardList },
   { kind: 'tool', id: 'employee_requisition_links', label: 'Manual Requisition Links', desc: 'Generate and share secure links for requisitions outside My Space', icon: FileText },
   { kind: 'tool', id: 'mismatch_metrics', label: 'Mismatch Metrics', desc: 'Operator provider-mismatch attempts', icon: AlertTriangle },
-  { kind: 'tool', id: 'proxy_diagnostics', label: 'Proxy Withdrawal Diagnostics', desc: 'Why each pending proxy withdrawal isn\u2019t auto-settling', icon: AlertCircle },
-  { kind: 'tool', id: 'float_to_withdrawable', label: 'Float \u2192 Withdrawable', desc: 'Reclassify a user\u2019s Operational Float into their Withdrawable balance', icon: ArrowRightLeft },
+  { kind: 'tool', id: 'proxy_diagnostics', label: 'Proxy Withdrawal Diagnostics', desc: 'Why each pending proxy withdrawal isn’t auto-settling', icon: AlertCircle },
+  { kind: 'tool', id: 'float_to_withdrawable', label: 'Float → Withdrawable', desc: 'Reclassify a user’s Operational Float into their Withdrawable balance', icon: ArrowRightLeft },
   { kind: 'tool', id: 'momo_sms_template', label: 'MoMo Thank-You SMS', desc: 'Edit the thank-you + signup SMS sent to MTN/Airtel senders', icon: Mail },
+  { kind: 'tool', id: 'cash_codes', label: 'Cash Deposit Codes', desc: 'Recent cash deposits: awaiting 4-digit code, verified, banked or cash at hand.', icon: KeyRound },
+  { kind: 'tool', id: 'payout_queue', label: 'Payout Queue', desc: 'Review and disburse verified landlord rent payouts with MoMo reference.', icon: Building },
+  { kind: 'tool', id: 'withdrawals', label: 'Withdrawal Approvals', desc: 'Review and process customer withdrawal requests and approve payouts.', icon: Banknote },
+  { kind: 'tool', id: 'merchant_claims', label: 'Merchant Claims', desc: 'Every withdrawal a merchant agent claimed, in progress and completed.', icon: Store },
+  { kind: 'tool', id: 'wallet_breakdown', label: 'Wallet Breakdown', desc: 'Every wallet by name, phone or balance, with its bucket amounts.', icon: Wallet },
 ];
 
 import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams, useParams, useLocation, useNavigate } from 'react-router-dom';
-import { finopsPath, finopsIdFromSlug, isFinopsViewId, isOnFinopsRoute } from '@/lib/financialOpsRoutes';
+import { finopsPath, finopsIdFromSlug, isFinopsViewId, isOnFinopsRoute, FINOPS_MENU_SLUG } from '@/lib/financialOpsRoutes';
+import FinOpsMenuHome from './new-ui/FinOpsMenuHome';
+import FinOpsOverviewTiles from './new-ui/FinOpsOverviewTiles';
+import WalletBreakdownDonut from './new-ui/WalletBreakdownDonut';
 
 const WALLET_BREAKDOWN_KEY = 'finops_wallet_breakdown_open_v2';
 const IFTTT_DIAGNOSTICS_KEY = 'finops_ifttt_diagnostics_open_v1';
@@ -327,14 +337,28 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
   const pathMode = isOnFinopsRoute(pathname);
   const knownPanels = new Set<string>([
     ...moreActions.map((a) => a.id as string),
-    'cash_codes', 'withdrawals', 'merchant_claims', 'wallet_breakdown',
+    'cash_codes', 'withdrawals', 'payout_queue', 'merchant_claims', 'wallet_breakdown',
   ]);
+  const isMenu = pathMode && panel === FINOPS_MENU_SLUG;
   const panelId = panel ? finopsIdFromSlug(panel) : null;
   const pathPanel = pathMode && panelId && knownPanels.has(panelId) ? panelId : null;
   const legacyTool = searchParams.get('tool');
   const legacyView = searchParams.get('view');
   const activeTool = ((pathPanel && !isFinopsViewId(pathPanel) ? pathPanel : legacyTool) as Tool) || null;
   const view = ((pathPanel && isFinopsViewId(pathPanel) ? pathPanel : legacyView) || 'home') as View;
+  const [payoutsSubTab, setPayoutsSubTab] = useState<'withdrawals' | 'landlord_payouts' | 'settlement_tools'>(() => {
+    if (panel === 'payout-queue' || pathPanel === 'payout_queue') return 'landlord_payouts';
+    return 'withdrawals';
+  });
+
+  // Sync payoutsSubTab with route panel changes
+  useEffect(() => {
+    if (panel === 'payout-queue' || activeTool === 'payout_queue') {
+      setPayoutsSubTab('landlord_payouts');
+    } else if (panel === 'withdrawals' || (activeTool === 'withdrawals' && payoutsSubTab !== 'settlement_tools')) {
+      setPayoutsSubTab('withdrawals');
+    }
+  }, [panel, activeTool]);
 
   const setActiveTool = (t: Tool) => {
     if (pathMode) {
@@ -368,6 +392,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
   // the real path so bookmarks keep working and the address bar is always honest.
   useEffect(() => {
     if (!pathMode) return;
+    if (isMenu) return;
     if (panel && !pathPanel) {
       navigate(finopsPath(), { replace: true });
     } else if (!panel && (legacyTool || legacyView)) {
@@ -433,16 +458,19 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
 
   // Shared back button — bigger tap target, consistent label & spacing.
   const SubBack = ({ onClick }: { onClick: () => void }) => (
-    <Button variant="outline" size="sm" onClick={onClick} className="gap-2">
-      <ArrowLeft className="h-4 w-4" /> Back to Financial Ops
-    </Button>
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline transition-colors py-0.5 px-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <ArrowLeft className="h-3.5 w-3.5" /> Back to Overview
+    </button>
   );
 
   // Sub-view: Verify Deposits (unified — user TIDs + field/agent cash)
   let content: JSX.Element;
   if (view === 'deposits') {
     content = (
-      <div className="space-y-5">
+      <div className="space-y-2 pb-2 w-full">
         <SubBack onClick={() => setView('home')} />
         <Suspense fallback={<PanelFallback />}> <VerifyDepositsHub /> </Suspense>
       </div>
@@ -456,7 +484,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
     );
   } else if (activeTool) {
     content = (
-      <div className="space-y-5 pb-24 sm:pb-16">
+      <div className="space-y-2 pb-2 w-full">
         <SubBack onClick={() => setActiveTool(null)} />
         <ToolErrorBoundary toolKey={String(activeTool)}>
         <Suspense fallback={<PanelFallback />}>
@@ -511,30 +539,129 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
         )}
         {activeTool === 'ledgers' && <LedgerHub />}
         {activeTool === 'audit' && <AuditFeed />}
-        {activeTool === 'withdrawals' && (
-          <>
-            <PageHeader
-              icon={Banknote}
-              tone="rose"
-              title="Withdrawals & Payouts"
-              description="Review and process customer withdrawal requests. Approve completed payments or reject failed ones."
-            />
-            {/* Core withdrawal verification queue given first priority and breathing space */}
-            <FinOpsWithdrawalVerification />
-            <LandlordPayoutsQueue />
-            {/* PHASE 10: stored merchant float vs ledger-derived float */}
-            <MerchantFloatTruthPanel />
-            <EmailPayoutAutoMatchPanel />
-            <BulkBankPayoutPanel />
-            <PendingWalletOperationsWidget requirePaymentRef={requirePaymentRef} />
-            {/* Portfolio top-ups parked at status='awaiting_verification' */}
+        {(activeTool === 'withdrawals' || activeTool === 'payout_queue') && (
+          <div className="space-y-6 w-full">
             <div>
-              <h3 className="text-base sm:text-lg font-bold mt-4 mb-2">
-                Portfolio Top-Ups Awaiting Verification
-              </h3>
-              <PortfolioTopUpVerification />
+              <PageHeader
+                icon={payoutsSubTab === 'landlord_payouts' ? Building : Banknote}
+                tone="primary"
+                title={payoutsSubTab === 'landlord_payouts' ? 'Landlord Payout Queue' : 'Withdrawals & Payouts'}
+                description={
+                  payoutsSubTab === 'landlord_payouts'
+                    ? 'Review and disburse verified landlord rent payouts with MoMo transaction reference.'
+                    : 'Review and process customer withdrawal requests. Approve completed payments or reject failed requests.'
+                }
+                actions={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 border-border/80 hover:bg-muted text-foreground"
+                    onClick={() => window.location.reload()}
+                  >
+                    <RefreshCw className="h-3.5 w-3.5 text-primary" />
+                    Refresh
+                  </Button>
+                }
+              />
             </div>
-          </>
+
+            {/* Sub-navigation tabs matching Board 02 */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-3">
+              <Button
+                variant={payoutsSubTab === 'withdrawals' ? 'default' : 'outline'}
+                size="sm"
+                className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
+                  payoutsSubTab === 'withdrawals'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground border-border/70 hover:border-primary/40'
+                }`}
+                onClick={() => {
+                  setPayoutsSubTab('withdrawals');
+                  if (pathMode) navigate(finopsPath('withdrawals'));
+                }}
+              >
+                <ArrowDownToLine className="h-3.5 w-3.5 mr-1.5" />
+                Withdrawal Requests
+              </Button>
+
+              <Button
+                variant={payoutsSubTab === 'landlord_payouts' ? 'default' : 'outline'}
+                size="sm"
+                className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
+                  payoutsSubTab === 'landlord_payouts'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground border-border/70 hover:border-primary/40'
+                }`}
+                onClick={() => {
+                  setPayoutsSubTab('landlord_payouts');
+                  if (pathMode) navigate(finopsPath('payout_queue'));
+                }}
+              >
+                <Building className="h-3.5 w-3.5 mr-1.5" />
+                Payout Queue
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground border-border/70 hover:border-primary/40"
+                onClick={() => setActiveTool('cash_codes')}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                Cash Deposit Codes
+              </Button>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-4 rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground border-border/70 hover:border-primary/40"
+                onClick={() => setActiveTool('email_tx')}
+              >
+                <Mail className="h-3.5 w-3.5 mr-1.5 text-primary" />
+                Email Transactions
+              </Button>
+
+              <Button
+                variant={payoutsSubTab === 'settlement_tools' ? 'default' : 'outline'}
+                size="sm"
+                className={`h-9 px-4 rounded-lg text-xs font-semibold transition-all ${
+                  payoutsSubTab === 'settlement_tools'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground border-border/70 hover:border-primary/40'
+                }`}
+                onClick={() => setPayoutsSubTab('settlement_tools')}
+              >
+                <Scale className="h-3.5 w-3.5 mr-1.5" />
+                Settlement & Tools
+              </Button>
+            </div>
+
+            {/* Tab contents */}
+            {payoutsSubTab === 'withdrawals' && (
+              <FinOpsWithdrawalVerification />
+            )}
+
+            {payoutsSubTab === 'landlord_payouts' && (
+              <div className="space-y-6 w-full">
+                <LandlordPayoutsQueue />
+              </div>
+            )}
+
+            {payoutsSubTab === 'settlement_tools' && (
+              <div className="space-y-8 w-full">
+                <MerchantFloatTruthPanel />
+                <EmailPayoutAutoMatchPanel />
+                <BulkBankPayoutPanel />
+                <PendingWalletOperationsWidget requirePaymentRef={requirePaymentRef} />
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold mt-4 mb-2">
+                    Portfolio Top-Ups Awaiting Verification
+                  </h3>
+                  <PortfolioTopUpVerification />
+                </div>
+              </div>
+            )}
+          </div>
         )}
         {activeTool === 'opportunities' && (
           <div className="space-y-5">
@@ -582,7 +709,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
         {activeTool === 'topup_audit' && <PartnershipTopupAuditLog />}
         {activeTool === 'momo_sms_template' && <MomoSignupSmsTemplatePanel />}
         {activeTool === 'cash_codes' && (
-          <CashDepositCodesPanel fullScreen onClose={() => setActiveTool(null)} />
+          <CashDepositCodesPanel fullScreen />
         )}
         {activeTool === 'manual_float_credit' && <ManualFloatCreditPanel />}
         {activeTool === 'user_statements' && <UserWalletStatementsPanel />}
@@ -594,6 +721,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
         {activeTool === 'cashout_settlement' && <CashoutSettlementTimeline />}
         {activeTool === 'merchant_claims' && <MerchantClaimsLog />}
         {activeTool === 'merchant_agents' && <CashoutAgentManager />}
+        {activeTool === 'partner_receipts' && <PartnerReceiptsPanel />}
         {activeTool === 'receipt_archive' && <ReceiptArchivePanel />}
         {activeTool === 'merchant_float' && (
           <div className="space-y-5">
@@ -634,38 +762,44 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
     );
   }
 
+  // "All tools": the grouped, searchable menu at /admin/financial-ops/menu.
+  if (isMenu) content = <FinOpsMenuHome />;
+
   const activeId: string | null = activeTool ?? (view !== 'home' ? view : null);
 
-  // Email Transactions is opened as a full-screen workspace that covers the
-  // Financial Ops sidebar/menu so the operator has the whole laptop or
-  // smartphone screen for the inbox-style list.
-  const emailTxFullscreen = activeTool === 'email_tx';
-
-  // Consolidated 4-tier sidebar structure for fast, intuitive scanning.
-  const sidebarGroups: { title: string; items: MoreAction[] }[] = [
+  // Consolidated 4-tier sidebar structure matching mockup boards and independent routes.
+  const sidebarGroups: {
+    title: string;
+    featuredIds: string[];
+    items: MoreAction[];
+  }[] = [
     {
       title: 'Daily Operations',
+      featuredIds: ['deposits', 'payout_queue', 'withdrawals', 'cash_codes', 'email_tx'],
       items: moreActions.filter(a => [
-        'payout_verification', 'unverified_withdrawals', 'email_tx', 'deposits', 'stale_withdrawal_holds', 'cash_codes', 'auto_credit_review', 'merchant_float'
+        'deposits', 'payout_queue', 'withdrawals', 'cash_codes', 'email_tx', 'payout_verification', 'unverified_withdrawals', 'stale_withdrawal_holds', 'auto_credit_review'
       ].includes(a.id as string)),
     },
     {
       title: 'Balances & Reconciliation',
+      featuredIds: ['wallet_buckets', 'merchant_float'],
       items: moreActions.filter(a => [
-        'wallet_buckets', 'recon', 'recon_review', 'mismatch_metrics', 'reports', 'liquidity_forecast', 'float_to_withdrawable'
+        'wallet_buckets', 'merchant_float', 'recon', 'recon_review', 'mismatch_metrics', 'reports', 'liquidity_forecast', 'float_to_withdrawable'
       ].includes(a.id as string)),
     },
     {
       title: 'Merchant Network & Cash-Out',
+      featuredIds: ['merchant_agents'],
       items: moreActions.filter(a => [
-        'merchant_agents', 'cashout_settlement', 'merchant_claims', 'merchant_float_allocation', 'merchant_float_requisition',
+        'merchant_agents', 'merchant_claims', 'merchant_float_allocation', 'merchant_float_requisition', 'cashout_settlement',
         'withdrawal_history', 'withdrawal_notif_log', 'proxy_diagnostics'
       ].includes(a.id as string)),
     },
     {
       title: 'Ledger & Audit',
+      featuredIds: ['recon', 'ledgers', 'reports'],
       items: moreActions.filter(a => [
-        'ledgers', 'audit', 'topup_audit', 'sms_delivery_log', 'user_statements', 'receipt_archive',
+        'recon', 'ledgers', 'reports', 'audit', 'topup_audit', 'sms_delivery_log', 'user_statements', 'receipt_archive',
         'earnings_explainer', 'bridge_health', 'manual_float_credit', 'offline_collections', 'funded_tenants',
         'momo_sms_template', 'ops', 'queue', 'search', 'opportunities', 'requisitions',
         'employee_requisition_queue', 'employee_requisition_links'
@@ -684,8 +818,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
     'Ledger & Audit': FileText,
   };
   const totalNavLinks = sidebarGroups.reduce((n, g) => n + g.items.length, 0) + 1;
-  // Sidebar attention badges (stale withdrawal holds). Same lightweight
-  // count query FinOpsHome uses — React Query dedupes by key.
+  // Sidebar attention badges (stale withdrawal holds).
   const { data: sidebarStaleHolds } = useQuery({
     queryKey: ['finops-stale-withdrawal-hold-count'],
     queryFn: async () => {
@@ -705,16 +838,16 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
     : sidebarGroups;
 
   return (
-    <div className={emailTxFullscreen ? 'min-w-0' : 'flex gap-6 items-start min-w-0'}>
+    <div className="flex gap-6 items-start min-w-0">
       {/* Mobile Drawer Navigation (Slide-out menu on mobile & tablet) */}
       <Sheet open={mobileDrawerOpen} onOpenChange={setMobileDrawerOpen}>
         <SheetContent side="left" className="w-[85vw] max-w-sm p-0 flex flex-col overflow-hidden bg-card border-r border-border">
           <SheetHeader className="px-4 pt-4 pb-3 border-b border-border bg-card text-left">
             <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <Sparkles className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
+              <span className="text-xl font-black tracking-tight text-primary font-display">
+                welile<span className="text-primary text-2xl leading-none">.</span>
+              </span>
+              <div className="min-w-0 flex-1 pl-2">
                 <SheetTitle className="text-sm font-bold text-foreground leading-tight">Financial Ops</SheetTitle>
                 <SheetDescription className="text-[11px] text-muted-foreground leading-none mt-0.5">Command Center Tools</SheetDescription>
               </div>
@@ -726,7 +859,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
                 type="text"
                 value={sidebarQuery}
                 onChange={(e) => setSidebarQuery(e.target.value)}
-                placeholder="Search 35+ tools…"
+                placeholder="Search tools…"
                 className="w-full h-8 pl-8 pr-2.5 rounded-md bg-background border border-border text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
               />
             </div>
@@ -735,13 +868,17 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
           {/* Overview button */}
           <div className="px-2 pt-2">
             <button
-              onClick={() => { setActiveTool(null); setView('home'); setMobileDrawerOpen(false); }}
+              onClick={() => {
+                if (pathMode) navigate('/admin/financial-ops');
+                else { setActiveTool(null); setView('home'); }
+                setMobileDrawerOpen(false);
+              }}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 activeId === null ? 'bg-primary/10 text-primary font-semibold' : 'text-foreground hover:bg-muted/60'
               }`}
             >
               <HomeIcon className={`h-4 w-4 shrink-0 ${activeId === null ? 'text-primary' : 'text-muted-foreground'}`} />
-              <span className="text-sm">Overview</span>
+              <span className="text-sm font-semibold">Overview</span>
             </button>
           </div>
 
@@ -754,9 +891,14 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
             )}
             {filteredGroups.map((group) => (
               <div key={group.title} className="mt-3 first:mt-2">
-                <p className="px-2.5 mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                  {group.title}
-                </p>
+                <div className="flex items-center justify-between px-2.5 mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                    {group.title}
+                  </p>
+                  <span className="text-[10px] font-bold text-primary bg-primary/10 rounded-full px-1.5 py-0.2">
+                    {group.items.length}
+                  </span>
+                </div>
                 <div className="flex flex-col gap-0.5">
                   {group.items.map((a) => {
                     const isActive = activeId === a.id;
@@ -776,7 +918,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
                         }`} />
                         <span className="text-sm truncate flex-1">{a.label}</span>
                         {!!badgeCount && (
-                          <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
+                          <span className="shrink-0 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
                             {badgeCount}
                           </span>
                         )}
@@ -801,17 +943,15 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
         </SheetContent>
       </Sheet>
 
-      {/* Persistent sidebar (desktop) — hidden when Email Transactions is open full-screen */}
-      {!emailTxFullscreen && (
-      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-14' : 'w-64 xl:w-72'} shrink-0 self-stretch min-h-[calc(100vh-2rem)] flex-col rounded-xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
+      {/* Persistent sidebar (desktop) — always visible matching 11 mockup boards */}
+      <aside className={`hidden lg:flex ${sidebarCollapsed ? 'w-16' : 'w-64 xl:w-72'} shrink-0 self-start sticky top-4 h-[calc(100vh-2rem)] max-h-[calc(100vh-2rem)] flex-col rounded-2xl border border-border bg-card overflow-hidden transition-[width] duration-200 shadow-xs`}>
         {/* Sidebar header */}
         <div className={`${sidebarCollapsed ? 'px-2 py-3' : 'px-4 pt-4 pb-3'} border-b border-border bg-card`}>
           <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'justify-between'} gap-2`}>
             <div className={`min-w-0 ${sidebarCollapsed ? 'hidden' : ''}`}>
-              <img src={welileWordmark} alt="Welile" className="h-7 w-auto" />
-              <p className="mt-2.5 flex items-center gap-2 text-sm font-semibold text-foreground leading-none">
-                <Sparkles className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> Financial Ops
-              </p>
+              <span className="text-2xl font-black tracking-tight text-primary font-display flex items-center gap-0.5">
+                welile<span className="text-primary text-3xl leading-none">.</span>
+              </span>
             </div>
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -822,32 +962,52 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
               {sidebarCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
             </button>
           </div>
-          {/* Search — hidden when collapsed */}
+
           {!sidebarCollapsed && (
             <>
-              <div className="mt-4 relative">
-                <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Workspace dropdown selector button */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (pathMode) navigate('/admin/financial-ops');
+                  else { setActiveTool(null); setView('home'); }
+                }}
+                className="w-full mt-3 flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-border bg-background hover:bg-muted/40 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <LayoutGrid className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold text-foreground truncate">Financial Ops</span>
+                </div>
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              </button>
+
+              {/* Search — matching mockup */}
+              <div className="mt-3 relative">
+                <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
                   value={sidebarQuery}
                   onChange={(e) => setSidebarQuery(e.target.value)}
                   placeholder="Search tools…"
                   aria-label="Search all tools"
-                  className="w-full h-10 pl-9 pr-2.5 rounded-xl bg-background border border-border text-sm placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
+                  className="w-full h-9 pl-8.5 pr-2.5 rounded-xl bg-background border border-border text-xs placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/40"
                 />
               </div>
-              <p className="mt-1.5 text-xs text-muted-foreground">Search all tools</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Search all tools</p>
             </>
           )}
         </div>
 
-        {/* Home shortcut */}
+        {/* Overview shortcut */}
         <div className={`${sidebarCollapsed ? 'px-1.5' : 'px-3'} pt-3`}>
           <button
-            onClick={() => { setActiveTool(null); setView('home'); }}
+            onClick={() => {
+              if (pathMode) navigate('/admin/financial-ops');
+              else { setActiveTool(null); setView('home'); }
+            }}
             className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2.5 rounded-xl text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
               activeId === null
-                ? 'bg-primary/10 text-primary font-semibold'
+                ? 'bg-primary/10 text-primary font-bold shadow-2xs'
                 : 'text-foreground hover:bg-muted/60'
             }`}
             title="Overview"
@@ -868,67 +1028,83 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
             const GroupIcon = groupIcons[group.title] ?? FileText;
             const holdsActive = group.items.some((a) => a.id === activeId);
             const expanded = !!q || (openGroups[group.title] ?? holdsActive);
-            const groupBadge = group.items.reduce((n, a) => n + (badgeCounts[a.id as string] ?? 0), 0);
+            const groupBadge = group.items.length;
+            const visibleItems = sidebarCollapsed
+              ? group.items
+              : expanded || q
+                ? group.items
+                : group.items.filter(a => (group.featuredIds ?? []).includes(a.id as string));
+
             return (
-              <div key={group.title} className={`mt-1.5 ${sidebarCollapsed && gi > 0 ? 'pt-2 border-t border-border/60' : ''}`}>
+              <div key={group.title} className={`mt-2 ${sidebarCollapsed && gi > 0 ? 'pt-2 border-t border-border/60' : ''}`}>
                 {!sidebarCollapsed && (
                   <button
                     type="button"
                     onClick={() => setOpenGroups((g) => ({ ...g, [group.title]: !expanded }))}
                     aria-expanded={expanded}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-foreground hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary group"
                   >
-                    <GroupIcon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    <span className="flex-1 text-sm font-medium leading-tight">{group.title}</span>
-                    {groupBadge > 0 && <span className="h-2 w-2 rounded-full bg-amber-500 shrink-0" aria-label="Needs attention" />}
-                    <span className="shrink-0 rounded-full bg-primary/10 text-primary text-xs font-bold px-2 py-0.5 tabular-nums">{group.items.length}</span>
+                    <GroupIcon className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary transition-colors" aria-hidden="true" />
+                    <span className="flex-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground leading-tight group-hover:text-foreground transition-colors">
+                      {group.title}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-primary/10 text-primary text-[11px] font-bold px-1.5 py-0.2 tabular-nums">
+                      {groupBadge}
+                    </span>
                     {expanded
-                      ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                      : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                      ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />}
                   </button>
                 )}
-                {(sidebarCollapsed || expanded) && (
-                  <div className={`flex flex-col gap-0.5 ${sidebarCollapsed ? '' : 'mt-0.5 mb-1.5 pl-3'}`}>
-                    {group.items.map((a) => {
-                      const isActive = activeId === a.id;
-                      const badgeCount = badgeCounts[a.id as string];
-                      return (
-                        <button
-                          key={`${a.kind}-${a.id}`}
-                          onClick={() => openMoreAction(a)}
-                          className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-md text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
-                            isActive
-                              ? 'bg-primary/10 text-primary font-semibold'
-                              : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
-                          }`}
-                          title={sidebarCollapsed ? `${a.label}${badgeCount ? ` (${badgeCount})` : ''}` : a.desc}
-                        >
-                          {isActive && !sidebarCollapsed && (
-                            <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
-                          )}
-                          <span className="relative shrink-0">
-                            <a.icon className={`h-3.5 w-3.5 transition-colors ${
-                              isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                            }`} />
-                            {!!badgeCount && sidebarCollapsed && (
-                              <span className="absolute -top-1.5 -right-1.5 h-3.5 min-w-[0.875rem] px-0.5 rounded-full bg-amber-500 text-[9px] font-bold text-white flex items-center justify-center leading-none">
-                                {badgeCount > 9 ? '9+' : badgeCount}
-                              </span>
-                            )}
-                          </span>
-                          {!sidebarCollapsed && (
-                            <span className="text-[13px] leading-tight truncate flex-1">{a.label}</span>
-                          )}
-                          {!!badgeCount && !sidebarCollapsed && (
-                            <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
-                              {badgeCount}
+                <div className={`flex flex-col gap-0.5 ${sidebarCollapsed ? '' : 'mt-0.5 pl-2'}`}>
+                  {visibleItems.map((a) => {
+                    const isActive = activeId === a.id;
+                    const badgeCount = badgeCounts[a.id as string];
+                    return (
+                      <button
+                        key={`${a.kind}-${a.id}`}
+                        onClick={() => openMoreAction(a)}
+                        className={`group w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0 py-2' : 'gap-2.5 px-2.5 py-1.5'} rounded-lg text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative ${
+                          isActive
+                            ? 'bg-primary/10 text-primary font-semibold'
+                            : 'text-foreground/80 hover:bg-muted/60 hover:text-foreground'
+                        }`}
+                        title={sidebarCollapsed ? `${a.label}${badgeCount ? ` (${badgeCount})` : ''}` : a.desc}
+                      >
+                        {isActive && !sidebarCollapsed && (
+                          <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-r-full bg-primary" />
+                        )}
+                        <span className="relative shrink-0">
+                          <a.icon className={`h-4 w-4 transition-colors ${
+                            isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
+                          }`} />
+                          {!!badgeCount && sidebarCollapsed && (
+                            <span className="absolute -top-1.5 -right-1.5 h-3.5 min-w-[0.875rem] px-0.5 rounded-full bg-primary text-[9px] font-bold text-white flex items-center justify-center leading-none">
+                              {badgeCount > 9 ? '9+' : badgeCount}
                             </span>
                           )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+                        </span>
+                        {!sidebarCollapsed && (
+                          <span className="text-[13px] leading-tight truncate flex-1">{a.label}</span>
+                        )}
+                        {!!badgeCount && !sidebarCollapsed && (
+                          <span className="shrink-0 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
+                            {badgeCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {!sidebarCollapsed && !expanded && !q && group.items.length > visibleItems.length && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenGroups((g) => ({ ...g, [group.title]: true }))}
+                      className="px-2.5 py-1 text-left text-[11px] font-semibold text-primary hover:underline"
+                    >
+                      + {group.items.length - visibleItems.length} more in {group.title}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -942,124 +1118,52 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
               <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
             </span>
           ) : (
-            <div className="flex items-center gap-3">
-              <LayoutGrid className="h-6 w-6 shrink-0 text-foreground" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => setMoreSheet(true)}
+              className="w-full flex items-center gap-3 text-left hover:opacity-80 transition-opacity"
+            >
+              <LayoutGrid className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground leading-tight">{totalNavLinks} navigation links</p>
-                <p className="text-xs text-muted-foreground leading-tight">Overview + {totalNavLinks - 1} grouped links</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground leading-tight">{totalNavLinks} navigation links</p>
+                <p className="text-[11px] text-muted-foreground leading-tight">Overview + {totalNavLinks - 1} grouped links</p>
               </div>
-            </div>
+            </button>
           )}
         </div>
       </aside>
-      )}
 
-      {/* Main content — full width when Email Transactions is open */}
-      <div className={emailTxFullscreen ? 'w-full min-w-0' : 'flex-1 min-w-0'}>
+      {/* Main content */}
+      <div className="flex-1 min-w-0">
         {/* Mobile quick navigation trigger bar */}
-        {!emailTxFullscreen && (
-          <div className="lg:hidden mb-4 flex items-center justify-between gap-2 p-2 rounded-xl border border-border/80 bg-card/90 backdrop-blur shadow-xs">
-            <button
-              type="button"
-              onClick={() => setMobileDrawerOpen(true)}
-              className="h-8 px-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0"
-              aria-label="Open Financial Operations menu"
-            >
-              <Menu className="h-4 w-4" />
-              <span>Tools Menu ({moreActions.length})</span>
-              {!!sidebarStaleHolds?.count && (
-                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-              )}
-            </button>
-            <div className="min-w-0 text-right pr-1">
-              <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground truncate">
-                {activeTool ? 'Active Tool' : view === 'home' ? 'Current' : 'Queue'}
-              </p>
-              <p className="text-xs font-bold text-foreground truncate max-w-[150px]">
-                {activeTool ? moreActions.find(a => a.id === activeTool)?.label || String(activeTool) : view === 'home' ? 'Overview' : view}
-              </p>
-            </div>
+        <div className="lg:hidden mb-4 flex items-center justify-between gap-2 p-2 rounded-xl border border-border/80 bg-card/90 backdrop-blur shadow-xs">
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="h-8 px-2.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary flex items-center gap-1.5 text-xs font-semibold transition-colors shrink-0"
+            aria-label="Open Financial Operations menu"
+          >
+            <Menu className="h-4 w-4" />
+            <span>Tools Menu ({moreActions.length})</span>
+            {!!sidebarStaleHolds?.count && (
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+            )}
+          </button>
+          <div className="min-w-0 text-right pr-1">
+            <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground truncate">
+              {activeTool ? 'Active Tool' : isMenu ? 'Browsing' : view === 'home' ? 'Current' : 'Queue'}
+            </p>
+            <p className="text-xs font-bold text-foreground truncate max-w-[150px]">
+              {activeTool ? moreActions.find(a => a.id === activeTool)?.label || String(activeTool) : isMenu ? 'All tools' : view === 'home' ? 'Overview' : view}
+            </p>
           </div>
-        )}
+        </div>
         {content}
 
-        {!activeTool && view === 'home' && (
+        {!activeTool && view === 'home' && !isMenu && (
           <div className="mt-6 space-y-4">
+            {/* Only renders when the money feed has gone silent. The IFTTT and merchant-phone accordions live under their own tools. */}
             <MomoFeedSilenceAlert />
-
-            {/* IFTTT Diagnostics Accordion — collapsed by default */}
-            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setIftttDiagnosticsOpen(!iftttDiagnosticsOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-expanded={iftttDiagnosticsOpen}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <Activity className="h-4.5 w-4.5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold tracking-tight text-foreground">IFTTT Live Webhook Diagnostics</h2>
-                      <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Automation
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      SMS forwarding health, last received webhooks & payload inspection.
-                    </p>
-                  </div>
-                </div>
-                {iftttDiagnosticsOpen ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-              {iftttDiagnosticsOpen && (
-                <div className="p-4 border-t border-border bg-muted/5">
-                  <IftttDiagnosticsPanel />
-                </div>
-              )}
-            </div>
-
-            {/* Merchant Phone Checklist Accordion — collapsed by default */}
-            <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setMerchantChecklistOpen(!merchantChecklistOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-expanded={merchantChecklistOpen}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
-                    <Smartphone className="h-4.5 w-4.5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold tracking-tight text-foreground">Merchant Operational Phone Setup</h2>
-                      <span className="hidden sm:inline-flex items-center rounded-md bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                        Checklist
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                      Required background permissions, battery optimizations & SMS automation steps.
-                    </p>
-                  </div>
-                </div>
-                {merchantChecklistOpen ? (
-                  <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-                )}
-              </button>
-              {merchantChecklistOpen && (
-                <div className="p-4 border-t border-border bg-muted/5">
-                  <MerchantPhoneChecklist />
-                </div>
-              )}
-            </div>
           </div>
         )}
       </div>
@@ -1091,6 +1195,8 @@ function FinOpsHome({
   walletBreakdownOpen, setWalletBreakdownOpen, focusBucket, onClearFocus,
   moreSheet, setMoreSheet, openMoreAction, onOpenMobileDrawer,
 }: FinOpsHomeProps) {
+  const navigate = useNavigate();
+  const onFinopsRoute = isOnFinopsRoute(useLocation().pathname);
   const qc = useQueryClient();
   const autoRefresh = useFinOpsAutoRefresh();
   const [exploreQuery, setExploreQuery] = useState('');
@@ -1175,138 +1281,37 @@ function FinOpsHome({
 
   return (
     <div className="space-y-5">
-      {/* Header row */}
-      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
-          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-            Verify deposits, approve withdrawals and keep the platform balanced.
-          </p>
-        </div>
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          {onOpenMobileDrawer && (
-            <button
-              type="button"
-              onClick={onOpenMobileDrawer}
-              className="lg:hidden inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors min-h-[44px]"
-            >
-              <Menu className="h-3.5 w-3.5" /> All Tools
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shadow-2xs min-h-[44px] sm:min-h-[40px]"
-          >
-            <ArrowRightLeft className="h-4 w-4" aria-hidden="true" /> Refresh
-          </button>
-          <label
-            className="inline-flex items-center gap-2.5 text-sm font-medium text-foreground cursor-pointer select-none min-h-[44px] sm:min-h-[40px]"
-            title={
-              autoRefresh
-                ? 'Auto-refresh is on. Turn it off to keep the screen stable while you review.'
-                : 'Auto-refresh is off. Numbers will not update until you turn it back on.'
-            }
-          >
-            Auto-refresh
-            <Switch
-              checked={autoRefresh}
-              onCheckedChange={setFinOpsAutoRefresh}
-              aria-label="Toggle auto-refresh"
-            />
-          </label>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Financial Operations</h1>
+        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Verify deposits, approve withdrawals and keep the platform balanced.
+        </p>
       </div>
-
       {/* Verified payout destinations — nobody is paid to an unverified number */}
       <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
-      {/* Daily tools */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        <QuickAction onClick={() => onOpenTool('cash_codes')} icon={KeyRound} label="Cash Deposit Codes" />
-        <QuickAction onClick={() => onOpenTool('email_tx')} icon={Mail} label="Email Transactions" />
-        <QuickAction onClick={() => onOpenTool('wallet_buckets')} icon={Wallet} label="Wallet Buckets" />
-        <QuickAction onClick={() => onOpenTool('withdrawals')} icon={Banknote} label="Payout Queue" />
-        <QuickAction onClick={() => onOpenTool('merchant_float')} icon={HandCoins} label="Merchant Float" />
-      </div>
+      <FinOpsOverviewTiles
+        activeWallets={totals?.activeWallets}
+        payoutsPending={queues?.payoutsPending}
+        onOpenTool={(id) => onOpenTool(id as Tool)}
+      />
 
-      {/* Queues that need a person */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <ActionStatTile
-          onClick={() => onView('deposits')}
-          icon={ShieldCheck}
-          count={queues?.depositsPending ?? 0}
-          countLabel="Pending verification"
-          title="Verify Deposits"
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('withdrawals')}
-          icon={ArrowRightLeft}
-          count={queues?.payoutsPending ?? 0}
-          countLabel="Payout requests"
-          title="Withdrawal Approvals"
-        />
-        <ActionStatTile
-          onClick={() => onOpenTool('merchant_claims')}
-          icon={HandCoins}
-          count={queues?.activeClaims ?? 0}
-          countLabel="Active claims"
-          title="Merchant Claims"
-        />
-      </div>
-
-      {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-2xs">
-        <button
-          type="button"
-          onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-muted/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <Search className="h-4.5 w-4.5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
-                <span className="hidden sm:inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Read Only
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                Search every wallet by name, phone, or balance range.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs font-medium text-muted-foreground hidden sm:inline">
-              {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
-            </span>
-            {walletBreakdownOpen ? (
-              <ChevronUp className="h-5 w-5 text-muted-foreground shrink-0" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" />
-            )}
-          </div>
-        </button>
-        {walletBreakdownOpen && (
-          <div className="px-4 pb-4 border-t border-border bg-muted/5">
-            <WalletBreakdownReadOnly
-              focusBucket={focusBucket}
-              onClearFocus={onClearFocus}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Hero + Phone Money */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+      {/* Wallet split, money in all wallets, and the money we actually hold */}
+      <div className="grid grid-cols-1 gap-4 items-stretch lg:grid-cols-[1.15fr_1fr_1fr]">
+        <div className="min-w-0 h-full">
+          <WalletBreakdownDonut
+            withdrawable={totals?.totalWithdrawable}
+            float={totals?.totalFloat}
+            loading={totalsLoading}
+            onViewAll={() => onOpenTool('wallet_breakdown')}
+          />
+        </div>
         <div className="min-w-0 h-full">
           <WalletOverviewCard
             onOpenReconciliation={() => onOpenTool('recon')}
             onOpenBreakdown={() => onOpenTool('wallet_breakdown')}
-            onDrillBucket={(bucket) => onFocusBucket(bucket)}
+            onDrillBucket={() => onOpenTool('wallet_breakdown')}
           />
         </div>
         <div className="min-w-0 h-full">
@@ -1314,63 +1319,8 @@ function FinOpsHome({
         </div>
       </div>
 
-      {/* Wallet Breakdown — collapsed by default; expand to search every wallet */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xs">
-        <div className="flex flex-wrap items-center gap-3 px-4 py-3">
-          <div className="flex items-center gap-3 shrink-0">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-              <Search className="h-5 w-5 text-primary" aria-hidden="true" />
-            </div>
-            <h2 className="text-base font-bold tracking-tight text-foreground">Wallet Breakdown</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-            aria-label="Search every wallet by name, phone or balance range"
-            className="flex-1 min-w-[12rem] h-10 inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-sm text-muted-foreground hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="truncate">Search by name, phone or balance range</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setWalletBreakdownOpen(!walletBreakdownOpen)}
-            aria-expanded={walletBreakdownOpen}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary min-h-[44px] sm:min-h-0"
-          >
-            {walletBreakdownOpen ? 'Collapse' : 'Expand search'}
-            {walletBreakdownOpen ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <ChevronDown className="h-4 w-4" aria-hidden="true" />}
-          </button>
-        </div>
-        {walletBreakdownOpen && (
-          <div className="px-4 pb-4 pt-3 border-t border-border bg-muted/5">
-            <WalletBreakdownReadOnly
-              focusBucket={focusBucket}
-              onClearFocus={onClearFocus}
-            />
-          </div>
-        )}
-      </div>
-
       {/* Company money sitting with merchant agents */}
       <MoneyWithAgentsCard onOpenTimeline={() => onOpenTool('cashout_settlement')} />
-
-      {/* Float allocation + merchant balance disputes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-        <MerchantAgentFloatAllocationPanel compact onOpenFull={() => onOpenTool('merchant_float_allocation')} />
-        <MerchantBalanceDisputesPanel />
-      </div>
-
-      <AutoCreditSuccessRateTile onClick={() => onOpenTool('auto_credit_review')} />
-
-      {/* Quick tools */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-border bg-card px-4 py-1.5 shadow-2xs">
-        <span className="text-xs font-bold text-foreground">Quick Tools</span>
-        <QuickLink icon={Activity} label="Bridge Health" onClick={() => onOpenTool('bridge_health')} />
-        <QuickLink icon={Archive} label="Receipt Archive" onClick={() => onOpenTool('receipt_archive')} />
-        <QuickLink icon={ArrowRightLeft} label="Cash-Out Timeline" onClick={() => onOpenTool('cashout_settlement')} />
-        <QuickLink icon={MoreHorizontal} label="Explore Tools" onClick={onOpenMore} />
-      </div>
 
       {/* "More" Sheet */}
       <Sheet open={moreSheet} onOpenChange={setMoreSheet}>
@@ -1413,7 +1363,7 @@ function FinOpsHome({
                     <span className="font-medium text-sm flex items-center gap-1.5 break-words">
                       {a.label}
                       {!!badgeCount && (
-                        <span className="shrink-0 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
+                        <span className="shrink-0 rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.5 tabular-nums">
                           {badgeCount}
                         </span>
                       )}

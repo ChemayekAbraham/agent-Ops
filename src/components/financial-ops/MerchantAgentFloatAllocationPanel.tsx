@@ -31,9 +31,9 @@ const RECOMMENDATION_META: Record<
   MerchantFloatAllocationRecommendation,
   { label: string; icon: typeof TrendingUp; badge: string; text: string }
 > = {
-  increase: { label: 'Increase float', icon: TrendingUp, badge: 'success', text: 'text-emerald-700 dark:text-emerald-400' },
-  maintain: { label: 'Maintain', icon: Minus, badge: 'muted', text: 'text-muted-foreground' },
-  reduce_or_freeze: { label: 'Reduce / freeze', icon: TrendingDown, badge: 'destructive', text: 'text-red-700 dark:text-red-400' },
+  increase: { label: 'Increase float', icon: TrendingUp, badge: 'default', text: 'text-primary' },
+  maintain: { label: 'Maintain', icon: Minus, badge: 'secondary', text: 'text-muted-foreground' },
+  reduce_or_freeze: { label: 'Reduce / freeze', icon: TrendingDown, badge: 'outline', text: 'text-foreground' },
   insufficient_data: { label: 'No data yet', icon: HelpCircle, badge: 'outline', text: 'text-muted-foreground' },
 };
 
@@ -46,11 +46,11 @@ const GRADE_LABEL: Record<string, string> = {
 };
 
 const GRADE_BADGE: Record<string, string> = {
-  healthy: 'success',
-  recording_gap: 'warning',
-  money_risk: 'destructive',
-  stranded_claims: 'destructive',
-  no_payouts: 'muted',
+  healthy: 'default',
+  recording_gap: 'secondary',
+  money_risk: 'outline',
+  stranded_claims: 'outline',
+  no_payouts: 'secondary',
 };
 
 const WINDOW_OPTIONS = [7, 30, 90] as const;
@@ -410,28 +410,28 @@ export function MerchantAgentFloatAllocationPanel({
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2 flex items-center gap-1.5">
                     <TrendingUp className="h-3.5 w-3.5" /> Give more float ({increase.length})
                   </p>
                   <ul className="space-y-1.5">
                     {increase.slice(0, 3).map((r) => (
                       <li key={r.agentId} className="flex items-center justify-between text-sm">
                         <span className="truncate">{r.merchantName}</span>
-                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
+                        <span className="text-xs font-bold text-primary shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
                       </li>
                     ))}
                     {increase.length === 0 && <li className="text-xs text-muted-foreground">None qualify yet.</li>}
                   </ul>
                 </div>
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-red-700 dark:text-red-400 mb-2 flex items-center gap-1.5">
-                    <TrendingDown className="h-3.5 w-3.5" /> Give less float ({reduce.length})
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-foreground mb-2 flex items-center gap-1.5">
+                    <TrendingDown className="h-3.5 w-3.5 text-muted-foreground" /> Give less float ({reduce.length})
                   </p>
                   <ul className="space-y-1.5">
                     {reduce.slice(0, 3).map((r) => (
                       <li key={r.agentId} className="flex items-center justify-between text-sm">
                         <span className="truncate">{r.merchantName}</span>
-                        <span className="text-xs font-bold text-red-700 dark:text-red-400 shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
+                        <span className="text-xs font-bold text-foreground shrink-0 ml-2">{r.allocationScore.toFixed(0)}</span>
                       </li>
                     ))}
                     {reduce.length === 0 && <li className="text-xs text-muted-foreground">None flagged.</li>}

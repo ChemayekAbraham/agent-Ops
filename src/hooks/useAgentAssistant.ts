@@ -82,9 +82,12 @@ function collectDevice() {
 }
 
 /** Which screen the chat is on. A tone hint for the server only; it never widens what can be read. */
-function currentPage(): 'agent_dashboard' | 'other' {
+function currentPage(): 'agent_dashboard' | 'funder_dashboard' | 'other' {
   if (typeof window === 'undefined') return 'other';
-  return window.location.pathname.startsWith('/dashboard/agent') ? 'agent_dashboard' : 'other';
+  const path = window.location.pathname;
+  if (path.startsWith('/dashboard/agent')) return 'agent_dashboard';
+  if (path.startsWith('/dashboard/funder')) return 'funder_dashboard';
+  return 'other';
 }
 
 /** supabase-js hides the JSON body of non-2xx replies inside `error.context`; recover it. */

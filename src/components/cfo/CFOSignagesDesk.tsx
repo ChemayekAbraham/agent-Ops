@@ -65,16 +65,16 @@ export function CFOSignagesDesk() {
 
   // Signages with pending rewards or rent obligations
   const pendingAgentRewards = approvedSignages.filter(
-    (s) => s.status === 'active' && s.agent_reward_status !== 'disbursed'
+    (s) => s.status === 'active' && s.agent_reward_status !== 'paid'
   );
   const pendingOwnerRents = approvedSignages.filter(
-    (s) => s.status === 'active' && s.owner_rent_status !== 'disbursed'
+    (s) => s.status === 'active' && s.owner_rent_status !== 'paid'
   );
 
   const totalActive = approvedSignages.filter((s) => s.status === 'active').length;
   const totalApprovedAwaitingInstall = approvedSignages.filter((s) => s.status !== 'active').length;
   const totalDisbursedCount = approvedSignages.filter(
-    (s) => s.agent_reward_status === 'disbursed' || s.owner_rent_status === 'disbursed'
+    (s) => s.agent_reward_status === 'paid' || s.owner_rent_status === 'paid'
   ).length;
 
   const totalPendingRewardsUgx = pendingAgentRewards.length * SIGNAGE_RATES.AGENT_REWARD_UGX;
@@ -98,7 +98,7 @@ export function CFOSignagesDesk() {
     if (filterTab === 'pending_payout') {
       return (
         item.status === 'active' &&
-        (item.agent_reward_status !== 'disbursed' || item.owner_rent_status !== 'disbursed')
+        (item.agent_reward_status !== 'paid' || item.owner_rent_status !== 'paid')
       );
     }
     if (filterTab === 'active') {
@@ -108,7 +108,7 @@ export function CFOSignagesDesk() {
       return item.status !== 'active';
     }
     if (filterTab === 'disbursed') {
-      return item.agent_reward_status === 'disbursed' || item.owner_rent_status === 'disbursed';
+      return item.agent_reward_status === 'paid' || item.owner_rent_status === 'paid';
     }
     return true;
   });
@@ -194,11 +194,12 @@ export function CFOSignagesDesk() {
             <Button
               size="sm"
               onClick={handleBatchDisburseAgentRewards}
-              disabled={disburseMutation.isPending}
+              disabled
+              title="Coming soon — not yet connected to the payment process"
               className="rounded-xl text-xs font-bold gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
             >
               <Send className="h-3.5 w-3.5" />
-              <span>Batch Pay Agents ({pendingAgentRewards.length})</span>
+              <span>Batch Pay Agents — coming soon</span>
             </Button>
           )}
           <Button
@@ -311,8 +312,8 @@ export function CFOSignagesDesk() {
         <div className="space-y-3">
           {filtered.map((item) => {
             const statusMeta = formatSignageStatus(item.status);
-            const isRewardPaid = item.agent_reward_status === 'disbursed';
-            const isRentPaid = item.owner_rent_status === 'disbursed';
+            const isRewardPaid = item.agent_reward_status === 'paid';
+            const isRentPaid = item.owner_rent_status === 'paid';
             const isInstalled = item.status === 'active';
 
             return (
@@ -376,11 +377,12 @@ export function CFOSignagesDesk() {
                         ) : isInstalled ? (
                           <Button
                             size="sm"
-                            onClick={() => handleOpenDisburse(item, 'agent_reward')}
+                            disabled
+                            title="Coming soon — not yet connected to the payment process"
                             className="rounded-xl text-xs h-8 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Agent</span>
+                            <span>Pay Agent — coming soon</span>
                           </Button>
                         ) : (
                           <span className="text-[10px] text-muted-foreground italic">Awaiting Mount</span>
@@ -414,11 +416,12 @@ export function CFOSignagesDesk() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleOpenDisburse(item, 'owner_rent')}
+                            disabled
+                            title="Coming soon — not yet connected to the payment process"
                             className="rounded-xl text-xs h-8 font-bold border-primary text-primary hover:bg-primary/10 gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Owner</span>
+                            <span>Pay Owner — coming soon</span>
                           </Button>
                         ) : (
                           <span className="text-[10px] text-muted-foreground italic">Awaiting Mount</span>

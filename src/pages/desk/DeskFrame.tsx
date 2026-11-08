@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { fmt } from './format';
 import { useStageFlow } from './useDeskFeed';
 import { useDeskDaily } from './reviewApi';
-import { CALM, FOCUS, LABEL, statusGlass } from './deskTheme';
+import { Chip, Fold } from './ui';
 import { Skeleton } from './Skeleton';
 import { STRIP_STAGES } from './PipelineStrip';
 import { WAIT_DESK_OF, WaitingRows, isTimeUp, useWaitingList } from './waitOn';
+import { DeskRules } from './DeskRules';
+import { AccountabilityFold } from './accountability/AccountabilityFold';
 
 /**
  * The frame every stage desk shares when it is live:
@@ -30,51 +30,8 @@ export const READY_TABLE: Record<string, string> = {
   cfo: 'cfo-queue',
 };
 
-/** A section that opens on a press. Children mount only when open, so a closed section costs nothing. */
-export function Fold({
-  title,
-  badge,
-  hint,
-  board,
-  children,
-}: {
-  title: string;
-  badge?: ReactNode;
-  hint?: string;
-  board: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <section className="space-y-3 border-t border-[var(--desk-line-color)] pt-3">
-      <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-          className={`flex w-full flex-wrap items-center gap-2 rounded-lg text-left ${CALM} ${FOCUS}`}
-        >
-          <ChevronRight
-            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none ${open ? 'rotate-90' : ''}`}
-            aria-hidden
-          />
-          <span>{title}</span>
-          {badge}
-          {hint && <span className={`${LABEL} font-normal`}>{hint}</span>}
-        </button>
-      </h2>
-      {open && <div className="space-y-5">{children}</div>}
-    </section>
-  );
-}
-
-function CountPill({ n, tone = 'idle' }: { n: number | null; tone?: 'idle' | 'bad' | 'warn' | 'ok' }) {
-  return (
-    <span className={`desk-pill border px-2.5 py-0.5 text-xs tabular-nums ${statusGlass[tone]}`}>
-      {n === null ? '—' : fmt('int', n)}
-    </span>
-  );
-}
+/** The section fold lives in the desk UI kit; re-exported for existing imports. */
+export { Fold };
 
 /** "Waiting on…" — hidden altogether while the waiting RPCs are not applied. */
 export function WaitingOnFold({ deskId, board }: { deskId: string; board: boolean }) {
@@ -86,13 +43,13 @@ export function WaitingOnFold({ deskId, board }: { deskId: string; board: boolea
     <Fold
       title="Waiting on…"
       board={board}
+      count={list.loading ? null : list.items.length}
       badge={
-        <>
-          <CountPill n={list.loading ? null : list.items.length} />
-          {timeUp > 0 && (
-            <span className={`desk-pill border px-2.5 py-0.5 text-xs font-semibold ${statusGlass.bad}`}>{fmt('int', timeUp)} time up</span>
-          )}
-        </>
+        timeUp > 0 ? (
+          <Chip size="sm" tone="bad" strong>
+            {fmt('int', timeUp)} time up
+          </Chip>
+        ) : undefined
       }
       hint="Requests parked here while someone outside the desk acts"
     >
@@ -124,8 +81,12 @@ export function DoneTodayFold({ deskId, board }: { deskId: string; board: boolea
   const row = stage ? flow.rows.find((r) => String(r.ord) === stage.flowOrd) : undefined;
   const n = flow.loading || !row ? null : Number(row.done_24h ?? 0);
   return (
-    <Fold title="Done today" board={board} badge={<CountPill n={n} tone={n ? 'ok' : 'idle'} />} hint="Cleared from this desk in the last 24 hours">
-      <DoneDetail deskId={deskId} />
-    </Fold>
+    <>
+      <Fold title="Done today" board={board} count={n} countTone={n ? 'ok' : 'idle'} hint="Cleared from this desk in the last 24 hours">
+        <DoneDetail deskId={deskId} />
+      </Fold>
+      <AccountabilityFold deskId={deskId} board={board} />
+      <DeskRules deskId={deskId} board={board} />
+    </>
   );
 }

@@ -11,6 +11,7 @@ import type {
 } from './types';
 import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -74,12 +75,14 @@ function writeCachedMarketSummary(summary: FunderNewMarketSummary) {
 }
 
 export function useFunderNewMarketSummary() {
-  const signedIn = useSignedInEnabled();
-  return useQuery<FunderNewMarketSummary>({
+  const allowed = useFunderEmptyHousesAllowed();
+  const signedIn = useSignedInEnabled(allowed);
+  const query = useQuery<FunderNewMarketSummary>({
     queryKey: ['funder-new', 'empty-house-market-summary'],
     enabled: signedIn,
-    placeholderData: () => readCachedMarketSummary(),
+    placeholderData: () => allowed ? readCachedMarketSummary() : undefined,
     queryFn: async () => {
+      if (!allowed) return { houseCount: 0, totalRentNeeded: 0, avgMonthlyRent: 0, districts: [] };
       await requireUserSession();
       const { data, error } = await supabase.rpc('empty_house_opportunity_summary');
       if (error) throw error;
@@ -102,6 +105,7 @@ export function useFunderNewMarketSummary() {
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  return allowed ? query : { ...query, data: undefined, error: null, isLoading: false, isError: false };
 }
 
 /**
@@ -125,8 +129,9 @@ export function useFunderNewEmptyHouses(
   const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
   const nearby = effectiveSort === 'nearest' && origin ? origin : null;
 
-  const signedIn = useSignedInEnabled(enabled);
-  return useInfiniteQuery<FunderNewListResult<FunderNewEmptyHouse>>({
+  const allowed = useFunderEmptyHousesAllowed();
+  const signedIn = useSignedInEnabled(enabled && allowed);
+  const query = useInfiniteQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
       'empty-houses',
@@ -143,6 +148,7 @@ export function useFunderNewEmptyHouses(
     enabled: signedIn,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
+      if (!allowed) return { items: [], total: 0 };
       await requireUserSession();
       const offset = typeof pageParam === 'number' ? pageParam : 0;
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
@@ -175,6 +181,10 @@ export function useFunderNewEmptyHouses(
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  return allowed ? query : {
+    ...query, data: undefined, error: null, isLoading: false, isFetching: false,
+    isFetchingNextPage: false, hasNextPage: false,
+  };
 }
 
 /**
@@ -258,9 +268,10 @@ export function useFunderNewMapHouses(
   enabled: boolean,
 ) {
   const range = amountRange(filters.amount);
-  const signedIn = useSignedInEnabled(enabled);
+  const allowed = useFunderEmptyHousesAllowed();
+  const signedIn = useSignedInEnabled(enabled && allowed);
 
-  return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
+  const query = useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
       'map-houses',
@@ -274,6 +285,7 @@ export function useFunderNewMapHouses(
     ],
     enabled: signedIn,
     queryFn: async () => {
+      if (!allowed) return { items: [], total: 0 };
       await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
@@ -298,6 +310,7 @@ export function useFunderNewMapHouses(
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  return allowed ? query : { ...query, data: undefined, error: null, isLoading: false };
 }
 
 /**
@@ -314,8 +327,9 @@ export function useFunderNewRecommendations(
   enabled: boolean,
 ) {
   const wanted = Math.max(1, Math.min(count, 50));
-  const signedIn = useSignedInEnabled(enabled && perHouseAmount > 0);
-  return useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
+  const allowed = useFunderEmptyHousesAllowed();
+  const signedIn = useSignedInEnabled(enabled && allowed && perHouseAmount > 0);
+  const query = useQuery<FunderNewListResult<FunderNewEmptyHouse>>({
     queryKey: [
       'funder-new',
       'recommendations',
@@ -326,6 +340,7 @@ export function useFunderNewRecommendations(
     ],
     enabled: signedIn,
     queryFn: async () => {
+      if (!allowed) return { items: [], total: 0 };
       await requireUserSession();
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: normalizeTextFilter(filters.search),
@@ -350,4 +365,5 @@ export function useFunderNewRecommendations(
     gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+  return allowed ? query : { ...query, data: undefined, error: null, isLoading: false };
 }

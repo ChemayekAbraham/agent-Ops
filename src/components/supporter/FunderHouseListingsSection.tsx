@@ -58,12 +58,14 @@ export function FunderHouseListingsSection({
   searchOnMap = false,
   onFiltersChange,
   onResultsFocus,
+  onResultCountChange,
 }: {
   searchOnMap?: boolean;
   /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
   onFiltersChange?: (filters: FunderListMapFilters) => void;
   /** With a search typed, reports where the matching empty houses are so the map can move to them. */
   onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
+  onResultCountChange?: (count: number) => void;
 } = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -238,6 +240,10 @@ export function FunderHouseListingsSection({
       return amount > 0 && amount <= availableBalance;
     });
   }, [loadedItems, filters.withinFloat, availableBalance]);
+
+  useEffect(() => {
+    onResultCountChange?.(items.length);
+  }, [items.length, onResultCountChange]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
@@ -435,7 +441,7 @@ export function FunderHouseListingsSection({
 
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
         {effectiveSort === 'nearest' && origin ? (
           <span>
             Within {origin.radiusKm} km of {origin.label}
@@ -650,9 +656,7 @@ export function FunderHouseListingsSection({
             window.dispatchEvent(new Event('supporter-contribution-changed'));
             return { submitted: true, reference };
           } catch (err: unknown) {
-            toast.error('Could not submit support', {
-              description: String((err as { message?: string })?.message || 'Please try again.'),
-            });
+            toast.error(String((err as { message?: string })?.message || 'Could not submit support'));
             throw err;
           }
         }}

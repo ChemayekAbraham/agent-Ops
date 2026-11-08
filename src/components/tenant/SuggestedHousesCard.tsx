@@ -134,7 +134,7 @@ export function SuggestedHousesCard({ userId, onViewAll }: SuggestedHousesCardPr
               }
             }}
             aria-label={`View details for ${house.title}`}
-            className="flex-shrink-0 w-[44vw] sm:w-48 snap-start cursor-pointer focus:outline-none group"
+            className="flex-shrink-0 w-[44vw] sm:w-48 snap-start cursor-pointer focus:outline-none group rounded-2xl bg-primary/[0.07] p-2 pb-3"
           >
             {/* Image container */}
             <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
@@ -208,7 +208,7 @@ export function SuggestedHousesCard({ userId, onViewAll }: SuggestedHousesCardPr
                 {house.house_category} · {house.number_of_rooms} room{house.number_of_rooms !== 1 ? 's' : ''}
               </p>
               <p className="text-sm font-semibold text-foreground">
-                {formatUGX(house.daily_rate)} <span className="text-xs font-normal text-muted-foreground">/ day</span>
+<span className="text-green-600 dark:text-green-400">{formatUGX(house.daily_rate)}</span> <span className="text-xs font-normal text-muted-foreground">/ day</span>
               </p>
             </div>
           </div>

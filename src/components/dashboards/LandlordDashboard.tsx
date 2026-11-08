@@ -27,7 +27,7 @@ import { AgentNotificationBell } from '@/components/agent/AgentNotificationBell'
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WelileHomesLandlordBadge } from '@/components/landlord/WelileHomesLandlordBadge';
-import RegisterPropertyDialog from '@/components/landlord/RegisterPropertyDialog';
+import RegisterPropertyAssistant from '@/components/landlord/registerPropertyAssistant/RegisterPropertyAssistant';
 import { LandlordRegisterHouseCard } from '@/components/landlord/LandlordRegisterHouseCard';
 import { FullScreenWalletSheet } from '@/components/wallet/FullScreenWalletSheet';
 import { WalletDisclaimer } from '@/components/wallet/WalletDisclaimer';
@@ -127,20 +127,13 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto">
 
-          {/* Register your house — the page's major action. Same card, same size
-              (min 300px, 360px from sm up) and same caption as the agent dashboard's
-              "Post a rent request here". */}
+          {/* Register your house — the page's major action. The card sizes itself from its
+              own width (a fixed proportion), so it fits a phone and the phone-width column alike. */}
           <div className="flex flex-col space-y-2">
             <LandlordRegisterHouseCard
               onOpen={handleOpenRegisterProperty}
-              className="w-full min-h-[300px] sm:min-h-[360px]"
+              className="w-full"
             />
-            <p
-              onClick={handleOpenRegisterProperty}
-              className="text-xs sm:text-sm text-center text-muted-foreground font-medium shrink-0 pt-2 pb-0.5 select-none cursor-pointer"
-            >
-              and <span className="font-semibold text-green-600 dark:text-green-400">start earning guaranteed monthly rent</span>
-            </p>
           </div>
 
           <MissionBanner dashboardRole="landlord" />
@@ -168,7 +161,7 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       </Dialog>
 
       {/* Dialogs */}
-      <RegisterPropertyDialog
+      <RegisterPropertyAssistant
         open={registerPropertyOpen}
         onOpenChange={setRegisterPropertyOpen}
       />

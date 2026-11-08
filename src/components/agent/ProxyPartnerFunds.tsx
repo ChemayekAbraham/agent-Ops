@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { fetchAgentOnboardedPortfolios, fetchAgentPayoutRoutes, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
+import { fetchAgentOnboardedPortfolios, fetchAgentPayoutRoutes, fetchAgentPayoutDestination, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -160,7 +160,8 @@ export function ProxyPartnerFunds() {
   const [prefillAmount, setPrefillAmount] = useState<number>(0);
   const [prefillReason, setPrefillReason] = useState('');
   const [prefillPayout, setPrefillPayout] = useState<any>(null);
-  const [payoutOnFile, setPayoutOnFile] = useState<{ portfolioId: string; routeKey: string; summary: string } | null>(null);
+  const [payoutOnFile, setPayoutOnFile] = useState<{ portfolioId: string; routeKey: string; summary: string; details?: { mode: string; provider: string | null; name: string | null; number: string | null; bank: string | null } | null } | null>(null);
+  const [payoutPartnerName, setPayoutPartnerName] = useState<string | undefined>(undefined);
   // Where the locked payout destination came from, shown to the agent so it is
   // obvious the number is the partner's saved one and not something typed here.
   const [payoutSourceLabel, setPayoutSourceLabel] = useState<string | undefined>(undefined);
@@ -1013,7 +1014,14 @@ export function ProxyPartnerFunds() {
     const primary = portfolioRoutes.find(r => r.route_key.startsWith('portfolio:')) || portfolioRoutes[0];
     const hasExtras = portfolioRoutes.some(r => r.route_key.startsWith('extra:'));
     setPrefillPayout(null);
-    setPayoutOnFile(primary?.portfolio_id ? { portfolioId: primary.portfolio_id, routeKey: primary.route_key, summary: primary.label } : null);
+    // Saved-method routes have no portfolio id; they still carry a route the server copies from.
+    let details: { mode: string; provider: string | null; name: string | null; number: string | null; bank: string | null } | null = null;
+    if (primary) {
+      const d = await fetchAgentPayoutDestination(partner.partnerId, primary.route_key).catch(() => null);
+      if (d) details = { mode: d.out_mode, provider: d.out_provider, name: d.out_name, number: d.out_number, bank: d.out_bank };
+    }
+    setPayoutPartnerName(partner.partnerName);
+    setPayoutOnFile(primary ? { portfolioId: primary.portfolio_id ?? '', routeKey: primary.route_key, summary: primary.label, details } : null);
     setPayoutSourceLabel(primary ? primary.label : undefined);
 
     if (!primary) {
@@ -1725,6 +1733,7 @@ export function ProxyPartnerFunds() {
         prefillReason={prefillReason}
         prefillPayout={prefillPayout}
         payoutOnFile={payoutOnFile}
+        partnerDisplayName={payoutPartnerName}
         linkedParty={selectedPartnerId}
         lockAmount
         // Destination is dictated by the portfolio's saved payment details —
