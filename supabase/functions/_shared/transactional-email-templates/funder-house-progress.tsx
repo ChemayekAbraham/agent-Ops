@@ -16,7 +16,8 @@ interface Props {
   agent_name?: string
   placed_date?: string
   first_return_date?: string
-  return_rate?: number
+  /** The rate stored on the queued notice. No default: missing -> no % text. */
+  return_rate?: number | null
 
   dashboard_url?: string
   currency?: string
@@ -57,7 +58,7 @@ export function FunderHouseProgress({
   agent_name = '',
   placed_date = '',
   first_return_date = '',
-  return_rate = 15,
+  return_rate = null,
   dashboard_url = 'https://welileapp.com/dashboard/funder',
   currency = 'UGX',
   company_name = 'Welile',
@@ -106,7 +107,9 @@ export function FunderHouseProgress({
                                 <td style={{ padding: '16px 20px' }}>
                                   <Text style={heroAmount}>{fmt(monthly_return, currency)}</Text>
                                   <Text style={heroLabel}>
-                                    your estimated Returns every month ({return_rate}% of the {fmt(principal, currency)} you contributed)
+                                    {Number(return_rate) > 0
+                                      ? `your estimated Returns every month (${Math.round(Number(return_rate) * 100) / 100}% of the ${fmt(principal, currency)} you contributed)`
+                                      : `your estimated Returns every month on the ${fmt(principal, currency)} you contributed`}
                                   </Text>
                                   <Text style={heroSub}>
                                     {first_return_date

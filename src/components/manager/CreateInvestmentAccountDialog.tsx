@@ -26,6 +26,10 @@ import { UGANDA_BANKS } from '@/lib/ugandaBanks';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
 import { Shield, Lock } from 'lucide-react';
 import { extractEdgeFunctionError, extractEdgeFunctionErrorDetails, type EdgeFunctionErrorDetails } from '@/lib/extractEdgeFunctionError';
+import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, createResponseRateMessage } from '@/components/shared/PartnerRateCfoNote';
 
 interface CreateInvestmentAccountDialogProps {
   open: boolean;
@@ -91,10 +95,13 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
   // wallet server-side (enforced in create-investor-portfolio edge fn).
   const [managedProxy, setManagedProxy] = useState<{ agentId: string; agentName: string } | null>(null);
 
-  const [form, setForm] = useState({
+  // Partner Returns (design v2 §6.1 staff form contract): the rate field is held by
+  // useStaffPortfolioRate (switch seen OFF -> today's 20, always sent; on or unknown -> the
+  // partner's own rate, sent only when edited). form.roi_percentage below mirrors it.
+  const rate = useStaffPortfolioRate(selectedUser?.id, '20');
+  const [formState, setForm] = useState({
     account_name: '',
     investment_amount: '',
-    roi_percentage: '20',
     duration_months: '12',
     roi_mode: 'monthly_payout',
     portfolio_pin: '',
@@ -107,6 +114,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
     bank_account_name: '',
     account_number: '',
   });
+  const form = { ...formState, roi_percentage: rate.value };
 
   useEffect(() => {
     if (open && prefillInvestorId && prefillInvestorName) {
@@ -119,8 +127,9 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
       setSelectedUser(prefillInvestorId ? { id: prefillInvestorId, full_name: prefillInvestorName || '', phone: '' } : null);
       setSearchTerm('');
       setUsers([]);
+      rate.reset();
       setForm({
-        account_name: '', investment_amount: '', roi_percentage: '20', duration_months: '12',
+        account_name: '', investment_amount: '', duration_months: '12',
         roi_mode: 'monthly_payout', portfolio_pin: '', payout_day: '15',
         contribution_date: new Date().toISOString().slice(0, 10),
         payment_method: '', mobile_network: '', mobile_money_number: '',
@@ -253,6 +262,17 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
       toast({ title: 'Investment must be at least UGX 20,000', variant: 'destructive' });
       return;
     }
+    // Wait for this form's own policy read, and refuse an unedited rate when that read failed.
+    const rateBlock = staffRateSubmitBlock(rate);
+    if (rateBlock) {
+      toast({ title: rateBlock, variant: 'destructive' });
+      return;
+    }
+    const rateFields = rate.requestFields();
+    if ('error' in rateFields) {
+      toast({ title: rateFields.error, variant: 'destructive' });
+      return;
+    }
 
     setSaving(true);
     try {
@@ -265,13 +285,18 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
           partner_id: selectedUser.id,
           amount: amt,
           duration_months: parseInt(form.duration_months),
-          roi_percentage: parseFloat(form.roi_percentage),
+          ...rateFields.fields,
           roi_mode: form.roi_mode,
           nickname: form.account_name || null,
           direct_confirmation: mode === 'direct_confirmation',
         },
       });
 
+      if (response.error && await isPolicyChangedError(response.error)) {
+        toast({ title: POLICY_CHANGED_MESSAGE, variant: 'destructive' });
+        rate.refetchPolicy();
+        return;
+      }
       if (response.error || response.data?.error) {
         const details = await extractEdgeFunctionErrorDetails(response, 'Failed to send portfolio invite');
         const err: any = new Error(details.message);
@@ -281,15 +306,17 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
       const data = response.data;
 
       const code = data?.portfolio_code || '';
+      const rateMessage = createResponseRateMessage(data);
+      const withRateMessage = (text: string) => (rateMessage ? `${text} ${rateMessage}` : text);
       if (mode === 'direct_confirmation') {
         toast({
           title: `Portfolio ${code} created`,
-          description: `${selectedUser.full_name} has been emailed the Tenant Partnership Confirmation.`,
+          description: withRateMessage(`${selectedUser.full_name} has been emailed the Tenant Partnership Confirmation.`),
         });
       } else {
         toast({
           title: `Invite sent — portfolio ${code}`,
-          description: `${selectedUser.full_name} will get an email to review and sign. It’s now in the Invited Portfolios tab.`,
+          description: withRateMessage(`${selectedUser.full_name} will get an email to review and sign. It’s now in the Invited Portfolios tab.`),
         });
       }
       qc.invalidateQueries({ queryKey: ['invited-portfolios'] });
@@ -308,7 +335,10 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
     }
   };
 
-  const set = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }));
+  const set = (key: string, val: string) => {
+    if (key === 'roi_percentage') rate.setValue(val);
+    else setForm(p => ({ ...p, [key]: val }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -427,8 +457,9 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">ROI %</Label>
+              <Label className="text-xs">Monthly Returns (%)</Label>
               <Input type="number" min={0} max={100} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-9" />
+              <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Duration</Label>
@@ -445,7 +476,7 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">ROI Mode</Label>
+              <Label className="text-xs">Returns Mode</Label>
               <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -669,8 +700,8 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
                     <span>{form.duration_months} months</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">ROI</span>
-                    <span>{form.roi_percentage}% ({form.roi_mode === 'monthly_payout' ? 'monthly payout' : 'compounding'})</span>
+                    <span className="text-muted-foreground">Monthly Returns (%)</span>
+                    <span>{formatRatePct(rateOrNull(form.roi_percentage)) ?? (rate.edited ? '—' : "the partner's rate")} ({form.roi_mode === 'monthly_payout' ? 'monthly payout' : 'compounding'})</span>
                   </div>
                   {existingPortfolioCount != null && existingPortfolioCount > 0 && (
                     <div className="flex justify-between">

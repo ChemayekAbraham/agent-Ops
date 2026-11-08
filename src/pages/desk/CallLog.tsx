@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PhoneCall } from 'lucide-react';
 import { rpc, readableError } from './reviewApi';
 import { CALM, FOCUS, LABEL, PANEL, statusGlass, statusText } from './deskTheme';
@@ -84,6 +84,7 @@ export function CallLog({
   subjectUserId,
   defaultPhone,
   onLogged,
+  answeredHint,
 }: {
   requestId: string;
   subject: CallSubject;
@@ -91,6 +92,8 @@ export function CallLog({
   subjectUserId?: string | null;
   defaultPhone: string | null;
   onLogged: (answered: boolean) => void;
+  /** True once a company call to this person ended answered: pre-selects "Answered". Staff still tap the answers. */
+  answeredHint?: boolean;
 }) {
   const landlord = subject === 'landlord';
   const [phone, setPhone] = useState(defaultPhone ?? '');
@@ -104,6 +107,10 @@ export function CallLog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (answeredHint) setResult((r) => r ?? 'answered');
+  }, [answeredHint]);
 
   const answered = result === 'answered';
   const answersReady = landlord

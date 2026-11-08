@@ -23,8 +23,8 @@ import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { prettyName } from '@/lib/formatting';
 import { supabase } from '@/integrations/supabase/client';
-import { createHouseShareLink, houseShareMessage } from '@/lib/houseSupportShare';
-import { createPlanShareLink, planShareDescription, planShareTitle } from '@/lib/planShareLink';
+import { createHouseShareLink, houseShareMessageFor } from '@/lib/houseSupportShare';
+import { createPlanShareLink, planShareFallbackDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
 import { isHouseVerified, toSelectionItem } from '@/components/funder-new/utils';
 
@@ -134,7 +134,12 @@ export function FunderPreviewHomeSheet({
     try {
       if (entry.category === 'empty') {
         const link = await createHouseShareLink(view.id);
-        const text = houseShareMessage({ title: view.title, place: view.place, monthly_rent: view.amount }, link.share_url);
+        // The Returns sentence is the one the database composed (link.description); none -> no figure.
+        const text = houseShareMessageFor(
+          { title: view.title, place: view.place, monthly_rent: view.amount },
+          link.share_url,
+          link.description,
+        );
         if (typeof navigator !== 'undefined' && navigator.share) {
           await navigator.share({ title: link.og_title ?? view.title, text });
         } else {
@@ -150,7 +155,7 @@ export function FunderPreviewHomeSheet({
       if (!userId) throw new Error('Sign in to share this Rent Plan');
       const link = await createPlanShareLink(userId, plan.rent_request_id);
       const title = planShareTitle(plan);
-      const description = planShareDescription(plan);
+      const description = link.description ?? planShareFallbackDescription(plan);
       const text = `${title}\n\n${description}\n${link.share_url}`;
       if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({ title, text, url: link.share_url });

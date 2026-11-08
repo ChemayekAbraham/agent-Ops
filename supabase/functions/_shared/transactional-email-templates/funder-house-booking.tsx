@@ -22,7 +22,8 @@ interface Props {
   release_date?: string
   days_left?: number
   first_return_date?: string
-  return_rate?: number
+  /** The Returns rate stored on the queued notice. No default: missing -> no % text (fail closed). */
+  return_rate?: number | null
   houses?: HouseLine[]
 
   dashboard_url?: string
@@ -56,7 +57,8 @@ const COPY: Record<Kind, { heading: string; intro: (n: number) => string; outro:
   funded: {
     heading: 'Funding received — thank you',
     intro: (n) => `Your support for ${n} ${n === 1 ? 'house' : 'houses'} has been submitted for operational review. Once approved, the rent is released to the landlords and an agent starts placing tenants.`,
-    outro: 'You will earn Returns of 15% per month on the capital you deployed.',
+    // Replaced by fundedOutro() below: the rate comes from the notice, never a constant.
+    outro: 'Your monthly Returns will show on your dashboard once the houses are funded.',
   },
   reminder: {
     heading: 'Your hold is about to lapse',
@@ -75,6 +77,17 @@ const COPY: Record<Kind, { heading: string; intro: (n: number) => string; outro:
   },
 }
 
+/** A positive rate, else null (no default). */
+const positiveRate = (r: unknown): number | null => {
+  const n = typeof r === 'number' ? r : Number(r)
+  return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null
+}
+
+const fundedOutro = (rate: number | null): string =>
+  rate !== null
+    ? `You will earn Returns of ${rate}% per month on the capital you deployed.`
+    : 'Your monthly Returns will show on your dashboard once the houses are funded.'
+
 export function FunderHouseBooking({
   kind = 'booked',
   partner_name = 'Partner',
@@ -85,7 +98,7 @@ export function FunderHouseBooking({
   release_date = '',
   days_left = 7,
   first_return_date = '',
-  return_rate = 15,
+  return_rate = null,
   houses = [],
   dashboard_url = 'https://welileapp.com/dashboard/supporter',
   currency = 'UGX',
@@ -97,7 +110,9 @@ export function FunderHouseBooking({
   const year = new Date().getFullYear()
   const count = house_count || houses.length
   const copy = COPY[kind] ?? COPY.booked
+  const rate = positiveRate(return_rate)
   const showEarnings = (kind === 'booked' || kind === 'funded') && Number(monthly_return) > 0
+  const outroText = kind === 'funded' ? fundedOutro(rate) : copy.outro
 
 
   return (
@@ -157,7 +172,9 @@ export function FunderHouseBooking({
                           <Heading as="h2" style={h2}>How you earn, step by step</Heading>
                           <Text style={step}><strong>1.</strong> You put in {fmt(total_rent, currency)} — the rent these {count === 1 ? 'house needs' : 'houses need'} for the month.</Text>
                           <Text style={step}><strong>2.</strong> A Welile agent places a tenant in {count === 1 ? 'the house' : 'each house'} and collects the rent from them.</Text>
-                          <Text style={step}><strong>3.</strong> Welile pays you {fmt(monthly_return, currency)} — that is {return_rate}% of your money — into your wallet{first_return_date ? ` on ${first_return_date}` : ''}, and again on the same date each month.</Text>
+                          {rate !== null && (
+                            <Text style={step}><strong>3.</strong> Welile pays you {fmt(monthly_return, currency)} — that is {rate}% of your money — into your wallet{first_return_date ? ` on ${first_return_date}` : ''}, and again on the same date each month.</Text>
+                          )}
                           <Text style={step}><strong>4.</strong> You can take your Returns out of your wallet, or leave them in to grow.</Text>
                         </td>
                       </tr>
@@ -182,7 +199,7 @@ export function FunderHouseBooking({
                             <tr>
                               <td style={cell}>
                                 <Text style={label}>Your Returns / month</Text>
-                                <Text style={valueSub}>{fmt(monthly_return, currency)}</Text>
+                                <Text style={valueSub}>{rate !== null ? fmt(monthly_return, currency) : '—'}</Text>
                               </td>
                               <td style={cell}>
                                 <Text style={label}>
@@ -232,7 +249,7 @@ export function FunderHouseBooking({
 
                     <tr>
                       <td style={{ padding: '22px 32px 0 32px' }}>
-                        <Text style={outro}>{copy.outro}</Text>
+                        <Text style={outro}>{outroText}</Text>
                         <Text style={outro}>
                           Questions? Write to{' '}
                           <Link href={`mailto:${support_email}`} style={inline}>{support_email}</Link>.

@@ -1,0 +1,4 @@
+# Byte-exact SQL: the 4b rollback (and stubs) compare md5(pg_get_functiondef) with production, and a CR
+# inside a function body changes the md5. Keep these LF on every checkout, whatever core.autocrlf says.
+supabase/rollbacks/*.sql text eol=lf
+supabase/pending/*.sql text eol=lf

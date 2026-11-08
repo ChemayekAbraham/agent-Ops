@@ -8,6 +8,12 @@
 // deduped or perceived as the same message.
 // ═══════════════════════════════════════════════════════════════════════════
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,7 +79,7 @@ Deno.serve(async (req) => {
 
     const { data: portfolio, error: pErr } = await admin
       .from("investor_portfolios")
-      .select("id, investor_id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at")
+      .select("id, investor_id, portfolio_code, investment_amount, roi_percentage, rate_basis, roi_mode, duration_months, status, created_at")
       .eq("id", portfolioId)
       .maybeSingle();
     if (pErr) return json({ error: `Portfolio lookup failed: ${pErr.message}` }, 500);
@@ -84,11 +90,17 @@ Deno.serve(async (req) => {
       }, 400);
     }
 
-    const { data: partner, error: prErr } = await admin
-      .from("profiles")
-      .select("id, full_name, email, phone, frozen_at")
-      .eq("id", portfolio.investor_id)
-      .maybeSingle();
+    // The invite shows the portfolio's rate. Read the partner and, when the row's rate is personal,
+    // their confirmed login email in parallel (one RPC).
+    const rateIsPublic = await rowRateIsPublic(admin, portfolio);
+    const [{ data: partner, error: prErr }, loginEmails] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, full_name, email, phone, frozen_at")
+        .eq("id", portfolio.investor_id)
+        .maybeSingle(),
+      rateIsPublic || !portfolio.investor_id ? null : readConfirmedLoginEmails(admin, [portfolio.investor_id]),
+    ]);
     if (prErr) return json({ error: `Partner lookup failed: ${prErr.message}` }, 500);
     if (!partner?.email) return json({ error: "Partner has no email on file — add one before resending." }, 400);
     if ((partner as { frozen_at?: string | null }).frozen_at) {
@@ -123,9 +135,20 @@ Deno.serve(async (req) => {
 
     const completionUrl =
       `${origin}/partners/${portfolio.investor_id}/portfolios/${portfolioId}/complete?token=${encodeURIComponent(rawToken)}`;
-    const recipients = [partner.email, ...(copyTo && copyTo !== partner.email.toLowerCase() ? [copyTo] : [])];
+    // Recipient (D4): the profile email when the row's rate applies to everyone (switch off, as
+    // before); otherwise the confirmed login email, or the profile email without the rate when there
+    // is none. A copy address typed by staff may belong to anyone: it shows the rate only when the
+    // row's rate applies to everyone.
+    const stored = storedRate(portfolio);
+    const emailTarget = rateEmailTarget(loginEmails?.get(portfolio.investor_id) ?? null, partner.email, rateIsPublic);
+    const inviteTo = emailTarget.to ?? partner.email;
+    const inviteWithFigures = emailTarget.withFigures && stored !== null;
+    const recipients = [
+      { recipientEmail: inviteTo, withFigures: inviteWithFigures },
+      ...(copyTo && copyTo !== inviteTo.toLowerCase() ? [{ recipientEmail: copyTo, withFigures: inviteWithFigures && rateIsPublic }] : []),
+    ];
 
-    for (const recipientEmail of recipients) {
+    for (const { recipientEmail, withFigures } of recipients) {
       const { error: emailErr } = await admin.functions.invoke("send-transactional-email", {
         body: {
           templateName: "partner-portfolio-invite",
@@ -137,7 +160,7 @@ Deno.serve(async (req) => {
             portfolio_code: portfolio.portfolio_code,
             amount: Number(portfolio.investment_amount || 0),
             duration_months: portfolio.duration_months,
-            roi_percentage: portfolio.roi_percentage,
+            ...(withFigures ? { roi_percentage: stored } : {}),
             roi_mode: portfolio.roi_mode,
             completion_url: completionUrl,
             currency: "UGX",
@@ -161,7 +184,7 @@ Deno.serve(async (req) => {
       metadata: {
         partner_id: portfolio.investor_id,
         portfolio_code: portfolio.portfolio_code,
-        recipient_email: partner.email,
+        recipient_email: inviteTo,
         copy_to: copyTo || null,
         expires_at: expiresAt,
         reason: "partner_requested_fresh_completion_invite",
@@ -173,6 +196,7 @@ Deno.serve(async (req) => {
       portfolio_id: portfolioId,
       portfolio_code: portfolio.portfolio_code,
       partner_email: partner.email,
+      sent_to: inviteTo,
       copied_to: copyTo || null,
       expires_at: expiresAt,
     }, 200);

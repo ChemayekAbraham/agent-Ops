@@ -41,7 +41,8 @@ interface LinkedFunder {
 
 interface FunderStats {
   totalInvested: number;
-  totalROI: number;
+  /** Returns earned across the partner's portfolios; null when any portfolio's figure is masked (4b): show "—", never 0. */
+  totalROI: number | null;
   activeCount: number;
   walletBalance: number;
 }
@@ -117,7 +118,9 @@ export function FunderManagementSheet({ open, onOpenChange }: { open: boolean; o
           const portfolios = cards.filter(p => p.investor_id === bid && p.portfolio_id && ['active', 'matured'].includes(String(p.status)));
           statsMap[bid] = {
             totalInvested: portfolios.reduce((s, p) => s + (Number(p.investment_amount) || 0), 0),
-            totalROI: portfolios.reduce((s, p) => s + (Number(p.total_roi_earned) || 0), 0),
+            totalROI: portfolios.some(p => p.total_roi_earned == null)
+              ? null
+              : portfolios.reduce((s, p) => s + (Number(p.total_roi_earned) || 0), 0),
             activeCount: portfolios.filter(p => p.status === 'active').length,
             walletBalance: Number(balanceRes.data) || 0,
           };
@@ -263,7 +266,7 @@ export function FunderManagementSheet({ open, onOpenChange }: { open: boolean; o
                             {stats && (
                               <>
                                 <p className="text-xs font-bold">{formatUGX(stats.totalInvested)}</p>
-                                <p className="text-[10px] text-success">+{formatUGX(stats.totalROI)}</p>
+                                <p className="text-[10px] text-success">{stats.totalROI == null ? '—' : `+${formatUGX(stats.totalROI)}`}</p>
                               </>
                             )}
                           </div>

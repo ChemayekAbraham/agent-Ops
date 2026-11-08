@@ -3,6 +3,7 @@ import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib
 import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
 import { returnCycleMonth } from '@/lib/returnCycle';
 import { PROFILE_TYPEAHEAD_MIN_CHARS, sanitizeProfileQuery, searchProfilesTypeahead } from '@/lib/profileTypeahead';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
 
 /**
  * Fetch ALL agent IDs, paginating past the 1000-row default limit.
@@ -373,7 +374,9 @@ export interface NearingPayoutPortfolioData {
   phone: string;
   email: string;
   investmentAmount: number;
-  roiPercentage: number;
+  /** The stored rate, or null when it is missing/invalid (no number, never 15). The column is NOT
+   *  NULL in production, so null means bad data: callers must not pay or show a figure from it. */
+  roiPercentage: number | null;
   payoutDay: number;
   roiMode: string;
   createdAt: string;
@@ -442,7 +445,8 @@ export async function fetchNearingPayoutPortfoliosWithDedupe(): Promise<NearingP
       phone: prof?.phone || '',
       email: prof?.email || '',
       investmentAmount: p.investment_amount || 0,
-      roiPercentage: p.roi_percentage ?? 15,
+      // The stored rate or null (no number): never a 15 fallback (design v2 §6.1, R2).
+      roiPercentage: rateOrNull(p.roi_percentage),
       payoutDay: effectivePayoutDay,
       roiMode: p.roi_mode ?? 'monthly_payout',
       createdAt: p.created_at,

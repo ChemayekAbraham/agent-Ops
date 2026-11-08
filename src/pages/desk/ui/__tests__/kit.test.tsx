@@ -1,0 +1,388 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+
+vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: vi.fn(), from: vi.fn(), storage: { from: vi.fn() } } }));
+vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }));
+
+import {
+  BriefLines,
+  Card,
+  Chip,
+  CountChip,
+  DECISION_WORDS,
+  DecisionButton,
+  DeskPopover,
+  EmptyState,
+  ErrorLine,
+  Fold,
+  GradeBadge,
+  LoadingRows,
+  MenuItem,
+  MoreMenu,
+  Segmented,
+  StripStep,
+  Tile,
+  TileRow,
+  TrendArrow,
+  decisionVariant,
+  gradeStyle,
+  tileFigureSize,
+  tileFigureCss,
+  TILE_PAD,
+} from '..';
+import { badgeFor } from '../../agentGrade';
+
+const UI_DIR = resolve(__dirname, '..');
+const kitSources = readdirSync(UI_DIR)
+  .filter((f) => /\.tsx?$/.test(f))
+  .map((f) => ({ f, src: readFileSync(resolve(UI_DIR, f), 'utf8') }));
+
+/* ───────────── snapshots: one of each piece ───────────── */
+
+describe('kit snapshots', () => {
+  it('GradeBadge, every grade', () => {
+    const { container } = render(
+      <div>
+        {['A', 'B', 'C', 'D', 'N', 'X', null].map((g) => (
+          <GradeBadge key={String(g)} grade={g} />
+        ))}
+      </div>,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('Chip and CountChip, every tone', () => {
+    const { container } = render(
+      <div>
+        <Chip>idle</Chip>
+        <Chip tone="ok">ok</Chip>
+        <Chip tone="warn" size="sm">
+          warn
+        </Chip>
+        <Chip tone="bad" strong>
+          Time up
+        </Chip>
+        <CountChip n={12} />
+        <CountChip n={null} />
+      </div>,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('DecisionButton, every variant and size', () => {
+    const { container } = render(
+      <div>
+        <DecisionButton variant="primary">Pass</DecisionButton>
+        <DecisionButton>Open the review</DecisionButton>
+        <DecisionButton variant="danger">Reject</DecisionButton>
+        <DecisionButton variant="warn">Retry the move only</DecisionButton>
+        <DecisionButton variant="ok" size="md">
+          Push all 3
+        </DecisionButton>
+        <MenuItem>Send back…</MenuItem>
+      </div>,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('Segmented, Tile, Fold, states', () => {
+    const { container } = render(
+      <div>
+        <Segmented ariaLabel="Period" options={[{ value: 'today', label: 'Today' }, { value: '7d', label: '7 days' }]} value="today" onChange={() => {}} />
+        <TileRow max={4}>
+          <Tile label="Fund today" value="UGX 1,200,000" sub="3 on the board, not held" board={false} />
+          <Tile label="Untouched 48 h" value="2" tone="warn" board />
+        </TileRow>
+        <Fold title="Rules for this desk" count={4} changed board={false}>
+          <p>inside</p>
+        </Fold>
+        <EmptyState>Nothing is waiting at this desk.</EmptyState>
+        <ErrorLine>The board could not load: offline</ErrorLine>
+        <LoadingRows rows={2} height={20} />
+      </div>,
+    );
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+});
+
+/* ───────────── behaviour ───────────── */
+
+describe('GradeBadge', () => {
+  it('labels and colours each grade from the desk tokens', () => {
+    expect(['A', 'B', 'C', 'D', 'N', 'X', null, 'Q'].map((g) => gradeStyle(g).text)).toEqual([
+      'A', 'B', 'C', 'D', 'New', 'Blocked', 'Not graded', 'Not graded',
+    ]);
+    expect(gradeStyle('A').cls).toContain('--desk-emerald');
+    expect(gradeStyle('B').cls).toContain('--desk-teal');
+    expect(gradeStyle('C').cls).toContain('--desk-amber');
+    expect(gradeStyle('D').cls).toContain('--desk-red');
+    expect(gradeStyle('X').cls).toContain('--desk-blocked');
+    expect(gradeStyle('a').text).toBe('A');
+  });
+  it('is the same badge the agent grade uses', () => {
+    expect(badgeFor('C')).toEqual(gradeStyle('C'));
+  });
+});
+
+describe('DecisionButton', () => {
+  it('rejects get the red button, everything else the violet one', () => {
+    expect(decisionVariant('reject')).toBe('danger');
+    expect(decisionVariant('pass')).toBe('primary');
+    expect(decisionVariant('send_back')).toBe('primary');
+  });
+  it('documents the main-button words', () => {
+    expect(DECISION_WORDS).toEqual(['Pass', 'Send back', 'Reject', 'Transfer → …', 'Call …', 'Finish checks', 'Wait …']);
+  });
+  it('is a real button that stays disabled', () => {
+    const onClick = vi.fn();
+    render(
+      <DecisionButton disabled onClick={onClick}>
+        Pass
+      </DecisionButton>,
+    );
+    const b = screen.getByRole('button', { name: 'Pass' });
+    expect(b.getAttribute('type')).toBe('button');
+    fireEvent.click(b);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('Segmented', () => {
+  it('presses one option and can clear it when deselectable', () => {
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <Segmented ariaLabel="Show only" deselectable options={[{ value: 'pass', label: 'Pass', count: 3, tone: 'ok' }, { value: 'reject', label: 'Reject' }]} value={null} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Pass/ }));
+    expect(onChange).toHaveBeenLastCalledWith('pass');
+    rerender(
+      <Segmented ariaLabel="Show only" deselectable options={[{ value: 'pass', label: 'Pass', count: 3, tone: 'ok' }, { value: 'reject', label: 'Reject' }]} value="pass" onChange={onChange} />,
+    );
+    const pass = screen.getByRole('button', { name: /Pass/ });
+    expect(pass.getAttribute('aria-pressed')).toBe('true');
+    expect(pass.className).toContain('--desk-ok');
+    expect(pass.textContent).toBe('Pass3');
+    fireEvent.click(pass);
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+});
+
+describe('Fold', () => {
+  it('shows the count and the changed dot, and mounts children only when open', () => {
+    render(
+      <Fold title="Rules for this desk" count={4} changed board={false}>
+        <p>inside</p>
+      </Fold>,
+    );
+    expect(screen.getByText('4')).not.toBeNull();
+    expect(screen.getByRole('img', { name: 'Changed this week' })).not.toBeNull();
+    expect(screen.queryByText('inside')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Rules for this desk/ }));
+    expect(screen.getByText('inside')).not.toBeNull();
+  });
+  it('shows a dash while the count is loading', () => {
+    render(<Fold title="Waiting on…" count={null} board={false}>x</Fold>);
+    expect(screen.getByText('—')).not.toBeNull();
+  });
+});
+
+describe('DeskPopover', () => {
+  it('opens on a press, closes on Escape, and renders in place (no portal)', () => {
+    const { container } = render(
+      <div className="desk-root">
+        <MoreMenu label="More for Amina">{(close) => <MenuItem onClick={close}>Open the review</MenuItem>}</MoreMenu>
+      </div>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'More for Amina' }));
+    const dialog = screen.getByRole('dialog', { name: 'More for Amina' });
+    expect(container.querySelector('.desk-root')?.contains(dialog)).toBe(true);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('is the popover the old Pop import gives', async () => {
+    const { Pop } = await import('../../Pop');
+    expect(Pop).toBe(DeskPopover);
+  });
+});
+
+/* ───────────── the command-centre look ───────────── */
+
+describe('command-centre look', () => {
+  it('Card is the command-centre panel; the brief variant tightens to 8px', () => {
+    const { container } = render(
+      <div>
+        <Card title="Today&rsquo;s blockers" board={false}>
+          <p>body</p>
+        </Card>
+        <Card title="Today on Welile" variant="brief" board={false} footnote="As at 09:30 Kampala">
+          <BriefLines lines={['One.', 'Two.']} board={false} />
+        </Card>
+      </div>,
+    );
+    const [panel, brief] = [...container.querySelectorAll('section')] as HTMLElement[];
+    expect(panel.className).toContain('desk-panel');
+    expect(panel.style.padding).toBe('var(--desk-card-pad, 20px)');
+    expect(panel.style.gap).toBe('var(--desk-card-gap, 14px)');
+    expect(brief.style.gap).toBe('var(--desk-space-2, 8px)');
+    expect(screen.getByRole('heading', { name: 'Today on Welile' }).className).toContain('text-base');
+    expect(container.innerHTML).toMatchSnapshot();
+  });
+
+  it('Fold is drawn as a card', () => {
+    const { container } = render(
+      <Fold title="Done today" count={3} board={false}>
+        x
+      </Fold>,
+    );
+    const section = container.querySelector('section') as HTMLElement;
+    expect(section.className).toContain('desk-panel');
+    expect(section.className).toContain('desk-fold');
+  });
+
+  it('Tile figures top out at the command-centre sizes and abbreviate long money', () => {
+    expect(tileFigureSize('72%', false)).toBe(36);
+    expect(tileFigureSize('72%', true)).toBe(44);
+    expect(tileFigureCss('72%', false)).toContain('clamp(22px, 5vw, 36px)');
+    render(<Tile label="Waiting" value="113" trend={4} board={false} />);
+    expect(screen.getByText('113').getAttribute('data-figure-size')).toBe('36');
+    render(<Tile label="Fund today" value="UGX 59,200,000" board={false} />);
+    const fig = screen.getByText('UGX 59.2M');
+    expect(fig.getAttribute('title')).toBe('UGX 59,200,000');
+    expect(fig.getAttribute('aria-label')).toBe('UGX 59,200,000');
+  });
+
+  it('TrendArrow: up on a queue is red, down green, no data is a dash', () => {
+    const { container, rerender } = render(<TrendArrow change={4} board={false} />);
+    expect(container.querySelector('[data-trend="up"]')?.className).toContain('--desk-bad');
+    rerender(<TrendArrow change={-2} board={false} />);
+    expect(container.querySelector('[data-trend="down"]')?.className).toContain('--desk-ok');
+    rerender(<TrendArrow change={3} board={false} upIsGood />);
+    expect(container.querySelector('[data-trend="up"]')?.className).toContain('--desk-ok');
+    rerender(<TrendArrow change={null} board={false} />);
+    expect(container.textContent).toContain('—');
+    rerender(<TrendArrow change={0} board={false} />);
+    expect(container.textContent).toBe('no change');
+  });
+
+  it('StripStep is a capsule, current step marked', () => {
+    render(
+      <div>
+        <StripStep active board={false}>
+          Agent Ops
+        </StripStep>
+        <StripStep board={false}>COO</StripStep>
+      </div>,
+    );
+    const mine = screen.getByText('Agent Ops');
+    expect(mine.getAttribute('aria-current')).toBe('step');
+    expect(mine.className).toContain('desk-capsule');
+    expect(mine.style.whiteSpace).toBe('nowrap');
+    expect(screen.getByText('COO').getAttribute('aria-current')).toBeNull();
+  });
+});
+
+/* ───────────── the solid primary ───────────── */
+
+/** WCAG contrast between two "H S% L%" token values. */
+function contrast(a: string, b: string): number {
+  const rgb = (v: string) => {
+    const [h, s, l] = v.replace(/%/g, '').split(/\s+/).map(Number);
+    const S = s / 100, L = l / 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const f = (n: number) => L - S * Math.min(L, 1 - L) * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+    return [f(0), f(8), f(4)];
+  };
+  const lum = (c: number[]) => {
+    const [r, g, b] = c.map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [x, y] = [lum(rgb(a)), lum(rgb(b))].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+describe('solid primary', () => {
+  const css = readFileSync(resolve(__dirname, '../../../../index.css'), 'utf8');
+  const block = (start: string) => css.slice(css.indexOf(start), css.indexOf('}', css.indexOf(start)));
+  const token = (src: string, name: string) => (src.match(new RegExp(`${name}:\\s*([^;]+);`)) ?? [])[1]?.trim();
+  const dark = block('.desk-root {');
+  const light = block(".desk-root[data-desk-theme='light'],");
+
+  it('is a filled button with white text, a darker hover and the focus ring', () => {
+    render(<DecisionButton variant="primary">Push to funders</DecisionButton>);
+    const cls = screen.getByRole('button', { name: 'Push to funders' }).className;
+    expect(cls).toContain('bg-[hsl(var(--desk-primary-solid))]');
+    expect(cls).toContain('text-[hsl(var(--desk-primary-solid-fg))]');
+    expect(cls).toContain('hover:bg-[hsl(var(--desk-primary-solid-hover))]');
+    expect(cls).toContain('focus-visible:ring-2');
+    // The ring is a box-shadow, which index.css removes on 1x screens; the outline is what shows there.
+    expect(cls).toContain('focus-visible:outline-2');
+    expect(cls).toContain('focus-visible:outline-[hsl(var(--ring))]');
+    expect(cls).not.toContain('/0.15');
+  });
+
+  it('white on the fill clears 4.5:1 at rest and on hover, in dark (and Board) and light', () => {
+    const fg = token(dark, '--desk-primary-solid-fg') as string;
+    for (const src of [dark, light]) {
+      for (const name of ['--desk-primary-solid', '--desk-primary-solid-hover']) {
+        const v = token(src, name);
+        expect(v, name).toBeTruthy();
+        expect(contrast(fg, v as string), `${name}: ${v}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
+/* ───────────── late-CSS safety and tokens ───────────── */
+
+describe('late-CSS safety', () => {
+  it('pills hold their layout inline', () => {
+    render(
+      <div>
+        <GradeBadge grade="A" />
+        <Chip>Held until 14:05</Chip>
+        <DecisionButton>Pass</DecisionButton>
+      </div>,
+    );
+    for (const el of [screen.getByText('A'), screen.getByText('Held until 14:05'), screen.getByRole('button', { name: 'Pass' })]) {
+      expect(el.style.whiteSpace).toBe('nowrap');
+      expect(el.style.display).toBe('inline-flex');
+      expect(el.style.paddingLeft).not.toBe('');
+    }
+  });
+  it('rows, stacks and tiles hold their layout inline', () => {
+    render(
+      <div>
+        <Segmented ariaLabel="Period" options={[{ value: 'a', label: 'A' }]} value="a" onChange={() => {}} />
+        <Tile label="Fund today" value="1" board={false} />
+      </div>,
+    );
+    const group = screen.getByRole('group', { name: 'Period' });
+    expect(group.style.display).toBe('flex');
+    expect(group.style.gap).toBe('6px');
+    const tile = screen.getByText('Fund today').parentElement as HTMLElement;
+    expect(tile.style.display).toBe('flex');
+    // Fluid: 12px on a phone to 20px from lg (jsdom cannot parse clamp(), so the constant is checked).
+    expect(TILE_PAD).toBe('clamp(12px, calc(2.4vw - 4.6px), 20px)');
+  });
+});
+
+describe('colours come from tokens', () => {
+  it('no kit file names a Tailwind palette colour or a raw hex', () => {
+    const palette = /\b(?:bg|text|border|ring|from|to)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white)(?:-\d{2,3})?\b/;
+    for (const { f, src } of kitSources) {
+      expect(src, f).not.toMatch(palette);
+      expect(src, f).not.toMatch(/#[0-9a-fA-F]{3,6}\b/);
+    }
+  });
+  it('every grade token is defined on .desk-root', () => {
+    const css = readFileSync(resolve(__dirname, '../../../../index.css'), 'utf8');
+    for (const t of [
+      '--desk-emerald', '--desk-teal', '--desk-amber', '--desk-red', '--desk-slate', '--desk-blocked', '--desk-blocked-line', '--desk-on-fill', '--desk-on-amber',
+      '--desk-space-1', '--desk-space-6', '--desk-card-pad', '--desk-card-gap', '--desk-section-gap', '--desk-radius-card', '--desk-radius-tile', '--desk-radius-capsule',
+    ]) {
+      expect(css, t).toContain(`${t}:`);
+    }
+  });
+});

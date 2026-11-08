@@ -11,7 +11,7 @@ After docs 254-257 Landlord Ops still showed Nakitende Jumeirah owing 336,000.
 (doc 256 had already fixed `landlord_tenant_overview` and `landlord_ops_paid_lists`.)
 
 ## Fix
-`supabase/migrations/20261105150000_waived_plan_not_shown_as_owing_hub_and_expired_cycles.sql`: both patched in place from their live definitions (anchor must match exactly once or the migration aborts); a plan with an audit row `rent_plan_balance_waived%` owes 0. Same marker as docs 255/256. Dry run: function patched, grants kept, view 632 -> 631 rows (only this plan removed).
+`supabase/migrations/20261105150001_waived_plan_not_shown_as_owing_hub_and_expired_cycles.sql`: both patched in place from their live definitions (anchor must match exactly once or the migration aborts); a plan with an audit row `rent_plan_balance_waived%` owes 0. Same marker as docs 255/256. Dry run: function patched, grants kept, view 632 -> 631 rows (only this plan removed).
 
 ## Not changed
 Not status-based. Six plans closed `completed` with a shortfall on 2026-09-04 (about 2.2M) still show as owing until the CFO decides.

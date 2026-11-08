@@ -27,7 +27,7 @@ import BorrowerTrustScorePanel from './BorrowerTrustScorePanel';
 
 import LendingAgentAgreementModal from '@/components/vouch/agent/LendingAgentAgreementModal';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { logLendingAudit } from '@/lib/lendingAudit';
 import { toast } from 'sonner';
@@ -552,16 +552,18 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const safeBorrowerPage = Math.min(borrowerPage, borrowerPageCount - 1);
   const pagedLoans = filteredLoans.slice(safeBorrowerPage * BORROWER_PAGE_SIZE, (safeBorrowerPage + 1) * BORROWER_PAGE_SIZE);
   const pagedAiIds = pagedLoans.map((l) => l.borrower_ai_id).filter(Boolean).join(',');
-  const [vouchByAiId, setVouchByAiId] = useState<Record<string, number>>({});
+  const [vouchByAiId, setVouchByAiId] = useState<Record<string, number | null>>({});
   useEffect(() => {
     const ids = pagedAiIds ? pagedAiIds.split(',') : [];
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await (supabase.from('welile_trust_score_cache' as any).select('ai_id, borrowing_limit_ugx').in('ai_id', ids) as any);
+      const { data } = await (supabase.from('welile_trust_score_cache' as any).select('ai_id, borrowing_limit_ugx:borrowing_limit_shown').in('ai_id', ids) as any);
       if (cancelled || !data) return;
-      const m: Record<string, number> = {};
-      (data as any[]).forEach((r) => { m[r.ai_id] = Number(r.borrowing_limit_ugx) || 0; });
+      const m: Record<string, number | null> = {};
+      // null = hidden (owner decision b masks the cache limit for a viewer who may not see the person's
+      // Returns), never 0.
+      (data as any[]).forEach((r) => { m[r.ai_id] = r.borrowing_limit_ugx == null ? null : Number(r.borrowing_limit_ugx) || 0; });
       setVouchByAiId((prev) => ({ ...prev, ...m }));
     })();
     return () => { cancelled = true; };
@@ -958,7 +960,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="rounded-lg bg-muted/40 p-2">
                               <p className="text-[9px] uppercase text-muted-foreground">Score</p>
-                              <p className="text-base font-bold">{borrower.trust.score}</p>
+                              <p className="text-base font-bold">{borrower.trust.score ?? '—'}</p>
                             </div>
                             <div className="rounded-lg bg-muted/40 p-2">
                               <p className="text-[9px] uppercase text-muted-foreground">Tier</p>
@@ -966,7 +968,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                             </div>
                             <div className="rounded-lg bg-muted/40 p-2">
                               <p className="text-[9px] uppercase text-muted-foreground">Cash flow / mo</p>
-                              <p className="text-xs font-bold">{formatUGX(borrower.cash_flow_capacity?.monthly_avg ?? 0)}</p>
+                              <p className="text-xs font-bold">{formatUGXOrDash(borrower.cash_flow_capacity?.monthly_avg)}</p>
                             </div>
                           </div>
 

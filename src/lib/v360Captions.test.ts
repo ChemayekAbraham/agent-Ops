@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { V360_MODEL_A_EXAMPLE } from './contractEngine360';
-import { V360_NEW_QUOTE_EXAMPLE_SENTENCE, v360CaptionLines } from './v360Captions';
+import { V360_NEW_QUOTE_EXAMPLE_SENTENCE, V360_PARTNER_RETURNS_SENTENCE, v360CaptionLines } from './v360Captions';
+
+const D8 = 'A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.';
 
 describe('v360 captions', () => {
   it('keeps the Model A example at gross 142,772 and daily 4,760', () => {
@@ -13,7 +15,9 @@ describe('v360 captions', () => {
     expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain('UGX 2,855');
     expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain('UGX 2,885');
     expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain('UGX 999');
-    expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain('target 15%, not guaranteed');
+    expect(V360_PARTNER_RETURNS_SENTENCE).toBe(D8);
+    expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain(`${D8} Set aside on this example: UGX 15,000 a month.`);
+    expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).not.toContain('target 15%');
     expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).not.toMatch(/[\u2013\u2014]/);
     expect(V360_NEW_QUOTE_EXAMPLE_SENTENCE).toContain('does not turn new-plan pricing on');
   });
@@ -31,7 +35,7 @@ describe('v360 captions', () => {
     });
     expect(lines.map((l) => l.label)).toEqual([
       'Daily rate',
-      'Partner Returns (target 15%, not guaranteed)',
+      D8,
       'Remaining 360-day receivable',
       'Missed days',
       'Vacant days',

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { cachedPublicPolicy } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,6 +89,10 @@ Deno.serve(async (req) => {
       if (!notes || notes.length < pageSize) break;
     }
 
+    // The public new-partner Returns rate for the "why they will say yes" bullet (one cached read per
+    // run; null drops the bullet).
+    const partnerRate = (await cachedPublicPolicy(admin))?.newContractRate ?? null;
+
     // 4. Send, capped concurrency, idempotent per agent/day/slot.
     const queue = [...agentIds];
     const worker = async () => {
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
               daily_min: dailyMin,
               monthly_note_target: target,
               available_income: available,
+              partner_rate: partnerRate,
               app_url: APP_URL,
             },
           },

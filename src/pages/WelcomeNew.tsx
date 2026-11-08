@@ -269,6 +269,10 @@ export default function WelcomeNew() {
                 );
               })}
             </div>
+            <div className={s.orRow}><span className={s.orText}>or</span></div>
+            <button type="button" className={s.orLink} onClick={() => navigate(SIGN_IN)}>
+              Already have an account? <span className={s.orLinkStrong}>Login / Sign in</span>
+            </button>
             <div className={s.roleActions}>
               <button ref={continueRef} type="button" className={s.primary} onClick={onContinue}>Continue <ArrowRight size={18} aria-hidden /></button>
               <button type="button" className={s.mutedLink} onClick={() => go(LAST - 1)}>Back</button>

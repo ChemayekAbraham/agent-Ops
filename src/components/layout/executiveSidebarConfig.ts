@@ -120,6 +120,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Quick Actions',
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
+        { label: 'Funders Dashboard', icon: Banknote, id: 'funders-dashboard', route: '/desk/funders' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
         { label: 'Partner Receipts', icon: Receipt, id: 'partner-receipts' },
         { label: 'Lunch Allowance', icon: Banknote, id: 'lunch-allowance' },
@@ -165,6 +166,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
         { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
+      ],
+    },
+    {
+      title: 'Rent Management',
+      items: [
+        { label: 'Tenant Repayment Tracker', icon: ClipboardCheck, id: 'tenant-repayment-tracker', access: CFO_ACCESS },
       ],
     },
     {
@@ -265,6 +272,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Financial Operations',
       items: [
         { label: 'Overview', icon: Activity, id: 'overview' },
+        { label: 'COO desk', icon: Gauge, id: 'coo-desk', route: '/desk/coo' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
         { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },

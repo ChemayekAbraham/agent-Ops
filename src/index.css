@@ -1939,6 +1939,46 @@ html.reduce-motion *::after {
   --desk-live-bg: var(--desk-ok);
   --desk-live-fg: var(--desk-ok);
 
+  /* Grade fills (ui/GradeBadge). Solid chips with their own text colour, the
+     same in light and dark so a grade reads the same on any desk. Named after
+     the colour so code reads plainly: A emerald, B teal, C amber, D red, N/none
+     slate, X blocked (black). */
+  --desk-emerald: 161 94% 30%;
+  --desk-teal: 175 84% 32%;
+  --desk-amber: 38 92% 50%;
+  --desk-red: 0 72% 51%;
+  --desk-slate: 215 16% 47%;
+  --desk-blocked: 0 0% 0%;
+  --desk-blocked-line: rgba(255, 255, 255, 0.3);
+  --desk-on-fill: 0 0% 100%;
+  --desk-on-amber: 0 0% 0%;
+
+  /* The command centre's measurements, shared by every desk (ui/README.md).
+     Spacing runs 4 · 8 · 12 · 16 · 20 · 24; cards are 24px round with 20px of
+     padding and 14px between their parts; tiles 18px, capsules 16px. */
+  --desk-space-1: 4px;
+  --desk-space-2: 8px;
+  --desk-space-3: 12px;
+  --desk-space-4: 16px;
+  --desk-space-5: 20px;
+  --desk-space-6: 24px;
+  --desk-card-pad: 20px;
+  --desk-card-gap: 14px;
+  --desk-section-gap: 24px;
+  --desk-radius-card: 24px;
+  --desk-radius-tile: 18px;
+  --desk-radius-capsule: 16px;
+  --desk-card-line: rgba(255, 255, 255, 0.07);
+  --desk-card-fill: rgba(255, 255, 255, 0.05);
+  --desk-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* The one solid button (DecisionButton variant="primary"). White on these
+     fills is 5.7:1 and 7.5:1 on hover; the dark board keeps a brighter violet
+     so the button still lifts off the night ground. Light redefines both. */
+  --desk-primary-solid: 265 72% 56%;
+  --desk-primary-solid-hover: 265 72% 48%;
+  --desk-primary-solid-fg: 0 0% 100%;
+
   /* Hairlines and small surfaces. Held as whole colours rather than a hue plus
      an alpha, because light does not want a translucent white — it wants a
      solid lilac-grey line. These values are exactly the white/12, white/5,
@@ -1960,6 +2000,103 @@ html.reduce-motion *::after {
   background-attachment: fixed;
 }
 
+/* ---- Desk tab bar ----------------------------------------------------------
+   One row that scrolls sideways: tabs never wrap or shrink, so labels can't run
+   into each other. The scrollbar is hidden but wheel, trackpad and touch still
+   scroll it. data-fade (set by DeskTabs) fades whichever edge has more tabs.
+   --------------------------------------------------------------------------- */
+.desk-root .desk-tabs {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-padding-inline: 44px;
+}
+.desk-root .desk-tabs::-webkit-scrollbar { display: none; }
+.desk-root .desk-tab {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.desk-root .desk-tabs[data-fade='end'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.desk-root .desk-tabs[data-fade='start'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+}
+.desk-root .desk-tabs[data-fade='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+/* ---- Responsive foundation (ui/breakpoints.ts is the source of these numbers) --------
+   xs < 360 · sm 360–599 · md 600–1023 · lg 1024–1439 · xl ≥ 1440 · wall ≥ 1920.
+   --------------------------------------------------------------------------- */
+/* A row that scrolls sideways instead of wrapping (Segmented, the pipeline strip). */
+.desk-root .desk-scroll-row { scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+.desk-root .desk-scroll-row::-webkit-scrollbar { display: none; }
+.desk-root .desk-scroll-row[data-fade='end'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+.desk-root .desk-scroll-row[data-fade='start'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+.desk-root .desk-scroll-row[data-fade='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 32px, #000 calc(100% - 32px), transparent);
+}
+/* Sheets: a bottom sheet on a phone, a centred card from md. */
+.desk-root .desk-sheet { border-radius: var(--desk-radius-card) var(--desk-radius-card) 0 0; }
+@media (min-width: 600px) {
+  .desk-root .desk-sheet-wrap { align-items: center !important; padding: 24px; }
+  .desk-root .desk-sheet { border-radius: var(--desk-radius-card); }
+}
+/* Phones: body text at least 14px. The app sets html to 14px on 321–375px
+   screens and 13px at 320px (and shrinks text-sm with !important there), which
+   would leave desk text at 10–12px. */
+@media (max-width: 599.98px) {
+  .desk-root .text-base { font-size: max(14px, 1rem) !important; }
+  .desk-root .text-sm { font-size: 14px !important; line-height: 20px; }
+  .desk-root .text-xs { font-size: 12px !important; line-height: 16px; }
+  .desk-root .text-\[11px\] { font-size: 12px !important; }
+}
+/* The compact header bleeds to the page edge: it follows the page gutter,
+   which the small-screen block above cuts to 0.75rem at 360px and below. */
+@media (max-width: 360px) {
+  .desk-root [data-desk-header='compact'] { margin-left: -0.75rem !important; margin-right: -0.75rem !important; padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+}
+/* A bar that sticks inside a card on a phone (Approve / Reject): opaque, so the
+   rows scrolling under it never show through the glass. */
+.desk-root .desk-sticky-bar { background: hsl(var(--background)); }
+.desk-root[data-desk-theme='light'] .desk-sticky-bar { background: #ffffff; }
+/* Board mode on a wall (≥ 1920px): the page breathes wider. */
+@media (min-width: 1920px) {
+  .desk-root[data-desk-wall] main { max-width: 1760px; }
+}
+/* Motion only for those who want it. */
+@media (prefers-reduced-motion: reduce) {
+  .desk-root *, .desk-root *::before, .desk-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---- The same board in daylight -------------------------------------------
    Dark above is the baseline; this is the light set, and the desks open on it.
    DeskPage writes the decision into data-desk-theme, so there is one light
@@ -1970,7 +2107,10 @@ html.reduce-motion *::after {
    text #17142B 16:1 on the ground, muted #5B5670 6.5:1, violet 7.1:1 on white,
    red 6.5:1, green 5.0:1, amber 7.0:1, and the LIVE pill 6.3:1.
    --------------------------------------------------------------------------- */
-.desk-root[data-desk-theme='light'] {
+/* A sheet that wraps itself in a bare .desk-root (ReadyBoard, CooBoard) follows
+   the page it opened on, instead of falling back to the dark baseline. */
+.desk-root[data-desk-theme='light'],
+.desk-root[data-desk-theme='light'] .desk-root:not([data-desk-theme]) {
   --background: 250 38% 97%;
   --foreground: 248 37% 12%;
   --card: 0 0% 100%;
@@ -1998,6 +2138,14 @@ html.reduce-motion *::after {
   --desk-bad-dot: 0 72% 51%;
   --desk-live-bg: 137 39% 93%;
   --desk-live-fg: 143 64% 24%;
+  /* A black chip needs a dark edge on white paper. */
+  --desk-blocked-line: rgba(0, 0, 0, 0.6);
+  --desk-card-line: #e7e4f0;
+  --desk-card-fill: #ffffff;
+  --desk-card-shadow: 0 1px 2px rgba(23, 20, 43, 0.04);
+  /* White on these is 7.2:1, and 9.1:1 on hover. */
+  --desk-primary-solid: 263 70% 50%;
+  --desk-primary-solid-hover: 263 72% 42%;
 
   /* Solid lines and a faintly tinted field, so an input still reads as recessed
      against a white card. */
@@ -2054,9 +2202,17 @@ html.reduce-motion *::after {
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-.desk-panel { border-radius: 24px; }
-.desk-tile { border-radius: 18px; }
-.desk-panel.desk-capsule { border-radius: 16px; }
+.desk-panel { border-radius: var(--desk-radius-card); }
+.desk-tile { border-radius: var(--desk-radius-tile); }
+.desk-panel.desk-capsule { border-radius: var(--desk-radius-capsule); }
+/* A panel inside an open Fold card is part of that card: no second glass layer. */
+.desk-fold .desk-panel:not(.desk-capsule) {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  border-color: var(--desk-line-soft);
+}
 .desk-pill { border-radius: 999px; }
 
 /* Every small label on the desks: one size, one weight of grey. */

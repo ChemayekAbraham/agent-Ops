@@ -19,7 +19,10 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { useRelatedHouses } from '@/hooks/useRelatedHouses';
 import { useQuery } from '@tanstack/react-query';
@@ -65,7 +68,8 @@ const photosOf = (h: HouseOpportunity) =>
 
 /**
  * Full detail view for one empty house: photo gallery, landlord contact,
- * GPS map preview and the 15% monthly return the partner earns.
+ * GPS map preview and the monthly Returns the partner earns: the public new-partner
+ * rate on agent screens, the signed-in partner's own rate when isPartner.
  */
 export function EmptyHouseDetailSheet({
   house,
@@ -101,6 +105,12 @@ export function EmptyHouseDetailSheet({
 }) {
   const [index, setIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  // Partner Returns rate for this view (15 for both while the switch has never been on):
+  // an agent quotes the PUBLIC new-partner rate, never a person's; a signed-in partner sees their own.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const returnsRate = isPartner ? ownRate : newContractRate;
+  const returnsRatePct = formatRatePct(returnsRate);
 
   const {
     data: related,
@@ -152,12 +162,16 @@ export function EmptyHouseDetailSheet({
     };
   }
 
-  // Some lists (e.g. the funder map) don't supply the Returns figures —
-  // derive them from rent with the same 15%/month rule used elsewhere.
+  // Some lists (e.g. the funder map) don't supply the Returns figures: derive them from rent at the
+  // view's rate. A signed-in partner is always priced at their own rate (the lists quote the public
+  // rate). null when the rate is unknown: show no figure.
   {
     const rent = Number(house.monthly_rent || 0);
-    const monthly = Number(house.partner_monthly_return) || Math.round(rent * 0.15);
-    const annual = Number(house.partner_annual_return) || monthly * 12;
+    const atRate = monthlyReturnFor(rent, returnsRate);
+    const monthly = isPartner ? atRate : Number(house.partner_monthly_return) || atRate;
+    const annual = isPartner
+      ? (monthly === null ? null : monthly * 12)
+      : Number(house.partner_annual_return) || (monthly === null ? null : monthly * 12);
     if (monthly !== house.partner_monthly_return || annual !== house.partner_annual_return) {
       house = { ...house, partner_monthly_return: monthly, partner_annual_return: annual };
     }
@@ -274,12 +288,12 @@ export function EmptyHouseDetailSheet({
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Potential earnings</p>
               <div className="grid grid-cols-2 gap-3 text-[12px]">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Monthly Returns (15%)</p>
-                  <p className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}</p>
+                  <p className="text-[10px] text-muted-foreground">{returnsRatePct ? `Monthly Returns (${returnsRatePct})` : 'Monthly Returns'}</p>
+                  <p className="text-base font-black text-primary">{formatUGXOrDash(house.partner_monthly_return)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-muted-foreground">After 12 months</p>
-                  <p className="text-base font-black text-primary">{formatUGX(house.partner_annual_return)}</p>
+                  <p className="text-base font-black text-primary">{formatUGXOrDash(house.partner_annual_return)}</p>
                 </div>
               </div>
             </div>
@@ -344,15 +358,15 @@ export function EmptyHouseDetailSheet({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Monthly Returns</span>
-                <span className="font-bold text-primary">15%</span>
+                <span className="font-bold text-primary">{returnsRatePct ?? '—'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">{isPartner ? 'You earn today' : 'Partner earns today'}</span>
-                <span className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}/mo</span>
+                <span className="text-base font-black text-primary">{formatUGXOrDash(house.partner_monthly_return)}/mo</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Total after 12 months</span>
-                <span className="font-bold text-primary">{formatUGX(house.partner_annual_return)}</span>
+                <span className="font-bold text-primary">{formatUGXOrDash(house.partner_annual_return)}</span>
               </div>
             </div>
             {isPartner && typeof remaining === 'number' && (

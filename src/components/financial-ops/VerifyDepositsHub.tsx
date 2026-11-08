@@ -427,7 +427,7 @@ export function VerifyDepositsHub() {
       {tab === 'user' && (
         <div className="w-full">
           {userView === 'pending' && (
-            <PendingUserDepositsPanel onSelectTid={handleSelectPendingTid} pageSize={10} />
+            <PendingUserDepositsPanel onSelectTid={handleSelectPendingTid} />
           )}
 
           {userView === 'auto_match' && (
@@ -484,7 +484,7 @@ export function VerifyDepositsHub() {
           )}
 
           {userView === 'recent' && (
-            <RecentlyVerifiedList />
+            <RecentlyVerifiedList source="user" />
           )}
 
           {userView === 'audit' && (

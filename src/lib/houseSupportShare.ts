@@ -1,12 +1,23 @@
 import { supabase } from '@/integrations/supabase/client';
 import { SHARE_LINK_HOST } from '@/lib/planShareLink';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { monthlyReturnFor } from './partnerReturnPolicy';
 
-/** Monthly return rate a supporter earns on a supported empty house. */
+/**
+ * @deprecated A hard-coded 15%. House share text is composed by the database
+ * (get_or_create_house_share_link returns it as `description`, at the live public new-partner
+ * rate): use houseShareMessageFor(house, url, link.description). Screen figures take the rate from
+ * the database (houseMonthlyReturnAt). Must have no importer at release (design v2 §6.1, §8.5 #3).
+ */
 export const HOUSE_SHARE_ROI_RATE = 15;
 
+/** @deprecated Prices at a hard-coded 15%; use houseMonthlyReturnAt (see HOUSE_SHARE_ROI_RATE). */
 export const houseMonthlyReturn = (rent: number) =>
   Math.round((Number(rent || 0) * HOUSE_SHARE_ROI_RATE) / 100);
+
+/** Monthly Returns on a house's rent at `rate` (monthly %, from the database); null when unknown. */
+export const houseMonthlyReturnAt = (rent: number, rate: number | null): number | null =>
+  monthlyReturnFor(Number(rent || 0), rate);
 
 /**
  * Opaque, attribution-carrying share link for one verified empty house.
@@ -22,11 +33,14 @@ export async function createHouseShareLink(houseId: string) {
     .maybeSingle();
   if (error) throw error;
   if (!data?.code) throw new Error('Could not create the share link');
+  const og = data.og_description as string | null;
   return {
     code: data.code as string,
     share_url: `${SHARE_LINK_HOST}/s/${data.code}`,
     og_title: data.og_title as string | null,
-    og_description: data.og_description as string | null,
+    og_description: og,
+    /** The share text the database composed (= og_description), or null. */
+    description: typeof og === 'string' && og.trim() ? og : null,
   };
 }
 
@@ -36,7 +50,33 @@ export interface HouseShareSummary {
   monthly_rent: number;
 }
 
-/** Short, plain-text share description. No emojis, exactly one URL. */
+/**
+ * Plain-text share message (no emojis, exactly one URL). The Returns sentence is the one the
+ * database composed (`description` from createHouseShareLink); without it the message states no
+ * Returns figure (design v2 §3.6, C7: only SQL composes share text that carries a rate).
+ */
+export function houseShareMessageFor(house: HouseShareSummary, url: string, description: string | null) {
+  const lead = typeof description === 'string' && description.trim()
+    ? description.trim()
+    : 'Support this available house through Welile and earn monthly Returns.';
+  return [
+    lead,
+    '',
+    `House: ${house.title}`,
+    `Location: ${house.place}`,
+    `Monthly Rent: ${formatDynamic(house.monthly_rent)}`,
+    '',
+    'View the house and support plan:',
+    url,
+  ].join('\n');
+}
+
+/** The share message when the database composed no description: no Returns figure. */
+export function houseShareFallbackMessage(house: HouseShareSummary, url: string) {
+  return houseShareMessageFor(house, url, null);
+}
+
+/** @deprecated States a Returns figure at a hard-coded 15%; use houseShareMessageFor. */
 export function houseShareMessage(house: HouseShareSummary, url: string) {
   return [
     'Support this available house through Welile.',

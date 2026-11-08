@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { haversineKm } from '@/lib/houseGeo';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
-const MONTHLY_ROI_RATE = 15;
 const LIMIT = 5;
 const FETCH_MORE = LIMIT * 3;
 
@@ -34,8 +36,21 @@ function distanceBetween(a: HouseOpportunity, b: HouseOpportunity): number | nul
  * listings with a positive rent.
  */
 export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
+  // Agent context: an illustrative figure at the PUBLIC new-partner rate (never a named person's
+  // rate). Unknown rate -> null figures (no number shown). Applied in `select`, so a rate change
+  // never refetches.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const withReturns = useCallback(
+    (houses: HouseOpportunity[]) =>
+      houses.map((h) => {
+        const monthly = monthlyReturnFor(Number(h.monthly_rent || 0), newContractRate);
+        return { ...h, partner_monthly_return: monthly, partner_annual_return: monthly === null ? null : monthly * 12 };
+      }),
+    [newContractRate],
+  );
   return useQuery<HouseOpportunity[]>({
     queryKey: ['related-houses', currentHouse?.house_id],
+    select: withReturns,
     enabled: !!currentHouse && hasLocation(currentHouse),
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
@@ -102,7 +117,6 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
 
       const mapped = rows.map((r): HouseOpportunity => {
         const monthlyRent = Number(r.monthly_rent || 0);
-        const monthlyReturn = Math.round((monthlyRent * MONTHLY_ROI_RATE) / 100);
         const landlord = r.landlord_id ? landlordById.get(r.landlord_id) : null;
         const agent = r.agent_id ? agentById.get(r.agent_id) : null;
 
@@ -132,8 +146,9 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
           landlord_phone: landlord?.phone ?? null,
           distance_km: null,
           created_at: r.created_at ?? null,
-          partner_monthly_return: monthlyReturn,
-          partner_annual_return: monthlyReturn * 12,
+          // Filled by `select` at the live new-contract rate.
+          partner_monthly_return: 0,
+          partner_annual_return: 0,
         };
         candidate.distance_km = distanceBetween(currentHouse, candidate);
         return candidate;

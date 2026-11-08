@@ -739,7 +739,7 @@ var estimate_rent_access_default = defineTool3({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on."
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,
@@ -773,18 +773,63 @@ var estimate_rent_access_default = defineTool3({
 // src/lib/mcp-public/tools/estimate-supporter-returns.ts
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z as z4 } from "npm:zod@^4.4.3";
-var REWARD_RATE = 0.15;
+
+// supabase/functions/_shared/partnerReturnPolicy.ts
+function toNumber(v) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (s === "") return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+function rateOrNull(v) {
+  const n = toNumber(v);
+  return n !== null && n > 0 && n <= 100 ? n : null;
+}
+var isoOrNull = (v) => typeof v === "string" && v.trim() !== "" ? v : null;
+function parsePublicPolicy(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const o = raw;
+  if (typeof o.enabled !== "boolean") return null;
+  const rate = rateOrNull(o.new_contract_rate);
+  if (rate === null) return null;
+  return {
+    enabled: o.enabled,
+    newContractRate: rate,
+    cutoffAt: isoOrNull(o.cutoff_at),
+    enabledAt: isoOrNull(o.enabled_at),
+    updatedAt: isoOrNull(o.updated_at)
+  };
+}
+
+// src/lib/mcp-public/partnerRate.ts
+async function newPartnerReturnRate() {
+  try {
+    const client = limiterClient();
+    if (!client) return null;
+    const { data, error } = await client.rpc("get_partner_return_policy");
+    if (error) return null;
+    return parsePublicPolicy(data)?.newContractRate ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// src/lib/mcp-public/tools/estimate-supporter-returns.ts
 var DEFAULT_DURATIONS2 = [3, 6, 12];
 var MIN_AMOUNT = 2e4;
 var MAX_AMOUNT = 5e8;
 var MIN_MONTHS = 1;
 var MAX_MONTHS = 36;
-function project(amount, months) {
-  const monthlyReward = amount * REWARD_RATE;
+function project(amount, months, rate) {
+  const monthlyReward = amount * rate;
   const simpleEarnings = monthlyReward * months;
   const simpleTotal = amount + simpleEarnings;
   let balance = amount;
-  for (let m = 1; m <= months; m++) balance += balance * REWARD_RATE;
+  for (let m = 1; m <= months; m++) balance += balance * rate;
   const compoundEarnings = balance - amount;
   return {
     durationMonths: months,
@@ -798,7 +843,7 @@ function project(amount, months) {
 var estimate_supporter_returns_default = defineTool4({
   name: "estimate_supporter_returns",
   title: "Estimate Supporter Returns (illustrative)",
-  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target 15%, not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+  description: "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
   inputSchema: {
     amount: z4.number().describe("Amount to support in UGX (e.g. 500000). Illustration only."),
     duration_months: z4.number().describe("Optional horizon in months (1-36). Omit to compare 3/6/12-month options.").optional(),
@@ -847,7 +892,31 @@ var estimate_supporter_returns_default = defineTool4({
     } else {
       months = [...DEFAULT_DURATIONS2];
     }
-    const projections = months.map((m) => project(roundedAmount, m));
+    const ratePct = await newPartnerReturnRate();
+    if (ratePct === null) {
+      return publicToolResult({
+        tool: "estimate_supporter_returns",
+        kind: "info",
+        summary: "The current monthly Returns rate for new Supporters is not available right now. Sign up free to see it in the app.",
+        estimates: {
+          basis: "No figure: the current monthly Returns rate for new Supporters could not be read right now.",
+          confidence: "illustrative",
+          currency: "UGX",
+          ranges: []
+        },
+        data: { amount: roundedAmount, monthly_reward_rate_pct: null, projections: [] },
+        disclaimers: [
+          "Partner Returns are not guaranteed. This is an illustration only.",
+          "Actual rates and terms are shown in the app after you create a free account.",
+          "Supporter withdrawals require a 90-day notice period."
+        ],
+        next_steps: [
+          "Create a free Supporter account to view current Returns and start supporting tenants."
+        ],
+        links
+      });
+    }
+    const projections = months.map((m) => project(roundedAmount, m, ratePct / 100));
     const lines = projections.map(
       (p) => `\u2022 ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}: Returns of ${ugx(p.simpleEarnings)} (paid out) to ${ugx(p.compoundEarnings)} (reinvested)`
     ).join("\n");
@@ -876,20 +945,20 @@ var estimate_supporter_returns_default = defineTool4({
       )} depending on horizon and whether Returns are paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Partner Returns target 15%, not guaranteed. This illustration uses ${REWARD_RATE * 100}% a month on the supported amount.`,
+        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
         "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
         projections.length > 1 ? `No horizon was given, so ${DEFAULT_DURATIONS2.join("/")}-month options are compared.` : `Horizon of ${projections[0].durationMonths} month${projections[0].durationMonths === 1 ? "" : "s"} as requested.`,
         "Principal is assumed to stay in place for the whole horizon, with no withdrawal."
       ],
       estimates: {
-        basis: `${REWARD_RATE * 100}% monthly platform rewards, shown both paid out (simple) and reinvested (compounding).`,
+        basis: `${ratePct}% monthly platform rewards, shown both paid out (simple) and reinvested (compounding).`,
         confidence: "illustrative",
         currency: "UGX",
         ranges
       },
       data: {
         amount: roundedAmount,
-        monthly_reward_rate_pct: REWARD_RATE * 100,
+        monthly_reward_rate_pct: ratePct,
         projections: projections.map((p) => ({
           duration_months: p.durationMonths,
           monthly_reward: p.monthlyReward,
@@ -900,7 +969,7 @@ var estimate_supporter_returns_default = defineTool4({
         }))
       },
       disclaimers: [
-        "Partner Returns target 15%, not guaranteed. This is an illustration only.",
+        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period."
       ],
@@ -1788,7 +1857,7 @@ var mcp_public_default = defineMcp({
   name: "welile-public-mcp",
   title: "Welile Receipts \u2014 Get Started",
   version: "0.1.0",
-  instructions: "Public information about Welile Receipts for prospective users \u2014 no account required. Use `how_welile_works` for FAQs and a free signup link. Use `explore_welile` to answer read-only 'what can I do' questions and offer guided prompts such as 'Check my rent access', 'See agent commissions', 'See supporter Returns', 'Get guaranteed rent as a landlord', and 'Check my Welile Trust Score' \u2014 each returns a role-targeted signup link that turns the question into an account. Use `check_eligibility` for any 'can I / do I qualify' question (tenant, agent, landlord, Supporter): it returns that role's requirement checklist and, if the user has told you facts like their age, whether they hold a national ID or mobile money, their district, their monthly rent (UGX), the amount they can support (UGX), or how many houses they control, marks each requirement met / not_met / to_confirm \u2014 it is a checklist, never an approval. Use `get_onboarding_steps` for any 'how do I start / what are the steps' question: it returns the numbered walkthrough for that role with what to do, what to bring, and typical timings, and accepts a `step` number to expand one step. Use `estimate_rent_access` when a prospective tenant gives a monthly rent (UGX) to return an indicative daily/total repayment ballpark plus the free tenant signup link \u2014 the figure is illustrative only, not an approval. Use `estimate_supporter_returns` when a prospective Supporter gives an amount (UGX) to return an illustrative Returns range (simple to compounding, at 15% monthly platform rewards) plus the free Supporter signup link \u2014 an illustration only, not a guarantee. Use `find_available_houses` to return a small read-only sample of available house listings by district/area (public, non-sensitive fields only) plus the free tenant signup link to view details and apply. Personal figures require signing in, so always offer the relevant signup link. Every tool returns the same JSON envelope (summary, assumptions, estimates, data, disclaimers, next_steps, links); always pass on the disclaimers. All amounts are in UGX.",
+  instructions: "Public information about Welile Receipts for prospective users \u2014 no account required. Use `how_welile_works` for FAQs and a free signup link. Use `explore_welile` to answer read-only 'what can I do' questions and offer guided prompts such as 'Check my rent access', 'See agent commissions', 'See supporter Returns', 'Get guaranteed rent as a landlord', and 'Check my Welile Trust Score' \u2014 each returns a role-targeted signup link that turns the question into an account. Use `check_eligibility` for any 'can I / do I qualify' question (tenant, agent, landlord, Supporter): it returns that role's requirement checklist and, if the user has told you facts like their age, whether they hold a national ID or mobile money, their district, their monthly rent (UGX), the amount they can support (UGX), or how many houses they control, marks each requirement met / not_met / to_confirm \u2014 it is a checklist, never an approval. Use `get_onboarding_steps` for any 'how do I start / what are the steps' question: it returns the numbered walkthrough for that role with what to do, what to bring, and typical timings, and accepts a `step` number to expand one step. Use `estimate_rent_access` when a prospective tenant gives a monthly rent (UGX) to return an indicative daily/total repayment ballpark plus the free tenant signup link \u2014 the figure is illustrative only, not an approval. Use `estimate_supporter_returns` when a prospective Supporter gives an amount (UGX) to return an illustrative Returns range (simple to compounding, at the monthly Returns rate a new Supporter gets today) plus the free Supporter signup link \u2014 an illustration only, not a guarantee. Use `find_available_houses` to return a small read-only sample of available house listings by district/area (public, non-sensitive fields only) plus the free tenant signup link to view details and apply. Personal figures require signing in, so always offer the relevant signup link. Every tool returns the same JSON envelope (summary, assumptions, estimates, data, disclaimers, next_steps, links); always pass on the disclaimers. All amounts are in UGX.",
   tools: [
     how_welile_works_default,
     explore_welile_default,

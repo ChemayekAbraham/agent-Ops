@@ -1,6 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipAgreementRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
 import { isValidInvestmentAmount, MIN_INVESTMENT_ERROR } from "../_shared/investmentAmount.ts";
+import {
+  formatRatePct,
+  monthlyReturnFor,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -171,13 +179,14 @@ Deno.serve(async (req) => {
     // Generate a 4-digit portfolio PIN for the supporter
     const portfolioPin = String(Math.floor(1000 + Math.random() * 9000));
 
-    // Create the investor portfolio record so it appears in "My Support Accounts"
-    const { error: portfolioErr } = await adminClient.from("investor_portfolios").insert({
+    // Create the investor portfolio record so it appears in "My Support Accounts".
+    // Inserted AFTER the debit on purpose: enforce_portfolio_funding_at_creation finds this debit by
+    // reference_id = portfolio_code. No roi_percentage: the database gate stores the partner's rate.
+    const { data: portfolio, error: portfolioErr } = await adminClient.from("investor_portfolios").insert({
       investor_id: partner_id,
       agent_id: caller.id,
       portfolio_code: referenceId,
       investment_amount: amount,
-      roi_percentage: 15,
       roi_mode: "simple",
       total_roi_earned: 0,
       status: "active",
@@ -187,44 +196,74 @@ Deno.serve(async (req) => {
       maturity_date: maturityDateStr,
       auto_reinvest: false,
       portfolio_pin: portfolioPin,
-    });
+    }).select("id, roi_percentage, rate_basis").single();
 
-    if (portfolioErr) {
-      console.error("[coo-invest-for-partner] Portfolio creation failed:", portfolioErr.message);
-      // Non-fatal: ledger is source of truth, but log for ops to fix
+    if (portfolioErr || !portfolio) {
+      // The partner's wallet was already debited (committed ledger transaction). Record it for Ops and
+      // say so; no partner notification or email for a portfolio that does not exist.
+      const errMsg = portfolioErr?.message ?? "no row returned";
+      console.error("[coo-invest-for-partner] Portfolio creation failed after the ledger debit:", errMsg);
+      await adminClient.from("system_events").insert({
+        event_type: "coo_invest_portfolio_missing",
+        user_id: partner_id,
+        metadata: { reference_id: referenceId, partner_id, amount, tx_group_id: txGroupId ?? null, initiated_by: caller.id, error: errMsg },
+      });
+      return new Response(JSON.stringify({
+        error: `Funds were moved but the portfolio record failed. Contact Ops with ref ${referenceId}.`,
+        reference_id: referenceId,
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const monthlyReward = Math.round(amount * 0.15);
+    // The rate the gate stored (the partner's own rate).
+    const stored = storedRate(portfolio);
+    const monthlyReward = monthlyReturnFor(amount, stored);
+    const rateLine = stored !== null && monthlyReward !== null
+      ? `💰 You'll earn ${formatRatePct(stored)} (UGX ${monthlyReward.toLocaleString()}) monthly on the ${payout_day}${getOrdinalSuffix(payout_day)} of every month for 12 months, starting ${firstPayoutDate}.`
+      : `💰 Your monthly Returns are paid on the ${payout_day}${getOrdinalSuffix(payout_day)} of every month for 12 months, starting ${firstPayoutDate}; see your dashboard.`;
 
     // Notify the partner
     await adminClient.from("notifications").insert({
       user_id: partner_id,
       title: "🎉 Thank You — Your Funds Are Now Supporting Tenants!",
-      message: `Great news! UGX ${amount.toLocaleString()} from your wallet is now supporting tenants, placed by our operations team to help them access housing.\n\n💰 You'll earn 15% (UGX ${monthlyReward.toLocaleString()}) monthly on the ${payout_day}${getOrdinalSuffix(payout_day)} of every month for 12 months, starting ${firstPayoutDate}.\n\nThank you for being part of the Welile family! 🙏\n\nRef: ${referenceId}`,
+      message: `Great news! UGX ${amount.toLocaleString()} from your wallet is now supporting tenants, placed by our operations team to help them access housing.\n\n${rateLine}\n\nThank you for being part of the Welile family! 🙏\n\nRef: ${referenceId}`,
       type: "success",
-      metadata: { amount, reference_id: referenceId, payout_day, monthly_reward: monthlyReward, first_payout_date: firstPayoutDate, initiated_by: caller.id },
+      metadata: {
+        amount,
+        reference_id: referenceId,
+        payout_day,
+        ...(monthlyReward !== null ? { monthly_reward: monthlyReward } : {}),
+        first_payout_date: firstPayoutDate,
+        initiated_by: caller.id,
+      },
     });
 
     console.log(`[coo-invest-for-partner] COO ${caller.id} invested ${amount} from partner ${partner_id}'s wallet. Ref: ${referenceId}, TxGroup: ${txGroupId}`);
 
-    // Partnership Agreement email — target = partner (not the COO actor)
+    // Partnership Agreement email — target = partner (not the COO actor). It carries the rate and
+    // monthly Returns: the profile email when the row's rate applies to everyone (switch off, as
+    // before); otherwise the confirmed login email, or the profile email without figures (D4).
     try {
-      const { data: partnerEmailRow } = await adminClient
-        .from("profiles").select("email").eq("id", partner_id).maybeSingle();
-      if (partnerEmailRow?.email) {
+      const rateIsPublic = await rowRateIsPublic(adminClient, portfolio);
+      const [{ data: partnerEmailRow }, loginEmails] = await Promise.all([
+        adminClient.from("profiles").select("email").eq("id", partner_id).maybeSingle(),
+        rateIsPublic ? null : readConfirmedLoginEmails(adminClient, [partner_id]),
+      ]);
+      const target = rateEmailTarget(loginEmails?.get(partner_id) ?? null, partnerEmailRow?.email ?? null, rateIsPublic);
+      if (target.to) {
         dispatchTransactionalEmail(
           supabaseUrl,
           supabaseServiceKey,
           buildPartnershipAgreementRequest({
-            recipientEmail: partnerEmailRow.email,
+            recipientEmail: target.to,
             partnerName,
             partnerId: partner_id,
             portfolioId: referenceId,
             amount,
-            monthlyReward,
+            monthlyReward: target.withFigures ? monthlyReward : null,
             contributionDateIso: new Date().toISOString(),
             firstPayoutDateIso: firstPayoutDate,
             payoutDay: payout_day,
+            roiPercentage: target.withFigures ? stored : null,
           }),
           "coo-invest-for-partner",
         );

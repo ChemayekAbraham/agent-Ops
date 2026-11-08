@@ -2009,7 +2009,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
+            // The PUBLIC new-partner rate (15 while the switch has never been on); no rate known -> no figure.
+            const { getPublicPartnerRate } = await import('@/lib/publicPartnerRate');
+            const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
+            const newRatePct = formatRatePct(await getPublicPartnerRate());
+            const shareText = newRatePct
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {

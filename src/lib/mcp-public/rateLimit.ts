@@ -165,7 +165,7 @@ function publishableKey(): string | undefined {
   return readEnv("SUPABASE_ANON_KEY") ?? readEnv("VITE_SUPABASE_ANON_KEY");
 }
 
-function limiterClient() {
+export function limiterClient() {
   const url = readEnv("SUPABASE_URL") ?? readEnv("VITE_SUPABASE_URL");
   const key = publishableKey();
   if (!url || !key) return undefined;

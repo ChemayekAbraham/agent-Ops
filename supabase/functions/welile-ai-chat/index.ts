@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildNexaPublicGuideReply, isFinancialAccessQuery, toAuthGatedUrl } from '../_shared/nexaGuides.ts';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult } from '../_shared/nexaSignup.ts';
 import { buildNexaSystemPrompt, wantsHuman, validMessages, knowledgeContext, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply } from "../_shared/nexa.ts";
-import { NEXA_TOOL_DEFS, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader } from "../_shared/nexaTools.ts";
+import { buildNexaToolDefs, runNexaTool, normalizePortfolioRow, isPortfolioOrReturnsQuestion, type PortfolioReader, type MyRateReader } from "../_shared/nexaTools.ts";
+import { cachedPublicPolicy, readQuoteRate } from "../_shared/partnerReturnPolicy.ts";
 import { requestPortfolioOtp, verifyPortfolioOtp, portfolioIdFromSession, auditPortfolioAccess, sha256Hex } from "../_shared/nexaPortfolioAccess.ts";
 import { knowledgeScopesFor, filterKnowledgeForAudience, isStaff, recordAccessAlert, channelFrom } from "../_shared/nexaAccess.ts";
 const MAX_TOOL_ROUNDS = 3;
@@ -52,10 +53,14 @@ Deno.serve(async req => {
     const admin=createClient(url,service);
     const auth=req.headers.get('Authorization');
     let userId:string|null=null;
-    if(auth?.startsWith('Bearer ')) {
-      const {data,error}=await admin.auth.getUser(auth.slice(7));
-      if(error || !data.user) return json({error:'Please sign in again'},401);
-      userId=data.user.id;
+    // The caller check and the public Returns policy are read in parallel. The policy is the PUBLIC
+    // new-partner rate (60 s isolate cache, display only); null = unknown, so replies give no figure.
+    const jwt=auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+    const [userRes, policy]=await Promise.all([jwt ? admin.auth.getUser(jwt) : Promise.resolve(null), cachedPublicPolicy(admin)]);
+    const publicRate=policy?.newContractRate ?? null;
+    if(jwt) {
+      if(!userRes || userRes.error || !userRes.data.user) return json({error:'Please sign in again'},401);
+      userId=userRes.data.user.id;
     }
     if(!allowed(userId ?? req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'public')) return json({error:'Please wait before asking again'},429);
     const channel=channelFrom(body.channel);
@@ -70,8 +75,8 @@ Deno.serve(async req => {
     // Public signup suggestions never create users, reveal account existence or grant roles.
     const lead = extractInquiryLeadDetails(question.content, {leadName:body.leadName,leadPhone:body.leadPhone ?? body.userPhone,leadRole:body.leadRole});
     const signup = userId ? undefined : buildInquirySignupResult(lead.role);
-    const pitch = userId ? '' : `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
-    const guide = buildNexaPublicGuideReply(question.content, !!userId);
+    const pitch = userId ? '' : `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone, publicRate)}`;
+    const guide = buildNexaPublicGuideReply(question.content, !!userId, publicRate);
     // Portfolio and Returns questions use the server tools. A canned guide would
     // quote a single rate and refuse the caller's own portfolio.
     if (guide && !isPortfolioOrReturnsQuestion(question.content)) return sse(guide + (isFinancialAccessQuery(question.content) ? '' : pitch), signup);
@@ -94,9 +99,15 @@ Deno.serve(async req => {
     // Portfolio reads: signed-in callers read only their own rows through auth.uid();
     // verified-session callers read only the one portfolio their OTP session is scoped to.
     let readPortfolios:PortfolioReader|null=null;
+    // The caller's own rate for a NEW portfolio: only for a user JWT (partner_quote_rate('me') reads
+    // auth.uid()). OTP portfolio sessions and anonymous callers never get it.
+    let readMyRate:MyRateReader|undefined;
     if(userId && auth) {
       const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}}});
       readPortfolios=async()=>{ const {data,error}=await userClient.rpc('nexa_get_my_portfolios'); return error?{error:'Portfolio data is unavailable right now.'}:{portfolios:(data ?? []).map(normalizePortfolioRow)}; };
+      // One partner_quote_rate read per request, shared by get_my_returns_rate and the estimate default.
+      let myRate:ReturnType<MyRateReader>|null=null;
+      readMyRate=()=>(myRate ??= readQuoteRate(userClient,'me').then((r):Awaited<ReturnType<MyRateReader>>=>r===null?{error:'Your rate is unavailable right now.'}:{rate:r}));
     } else {
       const sessionPortfolioId=await portfolioIdFromSession(admin,body.portfolioSession);
       if(sessionPortfolioId) {
@@ -111,10 +122,11 @@ Deno.serve(async req => {
     const signupSafety = ' Never claim an inquiry creates an account, reveal whether a phone is registered, ask for a password/code in chat, or promise unverified bonuses. Signup requires consent and completion of the existing secure signup flow. A role preference never grants permissions.';
     const errorFor=(status:number)=>json({error:status===429?'Please try again shortly':status===402?'AI credits are unavailable. Check Plans & credits.':status===403?'AI access is blocked. Ask your workspace administrator to check access.':'AI temporarily unavailable'},status>=400&&status<500?status:503);
     // deno-lint-ignore no-explicit-any
-    const convo:any[]=[{role:'system',content:buildNexaSystemPrompt(verifiedRoles,isStaff(verifiedRoles))+signupSafety+knowledgeContext(knowledge ?? [])},...messages];
+    const convo:any[]=[{role:'system',content:buildNexaSystemPrompt(verifiedRoles,isStaff(verifiedRoles),publicRate)+signupSafety+knowledgeContext(knowledge ?? [])},...messages];
+    const toolDefs=buildNexaToolDefs({publicRate,ownRate:!!readMyRate});
     let finalText='';
     for(let round=0;round<=MAX_TOOL_ROUNDS;round++) {
-      const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:convo,tools:NEXA_TOOL_DEFS,tool_choice:round===MAX_TOOL_ROUNDS?'none':'auto',stream:false})});
+      const response=await fetch('https://ai.gateway.lovable.dev/v1/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:'google/gemini-3-flash-preview',messages:convo,tools:toolDefs,tool_choice:round===MAX_TOOL_ROUNDS?'none':'auto',stream:false})});
       if(!response.ok) return errorFor(response.status);
       const out=await response.json();
       const msg=out?.choices?.[0]?.message;
@@ -122,7 +134,7 @@ Deno.serve(async req => {
       if(!calls.length) { finalText=typeof msg?.content==='string'?msg.content:''; break; }
       convo.push({role:'assistant',content:msg.content ?? '',tool_calls:calls});
       for(const c of calls) {
-        const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}));
+        const result=await runNexaTool(String(c?.function?.name ?? ''),String(c?.function?.arguments ?? ''),readPortfolios,(tool,reason)=>recordAccessAlert(admin,{userId,phone:callerPhone,channel,roles:verifiedRoles,attemptedResource:tool,userMessage:question.content,reason}),{defaultRate:publicRate,readMyRate});
         convo.push({role:'tool',tool_call_id:c.id,content:JSON.stringify(result)});
       }
     }

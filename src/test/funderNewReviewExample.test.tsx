@@ -1,7 +1,14 @@
 import { describe, it, expect, vi } from 'vitest';
+// The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/usePartnerQuoteRate', () => ({
+  useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
+}));
 import { render, screen } from '@testing-library/react';
 import { FunderNewReviewDialog } from '@/components/funder-new/FunderNewSelectionPanel';
-import { SUPPORT_EXAMPLE_STEPS } from '@/lib/supportPlanExample';
+import { supportExampleStepsAt } from '@/lib/supportPlanExample';
+
+// Today's figures: the steps at the switch-off rate (15) read exactly as the old fixed-15% steps.
+const SUPPORT_EXAMPLE_STEPS = supportExampleStepsAt(15);
 import type { FunderNewSelectionItem } from '@/components/funder-new/types';
 
 const item: FunderNewSelectionItem = {

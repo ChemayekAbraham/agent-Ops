@@ -9,6 +9,8 @@ import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { useWallet } from '@/hooks/useWallet';
 import { useCurrency } from '@/hooks/useCurrency';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { rateOrNull } from '@/lib/partnerReturnPolicy';
 import { hapticTap } from '@/lib/haptics';
 import DashboardHeader from '@/components/DashboardHeader';
 
@@ -51,7 +53,11 @@ export default function AngelPool() {
   // Mock data for the portfolio hero
   const myInvestment = 5_000_000;
   const myShares = Math.floor(myInvestment / 20_000);
-  const monthlyReturn = myInvestment * 0.15;
+  // Illustrative figure at the PUBLIC new-partner rate (15 while the switch has never been on).
+  // null while unknown: the hero then shows no Returns figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const heroRate = rateOrNull(newContractRate);
+  const monthlyReturn = heroRate === null ? null : (myInvestment * heroRate) / 100;
 
   const menuItems = [
     { icon: CreditCard, label: 'Add Funding\n\n', onClick: scrollToCalc },
@@ -178,9 +184,9 @@ export default function AngelPool() {
                     <TrendingUp className="h-3.5 w-3.5 text-emerald-400/80" />
                   </div>
                   <p className="text-sm font-black leading-none text-primary-foreground truncate">
-                    {formatAmountCompact(monthlyReturn)}
+                    {monthlyReturn === null ? '—' : formatAmountCompact(monthlyReturn)}
                   </p>
-                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Return/mo</p>
+                  <p className="text-[8px] uppercase tracking-[0.14em] font-bold text-primary-foreground/50 mt-1.5">Returns/mo</p>
                 </div>
 
                 <div className="portfolio-stat-cell-v2 rounded-xl px-1.5 py-3 text-center overflow-hidden">

@@ -48,7 +48,7 @@ const roleOptions: RoleOption[] = [
   { 
     value: 'supporter', 
     label: 'Supporter', 
-    description: 'Fund rent requests and earn 15% returns',
+    description: 'Fund rent requests and earn monthly Returns',
     icon: <Wallet className="h-6 w-6" />,
     requiresCode: false
   },

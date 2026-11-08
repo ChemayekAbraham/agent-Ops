@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
   createPlanShareLink,
-  planShareDescription,
+  planShareFallbackDescription,
   planShareTitle,
   type SharePlanInput,
 } from '@/lib/planShareLink';
@@ -45,7 +45,13 @@ export function PlanShareButton({
   const [link, setLink] = useState('');
 
   const title = planShareTitle(plan);
-  const description = planShareDescription(plan);
+  // The share text the database composed for this link (at the live public new-partner rate);
+  // null until the link exists, or when it came from a fallback path. Kept per plan, so a reused
+  // button never shows another plan's text.
+  const [linkDescription, setLinkDescription] = useState<{ planId: string; text: string | null } | null>(null);
+  const description =
+    (linkDescription?.planId === plan.rent_request_id ? linkDescription.text : null) ??
+    planShareFallbackDescription(plan);
   const message = `${title}\n\n${description}`;
 
   const start = async () => {
@@ -53,10 +59,13 @@ export function PlanShareButton({
     try {
       // publicShareUrl — the branded welileapp.com short link. The internal
       // Open Graph endpoint is never exposed to the share surfaces.
-      const { share_url: publicShareUrl } = await buildLink(plan);
+      const shareLink = await buildLink(plan);
+      const publicShareUrl = shareLink.share_url;
       setLink(publicShareUrl);
+      setLinkDescription({ planId: plan.rent_request_id, text: shareLink.description });
 
-      const payload: ShareData = { title, text: description, url: publicShareUrl };
+      const text = shareLink.description ?? planShareFallbackDescription(plan);
+      const payload: ShareData = { title, text, url: publicShareUrl };
       const canNative =
         typeof navigator !== 'undefined' &&
         typeof navigator.share === 'function' &&

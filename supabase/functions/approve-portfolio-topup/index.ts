@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipTopupRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
+import { rateEmailTarget, rowRateIsPublic, readConfirmedLoginEmails, storedRate } from "../_shared/partnerReturnPolicy.ts";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { topupHoldEntries, topupHoldKey, topupReleaseEntries, topupReleaseKey } from "../_shared/topupFloatHold.ts";
@@ -91,7 +92,7 @@ Deno.serve(async (req) => {
     // Fetch portfolio
     const { data: portfolio, error: pErr } = await supabase
       .from("investor_portfolios")
-      .select("id, investor_id, agent_id, investment_amount, portfolio_code, account_name, status, roi_percentage")
+      .select("id, investor_id, agent_id, investment_amount, portfolio_code, account_name, status, roi_percentage, rate_basis")
       .eq("id", portfolio_id)
       .single();
 
@@ -445,11 +446,17 @@ Deno.serve(async (req) => {
     // Partnership Top-Up email — target = partner (not the FinOps actor)
     if (partnerId) {
       try {
-        const [{ data: partnerEmailRow }, { data: reviewerProfile }] = await Promise.all([
+        // The email states the portfolio's rate: the profile email when the row's rate applies to
+        // everyone (switch off, as before); otherwise the confirmed login email, or the profile email
+        // without the rate when there is none (D4).
+        const rateIsPublic = await rowRateIsPublic(supabase, portfolio);
+        const [{ data: partnerEmailRow }, { data: reviewerProfile }, loginEmails] = await Promise.all([
           supabase.from("profiles").select("email, full_name").eq("id", partnerId).maybeSingle(),
           supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+          rateIsPublic ? null : readConfirmedLoginEmails(supabase, [partnerId]),
         ]);
-        if (partnerEmailRow?.email) {
+        const target = rateEmailTarget(loginEmails?.get(partnerId) ?? null, partnerEmailRow?.email ?? null, rateIsPublic);
+        if (target.to) {
           // Use the portfolio's ACTUAL capital (which includes any compounded
           // returns) as the "previous value" so the email total matches the
           // figure the partner sees on their portfolio. Contributed principal
@@ -459,14 +466,14 @@ Deno.serve(async (req) => {
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
             buildPartnershipTopupRequest({
-              recipientEmail: partnerEmailRow.email,
-              partnerName: partnerEmailRow.full_name,
+              recipientEmail: target.to,
+              partnerName: partnerEmailRow?.full_name,
               partnerId,
               txGroupId: portfolio_id,  // approval batch keyed by portfolio
               topupAmount: totalAmount,
               previousPortfolioValue: previousValue,
               newTotalPartnershipValue: previousValue + totalAmount,
-              roiPercentage: Number((portfolio as any).roi_percentage) || undefined,
+              roiPercentage: target.withFigures ? storedRate(portfolio) ?? undefined : undefined,
               portfolioId: portfolio.id,
               portfolioName: accountLabel,
               reviewedBy: reviewerProfile?.full_name || user.id,

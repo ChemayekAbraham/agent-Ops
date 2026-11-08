@@ -3,6 +3,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // Supporter that an agent was assigned, a tenant was placed, or their Returns
 // have started. Queue rows carry a full snapshot, so no extra lookups here.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { rateEmailTarget, rateOrNull, ratesPublicBeforeCutoff, readConfirmedLoginEmails } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,10 @@ function buildSms(row: {
     case "tenant_placed":
       return `WELILE: ${first}, tenant placed in ${house}${where}. Returns follow as rent is paid. ${DASHBOARD_URL}`;
     case "earning_started":
-      return `WELILE: ${first}, your Returns started: about ${ugx(row.monthly_return)}/month to your wallet. ${DASHBOARD_URL}`;
+      // No stored monthly Returns (no rate on the house or commitment) -> no figure.
+      return row.monthly_return > 0
+        ? `WELILE: ${first}, your Returns started: about ${ugx(row.monthly_return)}/month to your wallet. ${DASHBOARD_URL}`
+        : `WELILE: ${first}, your Returns have started; see your dashboard. ${DASHBOARD_URL}`;
     default:
       return `WELILE: ${first}, ${row.agent_name || "an agent"} assigned to ${house}${where}; tenant within 7 days. ${DASHBOARD_URL}`;
   }
@@ -146,6 +150,19 @@ Deno.serve(async (req) => {
   let emailsSent = 0;
   const logRows: Record<string, unknown>[] = [];
 
+  // The email states the partner's own rate and monthly Returns. Before the first switch-on every rate
+  // is today's public rate: the row's email, as today. Afterwards it goes to the confirmed login email
+  // (only the partner can change it); with none, to the profile email without figures (D4).
+  // One RPC for the whole batch, and only when some row still needs its email. SMS keeps the
+  // profile phone on the row (accepted residual, D4).
+  const emailPartnerIds = [...new Set(
+    (rows as any[]).filter((r) => !r.email_sent_at && r.partner_id).map((r) => String(r.partner_id)),
+  )];
+  const houseRatesPublic = (rows as any[]).some((r) => !r.email_sent_at) ? await ratesPublicBeforeCutoff(admin) : false;
+  const loginEmails = emailPartnerIds.length && !houseRatesPublic
+    ? await readConfirmedLoginEmails(admin, emailPartnerIds)
+    : new Map<string, string>();
+
   for (const row of rows as any[]) {
     const patch: Record<string, unknown> = {};
     const monthlyReturn = Number(row.monthly_return) || 0;
@@ -186,14 +203,19 @@ Deno.serve(async (req) => {
     }
 
     if (!row.email_sent_at) {
-      if (!row.email) {
+      const target = rateEmailTarget(
+        row.partner_id ? loginEmails.get(String(row.partner_id)) ?? null : null,
+        row.email ?? null,
+        houseRatesPublic,
+      );
+      if (!target.to) {
         patch.email_error = "missing_partner_email";
       } else {
         try {
           const { error: mailErr } = await admin.functions.invoke("send-transactional-email", {
             body: {
               template: "funder-house-progress",
-              to: row.email,
+              to: target.to,
               data: {
                 kind: row.kind,
                 partner_name: row.partner_name,
@@ -202,13 +224,13 @@ Deno.serve(async (req) => {
                 house_count: Number(row.house_count) || 1,
                 monthly_rent: Number(row.monthly_rent) || 0,
                 principal: Number(row.principal) || 0,
-                monthly_return: monthlyReturn,
+                monthly_return: target.withFigures ? monthlyReturn : 0,
                 agent_name: row.agent_name,
                 placed_date: dateLabel(row.placed_at),
                 first_return_date: firstReturnLabel(
                   row.earning_started_at ?? row.placed_at ?? row.created_at,
                 ),
-                return_rate: 15,
+                return_rate: target.withFigures ? rateOrNull(row.return_rate) : null,
                 dashboard_url: DASHBOARD_URL,
                 currency: "UGX",
               },

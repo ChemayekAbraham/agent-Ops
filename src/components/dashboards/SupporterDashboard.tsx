@@ -47,7 +47,9 @@ import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewO
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
 import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
-import { toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, toSelectionItem } from '@/components/funder-new/utils';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { monthlyReturnFor, storedRate } from '@/lib/partnerReturnPolicy';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCurrency } from '@/hooks/useCurrency';
 
@@ -132,6 +134,8 @@ export default function SupporterDashboard({
   const displayFirstName = displayFullName ? displayFullName.split(' ')[0] : (profileLoading ? '' : 'Supporter');
   const { isOnline } = useOffline();
   const { count: supportedTenantCount } = useSupportedTenants();
+  // The partner's own rate for a new portfolio (partner_quote_rate('me')); null while it loads.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const [loading, setLoading] = useState(false);
   const [hasCachedData, setHasCachedData] = useState(() => {
     try { return !!localStorage.getItem(`supporter_houses_${user.id}`); } catch { return false; }
@@ -154,6 +158,7 @@ export default function SupporterDashboard({
   // The houses map and its "Houses to fund" sheet are no longer repeated on the
   // page: the hero card opens them full screen, and they unmount again on close.
   const [mapRequested, setMapRequested] = useState(false);
+  const [shownFundingHomes, setShownFundingHomes] = useState(0);
   const mapWasExpandedRef = useRef(false);
   const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
   const handleListResultsFocus = useCallback((points: { lat: number; lng: number }[]) => {
@@ -212,6 +217,10 @@ export default function SupporterDashboard({
   const [mapArea, setMapArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const [mapDetailHouse, setMapDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [mapFundItem, setMapFundItem] = useState<FunderNewEmptyHouse | null>(null);
+  // The house's monthly Returns for this partner: their own rate, not the list's partner_monthly_return
+  // (quoted at the public new-partner rate). null without a rent or a rate.
+  const mapFundRent = mapFundItem ? itemAmount('empty', mapFundItem) : 0;
+  const mapFundMonthlyReturn = mapFundRent > 0 ? monthlyReturnFor(mapFundRent, ownRate) : null;
 
   const mapOrigin: FunderNewOrigin | null = useMemo(() => {
     if (mapLocation.coords) {
@@ -343,7 +352,18 @@ export default function SupporterDashboard({
     } catch {}
     return 0;
   });
-  const [totalRoiEarned, setTotalRoiEarned] = useState(0);
+  const [expectedRoiRows, setExpectedRoiRows] = useState<{ investment_amount: unknown; roi_percentage: unknown }[]>([]);
+  // Expected monthly Returns: each portfolio at its own stored rate; a row without one (not yet
+  // decided) at the partner's own new-portfolio rate. null when a needed rate is unknown.
+  const totalRoiEarned = useMemo<number | null>(() => {
+    let sum = 0;
+    for (const r of expectedRoiRows) {
+      const m = monthlyReturnFor(Number(r.investment_amount), storedRate(r) ?? ownRate);
+      if (m === null) return null;
+      sum += m;
+    }
+    return sum;
+  }, [expectedRoiRows, ownRate]);
 
   // Agreement
   const { hasAccepted, acceptance, loading: agreementLoading, acceptAgreement } = useSupporterAgreement();
@@ -461,11 +481,8 @@ export default function SupporterDashboard({
         ? portfolioResult.data.reduce((sum, r) => sum + Number(r.investment_amount), 0)
         : 0;
 
-      // Calculate expected monthly return from ROI% × capital
-      const expectedMonthly = portfolioResult.data
-        ? portfolioResult.data.reduce((sum, r) => sum + Number(r.investment_amount) * (Number(r.roi_percentage || 15) / 100), 0)
-        : 0;
-      setTotalRoiEarned(expectedMonthly);
+      // Expected monthly Returns are priced at render (totalRoiEarned) from each row's stored rate.
+      setExpectedRoiRows(portfolioResult.data ?? []);
 
       // Use portfolio total as source of truth — only actual investments
       // Ledger may include initial registration deposits which aren't investments
@@ -760,7 +777,7 @@ export default function SupporterDashboard({
                       Houses to fund
                     </p>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                      {virtualHouses.length > 0 ? `${virtualHouses.length} waiting` : 'Waiting'}
+                      {shownFundingHomes} shown
                     </span>
                   </div>
                   <button
@@ -790,6 +807,7 @@ export default function SupporterDashboard({
                         searchOnMap
                         onListFiltersChange={handleListFiltersChange}
                         onListResultsFocus={handleListResultsFocus}
+                        onListResultCountChange={setShownFundingHomes}
                         key={`${capitalView}-${capitalFeedOrder}`}
                         initialView={capitalView}
                         initialFeedOrder={capitalFeedOrder}
@@ -909,7 +927,7 @@ export default function SupporterDashboard({
       <FunderNewReviewDialog
         open={!!mapFundItem}
         onOpenChange={(o) => { if (!o) setMapFundItem(null); }}
-        items={mapFundItem ? [toSelectionItem('empty', mapFundItem)] : []}
+        items={mapFundItem ? [{ ...toSelectionItem('empty', mapFundItem), monthlyReturn: mapFundMonthlyReturn }] : []}
         available={strictAvailable ?? null}
         walletLoading={false}
         walletError={null}

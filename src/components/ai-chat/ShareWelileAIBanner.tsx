@@ -1,21 +1,26 @@
 import { Share2 } from 'lucide-react';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { toast } from 'sonner';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 const SHARE_URL = `${getPublicOrigin()}/ai`;
 
 export default function ShareWelileAIBanner() {
+  // The public new-partner rate; null while unknown = the share text states no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(newContractRate);
   const handleShare = async () => {
-    const text = `💰 Earn up to 15% monthly platform rewards by helping tenants pay rent in Africa!
+    const text = `💰 Earn monthly Returns by helping tenants pay rent in Africa!
 
 🏠 How it works:
 • You support a tenant's rent cycle (30-90 days)
 • Welile manages collection & tenant placement
-• You earn up to 15% monthly platform rewards
+${newRatePct ? `• New partners earn ${newRatePct} monthly Returns` : '• You earn monthly Returns'}
 
 🔒 Your capital is secured by Welile's Operational Assurance — if a tenant defaults, Welile replaces them.
 
-📈 Start with as little as UGX 50,000 and auto-compound your rewards!
+📈 Start with as little as UGX 50,000 and auto-compound your Returns!
 
 🤖 Chat with Welile AI to learn more: ${SHARE_URL}`;
     

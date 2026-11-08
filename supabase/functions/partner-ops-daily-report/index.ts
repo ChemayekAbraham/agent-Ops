@@ -5,10 +5,14 @@
 //
 // Options: { date, period: 'daily'|'weekly'|'monthly'|'weekend', start, end,
 //            force, preview, pdf, to }
+// Access (access.ts): the options need the service key, REPORT_SECRET or a partner-staff sign-in;
+// an unauthenticated call (today's cron) gets only today's default daily send.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 import autoTable from "https://esm.sh/jspdf-autotable@3.8.2";
 import { sendMimeViaMailgun } from "../_shared/mailgun.ts";
+import { CRON_OPTIONS_DENIED, cronBodyAllowed, NOT_PARTNER_STAFF, reportAccess, sendResponseBody } from "./access.ts";
+import { returnsCheckView } from "./returnsCheck.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -155,6 +159,8 @@ interface Report {
   };
   mix: { by_mode: any[]; by_band: any[] };
   outlook?: any;
+  /** get_partner_return_report() answer, or { error, code } when it failed (see returnsCheck.ts). */
+  returns_check?: any;
 }
 
 async function loadReport(admin: Admin, start: string, end: string): Promise<Report> {
@@ -171,6 +177,14 @@ async function loadReport(admin: Admin, start: string, end: string): Promise<Rep
   r.mix = r.mix || { by_mode: [], by_band: [] };
   const { data: ol, error: olErr } = await admin.rpc("get_partner_ops_compound_topup_outlook", { p_end: end });
   r.outlook = olErr ? null : ol;
+  // Partner Returns rate check (counts only). A failure never stops the report.
+  try {
+    // deno-lint-ignore no-explicit-any
+    const { data, error } = await (admin as any).rpc("get_partner_return_report", { p_start: start, p_end: end });
+    r.returns_check = error ? { error: error.message, code: error.code ?? null } : data;
+  } catch (e) {
+    r.returns_check = { error: String((e as Error)?.message ?? e), code: null };
+  }
   // Promissory-note money that came in: notes activated (approved) inside the EAT window.
   try {
     const from = new Date(`${start}T00:00:00+03:00`).toISOString();
@@ -585,7 +599,23 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
     finishSection(cur);
   }
 
-  // 7 — Watchlist
+  // 7 — Returns rate check (Partner Returns: new partners at the new-partner rate, existing keep theirs)
+  const rcv = returnsCheckView(r.returns_check, generatedAt.toISOString());
+  {
+    let cur = drawSectionHead(
+      "Returns rate check",
+      "New partners earn the new-partner rate from the cut-off; existing partners keep their own rate. Counts only.",
+    );
+    if (rcv.state === "ok") {
+      cur = drawTiles(rcv.tiles.map((tl) => ({ ...tl, sub: tl.sub.replace(/ \u00b7 /g, " - ") })), cur);
+      cur = drawNote(rcv.monitorLine, cur);
+    } else {
+      cur = drawNote(rcv.note ?? "", cur);
+    }
+    finishSection(cur);
+  }
+
+  // 8 — Watchlist
   {
     const watch: string[] = [];
     if (Number(pn.pending_amount) > 0) watch.push(`Promissory notes pending activation: ${num(pn.pending_count)} - ${fmtUGX(pn.pending_amount)} (oldest ${num(pn.pending_oldest_days)} days)`);
@@ -594,6 +624,7 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
     if (Number(f.weekdays_total) + Number(f.weekend_total) > outflow) {
       watch.push(`Next 7 days of returns (${fmtUGX(Number(f.weekdays_total) + Number(f.weekend_total))}) exceed the returns paid this window (${fmtUGX(outflow)}) - cover must come from new capital`);
     }
+    watch.push(...rcv.watch);
     if (!watch.length) watch.push("No open exceptions - backlog, approvals and forecast cover are all clean.");
 
     let cur = drawSectionHead("Watchlist", "Only items needing action are listed. Clean areas are omitted rather than printed as zeros.");
@@ -725,6 +756,8 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
   if (Number(b.pending_portfolios_count) > 0) watch.push(`Portfolios awaiting ops approval: ${num(b.pending_portfolios_count)} - ${fmtUGX(b.pending_portfolios_amount)}`);
   if (Number(k.renewals_count) > 0) watch.push(`Renewals in the window: ${num(k.renewals_count)} - ${fmtUGX(k.renewals_topup_amount)}`);
   if (Number(f.weekdays_total) + Number(f.weekend_total) > outflow) watch.push(`Next 7 days of returns (${fmtUGX(Number(f.weekdays_total) + Number(f.weekend_total))}) exceed the returns paid this window (${fmtUGX(outflow)}) - cover must come from new capital`);
+  const rcv = returnsCheckView(r.returns_check, new Date().toISOString());
+  watch.push(...rcv.watch);
   if (!watch.length) watch.push("No open exceptions - backlog, approvals and forecast cover are all clean.");
 
   return `<!DOCTYPE html><html><head>
@@ -825,6 +858,11 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
         )
       : ""))}
 
+    ${section("Returns rate check", "New partners earn the new-partner rate from the cut-off; existing partners keep their own rate. Counts only.",
+      rcv.state === "ok"
+        ? tiles(rcv.tiles.map((x) => tile(x.label, x.value, x.sub, x.kind ?? "hero"))) + note(rcv.monitorLine)
+        : note(rcv.note ?? ""))}
+
     ${section("Watchlist", "Only items needing action are listed. Clean areas are omitted rather than printed as zeros.",
       watch.map(w => `<div style="border-left:3px solid #b45309;background:#fffdf5;border-radius:0 8px 8px 0;padding:9px 12px;margin-top:8px;font-size:12.5px;color:#1e1b2e">${esc(w)}</div>`).join(""))}
 
@@ -847,6 +885,7 @@ function buildText(r: Report, win: { title: string; pretty: string }): string {
     `Top-ups applied: ${fmtUGX(t.applied_amount)}`,
     `Promissory notes receivable: ${fmtUGX(pn.receivable_amount)} (${num(pn.total_count)} notes, ${num(pn.pending_count)} pending)`,
     `Forecast Mon-Fri: ${fmtUGX(r.forecast.weekdays_total)} - weekend: ${fmtUGX(r.forecast.weekend_total)}`,
+    returnsCheckView(r.returns_check, new Date().toISOString()).summaryText,
     `Full metrics report attached as PDF.`,
   ].join("\n");
 }
@@ -961,7 +1000,10 @@ async function sendForPeriod(
 
   await admin.from("system_events").insert({
     event_type: EVENT_TYPE,
-    metadata: { date: dateStr, period, window: { start: win.start, end: win.end }, recipients, kpis: report.kpis, results, pdf_bytes: pdf.length },
+    metadata: {
+      date: dateStr, period, window: { start: win.start, end: win.end }, recipients, kpis: report.kpis, results, pdf_bytes: pdf.length,
+      returns_check: returnsCheckView(report.returns_check, new Date().toISOString()).meta,
+    },
   });
 
   return { date: dateStr, period, window: win, recipients, results, pdf_bytes: pdf.length, usedQueue, kpis: report.kpis };
@@ -972,8 +1014,24 @@ Deno.serve(async (req) => {
 
   try {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
+    const deny = (status: number, error: string) =>
+      new Response(JSON.stringify({ success: false, error }), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    const access = await reportAccess(req, admin, {
+      serviceKey: SERVICE_ROLE,
+      reportSecret: Deno.env.get("REPORT_SECRET") || undefined,
+    });
+    if (access.mode === "deny") {
+      return deny(access.status, access.error ?? (access.status === 403 ? NOT_PARTNER_STAFF : CRON_OPTIONS_DENIED));
+    }
+
     let body: any = {};
     try { body = await req.json(); } catch (_) { body = {}; }
+    if (body === null || typeof body !== "object" || Array.isArray(body)) body = {};
+    // No credentials (today's cron): only today's default daily send, never preview/pdf/to/force/start/end.
+    if (access.mode === "cron" && !cronBodyAllowed(body, eatToday())) return deny(401, CRON_OPTIONS_DENIED);
 
     const dateStr = typeof body?.date === "string" && body.date ? body.date.slice(0, 10) : eatToday();
     const period: Period = ["daily", "weekly", "biweekly", "monthly", "weekend"].includes(body?.period)
@@ -1019,7 +1077,7 @@ Deno.serve(async (req) => {
       }).catch((e) => console.error(`[${LABEL}] dispatch trigger failed:`, e));
     }
 
-    return new Response(JSON.stringify({ success: true, report }), {
+    return new Response(JSON.stringify(sendResponseBody(access.mode, report)), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
