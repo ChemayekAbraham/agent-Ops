@@ -1,3 +1,8 @@
+# Agreement Returns rate input
+- [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
+- [x] Run focused tests and guards (6 tests passed; all safeguards passed).
+- [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+
 # Funders Houses to fund switch
 - [x] Fix obsolete test imports after the restored discovery change.
 - [x] Restore empty-house discovery and amounts with pending-verification labels; preserve server funding enforcement and bookings.
