@@ -5,6 +5,7 @@ import { buildPartnerReference } from '@/lib/partnerReference';
 import AgreementHtmlPreview, { type AgreementPreviewData } from './AgreementHtmlPreview';
 import { buildAgreementHtml, OPTION_FROM_ROI_MODE, storedOption } from './agreementTemplate';
 import { renderAgreementPdfBase64 } from './renderAgreementPdf';
+import AgreementRateInput, { type AgreementRatePortfolio } from './AgreementRateInput';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from '@/components/ui/dialog';
@@ -83,6 +84,9 @@ export default function PartnerAgreementSignOff({
   // agreement row, falling back to the partner's portfolio total when the
   // stored snapshot is empty/zero (legacy rows captured before the amount).
   const [amountInput, setAmountInput] = useState<string>('');
+  const [ratePortfolios, setRatePortfolios] = useState<AgreementRatePortfolio[]>([]);
+  const [returnRate, setReturnRate] = useState<number | undefined>();
+  const [rateEdited, setRateEdited] = useState(false);
   // Earliest portfolio's roi_mode decides the Return Option (A/B) printed in the contract.
   const [roiMode, setRoiMode] = useState<string | null>(null);
   // How the partner supports — REQUIRED before countersigning.
@@ -101,6 +105,9 @@ export default function PartnerAgreementSignOff({
     setMissing(null);
     setAgreement(null);
     setIsDraft(false);
+    setRatePortfolios([]);
+    setReturnRate(undefined);
+    setRateEdited(false);
     (async () => {
       try {
         const [{ data: ag, error: agErr }, { data: def }, { data: pfAll }] = await Promise.all([
@@ -114,10 +121,19 @@ export default function PartnerAgreementSignOff({
             .select('*')
             .limit(1)
             .maybeSingle(),
-          supabase.from('investor_portfolios').select('investment_amount, roi_mode').eq('investor_id', partner.id).order('created_at', { ascending: true }),
+          supabase.from('investor_portfolios').select('id, portfolio_code, roi_percentage, investment_amount, roi_mode').eq('investor_id', partner.id).order('created_at', { ascending: true }),
         ]);
         if (cancelled) return;
         if (agErr) throw agErr;
+        setRatePortfolios(pfAll || []);
+        const ratePortfolio = (pfAll || []).find((item) => item.id === ag?.auto_portfolio_id) ?? (pfAll || [])[0];
+        if (ratePortfolio) setReturnRate(Number(ratePortfolio.roi_percentage));
+        else {
+          const { data: quotedRate, error: rateError } = await supabase.rpc('partner_quote_rate', { p_quote_for: 'partner', p_partner_id: partner.id });
+          if (rateError) throw rateError;
+          if (cancelled) return;
+          setReturnRate(quotedRate);
+        }
         setRoiMode((pfAll || [])[0]?.roi_mode ?? null);
         setSupportMode(ag?.support_mode === 'company_managed' || ag?.support_mode === 'self_support' ? ag.support_mode : null);
         setSummary(null);
@@ -203,6 +219,7 @@ export default function PartnerAgreementSignOff({
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
       partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
+      monthlyReturnRate: returnRate,
       returnOption: storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
       supportMode: supportMode ?? undefined,
       reference: agreement.reference || buildPartnerReference(partner?.id ?? '', partner?.created_at),
@@ -232,7 +249,7 @@ export default function PartnerAgreementSignOff({
       partnerSignatureDataUrl: agreement.partner_signature_data_url || undefined,
       includeStamp: true,
     };
-  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode, supportMode]);
+  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode, supportMode, returnRate]);
 
   const onSignatureFile = (file?: File) => {
     if (!file) return;
@@ -254,7 +271,7 @@ export default function PartnerAgreementSignOff({
     const stampChanged = !!stampDate && stampDate !== storedStampFor(agreement);
     const amountChanged = (Number(amountInput) || 0) !== (Number(agreement?.partnership_amount) || 0);
     const modeChanged = !!supportMode && supportMode !== agreement?.support_mode;
-    return signed && !stampChanged && !amountChanged && !modeChanged;
+    return signed && !stampChanged && !amountChanged && !modeChanged && !rateEdited;
   };
 
   const openConfirm = async () => {
@@ -496,6 +513,10 @@ export default function PartnerAgreementSignOff({
                     </p>
                   </div>
                   <div className="space-y-1">
+                    <AgreementRateInput portfolios={ratePortfolios} initialId={agreement.auto_portfolio_id} onRateSaved={(rate) => {
+                      setReturnRate(rate);
+                      setRateEdited(true);
+                    }} />
                     <Label className="text-[11px]">Representative name</Label>
                     <Input value={repName} onChange={(e) => setRepName(e.target.value)} placeholder="e.g. Jane Doe" className="h-8 text-xs" />
                   </div>
