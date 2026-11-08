@@ -145,6 +145,72 @@ export type Database = {
         }
         Relationships: []
       }
+      accounting_correction_register: {
+        Row: {
+          action: string
+          after_value: number | null
+          amount: number
+          batch: string
+          before_value: number | null
+          correction_group_id: string | null
+          correction_item: string
+          created_at: string
+          created_by: string | null
+          detail: Json
+          id: string
+          original_group_id: string | null
+          original_leg_ids: string[] | null
+          rebook_group_id: string | null
+          rent_request_id: string | null
+          rollback_group_id: string | null
+          rolled_back_at: string | null
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          action: string
+          after_value?: number | null
+          amount: number
+          batch: string
+          before_value?: number | null
+          correction_group_id?: string | null
+          correction_item: string
+          created_at?: string
+          created_by?: string | null
+          detail?: Json
+          id?: string
+          original_group_id?: string | null
+          original_leg_ids?: string[] | null
+          rebook_group_id?: string | null
+          rent_request_id?: string | null
+          rollback_group_id?: string | null
+          rolled_back_at?: string | null
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          action?: string
+          after_value?: number | null
+          amount?: number
+          batch?: string
+          before_value?: number | null
+          correction_group_id?: string | null
+          correction_item?: string
+          created_at?: string
+          created_by?: string | null
+          detail?: Json
+          id?: string
+          original_group_id?: string | null
+          original_leg_ids?: string[] | null
+          rebook_group_id?: string | null
+          rent_request_id?: string | null
+          rollback_group_id?: string | null
+          rolled_back_at?: string | null
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       advance_deduction_sms_summary_log: {
         Row: {
           agent_id: string
@@ -37197,6 +37263,33 @@ export type Database = {
           stage?: string
           updated_at?: string
           updated_by?: string | null
+        }
+        Relationships: []
+      }
+      money_in_report_exclusions: {
+        Row: {
+          correction_item: string | null
+          created_at: string
+          created_by: string | null
+          reason: string
+          reverses_group_id: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          correction_item?: string | null
+          created_at?: string
+          created_by?: string | null
+          reason: string
+          reverses_group_id?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          correction_item?: string | null
+          created_at?: string
+          created_by?: string | null
+          reason?: string
+          reverses_group_id?: string | null
+          transaction_group_id?: string
         }
         Relationships: []
       }
@@ -75625,8 +75718,10 @@ export type Database = {
           ledger_backed_amount: number
           manual_reduction_count: number
           manual_reduction_total: number
+          money_in_collected: number
           obligation: number
           obligation_reduced: number
+          pre_cutoff_collected: number
           principal: number
           progress_pct: number
           receipts_count: number
@@ -84943,8 +85038,10 @@ export type Database = {
           ledger_backed_amount: number
           manual_reduction_count: number
           manual_reduction_total: number
+          money_in_collected: number
           obligation: number
           obligation_reduced: number
+          pre_cutoff_collected: number
           principal: number
           progress_pct: number
           receipts_count: number
