@@ -4,6 +4,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // The queue rows carry a full snapshot (name, phone, email, houses), so this
 // worker needs no extra lookups. SMS and email are marked independently.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { monthlyReturnFor, rateOrNull } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -162,7 +163,10 @@ Deno.serve(async (req) => {
     const patch: Record<string, unknown> = {};
     const houseCount = Number(row.house_count) || 0;
     const totalRent = Number(row.total_rent) || 0;
-    const monthlyReturn = Math.round(totalRent * 0.15);
+    // The Returns rate stored on the queued row (Phase 2 queue; 4a backfills older rows). No stored
+    // rate -> no figure: the email hides the % line and, with 0, the earnings block.
+    const rate = rateOrNull(row.return_rate);
+    const monthlyReturn = monthlyReturnFor(totalRent, rate) ?? 0;
 
     if (!row.sms_sent_at) {
       const phone = row.phone ? normalizePhone(row.phone) : "";
@@ -218,7 +222,7 @@ Deno.serve(async (req) => {
                 release_date: dateLabel(row.release_at),
                 days_left: Number(row.days_left) || 0,
                 first_return_date: firstReturnLabel(row.promised_funding_date ?? row.funded_at ?? row.created_at),
-                return_rate: 15,
+                return_rate: rate,
                 houses: row.houses ?? [],
                 dashboard_url: DASHBOARD_URL,
 

@@ -65,23 +65,16 @@ export function ReturnsDisbursementConfirmation({
   const formattedAmount = formatAmount(amount, currency)
   const referenceLabel = portfolio_code || transaction_id
 
-  // Resolve actual ROI %. Prefer the explicitly passed rate (sourced from
-  // investor_portfolios.roi_percentage); otherwise derive from amount /
-  // principal so this disbursement email reflects the partner's REAL agreed
-  // rate instead of a hardcoded value.
+  // The agreed rate is shown only when the sender passes the STORED rate
+  // (investor_portfolios.roi_percentage). It is never derived from amounts.
   const principalNum = principal_amount === undefined || principal_amount === null || principal_amount === ''
     ? 0
     : Number(String(principal_amount).replace(/,/g, '')) || 0
-  const amountNum = Number(String(amount).replace(/,/g, '')) || 0
   const explicitPct = roi_percentage === undefined || roi_percentage === null || roi_percentage === ''
     ? NaN
     : Number(roi_percentage)
-  const derivedPct = principalNum > 0 ? (amountNum / principalNum) * 100 : NaN
-  const resolvedPct = Number.isFinite(explicitPct) && explicitPct > 0
-    ? explicitPct
-    : (Number.isFinite(derivedPct) && derivedPct > 0 ? derivedPct : NaN)
-  const showRoiRow = Number.isFinite(resolvedPct) && resolvedPct > 0
-  const roiPctLabel = showRoiRow ? `${Math.round(resolvedPct * 100) / 100}%` : ''
+  const showRoiRow = Number.isFinite(explicitPct) && explicitPct > 0
+  const roiPctLabel = showRoiRow ? `${Math.round(explicitPct * 100) / 100}%` : ''
   const showPrincipalRow = principalNum > 0
 
   return (
@@ -238,7 +231,7 @@ export function ReturnsDisbursementConfirmation({
                                   <tr>
                                     <td style={ledgerRowLast}>
                                       <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation"><tbody><tr>
-                                        <td className="td-block" width="40%" style={ledgerKey}>Agreed Monthly ROI</td>
+                                        <td className="td-block" width="40%" style={ledgerKey}>Agreed monthly Returns rate</td>
                                         <td className="td-block" width="60%" align="right" style={ledgerVal}>{roiPctLabel}</td>
                                       </tr></tbody></table>
                                     </td>

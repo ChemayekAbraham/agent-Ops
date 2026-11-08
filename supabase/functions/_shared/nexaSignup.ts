@@ -1,4 +1,5 @@
-import { extractPhoneNumberFromText, toAuthGatedPath } from './nexaGuides.ts';
+import { extractPhoneNumberFromText, newPartnerReturnsSentence, toAuthGatedPath } from './nexaGuides.ts';
+import { monthlyReturnFor, rateOrNull } from './partnerReturnPolicy.ts';
 
 export type InquiryRole = 'supporter' | 'tenant' | 'agent' | 'landlord';
 export interface InquiryLeadOptions { leadName?: string; leadPhone?: string; leadRole?: string }
@@ -48,10 +49,12 @@ export function buildAutoSignupConfirmationBanner(result: InquirySignupResult): 
   return `**Your next step: open your Welile account**\n[Continue to free signup](${safe.loginUrl}). Complete the secure signup steps and choose your own password. If you already have an account, sign in instead. Sharing a phone number here does not create an account or sign you in.`;
 }
 
-export function buildSignupPersuasionPitch(roleOrText: string, hasPhone = false): string {
+/** `rate` = the live PUBLIC new-partner rate, or null (then the pitch states no figure). */
+export function buildSignupPersuasionPitch(roleOrText: string, hasPhone = false, rate: number | null = null): string {
   const result = buildInquirySignupResult(roleOrText);
+  const example = monthlyReturnFor(100_000, rateOrNull(rate));
   const hook: Record<InquiryRole, string> = {
-    supporter: 'Explore verified houses with Tenant, Landlord and GPS details. New partners: illustrative Returns of 10% per month. Support UGX 100,000 for UGX 10,000/month, subject to approved terms. Existing portfolios keep their own rate.',
+    supporter: `Explore verified houses with Tenant, Landlord and GPS details. ${newPartnerReturnsSentence(rate)}${example !== null && example > 0 ? ` Support UGX 100,000 for UGX ${example.toLocaleString('en-US')}/month, subject to approved terms.` : ' Subject to approved terms.'}`,
     tenant: 'Build your Rent Access Limit with on-time paid days: +UGX 10,000/day up to UGX 30,000,000. Missed days reduce it by UGX 7,000/day; eligibility and approval apply.',
     agent: 'Join as a Field Agent to help tenants, register properties and track eligible commissions and incentives on your dashboard. Approved programme conditions apply.',
     landlord: 'Register your property and explore upfront landlord rent payments through approved, funded Rent Plans.',

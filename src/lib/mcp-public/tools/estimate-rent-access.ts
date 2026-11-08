@@ -207,7 +207,7 @@ export default defineTool({
           daily: V360_MODEL_A_EXAMPLE.daily,
           partner_monthly: V360_MODEL_A_EXAMPLE.partnerMonthly,
           partner_12_months: V360_MODEL_A_EXAMPLE.partnerTwelveMonths,
-          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). Partner Returns target 15%, not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
+          note: "Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.",
         },
         plans: plans.map((p) => ({
           duration_days: p.durationDays,

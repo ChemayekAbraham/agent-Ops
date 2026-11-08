@@ -31,9 +31,10 @@ describe('v360 staff pricing access', () => {
 
   it('keeps the staff explainer free of dash characters used as punctuation', () => {
     expect(V360_STAFF_PRICING_MEANING).toBe(
-      'OFF = new Rent Plans use current pricing; ON = new Rent Plans get 360-day pricing. On a 360-day plan, tenant agent commission is 8% of Gross (6% sub-agent and 2% general agent), the Cover Pool is segregated, and Partner Returns target 15%, not guaranteed. Existing plans are never repriced.',
+      'OFF = new Rent Plans use current pricing; ON = new Rent Plans get 360-day pricing. On a 360-day plan, tenant agent commission is 8% of Gross (6% sub-agent and 2% general agent) and the Cover Pool is segregated. A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. Existing plans are never repriced.',
     );
     expect(V360_STAFF_PRICING_MEANING).not.toMatch(/[—–]/);
+    expect(V360_STAFF_PRICING_MEANING).not.toContain('target 15%');
     expect(V360_STAFF_PRICING_CONTROL).not.toMatch(/[—–]/);
     expect(V360_STAFF_PRICING_CONTROL).toContain('CFO, COO and super admin');
   });

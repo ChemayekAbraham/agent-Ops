@@ -84,7 +84,8 @@ const resolveRoiLabel = (
     return `${r}%`
   }
   if (typeof roi_return === 'string' && roi_return.trim().length > 0) return roi_return
-  return '0%'
+  // No rate passed: no label (never "0%", never a rate worked out from amounts).
+  return ''
 }
 
 export function PartnerPortfolioCompounded({
@@ -181,12 +182,13 @@ export function PartnerPortfolioCompounded({
   const monthsBetween = (a: Date, b: Date) =>
     (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth())
 
+  // The projection uses only the STORED / paid rate the sender passed; never one worked out from
+  // the amounts. No rate -> no computed projection.
   const ratePct = (() => {
     const explicit = roi_percentage === undefined || roi_percentage === null || roi_percentage === ''
       ? NaN
       : Number(roi_percentage)
-    if (Number.isFinite(explicit) && explicit > 0) return explicit
-    return principalNum > 0 ? (retNum / principalNum) * 100 : 0
+    return Number.isFinite(explicit) && explicit > 0 ? explicit : 0
   })()
   const r = ratePct / 100
 
@@ -275,7 +277,7 @@ export function PartnerPortfolioCompounded({
                       We are pleased to confirm the successful compounding of your portfolio (<span style={portfolioIdAccent}>{portfolio_id}</span>) with {company_name} Technologies Limited.
                     </Text>
                     <Text style={{ ...introText, margin: showBreakdown ? undefined : 0 }}>
-                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio value of <strong>{formattedOpening}</strong> earned a {roiLabel} return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
+                      On the <strong>{compoundDateLabel}</strong>, in accordance with your existing agreement, your portfolio value of <strong>{formattedOpening}</strong> earned a {roiLabel ? `${roiLabel} ` : ''}return (<strong>{formattedReturn}</strong>). This brings your new total portfolio value to <strong>{formattedNewTotal}</strong>.
                     </Text>
                     {showBreakdown && (
                       <Text style={{ ...introText, margin: 0 }}>
@@ -292,7 +294,7 @@ export function PartnerPortfolioCompounded({
                       <tbody>
                         <tr>
                           <td align="center" style={returnCardInner}>
-                            <Text style={returnEyebrow}>Return Earned ({roiLabel})</Text>
+                            <Text style={returnEyebrow}>{roiLabel ? `Return Earned (${roiLabel})` : 'Return Earned'}</Text>
                             <Text style={returnValue}>+{formattedReturn}</Text>
                           </td>
                         </tr>
@@ -313,7 +315,7 @@ export function PartnerPortfolioCompounded({
                   <td className="padding-mobile" style={{ padding: '0 40px 30px 40px' }}>
                     <Text style={timelineTitle}>Projected compounding schedule</Text>
                     <Text style={timelineSubtitle}>
-                      Projected from your new portfolio value ({formattedNewTotal}) at {roiLabel} a month{maturity_date_label ? `, up to your portfolio's maturity on ${maturity_date_label}` : ' for the remaining months of your portfolio'}.
+                      Projected from your new portfolio value ({formattedNewTotal}){roiLabel ? ` at ${roiLabel} a month` : ''}{maturity_date_label ? `, up to your portfolio's maturity on ${maturity_date_label}` : ' for the remaining months of your portfolio'}.
                     </Text>
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={timelineCard}>
                       <tbody>
@@ -337,7 +339,7 @@ export function PartnerPortfolioCompounded({
                                       <td align="right" style={timelineKvValue}>{formatAmount(row.before, currency)}</td>
                                     </tr>
                                     <tr>
-                                      <td style={timelineKvLabel}>Return compounded ({roiLabel})</td>
+                                      <td style={timelineKvLabel}>{roiLabel ? `Return compounded (${roiLabel})` : 'Return compounded'}</td>
                                       <td align="right" style={timelineKvEarned}>+{formatAmount(row.earned, currency)}</td>
                                     </tr>
                                     <tr>

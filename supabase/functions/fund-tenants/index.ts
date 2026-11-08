@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatRatePct, monthlyReturnFor, readRentRewardRates, singleRate } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -315,11 +316,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // The Returns rate the database stored for each funding (rent_facilitation_reward_rates, stamped when
+    // supporter_id was set). One figure only when every funding has the same stored rate.
+    const rewardRates = await readRentRewardRates(adminClient, results.map((r) => r.rent_request_id), user.id);
+    const rewardRate = rewardRates.size === results.length ? singleRate(rewardRates.values()) : null;
+
     // Notify supporter
     await adminClient.from("notifications").insert({
       user_id: user.id,
       title: "Funding Complete! 💚",
-      message: `You've funded ${results.length} tenant(s) totaling UGX ${totalFunding.toLocaleString()}. Your 15% monthly reward will be credited automatically.`,
+      message: `You've funded ${results.length} tenant(s) totaling UGX ${totalFunding.toLocaleString()}. ${
+        rewardRate !== null
+          ? `Your ${formatRatePct(rewardRate)} monthly reward will be credited automatically.`
+          : "Your monthly Returns will be credited automatically."
+      }`,
       type: "success",
       metadata: { total: totalFunding, count: results.length, tx_group: txGroupId },
     });
@@ -342,7 +352,7 @@ Deno.serve(async (req) => {
         details: {
           total_funded: totalFunding,
           tenants_funded: results.length,
-          expected_roi: Math.round(totalFunding * 0.15),
+          expected_roi: monthlyReturnFor(totalFunding, rewardRate),
           results,
         },
       }),

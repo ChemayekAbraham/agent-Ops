@@ -17,7 +17,8 @@ interface PartnerSelfManagedDeploymentProps {
   portfolio_reference?: string
   principal_amount?: string | number
   monthly_return_amount?: string | number
-  roi_percentage?: number
+  /** The stored rate. No default: missing -> no rate shown. */
+  roi_percentage?: number | null
   term_months?: number
   deployment_date?: string
   first_payout_date?: string
@@ -45,7 +46,7 @@ export function PartnerSelfManagedDeployment({
   portfolio_reference = '',
   principal_amount = 0,
   monthly_return_amount = 0,
-  roi_percentage = 15,
+  roi_percentage = null,
   term_months = 1,
   deployment_date = '',
   first_payout_date = '',
@@ -62,7 +63,11 @@ export function PartnerSelfManagedDeployment({
 }: PartnerSelfManagedDeploymentProps) {
   const year = new Date().getFullYear()
   const fmtPrincipal = formatAmount(principal_amount, currency)
-  const fmtMonthly = formatAmount(monthly_return_amount, currency)
+  // Figures are optional (the sender leaves them out when the recipient may not see them).
+  const monthlyNum = Number(String(monthly_return_amount ?? '').replace(/,/g, ''))
+  const fmtMonthly = Number.isFinite(monthlyNum) && monthlyNum > 0 ? `+${formatAmount(monthly_return_amount, currency)}` : '—'
+  const rateNum = Number(roi_percentage)
+  const rateLabel = Number.isFinite(rateNum) && rateNum > 0 ? `${Math.round(rateNum * 100) / 100}% per month` : '—'
   const displayRef = portfolio_reference || '—'
   const count = tenants_count || tenants.length
 
@@ -135,13 +140,13 @@ export function PartnerSelfManagedDeployment({
                                   </td>
                                   <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Monthly Return</Text>
-                                    <Text style={{ ...fieldValue, color: '#059669' }}>+{fmtMonthly}</Text>
+                                    <Text style={{ ...fieldValue, color: '#059669' }}>{fmtMonthly}</Text>
                                   </td>
                                 </tr>
                                 <tr>
                                   <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Agreed Rate</Text>
-                                    <Text style={fieldValueSub}>{roi_percentage}% per month</Text>
+                                    <Text style={fieldValueSub}>{rateLabel}</Text>
                                   </td>
                                   <td width="50%" style={{ verticalAlign: "top", paddingBottom: '18px' }} className="td-block" >
                                     <Text style={fieldLabel}>Term</Text>

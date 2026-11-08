@@ -1,26 +1,34 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { estimateSupporterReturns, runNexaTool, NEW_PARTNER_MONTHLY_RATE } from "./nexaTools.ts";
+import { estimateSupporterReturns, runNexaTool } from "./nexaTools.ts";
 import { isStaff, knowledgeScopesFor, filterKnowledgeForAudience } from "./nexaAccess.ts";
 import { buildNexaSystemPrompt, NEXA_SALES_SYSTEM_PROMPT } from "./nexa.ts";
 import { normalizePortfolioCode, requestPortfolioOtp, GENERIC_SENT } from "./nexaPortfolioAccess.ts";
 
-Deno.test("new partners default to 10% simple", () => {
-  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }) as any;
-  assertEquals(NEW_PARTNER_MONTHLY_RATE, 10);
+// The new-partner rate is the live public rate passed in by the caller; no rate lives in the code.
+Deno.test("a new partner gets the rate passed in (10% here), simple", () => {
+  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }, 10) as any;
   assertEquals(r.monthlyRatePercent, 10); assertEquals(r.totalReturns, 1_200_000);
   assert(r.disclaimer.includes("not guaranteed") && r.disclaimer.includes("capital is at risk"));
 });
+Deno.test("switch off: the public rate 15 gives today's figures", () => {
+  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }, 15) as any;
+  assertEquals(r.monthlyRatePercent, 15); assertEquals(r.totalReturns, 1_800_000);
+});
 Deno.test("compound at 10% matches 1.1^12", () => {
-  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12, mode: "compound" }) as any;
+  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12, mode: "compound" }, 10) as any;
   assert(Math.abs(r.endingBalance - 3_138_428) <= 12);
 });
-Deno.test("legacy 15% and 20% rates honoured", () => {
-  assertEquals((estimateSupporterReturns({ amount: 100_000, months: 12, rate: 15 }) as any).totalReturns, 180_000);
-  assertEquals((estimateSupporterReturns({ amount: 100_000, months: 1, rate: 20 }) as any).totalReturns, 20_000);
+Deno.test("no rate known -> error, never a default figure", () => {
+  const r = estimateSupporterReturns({ amount: 1_000_000, months: 12 }, null) as any;
+  assert("error" in r && /not available/.test(r.error));
+});
+Deno.test("an existing portfolio's own 15% and 20% are honoured whatever the default", () => {
+  assertEquals((estimateSupporterReturns({ amount: 100_000, months: 12, rate: 15 }, 10) as any).totalReturns, 180_000);
+  assertEquals((estimateSupporterReturns({ amount: 100_000, months: 1, rate: 20 }, null) as any).totalReturns, 20_000);
 });
 Deno.test("bad inputs rejected", () => {
-  assert("error" in estimateSupporterReturns({ amount: 100 }));
-  assert("error" in estimateSupporterReturns({ amount: 100_000, rate: 50 }));
+  assert("error" in estimateSupporterReturns({ amount: 100 }, 10));
+  assert("error" in estimateSupporterReturns({ amount: 100_000, rate: 50 }, 10));
 });
 Deno.test("get_my_portfolios refuses without verified identity", async () => {
   const r = await runNexaTool("get_my_portfolios", "{}", null) as any;
@@ -43,13 +51,17 @@ Deno.test("knowledge rows filtered by audience", () => {
 Deno.test("prompt: supporter section, firewall, tenant priority only for tenants/unknown", () => {
   const sup = buildNexaSystemPrompt(["supporter"], false);
   assert(sup.includes("verified Supporter")); assert(sup.includes("FIREWALL")); assert(!sup.includes("Priority #1: Tenant Support"));
-  assert(sup.includes("20% per month") && sup.includes("15% per month") && sup.includes("10% per month"));
+  // No rate history and no fixed rate: the live public rate is passed in (none here -> no figure).
+  assert(!sup.includes("20% per month") && !sup.includes("15% per month") && !sup.includes("10% per month"));
+  assert(sup.includes("give no figures"));
+  assert(buildNexaSystemPrompt(["supporter"], false, 15).includes("New partners earn 15% a month in Returns"));
   assert(buildNexaSystemPrompt([], false).includes("Priority #1: Tenant Support"));
   assert(buildNexaSystemPrompt(["tenant"], false).includes("Priority #1: Tenant Support"));
   assert(!buildNexaSystemPrompt(["manager"], true).includes("this caller is NOT Welile staff"));
 });
 Deno.test("no em-dashes in Nexa copy", () => {
   assert(!buildNexaSystemPrompt(["supporter"], false).includes("\u2014"));
+  assert(!buildNexaSystemPrompt(["supporter"], false, 10).includes("\u2014"));
   assert(!NEXA_SALES_SYSTEM_PROMPT.includes("\u2014"));
 });
 Deno.test("portfolio and returns questions reach the tool", async () => {

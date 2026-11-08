@@ -1,4 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { cachedPublicPolicy } from "../_shared/partnerReturnPolicy.ts";
+import { previewDescription } from "./preview.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,9 +16,30 @@ const SITE_URL = "https://welileapp.com";
  * Facebook re-reads the page at og:url.
  */
 const SHARE_HOST = "https://share.welileapp.com";
-const ROI_RATE = 15;
 
-const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString("en-UG")}`;
+/**
+ * The public Returns policy decides only whether a stored description is still current (preview.ts);
+ * og-plan never computes a Returns figure. cachedPublicPolicy answers null on any failure, and a
+ * missing function (Phase 1 not applied) must be told apart from other failures, so the error code of
+ * the last policy read in this isolate is kept here (the shared cache keeps failures for 10 s).
+ */
+let lastPolicyErrorCode: string | null = null;
+// deno-lint-ignore no-explicit-any
+function policyErrorTap(client: any) {
+  return {
+    rpc: async (fn: string, args?: unknown) => {
+      try {
+        const res = await client.rpc(fn, args);
+        const code = res?.error ? res.error.code : null;
+        lastPolicyErrorCode = res?.error ? (typeof code === "string" && code ? code : "error") : null;
+        return res;
+      } catch (e) {
+        lastPolicyErrorCode = "exception";
+        throw e;
+      }
+    },
+  };
+}
 
 // Escape every DB/URL-derived string before embedding it in the HTML head.
 const esc = (s: unknown) =>
@@ -64,11 +87,15 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const { data: link } = await supabase
-    .from("short_links")
-    .select("code, target_path, target_params, og_title, og_description, og_image_url, destination_path")
-    .eq("code", code)
-    .maybeSingle();
+  const [{ data: link }, policy] = await Promise.all([
+    supabase
+      .from("short_links")
+      .select("code, target_path, target_params, og_title, og_description, og_image_url, destination_path, og_updated_at")
+      .eq("code", code)
+      .maybeSingle(),
+    cachedPublicPolicy(policyErrorTap(supabase)),
+  ]);
+  const policyError = policy ? null : { code: lastPolicyErrorCode };
 
   const params = (link?.target_params ?? {}) as Record<string, string>;
   if (!link) {
@@ -147,15 +174,12 @@ Deno.serve(async (req) => {
     .map((s) => s.trim())
     .filter(Boolean);
   const location = locParts.length ? `${locParts.join(", ")}, Uganda` : "Uganda";
-  const rent = Number(plan?.funding_amount ?? 0);
-  const monthly = Math.round((rent * ROI_RATE) / 100);
 
-  // Stored preview metadata wins (it is written server-side on every share tap);
-  // live plan data is the fallback for older links and for deleted plans.
+  // Stored preview metadata wins (it is written server-side on every share tap, with the Returns
+  // sentence composed in SQL); live plan data is the fallback for older links and for deleted plans.
+  // A description stored before the latest Returns policy change is replaced by a rate-free sentence.
   const title = link?.og_title || `Support a tenant in a ${houseTitle} in ${location}`;
-  const description = link?.og_description || (rent
-    ? `Support this tenant for ${ugx(rent)} by paying their landlord on the platform and earn ${ugx(monthly)} per month for the next 12 months Start here today.`
-    : "Support a tenant's rent on Welile and earn monthly returns. Support today.");
+  const description = previewDescription(link, plan, policy, policyError);
   const image =
     plan?.house_image_urls?.find(Boolean) ||
     link?.og_image_url ||
