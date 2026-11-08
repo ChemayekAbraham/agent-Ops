@@ -485,7 +485,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
   } else if (activeTool) {
     content = (
       <div className="space-y-2 pb-2 w-full">
-        <SubBack onClick={() => setActiveTool(null)} />
+        {activeTool !== 'email_tx' && <SubBack onClick={() => setActiveTool(null)} />}
         <ToolErrorBoundary toolKey={String(activeTool)}>
         <Suspense fallback={<PanelFallback />}>
         {activeTool === 'ops' && (
@@ -494,7 +494,7 @@ function FinancialOpsWorkspace({ requirePaymentRef }: { requirePaymentRef?: bool
             <ScaleDashboard />
           </div>
         )}
-        {activeTool === 'email_tx' && <EmailTransactionsPanel />}
+        {activeTool === 'email_tx' && <EmailTransactionsPanel onBack={() => setActiveTool(null)} />}
         {activeTool === 'auto_credit_review' && <AutoCreditReviewPanel />}
         {activeTool === 'queue' && (
           <div className="space-y-5">
