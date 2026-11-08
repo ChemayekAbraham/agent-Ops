@@ -31,8 +31,8 @@ function Kpi({ icon: Icon, label, value, sub, tone }: { icon: typeof Wallet; lab
 }
 
 /**
- * CFO Tenant Repayment Tracker. Read-only: balances are calculated from verified collections (non-reversed receipts and
- * ledger-backed repayment records), never from the stored status, and a manual balance reduction is never a repayment.
+ * CFO Tenant Repayment Tracker. Read-only: balances are calculated from what was collected (Money In from 1 Oct 2026, receipts
+ * before that), never from the stored status, and a manual balance reduction is never a repayment.
  */
 export default function TenantRepaymentTracker() {
   const { data, isFetching, error, refetch } = useTenantRepaymentRegister();
@@ -65,8 +65,9 @@ export default function TenantRepaymentTracker() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Tenant Repayment Tracker</h1>
             <p className="mt-1 text-xs sm:text-sm text-muted-foreground max-w-3xl">
-              Every funded Rent Plan, with balances worked out from verified collections. Balance edits are shown as adjustments,
-              never as repayments. Read-only: nothing here changes a balance, a repayment or the books.
+              Every funded Rent Plan. Collected is what Money In shows under Tenant Products and Services (from 1 Oct 2026; collection
+              receipts before that). Balance edits are shown as adjustments, never as repayments. Read-only: nothing here changes a balance,
+              a repayment or the books.
             </p>
           </div>
           <div className="flex gap-2">
@@ -96,18 +97,18 @@ export default function TenantRepaymentTracker() {
         <>
           <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
             <Kpi icon={Wallet} label="Active plans" value={kpis.activePlans.toLocaleString()} sub={`${formatUGX(kpis.activeOutstanding)} outstanding`} />
-            <Kpi icon={Wallet} label="Total outstanding (verified)" value={formatUGX(kpis.totalOutstanding)}
+            <Kpi icon={Wallet} label="Total outstanding" value={formatUGX(kpis.totalOutstanding)}
               sub={`Recorded balances say ${formatUGX(kpis.storedOutstanding)}`} tone={kpis.totalOutstanding - kpis.storedOutstanding >= 1000 ? 'warn' : undefined} />
             <Kpi icon={Clock} label="Overdue plans" value={kpis.overduePlans.toLocaleString()} sub={`${formatUGX(kpis.overdueArrears)} behind schedule`} tone={kpis.overduePlans ? 'warn' : undefined} />
             <Kpi icon={CheckCircle2} label="Completed plans" value={kpis.completedPlans.toLocaleString()}
-              sub={kpis.completedWithBalance ? `${kpis.completedWithBalance} still owe on verified collections` : 'All fully collected'} tone={kpis.completedWithBalance ? 'bad' : undefined} />
+              sub={kpis.completedWithBalance ? `${kpis.completedWithBalance} still owe on collections` : 'All fully collected'} tone={kpis.completedWithBalance ? 'bad' : undefined} />
           </div>
 
           {exceptionCounts.size > 0 && (
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 text-sm font-semibold"><AlertTriangle className="h-4 w-4 text-destructive" /> Exceptions: {kpis.plansWithExceptions} plans</div>
-                <p className="text-xs text-muted-foreground mt-0.5">Where the plan's status, the balance worked out from receipts and the books disagree. Select one to filter.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Where the plan's status, what was collected and the books disagree. Select one to filter.</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(Object.keys(EXCEPTIONS) as ExceptionCode[]).filter((c) => exceptionCounts.get(c)).map((c) => (
                     <button key={c} type="button" onClick={() => set({ exception: filters.exception === c ? 'all' : c })}
@@ -160,7 +161,7 @@ export default function TenantRepaymentTracker() {
                   <SelectContent>
                     <SelectItem value="calc_outstanding">Largest outstanding</SelectItem>
                     <SelectItem value="arrears">Largest arrears</SelectItem>
-                    <SelectItem value="repaid_without_receipts">Repaid without receipts</SelectItem>
+                    <SelectItem value="repaid_without_receipts">Repaid without collections</SelectItem>
                     <SelectItem value="obligation">Largest obligation</SelectItem>
                     <SelectItem value="funded_at">Most recently funded</SelectItem>
                   </SelectContent>

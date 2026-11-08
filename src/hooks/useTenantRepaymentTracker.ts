@@ -14,6 +14,7 @@ export function normaliseRow(r: Record<string, unknown>): RepaymentPlanRow {
     ...(r as unknown as RepaymentPlanRow),
     principal: num(r.principal), access_fee: num(r.access_fee), request_fee: num(r.request_fee), fees: num(r.fees),
     obligation: num(r.obligation), disbursed: numOrNull(r.disbursed), verified_collected: num(r.verified_collected),
+    money_in_collected: num(r.money_in_collected), pre_cutoff_collected: num(r.pre_cutoff_collected),
     receipts_count: num(r.receipts_count), reversed_amount: num(r.reversed_amount), reversed_count: num(r.reversed_count),
     ledger_backed_amount: num(r.ledger_backed_amount), unverified_amount: num(r.unverified_amount), unverified_count: num(r.unverified_count),
     stored_repaid: num(r.stored_repaid), stored_outstanding: num(r.stored_outstanding), calc_outstanding: num(r.calc_outstanding),
@@ -52,7 +53,7 @@ export function useTenantRepaymentDetail(rentRequestId: string | null) {
       const { data, error } = await db.rpc('get_cfo_tenant_repayment_detail', { p_rent_request_id: rentRequestId });
       if (error) throw error;
       const d = data as PlanDetail;
-      return { ...d, plan: normaliseRow(d.plan as unknown as Record<string, unknown>) } as PlanDetail;
+      return { ...d, money_in: d.money_in ?? [], plan: normaliseRow(d.plan as unknown as Record<string, unknown>) } as PlanDetail;
     },
   });
 }
