@@ -185,15 +185,12 @@ export default function TenantRepaymentTracker() {
                   Active
                 </Badge>
               </div>
-              <div className="mt-3">
+              <div className="mt-4">
                 <p className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-foreground">
                   {kpis.activePlans.toLocaleString()}
                 </p>
                 <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Active plans</p>
               </div>
-              <p className="text-xs font-semibold text-[#2563EB] dark:text-blue-400 mt-4">
-                {formatUGX(kpis.activeOutstanding)} outstanding
-              </p>
             </div>
 
             {/* Card 2: Total Outstanding */}
@@ -206,22 +203,13 @@ export default function TenantRepaymentTracker() {
                   Receivable
                 </Badge>
               </div>
-              <div className="mt-3 min-w-0">
+              <div className="mt-4 min-w-0">
                 <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-foreground truncate">
                   {formatUGX(kpis.totalOutstanding)}
                 </p>
                 <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Total outstanding</p>
+                <span className="sr-only">Recorded balances say {formatUGX(kpis.storedOutstanding)}</span>
               </div>
-              <p
-                className={cn(
-                  'text-xs font-semibold mt-4',
-                  kpis.totalOutstanding - kpis.storedOutstanding >= 1000
-                    ? 'text-amber-700 dark:text-amber-400'
-                    : 'text-[#16A34A] dark:text-emerald-400'
-                )}
-              >
-                Recorded balances say {formatUGX(kpis.storedOutstanding)}
-              </p>
             </div>
 
             {/* Card 3: Overdue Plans */}
@@ -234,15 +222,12 @@ export default function TenantRepaymentTracker() {
                   Arrears
                 </Badge>
               </div>
-              <div className="mt-3 min-w-0">
+              <div className="mt-4 min-w-0">
                 <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-foreground truncate">
                   {kpis.overduePlans.toLocaleString()}
                 </p>
                 <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Overdue plans</p>
               </div>
-              <p className="text-xs font-semibold text-[#EA580C] dark:text-orange-400 mt-4">
-                {formatUGX(kpis.overdueArrears)} behind schedule
-              </p>
             </div>
 
             {/* Card 4: Completed Plans */}
@@ -255,24 +240,17 @@ export default function TenantRepaymentTracker() {
                   Finished
                 </Badge>
               </div>
-              <div className="mt-3 min-w-0">
+              <div className="mt-4 min-w-0">
                 <p className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-foreground truncate">
                   {kpis.completedPlans.toLocaleString()}
                 </p>
                 <p className="text-sm font-medium text-slate-500 dark:text-muted-foreground mt-1">Completed plans</p>
+                <span className="sr-only">
+                  {kpis.completedWithBalance
+                    ? `${kpis.completedWithBalance} still owe on collections`
+                    : 'All fully collected'}
+                </span>
               </div>
-              <p
-                className={cn(
-                  'text-xs font-semibold mt-4',
-                  kpis.completedWithBalance
-                    ? 'text-destructive'
-                    : 'text-[#9333EA] dark:text-purple-400'
-                )}
-              >
-                {kpis.completedWithBalance
-                  ? `${kpis.completedWithBalance} still owe on collections`
-                  : 'All fully collected'}
-              </p>
             </div>
           </div>
 
