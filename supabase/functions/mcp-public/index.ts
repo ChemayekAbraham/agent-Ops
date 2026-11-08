@@ -770,6 +770,10 @@ var estimate_rent_access_default = defineTool3({
   }
 });
 
+// src/lib/mcp-public/tools/estimate-supporter-returns.ts
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.26.1";
+import { z as z4 } from "npm:zod@^4.4.3";
+
 // supabase/functions/_shared/partnerReturnPolicy.ts
 function toNumber(v) {
   if (typeof v === "number") return Number.isFinite(v) ? v : null;
@@ -815,8 +819,6 @@ async function newPartnerReturnRate() {
 }
 
 // src/lib/mcp-public/tools/estimate-supporter-returns.ts
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.26.1";
-import { z as z4 } from "npm:zod@^4.4.3";
 var DEFAULT_DURATIONS2 = [3, 6, 12];
 var MIN_AMOUNT = 2e4;
 var MAX_AMOUNT = 5e8;
@@ -892,7 +894,6 @@ var estimate_supporter_returns_default = defineTool4({
     }
     const ratePct = await newPartnerReturnRate();
     if (ratePct === null) {
-      // The live rate could not be read: give no figure at all (never a fallback rate).
       return publicToolResult({
         tool: "estimate_supporter_returns",
         kind: "info",
@@ -901,18 +902,18 @@ var estimate_supporter_returns_default = defineTool4({
           basis: "No figure: the current monthly Returns rate for new Supporters could not be read right now.",
           confidence: "illustrative",
           currency: "UGX",
-          ranges: [],
+          ranges: []
         },
         data: { amount: roundedAmount, monthly_reward_rate_pct: null, projections: [] },
         disclaimers: [
           "Partner Returns are not guaranteed. This is an illustration only.",
           "Actual rates and terms are shown in the app after you create a free account.",
-          "Supporter withdrawals require a 90-day notice period.",
+          "Supporter withdrawals require a 90-day notice period."
         ],
         next_steps: [
-          "Create a free Supporter account to view current Returns and start supporting tenants.",
+          "Create a free Supporter account to view current Returns and start supporting tenants."
         ],
-        links,
+        links
       });
     }
     const projections = months.map((m) => project(roundedAmount, m, ratePct / 100));
