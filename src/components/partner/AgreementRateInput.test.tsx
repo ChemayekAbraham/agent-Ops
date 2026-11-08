@@ -23,6 +23,16 @@ describe('agreement Returns rate workflow', () => {
     expect(preview).toHaveBeenCalledWith(12, true);
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
+  it('previews every valid typed rate without writing actual Returns', () => {
+    const preview = vi.fn();
+    render(<AgreementRateInput portfolios={portfolios} onRateSaved={vi.fn()} onRatePreview={preview} />);
+    const input = screen.getByLabelText('Monthly Returns rate (%)');
+    for (const value of ['2', '20', '20.5']) {
+      fireEvent.change(input, { target: { value } });
+    }
+    expect(preview.mock.calls).toEqual([[2, true], [20, true], [20.5, true]]);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it('sends the selected rate through the existing server workflow', async () => {
     mocks.rpc.mockResolvedValue({ data: { rate_in_force: 20, awaits_cfo: false }, error: null });
     const saved = vi.fn();
