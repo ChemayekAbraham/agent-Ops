@@ -7,11 +7,11 @@
 --   BEGIN;
 --   SET LOCAL statement_timeout = '60s';
 --   <part A of this file>
---   <supabase/migrations/20261105150000_partner_return_policy_phase1.sql>
---   <supabase/migrations/20261105151000_partner_return_policy_phase2.sql>
---   <supabase/migrations/20261107100000_partner_return_policy_phase4.sql>
---   <supabase/migrations/20261107100500_assistant_partner_new_portfolio_rate.sql>
---   <supabase/pending/20261107101000_partner_return_policy_phase4_masks.sql>
+--   <supabase/migrations/20261108160000_partner_return_policy_phase1.sql>
+--   <supabase/migrations/20261108161000_partner_return_policy_phase2.sql>
+--   <supabase/migrations/20261108162000_partner_return_policy_phase4.sql>
+--   <supabase/migrations/20261108162500_assistant_partner_new_portfolio_rate.sql>
+--   <supabase/pending/20261108163000_partner_return_policy_phase4_masks.sql>
 --   <part B of this file>
 --   ROLLBACK;
 -- Part B always ends in RAISE EXCEPTION 'DRYRUN_P4 pass=.. fail=..' (PASS/FAIL/INFO lines in the message), which aborts

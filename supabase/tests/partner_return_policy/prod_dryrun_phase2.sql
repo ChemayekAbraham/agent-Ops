@@ -5,8 +5,8 @@
 --   BEGIN;
 --   SET LOCAL statement_timeout = '30s';
 --   <part A of this file>
---   <supabase/migrations/20261105150000_partner_return_policy_phase1.sql>
---   <supabase/migrations/20261105151000_partner_return_policy_phase2.sql>
+--   <supabase/migrations/20261108160000_partner_return_policy_phase1.sql>
+--   <supabase/migrations/20261108161000_partner_return_policy_phase2.sql>
 --   <part B of this file>
 --   ROLLBACK;
 -- The assembled text is ~390 KB, too large for one MCP execute_sql tool call, so it is sent as ONE query

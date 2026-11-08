@@ -33,14 +33,14 @@ PORT="${PGPORT:-55432}"
 PSQL="$PGBIN/psql"; [ -x "$PSQL.exe" ] && PSQL="$PSQL.exe"
 PGDB="${PGDB:-postgres}"
 PGDB_ACL="${PGDB_ACL:-p4test_acl}"
-MIG1="${MIG1:-$ROOT/migrations/20261105150000_partner_return_policy_phase1.sql}"
-MIG2="${MIG2:-$ROOT/migrations/20261105151000_partner_return_policy_phase2.sql}"
-MIG4A="${MIG4A:-$ROOT/migrations/20261107100000_partner_return_policy_phase4.sql}"
-MIG4AS="${MIG4AS:-$ROOT/migrations/20261107100500_assistant_partner_new_portfolio_rate.sql}"
-MIG4B="${MIG4B:-$ROOT/pending/20261107101000_partner_return_policy_phase4_masks.sql}"
-RB4A="${RB4A:-$ROOT/rollbacks/20261107100000_partner_return_policy_phase4.rollback.sql}"
-RB4AS="${RB4AS:-$ROOT/rollbacks/20261107100500_assistant_partner_new_portfolio_rate.rollback.sql}"
-RB4B="${RB4B:-$ROOT/rollbacks/20261107101000_partner_return_policy_phase4_masks.rollback.sql}"
+MIG1="${MIG1:-$ROOT/migrations/20261108160000_partner_return_policy_phase1.sql}"
+MIG2="${MIG2:-$ROOT/migrations/20261108161000_partner_return_policy_phase2.sql}"
+MIG4A="${MIG4A:-$ROOT/migrations/20261108162000_partner_return_policy_phase4.sql}"
+MIG4AS="${MIG4AS:-$ROOT/migrations/20261108162500_assistant_partner_new_portfolio_rate.sql}"
+MIG4B="${MIG4B:-$ROOT/pending/20261108163000_partner_return_policy_phase4_masks.sql}"
+RB4A="${RB4A:-$ROOT/rollbacks/20261108162000_partner_return_policy_phase4.rollback.sql}"
+RB4AS="${RB4AS:-$ROOT/rollbacks/20261108162500_assistant_partner_new_portfolio_rate.rollback.sql}"
+RB4B="${RB4B:-$ROOT/rollbacks/20261108163000_partner_return_policy_phase4_masks.rollback.sql}"
 # Phase 6 F6: the migrations and rollbacks carry UTF-8 text (an em dash in a restored production function); psql on
 # Windows otherwise talks WIN1252. The rollback suites also run one rollback with WIN1252 on purpose.
 export PGCLIENTENCODING="${PGCLIENTENCODING:-UTF8}"
@@ -231,7 +231,7 @@ if [ "$WHAT" = all ] || [ "$WHAT" = phase6 ]; then
   # rollbacks keep 5s. The switch-on guard waits 500ms for its SHARE lock and puts the caller's lock_timeout back.
   f5=""
   for f in "$MIG1" "$MIG2" "$MIG4A" "$MIG4B"; do f5="$f5$(grep -cE "^SET LOCAL lock_timeout = '1s';" "$f")"; done
-  for f in "$ROOT/rollbacks/20261105150000_partner_return_policy_phase1.rollback.sql" "$ROOT/rollbacks/20261105151000_partner_return_policy_phase2.rollback.sql" "$RB4A" "$RB4AS" "$RB4B"; do
+  for f in "$ROOT/rollbacks/20261108160000_partner_return_policy_phase1.rollback.sql" "$ROOT/rollbacks/20261108161000_partner_return_policy_phase2.rollback.sql" "$RB4A" "$RB4AS" "$RB4B"; do
     f5="$f5/$(grep -cE "^SET LOCAL lock_timeout = '5s';" "$f")"; done
   [ "$f5" = "1111/1/1/1/1/1" ] && echo "PASS  F5 Phase 1, 2, 4a and 4b: SET LOCAL lock_timeout = '1s' once each; the five rollbacks keep '5s'" \
     || echo "FAIL  F5 lock_timeout lines  got [$f5] want [1111/1/1/1/1/1]"
@@ -272,8 +272,8 @@ if [ "$WHAT" = all ] || [ "$WHAT" = revchain ]; then
   # rollback's step 5a compares the 22 restored production texts byte for byte (md5).
   N="${REVCHAIN_N:-10}"
   echo "== Phase 6 F6 reverse rollback chain x$N with PGCLIENTENCODING=WIN1252 (fresh load of $PGDB each time)"
-  RB1F="$ROOT/rollbacks/20261105150000_partner_return_policy_phase1.rollback.sql"
-  RB2F="$ROOT/rollbacks/20261105151000_partner_return_policy_phase2.rollback.sql"
+  RB1F="$ROOT/rollbacks/20261108160000_partner_return_policy_phase1.rollback.sql"
+  RB2F="$ROOT/rollbacks/20261108161000_partner_return_policy_phase2.rollback.sql"
   chain() { # $1 = round label; prints one line per rollback, returns 1 on the first failure
     local f opt
     for f in "$RB4B" "$RB4AS" "$RB4A" "$RB2F" "$RB1F"; do

@@ -136,7 +136,7 @@ function scanScreens(): string[] {
 
 describe('masked-figure misuse detector', () => {
   it('covers every trust path migration 4b masks (container.leaf of each FOREACH path)', () => {
-    const sql = readFileSync(join(SRC, '..', 'supabase', 'pending', '20261107101000_partner_return_policy_phase4_masks.sql'), 'utf8');
+    const sql = readFileSync(join(SRC, '..', 'supabase', 'pending', '20261108163000_partner_return_policy_phase4_masks.sql'), 'utf8');
     const arr = sql.match(/FOREACH v_path IN ARRAY ARRAY\[([\s\S]*?)\]\s*LOOP/);
     expect(arr).not.toBeNull();
     const fromSql = [...arr![1].matchAll(/'([^']+)'/g)].map((m) => m[1].split('.').slice(-2).join('.')).sort();

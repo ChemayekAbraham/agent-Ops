@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { PARTNER_RETURN_POLICY_QUERY_KEY } from '@/hooks/usePartnerReturnPolicy';
 
 /**
- * CFO side of the partner Returns policy (migration 20261105150000):
+ * CFO side of the partner Returns policy (migration 20261108160000):
  *   get_partner_return_policy / set_partner_return_policy   the switch (cfo, ceo, super_admin flip it)
  *   list_portfolio_rate_requests                            the CFO queue, one call per status
  *   cfo_decide_portfolio_rate_requests                      one batch call per decision (CFO only)

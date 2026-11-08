@@ -1058,7 +1058,7 @@ index 0000000000..078b6e01e0
 +}
 +
 +export async function fetchPartnerReturnPolicy(): Promise<PartnerReturnPolicy> {
-+  // Not in the generated types yet (added by migration 20261105150000).
++  // Not in the generated types yet (added by migration 20261108160000).
 +  const { data, error } = await (supabase.rpc as unknown as (fn: string) => Promise<{ data: unknown; error: Error | null }>)(
 +    'get_partner_return_policy',
 +  );
@@ -1095,7 +1095,7 @@ index 0000000000..5d8456732f
 @@ -0,0 +1,80 @@
 +// Partner Returns rates for the browser.
 +//
-+// The database owns the rate (partner_return_policy, migration 20261105150000):
++// The database owns the rate (partner_return_policy, migration 20261108160000):
 +//   * a NEW contract earns newContractRate — 10 when the switch is on, the legacy 15 while off;
 +//   * a RENEWAL earns the policy rate when the switch is on, otherwise keeps its rate;
 +//   * an EXISTING portfolio always earns its own stored roi_percentage (15 / 20 / ...).

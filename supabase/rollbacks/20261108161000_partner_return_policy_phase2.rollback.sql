@@ -1,4 +1,4 @@
--- Rollback of 20261105151000_partner_return_policy_phase2 (DATA-FORWARD): every place that creates a portfolio, a
+-- Rollback of 20261108161000_partner_return_policy_phase2 (DATA-FORWARD): every place that creates a portfolio, a
 -- promissory note or a quoted Returns figure goes back to the exact production text it had before Phase 2, the Phase 2
 -- helpers and triggers are removed, and the switch stays unable to go on (release_ready false).
 --
@@ -17,7 +17,7 @@
 --     booked through promissory notes: Returns at the fixed 15% again, no 'return_rate' key)
 --   E post_rent_facilitation_reward: the fixed 15% again, and production's wording with it (its three ledger
 --     descriptions say "ROI" and the caller's wallet text is used as given; Phase 2 had changed both)
---   F assert_partner_return_policy_intact: Phase 1's checks again (text copied from 20261105150000), so the 10-minute
+--   F assert_partner_return_policy_intact: Phase 1's checks again (text copied from 20261108160000), so the 10-minute
 --     drift check stops expecting Phase 2 objects.
 -- CREATE OR REPLACE keeps each function's owner and grants; Phase 2 changed neither for these functions.
 --
@@ -55,7 +55,7 @@
 --
 -- RUN ORDER: newest first. Roll back any later Partner Returns migration first (none is in supabase/migrations on
 -- 2026-11-06; the release migration's own rollback should clear release_ready), then this file, then the Phase 1
--- rollback (20261105150000_partner_return_policy_phase1.rollback.sql). Phase 2's paths insert no rate and let the
+-- rollback (20261108160000_partner_return_policy_phase1.rollback.sql). Phase 2's paths insert no rate and let the
 -- Phase 1 gate decide; run the other way round, they would keep running without the gate they were written for.
 -- Both rollbacks clear release_ready, so either way the switch cannot be turned on again.
 -- Before running, revert any app or edge-function code that calls partner_quote_rate or
@@ -2367,7 +2367,7 @@ $function$
 ;
 
 -- -------------------------------------------------------------------------------------------------------------------
--- F. Monitoring: Phase 1's structural checks (verbatim from 20261105150000_partner_return_policy_phase1.sql).
+-- F. Monitoring: Phase 1's structural checks (verbatim from 20261108160000_partner_return_policy_phase1.sql).
 -- -------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.assert_partner_return_policy_intact()
  RETURNS TABLE(check_name text, ok boolean, detail text)
@@ -2474,7 +2474,7 @@ UPDATE public.partner_return_policy
        updated_by = NULL,
        updated_at = now(),
        note = concat_ws(' · ', NULLIF(btrim(note), ''),
-                        'Phase 2 rolled back by the 20261105151000 rollback on '
+                        'Phase 2 rolled back by the 20261108161000 rollback on '
                         || to_char(now() AT TIME ZONE 'Africa/Kampala', 'DD Mon YYYY HH24:MI')
                         || ' (Kampala): not ready to switch on until Phase 2 and the release are re-applied')
  WHERE id AND release_ready AND NOT enabled;

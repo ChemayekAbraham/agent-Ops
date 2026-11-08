@@ -1,4 +1,4 @@
--- Rollback of 20261105150000_partner_return_policy_phase1 (DATA-FORWARD): portfolio and promissory-note writes go
+-- Rollback of 20261108160000_partner_return_policy_phase1 (DATA-FORWARD): portfolio and promissory-note writes go
 -- back to exactly today's behaviour (a missing Returns rate = 15, any typed rate accepted, notes need no rate, nothing
 -- queued for the CFO), the next-cycle job and the drift check stop, and the switch is turned off.
 --
@@ -113,14 +113,14 @@ BEGIN
          updated_by = NULL,
          updated_at = now(),
          note = concat_ws(' · ', NULLIF(btrim(note), ''),
-                          'Switched off by the 20261105150000 rollback on '
+                          'Switched off by the 20261108160000 rollback on '
                           || to_char(now() AT TIME ZONE 'Africa/Kampala', 'DD Mon YYYY HH24:MI') || ' (Kampala)')
    WHERE id AND (enabled OR release_ready);
   GET DIAGNOSTICS v_n = ROW_COUNT;
   IF v_n > 0 THEN
     INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, new_values, reason)
     VALUES (NULL, 'partner_return_policy_rollback', 'partner_return_policy', 'singleton',
-            jsonb_build_object('enabled', false, 'release_ready', false), 'Rollback of 20261105150000_partner_return_policy_phase1 (data kept)');
+            jsonb_build_object('enabled', false, 'release_ready', false), 'Rollback of 20261108160000_partner_return_policy_phase1 (data kept)');
   END IF;
 END
 $off$;

@@ -3,7 +3,7 @@
 -- Run in ONE transaction, directly after the migration text:
 --   BEGIN;
 --   SET LOCAL statement_timeout = '20s';
---   <supabase/migrations/20261105150000_partner_return_policy_phase1.sql>
+--   <supabase/migrations/20261108160000_partner_return_policy_phase1.sql>
 --   <this file>
 -- The DO block always ends in RAISE EXCEPTION 'DRYRUN_P1V2 ...' (PASS/FAIL lines in the message), which aborts
 -- the transaction; the trailing ROLLBACK is a second belt. Nothing is kept: test portfolios, the switch, the

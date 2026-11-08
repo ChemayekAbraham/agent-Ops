@@ -22,7 +22,7 @@
 --     left out unless self, partner staff or approved active proxy. Deposits and other rows unchanged.
 -- All four masking readers ask one helper, partner_returns_visible_to_caller (self, partner staff, approved
 -- active supporter proxy); get_public_trust_profile masks nothing itself.
--- Rollback: supabase/rollbacks/20261107101000_partner_return_policy_phase4_masks.rollback.sql
+-- Rollback: supabase/rollbacks/20261108163000_partner_return_policy_phase4_masks.rollback.sql
 SET LOCAL lock_timeout = '1s';   -- not 5s: everything queues behind a waiting lock; on a timeout retry the apply
 
 DO $pre$

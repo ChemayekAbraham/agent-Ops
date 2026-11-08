@@ -3,7 +3,7 @@
 -- migrations. Identity is auth.uid() (no parameter); assistant_require_partner() refuses non-partners.
 -- The rate comes from partner_rate_now (the one rule); any failure answers {available:false}, never a number.
 -- Needs Phase 1/2 (partner_rate_now) and 20261105110000_assistant_partner_tools (assistant_require_partner).
--- Rollback: supabase/rollbacks/20261107100500_assistant_partner_new_portfolio_rate.rollback.sql
+-- Rollback: supabase/rollbacks/20261108162500_assistant_partner_new_portfolio_rate.rollback.sql
 create or replace function public.assistant_partner_new_portfolio_rate()
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp
 as $$

@@ -12,11 +12,11 @@ SET client_min_messages = warning;
 \ir phase2_helpers.sql
 \if :{?MIG2}
 \else
-\set MIG2 ../../migrations/20261105151000_partner_return_policy_phase2.sql
+\set MIG2 ../../migrations/20261108161000_partner_return_policy_phase2.sql
 \endif
 \if :{?RB4B}
 \else
-\set RB4B ../../rollbacks/20261107101000_partner_return_policy_phase4_masks.rollback.sql
+\set RB4B ../../rollbacks/20261108163000_partner_return_policy_phase4_masks.rollback.sql
 \endif
 
 -- ===========================================================================

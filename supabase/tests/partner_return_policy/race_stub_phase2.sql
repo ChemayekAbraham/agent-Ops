@@ -1,5 +1,5 @@
 -- Extra throwaway stand-ins for the production objects the Phase 2 migration
--- (20261105151000_partner_return_policy_phase2.sql) touches. LOCAL TEST CLUSTER ONLY.
+-- (20261108161000_partner_return_policy_phase2.sql) touches. LOCAL TEST CLUSTER ONLY.
 -- Load AFTER race_stub.sql and BEFORE the Phase 1 migration:
 --
 --   psql -h localhost -p 55432 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -1 -f race_stub.sql

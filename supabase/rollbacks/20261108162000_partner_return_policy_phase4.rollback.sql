@@ -1,4 +1,4 @@
--- Rollback of 20261107100000_partner_return_policy_phase4.sql (Partner Returns Phase 4a).
+-- Rollback of 20261108162000_partner_return_policy_phase4.sql (Partner Returns Phase 4a).
 --
 -- STEP 1 IS NOT SQL. Lovable redeploys every edge function from `lovable` together, so a one-off redeploy
 -- would be undone by the next bulk deploy. First commit a revert of supabase/functions/activate-promissory-note
@@ -10,7 +10,7 @@
 -- no email figures, per-partner email lookups failing in import-partners), wait for Lovable's deploy, and
 -- check their ezbr_sha256. Remove get_my_new_portfolio_rate from agent-assistant/tools.ts too (then run the
 -- 4a-assistant rollback).
--- STEP 2: roll back 4b first (supabase/rollbacks/20261107101000_partner_return_policy_phase4_masks.rollback.sql):
+-- STEP 2: roll back 4b first (supabase/rollbacks/20261108163000_partner_return_policy_phase4_masks.rollback.sql):
 -- its readers call partner_rate_visible_to_caller, which this file drops. The block below refuses otherwise.
 -- STEP 3: this file. Backfilled notice return_rate values stay (nullable metadata). The D3 link hold goes too
 -- (trg_zz_guard_note_window_link, which also refuses agent changes that would open a note's window without
@@ -46,7 +46,7 @@ BEGIN
   END IF;
 END $pre$;
 
--- The assert back to Phase 2's body (20261105151000), verbatim: the Phase 4 hook line removed.
+-- The assert back to Phase 2's body (20261108161000), verbatim: the Phase 4 hook line removed.
 CREATE OR REPLACE FUNCTION public.assert_partner_return_policy_intact()
  RETURNS TABLE(check_name text, ok boolean, detail text)
  LANGUAGE plpgsql

@@ -1883,7 +1883,7 @@ RESET ROLE;
 -- stays, and so does a stored row whose rent request lost its supporter.
 \if :{?MIG2}
 \else
-\set MIG2 ../../migrations/20261105151000_partner_return_policy_phase2.sql
+\set MIG2 ../../migrations/20261108161000_partner_return_policy_phase2.sql
 \endif
 SELECT public.t_as(NULL) IS NULL AS x \gset
 BEGIN;
@@ -1943,7 +1943,7 @@ SELECT public.t_check('R backfill re-apply: 4 rows added (bf_post, bf_pre, bf_un
 -- so exactly the 4-argument one is left (closed), and the rule it feeds still gives the W(v) answers.
 \if :{?MIG1}
 \else
-\set MIG1 ../../migrations/20261105150000_partner_return_policy_phase1.sql
+\set MIG1 ../../migrations/20261108160000_partner_return_policy_phase1.sql
 \endif
 SELECT public.t_as(NULL) IS NULL AS x \gset
 BEGIN;

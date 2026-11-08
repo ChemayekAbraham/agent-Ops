@@ -14,10 +14,10 @@
 PSQL="${PSQL:-C:/Program Files/PostgreSQL/18/bin/psql.exe}"
 PORT="${PORT:-55432}"
 DIR="$(cd "$(dirname "$0")" && pwd)"
-MIG1="${MIG1:-$DIR/../../migrations/20261105150000_partner_return_policy_phase1.sql}"
-MIG2="${MIG2:-$DIR/../../migrations/20261105151000_partner_return_policy_phase2.sql}"
-RB1="$DIR/../../rollbacks/20261105150000_partner_return_policy_phase1.rollback.sql"
-RB2="$DIR/../../rollbacks/20261105151000_partner_return_policy_phase2.rollback.sql"
+MIG1="${MIG1:-$DIR/../../migrations/20261108160000_partner_return_policy_phase1.sql}"
+MIG2="${MIG2:-$DIR/../../migrations/20261108161000_partner_return_policy_phase2.sql}"
+RB1="$DIR/../../rollbacks/20261108160000_partner_return_policy_phase1.rollback.sql"
+RB2="$DIR/../../rollbacks/20261108161000_partner_return_policy_phase2.rollback.sql"
 OUT="$DIR/out_rollback"; rm -rf "$OUT"; mkdir -p "$OUT"
 P()  { "$PSQL" -h localhost -p "$PORT" -U postgres -d postgres -X -q "$@"; }
 q()  { P -At -v ON_ERROR_STOP=1 -c "$1" 2>&1 | tr -d '\r'; }

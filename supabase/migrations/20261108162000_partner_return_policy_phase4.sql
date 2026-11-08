@@ -24,9 +24,9 @@
 --   * get_partner_return_report: the daily partner report's "Returns rate check".
 --   * notice queues: unsent rows queued before Phase 2 get the note's (house's) rate.
 --   * _partner_return_phase4_checks: Phase 4's structural checks (one place; the assert calls it).
--- Switch off: nothing here changes a rate. Rollback: supabase/rollbacks/20261107100000_partner_return_policy_phase4.rollback.sql
+-- Switch off: nothing here changes a rate. Rollback: supabase/rollbacks/20261108162000_partner_return_policy_phase4.rollback.sql
 --
--- Order: after 20261105150000 (Phase 1) and 20261105151000 (Phase 2); re-stamp all three after
+-- Order: after 20261108160000 (Phase 1) and 20261108161000 (Phase 2); re-stamp all three after
 -- origin/lovable's latest migration at merge, keeping this order. Re-runnable (applied twice in tests).
 -- Applied via the CLI before any Phase 4 edge code reaches lovable (design v2 §8.2); Lovable is not asked
 -- to apply it.
@@ -869,7 +869,7 @@ UPDATE public.funder_house_progress_notices f
  WHERE f.id = x.id AND x.rate IS NOT NULL;
 
 -- ===========================================================================
--- 11. Assert hook. assert_partner_return_policy_intact() = Phase 2's body (20261105151000) with ONE line
+-- 11. Assert hook. assert_partner_return_policy_intact() = Phase 2's body (20261108161000) with ONE line
 --     inserted immediately before the final 'release_ready' RETURN QUERY:
 --       RETURN QUERY SELECT * FROM public._partner_return_phase4_checks(false);
 --     This is the only copy of the assert in Phase 4 (4b and the rollbacks do not touch it; the 4a

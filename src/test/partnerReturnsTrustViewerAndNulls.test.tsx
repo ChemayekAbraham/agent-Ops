@@ -304,7 +304,7 @@ describe('release gate lists calculateSupporterReward', () => {
 });
 
 describe('masked (null) trust figures', () => {
-  const sql = readFileSync(join(ROOT, 'supabase/pending/20261107101000_partner_return_policy_phase4_masks.sql'), 'utf8');
+  const sql = readFileSync(join(ROOT, 'supabase/pending/20261108163000_partner_return_policy_phase4_masks.sql'), 'utf8');
   const types = readFileSync(join(SRC, 'hooks/useTrustProfile.ts'), 'utf8');
 
   /** The declared type of `field` inside the interface block that `block` opens (first match). */

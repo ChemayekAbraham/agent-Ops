@@ -1,4 +1,4 @@
--- Rollback of 20261107101000_partner_return_policy_phase4_masks.sql (Partner Returns Phase 4b).
+-- Rollback of 20261108163000_partner_return_policy_phase4_masks.sql (Partner Returns Phase 4b).
 -- Puts the five readers back to their PRODUCTION text byte for byte (captured with pg_get_functiondef from
 -- byrzshwlentqvktcksem on 2026-11-07), then checks md5(pg_get_functiondef(oid)) against
 -- supabase/tests/partner_return_policy/prod_function_manifest.json and raises on any mismatch (keep this

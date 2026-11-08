@@ -20,8 +20,8 @@ DIR="$(cd "$(dirname "$0")" && pwd)"
 PGBIN="${PGBIN:-C:/Program Files/PostgreSQL/18/bin}"
 PORT="${PGPORT:-55432}"
 PSQL="$PGBIN/psql"; [ -x "$PSQL.exe" ] && PSQL="$PSQL.exe"
-MIG1="${MIG1:-$DIR/../../migrations/20261105150000_partner_return_policy_phase1.sql}"
-MIG2="${MIG2:-$DIR/../../migrations/20261105151000_partner_return_policy_phase2.sql}"
+MIG1="${MIG1:-$DIR/../../migrations/20261108160000_partner_return_policy_phase1.sql}"
+MIG2="${MIG2:-$DIR/../../migrations/20261108161000_partner_return_policy_phase2.sql}"
 # Phase 6 F6: the migrations and rollbacks carry UTF-8 text (an em dash in a restored production function); psql on
 # Windows otherwise talks WIN1252. The rollback suites also run one rollback with WIN1252 on purpose.
 export PGCLIENTENCODING="${PGCLIENTENCODING:-UTF8}"

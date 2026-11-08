@@ -1,5 +1,5 @@
 -- Throwaway stand-ins for the production objects the Phase 1 migration
--- (20261105150000_partner_return_policy_phase1.sql) touches. LOCAL TEST CLUSTER ONLY:
+-- (20261108160000_partner_return_policy_phase1.sql) touches. LOCAL TEST CLUSTER ONLY:
 -- this drops and recreates the public, auth and cron schemas.
 --
 --   psql -h localhost -p 55432 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -1 -f race_stub.sql
