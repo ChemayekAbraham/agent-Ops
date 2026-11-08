@@ -110,10 +110,6 @@ export default function TenantRepaymentTracker() {
                 CFO Audit Register
               </Badge>
             </div>
-            <p className="text-sm text-slate-500 dark:text-muted-foreground mt-0.5 max-w-3xl">
-              Every funded Rent Plan. Balances calculated from actual collections (Money In from 1 Oct 2026; collection
-              receipts prior). Balance edits are audited as adjustments, never as repayments. Read-only.
-            </p>
           </div>
         </div>
 
