@@ -409,7 +409,9 @@ export default function ActivePartnersDetail() {
                 investor_id: editPartner.id,
                 agent_id: editPartner.id,
                 investment_amount: ledgerEntry.amount,
-                ...(sendInsertRoi ? { roi_percentage: insertRoi } : {}),
+                // The generated types mark roi_percentage required (no column default since Partner Returns
+                // Phase 1); left out, the database gate stores the person's rate, so the cast is only for tsc.
+                ...((sendInsertRoi ? { roi_percentage: insertRoi } : {}) as { roi_percentage: number }),
                 payout_day: updateFields.payout_day || payoutDay,
                 roi_mode: editRoiMode || 'monthly_payout',
                 duration_months: 12,
