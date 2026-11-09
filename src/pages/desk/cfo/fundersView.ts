@@ -45,11 +45,6 @@ export function sortRows(rows: FundersRow[], rank: Rank): FundersRow[] {
     .map(({ r }) => r);
 }
 
-/** Welile may fund a row only when the server allows it and no funder holds it. */
-export function canFundRow(row: Pick<FundersRow, 'held'>, canFundWelile: boolean): boolean {
-  return canFundWelile && !row.held;
-}
-
 /** "Held until 14:05", Kampala time. Null when the row is not held. */
 export function heldLabel(row: Pick<FundersRow, 'held' | 'hold_expires_at'>): string | null {
   if (!row.held) return null;

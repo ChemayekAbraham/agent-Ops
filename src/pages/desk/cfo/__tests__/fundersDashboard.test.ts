@@ -6,8 +6,10 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }));
 
-import { PERIODS, fundOne, toDashboard, type FundersRow } from '../cfoApi';
-import { canFundRow, heldLabel, rating, sortRows, ugx } from '../fundersView';
+import * as cfoApi from '../cfoApi';
+import { PERIODS, toDashboard, type FundersRow } from '../cfoApi';
+import * as fundersView from '../fundersView';
+import { heldLabel, rating, sortRows, ugx } from '../fundersView';
 import { DESKS, DESK_ALIASES } from '../../deskConfig';
 import { STRIP_STAGES } from '../../PipelineStrip';
 
@@ -89,11 +91,6 @@ describe('list helpers', () => {
     expect(sortRows(rows, 'grade').map((r) => r.id)).toEqual(['b', 'd', 'a', 'c']);
     expect(sortRows(rows, 'oldest').map((r) => r.id)).toEqual(['a', 'c', 'b', 'd']);
   });
-  it('offers Welile funding only when allowed and not held', () => {
-    expect(canFundRow(row('x'), true)).toBe(true);
-    expect(canFundRow(row('x', { held: true }), true)).toBe(false);
-    expect(canFundRow(row('x'), false)).toBe(false);
-  });
   it('labels a hold with its Kampala end time', () => {
     expect(heldLabel(row('x'))).toBeNull();
     expect(heldLabel(row('x', { held: true, hold_expires_at: '2026-11-05T11:05:00Z' }))).toBe('Held until 14:05');
@@ -107,17 +104,10 @@ describe('list helpers', () => {
   });
 });
 
-describe('fundOne', () => {
-  it('calls the existing CFO funding function with the request id', async () => {
-    invoke.mockResolvedValueOnce({ data: { success: true }, error: null });
-    await expect(fundOne('req-1')).resolves.toEqual({ ok: true });
-    expect(invoke).toHaveBeenCalledWith('fund-agent-landlord-float', {
-      body: { rent_request_id: 'req-1', notes: 'Funders Dashboard' },
-    });
-  });
-  it("passes the server's refusal through unchanged", async () => {
-    const msg = 'A funder already holds this request — Welile funding refused to avoid double funding.';
-    invoke.mockResolvedValueOnce({ data: { error: msg }, error: null });
-    await expect(fundOne('req-2')).resolves.toEqual({ ok: false, reason: msg });
+describe('no Welile funding from the dashboard (E59)', () => {
+  it('the data layer has no funding call and never invokes the funding function', () => {
+    expect('fundOne' in cfoApi).toBe(false);
+    expect('canFundRow' in fundersView).toBe(false);
+    expect(invoke).not.toHaveBeenCalled();
   });
 });
