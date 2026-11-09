@@ -62,3 +62,14 @@ describe('Signages approval requests', () => {
     });
   });
 });
+describe('Signages returned-application resubmit', () => {
+  it('refuses resubmission without real device GPS', async () => {
+    const { useResubmitSignage } = await import('@/hooks/useWelileSignages');
+    const { result } = renderHook(() => useResubmitSignage(), { wrapper });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ signageId: 'signage', payload: { gps_latitude: 0.3476, gps_longitude: 32.5825,
+        gps_accuracy_meters: 120, gps_captured_at: '2026-11-09T06:00:00Z' } })).rejects.toThrow('real device GPS');
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+});

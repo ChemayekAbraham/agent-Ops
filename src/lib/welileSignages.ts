@@ -70,6 +70,8 @@ export interface SignageRecord {
   gps_longitude: number;
   gps_accuracy_meters: number;
   gps_captured_at: string;
+  gps_source?: 'device';
+  repeat_owner_phone?: boolean;
 
   // Administrative Location
   district_name: string;
@@ -200,4 +202,20 @@ export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'co
 
 export function canInstallSignage(status: SignageStatus): boolean {
   return ['approved_for_installation', 'pending_installation'].includes(status);
+}
+
+export function hasDeviceSignageGps(record: Pick<SignageRecord, 'gps_latitude' | 'gps_longitude' | 'gps_accuracy_meters' | 'gps_captured_at' | 'gps_source'>): boolean {
+  return record.gps_source === 'device' && Number.isFinite(record.gps_latitude) && Math.abs(record.gps_latitude) <= 90
+    && Number.isFinite(record.gps_longitude) && Math.abs(record.gps_longitude) <= 180
+    && Number.isFinite(record.gps_accuracy_meters) && record.gps_accuracy_meters >= 0
+    && Number.isFinite(Date.parse(record.gps_captured_at));
+}
+
+export function hasInstalledSignagePhoto(photos: SignagePhoto[] | undefined): boolean {
+  return !!photos?.some((photo) => photo.category === 'installed_signage' && /^(data:image\/(webp|jpeg|png);base64,|https:\/\/)/.test(photo.url));
+}
+
+export function signagePipelineRecords(records: SignageRecord[]): SignageRecord[] {
+  return records.filter((record) => ['draft', 'submitted', 'pending', 'under_review', 'awaiting_coo', 'approved_for_installation',
+    'pending_installation', 'installation_verification', 'changes_required', 'rejected'].includes(record.status));
 }

@@ -38,7 +38,10 @@ import {
   formatSignageStatus,
   canReviewSignage,
   canInstallSignage,
+  hasInstalledSignagePhoto,
+  SignagePhoto,
 } from '@/lib/welileSignages';
+import { prepareSignagePhoto } from '@/lib/signagePhoto';
 import { useSignageOpsQueue, useReviewSignage, useVerifyInstallation } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
@@ -69,6 +72,8 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const [installerName, setInstallerName] = useState('');
   const [installedAt, setInstalledAt] = useState(new Date().toISOString().split('T')[0]);
   const [verificationNotes, setVerificationNotes] = useState('');
+  const [installedPhoto, setInstalledPhoto] = useState<SignagePhoto | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
 
   // Filtering
   const filtered = signages.filter((s) => {
@@ -137,6 +142,10 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
       toast.error('Please enter the installer name.');
       return;
     }
+    if (!installedPhoto || !hasInstalledSignagePhoto([installedPhoto])) {
+      toast.error('Add a photo of the installed board before activating billing.');
+      return;
+    }
 
     try {
       await verifyMutation.mutateAsync({
@@ -144,6 +153,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
         installerName: installerName.trim(),
         installedAt,
         verificationNotes: verificationNotes.trim() || undefined,
+        installationPhotos: [installedPhoto],
       });
     } catch { return; }
 
@@ -151,6 +161,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
     setSelectedSignage(null);
     setInstallerName('');
     setVerificationNotes('');
+    setInstalledPhoto(null);
   };
 
   return (
@@ -266,6 +277,9 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Ref: <span className="font-mono font-bold text-foreground">{item.reference_no}</span> • Agent: {item.agent_name || 'Agent'} ({item.agent_phone || 'N/A'})
                       </p>
+                      {item.repeat_owner_phone && (
+                        <Badge variant="destructive" className="mt-1 text-[10px]">Repeat owner phone — review</Badge>
+                      )}
                     </div>
                     <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">
                       {statusMeta.label}
@@ -309,7 +323,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                         className="rounded-xl text-xs h-8 gap-1"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        <span>Inspect & Decide</span>
+                        <span>{item.status === 'active' ? 'View (read-only)' : 'Inspect & Decide'}</span>
                       </Button>
 
                       {stage === 'agent_ops' && canInstallSignage(item.status) && (
@@ -349,7 +363,9 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   </Badge>
                 </div>
                 <DialogDescription className="text-xs">
-                  Inspect coordinates, photographs, owner consent, and commercial advertising visibility.
+                  {selectedSignage.status === 'active'
+                    ? 'This signage is active and read-only.'
+                    : 'Inspect coordinates, photographs, owner consent, and commercial advertising visibility.'}
                 </DialogDescription>
               </DialogHeader>
 
@@ -534,6 +550,21 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                     className="mt-1 text-xs rounded-xl"
                   />
                 </div>
+                <div>
+                  <Label className="text-xs font-medium" htmlFor="installed-board-photo">Installed board photo *</Label>
+                  <Input id="installed-board-photo" type="file" accept="image/*" capture="environment" disabled={preparingPhoto}
+                    className="mt-1 h-10 text-xs rounded-xl"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setPreparingPhoto(true);
+                      try { setInstalledPhoto(await prepareSignagePhoto(file, 'installed_signage')); }
+                      catch (err) { toast.error(err instanceof Error ? err.message : 'Could not add photo.'); }
+                      finally { setPreparingPhoto(false); }
+                    }} />
+                  {installedPhoto && <img src={installedPhoto.url} alt="Installed board" className="mt-2 h-24 w-full rounded-xl object-cover" />}
+                </div>
               </div>
 
               <DialogFooter className="pt-2">
@@ -543,7 +574,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                 <Button
                   size="sm"
                   onClick={handleConfirmVerification}
-                  disabled={verifyMutation.isPending || !installerName.trim()}
+                  disabled={verifyMutation.isPending || preparingPhoto || !installerName.trim() || !installedPhoto}
                   className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {verifyMutation.isPending ? 'Activating...' : 'Verify & Activate Signage'}

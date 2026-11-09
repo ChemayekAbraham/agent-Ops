@@ -7,9 +7,25 @@ import {
   signageReviewTarget,
   canReviewSignage,
   canInstallSignage,
+  hasDeviceSignageGps,
+  hasInstalledSignagePhoto,
+  signagePipelineRecords,
 } from '@/lib/welileSignages';
 
 describe('Welile Signages business rules & configuration', () => {
+  it('accepts only real device GPS', () => {
+    const gps = { gps_latitude: 0.31, gps_longitude: 32.58, gps_accuracy_meters: 8, gps_captured_at: '2026-11-09T06:00:00Z' };
+    expect(hasDeviceSignageGps({ ...gps, gps_source: 'device' })).toBe(true);
+    expect(hasDeviceSignageGps(gps as any)).toBe(false);
+  });
+  it('requires an installed-board photo for activation', () => {
+    expect(hasInstalledSignagePhoto([{ id: '1', url: 'data:image/webp;base64,a', category: 'installed_signage', taken_at: '' }])).toBe(true);
+    expect(hasInstalledSignagePhoto([{ id: '1', url: 'data:image/webp;base64,a', category: 'exterior', taken_at: '' }])).toBe(false);
+  });
+  it('hides cancelled spots from the agent pipeline', () => {
+    const rows = [{ status: 'cancelled' }, { status: 'rejected' }, { status: 'changes_required' }] as any;
+    expect(signagePipelineRecords(rows).map((r: any) => r.status)).toEqual(['rejected', 'changes_required']);
+  });
   it('routes Agent Ops approval to COO instead of installation', () => {
     expect(signageReviewTarget('approve', 'agent_ops')).toBe('awaiting_coo');
   });

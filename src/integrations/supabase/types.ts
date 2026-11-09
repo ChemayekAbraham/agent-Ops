@@ -68519,6 +68519,7 @@ export type Database = {
           gps_captured_at: string
           gps_latitude: number
           gps_longitude: number
+          gps_source: string | null
           id: string
           installation_photos: Json
           installed_at: string | null
@@ -68546,6 +68547,7 @@ export type Database = {
           reference_no: string | null
           rejection_reason: string | null
           removal_effective_at: string | null
+          repeat_owner_phone: boolean
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -68581,6 +68583,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude: number
           gps_longitude: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68608,6 +68611,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -68643,6 +68647,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude?: number
           gps_longitude?: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68670,6 +68675,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null

@@ -1,8 +1,9 @@
 # Welile Signages COO approval
-- [ ] Require real GPS, block duplicate locations and flag repeat owner phones.
-- [ ] Require installed-board evidence before billing and keep active reviews read-only.
-- [ ] Allow agent returned-application edits/resubmit and hide cancelled declined spots.
-- [ ] Test Signages safeguards and verify available preview signals.
+- [x] Require real GPS, block duplicate locations and flag repeat owner phones.
+- [x] Require installed-board evidence before billing and keep active reviews read-only.
+- [x] Allow agent returned-application edits/resubmit and hide cancelled declined spots.
+- [x] Test Signages safeguards (20 tests passed; guards passed; build OK).
+- [ ] Verify GPS capture, resubmit and installed-photo activation on a signed-in phone; external sign-in prevents testing here.
 - [x] Confirm Agent Ops approvals against fresh server status and refresh the queues immediately.
 - [x] Show COO-approved Signages in the CFO default queue and clarify the COO handoff.
 - [x] Run approval regression tests and project safeguards for the updated handoff (16 tests passed; build OK; all guards passed).
