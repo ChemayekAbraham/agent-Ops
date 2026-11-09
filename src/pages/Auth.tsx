@@ -35,6 +35,7 @@ import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import PersonNameFields from '@/components/shared/PersonNameFields';
+import { preloadDashboardShell } from '@/lib/preloadRoleDashboards';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
 
@@ -196,8 +197,25 @@ export default function Auth() {
     landlord: '🏢 Landlord',
   };
 
+  // While the person types their details, fetch the dashboard route code so
+  // signing in does not then wait on two more downloads (DashboardRedirect,
+  // then Dashboard). Once the browser is idle, so the form itself stays snappy.
+  useEffect(() => {
+    const ric = (window as unknown as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    });
+    if (typeof ric.requestIdleCallback === 'function') {
+      const handle = ric.requestIdleCallback(preloadDashboardShell, { timeout: 2000 });
+      return () => ric.cancelIdleCallback?.(handle);
+    }
+    const timer = window.setTimeout(preloadDashboardShell, 1200);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   useEffect(() => {
     if (!authLoading && user) {
+      preloadDashboardShell(); // no-op when the idle warm already ran
       // An explicit ?redirect= (in-app paths only) wins.
       const redirectParam = safeInternalPath(searchParams.get('redirect'));
       if (redirectParam) {
