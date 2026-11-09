@@ -56013,13 +56013,6 @@ export type Database = {
             referencedRelation: "staff_assistant_messages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
-            referencedColumns: ["id"]
-          },
         ]
       }
       staff_assistant_glossary: {
@@ -56154,13 +56147,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
         ]
@@ -56439,13 +56425,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
         ]
@@ -56961,13 +56940,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
           {
@@ -74744,59 +74716,6 @@ export type Database = {
           unexplained: number | null
         }
         Relationships: []
-      }
-      v_staff_assistant_crm_messages_redacted: {
-        Row: {
-          conversation_id: string | null
-          created_at: string | null
-          id: string | null
-          latency_ms: number | null
-          model: string | null
-          outcome: string | null
-          period_label: string | null
-          question_text: string | null
-          role: string | null
-          source_label: string | null
-          tools_called: string[] | null
-          user_id: string | null
-        }
-        Insert: {
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          outcome?: string | null
-          period_label?: string | null
-          question_text?: never
-          role?: string | null
-          source_label?: string | null
-          tools_called?: string[] | null
-          user_id?: string | null
-        }
-        Update: {
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          outcome?: string | null
-          period_label?: string | null
-          question_text?: never
-          role?: string | null
-          source_label?: string | null
-          tools_called?: string[] | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "staff_assistant_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       v_staff_requisition_budget_context: {
         Row: {
