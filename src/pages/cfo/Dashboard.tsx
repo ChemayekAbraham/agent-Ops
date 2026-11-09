@@ -1,6 +1,6 @@
 import { useEffect, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
-import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
@@ -251,32 +251,57 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
-            {/* Quick jump to General Payout Activity */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
-                  <ClipboardCheck className="h-5 w-5" />
+            {/* Quick jump to Standing Orders & General Payout Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
+                    <CalendarClock className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">Scheduled Standing Orders</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      Manage recurring wallet schedules, monthly rules &amp; health checks.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">General Payout Activity &amp; Approvals</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    View all past disbursements, approvals, category breakdowns, and export PDF statements.
-                  </p>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('standing-orders')}
+                >
+                  Manage
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
-                onClick={() => setActiveTab('general-payout-activity')}
-              >
-                Open Activity Desk
-                <ArrowRight className="h-4 w-4" />
-              </Button>
+
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 shadow-xs">
+                    <ClipboardCheck className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">General Payout Activity</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      View past disbursements, approvals, category reports, and PDF statements.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('general-payout-activity')}
+                >
+                  Activity
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* ── Security assurance card ── */}
-            <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
+            <div className="rounded-3xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row items-center gap-5">
                 <div className="flex-1 min-w-0 text-center sm:text-left">
                   <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
