@@ -22,7 +22,7 @@ import { useEmailVerification } from '@/hooks/useEmailVerification';
 import { uploadIdentityPhoto } from '@/hooks/useIdentityPhotos';
 import { captureGps } from '@/lib/captureGps';
 import { runPassportFaceCheck, type PassportFaceCheck } from '@/lib/passportFaceCheck';
-import { parseAgentVetting, type AgentVetting } from '@/lib/agentVetting';
+import { parseAgentVetting, vettingApplies, type AgentVetting } from '@/lib/agentVetting';
 
 type RpcResult = { success?: boolean; message?: string; [k: string]: unknown };
 
@@ -88,11 +88,13 @@ export const agentVettingKey = (userId: string | undefined) => ['agent-vetting',
  * The signed-in agent's verification as a badge state: 'verified' once Agent Ops
  * approved them, 'unverified' for every other status (not started, submitted,
  * rejected), null while loading or for anyone who isn't a real agent (show no badge).
+ * A real agent works as one (in_scope) or has started verification; holding the agent
+ * role alone is not enough (vettingApplies).
  * Agent vetting is the only source; `profiles.verified` is an older, unrelated flag.
  */
 export function useAgentVerifiedState(): 'verified' | 'unverified' | null {
   const { vetting, applicability } = useAgentVetting();
-  if (applicability !== 'ready' || !vetting) return null;
+  if (applicability !== 'ready' || !vetting || !vettingApplies(vetting)) return null;
   return vetting.status === 'verified' ? 'verified' : 'unverified';
 }
 

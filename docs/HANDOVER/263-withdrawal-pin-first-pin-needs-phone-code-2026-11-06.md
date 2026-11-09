@@ -1,6 +1,6 @@
 # 263. Withdrawal PIN: a first PIN needs a one-time phone code (2026-11-06)
 
-**Status:** BUILT. SQL tested on the live project inside a rolled-back transaction (25 checks, all as expected). Web screens built, syntax-checked, **not browser-tested**.
+**Status (2026-11-06):** LIVE. Migration applied to `byrzshwlentqvktcksem` and pushed to `lovable` (`bba5f6cde4`); Lovable synced and deployed `withdrawal-pin-reset`. SQL tested in a rolled-back transaction (25 checks). **The real first-PIN SMS flow was tested end to end by Josh (CTO) on 2026-11-06 and passed** (reported by Josh; I did not see the run). The live function has `verify_jwt: false` (no `config.toml` entry); it authenticates callers itself (401 with no or a fake token, probed).
 **Closes:** the "first-PIN hole" recorded in doc 262 section 2.1. Asked for by Josh (CTO), 2026-11-06 ("add 1, then push").
 **Companion to:** docs 258 to 262.
 

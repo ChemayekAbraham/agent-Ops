@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -172,9 +173,9 @@ export function AgentAllocationReport() {
       if (allIds.length) {
         const BATCH = 50;
         for (let i = 0; i < allIds.length; i += BATCH) {
-          const { data: profs } = await supabase.from('profiles')
+          const { data: profs } = await withUuidIds(allIds.slice(i, i + BATCH), (validIds) => supabase.from('profiles')
             .select('id, full_name, phone')
-            .in('id', allIds.slice(i, i + BATCH));
+            .in('id', validIds));
           (profs || []).forEach(p => { profMap[p.id] = { name: p.full_name || p.id.slice(0, 8), phone: p.phone || '' }; });
         }
       }

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -59,10 +60,10 @@ export function useAutoPayouts() {
 
       const ids = Array.from(new Set(list.map((s) => s.recipient_id)));
       if (ids.length) {
-        const { data: people } = await supabase
+        const { data: people } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         const byId = new Map((people ?? []).map((p: any) => [p.id, p.full_name || p.phone || 'Welile user']));
         list.forEach((s) => {
           s.recipientName = byId.get(s.recipient_id) as string | undefined;

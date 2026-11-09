@@ -1,3 +1,39 @@
+# Welile Signages COO approval
+- [x] Use standard sans-serif throughout Signages applications and dialogs; existing Agent Ops → Awaiting COO handoff and COO tab confirmed in source, 20 regression tests passed and build OK (signed-in verification remains blocked by external unmanaged authentication).
+- [x] Require real GPS, block duplicate locations and flag repeat owner phones.
+- [x] Require installed-board evidence before billing and keep active reviews read-only.
+- [x] Allow agent returned-application edits/resubmit and hide cancelled declined spots.
+- [x] Test Signages safeguards (20 tests passed; guards passed; build OK).
+- [ ] Verify GPS capture, resubmit and installed-photo activation on a signed-in phone; external sign-in prevents testing here.
+- [x] Confirm Agent Ops approvals against fresh server status and refresh the queues immediately.
+- [x] Show COO-approved Signages in the CFO default queue and clarify the COO handoff.
+- [x] Run approval regression tests and project safeguards for the updated handoff (16 tests passed; build OK; all guards passed).
+- [x] Add Awaiting COO and enforce Agent Ops → COO → installation → existing CFO workflow.
+- [x] Add the COO Signages approval tab and test the status transitions and controls.
+- [x] Check build, guards and signed-out routing without runtime errors.
+- [ ] Verify a real Agent Ops → COO approval through signed-in screens; external unmanaged authentication prevents authenticated testing here.
+
+# Production frontend errors (9 November)
+- [x] Audit realtime owner columns and wallet transaction reads; current frontend already uses valid columns. SMS-log duplicate writes and partner-enum failures have no frontend source.
+- [x] Sanitize UUID lookup lists and handle normal missing rows.
+- [x] Gate authenticated work, handle subagent/LC1 duplicates, and prevent broken avatar requests.
+- [x] Run targeted regression tests, guards, and signed-out browser checks; build OK.
+- [ ] Verify authenticated production flows and reduction in production log errors; external unmanaged authentication prevents signed-in testing here.
+
+# Agreement Returns rate input
+- [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
+- [x] Run focused tests and guards (6 tests passed; all safeguards passed).
+- [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+
+# Funders Houses to fund switch
+- [x] Fix obsolete test imports after the restored discovery change.
+- [x] Restore empty-house discovery and amounts with pending-verification labels; preserve server funding enforcement and bookings.
+- [x] Run focused discovery regression tests and check preview signals (8 tests passed; build OK).
+- [x] Restrict desk-script reading to active assigned desk staff; live access assertions passed and security finding resolved.
+- [x] Apply fail-closed empty-house visibility to discovery, pins, recommendations and counts; preserve bookings and server errors.
+- [x] Run focused switch and discovery regression tests; verify available preview signals.
+- [ ] Verify through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.
+
 # Browser saved items
 - [x] Add a hamburger Saved Items dialog backed by existing browser bookmarks.
 - [x] Remove unavailable houses and Rent Plans using successful, unfiltered server reads; test persistence and cleanup (31 focused tests passed).

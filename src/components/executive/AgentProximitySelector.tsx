@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -69,10 +70,10 @@ export function AgentProximitySelector({
       if (top10.length === 0) return [];
 
       // Get agent names
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(top10.map(a => a.id), (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', top10.map(a => a.id));
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 

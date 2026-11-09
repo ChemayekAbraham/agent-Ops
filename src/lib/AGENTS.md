@@ -1,4 +1,5 @@
 # src/lib decisions
+- ID-list profile/portfolio reads use `withUuidIds` and session-only requests use `authenticatedRequests`, preventing label-as-UUID errors and anonymous requests without changing server authorization.
 - Promissory Pending and Approved counts on Partner Ops come only from `countPromissoryQueue` in `src/lib/promissoryQueueCounts.ts`, applied to the notes the list is showing. `kpis.approved_notes` (approved_at is set) is a wider figure and is not shown as Approved.
 - Agent promissory create requires a Fulfil by date in `promissoryFulfilmentError` before the existing create RPC. Existing notes without a date stay valid. The database check in `docs/pending-migrations/promissory-fulfilment-due-on-required.draft.sql` is not applied.
 - One interruption dialog per browser tab session is decided in `src/lib/sessionPopup.ts` (concerns, then email, then the budget dialog for budget-workflow roles). Dismissing it, including Escape and click-outside, consumes the slot for the session. The budget reminder for everyone else is a banner and does not take the slot.

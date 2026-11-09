@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -65,7 +66,7 @@ export function AgentCashReconciliation() {
       // Fetch agent names
       const agentIds = [...agentMap.keys()];
       const { data: profiles } = agentIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name').in('id', agentIds)
+        ? await withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] };
 
       const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));

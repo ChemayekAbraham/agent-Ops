@@ -49,6 +49,18 @@ export const STAGE_DECISIONS: Record<Stage, Decision[]> = {
   coo: ['fund', 'hold', 'send_back'],
 };
 
+/**
+ * Decisions the desks no longer offer, though the server still accepts them:
+ * `fund` was the COO's budget path (retired 5 Nov — the COO pushes top N to
+ * the funders instead); `attach_funder` and `to_coo_bucket` were Partner Ops'.
+ */
+export const HIDDEN_DECISIONS: Decision[] = ['fund', 'attach_funder', 'to_coo_bucket'];
+
+/** The decisions a desk's drawer and board menus offer. */
+export function visibleDecisions(stage: Stage): Decision[] {
+  return STAGE_DECISIONS[stage].filter((d) => !HIDDEN_DECISIONS.includes(d));
+}
+
 /** What each decision is called on screen, per desk — the same word must not mean two things. */
 export const DECISION_LABEL: Record<Decision, string> = {
   pass: 'Pass',

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePolling } from '@/hooks/usePolling';
+import { useAuthenticatedAudience, hasUsableUserSession } from '@/hooks/useAuthenticatedPoll';
 import type { NudgeHistory } from '@/lib/nudges/engine';
 import {
   canShowFunderNudge,
@@ -57,10 +58,11 @@ function showToast(nudge: RenderedFunderNudge) {
 }
 
 export function useFunderNudges(userId?: string | null, opts: { enabled?: boolean } = {}) {
+  const ready = useAuthenticatedAudience();
   const { enabled = true } = opts;
   const lastShownThisSessionRef = useRef<number | null>(null);
   const inFlightRef = useRef(false);
-  const active = enabled && !!userId;
+  const active = ready && enabled && !!userId;
 
   const showNextNudge = async (id: string) => {
     const history = readHistory(id);
@@ -69,6 +71,7 @@ export function useFunderNudges(userId?: string | null, opts: { enabled?: boolea
     }
     if (!canShowFunderNudge(history)) return;
 
+    if (!(await hasUsableUserSession())) return;
     const { data, error } = await supabase.rpc('get_funder_nudge_stats' as any);
     if (error || !data) return;
     const stats = data as unknown as FunderNudgeStats;
@@ -83,7 +86,7 @@ export function useFunderNudges(userId?: string | null, opts: { enabled?: boolea
   };
 
   const check = async () => {
-    if (!userId || inFlightRef.current || document.visibilityState !== 'visible') return;
+    if (!active || !userId || inFlightRef.current || document.visibilityState !== 'visible') return;
     inFlightRef.current = true;
     try {
       await showNextNudge(userId);

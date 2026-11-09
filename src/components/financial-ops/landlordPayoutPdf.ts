@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import type { LandlordPayoutShareData } from './LandlordPayoutShareCard';
 import { downloadXlsx } from '@/lib/xlsxExport';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 // blocks the actual download.
 async function logPayoutPdfExport(filename: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'pdf_report_exported',

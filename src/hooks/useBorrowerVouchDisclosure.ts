@@ -35,7 +35,9 @@ export function useBorrowerVouchDisclosure() {
 
   useEffect(() => { check(); }, [check]);
 
-  const acknowledge = useCallback(async (opts?: { aiId?: string; vouchedLimit?: number }): Promise<boolean> => {
+  // vouchedLimit is the trust profile's borrowing_limit_ugx: null when the viewer may not see it (Partner
+  // Returns 4b), stored as null (unknown), never as 0.
+  const acknowledge = useCallback(async (opts?: { aiId?: string; vouchedLimit?: number | null }): Promise<boolean> => {
     if (!user) return false;
     let ip: string | null = null;
     try { ip = (await (await fetch('https://api.ipify.org?format=json')).json()).ip; } catch {}

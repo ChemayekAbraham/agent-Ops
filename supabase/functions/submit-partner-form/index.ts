@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { cachedPublicPolicy, monthlyReturnFor } from "../_shared/partnerReturnPolicy.ts";
 import { validateFullName, FULL_NAME_ERROR } from "../_shared/validateFullName.ts";
 
 const corsHeaders = {
@@ -30,7 +31,6 @@ function validateEmail(v: unknown): string | null {
   return c;
 }
 
-const ROI_RATE = 0.15;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -97,8 +97,10 @@ Deno.serve(async (req) => {
       if (!mobileMoneyNumber) return err("Mobile money number is required");
     }
 
-    // Server-side ROI calculation (never trust frontend)
-    const monthlyRoi = Math.round(investmentAmount * ROI_RATE);
+    // Server-side monthly Returns figure (never trust frontend): the submitter is a prospect, so the
+    // public new-partner rate applies (cached policy, display only). null when the rate is unknown.
+    const policy = await cachedPublicPolicy(supabaseAdmin);
+    const monthlyRoi = monthlyReturnFor(investmentAmount, policy?.newContractRate ?? null);
 
     // Increment token usage
     await supabaseAdmin
@@ -193,11 +195,14 @@ Deno.serve(async (req) => {
       return err("Failed to save registration. Please try again.", 500);
     }
 
-    console.log(`[submit-partner-form] Partner registered: ${fullName}, amount=${investmentAmount}, roi=${monthlyRoi}`);
+    // A submitter matched to an existing account has a personal rate once the switch is on, so the
+    // public new-partner figure is not theirs: no figure. With the switch off nothing changes.
+    const shownMonthly = isExisting && policy?.enabled === true ? null : monthlyRoi;
+    console.log(`[submit-partner-form] Partner registered: ${fullName}, amount=${investmentAmount}, monthly=${shownMonthly}`);
 
     return ok({
       success: true,
-      monthly_roi: monthlyRoi,
+      monthly_roi: shownMonthly,
       investment_amount: investmentAmount,
       partner_id: userId,
       existing: isExisting,

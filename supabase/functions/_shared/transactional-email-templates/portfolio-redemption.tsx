@@ -41,7 +41,7 @@ export function PortfolioRedemption({
   redeemed_amount = 0,
   previous_principal = 0,
   remaining_principal = 0,
-  return_rate = '15%',
+  return_rate,
   maturity_date = '',
   next_payout_date = '',
   processed_date = '',

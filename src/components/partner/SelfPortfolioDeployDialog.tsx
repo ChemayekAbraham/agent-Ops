@@ -14,7 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatDynamic } from '@/lib/currencyFormat';
+import { monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { toast } from 'sonner';
 import { CalendarClock, CheckCircle2, HandCoins, Info, Loader2, PlusCircle, Sparkles, Star } from 'lucide-react';
 
@@ -74,6 +76,9 @@ export function SelfPortfolioDeployDialog({
   onDeployed: () => void | Promise<void>;
 }) {
   const { user } = useAuth();
+  // A new portfolio and a direct release are new contracts: the partner's own rate for a new
+  // portfolio (partner_quote_rate('me')). null while it loads or on error: show no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const [eligibility, setEligibility] = useState<Eligibility | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -118,20 +123,25 @@ export function SelfPortfolioDeployDialog({
     }
   }, [open, loadEligibility, loadCapacity]);
 
-  const rate = Number(eligibility?.monthly_rate ?? 15);
-  const fullMonthly = Math.round((total * rate) / 100);
+  // A top-up earns the existing portfolio's own stored rate (partner_self_topup_eligibility);
+  // null when the row carries none: show no figure.
+  const topupRate = rateOrNull(eligibility?.monthly_rate);
+  const fullMonthly = monthlyReturnFor(total, topupRate);
+  // New portfolio / direct release: the partner's own rate for a new portfolio.
+  const newMonthly = monthlyReturnFor(total, ownRate);
 
-  /** Pro-rata slice for the remainder of the current cycle. */
+  /** Pro-rata slice for the remainder of the current cycle (null when the top-up rate is unknown). */
   const prorata = useMemo(() => {
     if (!eligibility) return 0;
+    if (fullMonthly === null) return null;
     const daysInCycle = Math.max(1, Number(eligibility.days_in_cycle || 30));
     const daysLeft = Math.max(0, Math.min(Number(eligibility.days_left_in_cycle || 0), daysInCycle));
     return Math.round((fullMonthly * daysLeft) / daysInCycle);
   }, [eligibility, fullMonthly]);
 
   const cyclesRemaining = Number(eligibility?.cycles_remaining ?? 0);
-  const topupProjection = prorata + fullMonthly * cyclesRemaining;
-  const newProjection = fullMonthly * CONTRACT_TERM_MONTHS;
+  const topupProjection = fullMonthly === null || prorata === null ? null : prorata + fullMonthly * cyclesRemaining;
+  const newProjection = newMonthly === null ? null : newMonthly * CONTRACT_TERM_MONTHS;
   const canTopUp = !!eligibility?.allow_topup;
   const covered = capacity !== null && capacity >= total && total > 0;
   const needsDepositDate = choice === 'direct' && !covered;
@@ -192,7 +202,7 @@ export function SelfPortfolioDeployDialog({
         if (error) throw error;
         toast.success('Submitted — pending approval', {
           description:
-            prorata > 0
+            prorata !== null && prorata > 0
               ? `Partner Operations will review your top-up. Your ${formatDynamic(total)} stays in your wallet until then, and earns ${formatDynamic(prorata)} for the rest of this month once approved. You will receive a confirmation email after approval.`
               : `Partner Operations will review your top-up. Your ${formatDynamic(total)} stays in your wallet until then. You will receive a confirmation email after approval.`,
           duration: 8000,
@@ -288,9 +298,9 @@ export function SelfPortfolioDeployDialog({
                 {canTopUp ? (
                   <div className="mt-2 grid grid-cols-3 gap-2">
                     {[
-                      { label: 'Rest of this month', value: formatDynamic(prorata) },
-                      { label: 'Then per month', value: formatDynamic(fullMonthly) },
-                      { label: `Over ${cyclesRemaining} cycle${cyclesRemaining === 1 ? '' : 's'}`, value: formatDynamic(topupProjection) },
+                      { label: 'Rest of this month', value: prorata === null ? '—' : formatDynamic(prorata) },
+                      { label: 'Then per month', value: fullMonthly === null ? '—' : formatDynamic(fullMonthly) },
+                      { label: `Over ${cyclesRemaining} cycle${cyclesRemaining === 1 ? '' : 's'}`, value: topupProjection === null ? '—' : formatDynamic(topupProjection) },
                     ].map((f) => (
                       <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                         <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
@@ -340,9 +350,9 @@ export function SelfPortfolioDeployDialog({
               </div>
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {[
-                  { label: 'Per month', value: formatDynamic(fullMonthly) },
+                  { label: 'Per month', value: newMonthly === null ? '—' : formatDynamic(newMonthly) },
                   { label: 'Term', value: '12 months' },
-                  { label: 'Over the term', value: formatDynamic(newProjection) },
+                  { label: 'Over the term', value: newProjection === null ? '—' : formatDynamic(newProjection) },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                     <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">
@@ -393,7 +403,7 @@ export function SelfPortfolioDeployDialog({
                 {[
                   { label: 'Available now', value: capacity === null ? '—' : formatDynamic(capacity) },
                   { label: 'To landlord float', value: formatDynamic(total) },
-                  { label: 'Per month', value: formatDynamic(fullMonthly) },
+                  { label: 'Per month', value: newMonthly === null ? '—' : formatDynamic(newMonthly) },
                 ].map((f) => (
                   <div key={f.label} className="rounded-xl bg-muted/40 px-2 py-1.5 min-w-0">
                     <p className="text-[9px] uppercase tracking-wide font-semibold text-muted-foreground truncate">

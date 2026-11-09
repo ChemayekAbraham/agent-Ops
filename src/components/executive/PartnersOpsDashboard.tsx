@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import SharesOnboardingPanel from './shares/SharesOnboardingPanel';
 import { useState, useEffect, useRef } from 'react';
@@ -8,6 +11,7 @@ import { format, addMonths } from 'date-fns';
 
 import { ROIPaymentHistory } from './ROIPaymentHistory';
 import { PartnerCapitalFlow } from './PartnerCapitalFlow';
+import { PartnerReceiptsPanel } from '@/components/shared/PartnerReceiptsPanel';
 import { PartnerOpsBrief } from './PartnerOpsBrief';
 import { PartnerOpsReportExportButton } from './PartnerOpsReportExportButton';
 import COOPartnersPage from '@/components/coo/COOPartnersPage';
@@ -83,6 +87,7 @@ const LEGACY_TAB_TO_VIEW: Record<string, PartnerOpsViewKey> = {
 };
 
 export function PartnersOpsDashboard() {
+  const authenticatedReady = useAuthenticatedAudience();
   const { toast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -111,17 +116,18 @@ export function PartnersOpsDashboard() {
   }, [queryClient]);
 
   const { data: portfolios, isLoading, refetch } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['exec-partner-portfolios'],
     queryFn: async () => {
-      const { data } = await supabase.from('investor_portfolios')
+      const { data } = await withUserSession(() => supabase.from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, roi_percentage, total_roi_earned, status, maturity_date, next_roi_date, created_at, investor_id, agent_id, display_currency, payment_method, mobile_money_number, mobile_network, bank_name, bank_account_name, account_number, payout_day, auto_reinvest, duration_months')
-        .order('created_at', { ascending: false }).limit(200);
+        .order('created_at', { ascending: false }).limit(200));
 
       if (!data) return [];
 
       const ids = new Set<string>();
       data.forEach(p => { if (p.investor_id) ids.add(p.investor_id); ids.add(p.agent_id); });
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name, frozen_at').in('id', Array.from(ids));
+      const { data: profiles } = await withUuidIds(Array.from(ids), (validIds) => supabase.from('profiles').select('id, full_name, frozen_at').in('id', validIds));
       const nameMap = new Map<string, string>();
       const frozenIds = new Set<string>();
       (profiles || []).forEach(p => {
@@ -145,12 +151,13 @@ export function PartnersOpsDashboard() {
 
   // ═══ INVITED PORTFOLIOS pending count (badge on tab) ═══
   const { data: invitedCount = 0 } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['invited-portfolios-count'],
     queryFn: async () => {
-      const { count } = await supabase
+      const { count } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id', { count: 'exact', head: true })
-        .in('status', ['awaiting_partner_details', 'pending_ops_approval']);
+        .in('status', ['awaiting_partner_details', 'pending_ops_approval']));
       return count || 0;
     },
     staleTime: 15000,
@@ -304,6 +311,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
       case 'financial.capital': return <PartnerCapitalFlow />;
+      case 'financial.receipts': return <PartnerReceiptsPanel />;
       case 'financial.payouts': return (
         <div className="space-y-3">
           <div className="flex justify-end">

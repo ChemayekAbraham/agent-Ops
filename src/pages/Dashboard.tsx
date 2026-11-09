@@ -27,7 +27,9 @@ const TenantDashboard = lazyWithRetry(() => import('@/components/dashboards/Tena
 const AgentDashboard = lazyWithRetry(() => import('@/components/dashboards/AgentDashboard'));
 // Frozen copy of the agent dashboard as it was before the 12 Oct 2026 rework; served at /dashboard/agent-bk.
 const AgentDashboardBk = lazyWithRetry(() => import('@/components/dashboards/AgentDashboardBk'));
-const SupporterDashboard = lazyWithRetry(() => import('@/components/dashboards/SupporterDashboard'));
+// /dashboard/funder: the live SupporterDashboard, or the V3 layout for viewers with the
+// funders_ui_v3 preview switch on (default off). Static: it only lazy-loads the two.
+import FunderDashboardGate from '@/components/funder-v3/FunderDashboardGate';
 const LandlordDashboard = lazyWithRetry(() => import('@/components/dashboards/LandlordDashboard'));
 const ManagerDashboard = lazyWithRetry(() => import('@/components/dashboards/ManagerDashboard'));
 import { DashboardErrorBoundary } from '@/components/dashboards/DashboardErrorBoundary';
@@ -62,7 +64,7 @@ const OfflineFallback = ({ cachedRole, onRetry }: { cachedRole?: AppRole | null;
   </div>
 );
 
-function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
+function DashboardContent({ variant }: { variant?: 'agent-bk' | 'funder-v3' }) {
   const { user, role, roles, loading, rolesResolved, signOut, switchRole, addRole } = useAuth();
   // 2026-10-13: /dashboard/agent reverted to the pre-12-Oct design (same as /dashboard/agent-bk).
   // The reworked AgentDashboard is kept on disk; swap back here to restore it.
@@ -143,7 +145,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   // URL is source of truth for which persona view is shown
   // agent-bk is not a persona slug, so name its persona here rather than let it
   // fall through to the user's default role.
-  const urlRole = variant === 'agent-bk' ? 'agent' : slugToRole(location.pathname);
+  const urlRole = variant === 'agent-bk' ? 'agent' : variant === 'funder-v3' ? 'supporter' : slugToRole(location.pathname);
 
   // Keep auth.role aligned with the URL persona (so hooks reading useAuth().role
   // see the right value). This is a side-effect of URL-driven routing.
@@ -368,7 +370,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
           )}
           {cachedDisplayRole === 'supporter' && (
             <DashboardErrorBoundary label="supporter dashboard">
-              <SupporterDashboard {...dashboardProps} />
+              <FunderDashboardGate {...dashboardProps} forceV3={variant === 'funder-v3'} />
             </DashboardErrorBoundary>
           )}
           {cachedDisplayRole === 'landlord' && (
@@ -432,7 +434,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
       case 'supporter':
         return (
           <DashboardErrorBoundary label="supporter dashboard">
-            <SupporterDashboard {...dashboardProps} />
+            <FunderDashboardGate {...dashboardProps} forceV3={variant === 'funder-v3'} />
           </DashboardErrorBoundary>
         );
       case 'landlord':
@@ -470,6 +472,6 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
 }
 
 // Main Dashboard component — LocationPermissionGate removed (was a passthrough)
-export default function Dashboard({ variant }: { variant?: 'agent-bk' } = {}) {
+export default function Dashboard({ variant }: { variant?: 'agent-bk' | 'funder-v3' } = {}) {
   return <DashboardContent variant={variant} />;
 }

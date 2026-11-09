@@ -56,6 +56,14 @@ import {
   type AgentSelf,
   type RecordVerdict,
 } from '@/lib/rentAssistantRecordChecks';
+import {
+  familySizeProblem,
+  isFullName,
+  lc1LetterProblem,
+  NO_LC1_REASON_MIN_CHARS,
+  parseFamilySize,
+  workProblem,
+} from '@/lib/agentIntakeDetails';
 
 const HOUSE_CATEGORIES = [
   { value: 'single-room', label: 'Single room' },
@@ -125,6 +133,7 @@ function mapHouseCategory(cat: string | null): string {
 type StepId =
   | 'type' | 'rent' | 'plan'
   | 'tenantPhone' | 'tenantName' | 'nationalId' | 'language' | 'smartphone'
+  | 'familySize' | 'work' | 'workLocation'
   | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'gps'
   | 'lc1' | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
   | 'review';
@@ -133,6 +142,7 @@ type StepId =
 const ALL_STEPS: StepId[] = [
   'type', 'rent', 'plan',
   'tenantPhone', 'tenantName', 'nationalId', 'language', 'smartphone',
+  'familySize', 'work', 'workLocation',
   'landlord', 'house', 'location', 'address', 'category', 'photos', 'tenantPhoto', 'gps',
   'lc1', 'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
 ];
@@ -172,6 +182,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const [nationalId, setNationalId] = useState('');
   const [language, setLanguage] = useState('');
   const [noSmartphone, setNoSmartphone] = useState<boolean | null>(null);
+  const [familySize, setFamilySize] = useState('');
+  const [work, setWork] = useState('');
+  const [workLocation, setWorkLocation] = useState('');
   const [landlord, setLandlord] = useState<LandlordOption | null>(null);
   const [landlordStatus, setLandlordStatus] = useState<'idle' | 'checking' | 'verified' | 'unverified' | 'missing'>('idle');
   const [agreementOnFile, setAgreementOnFile] = useState<boolean | null>(null);
@@ -198,7 +211,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const [lc1Village, setLc1Village] = useState('');
   const [city, setCity] = useState('');
   const [lcLetter, setLcLetter] = useState<Photo | null>(null);
-  const [lcLetterDecided, setLcLetterDecided] = useState(false);
+  /** No LC1 letter yet: the request still posts and the Service Centre calls the LC1. */
+  const [noLc1Letter, setNoLc1Letter] = useState(false);
+  const [noLc1Reason, setNoLc1Reason] = useState('');
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
 
@@ -212,7 +227,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   /** Wrong tries per question; the third one adds a tip. */
   const [wrongTries, setWrongTries] = useState<Partial<Record<StepId, number>>>({});
   const [posting, setPosting] = useState(false);
-  const [result, setResult] = useState<{ id: string; existing: boolean; lcLetterFailed: boolean } | null>(null);
+  const [result, setResult] = useState<{
+    id: string;
+    existing: boolean;
+    lcLetterFailed: boolean;
+    intakeError: string | null;
+    lc1AttachError: string | null;
+    lc1NoteError: string | null;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const greeting = useMemo(greetingNow, [open]);
 
@@ -251,11 +273,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const reset = useCallback(() => {
     setPlanType(null); setRentText(''); setDuration('30'); setRepaymentPeriod('7');
     setTenantPhone(''); setTenantNameParts({ firstName: '', otherNames: '', lastName: '' }); setNationalId('');
-    setLanguage(''); setNoSmartphone(null); setLandlord(null); setLandlordStatus('idle'); setAgreementOnFile(null);
+    setLanguage(''); setNoSmartphone(null); setFamilySize(''); setWork(''); setWorkLocation('');
+    setLandlord(null); setLandlordStatus('idle'); setAgreementOnFile(null);
     setVerifyReq('idle'); setHouses(null); setHouse(null); setHouseChoiceMade(false); setLocation(null); setAddress('');
     setDistrict(''); setCategory(''); setHousePhotos([null, null, null, null]); setTenantPhoto(null); setFaceCheck(null);
     setGps(null); setLc1Phone(''); setLc1Match(null); setLc1Mode(null); setLc1NameParts({ firstName: '', otherNames: '', lastName: '' });
-    setLc1Village(''); setCity(''); setLcLetter(null); setLcLetterDecided(false); setPayoutDay(''); setConsent(false);
+    setLc1Village(''); setCity(''); setLcLetter(null); setNoLc1Letter(false); setNoLc1Reason(''); setPayoutDay(''); setConsent(false);
     setCurrent('type'); setFurthest('type'); setDraft(''); setError(null); setResult(null); setRecordBlock(null);
     setFixOffer(null); setWrongTries({});
   }, []);
@@ -269,7 +292,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   useEffect(() => {
     const seed: Partial<Record<StepId, string>> = {
       rent: rentText ? groupDigits(rentText) : '',
-      tenantPhone, nationalId, address, lc1Phone, lc1Village, city,
+      tenantPhone, nationalId, familySize, work, workLocation, address, lc1Phone, lc1Village, city,
     };
     setDraft(seed[current] ?? '');
     setError(null);
@@ -409,8 +432,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     if (!file) return;
     if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type.toLowerCase())) { toast.error('The LC letter must be a JPG or PNG photo'); return; }
     if (file.size > 10 * 1024 * 1024) { toast.error('The LC letter must be 10 MB or smaller'); return; }
-    setLcLetter({ file, preview: URL.createObjectURL(file) });
-    setLcLetterDecided(true);
+    setLcLetter((prev) => { if (prev) URL.revokeObjectURL(prev.preview); return { file, preview: URL.createObjectURL(file) }; });
+    setNoLc1Letter(false);
+    setError(null);
   };
 
   const captureGps = () => {
@@ -451,6 +475,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         return category ? null : 'Pick the type of place above 👆';
       case 'payoutDay':
         return payoutDay ? null : 'Pick a payout day above 👆';
+      case 'familySize':
+        return familySizeProblem(text);
+      case 'work':
+        return workProblem(text);
+      case 'lcLetter':
+        return lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
       case 'rent': {
         const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
         if (!n) return 'I didn’t catch an amount 🤔 Type the monthly rent, like 450,000.';
@@ -642,6 +672,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         setNationalId(value);
         break;
       }
+      case 'familySize': setFamilySize(String(parseFamilySize(text))); break;
+      case 'work': setWork(text.trim()); break;
+      case 'workLocation': setWorkLocation(text.trim()); break;
       case 'address': setAddress(text.trim()); break;
       case 'lc1Phone': {
         setLc1Phone(formatPhone(text));
@@ -679,6 +712,12 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
     if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
     if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
+    // Required intake: every step checks its own answer; this catches anything skipped.
+    const intakeMissing = (!isFullName(tenantName) && 'Type the tenant’s full name (first and last), as on the ID.')
+      || familySizeProblem(familySize)
+      || workProblem(work)
+      || lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
+    if (intakeMissing) { setError(`${intakeMissing} Tap the answer above to fix it.`); return; }
     setPosting(true);
     setError(null);
     // Re-check right before posting: the number or ID may have been registered since it was typed.
@@ -723,11 +762,22 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       lc1Village,
       lcLetter: lcLetter?.file ?? null,
       landlordPayoutDay: payoutDay || '1',
+      familySize: parseFamilySize(familySize) ?? 0,
+      workBusiness: work,
+      workLocation,
+      noLc1Reason: !lcLetter && noLc1Letter ? noLc1Reason : null,
     });
     setPosting(false);
     if (res.ok) {
       hapticSuccess();
-      setResult({ id: res.rentRequestId, existing: res.tenantExisting, lcLetterFailed: res.lcLetterFailed });
+      setResult({
+        id: res.rentRequestId,
+        existing: res.tenantExisting,
+        lcLetterFailed: res.lcLetterFailed,
+        intakeError: res.intakeError,
+        lc1AttachError: res.lc1AttachError,
+        lc1NoteError: res.lc1NoteError,
+      });
       onSuccess?.();
       return;
     }
@@ -760,6 +810,11 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'nationalId': return `Thanks! Now the NIN from ${first}’s National ID card. It usually starts with CM or CF. 🔢`;
       case 'language': return `Which language does ${first} understand best? 🗣️ I’ll send their SMS messages in it.`;
       case 'smartphone': return `Does ${first} have a smartphone? 📲`;
+      case 'familySize': return first === 'the tenant'
+        ? 'How many people live in the tenant’s household, counting the tenant? 👨‍👩‍👧'
+        : `How many people live in ${first}’s household, counting ${first}? 👨‍👩‍👧`;
+      case 'work': return `What work or business does ${first} do? 💼`;
+      case 'workLocation': return 'Where do they work? A market, town or area is fine. You can skip this one.';
       case 'landlord': return `${first === 'the tenant' ? 'The tenant' : first} is all set ✅ Now the house. Who’s the landlord? Search by name or phone, or register them if they’re new.`;
       case 'house': return `Which of ${landlordFirst}’s houses is it? 🏘️ Only houses with photos can be used.`;
       case 'location': return 'Where is the house? 📍 Pick the district, sub-county and village.';
@@ -773,7 +828,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'lc1Name': return 'And the chairperson’s name, please? 🙂';
       case 'lc1Village': return 'Which village is the LC1 for? 🏡';
       case 'city': return 'Which town or city is the house in? 🌆';
-      case 'lcLetter': return 'Do you have a stamped LC1 letter? 📄 It’s optional: JPG or PNG, up to 10 MB.';
+      case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄 JPG or PNG, up to 10 MB. No letter yet? Tick the box and tell me why.';
       case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
       case 'review': return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
     }
@@ -789,6 +844,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'nationalId': return nationalId;
       case 'language': return language;
       case 'smartphone': return noSmartphone ? 'No smartphone' : 'Has a smartphone';
+      case 'familySize': return familySize ? `${familySize} ${familySize === '1' ? 'person' : 'people'}` : '';
+      case 'work': return work;
+      case 'workLocation': return workLocation || 'No work location';
       case 'landlord': return landlord?.name ?? '';
       case 'house': return house ? house.title : 'No listed house';
       case 'location': return location ? `${location.district} › ${location.subcounty} › ${location.village}` : '';
@@ -802,20 +860,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
       case 'city': return city;
-      case 'lcLetter': return lcLetter ? 'LC letter added' : 'No LC letter';
+      case 'lcLetter': return lcLetter ? 'LC letter added' : noLc1Letter ? 'No LC1 letter yet' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
       case 'review': return '';
     }
   };
 
-  const isTextStep = ['rent', 'tenantPhone', 'nationalId', 'address', 'lc1Phone', 'lc1Village', 'city'].includes(current);
+  const isTextStep = ['rent', 'tenantPhone', 'nationalId', 'familySize', 'work', 'workLocation', 'address', 'lc1Phone', 'lc1Village', 'city'].includes(current);
 
   const spokenReply = capLoading
     ? 'Checking whether you can post today.'
     : postingBlocked && myCap
       ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
       : result
-        ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}`
+        ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}${result.intakeError ? ' Details not saved. Open Complete your requests on your home screen.' : ''}`
         : recordBlock && recordBlock.step === current
           ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
           : error || questionOf(current);
@@ -830,7 +888,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   // ----- render -----
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
-    <div className="fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
+    <div className="rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
@@ -865,7 +923,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </TooltipProvider>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-muted px-4 py-4">
+      <div ref={scrollRef} className="rent-request-canvas flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto flex max-w-xl flex-col gap-3.5">
           <div className="px-1 pb-1 pt-2">
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
@@ -941,6 +999,20 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                     </Bubble>
                   </Bot>
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
+                  {result.lc1NoteError && (
+                    <Bot><Bubble tone="warn"><b>LC1 reason not saved:</b> {result.lc1NoteError}</Bubble></Bot>
+                  )}
+                  {result.lc1AttachError && (
+                    <Bot><Bubble tone="warn"><b>LC1 letter not saved:</b> {result.lc1AttachError}</Bubble></Bot>
+                  )}
+                  {result.intakeError && (
+                    <Bot>
+                      <Bubble tone="warn">
+                        <b>Details not saved — open Complete your requests</b> on your home screen.
+                        <span className="mt-1 block text-sm text-muted-foreground">{result.intakeError}</span>
+                      </Bubble>
+                    </Bot>
+                  )}
                   <div className="flex flex-wrap gap-2 pl-9">
                     <Chip onClick={reset}>Post another</Chip>
                     <Chip onClick={() => onOpenChange(false)}>Back to dashboard</Chip>
@@ -963,13 +1035,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                 <input
                   aria-label="Your answer"
                   autoFocus
-                  inputMode={['rent', 'tenantPhone', 'lc1Phone'].includes(current) ? 'numeric' : 'text'}
+                  inputMode={['rent', 'tenantPhone', 'lc1Phone', 'familySize'].includes(current) ? 'numeric' : 'text'}
                   value={draft}
                   onChange={(e) => {
                     const v = e.target.value;
                     if (current === 'rent') setDraft(groupDigits(v));
                     else if (current === 'tenantPhone' || current === 'lc1Phone') setDraft(formatPhone(v));
                     else if (current === 'nationalId') setDraft(v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 14));
+                    else if (current === 'familySize') setDraft(v.replace(/\D/g, '').slice(0, 2));
                     else setDraft(v);
                     setError(null);
                     setFixOffer(null);
@@ -986,7 +1059,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <button
                 type="button"
                 onClick={continueStep}
-                className="h-11 flex-1 rounded-full bg-success font-semibold text-success-foreground active:scale-[0.99] hover:bg-success/90"
+                className="h-11 flex-1 rounded-full bg-primary font-semibold text-primary-foreground active:scale-[0.99] hover:bg-primary/90"
               >
                 Continue
               </button>
@@ -1193,14 +1266,44 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         );
       case 'lc1Name':
         return <NameFields value={lc1NameParts} onChange={setLc1NameParts} />;
+      case 'workLocation':
+        return <Chip onClick={() => { setWorkLocation(''); setDraft(''); setError(null); advance('workLocation'); }}>Skip</Chip>;
       case 'lcLetter':
         return (
-          <div className="flex flex-wrap gap-2">
-            <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
-              <ImagePlus className="h-3.5 w-3.5" /> {lcLetter ? 'Replace letter' : 'Add the letter'}
-              <input type="file" accept="image/jpeg,image/png" className="sr-only" onChange={(e) => { onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
-            </label>
-            {!lcLetterDecided && <Chip onClick={() => { setLcLetterDecided(true); advance('lcLetter'); }}>No letter</Chip>}
+          <div className="flex max-w-xs flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-primary/30 bg-card px-3.5 text-sm font-semibold text-primary">
+                <ImagePlus className="h-3.5 w-3.5" /> {lcLetter ? 'Replace letter' : 'Add the letter'}
+                <input type="file" accept="image/jpeg,image/png" aria-label="LC1 letter photo" className="sr-only" onChange={(e) => { onLcLetter(e.target.files?.[0]); e.target.value = ''; }} />
+              </label>
+              {lcLetter && <img src={lcLetter.preview} alt="LC1 letter" className="h-12 w-12 rounded-lg object-cover" />}
+            </div>
+            {!lcLetter && (
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={noLc1Letter}
+                  onChange={(e) => { setNoLc1Letter(e.target.checked); setError(null); }}
+                  className="h-4 w-4 accent-primary"
+                />
+                No LC1 letter yet
+              </label>
+            )}
+            {!lcLetter && noLc1Letter && (
+              <div className="flex flex-col gap-1">
+                <textarea
+                  aria-label="Why there is no LC1 letter yet"
+                  value={noLc1Reason}
+                  onChange={(e) => { setNoLc1Reason(e.target.value); setError(null); }}
+                  rows={3}
+                  placeholder="e.g. The LC1 is away until Friday"
+                  className="rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-primary"
+                />
+                <p className="text-xs text-muted-foreground">
+                  At least {NO_LC1_REASON_MIN_CHARS} characters. The request still posts, and the Service Centre will call the LC1.
+                </p>
+              </div>
+            )}
           </div>
         );
       case 'payoutDay':
@@ -1221,6 +1324,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
               <Row k="Landlord" v={`${landlord?.name ?? ''}${landlordStatus === 'unverified' ? ' (verification pending)' : ''}`} />
               <Row k="House" v={`${answerOf('category')} · ${address}`} />
               <Row k="LC1" v={`${lc1Name} · ${lc1Village}`} />
+              <Row k="LC1 letter" v={lcLetter ? 'Photo added' : 'Not yet, the Service Centre will call the LC1'} />
+              <Row k="Household" v={answerOf('familySize')} />
+              <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />
               <Row k="Landlord paid on" v={`The ${ordinal(payoutDay)}`} />
             </div>
             <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />
@@ -1261,6 +1367,9 @@ function placeholderOf(s: StepId): string {
     case 'rent': return 'e.g. 450,000';
     case 'tenantPhone': case 'lc1Phone': return 'e.g. 0783 123 456';
     case 'nationalId': return 'e.g. CM12345678ABCD';
+    case 'familySize': return 'e.g. 4';
+    case 'work': return 'e.g. Sells clothes in Owino market';
+    case 'workLocation': return 'e.g. Owino market, Kampala';
     case 'address': return 'e.g. Plot 14, Kireka Road';
     case 'lc1Village': return 'e.g. Kireka B';
     case 'city': return 'e.g. Kira';

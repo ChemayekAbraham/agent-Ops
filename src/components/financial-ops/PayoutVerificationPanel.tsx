@@ -13,11 +13,15 @@ import { PayoutNameCheckHistory, logNameCheck, nameCheckHistoryKey } from './Pay
 import {
   AlertTriangle,
   ArrowUpDown,
+  ShieldCheck,
   BadgeCheck,
   Building2,
   Calendar as CalendarIcon,
   Camera,
   CheckCircle2,
+  Copy,
+  Info,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -80,9 +84,11 @@ import {
   type PayoutNameCheck,
 } from '@/lib/payoutNameCheck';
 import { supabase } from '@/integrations/supabase/client';
-import { PayoutQueueBlockedList, blockedReasonFor } from './PayoutQueueBlockedList';
+import { blockedReasonFor } from './PayoutQueueBlockedList';
 import NationalIdLinkStaffQueue from './NationalIdLinkStaffQueue';
 import PayoutNumberChangeQueue from './PayoutNumberChangeQueue';
+import AutoVerifiedReviewList, { useAutoVerifiedReviewCount, useMarkAutoVerifiedReviewed } from './AutoVerifiedReviewList';
+import { useNumberChangeQueue } from '@/hooks/usePayoutNumberChange';
 
 import { useUserAvatars } from '@/hooks/useUserAvatars';
 import { useAuth } from '@/hooks/useAuth';
@@ -126,6 +132,14 @@ const FILTERS: { id: PayoutQueueFilter; label: string; countKey?: keyof PayoutVe
   { id: 'verified', label: 'Verified', countKey: 'verified' },
   { id: 'rejected', label: 'Rejected', countKey: 'rejected' },
 ];
+
+/** The six views of this page. Four map onto the queue's own status filter; two are separate lists. */
+type PayoutTab = 'unverified' | 'auto_review' | 'verified' | 'changes' | 'rejected' | 'no_id';
+const TAB_STATUS: Partial<Record<PayoutTab, PayoutQueueFilter>> = {
+  unverified: 'waiting', verified: 'verified', rejected: 'rejected', no_id: 'no_id',
+};
+/** Inside "Unverified numbers" the reviewer can still narrow to name mismatches or double submissions. */
+const UNVERIFIED_CHIPS: PayoutQueueFilter[] = ['waiting', 'mismatch', 'double'];
 
 /** Full technical detail of a failed queue request, for on-screen diagnosis. */
 function QueueDiagnostics({ error }: { error: unknown }) {
@@ -311,9 +325,23 @@ function SavedPayoutNumberCard({ row }: { row: PayoutDestinationRow }) {
               : row.account_name || 'Name not recorded'}
           </p>
         </div>
-        {row.status === 'verified' && (
-          <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Verified" />
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {row.status === 'verified' && (
+            <BadgeCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" aria-label="Verified" />
+          )}
+          {number && (
+            <button
+              type="button"
+              aria-label="Copy the number"
+              onClick={() => {
+                void navigator.clipboard?.writeText(number).then(() => toast.success('Number copied'), () => toast.error('Could not copy'));
+              }}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -338,10 +366,12 @@ function NameChangeHistory({ userId }: { userId: string }) {
   if (isLoading || !data || data.length === 0) return null;
 
   return (
-    <div className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-        <History className="h-3.5 w-3.5" aria-hidden="true" /> Name changes ({data.length})
-      </p>
+    <details className="mx-5 mt-3 rounded-2xl border border-border bg-muted/40 p-3">
+      <summary className="flex min-h-[28px] cursor-pointer list-none items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        <History className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className="flex-1 truncate">Name changed {data.length > 1 ? `${data.length} times` : 'once'}: {data[0].old_name || '—'} → {data[0].new_name || '—'}</span>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      </summary>
       <ul className="mt-2 space-y-2">
         {data.map((h) => (
           <li key={h.id} className="rounded-xl bg-background/70 px-3 py-2">
@@ -391,7 +421,7 @@ function NameChangeHistory({ userId }: { userId: string }) {
           </li>
         ))}
       </ul>
-    </div>
+    </details>
   );
 }
 
@@ -874,10 +904,13 @@ function HeroPhoto({
   label,
   path,
   onOpen,
+  contain = false,
 }: {
   label: string;
   path: string | null;
   onOpen: (url: string, label: string) => void;
+  /** ID cards are landscape: show the whole card instead of cropping it. */
+  contain?: boolean;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -902,15 +935,15 @@ function HeroPhoto({
             type="button"
             onClick={() => onOpen(url, label)}
             aria-label={`Open ${label} full size`}
-            className="aspect-[4/5] w-full overflow-hidden rounded-3xl border-2 border-primary/10 bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="aspect-[4/3] w-full overflow-hidden rounded-2xl border-2 border-primary/10 bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <img src={url} alt={label} className="h-full w-full object-cover" />
+            <img src={url} alt={label} className={`h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
           </button>
         ) : (
-          <Skeleton className="aspect-[4/5] w-full rounded-3xl" />
+          <Skeleton className="aspect-[4/3] w-full rounded-2xl" />
         )
       ) : (
-        <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-border bg-muted/40 px-4 text-center">
+        <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-muted/40 px-4 text-center">
           <AlertTriangle className="h-5 w-5 text-amber-600" />
           <p className="text-xs font-semibold text-muted-foreground">Not sent yet</p>
         </div>
@@ -1230,10 +1263,10 @@ function PayoutNameCheckCard({
           : 'border-primary/40 bg-primary/5';
 
   return (
-    <div className={`mx-5 mt-3 rounded-2xl border-2 p-4 ${tone}`}>
+    <div className={`mx-5 mt-3 rounded-2xl border p-3.5 ${tone}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-          <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
+        <p className="flex items-center gap-1.5 text-base font-bold text-foreground">
+          2. Name check
         </p>
         {check && (
           <span
@@ -1256,11 +1289,12 @@ function PayoutNameCheckCard({
       </div>
 
       {/* Prominent how-to-check guide */}
-      <div className="mt-3 rounded-xl border-2 border-amber-500/60 bg-amber-500/10 p-3">
-        <p className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-          <ShieldAlert className="h-4 w-4" aria-hidden="true" />
-          How to check this number before verifying
-        </p>
+      <details className="group mt-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-2.5">
+        <summary className="flex min-h-[32px] cursor-pointer list-none items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+          <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span className="flex-1">How to check this number. Do not send any money.</span>
+          <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-open:rotate-90" aria-hidden="true" />
+        </summary>
         <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-xs text-foreground">
           {isMomo ? (
             <>
@@ -1297,14 +1331,8 @@ function PayoutNameCheckCard({
         <p className="mt-2 text-[11px] font-bold text-destructive">
           Do not send any money. This is only a name check.
         </p>
-      </div>
+      </details>
 
-      <div className="mt-3 rounded-xl border border-border bg-background/70 p-2.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          Name on the National ID
-        </p>
-        <p className="truncate text-sm font-bold text-foreground">{idName || '—'}</p>
-      </div>
 
       {check ? (
         <div className="mt-2 space-y-2">
@@ -1372,23 +1400,464 @@ function PayoutNameCheckCard({
           </Button>
         </div>
       ) : (
-        <div className="mt-2 space-y-2">
-          <Input
-            value={typed}
-            onChange={(e) => setTyped(e.target.value)}
-            placeholder="Type the name your phone showed"
-            className="h-11 text-sm"
-            aria-label="Name shown by the mobile money or bank lookup"
-          />
-          <Button
-            className="h-11 w-full rounded-xl text-xs font-bold uppercase tracking-widest"
-            onClick={record}
-          >
-            <UserCheck className="mr-1.5 h-4 w-4" /> Record the name check
-          </Button>
+        <div className="mt-2 space-y-1.5">
+          <div className="flex gap-2">
+            <Input
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') record(); }}
+              placeholder="Name shown by the network"
+              className="h-11 min-w-0 flex-1 text-sm"
+              aria-label="Name shown by the mobile money or bank lookup"
+            />
+            <Button variant="outline" className="h-11 shrink-0 rounded-xl border-primary/50 px-4 text-sm font-bold text-primary" onClick={record}>
+              Record
+            </Button>
+          </div>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> No name check recorded yet
+          </p>
         </div>
       )}
       <PayoutNameCheckHistory destinationId={row.id} />
+    </div>
+  );
+}
+
+/**
+ * The three things a reviewer confirms before verifying, derived from evidence already on the case:
+ * photos on file, the face check read off the card, and the network name check recorded in step 2.
+ */
+function ReviewChecklist({ photosReady, userId, nameCheck }: { photosReady: boolean; userId: string; nameCheck: PayoutNameCheck | null }) {
+  const reading = useStoredIdReading(userId);
+  const face = reading.data ? reading.data.faceVerified === true : null;
+  const items: { label: string; state: 'ok' | 'pending' | 'bad'; note: string }[] = [
+    { label: 'Photos on file', state: photosReady ? 'ok' : 'pending', note: photosReady ? 'Selfie and ID sent' : 'Waiting' },
+    { label: 'Face matches ID', state: face === true ? 'ok' : face === false ? 'bad' : 'pending', note: face === true ? 'Checked' : face === false ? 'Not matched' : 'Not read yet' },
+    {
+      label: 'Network name checked',
+      state: !nameCheck ? 'pending' : nameCheck.outcome === 'match' ? 'ok' : 'bad',
+      note: !nameCheck ? 'Pending' : nameCheck.outcome === 'match' ? 'Same person' : nameCheck.outcome === 'partial' ? 'Partly agrees' : 'Different name',
+    },
+  ];
+  return (
+    <section className="rounded-2xl border border-border bg-card" aria-label="Review checklist">
+      <p className="border-b border-border/70 px-3.5 py-2.5 text-sm font-bold text-foreground">Review checklist</p>
+      <ul className="divide-y divide-border/60">
+        {items.map((i) => (
+          <li key={i.label} className="flex items-center gap-3 px-3.5 py-2.5 text-sm">
+            <span
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+                i.state === 'ok' ? 'bg-[#C9EFD5] text-[#13803E]' : i.state === 'bad' ? 'bg-[#FFD6D6] text-[#B42318]' : 'bg-[#FFE49A] text-[#9A5B00]'
+              }`}
+            >
+              {i.state === 'ok' ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : i.state === 'bad' ? <XCircle className="h-4 w-4" aria-hidden="true" /> : <Clock className="h-4 w-4" aria-hidden="true" />}
+            </span>
+            <span className="flex-1 font-medium text-foreground">{i.label}</span>
+            <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${i.state === 'ok' ? 'text-muted-foreground' : i.state === 'bad' ? 'bg-[#FFD6D6] text-[#B42318]' : 'bg-[#FFE49A] text-[#6B4200]'}`}>
+              {i.note}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * One small evidence photo with its caption underneath. Click to enlarge.
+ */
+function EvidencePhoto({
+  label, path, contain = false, onOpen,
+}: {
+  label: string;
+  path: string | null;
+  contain?: boolean;
+  onOpen: (url: string, label: string) => void;
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setUrl(null);
+    if (path) void identityPhotoUrl(path).then((u) => { if (alive) setUrl(u); });
+    return () => { alive = false; };
+  }, [path]);
+  const box = 'h-36 w-full overflow-hidden rounded-xl border border-border bg-muted sm:h-44';
+  return (
+    <figure className="min-w-0">
+      {path ? (
+        url ? (
+          <button type="button" onClick={() => onOpen(url, label)} aria-label={`Open ${label} full size`} className={`${box} block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}>
+            <img src={url} alt={label} className={`h-full w-full ${contain ? 'object-contain' : 'object-cover'}`} />
+          </button>
+        ) : (
+          <Skeleton className={box} />
+        )
+      ) : (
+        <div className={`${box} flex flex-col items-center justify-center gap-1 border-dashed text-center`}>
+          <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden="true" />
+          <span className="text-xs font-semibold text-muted-foreground">Not sent yet</span>
+        </div>
+      )}
+      <figcaption className="mt-1.5 text-center text-sm text-foreground">{label}</figcaption>
+    </figure>
+  );
+}
+
+/** A compact one-line bar for a warning or note above the evidence. */
+function CaseBar({
+  tone, icon: Icon, title, text, action,
+}: {
+  tone: 'amber' | 'blue' | 'red';
+  icon: typeof AlertTriangle;
+  title: string;
+  text?: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  const cls =
+    tone === 'amber' ? 'border-[#F0B53F] bg-[#FFF0C2] dark:border-amber-400/50 dark:bg-amber-400/15'
+    : tone === 'red' ? 'border-[#E8605A] bg-[#FFDFDD] dark:border-red-400/50 dark:bg-red-500/15'
+    : 'border-[#8FB4F5] bg-[#E1ECFF] dark:border-sky-400/50 dark:bg-sky-500/15';
+  return (
+    <div role="status" className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border px-4 py-2.5 text-sm ${cls}`}>
+      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <p className="min-w-0 flex-1">
+        <span className="font-bold text-foreground">{title}</span>
+        {text ? <span className="text-foreground/80"> · {text}</span> : null}
+      </p>
+      {action && (
+        <button type="button" onClick={action.onClick} className="inline-flex min-h-[32px] items-center gap-1 font-bold text-primary hover:underline">
+          {action.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+type CaseViewProps = {
+  row: PayoutDestinationRow;
+  avatarUrl: string | null;
+  selfiePath: string | null;
+  idPath: string | null;
+  idBackPath: string | null;
+  photosReady: boolean;
+  idNameUnreadable: boolean;
+  idNameReason: string;
+  isDouble: boolean;
+  isLinkedCase: boolean;
+  linkRequest?: { id: string; nin?: string; status: string; owner_confirmed_at: string | null; created_at?: string | null } | null;
+  nameCheck: PayoutNameCheck | null;
+  setNameCheck: (n: PayoutNameCheck | null) => void;
+  nameCheckPassed: boolean;
+  verifyBlocked: boolean;
+  verifyPending: boolean;
+  reviewPending: boolean;
+  onOpenPhoto: (url: string, label: string) => void;
+  onOpenNumbers: () => void;
+  onReject: () => void;
+  onVerify: () => void;
+  onMarkReviewed: () => void;
+  onSaved: () => void;
+  nav: {
+    position: number;
+    total: number;
+    personNumbersInQueue: number;
+    personNumberPosition: number;
+    hasNextSame: boolean;
+    onPrev: () => void;
+    onNext: () => void;
+    onNextSame: () => void;
+  };
+};
+
+/**
+ * The review screen for one payout destination. Layout: who it is, anything that needs a look, then evidence on the
+ * left and a three-step decision rail on the right (contact, name check, decide). Every rule that was on the old screen
+ * still applies; this component only changes how it is laid out. The decisions themselves run through the callbacks.
+ */
+function PayoutCaseView(p: CaseViewProps) {
+  const { row } = p;
+  const reading = useStoredIdReading(row.user_id);
+  const back = useStoredIdBackReading(p.idBackPath);
+  const autoVerified = row.status === 'verified' && !row.decided_by_name;
+  const accountName = row.account_name || row.full_name || '—';
+  const initials = (row.full_name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0).toUpperCase()).join('');
+  const badge = statusBadge(row, p.isLinkedCase);
+  const ready = row.status === 'verified' || (p.nameCheckPassed && !p.idNameUnreadable);
+  const number = row.destination_type === 'mobile_money' ? row.momo_number : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim();
+
+  let why: { text: string; tone: string } | null = null;
+  const blocked = blockedReasonFor(row);
+  if (autoVerified) why = { text: 'The system verified this number on its own. Check the names, then mark it reviewed.', tone: 'text-muted-foreground' };
+  else if (!p.photosReady) why = { text: 'Waiting for their National ID photo and selfie.', tone: 'text-amber-700' };
+  else if (p.idNameUnreadable) why = { text: `Verify is off: ${p.idNameReason} Ask for a clearer ID photo.`, tone: 'font-semibold text-destructive' };
+  else if (!p.isDouble && !p.nameCheckPassed) {
+    why = {
+      text: p.nameCheck ? 'The name on the number is not clearly the same person. Verify needs a written reason and your confirmation.' : 'Record the network name check to continue.',
+      tone: 'text-muted-foreground',
+    };
+  } else if (blocked) why = { text: blocked.text, tone: blocked.tone };
+
+  return (
+    <div className="space-y-3">
+      {/* Who */}
+      <section className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border border-border bg-card p-4">
+        <Avatar className="h-14 w-14 shrink-0 border border-border">
+          <AvatarImage src={p.avatarUrl ?? undefined} alt={row.full_name || 'Holder photo'} />
+          <AvatarFallback className="bg-primary/15 text-base font-bold text-primary">{initials || '?'}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <h2 className="truncate text-xl font-bold leading-tight text-foreground">{row.full_name || 'Name not recorded'}</h2>
+          <p className="truncate text-sm text-muted-foreground">{row.user_phone || number || '—'}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            role="status"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-bold ${
+              row.status === 'verified' ? 'bg-[#C9EFD5] text-[#0B6630] dark:bg-emerald-500/30 dark:text-emerald-100'
+              : row.status === 'rejected' ? 'bg-[#FFD6D6] text-[#B42318] dark:bg-red-500/30 dark:text-red-100'
+              : 'bg-[#FFE49A] text-[#6B4200] dark:bg-amber-400/30 dark:text-amber-100'
+            }`}
+          >
+            <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" /> {badge.label}
+          </span>
+          <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-sm font-semibold ${p.photosReady ? 'bg-[#C9EFD5] text-[#0B6630] dark:bg-emerald-500/30 dark:text-emerald-100' : 'bg-[#FFE49A] text-[#6B4200] dark:bg-amber-400/30 dark:text-amber-100'}`}>
+            <Camera className="h-3.5 w-3.5" aria-hidden="true" /> {p.photosReady ? 'Photos ready' : 'Photos pending'}
+          </span>
+          {row.name_source && (
+            <span className="inline-flex items-center rounded-lg bg-[#E6DAFF] px-3 py-1 text-sm font-bold text-[#5A1FD0] dark:bg-violet-500/30 dark:text-violet-100">
+              {row.name_source === 'verified' ? 'Verified name' : 'ID name'}
+            </span>
+          )}
+          {row.national_id && (
+            <span className={`inline-flex items-center rounded-lg px-3 py-1 text-sm font-bold ${row.is_linked_id ? 'bg-[#D3E4FF] text-[#1D4ED8] dark:bg-sky-500/30 dark:text-sky-100' : 'bg-[#E6DAFF] text-[#5A1FD0] dark:bg-violet-500/30 dark:text-violet-100'}`}>
+              {row.is_linked_id ? 'Linked ID' : 'New ID'}
+            </span>
+          )}
+          {row.payout_number_count > 1 && (
+            <button type="button" onClick={p.onOpenNumbers} className="inline-flex min-h-[32px] items-center rounded-lg bg-[#E6DAFF] px-3 py-1 text-sm font-bold text-[#5A1FD0] hover:bg-[#D9C8FF] dark:bg-violet-500/30 dark:text-violet-100">
+              {row.payout_number_count} requests
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Things to look at, one line each */}
+      {row.payout_number_count > 1 && (
+        <CaseBar tone="amber" icon={AlertTriangle} title={p.isDouble ? 'Double submission' : 'Several numbers'} text={`${row.payout_number_count} payout numbers submitted`} action={{ label: 'View numbers', onClick: p.onOpenNumbers }} />
+      )}
+      {row.verified_payout_count > 0 && (
+        <CaseBar
+          tone="amber"
+          icon={Smartphone}
+          title={`Already has ${row.verified_payout_count} verified ${row.verified_payout_count === 1 ? 'number' : 'numbers'}`}
+          text={`${row.verified_payout_numbers.map((v) => `${v.momo_number || v.bank_account_number || '—'}${v.provider ? ` (${v.provider})` : v.bank_name ? ` (${v.bank_name})` : ''}`).join(', ')}. Confirm why they want a different one.`}
+        />
+      )}
+      {row.id_account_count > 1 && (
+        <CaseBar tone="red" icon={ShieldAlert} title={`This National ID is on ${row.id_account_count} accounts`} text={row.id_account_ordinal > 1 ? `this is the ${ordinalLabel(row.id_account_ordinal)}. Confirm you have the right person.` : 'this is the first; the others appeared later.'} />
+      )}
+      {row.national_id && (row.is_linked_id || row.id_account_count <= 1) && (
+        <CaseBar
+          tone="blue"
+          icon={row.is_linked_id ? Link2 : Info}
+          title={row.is_linked_id ? 'Linked National ID' : 'New National ID'}
+          text={row.is_linked_id ? `names were typed by the person${row.linked_id_holder ? `; ID held by ${row.linked_id_holder}` : ''}` : 'Check identity before verifying'}
+        />
+      )}
+      {p.isDouble && (
+        <details className="rounded-xl border border-border bg-card px-4 py-2.5">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">Why this is a double submission</summary>
+          <div className="mt-2">
+            <DoubleSubmissionReasonPanel userId={row.user_id} thisName={row.full_name || row.account_name} thisPhone={row.user_phone} thisNationalId={row.national_id} kind={row.double_kind} firstName={row.double_of_name} />
+          </div>
+        </details>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start">
+        {/* Evidence */}
+        <div className="min-w-0 space-y-3">
+          <section className="rounded-2xl border border-border bg-card p-4" aria-label="Identity evidence">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h3 className="text-lg font-bold text-foreground">Identity evidence</h3>
+              <span className="text-xs text-muted-foreground">Click a photo to enlarge</span>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-3">
+              <EvidencePhoto label="Selfie" path={p.selfiePath} onOpen={p.onOpenPhoto} />
+              <EvidencePhoto label="ID front" path={p.idPath} contain onOpen={p.onOpenPhoto} />
+              <EvidencePhoto label="ID back" path={p.idBackPath} contain onOpen={p.onOpenPhoto} />
+            </div>
+
+            <div className="mt-4 rounded-xl border border-border bg-muted/40">
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5">
+                <p className="text-sm font-bold text-foreground">Read from ID</p>
+                <span className="rounded-md bg-[#C9EFD5] px-2.5 py-0.5 text-xs font-bold text-[#0B6630] dark:bg-emerald-500/30 dark:text-emerald-100">
+                  {reading.data?.faceVerified ? 'Face confirmed' : 'Check against photos'}
+                </span>
+              </div>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 border-t border-border/70 px-3.5 py-2.5 text-sm">
+                <dt className="text-muted-foreground">Front</dt>
+                <dd className="font-bold text-foreground">
+                  {row.national_id_name || 'Not read'}
+                  {reading.data?.dateOfBirth ? <span className="ml-4 font-normal text-muted-foreground">Date of birth: <span className="font-bold text-foreground">{reading.data.dateOfBirth}</span></span> : null}
+                </dd>
+                <dt className="text-muted-foreground">Back</dt>
+                <dd className="text-foreground">{back.isLoading ? 'Reading…' : p.idBackPath ? (back.data?.readable ? 'Document details captured' : 'Could not be read clearly') : 'Not sent yet'}</dd>
+              </dl>
+            </div>
+
+            <details className="group mt-3 rounded-xl border border-border">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-2 px-3.5 text-sm font-bold text-foreground">
+                <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" /> Earlier submissions
+              </summary>
+              <div className="px-2 pb-2">
+                <PriorSubmissions userId={row.user_id} currentIdPath={p.idPath} currentSelfiePath={p.selfiePath} onOpen={p.onOpenPhoto} />
+              </div>
+            </details>
+
+            <details className="group mt-3 rounded-xl border border-border">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-2 px-3.5 text-sm font-bold text-foreground">
+                <ChevronRight className="h-4 w-4 transition-transform group-open:rotate-90" aria-hidden="true" /> Full ID reading and checks
+              </summary>
+              <div className="space-y-3 px-2 pb-3 [&>*]:!mx-0 [&>*]:!mt-0">
+                <StoredIdReadingCard row={row} />
+                <StoredIdBackReadingCard row={row} backPath={p.idBackPath} />
+              </div>
+            </details>
+          </section>
+
+          <ReviewChecklist photosReady={p.photosReady} userId={row.user_id} nameCheck={p.nameCheck} />
+        </div>
+
+        {/* Decision rail */}
+        <section className="min-w-0 space-y-4 rounded-2xl border border-border bg-card p-4 lg:sticky lg:top-3 lg:max-h-[calc(100vh-1.5rem)] lg:overflow-y-auto" aria-label="Decision">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-bold ${ready ? 'bg-[#C9EFD5] text-[#0B6630] dark:bg-emerald-500/30 dark:text-emerald-100' : 'bg-[#FFE49A] text-[#6B4200] dark:bg-amber-400/30 dark:text-amber-100'}`}>
+              {ready ? <BadgeCheck className="h-4 w-4" aria-hidden="true" /> : <AlertTriangle className="h-4 w-4" aria-hidden="true" />}
+              {row.status === 'verified' ? 'Verified' : ready ? 'Ready to verify' : 'Name needs checking'}
+            </span>
+            <p className="text-sm text-muted-foreground">Held balance <span className="ml-1 text-lg font-black tabular-nums text-foreground">{formatUGX(row.withdrawable_balance)}</span></p>
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border border-border px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">Saved payout number</p>
+              <p className="truncate text-sm font-bold text-foreground">{number || '—'}</p>
+            </div>
+            {number && (
+              <button
+                type="button"
+                aria-label="Copy the number"
+                onClick={() => { void navigator.clipboard?.writeText(number).then(() => toast.success('Number copied'), () => toast.error('Could not copy')); }}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-muted/50 px-3 py-2">
+              <p className="text-xs text-muted-foreground">Submitted name</p>
+              <p className="truncate text-sm font-bold text-foreground">{accountName}</p>
+            </div>
+            <div className={`rounded-xl px-3 py-2 ${p.idNameUnreadable ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+              <p className="text-xs text-muted-foreground">ID name</p>
+              <p className="truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
+            </div>
+          </div>
+          {p.idNameUnreadable && (
+            <p role="alert" className="flex items-start gap-1.5 text-xs font-semibold text-destructive">
+              <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {p.idNameReason}
+            </p>
+          )}
+
+          {/* Names do not match: the ID name becomes the holder's name. Keeps its own rules. */}
+          {!p.isLinkedCase && row.name_match_score !== null && row.name_match_score < 0.8 && (
+            <div className="[&>*]:!mx-0 [&>*]:!mt-0"><IdNameMismatchCard row={row} onSaved={p.onSaved} /></div>
+          )}
+
+          {p.isLinkedCase ? (
+            <div className="[&>*]:!mx-0 [&>*]:!mt-0"><LinkedAutoVerifiedCard row={row} linkRequest={p.linkRequest} /></div>
+          ) : (
+            <>
+              <div>
+                <h4 className="text-base font-bold text-foreground">1. Contact</h4>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {row.user_phone && (
+                    <a href={`tel:${row.user_phone}`} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                      <PhoneCall className="h-4 w-4" aria-hidden="true" /> Call
+                    </a>
+                  )}
+                  {(() => {
+                    const href = waHref(row.user_phone, `Hello ${(row.full_name || '').split(' ')[0] || 'there'}, this is Welile Financial Ops about your payout verification.`);
+                    return href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <MessageCircle className="h-4 w-4 text-emerald-600" aria-hidden="true" /> WhatsApp
+                      </a>
+                    ) : null;
+                  })()}
+                  {row.destination_type === 'mobile_money' && row.momo_number && last9(row.momo_number) !== last9(row.user_phone) && (
+                    <a href={`tel:${row.momo_number}`} className="col-span-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted">
+                      <Smartphone className="h-4 w-4" aria-hidden="true" /> Call payout number {row.momo_number}
+                    </a>
+                  )}
+                </div>
+                {row.destination_type !== 'mobile_money' && (
+                  <p className="mt-2 flex items-center gap-2 text-xs text-muted-foreground"><Building2 className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Bank account: confirm the holder name with the bank on the call</p>
+                )}
+              </div>
+
+              <div className="[&>*]:!mx-0 [&>*]:!mt-0">
+                <PayoutNameCheckCard row={row} check={p.nameCheck} onChange={p.setNameCheck} />
+              </div>
+
+              <div className="[&>*]:!mx-0 [&>*]:!mt-0"><NameChangeHistory userId={row.user_id} /></div>
+
+              <div>
+                <h4 className="text-base font-bold text-foreground">3. Decide</h4>
+                <div className="mt-2 flex gap-2.5">
+                  <Button variant="outline" className="min-h-[48px] flex-1 rounded-xl font-bold" onClick={p.onReject}>Reject / note</Button>
+                  {autoVerified ? (
+                    <Button className="min-h-[48px] flex-[1.4] rounded-xl font-bold" disabled={p.reviewPending} onClick={p.onMarkReviewed}>
+                      {p.reviewPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeCheck className="mr-2 h-4 w-4" />} Mark reviewed
+                    </Button>
+                  ) : (
+                    <Button className="min-h-[48px] flex-[1.4] rounded-xl font-bold" disabled={p.verifyBlocked || p.verifyPending} onClick={p.onVerify}>
+                      {p.verifyPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />} Verify payout
+                    </Button>
+                  )}
+                </div>
+                {why && (
+                  <p role={why.tone.includes('destructive') ? 'alert' : undefined} className={`mt-2.5 flex items-start gap-1.5 text-sm ${why.tone}`}>
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" /> <span>{why.text}</span>
+                  </p>
+                )}
+                {row.decision_reason && <p className="mt-1.5 text-xs text-muted-foreground">Last note: {row.decision_reason}</p>}
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+
+      {/* Navigation */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3">
+        <Button variant="outline" className="min-h-[44px] gap-1 rounded-xl" disabled={p.nav.position <= 1} onClick={p.nav.onPrev} aria-label="Previous person in the queue">
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Previous person
+        </Button>
+        <p className="order-first w-full text-center text-sm font-bold text-foreground sm:order-none sm:w-auto sm:flex-1" aria-live="polite">
+          Case {p.nav.position} of {p.nav.total.toLocaleString()}
+          {p.nav.personNumbersInQueue > 1 && <span className="block text-xs font-medium text-muted-foreground">Number {p.nav.personNumberPosition} of {p.nav.personNumbersInQueue} for this person</span>}
+        </p>
+        {p.nav.hasNextSame && (
+          <Button variant="ghost" className="min-h-[44px] gap-1 font-bold text-primary" onClick={p.nav.onNextSame}>
+            Next number for this person <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
+        <Button variant="outline" className="min-h-[44px] gap-1 rounded-xl border-primary/50 font-bold text-primary" disabled={p.nav.position >= p.nav.total} onClick={p.nav.onNext} aria-label="Skip the rest of this person's numbers and go to the next person">
+          Next person <ArrowRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1637,8 +2106,9 @@ function QueueTable({
 
 export default function PayoutVerificationPanel() {
   const [status, setStatus] = useState<PayoutQueueFilter>('waiting');
-  // 'queue' = the table of everything waiting; 'case' = one person at a time (the original focus view).
-  const [mode, setMode] = useState<'queue' | 'case'>('queue');
+  const [tab, setTabState] = useState<PayoutTab>('unverified');
+  // 'case' = one person at a time (the review screen, opens first); 'queue' = the table, one click away via Back to queue.
+  const [mode, setMode] = useState<'queue' | 'case'>('case');
   // Financial Ops should see people who have already submitted their National ID
   // and selfie first, because those cases can be actioned immediately. The last
   // chosen sort is remembered per user/device so it survives refreshes.
@@ -1667,6 +2137,10 @@ export default function PayoutVerificationPanel() {
 
   const quickVerify = useDecidePayoutDestination();
   const counts = usePayoutVerificationCounts();
+  const autoReviewCount = useAutoVerifiedReviewCount();
+  const markReviewed = useMarkAutoVerifiedReviewed();
+  const changeRequests = useNumberChangeQueue('pending');
+  const showQueue = tab !== 'auto_review' && tab !== 'changes';
   const queue = usePayoutVerificationQueue({
     status,
     search,
@@ -1820,6 +2294,15 @@ export default function PayoutVerificationPanel() {
     setIndex(0);
   };
 
+  const setTab = (t: PayoutTab) => {
+    setTabState(t);
+    const st = TAB_STATUS[t];
+    if (st) setStatus(st);
+    setPage(0);
+    setIndex(0);
+    setMode('case');
+  };
+
   const changeFilter = (f: PayoutQueueFilter) => {
     setStatus(f);
     setPage(0);
@@ -1883,8 +2366,8 @@ export default function PayoutVerificationPanel() {
 
   return (
     <div className="space-y-3">
-      {mode === 'queue' ? (
-        <div className="space-y-5 pb-2">
+      <div className="space-y-4 pb-2">
+          {mode === 'queue' ? (
           <PageHeader
             icon={ShieldAlert}
             tone="primary"
@@ -1901,44 +2384,87 @@ export default function PayoutVerificationPanel() {
               </Button>
             }
           />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            <StatTile icon={Clock} tone="primary" label="Waiting" value={counts.data?.waiting ?? '—'} note="Awaiting review"
-              active={status === 'waiting'} onClick={() => changeFilter('waiting')} />
-            <StatTile icon={AlertTriangle} tone="rose" label="Needs review" value={counts.data?.mismatch ?? '—'} note="Names mismatch"
-              active={status === 'mismatch'} onClick={() => changeFilter('mismatch')} />
-            <StatTile icon={IdCard} tone="amber" label="No ID" value={counts.data?.no_id ?? '—'} note="Missing ID photos"
-              active={status === 'no_id'} onClick={() => changeFilter('no_id')} />
-            <StatTile icon={BadgeCheck} tone="emerald" label="Verified" value={counts.data?.verified ?? '—'} note="Ready for payout"
-              active={status === 'verified'} onClick={() => changeFilter('verified')} />
-            <StatTile icon={XCircle} tone="muted" label="Rejected" value={counts.data?.rejected ?? '—'} note="Not approved"
-              active={status === 'rejected'} onClick={() => changeFilter('rejected')} />
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-black tracking-tight text-foreground">Verify Payout Numbers</h1>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Review case</span>
+            </div>
+          )}
+          <div role="tablist" aria-label="Payout verification views" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {([
+              { id: 'unverified', label: 'Unverified numbers', count: counts.data?.waiting, Icon: Clock },
+              { id: 'auto_review', label: 'Auto-verified, needs review', count: autoReviewCount.data ?? undefined, Icon: ShieldCheck },
+              { id: 'verified', label: 'Verified', count: counts.data?.verified, Icon: BadgeCheck },
+              { id: 'changes', label: 'Number change requests', count: changeRequests.data?.length, Icon: ArrowUpDown },
+              { id: 'rejected', label: 'Rejected', count: counts.data?.rejected, Icon: XCircle },
+              { id: 'no_id', label: 'No ID', count: counts.data?.no_id, Icon: IdCard },
+            ] as { id: PayoutTab; label: string; count?: number; Icon: typeof Clock }[]).map((t) => {
+              const selected = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setTab(t.id)}
+                  className={`inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl border px-3.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    selected ? 'border-primary bg-primary text-primary-foreground shadow-sm' : 'border-border bg-card text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  <t.Icon className="h-4 w-4" aria-hidden="true" />
+                  {t.label}
+                  {t.count != null && (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${selected ? 'bg-white/20' : 'bg-muted text-muted-foreground'}`}>
+                      {t.count > 999 ? '999+' : t.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+          {mode === 'case' && (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="outline" className="min-h-[44px] gap-1.5 rounded-xl" onClick={() => setMode('queue')}>
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Back to queue
+              </Button>
+              <span className="text-sm text-muted-foreground" aria-live="polite">{total.toLocaleString()} in this list</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="ml-auto min-h-[44px] gap-1.5 rounded-xl"
+                onClick={() => { void queue.refetch(); counts.refetch(); }}
+                disabled={queue.isFetching}
+              >
+                {queue.isFetching ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <RefreshCw className="h-4 w-4" aria-hidden="true" />}
+                Refresh
+              </Button>
+            </div>
+          )}
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setMode('queue')}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
-          <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Back to the queue
-        </button>
+
+      {tab === 'changes' && (
+        <div className="space-y-3">
+          {/* Withdrawal number changes waiting on a Financial Ops decision. */}
+          <PayoutNumberChangeQueue />
+          {/* National ID groups the holder has already allowed, waiting on staff. */}
+          <NationalIdLinkStaffQueue />
+        </div>
       )}
 
-      {/* Withdrawal number changes waiting on a Financial Ops decision. */}
-      <PayoutNumberChangeQueue />
+      {tab === 'auto_review' && <AutoVerifiedReviewList />}
 
-      {/* National ID groups the holder has already allowed, waiting on staff. */}
-      <NationalIdLinkStaffQueue />
-
+      {showQueue && (<>
       {/* Slim control bar */}
-      <div className="sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur">
+      <div className={`sticky top-0 z-20 -mx-1 space-y-2 bg-background/95 px-1 py-2 backdrop-blur ${mode === 'case' ? 'hidden' : ''}`}>
         <div className="flex items-center gap-2">
           <ShieldAlert className="h-4 w-4 shrink-0 text-primary" />
           <p className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
             Verify Payouts
             {counts.data ? (
               <span className="ml-2 font-semibold text-muted-foreground">
-                {counts.data.waiting} waiting · {formatUGX(counts.data.waiting_balance)} held
+                {tab === 'unverified'
+                  ? `${counts.data.waiting} waiting · ${formatUGX(counts.data.waiting_balance)} held`
+                  : `${total} in this list`}
               </span>
             ) : null}
           </p>
@@ -1967,13 +2493,14 @@ export default function PayoutVerificationPanel() {
             )}
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground" aria-live="polite">
+        <p className={`text-[11px] text-muted-foreground ${mode === 'case' ? 'hidden' : ''}`} aria-live="polite">
           {queue.isFetching
             ? 'Checking for new cases…'
             : queue.dataUpdatedAt
               ? `Updated ${new Date(queue.dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · refreshes on its own`
               : 'Refreshes on its own'}
         </p>
+        {mode === 'queue' && (<>
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -2075,7 +2602,7 @@ export default function PayoutVerificationPanel() {
           )}
         </div>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {FILTERS.map((f) => {
+          {tab === 'unverified' && FILTERS.filter((f) => UNVERIFIED_CHIPS.includes(f.id)).map((f) => {
             const selected = status === f.id;
             const count = f.countKey && counts.data ? counts.data[f.countKey] : null;
             return (
@@ -2096,6 +2623,7 @@ export default function PayoutVerificationPanel() {
             );
           })}
         </div>
+        </>)}
       </div>
 
       {/* Focus card */}
@@ -2124,540 +2652,46 @@ export default function PayoutVerificationPanel() {
           onReview={(i) => { setIndex(i); setMode('case'); }}
         />
       ) : (
-        <div
-          ref={focusCardRef}
-          key={row.id}
-          className="overflow-hidden rounded-[2rem] border border-primary/10 bg-card shadow-xl shadow-primary/5 scroll-mt-4"
-        >
-          {/* Case header */}
-          <div className="flex items-center justify-between gap-3 border-b border-primary/10 px-5 py-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <Avatar className="h-11 w-11 shrink-0 border border-border">
-                <AvatarImage src={avatarFor(row.user_id) ?? undefined} alt={row.full_name || 'Holder photo'} />
-                <AvatarFallback className="text-sm font-bold">
-                  {(row.full_name || '?').trim().charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="truncate text-base font-bold text-foreground">
-                  {row.full_name || 'Name not recorded'}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {row.destination_type === 'mobile_money'
-                    ? `${row.provider ?? 'Mobile money'} · ${row.momo_number ?? ''}`
-                    : `${row.bank_name ?? ''} ${row.bank_account_number ?? ''}`.trim()}
-                </p>
-              </div>
-            </div>
-            {(() => {
-              const badge = statusBadge(row, isLinkedCase);
-              return (
-                <span
-                  role="status"
-                  aria-label={`Verification status: ${badge.label}`}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
-                >
-                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {badge.label}
-                </span>
-              );
-            })()}
-            {(() => {
-              const badge = readinessBadge(photosReady);
-              return (
-                <span
-                  role="status"
-                  aria-label={`Readiness: ${badge.label}`}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
-                >
-                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {badge.label}
-                </span>
-              );
-            })()}
-            {(() => {
-              const badge = nameSourceBadge(row.name_source);
-              if (!badge) return null;
-              return (
-                <span
-                  role="status"
-                  aria-label={`Name source: ${badge.label}`}
-                  className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${badge.classes}`}
-                >
-                  <badge.Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                  {badge.label}
-                </span>
-              );
-            })()}
-            {row.national_id && (
-              <span
-                role="status"
-                aria-label={row.is_linked_id ? 'This National ID was already in the system; this person linked to it' : 'This National ID is new to the platform'}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                  row.is_linked_id
-                    ? 'border-2 border-sky-500/70 bg-sky-500/15 text-sky-700 dark:text-sky-400'
-                    : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {row.is_linked_id ? (
-                  <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <IdCard className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                {row.is_linked_id ? 'Linked ID' : 'New ID'}
-              </span>
-            )}
-            {row.payout_number_count > 1 && (
-              <button
-                type="button"
-                onClick={() => setPersonNumbersOpen(true)}
-                aria-label={`This person has made ${row.payout_number_count} payout number requests. Open the full list.`}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-amber-500/70 bg-amber-500/15 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-700 transition hover:bg-amber-500/25 dark:text-amber-400"
-              >
-                <Smartphone className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[11px] font-extrabold leading-none text-white">
-                  {row.payout_number_count}
-                </span>
-                requests · tap to see all
-              </button>
-            )}
-          </div>
-
-          {isDouble && (
-            <DoubleSubmissionReasonPanel
-              userId={row.user_id}
-              thisName={row.full_name || row.account_name}
-              thisPhone={row.user_phone}
-              thisNationalId={row.national_id}
-              kind={row.double_kind}
-              firstName={row.double_of_name}
-            />
-          )}
-
-
-          {row.verified_payout_count > 0 && (
-            <div
-              role="alert"
-              className="mx-5 mt-2 rounded-2xl border-2 border-amber-500/80 bg-amber-500/10 p-4 shadow-lg shadow-amber-500/10"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500/20">
-                  <Smartphone className="h-4 w-4 text-amber-700 dark:text-amber-400" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-extrabold leading-tight text-amber-800 dark:text-amber-300">
-                    This person already has {row.verified_payout_count} verified payout{' '}
-                    {row.verified_payout_count === 1 ? 'number' : 'numbers'}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-amber-800/90 dark:text-amber-300/90">
-                    They are now asking to use a different one. Confirm with them why before verifying.
-                  </p>
-                  <ul className="mt-2 space-y-1">
-                    {row.verified_payout_numbers.map((v, i) => (
-                      <li
-                        key={i}
-                        className="flex flex-wrap items-center gap-x-2 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-sm font-bold text-amber-900 dark:text-amber-200"
-                      >
-                        <BadgeCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        <span>
-                          {ordinalLabel(i + 1)} verified:{' '}
-                          {v.momo_number || v.bank_account_number || '—'}
-                          {v.provider ? ` (${v.provider})` : v.bank_name ? ` (${v.bank_name})` : ''}
-                        </span>
-                        {v.decided_at && (
-                          <span className="text-xs font-semibold opacity-80">
-                            verified {new Date(v.decided_at).toLocaleDateString('en-UG', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {row.national_id && (row.is_linked_id || row.id_account_count <= 1) && (
-            <div
-              role="status"
-              className={`mx-5 mt-2 rounded-2xl border p-4 ${
-                row.is_linked_id
-                  ? 'border-sky-500/60 bg-sky-500/10'
-                  : 'border-border bg-muted/40'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-                    row.is_linked_id ? 'bg-sky-500/20' : 'bg-muted'
-                  }`}
-                >
-                  {row.is_linked_id ? (
-                    <Link2 className="h-4 w-4 text-sky-700 dark:text-sky-400" aria-hidden="true" />
-                  ) : (
-                    <IdCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  {row.is_linked_id ? (
-                    <>
-                      <p className="text-base font-extrabold leading-tight text-sky-800 dark:text-sky-300">
-                        {row.linked_id_is_this_one
-                          ? 'This National ID is already in the system — linked account'
-                          : 'This account is linked to another National ID'}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-sky-800/90 dark:text-sky-300/90">
-                        {row.linked_id_is_this_one ? (
-                          <>
-                            This person joined an existing ID
-                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''} through the
-                            ID-link process, which the ID holder approved. The names here were typed by
-                            the person, not read fresh from a new card.
-                          </>
-                        ) : (
-                          <>
-                            The ID submitted here
-                            {row.id_account_count > 1 ? '' : ' is new, but '} this account is also linked
-                            to a different National ID
-                            {row.linked_id_holder ? ` held by ${row.linked_id_holder}` : ''}. Check both
-                            before verifying.
-                          </>
-                        )}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-extrabold leading-tight text-foreground">
-                        New National ID — first time seen on the platform
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                        No other account is linked to this ID. Treat the card photos as the only evidence of who holds it.
-                      </p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {row.id_account_count > 1 && (
-            <div
-              role="alert"
-              className="mx-5 mt-2 rounded-2xl border-2 border-destructive/80 bg-destructive/10 p-4 shadow-lg shadow-destructive/10"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-destructive/20">
-                  <ShieldAlert className="h-4 w-4 text-destructive" aria-hidden="true" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-extrabold leading-tight text-destructive">
-                    This National ID is on {row.id_account_count} accounts
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-destructive/90">
-                    This is the {ordinalLabel(row.id_account_ordinal)} account using this ID.
-                    {row.id_account_ordinal > 1
-                      ? ' An earlier account already holds this ID — confirm you are reviewing the right person before verifying.'
-                      : ' This is the first account with this ID; the others appeared later.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Photos — the hero of the screen. The back of the card is shown
-              beside the front: the card number and the two lines of code are
-              only printed there. */}
-          <div className="grid grid-cols-3 gap-3 p-5">
-            <HeroPhoto label="Selfie" path={selfiePath} onOpen={(url, label) => setLightbox({ url, label })} />
-            <HeroPhoto label="National ID front" path={idPath} onOpen={(url, label) => setLightbox({ url, label })} />
-            <HeroPhoto label="National ID back" path={idBackPath} onOpen={(url, label) => setLightbox({ url, label })} />
-          </div>
-
-          <PriorSubmissions
-            userId={row.user_id}
-            currentIdPath={idPath}
-            currentSelfiePath={selfiePath}
-            onOpen={(url, label) => setLightbox({ url, label })}
+        <div ref={focusCardRef} key={row.id} className="scroll-mt-4">
+          <PayoutCaseView
+            row={row}
+            avatarUrl={avatarFor(row.user_id) ?? null}
+            selfiePath={selfiePath}
+            idPath={idPath}
+            idBackPath={idBackPath}
+            photosReady={photosReady}
+            idNameUnreadable={idNameUnreadable}
+            idNameReason={idNameConfidence.reason}
+            isDouble={isDouble}
+            isLinkedCase={isLinkedCase}
+            linkRequest={associatedLink}
+            nameCheck={nameCheck}
+            setNameCheck={setNameCheck}
+            nameCheckPassed={nameCheckPassed}
+            verifyBlocked={verifyBlocked}
+            verifyPending={quickVerify.isPending}
+            reviewPending={markReviewed.isPending}
+            onOpenPhoto={(url, label) => setLightbox({ url, label })}
+            onOpenNumbers={() => setPersonNumbersOpen(true)}
+            onReject={() => setDeciding(true)}
+            onVerify={() => setConfirmingVerify(row)}
+            onMarkReviewed={() => markReviewed.mutate(row.id, { onSuccess: () => goTo(position) })}
+            onSaved={() => goTo(position)}
+            nav={{
+              position,
+              total,
+              personNumbersInQueue,
+              personNumberPosition,
+              hasNextSame: nextSameIdx >= 0,
+              onPrev: goPrevPerson,
+              onNext: goNextPerson,
+              onNextSame: () => setIndex(nextSameIdx),
+            }}
           />
-
-          {/* Glanceable match strip */}
-          <div className="mx-5 flex items-center gap-3 rounded-2xl bg-muted/50 px-4 py-3">
-            {(() => {
-              if (isLinkedCase) {
-                return (
-                  <>
-                    <span
-                      role="img"
-                      aria-label="Name match result: Linked account"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-primary-foreground"
-                    >
-                      <BadgeCheck className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
-                        Linked account · Name difference expected
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        Account: {row.account_name || row.full_name || '—'} · ID holder: {row.linked_id_holder || row.national_id_name || '—'}
-                      </p>
-                    </div>
-                    <p
-                      className="shrink-0 text-sm font-bold tabular-nums text-foreground whitespace-nowrap"
-                      title={`Withdrawable balance: ${formatUGX(row.withdrawable_balance)}`}
-                    >
-                      {formatUGX(row.withdrawable_balance)}
-                    </p>
-                  </>
-                );
-              }
-              const sig = matchSignal(row.name_match_score);
-              return (
-                <>
-                  <span
-                    role="img"
-                    aria-label={`Name match result: ${sig.label}`}
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${sig.dot} text-primary-foreground`}
-                  >
-                    <sig.Icon className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-sm font-bold ${sig.text}`}>{sig.label}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      Account: {row.account_name || '—'} · ID: {row.national_id_name || '—'}
-                    </p>
-                  </div>
-                  <p
-                    className="shrink-0 text-sm font-bold tabular-nums text-foreground whitespace-nowrap"
-                    title={`Withdrawable balance: ${formatUGX(row.withdrawable_balance)}`}
-                  >
-                    {formatUGX(row.withdrawable_balance)}
-                  </p>
-                </>
-              );
-            })()}
-          </div>
-
-          <SavedPayoutNumberCard row={row} />
-
-          {/* Both names side by side — the person in the selfie vs the National ID */}
-          <div className="mx-5 mt-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-border bg-card p-3">
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">Selfie name</p>
-              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.full_name || '—'}</p>
-              <p className="text-[10px] text-muted-foreground">
-                {row.account_name && row.account_name !== row.full_name
-                  ? `Withdrawal: ${row.account_name}`
-                  : 'Name on the account'}
-              </p>
-            </div>
-            <div
-              className={`rounded-2xl border p-3 ${
-                idNameUnreadable
-                  ? 'border-destructive/50 bg-destructive/10'
-                  : !isLinkedCase && row.national_id_name && row.full_name && row.name_match_score !== null && row.name_match_score < 0.8
-                    ? 'border-amber-500/50 bg-amber-500/10'
-                    : 'border-border bg-card'
-              }`}
-            >
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground">National ID name</p>
-              <p className="mt-1 truncate text-sm font-bold text-foreground">{row.national_id_name || '—'}</p>
-              {idNameUnreadable ? (
-                <p role="alert" className="mt-0.5 flex items-start gap-1 text-[10px] font-semibold text-destructive">
-                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" aria-hidden="true" />
-                  {idNameConfidence.reason} The account name was left unchanged and Verify stays off until a clear name is read.
-                </p>
-              ) : (
-                <p className="text-[10px] text-muted-foreground">
-                  {isLinkedCase
-                    ? 'Differs from withdrawal account — expected for linked account'
-                    : row.national_id_name
-                      ? row.name_match_score !== null && row.name_match_score < 0.8
-                        ? 'Does not match the withdrawal account name'
-                        : 'Matches the withdrawal account name'
-                      : 'Not read from the ID yet'}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Names do not match: show the ID name and let it become the holder's name (suppressed for linked cases) */}
-          {!isLinkedCase && row.name_match_score !== null && row.name_match_score < 0.8 && (
-            <IdNameMismatchCard row={row} onSaved={() => goTo(position)} />
-          )}
-
-          {/* What the reader stored off the card, with the matching checks */}
-          <StoredIdReadingCard row={row} />
-
-          {/* What was read off the BACK of the card, re-read from the archived photo */}
-          <StoredIdBackReadingCard row={row} backPath={idBackPath} />
-
-          {isLinkedCase ? (
-            <LinkedAutoVerifiedCard row={row} linkRequest={associatedLink} />
-          ) : (
-            <>
-              {/* Mandatory network name check before Verify can be tapped */}
-              <PayoutNameCheckCard row={row} check={nameCheck} onChange={setNameCheck} />
-
-              {/* Audit trail of name replacements */}
-              <NameChangeHistory userId={row.user_id} />
-
-              {/* Contact actions */}
-              <div className="grid grid-cols-2 gap-2 px-5 pt-3">
-                {row.user_phone && (
-                  <a
-                    href={`tel:${row.user_phone}`}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground"
-                  >
-                    <PhoneCall className="h-4 w-4" /> Call
-                  </a>
-                )}
-                {(() => {
-                  const href = waHref(
-                    row.user_phone,
-                    `Hello ${(row.full_name || '').split(' ')[0] || 'there'}, this is Welile Financial Ops about your payout verification.`,
-                  );
-                  return href ? (
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-emerald-600/40 text-sm font-bold text-emerald-700 dark:text-emerald-400"
-                    >
-                      <MessageCircle className="h-4 w-4" /> WhatsApp
-                    </a>
-                  ) : null;
-                })()}
-                {row.destination_type === 'mobile_money' &&
-                  row.momo_number &&
-                  last9(row.momo_number) !== last9(row.user_phone) && (
-                    <a
-                      href={`tel:${row.momo_number}`}
-                      className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary/40 text-xs font-bold text-primary"
-                    >
-                      <Smartphone className="h-4 w-4" /> Call payout number {row.momo_number}
-                    </a>
-                  )}
-                {row.destination_type !== 'mobile_money' && (
-                  <p className="col-span-2 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                    <Building2 className="h-3.5 w-3.5" /> Bank account — confirm with the bank on the call
-                  </p>
-                )}
-              </div>
-
-              {/* Decisions */}
-              <div className="flex gap-3 p-5">
-                <Button
-                  variant="outline"
-                  className="h-14 flex-1 rounded-2xl text-xs font-bold uppercase tracking-widest"
-                  onClick={() => setDeciding(true)}
-                >
-                  Reject / note
-                </Button>
-                <Button
-                  className="h-14 flex-[2] rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25 disabled:opacity-50"
-                  disabled={verifyBlocked || quickVerify.isPending}
-                  onClick={() => setConfirmingVerify(row)}
-                >
-                  {quickVerify.isPending ? (
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="mr-2 h-5 w-5" />
-                  )}
-                  Verify payout
-                </Button>
-              </div>
-
-              {!photosReady && (
-                <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs text-amber-600">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Waiting for their National ID photo and selfie
-                </p>
-              )}
-              {photosReady && idNameUnreadable && (
-                <p role="alert" className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-destructive">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  Verify is off — {idNameConfidence.reason} Ask for a clearer ID photo.
-                </p>
-              )}
-              {photosReady && !idNameUnreadable && !isDouble && !nameCheckPassed && (
-                <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  {nameCheck
-                    ? 'The name on the number is not clearly the same person — Verify needs a written reason and your confirmation.'
-                    : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
-                </p>
-              )}
-              {(() => {
-                const reason = blockedReasonFor(row);
-                if (!reason) return null;
-                return (
-                  <p className={`-mt-1 flex items-start justify-center gap-1.5 px-5 pb-4 text-center text-xs font-medium ${reason.tone}`}>
-                    <reason.Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    <span>{reason.text}</span>
-                  </p>
-                );
-              })()}
-              {row.decision_reason && (
-                <p className="px-5 pb-4 text-center text-xs text-muted-foreground">
-                  Last note: {row.decision_reason}
-                </p>
-              )}
-            </>
-          )}
-
-          {/* Queue navigation — the next NUMBER for this person, or the next real PERSON. */}
-          <div className="space-y-2 border-t border-primary/10 px-5 py-3">
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                variant="ghost"
-                className="h-11 gap-1"
-                disabled={position <= 1}
-                onClick={goPrevPerson}
-                aria-label="Previous person in the queue"
-              >
-                <ChevronLeft className="h-4 w-4" /> Previous person
-              </Button>
-              <p className="text-center text-xs font-semibold text-muted-foreground" aria-live="polite">
-                Case {position} of {total}
-                {personNumbersInQueue > 1 && (
-                  <>
-                    <br />
-                    Number {personNumberPosition} of {personNumbersInQueue} waiting for this person
-                  </>
-                )}
-              </p>
-              <Button
-                variant="ghost"
-                className="h-11 gap-1"
-                disabled={position >= total}
-                onClick={goNextPerson}
-                aria-label="Skip the rest of this person's numbers and go to the next person"
-              >
-                Next person <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            {nextSameIdx >= 0 && (
-              <Button
-                variant="outline"
-                className="h-11 w-full gap-1.5 border-amber-500/60 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-                onClick={() => setIndex(nextSameIdx)}
-                aria-label="Next payout number for the same person"
-              >
-                <Smartphone className="h-4 w-4" /> Next number for the same person
-              </Button>
-            )}
-          </div>
         </div>
       )}
 
-      {mode === 'case' && !queue.isLoading && !queue.isError && rows.length > 0 && (
-        <PayoutQueueBlockedList
-          rows={rows}
-          activeId={row?.id ?? null}
-          startNumber={page * PAYOUT_VERIFICATION_PAGE_SIZE + 1}
-          onOpen={(i) => setIndex(i)}
-        />
-      )}
+      </>)}
 
       <DecisionDialog
         row={deciding ? row : null}

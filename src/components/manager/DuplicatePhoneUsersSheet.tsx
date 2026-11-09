@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -51,10 +52,10 @@ export function DuplicatePhoneUsersSheet({
 
       if (allUserIds.length === 0) return;
 
-      const { data: profiles, error } = await supabase
+      const { data: profiles, error } = await withUuidIds(allUserIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, email, avatar_url, created_at')
-        .in('id', allUserIds);
+        .in('id', validIds));
 
       if (error) {
         console.error('Error fetching profiles:', error);

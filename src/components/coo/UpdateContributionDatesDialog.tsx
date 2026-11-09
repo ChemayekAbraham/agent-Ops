@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -111,10 +112,10 @@ export default function UpdateContributionDatesDialog({ open, onOpenChange, onSu
       }
 
       // Fetch all portfolios with owner names
-      const { data: portfolios, error } = await supabase
+      const { data: portfolios, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
           .select('id, portfolio_code, investment_amount, created_at, duration_months, investor_id, profiles!investor_portfolios_investor_id_fkey(full_name)')
-          .in('status', ['active', 'pending', 'pending_approval', 'matured']);
+          .in('status', ['active', 'pending', 'pending_approval', 'matured']));
 
       if (error) throw error;
 
@@ -169,7 +170,7 @@ export default function UpdateContributionDatesDialog({ open, onOpenChange, onSu
       const nextRoiDate = addMonths(contributionDate, 1);
       const maturityDate = addMonths(contributionDate, row.durationMonths);
 
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({
           created_at: dateOnlyToUtcMiddayIso(row.newDate),
@@ -177,7 +178,7 @@ export default function UpdateContributionDatesDialog({ open, onOpenChange, onSu
           next_roi_date: formatLocalDateOnly(nextRoiDate),
           maturity_date: formatLocalDateOnly(maturityDate),
         })
-        .eq('id', row.portfolioId!);
+        .eq('id', row.portfolioId!));
 
       if (error) {
         console.error('Update failed for', row.portfolioId, error);

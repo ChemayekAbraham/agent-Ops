@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { HubEntryCard } from '@/components/ops/HubEntryCard';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
@@ -282,7 +283,7 @@ export function TenantOpsDashboard({
       // it's accurate even for tenants without a rent_request row.
       const [tenantRes, rentReqRes, ledgerLifetimeRes] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name, phone, referrer_id').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, referrer_id').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         tenantIds.length
           ? supabase.from('rent_requests')
@@ -365,7 +366,7 @@ export function TenantOpsDashboard({
         ...Array.from(referrerAgentByTenant.values()),
       ])];
       const { data: agentProfiles } = allAgentIds.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', allAgentIds)
+        ? await withUuidIds(allAgentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] as any[] };
       const agentMap = new Map((agentProfiles || []).map((p: any) => [p.id, p]));
 
@@ -509,7 +510,7 @@ export function TenantOpsDashboard({
   const enrichWithProfiles = async (rows: any[]) => {
     const ids = [...new Set(rows.flatMap(r => [r.tenant_id, r.landlord_id, r.approved_by]).filter(Boolean) as string[])];
     if (!ids.length) return new Map<string, any>();
-    const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+    const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
     return new Map((data || []).map((p: any) => [p.id, p]));
   };
 
@@ -881,7 +882,7 @@ export function TenantOpsDashboard({
 
       const profileIds = [...new Set(payments.flatMap(p => [p.tenantId, p.agentId]).filter(Boolean) as string[])];
       const { data: profs } = profileIds.length
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', profileIds)
+        ? await withUuidIds(profileIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] as any[] };
       const pmap = new Map((profs || []).map((p: any) => [p.id, p]));
 
@@ -1132,9 +1133,9 @@ export function TenantOpsDashboard({
       };
 
       const [tenantProfiles, landlords, agents] = await Promise.all([
-        fetchInBatches<any>(tenantIds, (b) => supabase.from('profiles').select('id, full_name, phone, tenant_status').in('id', b)),
+        fetchInBatches<any>(tenantIds, (b) => withUuidIds(b, (validIds) => supabase.from('profiles').select('id, full_name, phone, tenant_status').in('id', validIds))),
         fetchInBatches<any>(landlordIds, (b) => supabase.from('landlords').select('id, name, phone').in('id', b)),
-        fetchInBatches<any>(agentIds, (b) => supabase.from('profiles').select('id, full_name').in('id', b)),
+        fetchInBatches<any>(agentIds, (b) => withUuidIds(b, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))),
       ]);
 
       const profileMap = new Map(tenantProfiles.map((p: any) => [p.id, p]));

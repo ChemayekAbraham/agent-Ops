@@ -16,7 +16,8 @@ interface Props {
   houses?: HouseLine[]
   total_needed?: string | number
   total_monthly_earning?: string | number
-  return_rate?: number
+  /** The rate the figures were computed at. No default: missing -> no % text. */
+  return_rate?: number | null
   first_return_date?: string
 
   dashboard_url?: string
@@ -46,7 +47,7 @@ export function FunderSavedHouseFundable({
   houses = [],
   total_needed = 0,
   total_monthly_earning = 0,
-  return_rate = 15,
+  return_rate = null,
   first_return_date = '',
   dashboard_url = 'https://welileapp.com/dashboard/funder',
   currency = 'UGX',
@@ -94,7 +95,9 @@ export function FunderSavedHouseFundable({
                                 <td style={{ padding: '16px 20px' }}>
                                   <Text style={heroAmount}>{fmt(total_monthly_earning, currency)}</Text>
                                   <Text style={heroLabel}>
-                                    estimated Returns every month ({return_rate}% of your money), for as long as your money is working
+                                    {Number(return_rate) > 0
+                                      ? `estimated Returns every month (${Math.round(Number(return_rate) * 100) / 100}% of your money), for as long as your money is working`
+                                      : 'estimated Returns every month, for as long as your money is working'}
                                   </Text>
                                   <Text style={heroSub}>
                                     Welile collects the rent and pays your Returns into your Welile wallet

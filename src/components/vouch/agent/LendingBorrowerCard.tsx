@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,7 +21,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 interface Props {
   loan: LendingLoan;
   /** Amount Welile vouches for this borrower (undefined while loading). */
-  vouchLimit?: number;
+  /** undefined while loading; null when the limit is hidden (masked cache column): never 0. */
+  vouchLimit?: number | null;
   onRecordRepayment: (loan: LendingLoan, amount: number) => Promise<void>;
   onTopUpOrRenew?: (loan: LendingLoan, extra: number, newDue: string) => Promise<void>;
   onSetRecovery?: (loan: LendingLoan, on: boolean) => Promise<void>;
@@ -86,7 +88,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const dueStyle = DUE_STYLE[due];
   const accessed = isOpen ? Number(loan.principal_ugx) || 0 : 0;
   const PLAN_CAP = 5_000_000;
-  const availableTopUp = vouchLimit === undefined ? null : Math.max(0, Math.min(vouchLimit - accessed, PLAN_CAP - accessed));
+  const availableTopUp = vouchLimit == null ? null : Math.max(0, Math.min(vouchLimit - accessed, PLAN_CAP - accessed));
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
 
   // New end date: count from today, or from the current end date if that is still ahead.
@@ -181,7 +183,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
       let agentName: string | null = null;
       let fundingBreakdown: { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }[] | undefined;
       try {
-        const { data: u } = await supabase.auth.getUser();
+        const { data: u } = await getSessionCheckedUser();
         if (u?.user) {
           const { data: pr } = await (supabase.from('profiles' as any).select('full_name').eq('id', u.user.id).maybeSingle() as any);
           agentName = pr?.full_name ?? null;
@@ -325,7 +327,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
             </div>
             <div className="rounded-lg bg-primary/10 px-2.5 py-1.5">
               <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Available top-up</p>
-              <p className="text-sm font-bold text-primary">{availableTopUp === null ? '…' : formatUGX(availableTopUp)}</p>
+              <p className="text-sm font-bold text-primary">{availableTopUp === null ? (vouchLimit === null ? '—' : '…') : formatUGX(availableTopUp)}</p>
             </div>
           </div>
 

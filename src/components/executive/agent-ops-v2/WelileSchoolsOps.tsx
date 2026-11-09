@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GraduationCap, ChevronRight, MapPin, Loader2, MessageCircle, MessageSquare } from 'lucide-react';
@@ -41,7 +42,7 @@ function useSchoolsData() {
       const agentIds = Array.from(new Set(profiles.map((p) => p.registered_by).filter(Boolean))) as string[];
       const agents: Record<string, string> = {};
       for (let i = 0; i < agentIds.length; i += 200) {
-        const { data } = await db.from('profiles').select('id, full_name').in('id', agentIds.slice(i, i + 200));
+        const { data } = await withUuidIds(agentIds.slice(i, i + 200), (validIds) => db.from('profiles').select('id, full_name').in('id', validIds));
         (data ?? []).forEach((a: any) => { agents[a.id] = a.full_name ?? '—'; });
       }
       return { schools, profiles, agents, gateLogs };

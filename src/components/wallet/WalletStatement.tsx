@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -228,7 +229,7 @@ async function buildSubAgentEarnings(userId: string, entries: LedgerEntry[]): Pr
   ];
   const nameMap: Record<string, string> = {};
   if (ids.length > 0) {
-    const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+    const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
     (profiles || []).forEach((p) => { nameMap[p.id] = p.full_name || 'Unknown sub-agent'; });
   }
 
@@ -372,7 +373,7 @@ export function WalletStatement() {
           .eq('ledger_scope', 'wallet'))
           .order('transaction_date', { ascending: false })
           .limit(500),
-        supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
         supabase
           .from('agent_earnings')
           .select('id, created_at, amount, earning_type, description')

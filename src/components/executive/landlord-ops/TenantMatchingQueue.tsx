@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,10 +71,10 @@ export function TenantMatchingQueue({ onViewingCreated }: { onViewingCreated?: (
       if (!requests?.length) return [];
 
       const tenantIds = [...new Set(requests.map(r => r.tenant_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, city')
-        .in('id', tenantIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
@@ -117,7 +118,7 @@ export function TenantMatchingQueue({ onViewingCreated }: { onViewingCreated?: (
 
       const agentIds = agentRoles.map(r => r.user_id);
       const [profilesRes, viewingsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, city').in('id', agentIds),
+        withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, city').in('id', validIds)),
         supabase.from('property_viewings').select('agent_id').in('agent_id', agentIds).in('status', ['matched', 'scheduled']),
       ]);
 

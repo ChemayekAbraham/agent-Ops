@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { differenceInDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,10 +39,10 @@ export function useAgentDeadTenants(agentId?: string) {
       if (!requests?.length) return [];
 
       const tenantIds = [...new Set(requests.map((r) => r.tenant_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', tenantIds);
+        .in('id', validIds));
       const profileMap: Record<string, { name: string; phone: string }> = {};
       (profiles || []).forEach((p) => {
         profileMap[p.id] = { name: p.full_name, phone: p.phone || '' };

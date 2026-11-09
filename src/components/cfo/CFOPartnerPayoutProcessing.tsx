@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,10 +69,10 @@ export function CFOPartnerPayoutProcessing() {
 
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(r => r.user_id))];
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, avatar_url')
-          .in('id', userIds);
+          .in('id', validIds));
 
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
         setRequests(

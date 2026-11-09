@@ -1,6 +1,6 @@
 # 262. Withdrawal PIN becomes mandatory and replaces the withdrawal OTP (2026-11-06)
 
-**Status:** BUILT on `dev/withdrawal-pin`, **not pushed, not applied, not browser-tested.** Frontend only. `enforce_mode` on production is still `pin_holders`.
+**Status (2026-11-06):** PUSHED to `lovable` (`bba5f6cde4`) and deployed by Lovable, together with doc 263 (the first-PIN phone code that closes section 2.1). Frontend only. `enforce_mode` on production is still `pin_holders`.
 **Origin:** Josh (CTO), 2026-11-06: "the user should set the withdrawal PIN before they withdraw, then we remove the OTP." He repeated this after the first-PIN risk below was put to him.
 **Companion to:** docs 258 to 261.
 

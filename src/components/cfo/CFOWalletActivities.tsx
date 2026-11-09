@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -230,7 +231,7 @@ export function CFOWalletActivities() {
       // the actual download.
       (async () => {
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: 'pdf_report_exported',

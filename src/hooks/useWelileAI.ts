@@ -2,7 +2,8 @@ import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { buildNexaOfflineSalesReply, buildNexaPublicGuideReply, isNexaHumanEscalationRequest, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, type NexaLearnedKnowledge } from '@/lib/nexaSalesEngine';
+import { buildNexaOfflineSalesReply, buildNexaPublicGuideReply, isNexaHumanEscalationRequest, isRestrictedInternalStaffQuery, buildInternalStaffRefusalReply, isPortfolioOrReturnsQuestion, type NexaLearnedKnowledge } from '@/lib/nexaSalesEngine';
+import { getPublicPartnerRate } from '@/lib/publicPartnerRate';
 import { extractInquiryLeadDetails, buildSignupPersuasionPitch, buildInquirySignupResult, parseInquirySignupResult, type InquiryLeadOptions, type InquirySignupResult } from '@/lib/nexaSalesEngine';
 
 export interface AIChatMessage {
@@ -61,22 +62,26 @@ export function useWelileAI() {
     const controller = new AbortController();
     abortRef.current = controller;
     let localPitch = '';
+    // Local replies quote only the live PUBLIC new-partner rate (null = no figure, design v2 §3.5.9).
+    let rate: number | null = null;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const [{ data: { session } }, publicRate] = await Promise.all([supabase.auth.getSession(), getPublicPartnerRate()]);
+      rate = publicRate;
       if (controller.signal.aborted) return;
       if (!session) {
         const lead = extractInquiryLeadDetails(input, leadOptions);
         setSignupResult(buildInquirySignupResult(lead.role));
-        localPitch = `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone)}`;
+        localPitch = `\n\n${buildSignupPersuasionPitch(lead.role, !!lead.fullPhone, rate)}`;
       } else setSignupResult(null);
-      const guide = buildNexaPublicGuideReply(input);
+      // A signed-in person's Portfolio/Returns question goes to the server, which answers with their own rate.
+      const guide = session && isPortfolioOrReturnsQuestion(input) ? null : buildNexaPublicGuideReply(input, false, rate);
       if (guide) {
         setMessages(prev => [...prev, {id:safeUUID(),role:'assistant',content:guide + localPitch,created_at:new Date().toISOString()}]);
         return;
       }
       if (!navigator.onLine) {
-        setMessages(prev => [...prev, { id: safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input) + localPitch, created_at:new Date().toISOString() }]);
+        setMessages(prev => [...prev, { id: safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input, false, rate) + localPitch, created_at:new Date().toISOString() }]);
         return;
       }
       const resp = await fetch(CHAT_URL, {
@@ -149,7 +154,7 @@ export function useWelileAI() {
       toast.error(e.message || 'Failed to get AI response');
       setMessages(prev => prev.filter(m => m.id !== 'streaming'));
       if (!httpFailed && !isNexaHumanEscalationRequest(input) && !assistantContent) {
-        setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input) + localPitch, created_at:new Date().toISOString() }]);
+        setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:buildNexaOfflineSalesReply(input, false, rate) + localPitch, created_at:new Date().toISOString() }]);
       } else if (isNexaHumanEscalationRequest(input)) {
         setMessages(prev => [...prev, { id:safeUUID(), role:'assistant', content:'Your request was not confirmed as sent. Please try again or contact Welile support.', created_at:new Date().toISOString() }]);
       }

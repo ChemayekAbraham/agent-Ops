@@ -10,10 +10,18 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
 import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
-const MONTHLY_RATE = 0.15;
-
-const monthlyAt15 = (total: number) => Math.round(total * MONTHLY_RATE);
+/**
+ * Monthly Returns on a selection at the signed-in partner's OWN rate for a new portfolio
+ * (partner_quote_rate 'me'): today's 15 while the switch has never been on, 10 for a new
+ * partner after it, their own rate for an existing partner. null (loading or unknown) = no figure.
+ */
+function useMonthlyAtOwnRate(): (total: number) => number | null {
+  const { rate } = useOwnNewPortfolioRate();
+  return (total: number) => monthlyReturnFor(total, rate);
+}
 
 /**
  * What the caller reports back when "Confirm and support" is pressed.
@@ -46,6 +54,8 @@ export function FunderNewSelectionBar({
   onClear: () => void;
   onReview: () => void;
 }) {
+  const monthlyAt15 = useMonthlyAtOwnRate();
+  const ownRatePct = formatRatePct(useOwnNewPortfolioRate().rate);
   if (items.length === 0 || !category) return null;
   const total = items.reduce((sum, item) => sum + item.amount, 0);
 
@@ -85,8 +95,8 @@ export function FunderNewSelectionBar({
             <span className="font-semibold">{formatDynamic(total)}</span>
           </p>
           <p className="text-sm">
-            <span className="text-muted-foreground">Monthly at 15% </span>
-            <span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span>
+            <span className="text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''} </span>
+            <span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span>
           </p>
         </div>
         <div className="flex min-w-0 gap-2">
@@ -130,6 +140,8 @@ export function FunderNewReviewDialog({
   /** Opens the supporter's own portfolio list from the success view. */
   onViewPortfolio?: () => void;
 }) {
+  const monthlyAt15 = useMonthlyAtOwnRate();
+  const ownRatePct = formatRatePct(useOwnNewPortfolioRate().rate);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<FunderReceipt | null>(null);
@@ -230,9 +242,9 @@ export function FunderNewReviewDialog({
                 <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
               </div>
               <div className="rounded-2xl border border-border/70 bg-primary/5 p-3.5 shadow-2xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly at 15%</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''}</p>
                 <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight text-success">
-                  {formatDynamic(monthlyAt15(total))}
+                  {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-3 shadow-2xs min-[380px]:col-span-2">
@@ -274,7 +286,7 @@ export function FunderNewReviewDialog({
           <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <p className="min-w-0 flex-1 text-sm leading-relaxed">
-              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
+              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
             </p>
           </div>
         </div>
@@ -326,7 +338,7 @@ export function FunderNewReviewDialog({
 
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(receipt.total)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Returns</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(receipt.total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Returns</span><span className="font-semibold text-success">{monthlyAt15(receipt.total) === null ? '—' : formatDynamic(monthlyAt15(receipt.total))}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
                 {receipt.reference ? (
                   <div className="flex justify-between gap-3"><span className="text-muted-foreground">Booking reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
@@ -374,7 +386,7 @@ export function FunderNewReviewDialog({
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly at 15%</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''}</span><span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
               </div>
               <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
@@ -516,7 +528,7 @@ export function buildPlanShareLink(item: Pick<FunderNewSelectionItem, 'id' | 'ca
 export function buildPlanShareMessage(item: Pick<FunderNewSelectionItem, 'tenantName'>, link: string): string {
   const first = (item.tenantName || '').trim().split(/\s+/)[0];
   const who = first || 'a tenant';
-  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn 15% of the rent monthly for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn monthly Returns on the rent for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
 }
 
 export function buildWhatsAppShareUrl(message: string): string {
@@ -524,7 +536,7 @@ export function buildWhatsAppShareUrl(message: string): string {
 }
 
 const POINTS = [
-  { icon: HandCoins, text: 'You support a tenant — you earn 15% of their rent.' },
+  { icon: HandCoins, text: 'You support a tenant — you earn monthly Returns on their rent.' },
   { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
   { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
 ];
@@ -536,6 +548,8 @@ const HOW_STEPS = [
 ];
 
 function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
+  // Signed-in partner screen: the worked example is priced at the viewer's own rate (null = no figure).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const link = buildPlanShareLink(item, origin);
   const message = buildPlanShareMessage(item, link);
@@ -573,7 +587,7 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
       <div className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
         <p className="text-base text-muted-foreground leading-relaxed">
-          Support this tenant's rent once. Earn 15% of their rent every month for the next 12 months.
+          Support this tenant's rent once. Earn {formatRatePct(ownRate) ? `${formatRatePct(ownRate)} of their rent` : 'Returns on their rent'} every month for the next 12 months.
         </p>
       </div>
 
@@ -599,7 +613,7 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
         </ol>
       </div>
 
-      <SupportPlanExample fundingAmount={item.amount} />
+      <SupportPlanExample fundingAmount={item.amount} rate={ownRate} />
 
       <div className="space-y-2">
         <a

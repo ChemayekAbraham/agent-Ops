@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -154,7 +155,7 @@ export default function DepartmentBudgetSubmission({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) return;
       const { data } = await supabase

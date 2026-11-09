@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -64,10 +65,10 @@ export function AgentCollectionsWidget() {
       const agentIds = [...new Set(payments.map(p => p.agent_id))];
       const tenantIds = [...new Set(payments.filter(p => p.tenant_id).map(p => p.tenant_id!))];
       const allUserIds = [...new Set([...agentIds, ...tenantIds])];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(allUserIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', allUserIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
 
@@ -106,7 +107,7 @@ export function AgentCollectionsWidget() {
 
   const handleViewUser = async (userId: string) => {
     try {
-      const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+      const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
       if (data) {
         setSelectedUser(data);
         setUserDetailOpen(true);

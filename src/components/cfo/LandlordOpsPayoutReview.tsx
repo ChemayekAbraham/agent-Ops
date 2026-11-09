@@ -58,7 +58,7 @@ export function LandlordOpsPayoutReview({ reviewRole }: LandlordOpsPayoutReviewP
 
       // Enrich with agent info
       const enriched = await Promise.all((data || []).map(async (p: any) => {
-        const { data: agent } = await supabase.from('profiles').select('full_name, phone').eq('id', p.agent_id).single();
+        const { data: agent } = await supabase.from('profiles').select('full_name, phone').eq('id', p.agent_id).maybeSingle();
         return { ...p, agent };
       }));
       return enriched;

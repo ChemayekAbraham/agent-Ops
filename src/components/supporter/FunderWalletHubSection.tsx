@@ -125,7 +125,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
             ) : (
               <>
                   <UnifiedWalletHeroCard
-                    balance={data?.totalAvailable ?? 0}
+                    balance={data ? data.totalAvailable : 0}
                     role="supporter"
                     withdrawableBalance={data?.withdrawableAmount ?? 0}
                     operationalFloatBalance={data?.floatAmount ?? 0}
@@ -139,7 +139,7 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                       <FunderQuickActions
                         variant="hero"
                         availableBalance={data?.withdrawableAmount ?? 0}
-                        roiBalance={data?.roiAmount ?? 0}
+                        roiBalance={data ? data.roiAmount : 0}
                         onChanged={() => { refetch(); }}
                       />
                     }

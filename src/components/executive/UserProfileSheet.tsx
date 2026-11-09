@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,7 +62,7 @@ export function UserProfileSheet({ open, onClose, userId, userName, userPhone, u
       const relatedIds = [...new Set(data.map(r => userType === 'tenant' ? r.agent_id : r.tenant_id).filter(Boolean))] as string[];
       let profileMap = new Map<string, string>();
       if (relatedIds.length) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', relatedIds);
+        const { data: profiles } = await withUuidIds(relatedIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (profiles || []).forEach(p => profileMap.set(p.id, p.full_name || '—'));
       }
 

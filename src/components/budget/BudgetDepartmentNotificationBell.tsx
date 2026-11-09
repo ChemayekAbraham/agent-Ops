@@ -79,11 +79,11 @@ export function BudgetDepartmentNotificationBell({
         >
           <Bell className="h-5 w-5" />
           {unread > 0 ? (
-            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
               {unread > 9 ? '9+' : unread}
             </span>
           ) : required ? (
-            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-destructive ring-2 ring-background" />
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background" />
           ) : null}
         </Button>
       </PopoverTrigger>
@@ -101,11 +101,11 @@ export function BudgetDepartmentNotificationBell({
           {required && (
             <button
               onClick={openRequired}
-              className="w-full text-left px-3 py-2.5 rounded-xl border border-destructive/40 bg-destructive/10 transition-colors hover:bg-destructive/15"
+              className="w-full text-left px-3 py-2.5 rounded-xl border border-primary/30 bg-primary/10 transition-colors hover:bg-primary/15"
             >
               <div className="flex items-center gap-1.5">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-                <p className="text-xs font-bold text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5 text-primary shrink-0" />
+                <p className="text-xs font-bold text-primary">
                   {required.is_overdue ? 'Budget submission overdue' : 'Budget submission required'}
                 </p>
               </div>

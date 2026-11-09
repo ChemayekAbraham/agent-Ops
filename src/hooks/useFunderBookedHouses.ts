@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,14 +38,15 @@ const KEY = 'funder-booked-houses';
  * and released. Read-only; funding and releasing go through the RPCs below.
  */
 export function useFunderBookedHouses(enabled = true) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user } = useAuth();
   const client = useQueryClient();
   const query = useQuery({
     queryKey: [KEY, user?.id],
-    enabled: enabled && !!user,
+    enabled: authenticatedReady && (enabled && !!user),
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('funder_booked_houses');
+      const { data, error } = await withUserSession(() => supabase.rpc('funder_booked_houses'));
       if (error) throw error;
       const payload = (data ?? {}) as { bookings?: FunderBooking[] };
       return Array.isArray(payload.bookings) ? payload.bookings : [];

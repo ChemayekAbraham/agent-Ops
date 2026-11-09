@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -96,10 +97,10 @@ export function CashoutAgentActivity() {
       const CHUNK = 200;
       const out: any[] = [];
       for (let i = 0; i < beneficiaryIds.length; i += CHUNK) {
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(beneficiaryIds.slice(i, i + CHUNK), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', beneficiaryIds.slice(i, i + CHUNK));
+          .in('id', validIds));
         if (error) throw error;
         out.push(...(data || []));
       }

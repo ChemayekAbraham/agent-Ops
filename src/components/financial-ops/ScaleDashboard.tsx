@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +33,7 @@ function AnomalyAlerts() {
   });
 
   const acknowledge = async (id: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await (supabase as any).from('financial_anomalies').update({
       acknowledged: true, acknowledged_by: user?.id, acknowledged_at: new Date().toISOString()
     }).eq('id', id);

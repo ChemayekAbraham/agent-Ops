@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -241,10 +242,10 @@ export default function ManagerAccess() {
 
         if (rentRequests?.length) {
           const tenantIds = [...new Set(rentRequests.map(r => r.tenant_id))];
-          const { data: tenantProfiles } = await supabase
+          const { data: tenantProfiles } = await withUuidIds(tenantIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name')
-            .in('id', tenantIds);
+            .in('id', validIds));
 
           rentRequests.forEach(r => {
             const tenant = tenantProfiles?.find(p => p.id === r.tenant_id);
@@ -275,7 +276,7 @@ export default function ManagerAccess() {
           
           const [{ data: products }, { data: buyers }] = await Promise.all([
             supabase.from('products').select('id, name').in('id', productIds),
-            supabase.from('profiles').select('id, full_name').in('id', buyerIds)
+            withUuidIds(buyerIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           ]);
 
           orders.forEach(o => {

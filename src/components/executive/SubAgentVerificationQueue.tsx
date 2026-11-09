@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -177,9 +178,9 @@ export function SubAgentVerificationQueue() {
       const BATCH = 50;
       const profiles: Record<string, any> = {};
       for (let i = 0; i < allIds.length; i += BATCH) {
-        const { data: batch } = await supabase.from('profiles')
+        const { data: batch } = await withUuidIds(allIds.slice(i, i + BATCH), (validIds) => supabase.from('profiles')
           .select('id, full_name, phone')
-          .in('id', allIds.slice(i, i + BATCH));
+          .in('id', validIds));
         (batch || []).forEach(p => { profiles[p.id] = p; });
       }
 

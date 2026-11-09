@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -168,10 +169,10 @@ export function RecentlyVerifiedList({ limit = 10, verifierId, exportFromIso, ex
       );
       const nameMap = new Map<string, string | null>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of (profs ?? []) as any[]) nameMap.set(p.id, p.full_name);
       }
 
@@ -253,10 +254,10 @@ export function RecentlyVerifiedList({ limit = 10, verifierId, exportFromIso, ex
     ]));
     const nameMap = new Map<string, string | null>();
     if (ids.length > 0) {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', ids);
+        .in('id', validIds));
       for (const p of (profs ?? []) as any[]) nameMap.set(p.id, p.full_name);
     }
 

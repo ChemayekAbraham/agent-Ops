@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -99,7 +100,7 @@ async function logMatchAttempt(args: {
     const { match: m, tolerance, outcome, error, extra } = args;
     const emailAmt = m.email.amount == null ? null : Math.round(Number(m.email.amount));
     const wAmt = Math.round(Number(m.withdrawal.amount));
-    const { data: u } = await supabase.auth.getUser();
+    const { data: u } = await getSessionCheckedUser();
     await supabase.from('email_payout_match_attempts').insert({
       operator_id: u?.user?.id ?? null,
       withdrawal_id: m.withdrawal.id,

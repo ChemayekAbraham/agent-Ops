@@ -16,6 +16,8 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 export type PoolType = 'tenant' | 'angel';
 
@@ -26,6 +28,9 @@ interface InvestmentSelectionSheetProps {
 }
 
 function OptionCards({ onSelect }: { onSelect: (pool: PoolType) => void }) {
+  // Public new-partner rate (15 while the switch has never been on); null while unknown -> "—".
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(newContractRate);
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
       {/* Tenant Support Pool */}
@@ -39,14 +44,14 @@ function OptionCards({ onSelect }: { onSelect: (pool: PoolType) => void }) {
           </div>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Fund verified rent requests, earn monthly returns
+          Fund verified rent requests, earn monthly Returns
         </p>
         <div className="space-y-2 flex-1">
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1.5">
-              <TrendingUp className="h-3 w-3" /> Monthly Return
+              <TrendingUp className="h-3 w-3" /> Monthly Returns (new partners)
             </span>
-            <span className="font-bold text-success">15%</span>
+            <span className="font-bold text-success">{newRatePct ?? '—'}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1.5">

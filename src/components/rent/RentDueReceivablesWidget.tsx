@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -382,7 +383,7 @@ export function RentDueReceivablesWidget({ mode, onTotalChange }: RentDueReceiva
       // Fetch profiles and subscription statuses in parallel
       const [profilesRes, subscriptionsRes] = await Promise.all([
         allIds.length > 0
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', allIds)
+          ? withUuidIds(allIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] }),
         requestIds.length > 0
           ? supabase.from('subscription_charges').select('rent_request_id, status, total_charged, accumulated_debt, charges_remaining, charges_completed, next_charge_date, frequency, charge_amount').in('rent_request_id', requestIds)

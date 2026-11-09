@@ -985,15 +985,15 @@ Deno.serve(async (req) => {
           // Managed payout: notify both agent and partner
           await adminClient.from("notifications").insert({
             user_id: ledgerUserId,
-            title: "Proxy ROI Received ✅",
-            message: `UGX ${op.amount.toLocaleString()} credited to your wallet as ROI for ${op.metadata?.partner_name || 'your proxy partner'}. Ref: ${op.reference_id || 'N/A'}`,
+            title: "Proxy Returns Received ✅",
+            message: `UGX ${op.amount.toLocaleString()} credited to your wallet as Returns for ${op.metadata?.partner_name || 'your proxy partner'}. Ref: ${op.reference_id || 'N/A'}`,
             type: "success",
             metadata: { operation_id: op.id, amount: op.amount, on_behalf_of: op.user_id },
           });
           await adminClient.from("notifications").insert({
             user_id: op.user_id,
-            title: "ROI Sent to Proxy Agent ✅",
-            message: `Your ROI payout of UGX ${op.amount.toLocaleString()} has been sent to your assigned proxy agent for collection.`,
+            title: "Returns Sent to Proxy Agent ✅",
+            message: `Your Returns payout of UGX ${op.amount.toLocaleString()} has been sent to your assigned proxy agent for collection.`,
             type: "success",
             metadata: { operation_id: op.id, amount: op.amount, agent_id: ledgerUserId },
           });

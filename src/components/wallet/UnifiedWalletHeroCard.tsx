@@ -11,7 +11,8 @@ import { WalletHoldNotice } from '@/components/wallet/WalletHoldNotice';
 export type WalletRole = 'agent' | 'tenant' | 'supporter' | 'landlord';
 
 interface UnifiedWalletHeroCardProps {
-  balance: number;
+  /** null = unknown (a hidden wallet-hub figure): shown as "—", never UGX 0. */
+  balance: number | null;
   role: WalletRole;
   secondaryLabel?: string;
   secondaryValue?: string;
@@ -126,7 +127,7 @@ export function UnifiedWalletHeroCard({
   const useStrictHeadline = !showAgentSplit && !availableLoading;
   const headlineBalance = useStrictHeadline ? ledgerAvailable : balance;
   const pendingHold = useStrictHeadline
-    ? Math.max(0, Math.min(walletCached || 0, balance) - ledgerAvailable)
+    ? Math.max(0, Math.min(walletCached || 0, balance ?? 0) - ledgerAvailable)
     : 0;
 
   const handleOpenWallet = () => {
@@ -145,7 +146,7 @@ export function UnifiedWalletHeroCard({
   // Amount visibility — same logic as the funder wallet card: hidden by default,
   // EyeOff shown while hidden, Eye shown while revealed, masked as 'UGX ••••••'.
   const [showAmount, setShowAmount] = useState(false);
-  const maskAmt = (v: number) => (showAmount ? formatAmount(v) : 'UGX ••••••');
+  const maskAmt = (v: number | null) => (showAmount ? (v == null ? '—' : formatAmount(v)) : 'UGX ••••••');
   const maskStr = (s: string) => (showAmount ? s : 'UGX ••••••');
 
   useEffect(() => { setReduceMotion(prefersReducedMotion()); }, []);
@@ -399,7 +400,7 @@ export function UnifiedWalletHeroCard({
                   )}
                   {pendingHold > 0 && showAmount && (
                     <p className="text-[10px] text-white mt-1.5">
-                      Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
+                      Wallet total: <span className="font-semibold text-white">{balance == null ? '—' : formatAmount(balance)}</span>
                     </p>
                   )}
                 </div>
@@ -436,7 +437,7 @@ export function UnifiedWalletHeroCard({
                 )}
                 {pendingHold > 0 && showAmount && (
                   <p className="text-[10px] text-white mt-1.5">
-                    Wallet total: <span className="font-semibold text-white">{formatAmount(balance)}</span>
+                    Wallet total: <span className="font-semibold text-white">{balance == null ? '—' : formatAmount(balance)}</span>
                   </p>
                 )}
                 {!disableTap && (

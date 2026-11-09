@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { LandlordFloatPerformanceNotice } from '@/components/agent/LandlordFloatPerformanceNotice';
+import { useLandlordFloatPerformance } from '@/hooks/useLandlordFloatPerformance';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
 import { useLandlordOtp } from '@/hooks/useLandlordOtp';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -254,7 +256,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       const enriched = await Promise.all((data || []).map(async (r: any) => {
         const [{ data: landlord }, { data: tenant }, { data: existing }, { data: livePayout }] = await Promise.all([
           supabase.from('landlords').select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verification_reason, verified').eq('id', r.landlord_id).single(),
-          supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).single(),
+          supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).maybeSingle(),
           supabase.from('agent_float_withdrawals').select('id').eq('rent_request_id', r.id).eq('agent_id', user.id).maybeSingle(),
           // A landlord payout already in flight (or completed) for this rent
           // cycle means the landlord has been paid — never list it again, or the
@@ -374,8 +376,17 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     /^(?:\+?256|0)?\d{9}$/.test(landlordPhone.replace(/\s+/g, '')) &&
     payoutNumberMatchesOnFile;
 
+  // Under 50% performance: no code is sent to the landlord for a withdrawal the database would refuse at the end.
+  const { performance: floatPerformance, blocked: performanceBlocked } = useLandlordFloatPerformance();
+
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
+    if (performanceBlocked) {
+      const msg = floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.';
+      toast.error(msg);
+      setSendOtpError(msg);
+      return;
+    }
     if (!phoneValid) {
       const msg = !payoutState.canSendOtp
         ? `${payoutState.title}. ${payoutState.detail}`
@@ -473,7 +484,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     }
   };
 
-  const sendBlockedReason = !payoutState.canSendOtp
+  const sendBlockedReason = performanceBlocked
+    ? (floatPerformance?.message ?? 'Your collection rate is under the 50% minimum, so landlord float cannot be withdrawn yet.')
+    : !payoutState.canSendOtp
     ? `${payoutState.title}. ${payoutState.detail}`
     : !phoneValid
     ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
@@ -495,6 +508,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     if (landlordOtp.otpSent || landlordOtp.otpLoading) return;
     if (landlordOtp.cooldownSeconds > 0) return;
     if (!phoneValid || !amountValid) return;
+    if (performanceBlocked) return;
     if (sentLandlordsRef.current.has(String(selectedRequest.landlord_id))) return;
     autoSendRef.current = selectedRequest.id;
     void handleSendOtp('auto');
@@ -1013,6 +1027,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           </div>
         </DialogHeader>
 
+        <LandlordFloatPerformanceNotice className="mb-3" />
+
         <AnimatePresence mode="wait">
           {step === 'select' && allocation && (
             <motion.div key="prep" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center py-10 gap-2">
@@ -1312,6 +1328,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     type="button"
                     onClick={() => handleSendOtp('manual')}
                     disabled={
+                      performanceBlocked ||
                       preparingOtp ||
                       landlordOtp.otpLoading ||
                       (!!selectedRequest && sentLandlordsRef.current.has(String(selectedRequest.landlord_id)))

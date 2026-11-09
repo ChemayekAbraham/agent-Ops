@@ -1,5 +1,9 @@
 import { V360_MODEL_A_EXAMPLE } from '@/lib/contractEngine360';
 
+/** The 360 partner sentence (owner decision D8; same words as the assistant and system context). */
+export const V360_PARTNER_RETURNS_SENTENCE =
+  'A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.';
+
 /** Server figures from v360_plan_summary. The client only labels them. */
 export interface V360CaptionSource {
   daily_rate: number | null;
@@ -39,7 +43,7 @@ export function v360CaptionLines(source: V360CaptionSource): { label: string; va
   const lines = [
     { label: 'Daily rate', value: daily == null ? 'not set' : ugx(daily) },
     {
-      label: 'Partner Returns (target 15%, not guaranteed)',
+      label: V360_PARTNER_RETURNS_SENTENCE,
       value: `${ugx(asNumber(source.partner_monthly))} a month, ${ugx(asNumber(source.partner_12_months))} over 12 months`,
     },
     optionalMoney(source, 'agent_sub', 'Sub-agent commission (6% of Gross)'),
@@ -62,4 +66,4 @@ const ex = V360_MODEL_A_EXAMPLE;
 const ugxText = (value: number) => `UGX ${value.toLocaleString('en-US')}`;
 
 export const V360_NEW_QUOTE_EXAMPLE_SENTENCE =
-  `Illustrative new 360-day Rent Plan only. Rent ${ugxText(ex.principal)} gives Gross ${ugxText(ex.gross)} and Daily ${ugxText(ex.daily)} (collected ${ugxText(ex.collected)}). Tenant agent commission is 8% of Gross: sub-agent ${ugxText(ex.agentSub)} (6%) and general agent ${ugxText(ex.agentGeneral)} (2%). Cover Pool ${ugxText(ex.coverPool)} (cycle 1: Proxy Agent ${ugxText(ex.proxy)} and pool ${ugxText(ex.coverPoolRetained)}). Welile 7% is ${ugxText(ex.welile)}, of which tithe is ${ugxText(ex.tithe)} and Welile keeps ${ugxText(ex.welileNet)}. Partner Returns target 15%, not guaranteed (${ugxText(ex.partnerMonthly)} a month). Existing Rent Plans keep their approved terms. This example does not turn new-plan pricing on.`;
+  `Illustrative new 360-day Rent Plan only. Rent ${ugxText(ex.principal)} gives Gross ${ugxText(ex.gross)} and Daily ${ugxText(ex.daily)} (collected ${ugxText(ex.collected)}). Tenant agent commission is 8% of Gross: sub-agent ${ugxText(ex.agentSub)} (6%) and general agent ${ugxText(ex.agentGeneral)} (2%). Cover Pool ${ugxText(ex.coverPool)} (cycle 1: Proxy Agent ${ugxText(ex.proxy)} and pool ${ugxText(ex.coverPoolRetained)}). Welile 7% is ${ugxText(ex.welile)}, of which tithe is ${ugxText(ex.tithe)} and Welile keeps ${ugxText(ex.welileNet)}. ${V360_PARTNER_RETURNS_SENTENCE} Set aside on this example: ${ugxText(ex.partnerMonthly)} a month. Existing Rent Plans keep their approved terms. This example does not turn new-plan pricing on.`;

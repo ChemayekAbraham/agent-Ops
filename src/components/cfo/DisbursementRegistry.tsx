@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +41,7 @@ export function DisbursementRegistry() {
       const ids = Array.from(userIds);
       const profileMap = new Map<string, string>();
       if (ids.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         for (const p of profiles || []) profileMap.set(p.id, p.full_name);
       }
 

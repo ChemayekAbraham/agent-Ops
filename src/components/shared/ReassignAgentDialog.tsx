@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,10 +57,10 @@ export function ReassignAgentDialog({ open, onOpenChange, target, onComplete }: 
       if (error) throw error;
       const ids = Array.from(new Set((roleRows ?? []).map(r => r.user_id)));
       if (!ids.length) return [] as Array<{ id: string; name: string; phone: string | null }>;
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id,full_name,phone')
-        .in('id', ids);
+        .in('id', validIds));
       return ((profs ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>).map(p => ({
         id: p.id,
         name: p.full_name || 'Unnamed agent',

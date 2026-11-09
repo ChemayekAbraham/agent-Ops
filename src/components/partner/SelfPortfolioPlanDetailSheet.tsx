@@ -8,8 +8,10 @@ import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, Wall
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
-import { planShareDescription } from '@/lib/planShareLink';
+import { planShareFallbackDescription } from '@/lib/planShareLink';
 import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 
 export interface PlanDetail {
   rent_request_id: string;
@@ -242,6 +244,10 @@ export function SelfPortfolioPlanDetailSheet({
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [heroIndex, setHeroIndex] = useState(0);
+  // "Your projected returns": this partner's own rate for a new portfolio (partner_quote_rate('me')).
+  // null while it loads or on error: the projection is null (no figure).
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = rateOrNull(ownRate);
   const planId = plan?.rent_request_id ?? null;
   useEffect(() => {
     setHeroIndex(0);
@@ -354,7 +360,7 @@ export function SelfPortfolioPlanDetailSheet({
           <div className="mt-4 rounded-3xl bg-primary/10 p-4">
             <p className="text-sm font-semibold">Invite someone to support this tenant</p>
             <p className="mt-1 text-xs leading-snug text-muted-foreground">
-              {planShareDescription(plan)}
+              {planShareFallbackDescription(plan)}
             </p>
             <div className="mt-3">
               <PlanShareButton plan={plan} variant="block" />
@@ -470,18 +476,20 @@ export function SelfPortfolioPlanDetailSheet({
 
           {/* Earnings projection */}
           {(() => {
-            const monthly = plan.funding_amount * 0.15;
-            const daily = monthly / 30;
+            const monthly = ownRatePct === null ? null : (plan.funding_amount * ownRatePct) / 100;
+            const daily = monthly === null ? null : monthly / 30;
             // The partner earns across the whole contract, not for the plan's length.
             const months = CONTRACT_TERM_MONTHS;
-            const total = monthly * months;
+            const total = monthly === null ? null : monthly * months;
             return (
               <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold">Your projected returns</p>
-                  <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
-                    15% per month
-                  </span>
+                  {formatRatePct(ownRatePct) && (
+                    <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
+                      {formatRatePct(ownRatePct)} per month
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Based on a rent amount of {formatDynamic(plan.funding_amount)}.
@@ -494,7 +502,7 @@ export function SelfPortfolioPlanDetailSheet({
                     <li key={row.label} className="flex items-center justify-between gap-3 py-2.5">
                       <span className="text-xs text-muted-foreground">{row.label}</span>
                       <span className="text-sm font-black text-primary">
-                        {formatDynamic(Math.round(row.value))}
+                        {row.value === null ? '—' : formatDynamic(Math.round(row.value))}
                       </span>
                     </li>
                   ))}
@@ -503,7 +511,7 @@ export function SelfPortfolioPlanDetailSheet({
                       Over {months} months
                     </span>
                     <span className="text-base font-black text-primary">
-                      {formatDynamic(Math.round(total))}
+                      {total === null ? '—' : formatDynamic(Math.round(total))}
                     </span>
                   </li>
                 </ul>

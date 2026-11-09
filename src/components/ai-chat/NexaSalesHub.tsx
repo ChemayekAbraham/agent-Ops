@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { calculateSupporterSalesProjection,calculateTenantRentSalesProjection,toAuthGatedPath,buildPromissoryNoteReminderReply } from '@/lib/nexaSalesEngine';
 import { useAuth } from '@/hooks/useAuth';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 import ReactMarkdown from 'react-markdown';
 import { formatFixedUGX } from '@/lib/supportPlanExample';
 import { ACCESS_LIMIT_CAMPAIGN_COPY,buildAgentAccessLimitWhatsAppUrl } from '@/lib/accessLimitMessaging';
@@ -14,12 +16,15 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
   const [amount,setAmount]=useState('100000');
   const [days,setDays]=useState('30');
   const value=Number(amount); const valid=Number.isFinite(value)&&value>0;
-  const supporter=calculateSupporterSalesProjection(valid?value:0);
+  // The public new-partner rate (15 while the switch is off); null while unknown = no Returns figures.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const newRatePct = formatRatePct(newContractRate);
+  const supporter=calculateSupporterSalesProjection(valid?value:0, undefined, newContractRate);
   const tenant=valid?calculateTenantRentSalesProjection(value,Number(days)):null;
   return <section aria-label="Nexa sales hub" className="border-b border-border p-4 text-sm">
     <Tabs defaultValue="supporter">
       <TabsList className="grid h-11 w-full grid-cols-4">
-        <TabsTrigger value="supporter" className="h-full min-w-0 whitespace-normal text-xs">10%/mo Partner</TabsTrigger>
+        <TabsTrigger value="supporter" className="h-full min-w-0 whitespace-normal text-xs">{newRatePct ? `${newRatePct}/mo Partner` : 'Partner'}</TabsTrigger>
         <TabsTrigger value="tenant" className="h-full min-w-0 text-xs">Tenants</TabsTrigger>
         <TabsTrigger value="growth" className="h-full min-w-0 whitespace-normal text-xs">Rent + 30M</TabsTrigger>
         <TabsTrigger value="agent" className="h-full min-w-0 whitespace-normal text-xs">Work / Agent</TabsTrigger>
@@ -27,11 +32,11 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
       <TabsContent value="supporter" className="space-y-3">
         <Label htmlFor="nexa-support-amount">Support amount (UGX)</Label>
         <Input id="nexa-support-amount" inputMode="numeric" type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} />
-        {valid && <dl className="grid grid-cols-2 gap-3"><div><dt className="text-muted-foreground">Monthly Returns · 10%</dt><dd className="text-base font-semibold text-success">{formatFixedUGX(supporter.monthly)}</dd></div><div><dt className="text-muted-foreground">12-month Returns</dt><dd className="text-base font-semibold">{formatFixedUGX(supporter.annual)}</dd></div></dl>}
+        {valid && <dl className="grid grid-cols-2 gap-3"><div><dt className="text-muted-foreground">Monthly Returns{newRatePct ? ` · ${newRatePct} for new partners` : ''}</dt><dd className="text-base font-semibold text-success">{supporter.monthly === null ? '—' : formatFixedUGX(supporter.monthly)}</dd></div><div><dt className="text-muted-foreground">12-month Returns</dt><dd className="text-base font-semibold">{supporter.annual === null ? '—' : formatFixedUGX(supporter.annual)}</dd></div></dl>}
         <p className="text-xs text-muted-foreground">Illustrative projection. Approved plan terms apply.</p>
         {valid && <ol className="list-decimal space-y-2 pl-5">{supporter.workedExample.map(step=><li key={step}>{step}</li>)}</ol>}
         <p>{supporter.operationalGuarantee}</p>
-        <div className="space-y-2"><ReactMarkdown>{buildPromissoryNoteReminderReply()}</ReactMarkdown></div>
+        <div className="space-y-2"><ReactMarkdown>{buildPromissoryNoteReminderReply(newContractRate)}</ReactMarkdown></div>
         <Button asChild className="min-h-11 w-full"><a href={user ? '/dashboard/funder-new' : toAuthGatedPath('/dashboard/funder-new')}>Choose a Support Plan<ArrowRight className="h-4 w-4" /></a></Button>
       </TabsContent>
       <TabsContent value="tenant" className="space-y-3">

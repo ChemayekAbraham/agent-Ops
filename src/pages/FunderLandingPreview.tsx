@@ -49,6 +49,8 @@ import type {
 import { amountRange, itemCoordinates, itemId, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { FunderPreviewMap } from '@/components/funder-preview/FunderPreviewMap';
+import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
+import { useSignedUrl } from '@/hooks/useSignedUrl';
 
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -72,6 +74,7 @@ type FeedEntry = FunderPreviewEntry;
  * shown on the landing; the balance is read only for the review step.
  */
 export default function FunderLandingPreview() {
+  const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const reduceMotion = useReducedMotion() ?? false;
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
@@ -117,27 +120,7 @@ export default function FunderLandingPreview() {
 
   // The avatars bucket is private, so the stored public-style URL returns
   // 404. Swap it for a short-lived signed URL that works in an <img> tag.
-  const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
-  useEffect(() => {
-    setSignedAvatarUrl(null);
-    if (!avatarUrl) return;
-    const match = avatarUrl.match(/\/object\/public\/avatars\/([^?]+)/);
-    if (!match) {
-      setSignedAvatarUrl(avatarUrl);
-      return;
-    }
-    let cancelled = false;
-    supabase.storage
-      .from('avatars')
-      .createSignedUrl(match[1], 60 * 60)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setSignedAvatarUrl(error || !data ? avatarUrl : data.signedUrl);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [avatarUrl]);
+  const signedAvatarUrl = useSignedUrl(avatarUrl);
 
   // The app top bar is sticky, so the map and the floating search bar have to
   // sit below it. Measure its real height (safe-area + content) once mounted.
@@ -324,11 +307,11 @@ export default function FunderLandingPreview() {
   const cellQuery = useEmptyHouseMapCells(
     cellViewport,
     { search: filters.search.trim() || undefined, minRent: range.min, maxRent: range.max },
-    category !== 'ready',
+    emptyHousesAllowed && category !== 'ready',
   );
   const cells = useMemo<FunderNewMapCell[]>(
     () =>
-      (cellQuery.data?.cells ?? []).map((cell) => ({
+      (emptyHousesAllowed ? cellQuery.data?.cells ?? [] : []).map((cell) => ({
         key: cell.key,
         count: cell.count,
         lat: cell.latitude,
@@ -336,12 +319,12 @@ export default function FunderLandingPreview() {
         amount: cell.minRent,
         house: (cell.house as unknown as FunderNewEmptyHouse | null) ?? null,
       })),
-    [cellQuery.data],
+    [cellQuery.data, emptyHousesAllowed],
   );
-  const housesInView = cellQuery.data?.housesInView ?? 0;
+  const housesInView = emptyHousesAllowed ? cellQuery.data?.housesInView ?? 0 : 0;
   const neededInView = useMemo(
-    () => (cellQuery.data?.cells ?? []).reduce((sum, cell) => sum + (Number(cell.sumRent) || 0), 0),
-    [cellQuery.data],
+    () => emptyHousesAllowed ? (cellQuery.data?.cells ?? []).reduce((sum, cell) => sum + (Number(cell.sumRent) || 0), 0) : 0,
+    [cellQuery.data, emptyHousesAllowed],
   );
 
   const handleViewport = useCallback((next: FunderNewViewport) => {
@@ -585,7 +568,7 @@ export default function FunderLandingPreview() {
           <div ref={sheetTopRef} aria-hidden className="h-px" />
           <div aria-hidden className="mx-auto h-1.5 w-11 rounded-full bg-border" />
 
-          <motion.section
+          {emptyHousesAllowed && <motion.section
             aria-label="Amount needed to fund houses"
             aria-busy={summary.isLoading}
             className="rounded-3xl bg-primary px-5 py-5 text-primary-foreground shadow-[0_14px_30px_-12px_hsl(var(--primary)/0.6)]"
@@ -622,7 +605,7 @@ export default function FunderLandingPreview() {
                 )}
               </>
             )}
-          </motion.section>
+          </motion.section>}
 
           <div className="space-y-0.5">
             <p className="text-sm text-muted-foreground">

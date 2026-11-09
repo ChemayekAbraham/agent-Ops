@@ -1,6 +1,6 @@
 import { formatUGX } from './rentCalculations';
 import { getRiskTierLabel } from './welileAiId';
-import { buildProfileShareUrl } from './shareTrustProfile';
+import { buildProfileShareUrl, shownTrustScore, shownVouchLimit } from './shareTrustProfile';
 import welileLogoUrl from '@/assets/welile-logo.png';
 import type { TrustProfile } from '@/hooks/useTrustProfile';
 
@@ -83,7 +83,8 @@ export async function generateTrustProfilePdf(profile: TrustProfile): Promise<Bl
 
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(28);
-  pdf.text(String(profile.trust.score), margin + 8, y + 18);
+  const score = shownTrustScore(profile);
+  pdf.text(score !== null ? String(score) : '—', margin + 8, y + 18);
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
   pdf.setTextColor(120);
@@ -95,11 +96,12 @@ export async function generateTrustProfilePdf(profile: TrustProfile): Promise<Bl
   pdf.text('Welile Trust Score', margin + 38, y + 9);
   pdf.setFontSize(13);
   pdf.text(tier.label, margin + 38, y + 17);
-  if (profile.trust.borrowing_limit_ugx > 0) {
+  const vouchLimit = shownVouchLimit(profile);
+  if (vouchLimit !== null) {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(0, 130, 80);
-    pdf.text(`Welile vouches up to ${formatUGX(profile.trust.borrowing_limit_ugx)}`, margin + 38, y + 24);
+    pdf.text(`Welile vouches up to ${formatUGX(vouchLimit)}`, margin + 38, y + 24);
     pdf.setTextColor(0);
   }
   y += 36;

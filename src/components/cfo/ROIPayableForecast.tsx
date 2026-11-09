@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,16 +19,18 @@ interface Portfolio {
 }
 
 export function ROIPayableForecast() {
+  const authenticatedReady = useAuthenticatedAudience();
   const [expanded, setExpanded] = useState(true);
 
   const { data, isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['roi-payable-forecast'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, investment_amount, roi_percentage, next_roi_date, status, investor_id')
         .eq('status', 'active')
-        .not('next_roi_date', 'is', null);
+        .not('next_roi_date', 'is', null));
       if (error) throw error;
       return (data || []) as Portfolio[];
     },

@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { rateEmailTarget, rateOrNull, readConfirmedLoginEmails, rowRateIsPublic } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,7 +63,7 @@ Deno.serve(async (req) => {
          portfolio_code, portfolio_name, portfolio_value, currency,
          portfolio:investor_portfolios!portfolio_action_requests_portfolio_id_fkey(
            id, portfolio_code, account_name, investor_id, investment_amount,
-           roi_percentage, duration_months, maturity_date, next_roi_date, status
+           roi_percentage, rate_basis, duration_months, maturity_date, next_roi_date, status
          )`,
       )
       .eq("id", request_id)
@@ -122,6 +123,19 @@ Deno.serve(async (req) => {
       recipientEmail = prof?.email ?? null;
       if (prof?.full_name) partnerName = prof.full_name;
     }
+    // The email states the portfolio's Returns rate. When the row's rate applies to everyone (always,
+    // before the first switch-on) it goes to the contact email above, as today. Otherwise (except for a
+    // staff test override) it goes to the partner's confirmed login email; without one, to the contact
+    // email above with no rate.
+    let rateShown = true;
+    if (!email_override && portfolio.investor_id && !(await rowRateIsPublic(admin, portfolio))) {
+      const login = (await readConfirmedLoginEmails(admin, [portfolio.investor_id])).get(portfolio.investor_id) ?? null;
+      const target = rateEmailTarget(login, recipientEmail, false);
+      recipientEmail = target.to;
+      rateShown = target.withFigures;
+    }
+    // The stored rate (the redemption result's, else the portfolio's). Never a default.
+    const storedReturnRate = rateOrNull(res?.roi_percentage) ?? rateOrNull(portfolio.roi_percentage);
     const isRealEmail =
       !!recipientEmail &&
       !recipientEmail.endsWith("@welile.user") &&
@@ -135,7 +149,8 @@ Deno.serve(async (req) => {
       redeemed_amount: Number(res?.redeemed_amount ?? redeemed),
       previous_principal: Number(res?.old_principal ?? principal),
       remaining_principal: Number(res?.remaining_principal ?? remaining),
-      return_rate: `${res?.roi_percentage ?? portfolio.roi_percentage ?? 15}%`,
+      // Template shows "—" when absent.
+      return_rate: rateShown && storedReturnRate !== null ? `${storedReturnRate}%` : undefined,
       maturity_date: portfolio.maturity_date ? fmtDate(new Date(`${portfolio.maturity_date}T00:00:00Z`)) : "",
       next_payout_date: portfolio.next_roi_date ? fmtDate(new Date(`${portfolio.next_roi_date}T00:00:00Z`)) : "",
       processed_date: fmtDate(new Date()),

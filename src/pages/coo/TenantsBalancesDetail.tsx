@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { useNavigate } from 'react-router-dom';
@@ -95,7 +96,7 @@ export default function TenantsBalancesDetail() {
       const tenantIds = Array.from(tenantAgg.keys());
       let nameMap = new Map<string, string>();
       if (tenantIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', tenantIds.slice(0, 50));
+        const { data: profiles } = await withUuidIds(tenantIds.slice(0, 50), (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         nameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
       }
 

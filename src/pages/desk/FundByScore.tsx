@@ -138,7 +138,7 @@ export function FundByScore({ board }: { board: boolean }) {
 
       if (approved.length === 0) {
         setError(
-          `Review recorded — move failed, retry. ${skipped[0]?.message ?? 'Nothing was approved; check the float budget room.'}`,
+          `Review recorded — move failed, retry. ${skipped[0]?.message ?? 'Nothing was approved; check the reason on the request and try again.'}`,
         );
       } else {
         setOutcome(
@@ -161,7 +161,7 @@ export function FundByScore({ board }: { board: boolean }) {
       <div className="space-y-1">
         <h2 className={`${board ? 'text-lg' : 'text-base'} font-semibold text-foreground`}>Fund by score</h2>
         <p className="max-w-3xl text-xs leading-snug text-muted-foreground">
-          Highest score first, as far as today&rsquo;s float budget reaches. The ticked rows are the system&rsquo;s choice. A
+          Highest score first. The ticked rows are the system&rsquo;s choice. A
           request the landlord has not been verified for can never be funded.
         </p>
       </div>

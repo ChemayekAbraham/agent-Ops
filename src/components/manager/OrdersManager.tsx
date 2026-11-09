@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { StorageImage } from '@/components/ui/StorageImage';
@@ -79,7 +80,7 @@ export function OrdersManager() {
     const agentIds = [...new Set((ordersData || []).map(o => o.agent_id))];
     const allUserIds = [...new Set([...buyerIds, ...agentIds])];
     const { data: profiles } = allUserIds.length > 0
-      ? await supabase.from('profiles').select('id, full_name, phone').in('id', allUserIds)
+      ? await withUuidIds(allUserIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
       : { data: [] };
 
     const ordersWithDetails = (ordersData || []).map(o => ({

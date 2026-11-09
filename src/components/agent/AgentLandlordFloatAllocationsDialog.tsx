@@ -12,6 +12,7 @@ import {
 import { Loader2, Landmark, ArrowRight, Inbox, User, Search, Lock, Clock3 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { LandlordFloatPerformanceNotice } from '@/components/agent/LandlordFloatPerformanceNotice';
 
 interface Props {
   open: boolean;
@@ -152,6 +153,9 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
               : <>No open allocations. Float is credited automatically when CFO disburses a rent request.</>}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Always shown: where the agent stands against the 50% minimum, so a blocked agent is told before they start. */}
+        <LandlordFloatPerformanceNotice className="mx-4 mt-3 shrink-0" />
 
         {isLoading ? (
           <div className="flex flex-1 min-h-0 justify-center py-10">

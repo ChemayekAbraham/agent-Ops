@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -56,7 +58,7 @@ export function useMyBalanceDisputes(enabled = true) {
     retry: false,
     staleTime: 20_000,
     queryFn: async (): Promise<MerchantBalanceDispute[]> => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) return [];
       const { data, error } = await supabase
@@ -89,10 +91,10 @@ export function useAllBalanceDisputes(enabled = true) {
       const rows = ((data ?? []) as any[]).map(mapRow);
       const ids = [...new Set(rows.map((r) => r.agentId))];
       if (ids.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
         rows.forEach((r) => {
           const p = byId.get(r.agentId);
@@ -115,7 +117,7 @@ export function useRaiseBalanceDispute() {
       claimedAmount?: number | null;
       reason: string;
     }) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) throw new Error('You must be signed in');
       const { error } = await supabase.from('merchant_balance_disputes' as any).insert({
@@ -144,7 +146,7 @@ export function useResolveBalanceDispute() {
       status: 'reviewing' | 'resolved' | 'rejected';
       resolutionNote?: string;
     }) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const patch: Record<string, any> = { status: input.status };
       if (input.resolutionNote !== undefined) patch.resolution_note = input.resolutionNote.trim() || null;
       if (input.status === 'resolved' || input.status === 'rejected') {

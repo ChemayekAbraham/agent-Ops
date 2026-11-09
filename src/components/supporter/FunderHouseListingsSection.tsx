@@ -1,5 +1,5 @@
 import { createPortal } from 'react-dom';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -19,7 +19,7 @@ import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolio
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
-import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
+import { useFunderNewLocation, type FunderNewLocationController } from '@/components/funder-new/useFunderNewLocation';
 import {
   useFunderNewEmptyHouses,
   useFunderNewMarketSummary,
@@ -33,15 +33,50 @@ import type {
   FunderNewReadyPlan,
   FunderNewSelectionItem,
   FunderNewSort,
+  FunderNewDistance,
 } from '@/components/funder-new/types';
 import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
-interface FeedEntry {
+export interface FeedEntry {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
+}
+
+/**
+ * Everything the listing already works out, handed to an alternative layout
+ * (the funder V3 screen) through the `view` prop. Read-only values and the
+ * section's own handlers: a view only arranges them, it computes nothing.
+ */
+export interface FunderListingsViewApi {
+  searchInput: string;
+  setSearchInput: (value: string) => void;
+  filters: FunderNewFilters;
+  activeFilterCount: number;
+  openFilters: () => void;
+  effectiveSort: FunderNewSort;
+  origin: FunderNewOrigin | null;
+  changeSort: (value: FunderNewSort) => void;
+  items: FeedEntry[];
+  filteredTotal: number;
+  remaining: number;
+  feedLoading: boolean;
+  feedError: boolean;
+  feedFetching: boolean;
+  feedFetchingNext: boolean;
+  feedHasNext: boolean;
+  refetchFeed: () => void;
+  fetchNextFeed: () => void;
+  withinFloatApplied: boolean;
+  isSaved: (category: FunderNewCategory, id: string) => boolean;
+  isSelected: (category: FunderNewCategory, id: string) => boolean;
+  distanceFor: (entry: FeedEntry) => FunderNewDistance | null;
+  toggleSave: (category: FunderNewCategory, id: string) => void;
+  toggleSelect: (category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => void;
+  openDetail: (category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => void;
+  location: FunderNewLocationController;
 }
 
 /**
@@ -58,12 +93,17 @@ export function FunderHouseListingsSection({
   searchOnMap = false,
   onFiltersChange,
   onResultsFocus,
+  onResultCountChange,
+  view,
 }: {
+  /** Optional alternative layout (funder V3). Replaces the search, list and paging markup only; data, filters and every dialog stay here. */
+  view?: (api: FunderListingsViewApi) => ReactNode;
   searchOnMap?: boolean;
   /** Reports the search, district and amount the list is using, so a map on the same screen can match it. */
   onFiltersChange?: (filters: FunderListMapFilters) => void;
   /** With a search typed, reports where the matching empty houses are so the map can move to them. */
   onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
+  onResultCountChange?: (count: number) => void;
 } = {}) {
   const { user } = useAuth();
   const { profile } = useProfile();
@@ -239,6 +279,10 @@ export function FunderHouseListingsSection({
     });
   }, [loadedItems, filters.withinFloat, availableBalance]);
 
+  useEffect(() => {
+    onResultCountChange?.(items.length);
+  }, [items.length, onResultCountChange]);
+
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
   // How many filters the funder has actually switched on. The Filters button
@@ -294,8 +338,43 @@ export function FunderHouseListingsSection({
 
   const remaining = Math.max(0, filteredTotal - items.length);
 
+  const viewApi: FunderListingsViewApi | null = view
+    ? {
+        searchInput,
+        setSearchInput,
+        filters,
+        activeFilterCount,
+        openFilters: () => setFiltersOpen(true),
+        effectiveSort,
+        origin,
+        changeSort,
+        items,
+        filteredTotal,
+        remaining,
+        feedLoading,
+        feedError: !!feedError,
+        feedFetching,
+        feedFetchingNext,
+        feedHasNext,
+        refetchFeed,
+        fetchNextFeed,
+        withinFloatApplied: filters.withinFloat && availableBalance !== null,
+        isSaved: (category, id) => saved[category].includes(id),
+        isSelected: (category, id) => selectedItems.some((selected) => selected.category === category && selected.id === id),
+        distanceFor: (entry) => {
+          const coords = itemCoordinates(entry.item, entry.category);
+          return coords ? straightLineDistance(deviceOrigin, coords) : null;
+        },
+        toggleSave,
+        toggleSelect,
+        openDetail,
+        location,
+      }
+    : null;
+
   return (
     <section className="space-y-3">
+      {viewApi ? view!(viewApi) : (<>
       {/* On the full screen map the search floats at the top, like a maps app. */}
       {searchOnMap && typeof document !== 'undefined' && createPortal(
         <div
@@ -409,24 +488,6 @@ export function FunderHouseListingsSection({
       </>
       )}
 
-      <FunderNewFilterDrawer
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        filters={filters}
-        districts={districtOptions}
-        supportsSort
-        hasOrigin={!!origin}
-        availableBalance={availableBalance}
-        floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
-        resultCount={
-          filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
-        }
-        resultCounting={feedLoading || feedFetching}
-        onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
-        onSortChange={changeSort}
-        onReset={resetFilters}
-      />
-
       {filters.withinFloat && availableBalance !== null ? (
         <p className="px-1 text-xs text-muted-foreground">
           Within-balance is applied to the homes already loaded, because the read service has no balance filter.
@@ -532,6 +593,26 @@ export function FunderHouseListingsSection({
           ) : null}
         </div>
       )}
+      </>)}
+
+      {/* The drawer is a portal, so its place in this tree does not move it on screen. */}
+      <FunderNewFilterDrawer
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        districts={districtOptions}
+        supportsSort
+        hasOrigin={!!origin}
+        availableBalance={availableBalance}
+        floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+        resultCount={
+          filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
+        }
+        resultCounting={feedLoading || feedFetching}
+        onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+        onSortChange={changeSort}
+        onReset={resetFilters}
+      />
 
       <EmptyHouseDetailSheet
         house={detailHouse}
@@ -650,9 +731,7 @@ export function FunderHouseListingsSection({
             window.dispatchEvent(new Event('supporter-contribution-changed'));
             return { submitted: true, reference };
           } catch (err: unknown) {
-            toast.error('Could not submit support', {
-              description: String((err as { message?: string })?.message || 'Please try again.'),
-            });
+            toast.error(String((err as { message?: string })?.message || 'Could not submit support'));
             throw err;
           }
         }}

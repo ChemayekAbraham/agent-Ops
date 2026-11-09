@@ -120,7 +120,9 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Quick Actions',
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
+        { label: 'Funders Dashboard', icon: Banknote, id: 'funders-dashboard', route: '/desk/funders' },
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
+        { label: 'Partner Receipts', icon: Receipt, id: 'partner-receipts' },
         { label: 'Lunch Allowance', icon: Banknote, id: 'lunch-allowance' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals' },
@@ -164,6 +166,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Rent Collections', icon: Receipt, id: 'rent-collections' },
         { label: 'Investor Returns', icon: TrendingUp, id: 'roi-requests' },
         { label: 'Partner Top-ups', icon: TrendingUp, id: 'partner-topups' },
+      ],
+    },
+    {
+      title: 'Rent Management',
+      items: [
+        { label: 'Tenant Repayment Tracker', icon: ClipboardCheck, id: 'tenant-repayment-tracker', access: CFO_ACCESS },
       ],
     },
     {
@@ -264,8 +272,10 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Financial Operations',
       items: [
         { label: 'Overview', icon: Activity, id: 'overview' },
+        { label: 'COO desk', icon: Gauge, id: 'coo-desk', route: '/desk/coo' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
         { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
+        { label: 'Welile Signages Approvals', icon: Megaphone, id: 'welile-signages-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },
         { label: 'Transactions', icon: ClipboardList, id: 'transactions' },
         { label: 'Agent Collections', icon: Users, id: 'collections' },
@@ -444,6 +454,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
+        // The Partner Returns switch (CEO-only; others see it read-only). Also on the CFO dashboard under Investor Returns.
+        { label: 'Partner Returns', icon: TrendingUp, id: 'partner-returns' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances' },

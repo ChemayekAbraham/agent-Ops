@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -202,10 +203,10 @@ export function RecentPayoutActivity() {
       const ids = Array.from(new Set(list.map((r) => r.target_user_id).filter(Boolean)));
       let names: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (ids.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         names = Object.fromEntries(
           (profiles ?? []).map((p: any) => [p.id, { full_name: p.full_name, phone: p.phone }]),
         );

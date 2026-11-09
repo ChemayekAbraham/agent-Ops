@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { History } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +16,7 @@ export interface NameCheckLogInput {
 
 /** Append-only: every recorded name check is kept permanently. */
 export async function logNameCheck(input: NameCheckLogInput) {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   if (!auth.user) throw new Error('Not signed in');
   const { error } = await supabase.from('payout_name_check_log').insert({
     destination_id: input.destinationId,
@@ -53,7 +55,7 @@ export function PayoutNameCheckHistory({ destinationId }: { destinationId: strin
       const ids = [...new Set((data ?? []).map((r) => r.checked_by))];
       const names: Record<string, string> = {};
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
           names[p.id] = p.full_name || 'Staff member';
         });

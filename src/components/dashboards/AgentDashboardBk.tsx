@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
@@ -184,8 +186,8 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
+import { AgentCompleteRequestsCard } from '@/components/agent/AgentCompleteRequestsCard';
 import { useAgentNudges } from '@/hooks/useAgentNudges';
-import { AgentNudgePreviewButton } from '@/components/agent/AgentNudgePreviewButton';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -315,6 +317,7 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboardBk({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   // Agent Ops approval (agent vetting), never profiles.verified.
   const agentVerifiedState = useAgentVerifiedState();
   // Behaviour telemetry tracking
@@ -384,11 +387,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // landing period.
   const { data: mySubagentRank } = useQuery({
     queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_my_subagent_rank', {
         p_period: 'weekly',
-      });
+      }));
       if (error) throw error;
       return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
     },
@@ -1384,7 +1387,8 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 onPostRequest={() => { setRentRequestOpen(true); }}
                 onIntent={preloadAgentRentRequestDialog}
               />
-              <AgentNudgePreviewButton userId={user?.id} />
+              {/* Rent requests still missing intake details. Renders nothing when there are none. */}
+              {!isMerchant && <AgentCompleteRequestsCard agentId={user.id} />}
               {/* Legacy big violet card + "earn UGX 5000" line: hidden for now
                   (2026-10-16). The signature card above is the entry point. */}
               {SHOW_LEGACY_RENT_REQUEST_CARD && (
@@ -2053,7 +2057,13 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
+            // The PUBLIC new-partner rate (15 while the switch has never been on); no rate known -> no figure.
+            const { getPublicPartnerRate } = await import('@/lib/publicPartnerRate');
+            const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
+            const newRatePct = formatRatePct(await getPublicPartnerRate());
+            const shareText = newRatePct
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {

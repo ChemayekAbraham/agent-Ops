@@ -58,6 +58,9 @@ const ProxyPartnerWithdrawalHarness = lazyWithRetry(
 const RentRequestChatHarness = lazyWithRetry(
   () => import("@/pages/__e2e/RentRequestChatHarness"),
 );
+const FunderV3Harness = lazyWithRetry(
+  () => import("@/pages/__e2e/FunderV3Harness"),
+);
 
 // Language provider is imported statically: as a lazy chunk its module namespace
 // could resolve undefined under manual chunking, blanking the whole app.
@@ -609,6 +612,8 @@ function AppRoutes() {
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
           <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
+          {/* Funder V3 layout for review, regardless of the funders_ui_v3 preview switch. Not linked anywhere. */}
+          <Route path="/dashboard/funder-v3" element={<RoleGuard allowedRoles={['supporter']}><Dashboard variant="funder-v3" /></RoleGuard>} />
           {/* Preview of the map-first funder landing (design B). Not linked anywhere yet. */}
           <Route path="/dashboard/funder-preview" element={<RoleGuard allowedRoles={['supporter']}><FunderLandingPreview /></RoleGuard>} />
           <Route path="/dashboard/funder/portfolio" element={<FunderDashboardBackup />} />
@@ -690,6 +695,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <ProxyPartnerWithdrawalHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {(import.meta.env.DEV || import.meta.env.VITE_E2E_HARNESS === '1') && (
+            <Route
+              path="/__e2e/funder-v3"
+              element={
+                <Suspense fallback={null}>
+                  <FunderV3Harness />
                 </Suspense>
               }
             />
@@ -947,8 +962,8 @@ function AppRoutes() {
           <Route path="/coo/reports/system-overview" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOSystemOverviewReport /></RoleGuard>} />
           <Route path="/coo/funder-rent-plans" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFunderRentPlanVisibility /></RoleGuard>} />
           {/* Decision desks (E16 phase 1). Data comes from desk_feed(), which checks roles in the database too. */}
-          <Route path="/desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
-          <Route path="/desk/:desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm'] as AppRole[]}><DeskPage /></RoleGuard>} />
+          <Route path="/desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm','agent'] as AppRole[]}><DeskPage /></RoleGuard>} />
+          <Route path="/desk/:desk" element={<RoleGuard skipAllowlist allowedRoles={['coo','ceo','cfo','cto','super_admin','operations','manager','agent_ops','tenant_ops','landlord_ops','partner_ops','financial_ops','crm','agent'] as AppRole[]}><DeskPage /></RoleGuard>} />
           <Route path="/share" element={<Index />} />
           <Route path="/ai" element={<WelileAIPage />} />
           <Route path="/terms" element={<Terms />} />

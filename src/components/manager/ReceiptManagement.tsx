@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -215,7 +216,7 @@ export function ReceiptManagement({ userId }: ReceiptManagementProps) {
     // Fetch user profiles for receipts
     const userIds = [...new Set((userReceiptsRes.data || []).map(r => r.user_id))];
     const { data: profiles } = userIds.length > 0 
-      ? await supabase.from('profiles').select('id, full_name, phone').in('id', userIds)
+      ? await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
       : { data: [] };
 
     const receiptsWithProfiles = (userReceiptsRes.data || []).map(r => ({

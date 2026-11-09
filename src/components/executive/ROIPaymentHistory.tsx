@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,10 +51,10 @@ export function ROIPaymentHistory() {
     queryKey: ['ops-roi-supporter-profiles', supporterIds.join(',')],
     queryFn: async () => {
       if (supporterIds.length === 0) return {};
-      const { data } = await supabase
+      const { data } = await withUuidIds(supporterIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', supporterIds);
+        .in('id', validIds));
       const map: Record<string, SupporterProfile> = {};
       (data || []).forEach((p: any) => { map[p.id] = p; });
       return map;

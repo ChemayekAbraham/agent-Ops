@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -621,7 +622,7 @@ function LatestRentRequests({ onViewAll }: { onViewAll: () => void }) {
         ...data.flatMap((r: any) => [r.agent_id, r.tenant_id]),
         ...parentMap.values(),
       ].filter(Boolean)));
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       return data.map((r: any) => ({
         ...r,
@@ -1030,7 +1031,7 @@ function RecentRequestsPreview({ onOpen }: { onOpen: () => void }) {
         .limit(10);
       if (!data || data.length === 0) return [];
       const ids = Array.from(new Set(data.flatMap((r: any) => [r.agent_id, r.tenant_id]).filter(Boolean)));
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       return data.map((r: any) => ({ ...r, agent_name: pm.get(r.agent_id) || '—', tenant_name: pm.get(r.tenant_id) || '—' }));
     },
@@ -1068,7 +1069,7 @@ function RecentVerificationsPreview() {
         .limit(10);
       if (!data || data.length === 0) return [];
       const ids = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const pm = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       return data.map((r: any) => ({ ...r, agent_name: pm.get(r.agent_id) || '—' }));
     },
@@ -1102,7 +1103,7 @@ export function AtRiskAgentsPreview({ onOpen }: { onOpen?: () => void }) {
         .limit(10);
       if (!data || data.length === 0) return [];
       const ids = Array.from(new Set(data.map((r: any) => r.agent_id).filter(Boolean)));
-      const { data: profs } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       const pm = new Map((profs || []).map((p: any) => [p.id, p]));
       return data.map((r: any) => ({ ...r, profile: pm.get(r.agent_id) }));
     },

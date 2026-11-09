@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -95,6 +97,7 @@ const DashboardHeader = memo(function DashboardHeader({
   onMenuClick,
   compactInstallPrompt = false,
 }: DashboardHeaderProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { isInstalled, hasPrompt: isInstallable, promptInstall } = usePWAInstall();
@@ -138,30 +141,30 @@ const DashboardHeader = memo(function DashboardHeader({
     queryKey: ['user-is-special-agent-header', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('staff_permissions')
         .select('user_id')
         .eq('user_id', user.id)
         .eq('permitted_dashboard', 'agents-space')
         .is('revoked_at', null)
-        .maybeSingle();
+        .maybeSingle());
 
       if (error || !data) return false;
       return true;
     },
     staleTime: 30_000,
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
   });
 
   const { data: hasPhonePlan = false } = useQuery({
     queryKey: ['user-has-active-smartphone-plan', user?.id],
     queryFn: async () => {
       if (!user) return false;
-      const { data } = await supabase.rpc('has_active_smartphone_plan', { p_user: user.id });
+      const { data } = await withUserSession(() => supabase.rpc('has_active_smartphone_plan', { p_user: user.id }));
       return !!data;
     },
     staleTime: 60_000,
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
   });
 
   const canAccessAgentsSpace = isExecutive || isSpecialAgent || hasPhonePlan;

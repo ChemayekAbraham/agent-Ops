@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -109,10 +110,10 @@ export function TransactionSearch() {
         for (let i = 0; i < userIds.length; i += 50) batches.push(userIds.slice(i, i + 50));
         const newMap = new Map(profileMap);
         for (const batch of batches) {
-          const { data: profiles } = await supabase
+          const { data: profiles } = await withUuidIds(batch, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone')
-            .in('id', batch);
+            .in('id', validIds));
           profiles?.forEach(p => newMap.set(p.id, p.full_name || p.phone || ''));
         }
         setProfileMap(newMap);

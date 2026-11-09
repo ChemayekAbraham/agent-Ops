@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +59,7 @@ interface SupportedTenantsSectionProps {
 }
 
 export function SupportedTenantsSection({ embedded = false }: SupportedTenantsSectionProps = {}) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { tenants, isLoading, error } = useSupportedTenants();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -65,9 +68,10 @@ export function SupportedTenantsSection({ embedded = false }: SupportedTenantsSe
   // Funded empty houses the partner supports directly — these sit alongside the
   // rent plans in the same self-funded list.
   const { data: houses = [], isLoading: housesLoading } = useQuery<SupportedHouseItem[]>({
+    enabled: authenticatedReady,
     queryKey: ['partner-supported-houses-inline'],
     queryFn: async () => {
-      const { data, error: rpcError } = await supabase.rpc('partner_supported_house_returns');
+      const { data, error: rpcError } = await withUserSession(() => supabase.rpc('partner_supported_house_returns'));
       if (rpcError) throw rpcError;
       const rows = ((data as { houses?: Record<string, unknown>[] } | null)?.houses ?? []);
       return rows.map((h) => ({

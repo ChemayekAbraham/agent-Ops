@@ -11,6 +11,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth as useRealAuth } from '@/hooks/useAuth';
 import { buildPartnerReference } from '@/lib/partnerReference';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { numberToWords } from '@/lib/numberToWords';
 import { buildAgreementHtml } from '@/components/partner/agreementTemplate';
@@ -259,13 +261,16 @@ const MONTHS = 12;
 /** Minimum supported contribution, in UGX. Required before a funder can proceed. */
 export const MIN_SUPPORT = 50_000;
 
-function buildPoints(mode: 'tenant' | 'pool', principal: number): number[] {
+/** The chart at a monthly rate (a fraction: 0.15 for 15%). With no rate known the line stays flat
+ *  (shape only; the breakdown then shows no figure). */
+function buildPoints(mode: 'tenant' | 'pool', principal: number, monthlyRate: number | null): number[] {
   const pts: number[] = [];
+  const r = monthlyRate ?? 0;
   let bal = principal;
   for (let m = 0; m <= MONTHS; m++) {
     pts.push(bal);
-    if (mode === 'tenant') bal += principal * 0.15;
-    else bal = bal * 1.15;
+    if (mode === 'tenant') bal += principal * r;
+    else bal = bal * (1 + r);
   }
   return pts;
 }
@@ -283,6 +288,12 @@ function SupportGraph({
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const currency = useCurrency();
+  // A new Supporter signs a new contract: the PUBLIC new-partner rate (15 while the switch has never
+  // been on, so every figure equals today's). Unknown rate -> the breakdown shows no figure.
+  const { newContractRate } = usePartnerReturnPolicy();
+  const ratePct = rateOrNull(newContractRate);
+  const ratePctLabel = formatRatePct(ratePct);
+  const monthlyRate = ratePct === null ? null : ratePct / 100;
   const enteredAmount = Number(amount.replace(/,/g, '')) || 0;
   const hasAmount = enteredAmount >= MIN_SUPPORT;
   const isInvalid = showError && !hasAmount;
@@ -300,7 +311,7 @@ function SupportGraph({
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
 
-  const points = buildPoints(mode, principal);
+  const points = buildPoints(mode, principal, monthlyRate);
   const maxVal = points[MONTHS];
   const minVal = principal;
   const range = maxVal - minVal || 1;
@@ -321,22 +332,24 @@ function SupportGraph({
   const pathId = `graph-${mode}`;
 
   // ── Breakdown figures (computed strictly from the entered amount) ──
-  const monthlyReward = enteredAmount * 0.15;
+  const monthlyReward = monthlyRate === null ? 0 : enteredAmount * monthlyRate;
   const totalValue = points[MONTHS];
   const totalEarned = totalValue - enteredAmount;
   const dash = '—';
+  // Figures only for a real amount AND a known rate (monthlyReward above is never shown without one).
+  const showFigures = hasAmount && monthlyRate !== null;
   const breakdown = mode === 'tenant'
     ? [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Monthly reward', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
-        { label: 'Rewards · 12 mo', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
-        { label: 'Total after 12 mo', value: hasAmount ? formatCurrencyCompact(enteredAmount + monthlyReward * MONTHS, currency) : dash, accent: true },
+        { label: 'Monthly Returns', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Returns · 12 mo', value: showFigures ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
+        { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(enteredAmount + monthlyReward * MONTHS, currency) : dash, accent: true },
       ]
     : [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Month 1 reward', value: hasAmount ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
-        { label: 'Total growth', value: hasAmount ? `+${formatCurrencyCompact(totalEarned, currency)}` : dash },
-        { label: 'Total after 12 mo', value: hasAmount ? formatCurrencyCompact(totalValue, currency) : dash, accent: true },
+        { label: 'Month 1 Returns', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Total growth', value: showFigures ? `+${formatCurrencyCompact(totalEarned, currency)}` : dash },
+        { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(totalValue, currency) : dash, accent: true },
       ];
 
   return (
@@ -351,7 +364,7 @@ function SupportGraph({
       <div className="flex items-start justify-between mb-3 gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            {mode === 'tenant' ? 'Monthly rewards · 12 months' : 'Compounding growth · 12 months'}
+            {mode === 'tenant' ? 'Monthly Returns · 12 months' : 'Compounding growth · 12 months'}
           </p>
           <div
             className={`flex items-center gap-1.5 mt-1.5 border rounded-xl px-3 py-1.5 transition-colors ${
@@ -392,7 +405,7 @@ function SupportGraph({
           animate={{ scale: 1, opacity: 1 }}
           className="text-[11px] font-black px-2.5 py-1 rounded-full bg-purple-100 text-[#6c11d4] shrink-0 mt-4"
         >
-          {mode === 'tenant' ? '+15% / mo' : 'Compounds'}
+          {mode === 'tenant' ? (ratePctLabel ? `+${ratePctLabel} / mo` : 'Monthly') : 'Compounds'}
         </motion.span>
       </div>
 
@@ -448,6 +461,10 @@ function SupportGraph({
 
 // ─── Step 1 — Welcome ────────────────────────────────────────────────────────
 function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>> }) {
+  // A new Supporter signs a new contract: the PUBLIC new-partner rate (15 while the switch has never
+  // been on). Unknown rate -> the copy states no figure.
+  const ratePct = rateOrNull(usePartnerReturnPolicy().newContractRate);
+  const newRatePct = formatRatePct(ratePct);
   const cards = [
     {
       icon: Home,
@@ -457,8 +474,10 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
     },
     {
       icon: Banknote,
-      title: '15% Monthly Pay Outs',
-      body: 'You earn 15% of your active contribution each month, credited to your wallet automatically on a strict 30-day cycle.',
+      title: newRatePct ? `${newRatePct} Monthly Pay Outs` : 'Monthly Pay Outs',
+      body: newRatePct
+        ? `You earn ${newRatePct} of your active contribution each month, credited to your wallet automatically on a strict 30-day cycle.`
+        : 'You earn monthly Returns on your active contribution, credited to your wallet automatically on a strict 30-day cycle.',
       highlight: true,
     },
     {
@@ -522,14 +541,14 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       <motion.div variants={fadeUp} className="grid grid-cols-3 gap-3">
         {[
           { icon: Home,     to: 3000, suffix: '+', label: 'Homes Supported' },
-          { icon: Banknote, to: 15,   suffix: '%', label: 'Average ROI'     },
+          { icon: Banknote, to: ratePct, suffix: '%', label: 'Monthly Returns (new partners)' },
           { icon: Shield,   to: 30,   suffix: 'd', label: 'Payout Cycle'    },
         ].map(({ icon: Icon, to, suffix, label }) => (
           <div key={label} className="flex flex-col items-center gap-1.5 bg-card border border-border rounded-2xl py-3 px-2 shadow-sm">
             <div className="w-7 h-7 rounded-xl bg-purple-50 flex items-center justify-center text-[#6c11d4]">
               <Icon size={14} strokeWidth={1.75} />
             </div>
-            <CountUp to={to} suffix={suffix} />
+            {to === null ? <p className="text-base font-black text-foreground leading-none">—</p> : <CountUp to={to} suffix={suffix} />}
             <p className="text-[10px] text-muted-foreground font-medium text-center leading-tight">{label}</p>
           </div>
         ))}
@@ -558,6 +577,9 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
 
 // ─── Step 2 — Support ────────────────────────────────────────────────────────
 function Step2({ form, setForm, showError }: { form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>>; showError: boolean }) {
+  // A new Supporter signs a new contract: the PUBLIC new-partner rate (15 while the switch has never
+  // been on). Unknown rate -> the copy states no figure.
+  const newRatePct = formatRatePct(rateOrNull(usePartnerReturnPolicy().newContractRate));
   return (
     <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={fadeUp}>
@@ -573,15 +595,15 @@ function Step2({ form, setForm, showError }: { form: FormState; setForm: React.D
           onClick={() => setForm(p => ({ ...p, investPath: 'tenant' }))}
           icon={Home}
           title="Support a Tenant"
-          body="Your contribution is matched to a specific rent need. A real family gets housed, and you earn a monthly participation reward on what you put in."
-          badge="15% Monthly"
+          body="Your contribution is matched to a specific rent need. A real family gets housed, and you earn monthly Returns on what you put in."
+          badge={newRatePct ? `${newRatePct} Monthly` : 'Monthly Returns'}
         />
         <ChoiceCard
           selected={form.investPath === 'pool'}
           onClick={() => setForm(p => ({ ...p, investPath: 'pool' }))}
           icon={TrendingUp}
           title="Grow Your Contribution"
-          body="Add to the housing pool. Your monthly rewards build on themselves — each cycle your base grows and so does the next reward."
+          body="Add to the housing pool. Your monthly Returns build on themselves — each cycle your base grows and so do the next Returns."
           badge="Compounding"
         />
       </motion.div>
@@ -1407,7 +1429,7 @@ export default function FunderOnboarding() {
                   partnerPhone: cleanPhone,
                   partnerEmail: cleanEmail,
                   partnershipAmount: supportAmountNum,
-                  // 'tenant' = monthly payout (Option A), 'pool' = compounding (Option B); both 15%.
+                  // 'tenant' = monthly payout (Option A), 'pool' = compounding (Option B); both at the rate the database stamps.
                   returnOption: form.investPath === 'pool' ? 'B' : 'A',
                   reference: partnerReference,
                   payoutMode: form.payoutMode === 'momo' ? 'momo' : 'bank',
@@ -1488,10 +1510,10 @@ export default function FunderOnboarding() {
       <Toaster position="top-center" />
       <Helmet>
         <title>Become a Welile Funder — Fund the Future of Housing</title>
-        <meta name="description" content="Empower verified tenants and grow your active capital with steady, managed returns. Start funding from as little as UGX 50,000." />
+        <meta name="description" content="Empower verified tenants and grow your active capital with steady, managed Returns. Start funding from as little as UGX 50,000." />
         <link rel="canonical" href="https://welileapp.com/funder-onboarding" />
         <meta property="og:title" content="Become a Welile Funder — Fund the Future of Housing" />
-        <meta property="og:description" content="Empower verified tenants and grow your active capital with steady, managed returns. Start funding from as little as UGX 50,000." />
+        <meta property="og:description" content="Empower verified tenants and grow your active capital with steady, managed Returns. Start funding from as little as UGX 50,000." />
         <meta property="og:url" content="https://welileapp.com/funder-onboarding" />
       </Helmet>
 
@@ -1506,7 +1528,7 @@ export default function FunderOnboarding() {
         <div className="relative z-20 p-12 flex flex-col items-center justify-center h-full text-center text-white">
           <img src="/welile-colored.png" alt="Welile Logo" className="h-20 w-auto mb-8 drop-shadow-md" />
           <h2 className="text-4xl lg:text-5xl font-black mb-4 tracking-tight drop-shadow-xl leading-tight">Fund The Future<br />Of Housing</h2>
-          <p className="text-lg text-white/90 font-medium max-w-md drop-shadow-md">Empower verified tenants and grow your active capital with steady, managed returns.</p>
+          <p className="text-lg text-white/90 font-medium max-w-md drop-shadow-md">Empower verified tenants and grow your active capital with steady, managed Returns.</p>
         </div>
       </div>
 

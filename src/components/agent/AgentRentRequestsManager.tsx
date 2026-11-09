@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,7 +103,7 @@ export function AgentRentRequestsManager() {
     // Fetch tenant profiles
     const tenantIds = [...new Set((requestsData || []).map(r => r.tenant_id))];
     const { data: profiles } = tenantIds.length > 0
-      ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+      ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
       : { data: [] };
 
     // Fetch landlords with verification status

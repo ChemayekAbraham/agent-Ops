@@ -20,7 +20,7 @@ import {
   type LandlordCallStatus,
 } from '@/hooks/useLandlordCallReports';
 import type { LandlordCallingRow } from '@/hooks/useLandlordCallingList';
-import { useLandlordTenants } from '@/hooks/useLandlordTenants';
+import { useLandlordTenantOverview } from '@/hooks/useLandlordTenantOverview';
 import {
   ContactCard,
   DetailField,
@@ -52,7 +52,7 @@ export function LandlordCallDrawer({
   const [comment, setComment] = useState('');
   const logCall = useLogLandlordCall();
   const { data: history, isLoading: histLoading } = useLandlordCallHistory(open && row ? row.landlord_id : null);
-  const { data: tenants, isLoading: tenantsLoading } = useLandlordTenants(open && row ? row.landlord_id : null);
+  const { data: tenants, isLoading: tenantsLoading } = useLandlordTenantOverview(row?.landlord_id ?? null, open);
 
   const submit = async () => {
     if (!row || !status) return;
@@ -175,15 +175,15 @@ export function LandlordCallDrawer({
                         <p className="truncate text-xs font-semibold text-foreground">{t.tenant_name}</p>
                         <p className="truncate text-[10px] text-muted-foreground">
                           {t.tenant_phone || 'No phone'} · rent {formatUGX(t.rent_amount)}
-                          {t.outstanding > 0 ? ` · owes ${formatUGX(t.outstanding)}` : ''}
+                          {t.balance_left > 0 ? ` · owes ${formatUGX(t.balance_left)}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Badge variant="outline" className="text-[9px] capitalize">
-                          {t.status.replace(/_/g, ' ')}
+                          {t.plan_status.replace(/_/g, ' ')}
                         </Badge>
                         <ContactActions
-                          phone={t.tenant_phone}
+                          phone={t.tenant_phone ?? ''}
                           size="xs"
                           message={`Hello ${t.tenant_name}, this is Welile Operations.`}
                         />

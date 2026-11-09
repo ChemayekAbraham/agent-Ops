@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,7 +91,7 @@ export function useTenantNoPaymentNoteHistory(tenantId?: string | null) {
     queryFn: async () => {
       const map = new Map<string, string>();
       if (!authorIds.length) return map;
-      const { data } = await anyDb.from('profiles').select('id, full_name').in('id', authorIds);
+      const { data } = await withUuidIds(authorIds, (validIds) => anyDb.from('profiles').select('id, full_name').in('id', validIds));
       (data || []).forEach((p: any) => map.set(p.id, p.full_name || 'Unknown'));
       return map;
     },
@@ -111,7 +113,7 @@ export function useAddTenantNoPaymentNote() {
     mutationFn: async (input: { tenantId: string; note: string }) => {
       const trimmed = input.note.trim();
       if (!trimmed) throw new Error('Note cannot be empty.');
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) throw new Error('You must be signed in to add a note.');
       const { error } = await anyDb.from('tenant_no_payment_notes').insert({

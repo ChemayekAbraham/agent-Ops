@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -109,10 +110,10 @@ export function LandlordContextPanel({
       const tenantIds = Array.from(new Set(list.map((r: any) => r.tenant_id).filter(Boolean)));
       let tenantMap: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (tenantIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', tenantIds);
+          .in('id', validIds));
         for (const p of profiles ?? []) {
           tenantMap[p.id] = { full_name: p.full_name, phone: p.phone };
         }

@@ -1,6 +1,14 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipAgreementRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
 import { isValidInvestmentAmount, MIN_INVESTMENT_ERROR } from "../_shared/investmentAmount.ts";
+import {
+  formatRatePct,
+  monthlyReturnFor,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -191,7 +199,7 @@ Deno.serve(async (req) => {
         portfolio_code: portfolioCode,
         investment_amount: amount,
         duration_months: 12,
-        roi_percentage: 15,
+        // No roi_percentage: the database gate stores the partner's own Returns rate.
         roi_mode: "monthly_payout",
         portfolio_pin: portfolioPin,
         payout_day: null,
@@ -201,17 +209,32 @@ Deno.serve(async (req) => {
         investment_reference: investment_reference || null,
         receipt_file_url: receipt_file_url || null,
       })
-      .select("id")
+      .select("id, roi_percentage, rate_basis")
       .single();
 
-    if (portfolioErr) {
-      console.error("[agent-invest-for-partner] Portfolio creation failed:", portfolioErr.message);
-      // RPC is atomic — no need for manual ledger delete rollback
-      return errorResponse("Failed to create portfolio. Please retry.", 500);
+    if (portfolioErr || !portfolio) {
+      // The agent's wallet was already debited above (committed ledger transaction), so a retry would
+      // charge again. Record it for Ops and tell the agent; no partner notification or email.
+      const errMsg = portfolioErr?.message ?? "no row returned";
+      console.error("[agent-invest-for-partner] Portfolio creation failed after the ledger debit:", errMsg);
+      await adminClient.from("system_events").insert({
+        event_type: "agent_invest_portfolio_missing",
+        user_id: agent.id,
+        metadata: { reference_id: referenceId, partner_id, agent_id: agent.id, amount, error: errMsg },
+      });
+      return new Response(JSON.stringify({
+        error: `Funds were moved but the portfolio record failed. Contact Ops with ref ${referenceId}.`,
+        reference_id: referenceId,
+      }), { status: 500, headers: JSON_HEADERS });
     }
 
+    // The rate the gate stored. The partner sees their own figures; the agent sees a figure only when
+    // the row's rate applies to everyone (switch off).
+    const stored = storedRate(portfolio);
+    const monthlyReward = monthlyReturnFor(amount, stored);
+    const rateIsPublic = await rowRateIsPublic(adminClient, portfolio);
+
     // --- Direct ledger entries for instant activation via RPC (net-zero: credit then debit partner) ---
-    const monthlyReward = Math.round(amount * 0.15);
 
     // Step 1: Credit partner wallet
     await adminClient.rpc('create_ledger_transaction', {
@@ -314,15 +337,21 @@ Deno.serve(async (req) => {
       adminClient.from("notifications").insert({
         user_id: partner_id,
         title: "🎉 Your Support is Active!",
-        message: `Your agent ${agentName} facilitated UGX ${amount.toLocaleString()} on your behalf into the Rent Management Pool.\n\n✅ Your portfolio is now active!\n\n💰 You'll earn 15% (UGX ${monthlyReward.toLocaleString()}) monthly for 12 months.\n📅 First Payout: ${firstPayoutDate}\n\nPortfolio: ${portfolioCode}\nRef: ${referenceId}`,
+        // The partner's own notification: their own stored rate (never a default).
+        message: `Your agent ${agentName} facilitated UGX ${amount.toLocaleString()} on your behalf into the Rent Management Pool.\n\n✅ Your portfolio is now active!\n\n${
+          stored !== null && monthlyReward !== null
+            ? `💰 You'll earn ${formatRatePct(stored)} (UGX ${monthlyReward.toLocaleString()}) monthly for 12 months.`
+            : "💰 Your monthly Returns are shown on your dashboard."
+        }\n📅 First Payout: ${firstPayoutDate}\n\nPortfolio: ${portfolioCode}\nRef: ${referenceId}`,
         type: "success",
         metadata: {
           amount,
           reference_id: referenceId,
           payout_day,
-          monthly_reward: monthlyReward,
+          ...(monthlyReward !== null
+            ? { monthly_reward: monthlyReward, total_reward_12_months: monthlyReward * 12 }
+            : {}),
           first_payout_date: firstPayoutDate,
-          total_reward_12_months: monthlyReward * 12,
           proxy_agent_id: agent.id,
           proxy_agent_name: agentName,
           portfolio_code: portfolioCode,
@@ -350,23 +379,32 @@ Deno.serve(async (req) => {
     console.log(`[agent-invest-for-partner] Agent ${agent.id} invested ${amount} for partner ${partner_id}. Portfolio: ${portfolioCode} (ACTIVE). Ref: ${referenceId}. TxGroup: ${txGroupId}`);
 
     // Partnership Agreement email — target = partner (not the agent actor)
+    // Rate-bearing email (D4): the profile email when the row's rate applies to everyone; otherwise the
+    // confirmed login email (the agent may have typed the profile email), or the profile email without
+    // figures when there is none.
     try {
       const { data: partnerEmailRow } = await adminClient
         .from("profiles").select("email").eq("id", partner_id).maybeSingle();
-      if (partnerEmailRow?.email) {
+      const loginEmail = rateIsPublic
+        ? null
+        : (await readConfirmedLoginEmails(adminClient, [partner_id])).get(partner_id) ?? null;
+      const target = rateEmailTarget(loginEmail, partnerEmailRow?.email ?? null, rateIsPublic);
+      const figureRate = target.withFigures ? stored : null;
+      if (target.to) {
         dispatchTransactionalEmail(
           supabaseUrl,
           supabaseServiceKey,
           buildPartnershipAgreementRequest({
-            recipientEmail: partnerEmailRow.email,
+            recipientEmail: target.to,
             partnerName,
             partnerId: partner_id,
             portfolioId: portfolioCode,
             amount,
-            monthlyReward,
+            monthlyReward: monthlyReturnFor(amount, figureRate),
             contributionDateIso: new Date().toISOString(),
             firstPayoutDateIso: firstPayoutDate,
             payoutDay: payout_day,
+            roiPercentage: figureRate,
           }),
           "agent-invest-for-partner",
         );
@@ -402,7 +440,9 @@ Deno.serve(async (req) => {
         amount_invested: amount,
         payout_day,
         first_payout_date: firstPayoutDate,
-        monthly_reward: monthlyReward,
+        // To the agent: a monthly figure only when the row's rate applies to everyone (never the
+        // partner's own rate, never roi_percentage).
+        ...(rateIsPublic && monthlyReward !== null ? { monthly_reward: monthlyReward } : {}),
         partner_name: partnerName,
         activation_token: activationToken,
         agent_name: agentName,

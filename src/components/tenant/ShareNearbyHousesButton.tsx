@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Share2, Check, MessageCircle } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
@@ -37,7 +38,7 @@ export function ShareNearbyHousesButton({
   const buildLink = async () => {
     const params = new URLSearchParams();
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (user?.id) params.set('ref', user.id);
     } catch { /* anonymous sharing is fine */ }
     if (typeof latitude === 'number' && typeof longitude === 'number') {

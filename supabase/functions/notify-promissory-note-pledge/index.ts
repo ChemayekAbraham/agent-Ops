@@ -7,6 +7,7 @@ import "../_shared/smsFooterInterceptor.ts";
 // round trip (the row already carries name/phone/email/tenants snapshot, so no
 // N+1 lookups) and marks SMS + email independently sent/failed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { rateOrNull } from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -40,9 +41,11 @@ function buildMessage(row: {
   const tenantPart = row.attached_count > 0
     ? `${row.attached_count} tenant${row.attached_count === 1 ? "" : "s"} reserved. `
     : "";
+  // No stored monthly Returns (no rate on the note) -> no earnings sentence, never a guessed figure.
+  const earnPart = row.monthly_return > 0 ? `You earn ${ugx(row.monthly_return)}/month. ` : "";
   return (
     `WELILE: ${first}, your ${ugx(row.amount)} rent funding pledge is ready. ${tenantPart}` +
-    `You earn ${ugx(row.monthly_return)}/month. Fund: ${row.activation_url}`
+    `${earnPart}Fund: ${row.activation_url}`
   );
 }
 
@@ -107,12 +110,11 @@ Deno.serve(async (req) => {
   const noteId = body?.note_id ? String(body.note_id) : null;
   const limit = Math.min(Number(body?.limit) || 50, 200);
 
-  // One round trip: notice snapshot + the note's activation token.
+  // One round trip: notice snapshot + the note's agent. `*` carries return_rate (the rate stored on
+  // the queued row since Partner Returns Phase 2) and still works on a table without that column.
   let q = admin
     .from("promissory_note_pledge_notices")
-    .select(
-      "id, note_id, partner_name, phone, email, amount, attached_count, attached_amount, monthly_return, annual_return, tenants, sms_status, email_status, attempts, promissory_notes!inner(agent_id)",
-    )
+    .select("*, promissory_notes!inner(agent_id)")
     .lt("attempts", 5)
     .or("sms_status.eq.pending,email_status.eq.pending")
     .order("created_at", { ascending: true })
@@ -192,7 +194,7 @@ Deno.serve(async (req) => {
                 attached_amount: Number(row.attached_amount) || 0,
                 monthly_return_amount: Number(row.monthly_return) || 0,
                 annual_return_amount: Number(row.annual_return) || 0,
-                roi_percentage: 15,
+                roi_percentage: rateOrNull(row.return_rate),
                 term_months: 12,
                 tenants: row.tenants ?? [],
                 activation_url: activationUrl,

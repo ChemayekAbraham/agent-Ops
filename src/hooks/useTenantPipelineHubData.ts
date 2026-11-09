@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -208,10 +209,10 @@ export function useTenantPipelineHubData(
 
       const [tenants, agents, landlords, houses] = await Promise.all([
         fetchInBatches<any>(tenantIds, (b) =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', b),
+          withUuidIds(b, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         ),
         fetchInBatches<any>(agentIds, (b) =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', b),
+          withUuidIds(b, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         ),
         fetchInBatches<any>(landlordIds, (b) =>
           supabase.from('landlords').select('id, name, phone').in('id', b),

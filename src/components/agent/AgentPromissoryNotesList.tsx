@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,7 +26,7 @@ export function AgentPromissoryNotesList({ open, onOpenChange }: Props) {
   const { data: notes, isLoading } = useQuery({
     queryKey: ['agent-promissory-notes'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) return [];
       const { data, error } = await supabase.rpc('agent_own_promissory_notes' as never);
       if (error) throw error;

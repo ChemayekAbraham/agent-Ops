@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
+const TenantRepaymentTracker = lazy(() => import('@/components/cfo/tenant-repayments/TenantRepaymentTracker'));
 import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
@@ -18,6 +19,8 @@ import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
 import { RedemptionApprovalsPanel } from '@/components/cfo/RedemptionApprovalsPanel';
 import { CompoundRequestApprovalsPanel } from '@/components/cfo/CompoundRequestApprovalsPanel';
+import { PartnerReturnPolicyCard } from '@/components/cfo/PartnerReturnPolicyCard';
+import { PartnerRateApprovalsPanel } from '@/components/cfo/PartnerRateApprovalsPanel';
 import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
@@ -43,6 +46,7 @@ import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
 import SmsOtpCostsPanel from '@/components/cfo/SmsOtpCostsPanel';
 import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
 import { CashflowForecastGraphs } from '@/components/cfo/CashflowForecastGraphs';
+import { PartnerReceiptsPanel } from '@/components/shared/PartnerReceiptsPanel';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 
 import { FinancialStatementsPanel } from '@/components/manager/FinancialStatementsPanel';
@@ -322,7 +326,14 @@ export default function CFODashboardPage() {
       case 'approved-rent-payouts':
         return <CFOApprovedRentPayouts />;
       case 'roi-requests':
-        return <CFOROIRequests />;
+        // Partner Returns: the CEO-only switch (read-only for everyone else) and the CFO rate queue.
+        return (
+          <div className="space-y-6">
+            <PartnerReturnPolicyCard />
+            <PartnerRateApprovalsPanel />
+            <CFOROIRequests />
+          </div>
+        );
       case 'rent-payouts':
         return (
           <div className="space-y-4">
@@ -416,6 +427,8 @@ export default function CFODashboardPage() {
         return <CfoPayrollPanel />;
       case 'cfo-pay-advances':
         return <AdvancesPanel />;
+      case 'partner-receipts':
+        return <PartnerReceiptsPanel />;
       case 'cfo-payroll-history':
         return <CfoPayrollHistoryPanel />;
       case 'cfo-pay-approvals':
@@ -582,6 +595,12 @@ export default function CFODashboardPage() {
               <DisbursedAdvancesRegister />
             </div>
           </div>
+        );
+      case 'tenant-repayment-tracker':
+        return (
+          <Suspense fallback={<p className="py-6 text-center text-xs text-muted-foreground">Loading...</p>}>
+            <TenantRepaymentTracker />
+          </Suspense>
         );
       case 'special-advances':
         return (

@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
           direction: "cash_in",
           category: "orphan_reversal",
           ledger_scope: "wallet",
-          description: `ROI returns restored — proxy withdrawal cancelled by agent. Reason: ${reason}`,
+          description: `Returns restored — proxy withdrawal cancelled by agent. Reason: ${reason}`,
           currency: "UGX",
           source_table: "withdrawal_requests",
           source_id: withdrawalId,

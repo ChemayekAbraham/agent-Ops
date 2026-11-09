@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import React, { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,8 +130,8 @@ export function AgentOpsExpiredRequestsPanel({
       const landlordIds = [...new Set(unverified.map(r => r.landlord_id).filter(Boolean))] as string[];
 
       const [tenantsRes, agentsRes, landlordsRes] = await Promise.all([
-        tenantIds.length ? supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds) : { data: [] },
-        agentIds.length ? supabase.from('profiles').select('id, full_name').in('id', agentIds) : { data: [] },
+        tenantIds.length ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)) : { data: [] },
+        agentIds.length ? withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)) : { data: [] },
         landlordIds.length ? supabase.from('landlords').select('id, name').in('id', landlordIds) : { data: [] },
       ]);
 

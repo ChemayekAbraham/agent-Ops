@@ -36,21 +36,27 @@ import {
   SignageRecord,
   SignageStatus,
   formatSignageStatus,
+  canReviewSignage,
+  canInstallSignage,
+  hasInstalledSignagePhoto,
+  SignagePhoto,
 } from '@/lib/welileSignages';
+import { prepareSignagePhoto } from '@/lib/signagePhoto';
 import { useSignageOpsQueue, useReviewSignage, useVerifyInstallation } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
 interface WelileSignagesOpsProps {
   onBack: () => void;
+  stage?: 'agent_ops' | 'coo';
 }
 
-export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
+export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignagesOpsProps) {
   const { data: signages = [], isLoading, isError, error, refetch, isFetching } = useSignageOpsQueue();
-  const reviewMutation = useReviewSignage();
+  const reviewMutation = useReviewSignage(stage);
   const verifyMutation = useVerifyInstallation();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
 
   // Modal states
   const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
@@ -66,6 +72,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
   const [installerName, setInstallerName] = useState('');
   const [installedAt, setInstalledAt] = useState(new Date().toISOString().split('T')[0]);
   const [verificationNotes, setVerificationNotes] = useState('');
+  const [installedPhoto, setInstalledPhoto] = useState<SignagePhoto | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
 
   // Filtering
   const filtered = signages.filter((s) => {
@@ -78,7 +86,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
     if (statusFilter === 'all') return matchesSearch;
     if (statusFilter === 'pending_review') {
-      return matchesSearch && ['submitted', 'under_review'].includes(s.status);
+      return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
       return matchesSearch && ['approved_for_installation', 'pending_installation'].includes(s.status);
@@ -91,7 +99,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
   // Summary counts
   const totalActive = signages.filter((s) => s.status === 'active').length;
-  const pendingReview = signages.filter((s) => ['submitted', 'under_review'].includes(s.status)).length;
+  const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
+  const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
   const awaitingInstallation = signages.filter((s) => ['approved_for_installation', 'pending_installation'].includes(s.status)).length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
@@ -104,13 +113,19 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       toast.error('Please enter a rejection reason.');
       return;
     }
+    if (stage === 'coo' && reviewAction !== 'approve' && (reviewAction === 'reject' ? rejectionReason : reviewNote).trim().length < 10) {
+      toast.error('Please enter a reason of at least 10 characters.');
+      return;
+    }
 
-    await reviewMutation.mutateAsync({
-      signageId: selectedSignage.id,
-      decision: reviewAction,
-      notes: reviewNote.trim() || undefined,
-      rejectionReason: rejectionReason.trim() || undefined,
-    });
+    try {
+      await reviewMutation.mutateAsync({
+        signageId: selectedSignage.id,
+        decision: reviewAction,
+        notes: reviewNote.trim() || undefined,
+        rejectionReason: rejectionReason.trim() || undefined,
+      });
+    } catch { return; }
 
     setIsReviewOpen(false);
     setSelectedSignage(null);
@@ -127,22 +142,30 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       toast.error('Please enter the installer name.');
       return;
     }
+    if (!installedPhoto || !hasInstalledSignagePhoto([installedPhoto])) {
+      toast.error('Add a photo of the installed board before activating billing.');
+      return;
+    }
 
-    await verifyMutation.mutateAsync({
-      signageId: selectedSignage.id,
-      installerName: installerName.trim(),
-      installedAt,
-      verificationNotes: verificationNotes.trim() || undefined,
-    });
+    try {
+      await verifyMutation.mutateAsync({
+        signageId: selectedSignage.id,
+        installerName: installerName.trim(),
+        installedAt,
+        verificationNotes: verificationNotes.trim() || undefined,
+        installationPhotos: [installedPhoto],
+      });
+    } catch { return; }
 
     setIsVerifyOpen(false);
     setSelectedSignage(null);
     setInstallerName('');
     setVerificationNotes('');
+    setInstalledPhoto(null);
   };
 
   return (
-    <div className="space-y-4 w-full pb-16">
+    <div className="space-y-4 w-full pb-16 font-sans">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -152,13 +175,13 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Welile Signages Operations</h2>
+              <h2 className="text-base font-bold text-foreground">{stage === 'coo' ? 'Welile Signages Approvals' : 'Welile Signages Operations'}</h2>
               <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary font-bold">
-                Admin Ops
+                {stage === 'coo' ? 'COO' : 'Agent Ops'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Review locations, verify physical installations, and manage monthly owner obligations.
+              {stage === 'coo' ? 'Awaiting COO approval' : 'Agent Ops review'}
             </p>
           </div>
         </div>
@@ -171,7 +194,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Pending Review</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">{stage === 'coo' ? 'Awaiting COO' : 'Pending Review'}</span>
           <span className="text-lg font-bold text-amber-600">{pendingReview}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
@@ -202,8 +225,9 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           {[
             { id: 'all', label: 'All' },
-            { id: 'pending_review', label: `Pending (${pendingReview})` },
-            { id: 'approved', label: `Approved (${awaitingInstallation})` },
+            ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
+            { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
+            { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -251,8 +275,11 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Ref: <span className="font-mono font-bold text-foreground">{item.reference_no}</span> • Agent: {item.agent_name || 'Agent'} ({item.agent_phone || 'N/A'})
+                        Ref: <span className="font-bold text-foreground">{item.reference_no}</span> • Agent: {item.agent_name || 'Agent'} ({item.agent_phone || 'N/A'})
                       </p>
+                      {item.repeat_owner_phone && (
+                        <Badge variant="destructive" className="mt-1 text-[10px]">Repeat owner phone — review</Badge>
+                      )}
                     </div>
                     <Badge variant={statusMeta.variant as any} className="text-[10px] shrink-0">
                       {statusMeta.label}
@@ -268,7 +295,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block font-medium">GPS Verification:</span>
-                      <span className="font-mono text-foreground">{item.gps_latitude?.toFixed(4)}, {item.gps_longitude?.toFixed(4)}</span>
+                      <span className="text-foreground">{item.gps_latitude?.toFixed(4)}, {item.gps_longitude?.toFixed(4)}</span>
                       <p className="text-[10px] text-emerald-600 font-medium">Accuracy ±{Math.round(item.gps_accuracy_meters)}m</p>
                     </div>
                     <div>
@@ -296,10 +323,10 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                         className="rounded-xl text-xs h-8 gap-1"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        <span>Inspect & Decide</span>
+                        <span>{item.status === 'active' ? 'View (read-only)' : 'Inspect & Decide'}</span>
                       </Button>
 
-                      {['approved_for_installation', 'pending_installation'].includes(item.status) && (
+                      {stage === 'agent_ops' && canInstallSignage(item.status) && (
                         <Button
                           size="sm"
                           onClick={() => {
@@ -323,7 +350,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
       {/* ── MODAL 1: INSPECTION & DECISION DIALOG ── */}
       <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl font-sans">
           {selectedSignage && (
             <div className="space-y-4">
               <DialogHeader className="pr-8">
@@ -336,7 +363,9 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                   </Badge>
                 </div>
                 <DialogDescription className="text-xs">
-                  Inspect coordinates, photographs, owner consent, and commercial advertising visibility.
+                  {selectedSignage.status === 'active'
+                    ? 'This signage is active and read-only.'
+                    : 'Inspect coordinates, photographs, owner consent, and commercial advertising visibility.'}
                 </DialogDescription>
               </DialogHeader>
 
@@ -375,7 +404,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
-                <p className="font-mono text-muted-foreground">
+                <p className="text-muted-foreground">
                   Lat: {selectedSignage.gps_latitude}, Lng: {selectedSignage.gps_longitude} (Accuracy: ±{Math.round(selectedSignage.gps_accuracy_meters)}m)
                 </p>
                 <p className="text-muted-foreground">
@@ -391,8 +420,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
               </div>
 
               {/* Decision Section */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <Label className="text-xs font-bold">Ops Decision</Label>
+              {canReviewSignage(selectedSignage.status, stage) && <div className="space-y-3 pt-2 border-t border-border">
+                <Label className="text-xs font-bold">{stage === 'coo' ? 'COO Decision' : 'Agent Ops Decision'}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   <Button
                     type="button"
@@ -402,7 +431,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     className="rounded-xl text-xs h-9"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-500" />
-                    Approve
+                    {stage === 'coo' ? 'Send to CFO' : 'Send to COO'}
                   </Button>
                   <Button
                     type="button"
@@ -448,20 +477,20 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     />
                   </div>
                 )}
-              </div>
+              </div>}
 
               <DialogFooter className="pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setIsReviewOpen(false)}>
                   Cancel
                 </Button>
-                <Button
+                {canReviewSignage(selectedSignage.status, stage) && <Button
                   size="sm"
                   onClick={handleConfirmReview}
                   disabled={reviewMutation.isPending}
                   className="rounded-xl text-xs font-bold"
                 >
                   {reviewMutation.isPending ? 'Recording...' : 'Confirm Decision'}
-                </Button>
+                </Button>}
               </DialogFooter>
             </div>
           )}
@@ -470,7 +499,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
       {/* ── MODAL 2: INSTALLATION VERIFICATION & ACTIVATION DIALOG ── */}
       <Dialog open={isVerifyOpen} onOpenChange={setIsVerifyOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-md rounded-2xl font-sans">
           {selectedSignage && (
             <div className="space-y-4">
               <DialogHeader className="pr-8">
@@ -521,6 +550,21 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     className="mt-1 text-xs rounded-xl"
                   />
                 </div>
+                <div>
+                  <Label className="text-xs font-medium" htmlFor="installed-board-photo">Installed board photo *</Label>
+                  <Input id="installed-board-photo" type="file" accept="image/*" capture="environment" disabled={preparingPhoto}
+                    className="mt-1 h-10 text-xs rounded-xl"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      setPreparingPhoto(true);
+                      try { setInstalledPhoto(await prepareSignagePhoto(file, 'installed_signage')); }
+                      catch (err) { toast.error(err instanceof Error ? err.message : 'Could not add photo.'); }
+                      finally { setPreparingPhoto(false); }
+                    }} />
+                  {installedPhoto && <img src={installedPhoto.url} alt="Installed board" className="mt-2 h-24 w-full rounded-xl object-cover" />}
+                </div>
               </div>
 
               <DialogFooter className="pt-2">
@@ -530,7 +574,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                 <Button
                   size="sm"
                   onClick={handleConfirmVerification}
-                  disabled={verifyMutation.isPending || !installerName.trim()}
+                  disabled={verifyMutation.isPending || preparingPhoto || !installerName.trim() || !installedPhoto}
                   className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {verifyMutation.isPending ? 'Activating...' : 'Verify & Activate Signage'}

@@ -80,7 +80,7 @@ export default function ChatWindow({ conversationId, onBack, isOffline = false }
         .from('profiles')
         .select('id, full_name, email, phone, avatar_url, rent_discount_active, monthly_rent, roles, average_rating, rating_count, verified')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       if (data) {
         setSelectedChatUser(data);
       }

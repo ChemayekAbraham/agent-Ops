@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,7 +82,7 @@ export function DepositRentAuditWidget() {
 
       // Fetch profiles and rent requests in parallel
       const [profilesRes, rentRequestsRes, repaymentsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').in('id', userIds),
+        withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
         supabase.from('rent_requests')
           .select('id, tenant_id, rent_amount, total_repayment, amount_repaid, status')
           .in('tenant_id', deposits.map(d => d.user_id))

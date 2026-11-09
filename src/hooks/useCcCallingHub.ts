@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Shared data layer for the Call Centre hub (tenant / landlord / agent).
  *
@@ -526,7 +527,7 @@ export function useCcCallingHub(
       if (error) throw new Error(err(error));
       const ids = [...new Set((staff ?? []).map((s) => s.user_id).filter(Boolean))] as string[];
       if (!ids.length) return [];
-      const { data: profs, error: pErr } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profs, error: pErr } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (pErr) throw new Error(err(pErr));
       return (staff ?? [])
         .map((s) => ({

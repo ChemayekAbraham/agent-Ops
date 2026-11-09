@@ -14,7 +14,7 @@ import {
 const getSession = vi.fn();
 const auth = {
   user: null as { id: string } | null,
-  session: null as { access_token?: string; expires_at?: number } | null,
+  session: null as { user?: { id: string }; access_token?: string; expires_at?: number } | null,
   loading: true,
   roles: ['tenant'] as string[],
 };
@@ -72,7 +72,7 @@ describe('hasUsableUserSession', () => {
 
   it('is true when getSession returns an unexpired access token', async () => {
     getSession.mockResolvedValue({
-      data: { session: { access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 600 } },
+      data: { session: { user: { id: 'staff-1' }, access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 600 } },
       error: null,
     });
     await expect(hasUsableUserSession()).resolves.toBe(true);
@@ -93,7 +93,7 @@ describe('useAuthenticatedPoll', () => {
     auth.roles = ['tenant'];
     getSession.mockReset();
     getSession.mockResolvedValue({
-      data: { session: { access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 } },
+      data: { session: { user: { id: 'staff-1' }, access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 } },
       error: null,
     });
   });
@@ -114,7 +114,7 @@ describe('useAuthenticatedPoll', () => {
     const load = vi.fn().mockResolvedValue(undefined);
     auth.loading = false;
     auth.user = { id: 'staff-1' };
-    auth.session = { access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 };
+    auth.session = { user: auth.user, access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 };
     const { rerender } = renderHook(() => useAuthenticatedPoll(load, 1_000), { wrapper: wrap() });
     await act(async () => {});
     expect(load).toHaveBeenCalledTimes(1);
@@ -133,7 +133,7 @@ describe('useAuthenticatedPoll', () => {
     const load = vi.fn();
     auth.loading = false;
     auth.user = { id: 'staff-1' };
-    auth.session = { access_token: 'stale' };
+    auth.session = { user: auth.user, access_token: 'stale' };
     getSession.mockResolvedValue({ data: { session: null }, error: null });
     renderHook(() => useAuthenticatedPoll(load, 1_000), { wrapper: wrap() });
     await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
@@ -145,7 +145,7 @@ describe('useAuthenticatedPoll', () => {
     const load = vi.fn().mockResolvedValue(undefined);
     auth.loading = false;
     auth.user = { id: 'cto-1' };
-    auth.session = { access_token: 'jwt' };
+    auth.session = { user: auth.user, access_token: 'jwt' };
     auth.roles = ['tenant'];
     const { rerender } = renderHook(
       () => useAuthenticatedPoll(load, 5_000, { roles: ['cto', 'super_admin'] }),
@@ -164,7 +164,7 @@ describe('useAuthenticatedPoll', () => {
     const load = vi.fn().mockResolvedValue(undefined);
     auth.loading = false;
     auth.user = { id: 'staff-1' };
-    auth.session = { access_token: 'jwt' };
+    auth.session = { user: auth.user, access_token: 'jwt' };
 
     function Probe() {
       useAuthenticatedPoll(load, 60_000, { onNavigate: true });

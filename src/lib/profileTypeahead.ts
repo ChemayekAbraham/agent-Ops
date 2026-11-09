@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -130,9 +131,9 @@ async function hydrateProfiles(
   columns: string,
 ): Promise<{ rows: ProfileSearchRow[]; error: string | null }> {
   const ids = base.map((row) => row.id);
-  const { data, error } = await (supabase.from('profiles') as any)
+  const { data, error } = await withUuidIds(ids, (validIds) => (supabase.from('profiles') as any)
     .select(columns)
-    .in('id', ids);
+    .in('id', validIds));
   if (error) return { rows: base, error: null };
   const order = new Map(base.map((row, index) => [row.id, index]));
   const rows = ((data ?? []) as ProfileSearchRow[]).slice().sort(

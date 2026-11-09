@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Received Calls — calls that came IN to the Calling Center.
  *
@@ -316,7 +317,7 @@ export function ReceivedCallsTab() {
   const exportPdf = async () => {
     setExporting(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const pdfRows: ReceivedCallPdfRow[] = rows.map((r) => ({
         when: stamp(r.called_at),
         caller: r.caller_name,

@@ -177,8 +177,8 @@ export default function HouseDetail() {
       const PUBLIC_LISTING_COLS =
         'id, landlord_id, agent_id, title, description, house_category, number_of_rooms, monthly_rent, daily_rate, access_fee, platform_fee, total_monthly_cost, region, district, sub_county, village, address, latitude, longitude, has_water, has_electricity, has_security, has_parking, is_furnished, amenities, image_urls, status, tenant_id, landlord_accepted, verified, verified_by, verified_at, created_at, updated_at, geo_point, caretaker_user_id, is_agent_caretaker, landlord_has_smartphone, lc1_chairperson_village, listing_bonus_paid, listing_bonus_paid_at, video_url, short_code, placement_bonus_paid_at, is_hidden, listed_bonus_paid, listed_bonus_paid_at, reserved_by, reserved_at, suspended_tenant_id';
       const query = isUuid
-        ? supabase.from('house_listings').select(PUBLIC_LISTING_COLS).eq('id', id).single()
-        : supabase.from('house_listings').select(PUBLIC_LISTING_COLS).eq('short_code', id).single();
+        ? supabase.from('house_listings').select(PUBLIC_LISTING_COLS).eq('id', id).maybeSingle()
+        : supabase.from('house_listings').select(PUBLIC_LISTING_COLS).eq('short_code', id).maybeSingle();
 
       const { data } = await query;
 
@@ -187,7 +187,7 @@ export default function HouseDetail() {
           .from('profiles')
           .select('phone, full_name')
           .eq('id', data.agent_id)
-          .single();
+          .maybeSingle();
 
         setListing({
           ...(data as any),

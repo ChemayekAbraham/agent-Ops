@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,10 +74,10 @@ function useNotesBreakdown(enabled: boolean) {
       const agentIds = Array.from(new Set((notes || []).map(n => n.agent_id).filter(Boolean))) as string[];
       let agents: Record<string, { name: string; phone: string | null }> = {};
       if (agentIds.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', agentIds);
+          .in('id', validIds));
         agents = Object.fromEntries((profiles || []).map(p => [p.id, { name: p.full_name || 'Unknown agent', phone: p.phone }]));
       }
       return (notes || [])

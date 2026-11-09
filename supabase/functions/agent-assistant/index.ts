@@ -251,6 +251,9 @@ async function runTurn(
           content = JSON.stringify({ untrusted_data: { note: "No agent activity found for this account yet." } });
         } else if (/invalid_(range|direction|status)/.test(error.message ?? "")) {
           content = JSON.stringify({ error: "That range is not allowed (no future dates, at most 92 days)." });
+        } else if (error.code === "PGRST202") {
+          // The tool's database function is not installed (yet): degrade to data, not a failed turn.
+          content = JSON.stringify({ untrusted_data: { available: false } });
         } else {
           throw new Error(`tool ${name} failed: ${error.message}`);
         }

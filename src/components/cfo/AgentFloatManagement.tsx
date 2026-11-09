@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,7 +60,7 @@ function FloatTransfersTab() {
       const agentIds = [...new Set((data || []).map((t: any) => t.agent_id))];
       const profiles: Record<string, any> = {};
       for (const id of agentIds) {
-        const { data: p } = await supabase.from('profiles').select('full_name, phone').eq('id', id).single();
+        const { data: p } = await supabase.from('profiles').select('full_name, phone').eq('id', id).maybeSingle();
         if (p) profiles[id] = p;
       }
       return (data || []).map((t: any) => ({ ...t, profile: profiles[t.agent_id] }));
@@ -396,7 +398,7 @@ function FloatReconciliationTab() {
     // the actual download.
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: user?.id ?? null,
           action_type: 'csv_exported',
@@ -536,7 +538,7 @@ function AllAgentsBreakdownTab() {
 
       // 2. Fetch profiles, wallets, and ledger commission data in parallel
       const [{ data: profiles }, walletBuckets, { data: ledger }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', ids),
+        withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         fetchOpsWalletBuckets(ids),
         supabase
           .from('general_ledger')

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -114,10 +115,10 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
       // Fetch passport / avatar photos for the tenant list (fallback to initials on missing/broken).
       const ids = eligibleRows.map((r) => r.id as string);
       if (ids.length > 0) {
-        const { data: photoRows } = await supabase
+        const { data: photoRows } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, avatar_url')
-          .in('id', ids);
+          .in('id', validIds));
         // Fallback: tenants whose profile has no avatar still have the passport
         // photo captured at registration in tenant_documents — never leave the
         // card on initials when a passport exists.

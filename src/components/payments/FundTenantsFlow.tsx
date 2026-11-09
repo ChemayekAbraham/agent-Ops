@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import StepperModal, { Step } from './StepperModal';
 import ReceiptCard from './ReceiptCard';
@@ -94,10 +95,10 @@ export default function FundTenantsFlow({
         if (fallbackData) {
           // Get tenant profiles separately
           const tenantIds = [...new Set(fallbackData.map(r => r.tenant_id))];
-          const { data: profiles } = await supabase
+          const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, city')
-            .in('id', tenantIds);
+            .in('id', validIds));
 
           const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

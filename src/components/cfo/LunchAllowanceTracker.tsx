@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -99,7 +100,7 @@ export function LunchAllowanceTracker() {
       const ids = [...new Set(list.flatMap((r) => [r.target_user_id, r.created_by]).filter(Boolean))] as string[];
       const names: Record<string, string> = {};
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id,full_name').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id,full_name').in('id', validIds));
         (profs ?? []).forEach((p: any) => { names[p.id] = p.full_name || 'Unknown'; });
       }
       return { list, names };

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,10 +103,10 @@ export function RejectedFieldDepositsList() {
       );
       const nameMap = new Map<string, string | null>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of (profs ?? []) as any[]) nameMap.set(p.id, p.full_name ?? null);
       }
       const fieldRows: RejectedRow[] = batchList.map((r) => ({
@@ -217,55 +218,55 @@ export function RejectedFieldDepositsList() {
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <Card key={`${r.kind}:${r.id}`} className="border-destructive/20">
-              <CardContent className="p-3 sm:p-4 space-y-2.5">
+            <Card key={`${r.kind}:${r.id}`} className="border-border/70 bg-card rounded-2xl shadow-xs hover:border-border transition-colors">
+              <CardContent className="p-4 sm:p-5 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm truncate">
+                      <span className="font-bold text-sm text-foreground truncate">
                         {r.kind === 'field'
                           ? (r.agent_name ?? r.agent_id.slice(0, 8))
                           : (r.user_name ?? r.user_id.slice(0, 8))}
                       </span>
-                      <Badge variant="outline" className="text-[10px] gap-1">
+                      <Badge variant="outline" className="text-[10px] gap-1 font-medium border-border/70 bg-muted/20">
                         {r.kind === 'field' ? <Wallet className="h-3 w-3" /> : <User className="h-3 w-3" />}
                         {r.kind === 'field' ? 'Field deposit' : 'User deposit'}
                       </Badge>
                       {r.channel && (
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[10px] font-mono border-border/70 bg-muted/20">
                           {r.kind === 'field'
                             ? channelLabel(r.channel as DepositChannel)
                             : (r.channel ?? '').toUpperCase()}
                         </Badge>
                       )}
-                      <Badge variant="destructive" className="text-[10px] gap-1">
+                      <Badge variant="outline" className="text-[10px] gap-1 border-border/80 bg-muted/40 text-muted-foreground font-semibold">
                         <XCircle className="h-3 w-3" /> Rejected
                       </Badge>
                     </div>
-                    <div className="text-xs text-muted-foreground mt-0.5 font-mono">
+                    <div className="text-xs text-muted-foreground mt-1 font-mono">
                       {r.kind === 'field' ? 'Ref' : 'TID'}: {r.proof_reference ?? '—'}
                     </div>
                     {r.kind === 'user' && r.deposit_purpose && (
                       <div className="text-[11px] text-muted-foreground mt-0.5">
-                        Purpose: <span className="text-foreground">{r.deposit_purpose.replace(/_/g, ' ')}</span>
+                        Purpose: <span className="text-foreground font-medium">{r.deposit_purpose.replace(/_/g, ' ')}</span>
                       </div>
                     )}
                   </div>
-                  <div className="font-mono font-semibold text-sm whitespace-nowrap">
+                  <div className="font-mono font-bold text-base text-foreground whitespace-nowrap">
                     {formatUGX(r.amount)}
                   </div>
                 </div>
 
                 {r.rejection_reason && (
-                  <div className="rounded-md bg-destructive/5 border border-destructive/20 px-2.5 py-1.5">
-                    <div className="text-[10px] uppercase tracking-wide text-destructive/80 font-semibold">
+                  <div className="rounded-xl bg-muted/30 border border-border/70 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
                       Rejection reason
                     </div>
-                    <div className="text-xs text-foreground mt-0.5">{r.rejection_reason}</div>
+                    <div className="text-xs text-foreground mt-1 font-medium leading-relaxed">{r.rejection_reason}</div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground pt-1 border-t border-border/40">
                   <span>
                     Rejected by {r.rejected_by_name ?? '—'}
                     {r.rejected_at ? ` · ${format(new Date(r.rejected_at), 'MMM d, HH:mm')}` : ''}
@@ -273,7 +274,7 @@ export function RejectedFieldDepositsList() {
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-7 px-2.5 gap-1.5 text-xs"
+                    className="h-8 px-3 rounded-xl gap-1.5 text-xs font-semibold hover:bg-muted/40 text-foreground border-border/80 shadow-2xs"
                     onClick={() => { setConfirmRow(r); setNote(''); }}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />

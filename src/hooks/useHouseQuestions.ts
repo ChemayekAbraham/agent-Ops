@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,7 +33,7 @@ export function useHouseQuestions(houseId: string | undefined) {
     const askerIds = [...new Set(list.map(q => q.asker_id))];
     let profiles: { id: string; full_name: string; avatar_url: string | null }[] = [];
     if (askerIds.length > 0) {
-      const { data: p } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', askerIds);
+      const { data: p } = await withUuidIds(askerIds, (validIds) => supabase.from('profiles').select('id, full_name, avatar_url').in('id', validIds));
       profiles = p || [];
     }
 

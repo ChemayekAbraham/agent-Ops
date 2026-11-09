@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -479,10 +480,10 @@ async function fetchAgentNames(agentIds: string[]): Promise<Record<string, strin
   const names: Record<string, string> = {};
   const BATCH = 100;
   for (let i = 0; i < agentIds.length; i += BATCH) {
-    const { data } = await supabase
+    const { data } = await withUuidIds(agentIds.slice(i, i + BATCH), (validIds) => supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', agentIds.slice(i, i + BATCH));
+      .in('id', validIds));
     (data || []).forEach((p: any) => { names[p.id] = p.full_name || p.id.slice(0, 8); });
   }
   return names;
@@ -1725,10 +1726,10 @@ async function fetchAgentCollectionRecords(agentId: string, start: Date, end: Da
   const nameById = new Map<string, string>();
   const BATCH = 100;
   for (let i = 0; i < tenantIds.length; i += BATCH) {
-    const { data } = await supabase
+    const { data } = await withUuidIds(tenantIds.slice(i, i + BATCH), (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', tenantIds.slice(i, i + BATCH));
+      .in('id', validIds));
     (data || []).forEach((p: any) => {
       nameById.set(p.id, p.full_name || p.phone || 'Tenant');
     });

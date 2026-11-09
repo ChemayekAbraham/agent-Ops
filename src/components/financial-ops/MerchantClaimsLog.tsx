@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,7 +101,7 @@ function ClaimDetailDrawer({ claim, onClose }: { claim: ClaimRow | null; onClose
     enabled: !!claim && actorIds.length > 0,
     queryFn: async () => {
       const map: Record<string, string> = {};
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', actorIds);
+      const { data } = await withUuidIds(actorIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       data?.forEach(p => { map[p.id] = p.full_name || 'Unknown user'; });
       return map;
     },
@@ -404,10 +405,10 @@ export function MerchantClaimsLog() {
         // Chunk the id list so a large batch never overflows the URL / .in() cap.
         for (let i = 0; i < custIds.length; i += 200) {
           const chunk = custIds.slice(i, i + 200);
-          const { data: profs } = await supabase
+          const { data: profs } = await withUuidIds(chunk, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone')
-            .in('id', chunk);
+            .in('id', validIds));
           profs?.forEach(p => custMap.set(p.id, { name: p.full_name || 'Customer', phone: p.phone || null }));
         }
       }

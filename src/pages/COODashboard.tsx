@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -208,10 +209,10 @@ export default function COODashboard() {
       const allProfileIds = [...new Set(recentRequests.flatMap(r => [r.tenant_id, r.agent_id].filter(Boolean)))] as string[];
       let profileMap = new Map<string, string>();
       if (allProfileIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(allProfileIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', allProfileIds);
+          .in('id', validIds));
         profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
       }
 

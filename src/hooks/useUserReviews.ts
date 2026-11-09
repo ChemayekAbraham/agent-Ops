@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,10 +58,10 @@ export function useUserReviews(userId: string | undefined) {
     let profiles: { id: string; full_name: string; avatar_url: string | null }[] = [];
     
     if (reviewerIds.length > 0) {
-      const { data: profilesData } = await supabase
+      const { data: profilesData } = await withUuidIds(reviewerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
-        .in('id', reviewerIds);
+        .in('id', validIds));
       profiles = profilesData || [];
     }
 

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -327,10 +328,10 @@ export function AgentRentCapacityPanel({
       const profileMap = new Map<string, { name: string; phone: string | null }>();
       const BATCH = 50;
       for (let i = 0; i < agentIds.length; i += BATCH) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(agentIds.slice(i, i + BATCH), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', agentIds.slice(i, i + BATCH));
+          .in('id', validIds));
         (profs || []).forEach((p: any) => {
           profileMap.set(p.id, { name: p.full_name || 'Unknown', phone: p.phone });
         });

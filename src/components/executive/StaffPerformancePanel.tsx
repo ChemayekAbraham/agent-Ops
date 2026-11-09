@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from './KPICard';
@@ -60,7 +61,7 @@ export function StaffPerformancePanel() {
     queryKey: ['staff-perf-profiles', (staffRoleMap || []).sort().join(',')],
     queryFn: async () => {
       if (!staffRoleMap?.length) return {};
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', staffRoleMap.slice(0, 100));
+      const { data } = await withUuidIds(staffRoleMap.slice(0, 100), (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const map: Record<string, string> = {};
       (data || []).forEach(p => { map[p.id] = p.full_name || 'Unknown'; });
       return map;

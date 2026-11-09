@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,10 +48,10 @@ export function NewTenantsWithoutRequestPanel() {
       if (orphanIds.length === 0) return [];
 
       // 3. Resolve names/phones for tenants and the agents who referred them
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds([...new Set([...orphanIds, ...referrerIds])], (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, created_at, region, district, sub_county, parish, village, city, town, landmark')
-        .in('id', [...new Set([...orphanIds, ...referrerIds])]);
+        .in('id', validIds));
       const pMap = new Map((profiles || []).map(p => [p.id, p]));
 
       return refs

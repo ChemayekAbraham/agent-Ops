@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * ENGREP P12 — per-row adjudication cells (Band + Written basis).
  *
@@ -76,7 +77,7 @@ function AddendumDialog({
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const { error } = await db.from('engrep_addenda').insert({
         window_id: windowId,
         row_id: rowId,

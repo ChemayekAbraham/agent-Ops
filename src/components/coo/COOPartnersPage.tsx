@@ -1,9 +1,11 @@
+import { getSessionCheckedUser, withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { safeUUID } from '@/lib/safeUUID';
 import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
 import { useEffect, useState, useCallback, useMemo, useRef, useDeferredValue } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { MIN_INVEST, MAX_INVEST, investHelperRange, isInvestAmountValid } from '@/lib/partnershipInvestment';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
@@ -102,6 +104,11 @@ import { LockPortfolioDialog, type LockablePortfolio } from '@/components/partne
 import { SplitPortfolioDialog, type SplittablePortfolio } from '@/components/partner/SplitPortfolioDialog';
 import { UnlockPortfolioDialog } from '@/components/partner/UnlockPortfolioDialog';
 import { LockOpen } from 'lucide-react';
+import { useStaffPortfolioRate } from '@/hooks/useStaffPortfolioRate';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { isPolicyChangedError, POLICY_CHANGED_MESSAGE, staffRateSubmitBlock } from '@/lib/staffPortfolioRate';
+import { monthlyReturnFor, rateAwaitsCfo, rateOrNull } from '@/lib/partnerReturnPolicy';
+import { PartnerRateCfoNote, createResponseRateMessage, rateAwaitsCfoMessage } from '@/components/shared/PartnerRateCfoNote';
 
 /* ─── Types ─── */
 interface PartnerRow {
@@ -570,7 +577,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const [invitePartnerPortfolio, setInvitePartnerPortfolio] = useState<{ id: string; full_name?: string | null; email?: string | null } | null>(null);
   
   const [addPortfolioAmount, setAddPortfolioAmount] = useState('');
-  const [addPortfolioRoi, setAddPortfolioRoi] = useState('20');
+  // Partner Returns (design v2 §6.1 staff form contract): while the switch is seen OFF the field
+  // prefills today's 20 and is always sent; switch on or unknown -> the partner's own rate, sent
+  // only when staff edit it (a different rate waits for the CFO).
+  const addPortfolioRate = useStaffPortfolioRate(detailPartner?.profile?.id, '20');
+  const addPortfolioRoi = addPortfolioRate.value;
+  const setAddPortfolioRoi = addPortfolioRate.setValue;
+  // Rate edits on existing portfolios: today's "always write the rate" only when the switch is seen off.
+  const partnerReturnPolicy = usePartnerReturnPolicy({ fresh: true });
+  const rateSwitchOffSeen = partnerReturnPolicy.fromNetwork && partnerReturnPolicy.enabled === false;
   const [addPortfolioRoiMode, setAddPortfolioRoiMode] = useState('monthly_payout');
   const [addPortfolioDuration, setAddPortfolioDuration] = useState('12');
   const [addPortfolioPayoutDay, setAddPortfolioPayoutDay] = useState('15');
@@ -615,7 +630,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       const roiAmount = Math.round(portfolio.investment_amount * portfolio.roi_percentage / 100);
       const newAmount = portfolio.investment_amount + roiAmount;
       const refId = `CMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Advance next_roi_date by +1 month on compound
@@ -682,14 +697,14 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const buildRowsForIds = useCallback(async (ids: string[]): Promise<PartnerRow[]> => {
     if (ids.length === 0) return [];
     const [profiles, wallets, portfolios] = await Promise.all([
-      batchedQuery<any>(ids, (batch) => supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at').in('id', batch)),
+      batchedQuery<any>(ids, (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at').in('id', validIds))),
       batchedQuery<any>(ids, (batch) => supabase.from('wallets').select('user_id, balance').in('user_id', batch)),
       batchedQuery<any>(ids, (batch) =>
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, investor_id, agent_id, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, next_roi_date')
           .or(`investor_id.in.(${batch.join(',')}),agent_id.in.(${batch.join(',')})`)
           .in('status', ['active', 'pending_approval', 'pending'])
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }))
       ),
     ]);
 
@@ -802,7 +817,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         const profiles = ids.length
           ? await batchedQuery<{ id: string; full_name: string | null; phone: string | null; email: string | null }>(
               ids,
-              (batch) => supabase.from('profiles').select('id, full_name, phone, email').in('id', batch),
+              (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email').in('id', validIds)),
             )
           : [];
         const pMap = new Map(profiles.map(p => [p.id, p]));
@@ -906,10 +921,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
   // Fetch pending_approval count
   const fetchPendingCount = useCallback(async () => {
-    const { count } = await supabase
+    const { count } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending_approval');
+      .eq('status', 'pending_approval'));
     setPendingApprovalCount(count || 0);
   }, []);
 
@@ -942,11 +957,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const handleApprovePortfolio = async (portfolioId: string) => {
     setApprovingId(portfolioId);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ status: 'active' })
         .eq('id', portfolioId)
-        .eq('status', 'pending_approval');
+        .eq('status', 'pending_approval'));
 
       if (error) throw error;
 
@@ -958,7 +973,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         .eq('status', 'pending');
 
       // Audit log
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'approve_portfolio',
@@ -982,10 +997,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const handleBulkActivate = async () => {
     setActivatingAll(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ status: 'active' })
-        .eq('status', 'pending_approval');
+        .eq('status', 'pending_approval'));
 
       if (error) throw error;
 
@@ -1008,12 +1023,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     setDetailSelfCommitments([]);
     try {
       const [profileRes, walletRes, portfolioRes, ledgerRes, selfCommitRes, selfLinesRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).single(),
+        supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).maybeSingle(),
         supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', partnerId).single(),
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, maturity_date, total_roi_earned, duration_months, next_roi_date, investor_id, agent_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, pending_renewal_effective_date, pending_renewal_duration_months, locked_from_portfolio_id, locked_at, lock_reason')
           .or(`investor_id.eq.${partnerId},agent_id.eq.${partnerId}`)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })),
         supabase.from('general_ledger')
           .select('amount, direction, category')
           .eq('user_id', partnerId)
@@ -1048,10 +1063,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         const tenantIds = Array.from(new Set((rrRows || []).map((r: any) => r.tenant_id).filter(Boolean)));
         const nameById: Record<string, string> = {};
         if (tenantIds.length > 0) {
-          const { data: tenantRows } = await supabase
+          const { data: tenantRows } = await withUuidIds(tenantIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name')
-            .in('id', tenantIds);
+            .in('id', validIds));
           (tenantRows || []).forEach((t: any) => { nameById[t.id] = t.full_name; });
         }
         (rrRows || []).forEach((r: any) => {
@@ -1288,13 +1303,13 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     const trimmed = editingNameValue.trim();
     setSavingName(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ account_name: trimmed || null })
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
 
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'edit_portfolio_name',
@@ -1326,11 +1341,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // next_roi_date whenever it is populated. Realign the stored date (same
       // month/year) to the new day-of-month, but only if that cycle is still
       // in the future — past/overdue cycles stay visible untouched.
-      const { data: current } = await supabase
+      const { data: current } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('next_roi_date')
         .eq('id', portfolioId)
-        .maybeSingle();
+        .maybeSingle());
 
       const patch: { payout_day: number; next_roi_date?: string } = { payout_day: day };
       const existingNext = current?.next_roi_date as string | null | undefined;
@@ -1344,10 +1359,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         }
       }
 
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(patch)
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
       toast.success(
         patch.next_roi_date
@@ -1373,10 +1388,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     if (!editingNextPayoutDate) { toast.error('Please select a date'); return; }
     setSavingPortfolio(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ next_roi_date: editingNextPayoutDate })
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
       toast.success('Next payout date updated');
       setEditingNextPayoutId(null);
@@ -1403,7 +1418,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     setDeleting(true);
     try {
       // Get current user for audit
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Proxy-safe delete: if the portfolio actually belongs to another partner
@@ -1436,10 +1451,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         });
         if (auditErr) throw auditErr;
 
-        const { error: unlinkErr } = await supabase
+        const { error: unlinkErr } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .update({ agent_id: deletePortfolio.investor_id })
-          .eq('id', deletePortfolio.id);
+          .eq('id', deletePortfolio.id));
         if (unlinkErr) throw unlinkErr;
 
         toast.success(`Portfolio ${deletePortfolio.portfolio_code} removed from this account`, {
@@ -1506,12 +1521,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     });
     if (!detailPartner) { toast.error('No partner selected'); return; }
     const amt = Number(String(addPortfolioAmount).replace(/[^\d.]/g, ''));
-    const roi = Number(addPortfolioRoi);
     const duration = Number(addPortfolioDuration);
 
     if (isNaN(amt) || amt < 20000) { toast.error('Minimum portfolio invite amount: UGX 20,000'); return; }
     if (amt > MAX_INVEST) { toast.error(`Maximum investment: ${formatUGX(MAX_INVEST)}`); return; }
-    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('ROI must be between 1 and 100'); return; }
+    // Wait for this form's own policy read, and refuse an unedited rate when that read failed.
+    const rateBlock = staffRateSubmitBlock(addPortfolioRate);
+    if (rateBlock) { toast.error(rateBlock); return; }
+    const rateFields = addPortfolioRate.requestFields();
+    if ('error' in rateFields) { toast.error(rateFields.error); return; }
     if (isNaN(duration) || duration < 1 || duration > 60) { toast.error('Duration must be 1-60 months'); return; }
     const partnerId = detailPartner.profile.id;
     if (detailPartner.profile.frozen_at) { toast.error('Partner account is suspended. Unfreeze before sending an invite.'); return; }
@@ -1524,21 +1542,30 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         body: {
           partner_id: partnerId,
           amount: amt,
-          roi_percentage: roi,
+          ...rateFields.fields,
           roi_mode: addPortfolioRoiMode,
           duration_months: duration,
         },
       });
-      if (error) throw new Error(await extractFromErrorObject(error, 'Portfolio invite failed.'));
+      if (error) {
+        if (await isPolicyChangedError(error)) {
+          toast.error(POLICY_CHANGED_MESSAGE);
+          addPortfolioRate.refetchPolicy();
+          return;
+        }
+        throw new Error(await extractFromErrorObject(error, 'Portfolio invite failed.'));
+      }
       if (result?.error) throw new Error(result.error);
 
+      const rateMessage = createResponseRateMessage(result);
+      const inviteText = `${detailPartner.profile.full_name} will review, complete details and sign by email. It now appears in Invited Portfolios.`;
       toast.success(`Invite sent — portfolio ${result.portfolio_code}`, {
-        description: `${detailPartner.profile.full_name} will review, complete details and sign by email. It now appears in Invited Portfolios.`,
+        description: rateMessage ? `${inviteText} ${rateMessage}` : inviteText,
       });
 
       setAddPortfolioOpen(false);
       setAddPortfolioAmount('');
-      setAddPortfolioRoi('20');
+      addPortfolioRate.reset();
       setAddPortfolioRoiMode('monthly_payout');
       setAddPortfolioDuration('12');
       setAddPortfolioPayoutDay('15');
@@ -1573,12 +1600,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     const roi = Number(editPortfolioRoi);
     const duration = Number(editPortfolioDuration);
     if (isNaN(amount) || amount < MIN_INVEST) { toast.error(`Min investment: ${formatUGX(MIN_INVEST)}`); return; }
-    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('ROI must be 1-100%'); return; }
+    if (isNaN(roi) || roi <= 0 || roi > 100) { toast.error('Monthly Returns rate must be 1-100%'); return; }
     if (isNaN(duration) || duration < 1 || duration > 120) { toast.error('Duration must be 1-120 months'); return; }
 
     setSavingEditPortfolio(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Resolve editor name for audit trail (shown in PDF appendix)
@@ -1625,13 +1652,20 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         updatePayload.created_at = dateOnlyToUtcMiddayIso(editPortfolioDate);
       }
 
-      const { error } = await supabase
+      // Read the stored rate back: with the Partner Returns switch on a changed rate waits for the CFO
+      // and the portfolio keeps its old rate until then (trg_partner_return_rate_policy).
+      const { data: savedRow, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(updatePayload)
-        .eq('id', editPortfolio.id);
+        .eq('id', editPortfolio.id)
+        .select('roi_percentage')
+        .maybeSingle());
       if (error) throw error;
+      const storedRoi = savedRow?.roi_percentage != null ? Number(savedRow.roi_percentage) : roi;
 
-      toast.success(`Portfolio ${editPortfolio.portfolio_code} updated`);
+      toast.success(`Portfolio ${editPortfolio.portfolio_code} updated`, rateAwaitsCfo(roi, storedRoi)
+        ? { description: rateAwaitsCfoMessage(roi, storedRoi) }
+        : undefined);
 
       // NOTE: mode-switch into "compounding" does NOT send the compound
       // confirmation email. That email is reserved for an ACTUAL compound
@@ -1641,7 +1675,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // Update local state
       const updated = detailPartner.portfolios.map(p =>
         p.id === editPortfolio.id
-          ? { ...p, investment_amount: amount, roi_percentage: roi, roi_mode: editPortfolioRoiMode, duration_months: duration, status: editPortfolioStatus, created_at: editPortfolioDate ? dateOnlyToUtcMiddayIso(editPortfolioDate) : p.created_at }
+          ? { ...p, investment_amount: amount, roi_percentage: storedRoi, roi_mode: editPortfolioRoiMode, duration_months: duration, status: editPortfolioStatus, created_at: editPortfolioDate ? dateOnlyToUtcMiddayIso(editPortfolioDate) : p.created_at }
           : p
       );
       setDetailPartner({ ...detailPartner, portfolios: updated });
@@ -1837,11 +1871,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // deal out into its own row ("{{PartnerName}} ({{PortfolioName}})").
       const filteredIds = filtered.map(r => r.id);
       const exportPortfoliosRaw = await batchedQuery<any>(filteredIds, (batch) =>
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, investor_id, agent_id, account_name, portfolio_code, investment_amount, roi_percentage, total_roi_earned, payout_day, roi_mode, status, created_at, next_roi_date')
           .or(`investor_id.in.(${batch.join(',')}),agent_id.in.(${batch.join(',')})`)
           .in('status', ['active', 'pending_approval', 'pending'])
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }))
       );
       const seenExportPortfolioIds = new Set<string>();
       const exportPortfolios = (exportPortfoliosRaw as any[]).filter(p => {
@@ -1897,7 +1931,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       if (proxyAssignment?.agent_id) {
         const [profileRes, walletRes] = await Promise.all([
-          supabase.from('profiles').select('full_name').eq('id', proxyAssignment.agent_id).single(),
+          supabase.from('profiles').select('full_name').eq('id', proxyAssignment.agent_id).maybeSingle(),
           supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', proxyAssignment.agent_id).maybeSingle(),
         ]);
         setProxyAgentInfo({
@@ -1971,6 +2005,14 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
   async function handleSaveEdit() {
     if (!editPartner) return;
+    // Wait for this screen's own policy read, and refuse an unedited rate when that read failed: with
+    // the switch actually off, today's save writes the prefilled rate (a blank send would not).
+    const rateBlock = staffRateSubmitBlock({
+      isLoading: partnerReturnPolicy.isLoading,
+      policyEnabled: partnerReturnPolicy.enabled,
+      edited: editRoi.trim() !== String(editPartner.roiPercentage),
+    });
+    if (rateBlock) { toast.error(rateBlock); return; }
     setSaving(true);
     try {
       const { error: profileErr } = await supabase
@@ -1981,12 +2023,18 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       const newRoi = Number(editRoi);
       const updateFields: Record<string, any> = {};
-      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100) updateFields.roi_percentage = newRoi;
+      // The prefill is one portfolio's rate: writing it to every portfolio unasked would, with the
+      // Partner Returns switch on, open a CFO request for each portfolio on another rate. Send the
+      // rate only when staff changed it (a typed change), or always while the switch is seen off.
+      const roiEdited = editRoi.trim() !== String(editPartner.roiPercentage);
+      if (!isNaN(newRoi) && newRoi > 0 && newRoi <= 100 && (rateSwitchOffSeen || roiEdited)) updateFields.roi_percentage = newRoi;
       if (editRoiMode === 'monthly_payout' || editRoiMode === 'monthly_compounding') updateFields.roi_mode = editRoiMode;
 
       if (Object.keys(updateFields).length > 0) {
-        await supabase.from('investor_portfolios').update(updateFields).eq('investor_id', editPartner.id).in('status', ['active', 'pending']);
-        await supabase.from('investor_portfolios').update(updateFields).eq('agent_id', editPartner.id).is('investor_id', null).in('status', ['active', 'pending']);
+        const byInvestor = await withUserSession(() => supabase.from('investor_portfolios').update(updateFields).eq('investor_id', editPartner.id).in('status', ['active', 'pending']));
+        if (byInvestor.error) throw byInvestor.error;
+        const byAgent = await withUserSession(() => supabase.from('investor_portfolios').update(updateFields).eq('agent_id', editPartner.id).is('investor_id', null).in('status', ['active', 'pending']));
+        if (byAgent.error) throw byAgent.error;
       }
       toast.success(`Updated ${editName.trim()}`);
       setEditPartner(null);
@@ -2040,7 +2088,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (profileErr) throw profileErr;
 
       // Audit log
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'partner_deleted',
@@ -3326,6 +3374,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 <Label>Returns Rate (%)</Label>
                 <Input type="number" min={1} max={100} value={addPortfolioRoi}
                   onChange={e => setAddPortfolioRoi(e.target.value)} />
+                <PartnerRateCfoNote policyEnabled={addPortfolioRate.policyEnabled} personRate={addPortfolioRate.personRate} typedRate={addPortfolioRate.value} />
               </div>
               <div className="space-y-2">
                 <Label>Duration (months)</Label>
@@ -3366,7 +3415,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Monthly Returns:</span>
-                  <span className="font-bold text-primary">{formatUGX(Math.round(Number(addPortfolioAmount) * (Number(addPortfolioRoi) / 100)))}</span>
+                  <span className="font-bold text-primary">{formatUGXOrDash(monthlyReturnFor(Number(addPortfolioAmount), rateOrNull(addPortfolioRoi)))}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Maturity:</span>
@@ -3492,6 +3541,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             <div className="space-y-1.5">
               <Label className="text-xs">Returns Percentage (%)</Label>
               <Input type="number" min={1} max={100} value={editRoi} onChange={e => setEditRoi(e.target.value)} />
+              <PartnerRateCfoNote
+                policyEnabled={partnerReturnPolicy.enabled}
+                personRate={null}
+                typedRate={editRoi}
+                currentRate={editPartner ? rateOrNull(editPartner.roiPercentage) : null}
+              />
               <div className="flex gap-1.5">
                 {[10, 15, 20, 25].map(v => (
                   <Button key={v} variant={editRoi === String(v) ? 'default' : 'outline'} size="sm" className="text-[10px] h-6 px-2 flex-1"
@@ -3798,6 +3853,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
               <div className="space-y-1.5">
                 <Label className="text-xs">Returns Percentage (%)</Label>
                 <Input type="number" min={1} max={100} value={editPortfolioRoi} onChange={e => setEditPortfolioRoi(e.target.value)} />
+                <PartnerRateCfoNote
+                  policyEnabled={partnerReturnPolicy.enabled}
+                  personRate={null}
+                  typedRate={editPortfolioRoi}
+                  currentRate={editPortfolio ? rateOrNull(editPortfolio.roi_percentage) : null}
+                />
                 <div className="flex gap-1.5">
                   {[10, 15, 20, 25].map(v => (
                     <Button key={v} variant={editPortfolioRoi === String(v) ? 'default' : 'outline'} size="sm" className="text-[10px] h-6 px-2 flex-1"
@@ -5036,11 +5097,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         reference: p.portfolioId.slice(0, 8).toUpperCase(),
       };
 
-      const { data: det } = await supabase
+      const { data: det } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, account_name')
         .eq('id', p.portfolioId)
-        .maybeSingle();
+        .maybeSingle());
 
       if (det?.payment_method === 'mobile_money') {
         cardData = {
@@ -5092,7 +5153,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
       const newAmount = p.investmentAmount + roiAmount;
       const refId = generateRef('CMP');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Advance next_roi_date by +1 month on compound
@@ -5213,7 +5274,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     try {
       let roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
       const refId = generateRef('PAY');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────
@@ -5478,7 +5539,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       if (payMode === 'different_wallet') reinvestMode = 'keep_returns';
 
       const refId = generateRef('SPL');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────
@@ -5621,11 +5682,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         const isPlaceholder = !recipientEmail || recipientEmail.includes('placeholder');
         if (!isPlaceholder) {
           // Fetch portfolio_code + duration_months to mirror exact ledger values.
-          const { data: pf } = await supabase
+          const { data: pf } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('portfolio_code, duration_months, next_roi_date, payout_day, created_at')
             .eq('id', p.portfolioId)
-            .maybeSingle();
+            .maybeSingle());
 
           const portfolioName = pf?.portfolio_code || p.portfolioName || 'Portfolio';
           const portfolioShortId = p.portfolioId.replace(/-/g, '').slice(0, 8).toUpperCase();

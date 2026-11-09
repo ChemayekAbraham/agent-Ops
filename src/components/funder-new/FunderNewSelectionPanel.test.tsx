@@ -1,4 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
+// The sales sheet prices its worked example at the viewer's own rate (15 while the switch is off).
+vi.mock('@/hooks/usePartnerQuoteRate', () => ({
+  useOwnNewPortfolioRate: () => ({ rate: 15, isLoading: false }),
+}));
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FunderNewReviewDialog } from './FunderNewSelectionPanel';
 import type { FunderNewSelectionItem } from './types';
@@ -50,7 +54,7 @@ describe('FunderNewReviewDialog', () => {
     expect(screen.getByText(/Total Support/i)).toBeInTheDocument();
     expect(screen.getAllByText('UGX 450,000')).toHaveLength(2); // once in total card, once in item row
 
-    expect(screen.getByText(/Monthly at 15%/i)).toBeInTheDocument();
+    expect(screen.getByText(/Monthly Returns \(15%\)/i)).toBeInTheDocument();
     expect(screen.getByText('UGX 67,500')).toBeInTheDocument();
 
     expect(screen.getByText(/Available Balance/i)).toBeInTheDocument();

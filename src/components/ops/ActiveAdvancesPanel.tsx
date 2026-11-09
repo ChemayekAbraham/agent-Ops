@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,10 +71,10 @@ export function ActiveAdvancesPanel() {
       const profiles: Record<string, any> = {};
       const BATCH = 50;
       for (let i = 0; i < ids.length; i += BATCH) {
-        const { data: pdata } = await supabase
+        const { data: pdata } = await withUuidIds(ids.slice(i, i + BATCH), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids.slice(i, i + BATCH));
+          .in('id', validIds));
         (pdata || []).forEach(p => { profiles[p.id] = p; });
       }
       return advances.map(a => ({

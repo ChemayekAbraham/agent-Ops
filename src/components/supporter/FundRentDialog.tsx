@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { extractEdgeFunctionError } from '@/lib/extractEdgeFunctionError';
 import type { OpportunitySummary } from '@/hooks/useOpportunitySummary';
 
@@ -37,6 +39,12 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
   const exceedsBalance = amountNum > walletBalance;
   const exceedsRequested = amountNum > summary.total_rent_requested;
   const isValid = amountNum > 0 && !exceedsBalance && !exceedsRequested;
+  // A new portfolio for this partner: their own rate (partner_quote_rate('me')); null while it loads
+  // or on error (no figure). The 12-month total is priced on 12x the amount, rounded once, as before.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const monthlyReward = monthlyReturnFor(amountNum, ownRate);
+  const ownRatePct = formatRatePct(ownRate);
+  const twelveMonthReward = monthlyReturnFor(amountNum * 12, ownRate);
 
   const handleFundSubmit = async () => {
     if (!user || !isValid) return;
@@ -102,7 +110,7 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
             <div className="px-4 py-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-2">
               <p className="text-sm font-bold text-green-700 dark:text-green-400">✅ Support Confirmed!</p>
               <p className="text-xs text-muted-foreground">
-                You will receive <span className="font-black text-foreground">15% monthly</span> ({formatUGX(successInfo.monthlyReward)}) 
+                You will receive <span className="font-black text-foreground">{ownRatePct ? `${ownRatePct} monthly` : 'monthly Returns'}</span> ({formatUGXOrDash(successInfo.monthlyReward)}) 
                 every <span className="font-bold">30 days</span> for <span className="font-bold">12 months</span>.
               </p>
               <p className="text-xs text-muted-foreground">
@@ -154,19 +162,19 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
               )}
             </div>
 
-            {/* 15% monthly reward info */}
+            {/* Monthly reward info (own rate) */}
             {amountNum > 0 && (
               <div className="px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
-                <p className="text-xs font-bold text-primary">💰 15% Monthly Reward</p>
+                <p className="text-xs font-bold text-primary">💰 {ownRatePct ? `${ownRatePct} Monthly Reward` : 'Monthly Reward'}</p>
                 <p className="text-xs text-muted-foreground">
                   ⏳ Funds work for at least <span className="font-bold">30 days</span> before the first payout.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  You'll receive <span className="font-black text-foreground">{formatUGX(Math.round(amountNum * 0.15))}</span> every{' '}
+                  You'll receive <span className="font-black text-foreground">{formatUGXOrDash(monthlyReward)}</span> every{' '}
                   <span className="font-bold">30 days</span> for 12 months.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Total earnings: <span className="font-black text-foreground">{formatUGX(Math.round(amountNum * 0.15 * 12))}</span>
+                  Total earnings: <span className="font-black text-foreground">{formatUGXOrDash(twelveMonthReward)}</span>
                 </p>
               </div>
             )}

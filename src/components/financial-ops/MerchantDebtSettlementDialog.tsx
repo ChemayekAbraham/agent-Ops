@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronDown, Download, ShieldAlert, Loader2, Wallet, History, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, Download, FileText, History, Info, Loader2, Phone, ShieldAlert, User, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import {
@@ -76,7 +76,8 @@ export function MerchantDebtSettlementDialog({
   const { data: history } = useMerchantOopSettlementHistory(open);
   const settleMutation = useSettleMerchantOutOfPocket();
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  // The agent whose claims are shown on the right. Defaults to the focused agent, else the first one.
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmSettleOpen, setConfirmSettleOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -117,56 +118,49 @@ export function MerchantDebtSettlementDialog({
    *  awaiting-confirmation rows, since both are still unreimbursed. */
   const rejectControl = (advanceId: string) =>
     rejectFor === advanceId ? (
-      <div className="mt-1">
+      <div className="mt-1 min-w-[16rem]">
         <Textarea
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
           placeholder="Why is this not money we owe? (at least 10 characters)"
-          className="text-[11px]"
+          className="text-sm"
           rows={2}
         />
-        <div className="mt-1 flex gap-2">
+        <div className="mt-2 flex gap-2">
           <Button
             size="sm"
             variant="destructive"
-            className="h-6 gap-1 px-2 text-[10px]"
+            className="min-h-[36px] gap-1 px-3 text-sm"
             disabled={rejectReason.trim().length < 10 || rejectMutation.isPending}
             onClick={() => submitReject(advanceId)}
           >
             {rejectMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
             Reject claim
           </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 px-2 text-[10px]"
-            onClick={closeReject}
-          >
+          <Button size="sm" variant="ghost" className="min-h-[36px] px-3 text-sm" onClick={closeReject}>
             Cancel
           </Button>
         </div>
       </div>
     ) : (
-      <Button
-        size="sm"
-        variant="ghost"
-        className="mt-1 h-6 gap-1 px-2 text-[10px] text-destructive hover:text-destructive"
+      <button
+        type="button"
+        className="min-h-[32px] text-sm font-semibold text-[#D92D20] underline underline-offset-2 hover:text-[#B42318]"
         onClick={() => {
           setRejectFor(advanceId);
           setRejectReason('');
         }}
       >
-        <X className="h-3 w-3" /> Not owed — reject
-      </Button>
+        Not owed, reject
+      </button>
     );
 
   useEffect(() => {
-    if (open && focusAgentId) {
-      setExpanded((e) => ({ ...e, [focusAgentId]: true }));
-    }
+    if (open && focusAgentId) setActiveId(focusAgentId);
   }, [open, focusAgentId]);
 
   const groups = useMemo(() => (data ?? []).filter((g) => g.payable > 0 || g.underReview > 0), [data]);
+  const active = groups.find((g) => g.agentId === activeId) ?? groups.find((g) => g.agentId === focusAgentId) ?? groups[0] ?? null;
   // Separation of duties: the settlement RPC refuses a desk belonging to the signed-in
   // actor, so their own desk can never be selected here — it would only come back skipped.
   const payableGroups = groups.filter((g) => g.payable > 0 && !g.isOwnDesk);
@@ -270,274 +264,241 @@ export function MerchantDebtSettlementDialog({
     }
   };
 
+  const tileBase = 'rounded-2xl border p-4';
+  const sectionLabel = 'text-xs font-extrabold uppercase tracking-wide text-foreground';
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>What we owe each merchant agent</DialogTitle>
-          <DialogDescription>
-            Only money an agent has confirmed they paid from their own phone, and that we have not
-            refunded, counts here. Claims the ledger does not support are listed but never added.
+      <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto rounded-3xl p-5 sm:p-7">
+        <DialogHeader className="space-y-1.5 text-left">
+          <DialogTitle className="text-2xl font-black tracking-tight sm:text-3xl">What we owe each merchant agent</DialogTitle>
+          <DialogDescription className="text-sm text-foreground/80 sm:text-base">
+            Only confirmed own-phone payments that have not been refunded count here. Claims the books do not support are listed separately and never added.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Confirmed — settle now
-            </p>
-            <p className="mt-1 font-mono text-xl font-bold tabular-nums text-primary break-all">
-              {isLoading ? '—' : formatUGX(payableTotal)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              {payableGroups.length} agent{payableGroups.length === 1 ? '' : 's'} with a clean, evidenced claim
-            </p>
+        {/* Three figures */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className={`${tileBase} border-[#B79BF2] bg-[#F1EAFF] dark:bg-violet-500/15`}>
+            <p className={sectionLabel}>Confirmed, settle now</p>
+            <p className="mt-1.5 break-all text-3xl font-black tabular-nums text-[#5A1FD0] dark:text-violet-300">{isLoading ? '—' : formatUGX(payableTotal)}</p>
+            <p className="mt-1 text-sm text-foreground/80">{payableGroups.length} agent{payableGroups.length === 1 ? '' : 's'} with a clean, evidenced claim</p>
           </div>
-          <div className="rounded-xl border border-warning/30 bg-warning/5 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Not payable — books disagree
-            </p>
-            <p className="mt-1 font-mono text-xl font-bold tabular-nums text-warning break-all">
-              {isLoading ? '—' : formatUGX(reviewTotal)}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Books show float was available, or it is an estimated telecom charge
-            </p>
+          <div className={`${tileBase} border-[#F0B53F] bg-[#FFF1CF] dark:bg-amber-400/15`}>
+            <p className={sectionLabel}>Not payable, books disagree</p>
+            <p className="mt-1.5 break-all text-3xl font-black tabular-nums text-[#C2570C] dark:text-amber-300">{isLoading ? '—' : formatUGX(reviewTotal)}</p>
+            <p className="mt-1 text-sm text-foreground/80">Float was available, or telecom charges are estimated.</p>
           </div>
-          <div className="rounded-xl border border-border bg-muted/30 p-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Board headline (unclean)
-            </p>
-            <p className="mt-1 font-mono text-xl font-bold tabular-nums text-muted-foreground break-all">
-              {typeof headlineOwed === 'number' ? formatUGX(headlineOwed) : '—'}
-            </p>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              Lifetime paid-out minus float recorded. Do not pay against this figure.
-            </p>
+          <div className={`${tileBase} border-slate-300 bg-slate-100 dark:bg-slate-800`}>
+            <p className={`${sectionLabel} flex items-center gap-2`}><AlertTriangle className="h-4 w-4" aria-hidden="true" /> Board headline (unclean)</p>
+            <p className="mt-1.5 break-all text-3xl font-black tabular-nums text-foreground">{typeof headlineOwed === 'number' ? formatUGX(headlineOwed) : '—'}</p>
+            <p className="mt-1 text-sm text-foreground/80">Lifetime paid-out minus float recorded. <strong className="text-foreground">Do not pay against this figure.</strong></p>
           </div>
         </div>
 
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-border bg-muted/30 p-3">
-            <ShieldAlert className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-[11px] text-muted-foreground">
-              Could not load agent debts: {(error as { message?: string })?.message ?? 'unknown error'}
-            </p>
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Could not load agent debts: {(error as { message?: string })?.message ?? 'unknown error'}</p>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={toggleAll}
-            disabled={payableGroups.length === 0}
-            className="text-[11px] font-medium text-primary hover:underline disabled:opacity-50"
-          >
-            {chosen.length === payableGroups.length && payableGroups.length > 0
-              ? 'Clear selection'
-              : 'Select all agents'}
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <button type="button" onClick={toggleAll} disabled={payableGroups.length === 0} className="min-h-[44px] text-base font-bold text-[#5A1FD0] hover:underline disabled:opacity-50 dark:text-violet-300 sm:min-h-0">
+            {chosen.length === payableGroups.length && payableGroups.length > 0 ? 'Clear selection' : 'Select all agents'}
           </button>
-          <div className="flex items-center gap-3">
-            <p className="text-[11px] text-muted-foreground">
-              Selected: <span className="font-mono font-bold text-foreground">{formatUGX(chosenTotal)}</span>
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setHistoryOpen((v) => !v)}
-            >
-              <History className="mr-1.5 h-3.5 w-3.5" />
-              Recently settled
-            </Button>
-            <Button size="sm" variant="outline" onClick={download} disabled={busy || payableGroups.length === 0}>
-              {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
-              Download settlement PDF
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setConfirmSettleOpen(true)}
-              disabled={settleMutation.isPending || chosen.length === 0}
-            >
-              {settleMutation.isPending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Wallet className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Send to Wallet
-            </Button>
-          </div>
+          <span className="hidden h-8 w-px bg-border sm:block" aria-hidden="true" />
+          <p className="text-base text-foreground">Selected: <span className="font-black tabular-nums">{formatUGX(chosenTotal)}</span></p>
+          <Button variant="outline" className="min-h-[44px] gap-2 rounded-xl font-bold" onClick={() => setHistoryOpen((v) => !v)} aria-expanded={historyOpen}>
+            <History className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" /> Recently settled
+          </Button>
+          <Button variant="outline" className="min-h-[44px] gap-2 rounded-xl font-bold" onClick={download} disabled={busy || payableGroups.length === 0}>
+            {busy ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Download className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />} Download settlement PDF
+          </Button>
+          <p className="flex max-w-[16rem] items-start gap-2 text-xs text-muted-foreground">
+            <FileText className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            PDF includes selected agents, or all payable agents when none are selected.
+          </p>
+          <Button className="ml-auto min-h-[48px] gap-2 rounded-xl px-6 text-base font-bold" onClick={() => setConfirmSettleOpen(true)} disabled={settleMutation.isPending || chosen.length === 0}>
+            {settleMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wallet className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />} Send to Wallet
+          </Button>
         </div>
 
         {historyOpen && (
-          <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-1.5 max-h-48 overflow-y-auto">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Recently settled — money already sent back to agent wallets
-            </p>
-            {(!history || history.length === 0) && (
-              <p className="text-[11px] text-muted-foreground">No settlements recorded yet.</p>
-            )}
+          <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-border bg-muted/30 p-3">
+            <p className={sectionLabel}>Recently settled: money already sent back to agent wallets</p>
+            {(!history || history.length === 0) && <p className="text-sm text-muted-foreground">No settlements recorded yet.</p>}
             {(history ?? []).map((h) => (
-              <div key={h.id} className="flex items-center justify-between gap-2 text-[11px]">
-                <span className="text-foreground truncate">{h.agentName}</span>
-                <span className="text-muted-foreground whitespace-nowrap">
-                  {format(new Date(h.settledAt), 'd MMM yyyy · HH:mm')}
-                </span>
-                <span className="font-mono font-semibold text-foreground shrink-0">{formatUGX(h.amount)}</span>
+              <div key={h.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate text-foreground">{h.agentName}</span>
+                <span className="whitespace-nowrap text-muted-foreground">{format(new Date(h.settledAt), 'd MMM yyyy · HH:mm')}</span>
+                <span className="shrink-0 font-bold tabular-nums text-foreground">{formatUGX(h.amount)}</span>
               </div>
             ))}
           </div>
         )}
 
-        <div className="space-y-2">
-          {isLoading && <p className="text-xs text-muted-foreground">Loading agent debts…</p>}
-          {!isLoading && groups.length === 0 && !error && (
-            <p className="text-xs text-muted-foreground">
-              No merchant agent has a confirmed unpaid advance right now.
-            </p>
-          )}
-          {groups.map((g) => {
-            const isOpen = !!expanded[g.agentId];
-            const isFocused = g.agentId === focusAgentId;
-            return (
-              <div
-                key={g.agentId}
-                ref={isFocused ? (el) => el?.scrollIntoView({ block: 'center' }) : undefined}
-                className={`rounded-xl border bg-background ${isFocused ? 'border-primary ring-1 ring-primary/40' : 'border-border'}`}
-              >
-                <div className="flex items-start gap-3 p-3">
-                  <Checkbox
-                    checked={!!selected[g.agentId]}
-                    disabled={g.payable <= 0 || g.isOwnDesk}
-                    onCheckedChange={(v) =>
-                      setSelected((s) => ({ ...s, [g.agentId]: !!v }))
-                    }
-                    className="mt-1"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setExpanded((e) => ({ ...e, [g.agentId]: !isOpen }))}
-                    className="flex-1 min-w-0 text-left"
-                  >
-                    <p className="text-sm font-medium text-foreground truncate">{g.agentName}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {g.agentPhone || '—'} · {g.payableLines.length} confirmed transaction
-                      {g.payableLines.length === 1 ? '' : 's'}
-                      {g.oldestAt ? ` · oldest ${format(new Date(g.oldestAt), 'd MMM yyyy')}` : ''}
-                    </p>
-                    {g.isOwnDesk && g.payable > 0 && (
-                      <p className="text-[10px] text-warning">
-                        This is your own desk — {formatUGX(g.payable)} is owed to you, and another
-                        finance approver must send it to your wallet.
-                      </p>
-                    )}
-                    {g.underReview > 0 && (
-                      <p className="text-[10px] text-warning">
-                        {formatUGX(g.underReview)} across {g.reviewLines.length} claim
-                        {g.reviewLines.length === 1 ? '' : 's'} the books do not support — excluded
-                      </p>
-                    )}
+        {isLoading && <p className="text-sm text-muted-foreground">Loading agent debts…</p>}
+        {!isLoading && groups.length === 0 && !error && (
+          <p className="text-sm text-muted-foreground">No merchant agent has a confirmed unpaid advance right now.</p>
+        )}
 
-                  </button>
-                  <div className="text-right shrink-0">
-                    <p className="font-mono text-sm font-bold tabular-nums text-foreground">
-                      {formatUGX(g.payable)}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground">to settle</p>
-                    <ChevronDown
-                      className={`ml-auto h-3.5 w-3.5 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
-                    />
+        {groups.length > 0 && (
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+            {/* Left: agents with claims */}
+            <section className="min-w-0 rounded-2xl border border-border" aria-label="Agents with claims">
+              <h3 className="border-b border-border px-4 py-3 text-lg font-bold text-foreground">Agents with claims</h3>
+              <ul className="max-h-72 space-y-2 overflow-y-auto p-2.5 lg:max-h-[34rem]">
+                {groups.map((g) => {
+                  const isActive = g.agentId === active?.agentId;
+                  return (
+                    <li key={g.agentId}>
+                      <div
+                        className={`flex items-start gap-3 rounded-xl border p-3 transition ${isActive ? 'border-[#9B6FF0] bg-[#F1EAFF] dark:bg-violet-500/20' : 'border-border hover:border-[#B79BF2]'}`}
+                      >
+                        <Checkbox
+                          checked={!!selected[g.agentId]}
+                          disabled={g.payable <= 0 || g.isOwnDesk}
+                          onCheckedChange={(v) => setSelected((s) => ({ ...s, [g.agentId]: !!v }))}
+                          aria-label={`Select ${g.agentName}`}
+                          className="mt-1 h-5 w-5 border-2 border-[#6D2EE8]"
+                        />
+                        <button type="button" onClick={() => setActiveId(g.agentId)} aria-pressed={isActive} className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className="truncate text-base font-extrabold uppercase text-foreground">{g.agentName}</span>
+                            <span className="shrink-0 text-base font-extrabold tabular-nums text-foreground">{formatUGX(g.payable)}</span>
+                          </span>
+                          {g.payable > 0 ? (
+                            <span className="block truncate text-sm text-foreground/80">
+                              {g.payableLines.length} confirmed transaction{g.payableLines.length === 1 ? '' : 's'}
+                              {g.oldestAt ? ` · oldest ${format(new Date(g.oldestAt), 'd MMM yyyy')}` : ''}
+                            </span>
+                          ) : (
+                            <span className="block text-sm text-foreground/80">Under review · Nothing payable</span>
+                          )}
+                          {g.underReview > 0 && (
+                            <span className="block text-sm font-bold text-[#C2570C] dark:text-amber-300">
+                              {formatUGX(g.underReview)} · {g.reviewLines.length} unsupported claim{g.reviewLines.length === 1 ? '' : 's'} excluded
+                            </span>
+                          )}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+
+            {/* Right: the selected agent */}
+            {active && (
+              <section className="min-w-0 rounded-2xl border border-border" aria-label={`Claims for ${active.agentName}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-2xl font-black uppercase text-foreground">{active.agentName}</h3>
+                    <p className="mt-1 flex items-center gap-2 text-base text-foreground/80"><Phone className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" /> {active.agentPhone || '—'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-black tabular-nums text-foreground">{formatUGX(active.payable)}</p>
+                    <p className="text-base text-foreground/80">To settle</p>
                   </div>
                 </div>
 
-                {isOpen && (
-                  <div className="border-t border-border px-3 py-2 space-y-1">
-                    {g.payableLines.length === 0 && (
-                      <p className="text-[11px] text-muted-foreground">No confirmed transactions.</p>
-                    )}
-                    {g.payableLines.map((l) => (
-                      <div key={l.id} className="flex items-start justify-between gap-3 py-1">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-medium text-foreground">
-                            {l.kind === 'telecom'
-                              ? 'Telecom sending charge they paid'
-                              : 'Customer payout from their own phone money'}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')}
-                            {` · paid to ${l.recipientName || 'Unknown recipient'}`}
-                            {l.recipientPhone ? ` · ${l.recipientPhone}` : ''}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
+                <div className="space-y-4 p-4 sm:p-5">
+                  {active.isOwnDesk && active.payable > 0 && (
+                    <p className="rounded-xl border border-[#F0B53F] bg-[#FFF1CF] px-4 py-3 text-sm font-medium text-foreground dark:bg-amber-400/15">
+                      This is your own desk. {formatUGX(active.payable)} is owed to you, and another finance approver must send it to your wallet.
+                    </p>
+                  )}
+
+                  <div>
+                    <h4 className="flex items-center gap-3 text-lg font-bold text-[#5A1FD0] dark:text-violet-300">
+                      Confirmed transactions (payable)
+                      <span className="rounded-full bg-[#E6DAFF] px-2.5 py-0.5 text-sm font-extrabold text-[#5A1FD0] dark:bg-violet-500/30 dark:text-violet-100">{active.payableLines.length}</span>
+                    </h4>
+                    {active.payableLines.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No confirmed transactions.</p>}
+                    <ul className="mt-3 space-y-3">
+                      {active.payableLines.map((l) => (
+                        <li key={l.id} className="rounded-2xl border border-border p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-lg font-bold text-foreground">
+                              {l.kind === 'telecom' ? 'Telecom sending charge they paid' : 'Customer payout from their own phone money'}
+                            </p>
+                            <p className="shrink-0 text-lg font-black tabular-nums text-foreground">{formatUGX(l.amount)}</p>
+                          </div>
+                          <p className="mt-1.5 flex items-center gap-2 text-sm text-foreground"><Calendar className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" /> {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')}</p>
+                          <p className="mt-1 flex items-center gap-2 text-sm text-foreground"><User className="h-4 w-4 shrink-0" strokeWidth={1.75} aria-hidden="true" /> Paid to {l.recipientName || 'unknown recipient'}{l.recipientPhone ? ` · ${l.recipientPhone}` : ''}</p>
+                          <p className="mt-1.5 break-words text-sm text-muted-foreground">
                             {`TID ${l.payoutTid || 'not returned by provider'}`}
                             {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
-                            {l.payoutAmount ? ` · payout ${formatUGX(l.payoutAmount)}` : ''}
-                            {` · float used ${formatUGX(l.floatUsed)}`}
                           </p>
-                          {l.isFinanceAttested ? (
-                            <p className="text-[10px] text-success">
-                              Attested by Finance. The money moved outside the system, so there is no
-                              ledger or provider trace to reconstruct.
-                              {l.attestationBasis ? ` ${l.attestationBasis}` : ''}
+                          <p className="text-sm text-muted-foreground">
+                            {l.payoutAmount ? `Payout ${formatUGX(l.payoutAmount)} · ` : ''}Float used {formatUGX(l.floatUsed)}
+                          </p>
+                          <div className="mt-3 flex items-start gap-3 rounded-xl border border-[#86D19F] bg-[#D9F3E2] px-4 py-3 dark:border-emerald-500/50 dark:bg-emerald-500/20">
+                            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#1A8A47] text-white" aria-hidden="true"><Check className="h-4 w-4" strokeWidth={3.5} /></span>
+                            <p className="text-sm font-bold text-[#0B4F25] dark:text-emerald-100">
+                              {l.isFinanceAttested
+                                ? `Attested by Finance. The money moved outside the system, so there is no ledger or provider trace to reconstruct.${l.attestationBasis ? ` ${l.attestationBasis}` : ''}`
+                                : `Books at that moment: desk float ${formatUGX(l.floatPositionAtPayout)}, short by ${formatUGX(Math.max(0, -l.floatPositionAtPayout))}. This amount came from their own phone money.`}
                             </p>
-                          ) : (
-                            <p className="text-[10px] text-success">
-                              {`Books at that moment: desk float ${formatUGX(l.floatPositionAtPayout)} — short by ${formatUGX(Math.max(0, -l.floatPositionAtPayout))}, so this much came from their own phone money.`}
-                            </p>
-                          )}
-                          {l.note && (
-                            <p className="text-[10px] text-muted-foreground">{l.note}</p>
-                          )}
-                          {rejectControl(l.id)}
-                        </div>
-                        <p className="font-mono text-[11px] font-bold tabular-nums text-foreground shrink-0">
-                          {formatUGX(l.amount)}
-                        </p>
-                      </div>
-                    ))}
-                    {g.reviewLines.length > 0 && (
-                      <div className="mt-2 rounded-lg border border-dashed border-warning/50 bg-warning/5 p-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-warning">
-                          Not payable — the books show float was available
-                        </p>
-                        {(allReview[g.agentId] ? g.reviewLines : g.reviewLines.slice(0, 8)).map((l) => (
-                          <div key={l.id} className="mt-1">
-                            <p className="text-[10px] text-muted-foreground">
-                              {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')} · {formatUGX(l.amount)}
-                              {` · paid to ${l.recipientName || 'Unknown recipient'}`}
-                              {l.recipientPhone ? ` · ${l.recipientPhone}` : ''}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {`TID ${l.payoutTid || 'not returned by provider'}`}
-                              {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
-                              {l.isEstimate
-                                ? ' · estimated telecom charge, not yet claimable'
-                                : ` · desk float at that moment ${formatUGX(l.floatPositionAtPayout)}`}
-                            </p>
-                            {rejectControl(l.id)}
                           </div>
-                        ))}
-                        {g.reviewLines.length > 8 && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-1 h-6 w-full px-2 text-[10px]"
-                            onClick={() =>
-                              setAllReview((m) => ({ ...m, [g.agentId]: !m[g.agentId] }))
-                            }
-                          >
-                            {allReview[g.agentId]
-                              ? 'Show fewer'
-                              : `Show all ${g.reviewLines.length} claims`}
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                          {l.note && <p className="mt-2 text-sm text-muted-foreground">{l.note}</p>}
+                          <div className="mt-2">{rejectControl(l.id)}</div>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+
+                  {active.reviewLines.length > 0 && (
+                    <div className="rounded-2xl border-2 border-dashed border-[#F0B53F] bg-[#FFFBF0] dark:bg-amber-400/10">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-t-2xl bg-[#FFE9B5] px-4 py-3 dark:bg-amber-400/25">
+                        <p className="flex items-center gap-2 text-base font-extrabold text-[#8A4B00] dark:text-amber-200"><AlertTriangle className="h-5 w-5" aria-hidden="true" /> Not payable · The books show float was available</p>
+                        <p className="text-base font-extrabold tabular-nums text-[#8A4B00] dark:text-amber-200">{formatUGX(active.underReview)} excluded</p>
+                      </div>
+                      <ul className="divide-y divide-[#F0D9A0] px-4">
+                        {(allReview[active.agentId] ? active.reviewLines : active.reviewLines.slice(0, 8)).map((l) => (
+                          <li key={l.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 py-3">
+                            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                              <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-slate-600" strokeWidth={1.75} aria-hidden="true" />
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-foreground">
+                                  {format(new Date(l.payoutAt), 'd MMM yyyy · HH:mm')} · {l.isEstimate ? 'Estimated sending fee' : l.recipientName || 'Unknown recipient'}
+                                  {l.recipientPhone ? ` · ${l.recipientPhone}` : ''}
+                                </p>
+                                <p className="break-words text-xs text-muted-foreground">
+                                  {`TID ${l.payoutTid || 'not returned by provider'}`}
+                                  {l.withdrawalId ? ` · ref ${l.withdrawalId.slice(0, 8)}` : ''}
+                                  {l.isEstimate ? ' · not yet claimable' : ` · desk float ${formatUGX(l.floatPositionAtPayout)}`}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="shrink-0 text-sm font-extrabold tabular-nums text-foreground">{formatUGX(l.amount)}</p>
+                            <div className="shrink-0">{rejectControl(l.id)}</div>
+                          </li>
+                        ))}
+                      </ul>
+                      {active.reviewLines.length > 8 && (
+                        <Button variant="ghost" className="mx-4 mb-3 min-h-[40px] w-[calc(100%-2rem)] text-sm font-bold" onClick={() => setAllReview((m) => ({ ...m, [active.agentId]: !m[active.agentId] }))}>
+                          {allReview[active.agentId] ? 'Show fewer' : `Show all ${active.reviewLines.length} claims`}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        <p className="flex items-start gap-3 border-t border-border pt-4 text-sm text-foreground/90">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" strokeWidth={1.75} aria-hidden="true" />
+          <span>
+            <strong>Sending to Wallet credits withdrawable wallets and marks confirmed claims reimbursed. You will confirm before money moves.</strong>
+            <br />
+            Your own desk must be settled by another finance approver.
+          </span>
+        </p>
       </DialogContent>
 
       <AlertDialog open={confirmSettleOpen} onOpenChange={setConfirmSettleOpen}>

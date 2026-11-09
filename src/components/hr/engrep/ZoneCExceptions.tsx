@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * ENGREP P11 — Zone C · EXCEPTIONS, continuously displayed.
  *
@@ -61,7 +62,7 @@ function InvestigationDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (!object) return;
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const { error } = await db
         .from('engrep_unclaimed_objects')
         .update({

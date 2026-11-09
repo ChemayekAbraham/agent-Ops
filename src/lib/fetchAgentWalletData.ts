@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import { applyCustomerWalletLedgerFilters, isCustomerWalletLedgerEntryVisible } from '@/lib/customerWalletHistory';
 import { isUuid } from '@/lib/isUuid';
@@ -63,7 +64,7 @@ export async function fetchAgentWalletData(agentId: string): Promise<AgentWallet
   const tenantBalanceMap: Record<string, number> = {};
   if (tenantIds.length > 0) {
     const [{ data: tenantProfiles }, { data: tenantWallets }] = await Promise.all([
-      supabase.from('profiles').select('id, full_name').in('id', tenantIds),
+      withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
       supabase.from('wallets').select('user_id, balance').in('user_id', tenantIds),
     ]);
     for (const p of tenantProfiles || []) {
