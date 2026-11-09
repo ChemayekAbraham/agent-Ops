@@ -68508,6 +68508,9 @@ export type Database = {
           agent_reward_tx_ref: string | null
           business_category: string | null
           consenting_relation: string
+          coo_approved_at: string | null
+          coo_approved_by: string | null
+          coo_review_notes: string | null
           county_name: string | null
           created_at: string
           district_name: string
@@ -68567,6 +68570,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name: string
@@ -68626,6 +68632,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation?: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name?: string
@@ -81500,6 +81509,10 @@ export type Database = {
           p_reason_text?: string
           p_request_ids: string[]
         }
+        Returns: Json
+      }
+      coo_decide_signage: {
+        Args: { p_decision: string; p_notes?: string; p_signage_id: string }
         Returns: Json
       }
       coo_push_selected: {
