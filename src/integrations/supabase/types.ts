@@ -9609,6 +9609,48 @@ export type Database = {
         }
         Relationships: []
       }
+      board_display_tokens: {
+        Row: {
+          allowed_ip_prefix: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          label: string
+          last_seen_at: string | null
+          last_seen_ip: string | null
+          revoked_at: string | null
+          seen_count: number
+          token_hash: string
+        }
+        Insert: {
+          allowed_ip_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          revoked_at?: string | null
+          seen_count?: number
+          token_hash: string
+        }
+        Update: {
+          allowed_ip_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          revoked_at?: string | null
+          seen_count?: number
+          token_hash?: string
+        }
+        Relationships: []
+      }
       borrower_vouch_disclosures: {
         Row: {
           acknowledged_at: string
@@ -76051,6 +76093,7 @@ export type Database = {
           waiting_ugx: number
         }[]
       }
+      _desk_stage_flow_data: { Args: never; Returns: Json }
       _desk_take_stage_snapshot: { Args: never; Returns: number }
       _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
@@ -79535,6 +79578,7 @@ export type Database = {
           id: string
         }[]
       }
+      board_display_feed: { Args: { p_token: string }; Returns: Json }
       bonus_restriction_config: {
         Args: { p_category: string }
         Returns: {
@@ -81057,6 +81101,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_signages_queue: { Args: never; Returns: Json }
       cfo_staff_tax_register: {
         Args: { p_run_id?: string }
         Returns: {
