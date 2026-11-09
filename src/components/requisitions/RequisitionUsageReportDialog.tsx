@@ -324,7 +324,7 @@ export function RequisitionUsageReportDialog({
                 onChange={(e) => setReceiptTotal(e.target.value.replace(/[^0-9.]/g, ''))}
                 placeholder="Add up the amounts on your receipts"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-red-600 dark:text-red-400">
                 Type it yourself — the receipts are checked by hand, not read automatically.
               </p>
             </div>
@@ -534,7 +534,7 @@ export function RequisitionUsageReportDialog({
                   e.target.value = '';
                 }}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-red-600 dark:text-red-400">
                 At least one required. You can attach several — photos or PDFs, up to 10MB each.
               </p>
             </div>
@@ -559,3 +559,4 @@ export function RequisitionUsageReportDialog({
 }
 
 export default RequisitionUsageReportDialog;
+

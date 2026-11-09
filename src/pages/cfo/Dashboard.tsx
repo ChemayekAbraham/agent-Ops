@@ -1,12 +1,11 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
-import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 const TenantRepaymentTracker = lazy(() => import('@/components/cfo/tenant-repayments/TenantRepaymentTracker'));
-import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -28,6 +27,7 @@ const CFOOverviewDashboard = lazy(() => import('@/components/cfo/CFOOverviewDash
 const DirectCreditTool = lazy(() => import('@/components/cfo/DirectCreditTool').then((m) => ({ default: m.DirectCreditTool })));
 const LunchAllowanceTracker = lazy(() => import('@/components/cfo/LunchAllowanceTracker').then((m) => ({ default: m.LunchAllowanceTracker })));
 const StandingOrdersPanel = lazy(() => import('@/components/cfo/StandingOrdersPanel').then((m) => ({ default: m.StandingOrdersPanel })));
+const AddStandingOrderDialog = lazy(() => import('@/components/cfo/AddStandingOrderDialog').then((m) => ({ default: m.AddStandingOrderDialog })));
 const BudgetApprovalPanel = lazy(() => import('@/components/cfo/BudgetApprovalPanel'));
 const CFOServiceCentreSpendApproval = lazy(() => import('@/components/cfo/CFOServiceCentreSpendApproval'));
 const MerchantFloatRequestsPanel = lazy(() => import('@/components/cfo/MerchantFloatRequestsPanel').then((m) => ({ default: m.MerchantFloatRequestsPanel })));
@@ -155,6 +155,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount(activeTab === 'advances');
+  const [addStandingOrderOpen, setAddStandingOrderOpen] = useState(false);
 
 
   const goToOffset = (delta: number) => {
@@ -251,49 +252,52 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
-            {/* Quick jump to General Payout Activity */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
-                  <ClipboardCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">General Payout Activity &amp; Approvals</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    View all past disbursements, approvals, category breakdowns, and export PDF statements.
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
-                onClick={() => setActiveTab('general-payout-activity')}
-              >
-                Open Activity Desk
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* ── Security assurance card ── */}
-            <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center gap-5">
-                <div className="flex-1 min-w-0 text-center sm:text-left">
-                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-                    <h2 className="text-lg font-bold tracking-tight">Secure. Accurate. Instant.</h2>
+            {/* Quick jump to Standing Orders & General Payout Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
+                    <CalendarClock className="h-5 w-5" />
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                    Every payout is logged, traceable and reconciled against the general ledger, and
-                    protected with enterprise-grade security.
-                  </p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">Scheduled Standing Orders</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      Manage recurring wallet schedules, monthly rules &amp; health checks.
+                    </p>
+                  </div>
                 </div>
-                <img
-                  src={walletSecurityIllustration.url}
-                  alt="Secure wallet payout illustration"
-                  loading="lazy"
-                  className="h-28 w-auto sm:h-32 shrink-0 select-none pointer-events-none"
-                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('standing-orders')}
+                >
+                  Manage
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 shadow-xs">
+                    <ClipboardCheck className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">General Payout Activity</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      View past disbursements, approvals, category reports, and PDF statements.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('general-payout-activity')}
+                >
+                  Activity
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -318,9 +322,20 @@ export default function CFODashboardPage() {
                     Automated recurring payouts scheduled from "Send Money". Health monitoring flags orders with deleted/missing target accounts, cron failures, or stalled execution schedules so you can pause or resolve leaks immediately.
                   </p>
                 </div>
+                <Button
+                  onClick={() => setAddStandingOrderOpen(true)}
+                  className="h-11 px-5 rounded-xl font-semibold gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shrink-0 self-start sm:self-center"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Standing Order
+                </Button>
               </div>
             </div>
             <StandingOrdersPanel />
+            <AddStandingOrderDialog
+              open={addStandingOrderOpen}
+              onOpenChange={setAddStandingOrderOpen}
+            />
           </div>
         );
       case 'approved-rent-payouts':

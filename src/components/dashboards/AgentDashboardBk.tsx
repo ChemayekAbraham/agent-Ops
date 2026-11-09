@@ -775,6 +775,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     if (params.get('section') === 'cash-payouts') {
       setCashPayoutsOpen(true);
     }
+    // Deep-link: /dashboard/agent?section=wallet opens the wallet sheet
+    // (used by the Proxy earnings "Withdraw" button).
+    if (params.get('section') === 'wallet') {
+      setShowWallet(true);
+    }
   }, []);
 
   // Horizontal swipe → switch hub tabs (mobile gesture)

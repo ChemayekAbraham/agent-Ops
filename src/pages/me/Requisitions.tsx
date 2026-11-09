@@ -703,7 +703,7 @@ const MyRequisitions = () => {
                       <span>{isRefund ? 'Receipts / proof of payment' : 'Attachments / Receipts'} <span className="text-xs text-muted-foreground font-normal">{isRefund ? '(required)' : '(optional)'}</span></span>
                       <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
                     </Label>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-red-600 dark:text-red-400">
                       A receipt is read and compared with the amount you type. You can still submit. If the figures differ, payout waits until they match or the CFO clears the gap.
                     </p>
                     <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
@@ -764,24 +764,26 @@ const MyRequisitions = () => {
         </Card>
 
         {dueReports.length > 0 && (
-          <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5 p-4">
+          <Card className="rounded-2xl border-red-500/30 bg-red-500/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <ClipboardCheck className="h-4 w-4 text-amber-600" />
+                <p className="flex items-center gap-2 text-sm font-semibold text-red-600 dark:text-red-400">
+                  <ClipboardCheck className="h-4 w-4 text-red-600 dark:text-red-400" />
                   {dueReports.length === 1 ? '1 usage report due' : `${dueReports.length} usage reports due`}
                 </p>
-                <ul className="text-xs text-muted-foreground">
+                <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">
                   {dueReports.map((d) => (
                     <li key={d.requisition_id}>
-                      <span className="font-mono">{d.requisition_code}</span> {d.title} • {formatUGX(Number(d.approved_amount ?? d.amount))}
+                      <span className="font-mono font-medium">{d.requisition_code}</span> {d.title} • {formatUGX(Number(d.approved_amount ?? d.amount))}
                       {d.grace_ends_at ? ` • due ${fmtDate(d.grace_ends_at)}` : ''}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground">Refund requests never need one: the receipt you attach is the proof.</p>
+                <p className="text-xs text-red-600 dark:text-red-400">Refund requests never need one: the receipt you attach is the proof.</p>
               </div>
               <Button
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => {
                   const target = rows.find((r) => r.id === dueReports[0].requisition_id);
                   if (target) {

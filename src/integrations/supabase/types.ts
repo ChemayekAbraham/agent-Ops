@@ -75874,6 +75874,28 @@ export type Database = {
         }[]
       }
       _bike_sweep_blocks_outflow: { Args: { p_user: string }; Returns: boolean }
+      _board_token_check: {
+        Args: { p_token: string }
+        Returns: {
+          allowed_ip_prefix: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          label: string
+          last_seen_at: string | null
+          last_seen_ip: string | null
+          revoked_at: string | null
+          seen_count: number
+          token_hash: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "board_display_tokens"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _budget_supplement_log: {
         Args: {
           _before: string
@@ -79579,6 +79601,10 @@ export type Database = {
         }[]
       }
       board_display_feed: { Args: { p_token: string }; Returns: Json }
+      board_display_list: {
+        Args: { p_kind?: string; p_period?: string; p_token: string }
+        Returns: Json
+      }
       bonus_restriction_config: {
         Args: { p_category: string }
         Returns: {
