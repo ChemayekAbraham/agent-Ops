@@ -15,9 +15,10 @@ export interface BoardFeed {
   generated_at: string; display: { label: string };
   headline: Record<BoardPeriod, Record<BoardMetric, BoardTotal>>; stages: BoardStage[];
 }
-export function isBoardDisplayPath(path: string) { return /^\/board(?:\/[^/]+)?\/?$/.test(path); }
+/** The boardroom screen answers on /b/:code and /board/:code (and /board?t=code). */
+export function isBoardDisplayPath(path: string) { return /^\/(?:b|board)(?:\/[^/]+)?\/?$/.test(path); }
 export function boardDisplayToken(path: string, search: string): string {
-  const segment = path.match(/^\/board\/([^/]+)\/?$/)?.[1];
+  const segment = path.match(/^\/(?:b|board)\/([^/]+)\/?$/)?.[1];
   try { return segment ? decodeURIComponent(segment) : new URLSearchParams(search).get('t') ?? ''; }
   catch { return ''; }
 }
@@ -52,4 +53,24 @@ export function readBoardFeed(value: unknown): BoardFeed {
       waiting: nullableNumeric(s.waiting), waiting_ugx: nullableNumeric(s.waiting_ugx), done_24h: numeric(s.done_24h),
       done_7d: numeric(s.done_7d), per_day_7d: numeric(s.per_day_7d), days_to_clear: nullableNumeric(s.days_to_clear), rejected_7d: numeric(s.rejected_7d),
     })).sort((a: BoardStage, b: BoardStage) => a.ord - b.ord) };
+}
+/**
+ * The server refuses a link that is not valid, switched off or used off the
+ * office network with SQLSTATE 28000. Those take the whole screen: old totals
+ * must not stay up on a link that has been switched off. Anything else (the
+ * network, a slow server) keeps the last totals on screen and turns the LIVE
+ * line amber.
+ */
+export function isBoardLinkError(error: unknown): boolean {
+  return (error as { code?: string } | null)?.code === '28000';
+}
+
+/** Submitted has no queue of its own: its card shows only what came in over 24 hours. */
+export function boardStageDoneOnly(stage: Pick<BoardStage, 'ord' | 'stage' | 'waiting'>): boolean {
+  return stage.ord === 0 || /^submitted$/i.test(stage.stage.trim()) || stage.waiting == null;
+}
+
+/** "14:05:09" — the LIVE line's time, Kampala. */
+export function boardUpdatedText(generatedAt: string): string {
+  return `LIVE · updated ${kampalaClock(generatedAt)} Kampala`;
 }
