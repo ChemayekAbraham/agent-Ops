@@ -1287,20 +1287,6 @@ export function DirectCreditTool() {
                   className="pl-20 h-14 rounded-2xl text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary shadow-xs"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                {[10000, 50000, 100000, 200000, 500000].map(v => (
-                  <Button
-                    key={v}
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="text-xs h-8 px-3 rounded-xl border-border/70 hover:border-primary/50 hover:bg-primary/5 hover:text-primary font-semibold"
-                    onClick={() => setAmount(String(v))}
-                  >
-                    {(v / 1000).toFixed(0)}K
-                  </Button>
-                ))}
-              </div>
             </div>
 
             {/* ── Payout Method + Recipient Details (Withdraw only) ── */}
