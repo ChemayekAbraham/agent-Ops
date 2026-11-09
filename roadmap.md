@@ -1,3 +1,8 @@
+# Signages CFO disbursement
+- [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
+- [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
+- [ ] Test installation/payment rules and verify available preview signals.
+
 # Signages and dashboard loading
 - [x] Fetch photo-free cached Signages queues from the restored/cached session; load evidence only for the selected application.
 - [x] Lazy-load inactive Agent Ops, COO and CFO sections and defer unrelated background reads.
