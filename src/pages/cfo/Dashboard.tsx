@@ -6,7 +6,6 @@ const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advance
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 const TenantRepaymentTracker = lazy(() => import('@/components/cfo/tenant-repayments/TenantRepaymentTracker'));
-import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -297,28 +296,6 @@ export default function CFODashboardPage() {
                   Activity
                   <ArrowRight className="h-4 w-4" />
                 </Button>
-              </div>
-            </div>
-
-            {/* ── Security assurance card ── */}
-            <div className="rounded-3xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center gap-5">
-                <div className="flex-1 min-w-0 text-center sm:text-left">
-                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-                    <h2 className="text-lg font-bold tracking-tight">Secure. Accurate. Instant.</h2>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                    Every payout is logged, traceable and reconciled against the general ledger, and
-                    protected with enterprise-grade security.
-                  </p>
-                </div>
-                <img
-                  src={walletSecurityIllustration.url}
-                  alt="Secure wallet payout illustration"
-                  loading="lazy"
-                  className="h-28 w-auto sm:h-32 shrink-0 select-none pointer-events-none"
-                />
               </div>
             </div>
           </div>
