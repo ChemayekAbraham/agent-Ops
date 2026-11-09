@@ -1,4 +1,4 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ const CFOOverviewDashboard = lazy(() => import('@/components/cfo/CFOOverviewDash
 const DirectCreditTool = lazy(() => import('@/components/cfo/DirectCreditTool').then((m) => ({ default: m.DirectCreditTool })));
 const LunchAllowanceTracker = lazy(() => import('@/components/cfo/LunchAllowanceTracker').then((m) => ({ default: m.LunchAllowanceTracker })));
 const StandingOrdersPanel = lazy(() => import('@/components/cfo/StandingOrdersPanel').then((m) => ({ default: m.StandingOrdersPanel })));
+const AddStandingOrderDialog = lazy(() => import('@/components/cfo/AddStandingOrderDialog').then((m) => ({ default: m.AddStandingOrderDialog })));
 const BudgetApprovalPanel = lazy(() => import('@/components/cfo/BudgetApprovalPanel'));
 const CFOServiceCentreSpendApproval = lazy(() => import('@/components/cfo/CFOServiceCentreSpendApproval'));
 const MerchantFloatRequestsPanel = lazy(() => import('@/components/cfo/MerchantFloatRequestsPanel').then((m) => ({ default: m.MerchantFloatRequestsPanel })));
@@ -154,6 +155,7 @@ export default function CFODashboardPage() {
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
   const advanceDisbursementCount = useCfoAdvanceDisbursementCount(activeTab === 'advances');
+  const [addStandingOrderOpen, setAddStandingOrderOpen] = useState(false);
 
 
   const goToOffset = (delta: number) => {
@@ -321,7 +323,7 @@ export default function CFODashboardPage() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => setActiveTab('wallet-payout')}
+                  onClick={() => setAddStandingOrderOpen(true)}
                   className="h-11 px-5 rounded-xl font-semibold gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shrink-0 self-start sm:self-center"
                 >
                   <Plus className="h-4 w-4" />
@@ -330,6 +332,10 @@ export default function CFODashboardPage() {
               </div>
             </div>
             <StandingOrdersPanel />
+            <AddStandingOrderDialog
+              open={addStandingOrderOpen}
+              onOpenChange={setAddStandingOrderOpen}
+            />
           </div>
         );
       case 'approved-rent-payouts':
