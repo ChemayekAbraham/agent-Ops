@@ -38799,6 +38799,51 @@ export type Database = {
         }
         Relationships: []
       }
+      ontology_discoveries: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          evidence: Json
+          first_seen: string
+          key: string
+          kind: string
+          last_seen: string
+          score: number
+          status: string
+          suggestion: Json
+          title: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence?: Json
+          first_seen?: string
+          key: string
+          kind: string
+          last_seen?: string
+          score?: number
+          status?: string
+          suggestion?: Json
+          title: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          evidence?: Json
+          first_seen?: string
+          key?: string
+          kind?: string
+          last_seen?: string
+          score?: number
+          status?: string
+          suggestion?: Json
+          title?: string
+        }
+        Relationships: []
+      }
       ontology_doc_snapshots: {
         Row: {
           added: Json
@@ -68610,7 +68655,10 @@ export type Database = {
           gps_longitude: number
           gps_source: string | null
           id: string
+          installation_decline_reason: string | null
           installation_photos: Json
+          installation_started_at: string | null
+          installation_submitted_at: string | null
           installed_at: string | null
           installer_name: string | null
           nearby_landmarks: string | null
@@ -68675,7 +68723,10 @@ export type Database = {
           gps_longitude: number
           gps_source?: string | null
           id?: string
+          installation_decline_reason?: string | null
           installation_photos?: Json
+          installation_started_at?: string | null
+          installation_submitted_at?: string | null
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
@@ -68740,7 +68791,10 @@ export type Database = {
           gps_longitude?: number
           gps_source?: string | null
           id?: string
+          installation_decline_reason?: string | null
           installation_photos?: Json
+          installation_started_at?: string | null
+          installation_submitted_at?: string | null
           installed_at?: string | null
           installer_name?: string | null
           nearby_landmarks?: string | null
@@ -76383,6 +76437,7 @@ export type Database = {
         Returns: boolean
       }
       _partner_statement_build: { Args: { p_user_id: string }; Returns: Json }
+      _pascal: { Args: { p: string }; Returns: string }
       _pf_identity: { Args: { p_oid: unknown }; Returns: string }
       _pf_log: {
         Args: {
@@ -76770,6 +76825,7 @@ export type Database = {
         Returns: number
       }
       _stage_rank: { Args: { p: string }; Returns: number }
+      _status_desk: { Args: { p_status: string }; Returns: string }
       _tenant_ops_dormant_days_amclock: {
         Args: never
         Returns: {
@@ -78342,6 +78398,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      agent_submit_signage_installation: {
+        Args: {
+          p_installed_at: string
+          p_note?: string
+          p_photo_url: string
+          p_signage_id: string
+        }
+        Returns: Json
       }
       agent_suspend_subagent: {
         Args: { p_days: number; p_reason: string; p_sub_agent_id: string }
@@ -91251,6 +91316,16 @@ export type Database = {
           version_code: string
         }[]
       }
+      my_signage_installations_due: {
+        Args: never
+        Returns: {
+          id: string
+          installation_decline_reason: string
+          installation_started_at: string
+          property_name: string
+          reference_no: string
+        }[]
+      }
       my_staff_loan_eligibility: { Args: never; Returns: Json }
       my_staff_mfa_status: { Args: never; Returns: Json }
       my_withdrawal_pin_status: { Args: never; Returns: Json }
@@ -91442,11 +91517,16 @@ export type Database = {
         Returns: Json
       }
       ontology_desk_view: { Args: { p_days?: number }; Returns: Json }
+      ontology_discoveries_top: {
+        Args: { p_kind?: string; p_limit?: number }
+        Returns: Json
+      }
       ontology_doc_snapshot: { Args: never; Returns: number }
       ontology_document: { Args: never; Returns: string }
       ontology_feed: { Args: { p_day?: string; p_feed: string }; Returns: Json }
       ontology_map_day: { Args: { p_day?: string }; Returns: Json }
       ontology_map_enrich: { Args: { p_day?: string }; Returns: undefined }
+      ontology_mine: { Args: { p_days?: number }; Returns: Json }
       ontology_rules_for_desk: { Args: { p_desk: string }; Returns: Json }
       ontology_sync_system_changes: { Args: never; Returns: number }
       ops_acknowledge_inactivation: {
@@ -91517,6 +91597,10 @@ export type Database = {
       ops_case_weekly_digest: { Args: never; Returns: number }
       ops_case_window: { Args: { p_severity: string }; Returns: string }
       ops_cases_sync_sources: { Args: never; Returns: Json }
+      ops_decide_signage_installation: {
+        Args: { p_approve: boolean; p_reason?: string; p_signage_id: string }
+        Returns: Json
+      }
       ops_decide_subagent_tenant_transfer: {
         Args: { p_approve: boolean; p_reason: string; p_transfer_id: string }
         Returns: Json
