@@ -74,6 +74,8 @@ export type FundersDashboard = {
     avg_days_coo_to_funded: number | null;
   };
   can_fund_welile: boolean;
+  /** The period's headline: posted by the COO, sold (funded), waiting (posted minus sold). */
+  headline: { posted: CountUgx; sold: CountUgx; waiting: CountUgx };
   rows: FundersRow[];
 };
 
@@ -107,6 +109,10 @@ export function toDashboard(raw: unknown): FundersDashboard {
       avg_days_coo_to_funded: num(f.avg_days_coo_to_funded),
     },
     can_fund_welile: d.can_fund_welile === true,
+    headline: (() => {
+      const h = (d.headline ?? {}) as Record<string, unknown>;
+      return { posted: countUgx(h.posted), sold: countUgx(h.sold), waiting: countUgx(h.waiting) };
+    })(),
     rows: rows.map((r) => ({
       ...(r as unknown as FundersRow),
       id: String(r.id),

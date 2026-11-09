@@ -221,9 +221,21 @@ function ConfirmFund({
  * they hold, what was funded, and — where the CFO is allowed — a way to fund a
  * request with Welile money, one at a time.
  */
-export function FundersDashboard({ board }: { board: boolean }) {
+export function FundersDashboard({
+  board,
+  period: periodProp,
+  onPeriodChange,
+}: {
+  board: boolean;
+  /** When given, the period is owned by the page (the toggle sits above the headline row). */
+  period?: Period;
+  onPeriodChange?: (p: Period) => void;
+}) {
   const qc = useQueryClient();
-  const [period, setPeriod] = useState<Period>('today');
+  const [ownPeriod, setOwnPeriod] = useState<Period>('today');
+  const controlled = periodProp !== undefined;
+  const period = controlled ? periodProp : ownPeriod;
+  const setPeriod = (p: Period) => (onPeriodChange ? onPeriodChange(p) : setOwnPeriod(p));
   const [rank, setRank] = useState<Rank>('grade');
   const [target, setTarget] = useState<FundersRow | null>(null);
   const [busy, setBusy] = useState(false);
@@ -385,13 +397,13 @@ export function FundersDashboard({ board }: { board: boolean }) {
         </p>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented
+        {!controlled && <Segmented
           ariaLabel="Period for the funded figures"
           size="md"
           options={PERIODS.map((p) => ({ value: p.value, label: p.label }))}
           value={period}
           onChange={(p) => p !== null && setPeriod(p)}
-        />
+        />}
         {wide && updatedLine}
       </div>
 
