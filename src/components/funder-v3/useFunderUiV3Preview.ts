@@ -16,48 +16,78 @@ function readCached(userId: string | null | undefined): boolean {
   }
 }
 
-/**
- * Whether this viewer gets the funder V3 dashboard. Default OFF.
- *
- * Reads the existing `feature_preview_on(p_feature)` RPC — the same mechanism as
- * `feature:funders_app_v2`. The last answer is remembered per user (a flag only)
- * so a preview viewer does not see the old screen flash first; any error falls
- * back to OFF, the live dashboard.
- */
-export function useFunderUiV3Preview(userId: string | null | undefined): boolean {
-  const [on, setOn] = useState(() => readCached(userId));
+/** One switch read per user per page load, shared by every caller (gate, launcher). */
+const inflight = new Map<string, Promise<boolean>>();
 
-  useEffect(() => {
-    if (!userId) {
-      setOn(false);
-      return;
-    }
-    setOn(readCached(userId));
-    let cancelled = false;
-    void (async () => {
+function readSwitch(userId: string): Promise<boolean> {
+  let pending = inflight.get(userId);
+  if (!pending) {
+    pending = (async () => {
       try {
         // Not yet in the generated types; the call shape matches the live function.
         const { data, error } = await (supabase.rpc as unknown as (
           fn: string,
           args: Record<string, unknown>,
         ) => Promise<{ data: unknown; error: unknown }>)('feature_preview_on', { p_feature: FUNDERS_UI_V3_FEATURE });
-        if (cancelled) return;
         const next = !error && data === true;
-        setOn(next);
         try {
           if (next) window.localStorage.setItem(cacheKey(userId), '1');
           else window.localStorage.removeItem(cacheKey(userId));
         } catch {
           /* private mode */
         }
+        return next;
       } catch {
-        if (!cancelled) setOn(false);
+        return false;
       }
     })();
+    inflight.set(userId, pending);
+  }
+  return pending;
+}
+
+export interface FunderUiV3PreviewState {
+  /** The switch is on for this viewer (last known answer until the read returns). */
+  on: boolean;
+  /** The server has answered for this viewer (or there is no viewer). */
+  resolved: boolean;
+}
+
+/**
+ * Whether this viewer has the `funders_ui_v3` preview switch. Default OFF.
+ *
+ * Reads the existing `feature_preview_on(p_feature)` RPC — the same mechanism as
+ * `feature:funders_app_v2`. The last answer is remembered per user (a flag only)
+ * so a preview viewer does not see the old screen flash first; any error means
+ * OFF. With `network: false` only that remembered flag is used (no RPC), for
+ * global UI that must not add a boot request for every user.
+ */
+export function useFunderUiV3PreviewState(
+  userId: string | null | undefined,
+  { network = true }: { network?: boolean } = {},
+): FunderUiV3PreviewState {
+  const [state, setState] = useState<FunderUiV3PreviewState>(() => ({ on: readCached(userId), resolved: !userId }));
+
+  useEffect(() => {
+    if (!userId) {
+      setState({ on: false, resolved: true });
+      return;
+    }
+    setState({ on: readCached(userId), resolved: false });
+    if (!network) return;
+    let cancelled = false;
+    void readSwitch(userId).then((on) => {
+      if (!cancelled) setState({ on, resolved: true });
+    });
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, network]);
 
-  return on;
+  return state;
+}
+
+/** Shorthand: just the on/off answer. */
+export function useFunderUiV3Preview(userId: string | null | undefined): boolean {
+  return useFunderUiV3PreviewState(userId).on;
 }

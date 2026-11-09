@@ -1,22 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { AgentAssistant } from './agent/AgentAssistant';
+import { AuthContext } from '@/hooks/useAuth';
+import { useFunderUiV3PreviewState } from '@/components/funder-v3/useFunderUiV3Preview';
 
 const OPEN_OVERLAY_SELECTOR =
   '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"], .app-dialog-content, [data-radix-portal] [role="dialog"]';
 
 /**
  * Whether a modal/sheet is open, and whether a full screen map (the funder
- * houses screen) has the page. Cheap by design: dialogs and sheets render in
- * portals that are direct children of <body>, so only <body>'s own child list
- * and the portal subtrees are watched — never the app tree under #root, where
- * every render used to trigger a full-document query.
+ * houses screen) has the page.
+ *
+ * `narrow` (funders_ui_v3 preview switch on): cheap by design. Dialogs and
+ * sheets render in portals that are direct children of <body>, so only
+ * <body>'s own child list and the portal subtrees are watched — never the app
+ * tree under #root, where every render triggers a full-document query.
+ * Otherwise: today's observer on the whole <body> subtree, unchanged, and
+ * `mapExpanded` stays false.
  */
-export function useOverlayState(): { overlayOpen: boolean; mapExpanded: boolean } {
+export function useOverlayState(narrow = true): { overlayOpen: boolean; mapExpanded: boolean } {
   const [state, setState] = useState({ overlayOpen: false, mapExpanded: false });
   useEffect(() => {
+    if (!narrow) {
+      const check = () => {
+        const overlayOpen = Boolean(document.querySelector(OPEN_OVERLAY_SELECTOR));
+        setState((prev) => (prev.overlayOpen === overlayOpen && !prev.mapExpanded ? prev : { overlayOpen, mapExpanded: false }));
+      };
+      check();
+      const observer = new MutationObserver(check);
+      observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ['data-state'],
+      });
+      return () => observer.disconnect();
+    }
     const root = document.getElementById('root');
     const check = () => {
       const overlayOpen = Boolean(document.querySelector(OPEN_OVERLAY_SELECTOR));
@@ -42,7 +63,7 @@ export function useOverlayState(): { overlayOpen: boolean; mapExpanded: boolean 
       bodyObserver.disconnect();
       portalObserver.disconnect();
     };
-  }, []);
+  }, [narrow]);
   return state;
 }
 
@@ -82,7 +103,15 @@ export default function FloatingToolbar() {
     location.pathname.startsWith('/withdraw') ||
     location.pathname.startsWith('/verification-history');
 
-  const { overlayOpen: modalOpen, mapExpanded } = useOverlayState();
+  // The launcher/observer changes (icon-only on funder screens, hidden under the
+  // full screen map, narrower observer) apply only with the funders_ui_v3
+  // preview switch; everyone else keeps today's behaviour. The switch is read
+  // over the network only on funder routes (shared with the dashboard gate);
+  // elsewhere the remembered answer is used, so no boot request is added.
+  const userId = useContext(AuthContext)?.user?.id ?? null;
+  const onFunderRoute = isFunderRoute(location.pathname);
+  const { on: funderUiV3 } = useFunderUiV3PreviewState(userId, { network: onFunderRoute });
+  const { overlayOpen: modalOpen, mapExpanded } = useOverlayState(funderUiV3);
 
   const shouldHide = modalOpen || isSettingsOrWithdraw;
 
@@ -131,7 +160,7 @@ export default function FloatingToolbar() {
           mapExpanded,
           assistantChatOpen: Boolean(document.querySelector('.assistant-chat[data-state="open"]')),
         })}
-        compact={isFunderRoute(location.pathname)}
+        compact={funderUiV3 && onFunderRoute}
       />
     </>
   );

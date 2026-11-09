@@ -32,30 +32,14 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-WDZSLD8C');</script>
     <!-- End Google Tag Manager -->
-    <!-- Google tag (gtag.js). The calls below only queue into dataLayer (cheap);
-         the library itself is fetched once the page is idle after load, so it
-         never competes with the app bundle on a slow phone. Nothing is lost:
-         gtag.js replays the queue when it arrives. -->
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WDT28KM50"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
 
       gtag('config', 'G-3WDT28KM50');
-      (function () {
-        function loadGtag() {
-          var s = document.createElement('script');
-          s.async = true;
-          s.src = 'https://www.googletagmanager.com/gtag/js?id=G-3WDT28KM50';
-          document.head.appendChild(s);
-        }
-        function whenIdle() {
-          if ('requestIdleCallback' in window) window.requestIdleCallback(loadGtag, { timeout: 4000 });
-          else setTimeout(loadGtag, 1500);
-        }
-        if (document.readyState === 'complete') whenIdle();
-        else window.addEventListener('load', whenIdle, { once: true });
-      })();
     </script>
     <meta charset="UTF-8" />
     <meta name="google-site-verification" content="kR0joJPuylC4guaD6Mpj3Bk_mBchayHvHlSEBlcGUpY" />
@@ -92,10 +76,6 @@
     <link rel="preconnect" href="https://maps.googleapis.com" />
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin />
     <link rel="dns-prefetch" href="https://api.exchangerate-api.com" />
-    <!-- The one DM Sans file every screen uses: a single variable woff2 covers the
-         400-700 weights (latin). Must match the URL in the Google Fonts CSS below;
-         if Google bumps the version this becomes a harmless extra fetch. -->
-    <link rel="preload" as="font" type="font/woff2" crossorigin href="https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K4.woff2" />
 
     <!-- Fonts - Skip on save-data / slow connections -->
     <link
@@ -229,21 +209,7 @@
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WDZSLD8C"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
-    <!-- App-shell skeleton: painted with the HTML, before any script loads.
-         React replaces it on first render; main.tsx keeps it instead of the dots. -->
-    <style>
-      .app-shell{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;background:#f8fafc}
-      .app-shell-bar{height:56px;border-bottom:1px solid #e5e7eb;background:#fff;display:flex;align-items:center;gap:12px;padding:0 16px}
-      .app-shell-main{width:100%;max-width:1280px;margin:0 auto;padding:16px;display:grid;gap:12px}
-      .app-shell-b{border-radius:24px;background:linear-gradient(90deg,#eef0f4 0%,#f6f7f9 50%,#eef0f4 100%);background-size:200% 100%;animation:app-shell-shimmer 1.2s ease-in-out infinite}
-      @keyframes app-shell-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-      @media(min-width:1024px){.app-shell-main{grid-template-columns:5fr 7fr;gap:24px;padding:24px 32px}}
-      html.dark .app-shell{background:#0f172a}
-      html.dark .app-shell-bar{background:#0f172a;border-color:#1e293b}
-      html.dark .app-shell-b{background:linear-gradient(90deg,#1e293b 0%,#273449 50%,#1e293b 100%);background-size:200% 100%}
-      @media(prefers-reduced-motion:reduce){.app-shell-b{animation:none}}
-    </style>
-    <div id="root"><div class="app-shell" data-app-shell aria-busy="true" aria-label="Loading Welile"><div class="app-shell-bar"><div class="app-shell-b" style="width:36px;height:36px;border-radius:12px"></div><div class="app-shell-b" style="width:120px;height:14px;border-radius:7px"></div></div><div class="app-shell-main"><div class="app-shell-b" style="height:180px"></div><div class="app-shell-b" style="height:300px"></div></div></div></div>
+    <div id="root"></div>
 
     <!--
       Out-of-date browser banner. Lightweight, dependency-free, and written in

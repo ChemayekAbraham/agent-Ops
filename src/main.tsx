@@ -40,10 +40,8 @@ const isPreviewHost =
   host.includes('preview--') ||
   host.endsWith('.lovableproject.com');
 
-// Show branded loader immediately — inline SVG spinner, no network requests at all.
-// index.html already paints an app-shell skeleton inside #root; keep that one
-// (it looks like the screen that is coming) and only fall back to the dots.
-if (!root.querySelector('[data-app-shell]')) root.innerHTML = `<div style="min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;gap:12px">
+// Show branded loader immediately — inline SVG spinner, no network requests at all
+root.innerHTML = `<div style="min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc;gap:12px">
   <div style="display:flex;align-items:center;gap:6px">
     <span style="width:9px;height:9px;border-radius:50%;background:#7c3aed;animation:wd 1s ease-in-out infinite"></span>
     <span style="width:9px;height:9px;border-radius:50%;background:#7c3aed;animation:wd 1s ease-in-out .16s infinite"></span>
@@ -348,7 +346,7 @@ setTimeout(() => {
   const appReady = (() => {
     try { return (window as any).__WELILE_APP_READY__ === true; } catch { return false; }
   })();
-  if (appReady || (!root.innerHTML.includes('animation:') && !root.querySelector('[data-app-shell]'))) return;
+  if (appReady || !root.innerHTML.includes('animation:')) return;
 
   const online = (() => {
     try { return navigator.onLine !== false; } catch { return true; }
