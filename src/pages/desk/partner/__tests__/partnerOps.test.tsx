@@ -12,7 +12,7 @@ import { PartnerOpsBoard } from '../PartnerOpsBoard';
 import { decisionChip, lastFollowUpText, partnerTiles, rankOfficers, targetProgress, toPartnerBoard, type Officer } from '../partnerApi';
 import { FundersDashboard } from '../../cfo/FundersDashboard';
 import { toDashboard } from '../../cfo/cfoApi';
-import { fundedSplitText, isWelileDue, sortRows } from '../../cfo/fundersView';
+import { fundedSplitText, isUnsold7d, sortRows } from '../../cfo/fundersView';
 
 /* ───────────── fixtures ───────────── */
 
@@ -76,7 +76,7 @@ describe('Partner Ops tiles', () => {
   it('reads every tile as words', () => {
     const t = Object.fromEntries(partnerTiles(toPartnerBoard(RAW)).map((x) => [x.key, x]));
     expect(t.listed).toMatchObject({ label: 'Listed now', value: '24', sub: 'UGX 31M · 4 held · 1 frozen' });
-    expect(t.welile_due).toMatchObject({ label: 'Welile to fund (day 7+)', value: '3', sub: 'UGX 2.4M', tone: 'bad' });
+    expect(t.welile_due).toMatchObject({ label: 'Unsold 7+ days', value: '3', sub: 'UGX 2.4M · Partner Ops follow-up', tone: 'warn' });
     expect(t.sold).toMatchObject({ label: 'Sold', value: '18', sub: 'UGX 20.1M · Officers 11 · Self 5 · Welile 2' });
     expect(t.sell_through).toMatchObject({ label: 'Sell-through within 7 days', value: '65%', sub: '26 of 40 listed in 30 days' });
     expect(t.avg_days).toMatchObject({ label: 'Avg days to sell', value: '3.3' });
@@ -138,13 +138,14 @@ describe('funder portfolio approvals', () => {
 /* ───────────── listings ───────────── */
 
 describe('listings', () => {
-  it('welile_due gets the red "Welile to fund" chip; frozen is greyed; follow_up can be called, shows the last note, and is noted', async () => {
+  it('welile_due (unsold 7+ days, PO-7D) gets the neutral Partner Ops follow-up chip; frozen is greyed; follow_up can be called, shows the last note, and is noted', async () => {
     mount(<PartnerOpsBoard board={false} />);
     await screen.findByText('Joseph');
     const due = document.querySelector('li[data-decision="welile_due"]') as HTMLElement;
-    const chip = within(due).getByText('Welile to fund');
-    expect(chip.getAttribute('data-tone')).toBe('bad');
-    expect(decisionChip('welile_due')).toMatchObject({ label: 'Welile to fund', tone: 'bad' });
+    const chip = within(due).getByText('Unsold 7+ days · Partner Ops follow-up');
+    expect(chip.getAttribute('data-tone')).toBe('idle');
+    expect(decisionChip('welile_due')).toMatchObject({ label: 'Unsold 7+ days · Partner Ops follow-up', tone: 'idle' });
+    expect(document.body.textContent).not.toContain('Welile to fund');
     expect((document.querySelector('li[data-decision="frozen"]') as HTMLElement).className).toContain('opacity-60');
     const follow = document.querySelector('li[data-decision="follow_up"]') as HTMLElement;
     expect((within(follow).getByRole('button', { name: /Call Okello/ }) as HTMLButtonElement).disabled).toBe(false);
@@ -219,10 +220,10 @@ describe('Funders Dashboard', () => {
     expect(fundedSplitText(FUNDED().funded)).toBe('8 requests · Funders 5 · Welile 3');
   });
 
-  it('puts day-7 rows first with a red "Welile to fund" chip', async () => {
+  it('puts rows unsold 7+ days first with the neutral Partner Ops follow-up chip', async () => {
     const d = FUNDED();
-    expect(isWelileDue({ days_on_board: 7 })).toBe(true);
-    expect(isWelileDue({ days_on_board: 6.9 })).toBe(false);
+    expect(isUnsold7d({ days_on_board: 7 })).toBe(true);
+    expect(isUnsold7d({ days_on_board: 6.9 })).toBe(false);
     expect(sortRows(d.rows, 'grade').map((r) => r.id)).toEqual(['due', 'young']);
     rpcMock.mockImplementation(() =>
       Promise.resolve({
@@ -241,8 +242,9 @@ describe('Funders Dashboard', () => {
     expect(await screen.findByText("8 requests · Officers' funders 3 · Self 2 · Welile 3")).toBeTruthy();
     const bodyRows = [...document.querySelectorAll('tbody tr')];
     expect(bodyRows[0].textContent).toContain('Due');
-    const chip = within(bodyRows[0] as HTMLElement).getByText('Welile to fund');
-    expect(chip.getAttribute('data-tone')).toBe('bad');
-    expect(within(bodyRows[1] as HTMLElement).queryByText('Welile to fund')).toBeNull();
+    const chip = within(bodyRows[0] as HTMLElement).getByText('Unsold 7+ days · Partner Ops follow-up');
+    expect(chip.getAttribute('data-tone')).toBe('idle');
+    expect(within(bodyRows[1] as HTMLElement).queryByText('Unsold 7+ days · Partner Ops follow-up')).toBeNull();
+    expect(document.body.textContent).not.toContain('Welile to fund');
   });
 });

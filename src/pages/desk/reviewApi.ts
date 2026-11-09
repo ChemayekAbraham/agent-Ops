@@ -27,6 +27,9 @@ export const NO_STAFF_ID = 'Needs an active employee account with a staff ID —
 export function readableError(error: unknown): string {
   const e = error as { code?: string; message?: string } | null;
   if (!e) return 'Something went wrong.';
+  // Coded business guards (E60_FUNDERS_ONLY, E60_SELF_APPROVAL, …) are shown exactly as the
+  // server wrote them, even when raised as 42501 (E60_SELF_APPROVAL is).
+  if (/^E\d+_[A-Z_]+:/.test(String(e.message ?? ''))) return String(e.message);
   // Desk access refusals are also 42501; they say so in their own words.
   if (/not assigned to you/i.test(String(e.message ?? ''))) return 'This desk is not assigned to you';
   if (e.code === '42501') return NO_STAFF_ID;

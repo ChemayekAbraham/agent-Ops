@@ -19,7 +19,7 @@ import { DataList, OneLine, type DataColumn } from '../ui/DataList';
 import { stackLayout } from '../ui/layout';
 import { readableError } from '../reviewApi';
 import { PERIODS, useFundersDashboard, type FundersRow, type Period } from './cfoApi';
-import { fundedSplitText, fundersLead, heldLabel, isWelileDue, rating, sortRows, ugx, type Rank } from './fundersView';
+import { UNSOLD_7D_LABEL, fundedSplitText, fundersLead, heldLabel, isUnsold7d, rating, sortRows, ugx, type Rank } from './fundersView';
 
 /** The listing's main photo: the first of the house photos the funders see. */
 export function mainPhoto(r: Pick<FundersRow, 'photos'>): string | null {
@@ -32,12 +32,12 @@ const photoCount = (r: FundersRow) => (Array.isArray(r.photos) ? r.photos.length
 /** `xs` inside a table row (the kit's size for data rows), `sm` on a card. */
 function StatusChips({ r, size = 'sm' }: { r: FundersRow; size?: 'xs' | 'sm' }) {
   const held = heldLabel(r);
-  if (!isWelileDue(r) && !held) return null;
+  if (!isUnsold7d(r) && !held) return null;
   return (
     <span className="flex flex-wrap gap-1" style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>
-      {isWelileDue(r) && (
-        <Chip tone="bad" size={size} strong>
-          Welile to fund
+      {isUnsold7d(r) && (
+        <Chip tone="idle" size={size}>
+          {UNSOLD_7D_LABEL}
         </Chip>
       )}
       {held && (
@@ -231,7 +231,7 @@ export function FundersDashboard({
       priority: 1,
       kind: 'chips',
       render: (r) => <StatusChips r={r} size="xs" />,
-      text: (r) => [isWelileDue(r) ? 'Welile to fund' : '', heldLabel(r) ?? ''].filter(Boolean).join(' · '),
+      text: (r) => [isUnsold7d(r) ? UNSOLD_7D_LABEL : '', heldLabel(r) ?? ''].filter(Boolean).join(' · '),
     },
     {
       key: 'landlord',
@@ -322,7 +322,7 @@ export function FundersDashboard({
           error={q.error && !d ? readableError(q.error) : undefined}
           emptyText="Nothing is on the funders’ board right now."
           board={board}
-          rowAttrs={(r) => ({ 'data-welile-due': isWelileDue(r) ? '' : undefined })}
+          rowAttrs={(r) => ({ 'data-unsold-7d': isUnsold7d(r) ? '' : undefined })}
           card={(r) => <FundersCard r={r} board={board} />}
         />
         {!wide && (

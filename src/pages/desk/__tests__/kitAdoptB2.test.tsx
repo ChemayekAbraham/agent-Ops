@@ -76,8 +76,8 @@ describe('Funders Dashboard listing', () => {
     mount(<FundersDashboard board={false} />);
     await screen.findByText('Tenant a');
     expect(document.querySelector('[data-datalist="listings"] [data-layout="table"]')).not.toBeNull();
-    expect(document.querySelector('tr[data-row="b"]')?.hasAttribute('data-welile-due')).toBe(true);
-    expect(document.querySelector('tr[data-row="a"]')?.hasAttribute('data-welile-due')).toBe(false);
+    expect(document.querySelector('tr[data-row="b"]')?.hasAttribute('data-unsold-7d')).toBe(true);
+    expect(document.querySelector('tr[data-row="a"]')?.hasAttribute('data-unsold-7d')).toBe(false);
     expect(screen.queryByRole('button', { name: /Fund/ })).toBeNull();
     expect(screen.queryByRole('columnheader', { name: 'Action' })).toBeNull();
     expect(screen.getByText("Welile funds through its own funder account, by selecting on the funders' dashboard.")).toBeTruthy();
@@ -105,7 +105,7 @@ describe('Funders Dashboard listing', () => {
     expect(within(a).queryByRole('button', { name: /Fund/ })).toBeNull();
 
     const b = document.querySelector('[data-funders-card="b"]') as HTMLElement;
-    expect(within(b).getByText('Welile to fund').getAttribute('data-tone')).toBe('bad');
+    expect(within(b).getByText('Unsold 7+ days · Partner Ops follow-up').getAttribute('data-tone')).toBe('idle');
 
     const c = document.querySelector('[data-funders-card="c"]') as HTMLElement;
     expect(within(c).getByRole('img', { name: 'No photo' })).toBeTruthy();
@@ -203,6 +203,6 @@ describe('Partner Ops portfolios and listings on a phone', () => {
     expect(within(follow).getByText('Nobody held it.').getAttribute('title')).toBe('Rule PO-3');
     fireEvent.click(within(follow).getByRole('button', { name: 'Note follow-up' }));
     expect(within(follow).getByRole('textbox')).toBeTruthy();
-    expect(within(document.querySelector('li[data-decision="welile_due"]') as HTMLElement).getByText('Welile to fund')).toBeTruthy();
+    expect(within(document.querySelector('li[data-decision="welile_due"]') as HTMLElement).getByText('Unsold 7+ days · Partner Ops follow-up')).toBeTruthy();
   });
 });

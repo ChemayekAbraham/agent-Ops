@@ -3,8 +3,8 @@ import { rpc } from '../reviewApi';
 import type { Status } from '../deskTheme';
 
 /**
- * Partner Ops as the sales desk: what is listed for funders, what Welile must
- * fund (day 7 and on), what sold and who sold it, the funder money waiting for
+ * Partner Ops as the sales desk: what is listed for funders, what has gone
+ * unsold 7+ days (Partner Ops follow-up), what sold and who sold it, the funder money waiting for
  * approval, and how the field officers are doing — all from
  * `partner_ops_board(p_period)`.
  */
@@ -225,7 +225,8 @@ export const DECISION_CHIP: Record<ListingDecision, { label: string; tone: Statu
   fresh: { label: 'Fresh', tone: 'idle' },
   follow_up: { label: 'Follow up', tone: 'warn' },
   held: { label: 'Held by a funder', tone: 'ok' },
-  welile_due: { label: 'Welile to fund', tone: 'bad', strong: true },
+  // 'welile_due' is still the server's value; the rule is now PO-7D: unsold 7+ days, Partner Ops follows it up.
+  welile_due: { label: 'Unsold 7+ days · Partner Ops follow-up', tone: 'idle' },
   frozen: { label: 'Frozen', tone: 'idle' },
 };
 
@@ -248,7 +249,7 @@ export function partnerTiles(b: PartnerBoard): TileText[] {
   const avg = t.sold.avg_days_coo_to_funded;
   return [
     { key: 'listed', label: 'Listed now', value: int(t.listed.n), sub: `${ugxC(t.listed.ugx)} · ${int(t.held)} held · ${int(t.frozen)} frozen` },
-    { key: 'welile_due', label: 'Welile to fund (day 7+)', value: int(t.welile_due.n), sub: ugxC(t.welile_due.ugx), tone: t.welile_due.n > 0 ? 'bad' : undefined },
+    { key: 'welile_due', label: 'Unsold 7+ days', value: int(t.welile_due.n), sub: `${ugxC(t.welile_due.ugx)} · Partner Ops follow-up`, tone: t.welile_due.n > 0 ? 'warn' : undefined },
     {
       key: 'sold',
       label: 'Sold',
@@ -309,12 +310,12 @@ export function lastFollowUpText(f: Listing['last_followup'], when: (iso: string
 export const SOLD_BY: Record<string, string> = { officer: "Officer's funder", officers: "Officer's funder", self: 'Self', welile: 'Welile' };
 export const soldBy = (by: string | null | undefined) => (by ? SOLD_BY[by] ?? by : '—');
 
-/** The desk's opening sentence, from the board: what is listed, what Welile must fund, what sold. */
+/** The desk's opening sentence, from the board: what is listed, what is unsold 7+ days, what sold. */
 export function partnerLead(b: PartnerBoard): string {
   const t = b.tiles;
   const n = (v: number) => Math.round(v).toLocaleString('en');
   const parts = [`${n(t.listed.n)} tenants are listed for funders (${ugxC(t.listed.ugx)})`];
-  if (t.welile_due.n > 0) parts.push(`${n(t.welile_due.n)} have waited 7 days and Welile funds them`);
+  if (t.welile_due.n > 0) parts.push(`${n(t.welile_due.n)} have waited 7+ days and need a Partner Ops follow-up`);
   parts.push(`${n(t.sold.n)} sold in this period, ${pctText(t.sell_through_7d.pct)} within a week`);
   return `${parts.join('; ')}.`;
 }
