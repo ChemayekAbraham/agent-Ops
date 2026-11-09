@@ -23,6 +23,7 @@ export interface DeptNotification {
 export function useBudgetDepartmentNotifications(
   dashboard?: string,
   departmentKeys?: string[],
+  enabled = true,
 ) {
   const [items, setItems] = useState<DeptNotification[]>([]);
 
@@ -40,7 +41,7 @@ export function useBudgetDepartmentNotifications(
     setItems((data as DeptNotification[]) ?? []);
   }, [scopeSignature]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (enabled) void load(); }, [load, enabled]);
 
   const unread = items.filter(i => !i.is_read).length;
 

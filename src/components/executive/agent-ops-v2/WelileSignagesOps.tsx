@@ -1,3 +1,4 @@
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
 import React, { useState } from 'react';
 import {
   ArrowLeft,
@@ -33,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import {
   SIGNAGE_RATES,
-  SignageRecord,
+  SignageListRecord,
   SignageStatus,
   formatSignageStatus,
   canReviewSignage,
@@ -59,7 +60,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
 
   // Modal states
-  const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
+  const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
 
@@ -309,7 +310,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <div className="flex items-center justify-between pt-1 gap-2 border-t border-border/40">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Camera className="h-3.5 w-3.5" />
-                      <span>{item.photos?.length ?? 0} photos attached</span>
+                      <span>Photographic evidence</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -372,22 +373,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
               {/* Photos Gallery */}
               <div>
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">Photographic Evidence</Label>
-                {selectedSignage.photos?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedSignage.photos.map((photo, i) => (
-                      <div key={photo.id || i} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black/10">
-                        <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
-                          {photo.category?.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-xl text-center">
-                    No photographs provided.
-                  </p>
-                )}
+                {isReviewOpen && <SignageEvidence signageId={selectedSignage.id} />}
               </div>
 
               {/* Location & Coordinates Audit */}
