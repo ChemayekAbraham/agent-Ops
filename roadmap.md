@@ -1,4 +1,7 @@
 # Welile Signages COO approval
+- [x] Confirm Agent Ops approvals against fresh server status and refresh the queues immediately.
+- [x] Show COO-approved Signages in the CFO default queue and clarify the COO handoff.
+- [x] Run approval regression tests and project safeguards for the updated handoff (16 tests passed; build OK; all guards passed).
 - [x] Add Awaiting COO and enforce Agent Ops → COO → installation → existing CFO workflow.
 - [x] Add the COO Signages approval tab and test the status transitions and controls.
 - [x] Check build, guards and signed-out routing without runtime errors.

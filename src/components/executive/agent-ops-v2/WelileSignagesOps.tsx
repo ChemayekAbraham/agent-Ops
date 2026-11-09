@@ -216,7 +216,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
             { id: 'all', label: 'All' },
             ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
             { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
-            { id: 'approved', label: `Approved (${awaitingInstallation})` },
+            { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -415,7 +415,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                     className="rounded-xl text-xs h-9"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-500" />
-                    {stage === 'coo' ? 'Approve' : 'Send to COO'}
+                    {stage === 'coo' ? 'Send to CFO' : 'Send to COO'}
                   </Button>
                   <Button
                     type="button"

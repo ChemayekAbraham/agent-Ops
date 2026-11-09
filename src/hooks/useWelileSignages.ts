@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SIGNAGE_RATES, signageReviewTarget } from '@/lib/welileSignages';
+import { SignageRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage } from '@/lib/welileSignages';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
 
@@ -203,17 +203,32 @@ export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
         if (data?.status !== targetStatus) throw new Error('The decision could not be confirmed. Refresh the queue.');
         return { signageId, targetStatus };
       }
-      // reviewed_by / reviewed_at are stamped by the server.
-      await updateSignage(signageId, {
+      // Read fresh state, then condition the write on it so a stale review cannot overwrite another decision.
+      const { data: current, error: readError } = await db().from('welile_signages')
+        .select('id,status').eq('id', signageId).maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!current || !canReviewSignage(current.status, stage)) {
+        throw new Error('This application is no longer pending Agent Ops review. Refresh the queue.');
+      }
+      // reviewed_by / reviewed_at are stamped by the server. Confirm the actual stored status.
+      const { data: saved, error: saveError } = await db().from('welile_signages').update({
         status: targetStatus,
         review_notes: notes || null,
         rejection_reason: rejectionReason || null,
-      });
+      }).eq('id', signageId).eq('status', current.status).select('id,status').maybeSingle();
+      if (saveError) throw new Error(saveError.message);
+      if (saved?.status !== targetStatus) throw new Error('The decision could not be confirmed. Refresh the queue.');
       return { signageId, targetStatus };
     },
-    onSuccess: ({ targetStatus }) => {
-      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success(targetStatus === 'awaiting_coo' ? 'Approved by Agent Ops. Sent to the COO for approval.' : 'Signage review decision recorded.');
+    onSuccess: async ({ signageId, targetStatus }) => {
+      queryClient.setQueriesData<SignageRecord[]>({ queryKey: ['welile-signages'] }, (records) =>
+        Array.isArray(records) ? records.map((record) => record.id === signageId ? { ...record, status: targetStatus } : record) : records);
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success(targetStatus === 'awaiting_coo'
+        ? 'Awaiting COO. Sent to the COO for approval.'
+        : stage === 'coo' && targetStatus === 'approved_for_installation'
+          ? 'COO approved. Sent to the CFO Signages desk; installation verification is required before payment.'
+          : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
   });

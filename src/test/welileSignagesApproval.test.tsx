@@ -26,4 +26,12 @@ describe('COO Signages approval controls', () => {
     expect(screen.queryByRole('button', { name: 'Confirm Decision' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Verify Installation' })).not.toBeInTheDocument();
   });
+  it('sends a pending application through the Agent Ops approval action', async () => {
+    mocks.status = 'pending';
+    render(<WelileSignagesOps onBack={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Inspect & Decide' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to COO' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Decision' }));
+    await waitFor(() => expect(mocks.decide).toHaveBeenCalledWith({ signageId: 'signage', decision: 'approve', notes: undefined, rejectionReason: undefined }));
+  });
 });

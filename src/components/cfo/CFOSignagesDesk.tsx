@@ -49,7 +49,7 @@ export function CFOSignagesDesk() {
   const disburseMutation = useCfoDisburseSignage();
 
   const [search, setSearch] = useState('');
-  const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('pending_payout');
+  const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('all');
   const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [disburseModal, setDisburseModal] = useState<{
@@ -58,7 +58,7 @@ export function CFOSignagesDesk() {
   } | null>(null);
   const [customTxRef, setCustomTxRef] = useState('');
 
-  // Signages approved by Ops (eligible for CFO oversight)
+  // COO-approved applications appear immediately; payment eligibility still requires installation verification.
   const approvedSignages = signages.filter((s) =>
     ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(s.status)
   );
@@ -184,7 +184,7 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Receives approved signage installations from Agent Ops for agent reward payouts and recurring property owner rent.
+              COO-approved applications. Payments require verified installation.
             </p>
           </div>
         </div>
@@ -305,7 +305,7 @@ export function CFOSignagesDesk() {
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Signages approved or verified by Agent Operations will appear here for CFO disbursement.
+            Applications appear here after COO approval. Payments require verified installation.
           </p>
         </div>
       ) : (
