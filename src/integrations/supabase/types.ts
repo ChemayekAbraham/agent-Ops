@@ -57811,9 +57811,10 @@ export type Database = {
           office_key: string
           prompts_moved: number
           reason: string
+          source: string
           to_holder: string
           transferred_at: string
-          transferred_by: string
+          transferred_by: string | null
         }
         Insert: {
           from_holder?: string | null
@@ -57821,9 +57822,10 @@ export type Database = {
           office_key: string
           prompts_moved?: number
           reason: string
+          source?: string
           to_holder: string
           transferred_at?: string
-          transferred_by: string
+          transferred_by?: string | null
         }
         Update: {
           from_holder?: string | null
@@ -57831,9 +57833,10 @@ export type Database = {
           office_key?: string
           prompts_moved?: number
           reason?: string
+          source?: string
           to_holder?: string
           transferred_at?: string
-          transferred_by?: string
+          transferred_by?: string | null
         }
         Relationships: []
       }
@@ -97413,6 +97416,7 @@ export type Database = {
           p_new_holder: string
           p_office: string
           p_reason: string
+          p_source?: string
         }
         Returns: number
       }
