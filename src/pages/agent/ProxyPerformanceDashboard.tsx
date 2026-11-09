@@ -113,7 +113,7 @@ export default function ProxyPerformanceDashboard() {
         <div className="flex w-full flex-row items-center gap-2">
           <Button
             variant="outline"
-            className="h-11 w-11 shrink-0 rounded-full px-0"
+            className="h-11 w-[calc(40%-4px)] shrink-0 rounded-full px-0"
             onClick={shareInvite}
             disabled={inviteLoading}
             aria-label="Share invite link"
@@ -121,7 +121,7 @@ export default function ProxyPerformanceDashboard() {
             {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
           </Button>
           <Button
-            className="h-11 flex-1 rounded-full text-sm font-semibold"
+            className="h-11 w-[calc(60%-4px)] shrink-0 rounded-full text-sm font-semibold"
             onClick={startNote}
             onPointerEnter={() => {
               void import('@/components/agent/SupportModeChooserDialog').catch(() => {});
