@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,14 +12,16 @@ import { useState } from 'react';
 import { ProjectedReturnsChart, PartnerPortfolioTable, HORIZON_PRESETS, type Horizon } from './PartnerPortfolioProjections';
 
 export function PartnerCapitalFlow() {
+  const authenticatedReady = useAuthenticatedAudience();
   const [horizon, setHorizon] = useState<Horizon>(HORIZON_PRESETS.find(p => p.days === 180)!);
   const { data } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['partner-capital-flow'],
     queryFn: async () => {
       const [{ data: portfolios }, { data: withdrawals }, { data: roiPayments }, { data: notes }] = await Promise.all([
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('investment_amount, total_roi_earned, status, created_at')
-          .in('status', ['active', 'matured', 'pending_approval']),
+          .in('status', ['active', 'matured', 'pending_approval'])),
         supabase.from('investment_withdrawal_requests')
           .select('amount, status, created_at, user_id')
           .order('created_at', { ascending: false })

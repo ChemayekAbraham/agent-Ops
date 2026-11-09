@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
@@ -135,7 +136,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
       const newAmount = portfolio.investment_amount + topUp;
 
       // Update the portfolio
-      const { error } = await supabase.from('investor_portfolios').update({
+      const { error } = await withUserSession(() => supabase.from('investor_portfolios').update({
         // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
         // (migration 20261024140000; Return postings change these fields server-side).
         return_fields_edit_token: safeUUID(),
@@ -147,7 +148,7 @@ export function RenewPortfolioDialog({ open, onOpenChange, portfolio, onSuccess 
         duration_months: newDuration,
         investment_amount: newAmount,
         status: 'active',
-      } as never).eq('id', portfolio.id);
+      } as never).eq('id', portfolio.id));
 
       if (error) throw error;
 

@@ -1,8 +1,9 @@
 # Production frontend errors (9 November)
-- [ ] Correct realtime owner columns and wallet transaction reads.
-- [ ] Sanitize UUID lookup lists and handle normal missing rows.
-- [ ] Gate authenticated work, handle duplicates and role mapping, and prevent broken avatar requests.
-- [ ] Run targeted regression tests, guards, and available browser checks; report limitations.
+- [x] Audit realtime owner columns and wallet transaction reads; current frontend already uses valid columns. SMS-log duplicate writes and partner-enum failures have no frontend source.
+- [x] Sanitize UUID lookup lists and handle normal missing rows.
+- [x] Gate authenticated work, handle subagent/LC1 duplicates, and prevent broken avatar requests.
+- [x] Run targeted regression tests, guards, and signed-out browser checks; build OK.
+- [ ] Verify authenticated production flows and reduction in production log errors; external unmanaged authentication prevents signed-in testing here.
 
 # Agreement Returns rate input
 - [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.

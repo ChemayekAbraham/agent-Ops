@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
@@ -118,10 +119,10 @@ export async function fetchAllPartnerIds(): Promise<string[]> {
   let hasMore = true;
   const ownerIds = new Set<string>();
   while (hasMore) {
-    const { data } = await supabase
+    const { data } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('investor_id')
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (data && data.length > 0) {
       data.forEach((p: any) => { if (p.investor_id) ownerIds.add(p.investor_id); });
       offset += PAGE;
@@ -301,12 +302,12 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
   let hasMore = true;
   const portfolios: any[] = [];
   while (hasMore) {
-    const { data, error } = await supabase
+    const { data, error } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id, investor_id, agent_id, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, next_roi_date, account_name, portfolio_code, duration_months, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (error) break;
     if (data && data.length > 0) {
       portfolios.push(...data);
@@ -593,10 +594,10 @@ export async function fetchSupporterSummary(): Promise<{
   const portfolioRows: { investment_amount: number | null; investor_id: string | null }[] = [];
 
   while (hasMore) {
-    const { data } = await supabase
+    const { data } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('investment_amount, investor_id')
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (data && data.length > 0) {
       portfolioRows.push(...(data as any));
       offset += PAGE;

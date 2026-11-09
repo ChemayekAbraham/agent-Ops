@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,19 +52,21 @@ function buildTrend(rows: { created_at: string }[], days = 14) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function usePartnerOpsReportData() {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
+    enabled: authenticatedReady,
     queryKey: ['coo-report', 'partner-ops'],
     staleTime: 60_000,
     queryFn: async () => {
       const since = sinceISO();
 
       const [portfoliosRes, withdrawalsRes] = await Promise.all([
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, portfolio_code, investment_amount, status, cfo_verified, cfo_rejection_reason, created_at, investor_id, agent_id, payment_method, account_name, bank_account_name')
           .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(MAX_ROWS),
+          .limit(MAX_ROWS)),
         supabase
           .from('investment_withdrawal_requests')
           .select('id, amount, status, created_at, user_id, rejection_reason')

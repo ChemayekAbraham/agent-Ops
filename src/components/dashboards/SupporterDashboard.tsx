@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
@@ -449,19 +450,19 @@ export default function SupporterDashboard({
           .eq('category', 'supporter_rent_fund')
           .eq('direction', 'cash_out')
           .limit(500),
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage')
           .eq('investor_id', user.id)
           .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
-        supabase
+          .limit(100)),
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage')
           .eq('agent_id', user.id)
           .is('investor_id', null)
           .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
+          .limit(100)),
       ]);
 
       // Merge portfolios (investor_id matches + agent_id with null investor_id)

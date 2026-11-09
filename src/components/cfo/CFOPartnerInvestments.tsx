@@ -17,6 +17,7 @@ import {
   FileText, Eye, Download, Filter, Image as ImageIcon
 } from 'lucide-react';
 import { useSignedUrl } from '@/hooks/useSignedUrl';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 type FilterStatus = 'all' | 'pending' | 'verified' | 'flagged';
 
@@ -55,6 +56,7 @@ function ReceiptLink({ filePath }: { filePath: string | null }) {
 }
 
 export function CFOPartnerInvestments() {
+  const ready = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,7 +65,9 @@ export function CFOPartnerInvestments() {
 
   const { data: investments, isLoading } = useQuery({
     queryKey: ['cfo-partner-investments', filter],
+    enabled: ready,
     queryFn: async () => {
+      await requireUserSession();
       let query = supabase
         .from('investor_portfolios')
         .select(`

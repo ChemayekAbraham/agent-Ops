@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,16 +189,16 @@ export function ApprovedPartnerWithdrawals({ onBack }: Props) {
       let portfolio: any = null;
       const cols = 'id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, payout_day, next_roi_date, maturity_date, total_roi_earned, status';
       if (portfolioId) {
-        const { data } = await supabase.from('investor_portfolios').select(cols).eq('id', portfolioId).maybeSingle();
+        const { data } = await withUserSession(() => supabase.from('investor_portfolios').select(cols).eq('id', portfolioId).maybeSingle());
         portfolio = data;
       }
       if (!portfolio && portfolioName && partnerId) {
-        const { data } = await supabase
+        const { data } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .select(cols)
           .eq('investor_id', partnerId)
           .eq('portfolio_code', portfolioName)
-          .maybeSingle();
+          .maybeSingle());
         portfolio = data;
       }
 

@@ -1,8 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { capabilities, type TutorialCapabilities } from './api';
 import { useAuth } from '@/hooks/useAuth';
-import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
-import { withUserSession } from '@/lib/authenticatedRequests';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 /** Server-decided tutorial access (ops_tutorial_my_capabilities.has_access). Errors mean no access. */
 export function useTutorialAccess() {
@@ -11,7 +10,10 @@ export function useTutorialAccess() {
   const q = useQuery<TutorialCapabilities>({
     queryKey: ['ops-tutorial-caps', user?.id],
     enabled: ready,
-    queryFn: () => withUserSession(() => capabilities() as Promise<TutorialCapabilities>),
+    queryFn: async () => {
+      await requireUserSession();
+      return capabilities() as Promise<TutorialCapabilities>;
+    },
     staleTime: 5 * 60_000,
   });
   const caps = !ready || q.isError ? undefined : q.data;

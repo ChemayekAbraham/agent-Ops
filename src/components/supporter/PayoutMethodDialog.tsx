@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -30,10 +31,10 @@ export function PayoutMethodDialog({ open, onOpenChange, portfolioId, portfolioN
   useEffect(() => {
     if (open && portfolioId) {
       setLoading(true);
-      supabase.from('investor_portfolios')
+      withUserSession(() => supabase.from('investor_portfolios')
         .select('payment_method, mobile_money_number, mobile_network, bank_name, bank_account_name, account_number')
         .eq('id', portfolioId)
-        .single()
+        .single())
         .then(({ data }) => {
           if (data) {
             setPayoutMode((data as any).payment_method || 'mobile_money');
@@ -84,10 +85,10 @@ export function PayoutMethodDialog({ open, onOpenChange, portfolioId, portfolioN
         update.mobile_network = null;
       }
 
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(update as any)
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
 
       if (error) throw error;
 

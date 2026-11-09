@@ -17,6 +17,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { CollectContext } from '@/lib/arrearsAllocation';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 export type { CollectContext, BehindDay } from '@/lib/arrearsAllocation';
 
@@ -145,11 +146,13 @@ export const agentExpiredCyclesKey = (agentId: string | null | undefined) =>
  * outstanding balance, which is what `agent_expired_cycles` reports.
  */
 export function useAgentExpiredCycles(agentId: string | null | undefined, enabled = true) {
+  const ready = useAuthenticatedAudience();
   return useQuery({
     queryKey: agentExpiredCyclesKey(agentId),
-    enabled: Boolean(agentId) && enabled,
+    enabled: ready && Boolean(agentId) && enabled,
     staleTime: 5 * 60_000,
     queryFn: async (): Promise<AgentExpiredCycles | null> => {
+      await requireUserSession();
       const { data, error } = await rpc('agent_expired_cycles', {
         p_agent_id: agentId,
       });

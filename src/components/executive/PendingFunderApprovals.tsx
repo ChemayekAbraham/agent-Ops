@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -37,6 +39,7 @@ interface Props {
 }
 
 export function PendingFunderApprovals({ defaultExpanded = false, showWhenEmpty = false }: Props = {}) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user } = useAuth();
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const { toast } = useToast();
@@ -45,6 +48,7 @@ export function PendingFunderApprovals({ defaultExpanded = false, showWhenEmpty 
   const [rejectReason, setRejectReason] = useState('');
 
   const { data: pending, isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['pending-funder-approvals'],
     queryFn: async () => {
       // NOTE: do NOT use embedded selects (agent:agent_id(...)) — proxy_agent_assignments
@@ -81,11 +85,11 @@ export function PendingFunderApprovals({ defaultExpanded = false, showWhenEmpty 
 
       // Enrich with portfolio returns for each funder
       const enriched = await Promise.all(items.map(async (item) => {
-        const { data: portfolios } = await supabase
+        const { data: portfolios } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .select('investment_amount, roi_percentage, created_at, maturity_date, total_roi_earned')
           .eq('investor_id', item.beneficiary_id)
-          .eq('status', 'active');
+          .eq('status', 'active'));
 
         const now = new Date();
         let accruedReturns = 0;

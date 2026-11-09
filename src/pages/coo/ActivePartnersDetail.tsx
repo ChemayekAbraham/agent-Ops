@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback } from 'react';
@@ -109,10 +110,10 @@ export default function ActivePartnersDetail() {
           supabase.from('wallets').select('user_id, balance').in('user_id', batch)
         ),
         batchedQuery<any>(ids, (batch) =>
-          supabase.from('investor_portfolios')
+          withUserSession(() => supabase.from('investor_portfolios')
             .select('investor_id, agent_id, roi_percentage, payout_day, roi_mode, created_at')
             .or(`investor_id.in.(${batch.join(',')}),agent_id.in.(${batch.join(',')})`)
-            .order('created_at', { ascending: false })
+            .order('created_at', { ascending: false }))
         ),
       ]);
 
@@ -324,27 +325,27 @@ export default function ActivePartnersDetail() {
           // can have a different current next_roi_date/created_at, so this
           // has to be computed and written per-row rather than in one bulk
           // update.
-          const { data: rows1, error: rowsErr1 } = await supabase
+          const { data: rows1, error: rowsErr1 } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('id, next_roi_date, created_at')
             .eq('investor_id', editPartner.id)
-            .in('status', ['active', 'pending']);
+            .in('status', ['active', 'pending']));
           if (rowsErr1) throw rowsErr1;
 
-          const { data: rows2, error: rowsErr2 } = await supabase
+          const { data: rows2, error: rowsErr2 } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('id, next_roi_date, created_at')
             .eq('agent_id', editPartner.id)
             .is('investor_id', null)
-            .in('status', ['active', 'pending']);
+            .in('status', ['active', 'pending']));
           if (rowsErr2) throw rowsErr2;
 
           const updateRow = async (row: { id: string; next_roi_date: string | null; created_at: string }) => {
             const nextRoiDate = recomputeNextRoiDateForPayoutDay(row.next_roi_date, row.created_at, updateFields.payout_day);
-            const { error } = await supabase
+            const { error } = await withUserSession(() => supabase
               .from('investor_portfolios')
               .update({ ...updateFields, next_roi_date: nextRoiDate })
-              .eq('id', row.id);
+              .eq('id', row.id));
             if (error) throw error;
           };
 
@@ -352,22 +353,22 @@ export default function ActivePartnersDetail() {
           updated1 = rows1;
           updated2 = rows2;
         } else {
-          const { data, error: err1 } = await supabase
+          const { data, error: err1 } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .update(updateFields)
             .eq('investor_id', editPartner.id)
             .in('status', ['active', 'pending'])
-            .select('id, roi_percentage');
+            .select('id, roi_percentage'));
           if (err1) throw err1;
           updated1 = data;
 
-          const { data: data2, error: err2 } = await supabase
+          const { data: data2, error: err2 } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .update(updateFields)
             .eq('agent_id', editPartner.id)
             .is('investor_id', null)
             .in('status', ['active', 'pending'])
-            .select('id, roi_percentage');
+            .select('id, roi_percentage'));
           if (err2) throw err2;
           updated2 = data2;
         }
@@ -404,7 +405,7 @@ export default function ActivePartnersDetail() {
             // database gate stores the person's own rate. Read the stored rate back for the toast.
             const insertRoi = updateFields.roi_percentage || newRoi;
             const sendInsertRoi = rateSwitchOffSeen || (roiEdited && rateOrNull(insertRoi) !== null);
-            const { data: createdRow, error: createErr } = await supabase
+            const { data: createdRow, error: createErr } = await withUserSession(() => supabase
               .from('investor_portfolios')
               .insert({
                 investor_id: editPartner.id,
@@ -424,7 +425,7 @@ export default function ActivePartnersDetail() {
                 maturity_date: maturityDate.toISOString().slice(0, 10),
               })
               .select('roi_percentage')
-              .maybeSingle();
+              .maybeSingle());
             const createdRoi = rateOrNull(createdRow?.roi_percentage) ?? insertRoi;
 
             if (createErr) {

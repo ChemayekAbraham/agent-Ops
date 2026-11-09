@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +29,7 @@ const HORIZONS = [7, 14, 30, 60] as const;
 type Horizon = (typeof HORIZONS)[number];
 
 export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   const [horizon, setHorizon] = useState<Horizon>(14);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const [lpExpandedDate, setLpExpandedDate] = useState<string | null>(null);
@@ -57,20 +60,20 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
   // the Monday it is paid on, so a Monday also loads the two days before it.
   const { data: roiDetail } = useQuery({
     queryKey: ['finops-liquidity-roi-rows', expandedDate],
-    enabled: !!expandedDate,
+    enabled: authenticatedReady && (!!expandedDate),
     staleTime: 60_000,
     queryFn: async () => {
       const payDate = expandedDate as string;
       const start = new Date(`${payDate}T00:00:00Z`);
       start.setUTCDate(start.getUTCDate() - 2);
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, roi_percentage, roi_mode, next_roi_date, auto_reinvest')
         .eq('status', 'active')
         .gte('next_roi_date', start.toISOString().slice(0, 10))
         .lte('next_roi_date', payDate)
         .order('next_roi_date', { ascending: true })
-        .limit(2000);
+        .limit(2000));
       if (error) throw error;
       const payDateOf = (d: string) => {
         const dow = new Date(`${d}T00:00:00Z`).getUTCDay(); // 6 = Saturday, 0 = Sunday

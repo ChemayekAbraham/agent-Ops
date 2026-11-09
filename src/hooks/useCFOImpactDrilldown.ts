@@ -1,6 +1,7 @@
 import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 export type ImpactMetric = 'users' | 'tenants' | 'agents' | 'partners' | 'landlords_active' | 'landlords_dormant';
 
@@ -43,6 +44,7 @@ export function useCFOImpactDrilldown(
   enabled: boolean,
   landlordFilters?: LandlordFilters,
 ) {
+  const ready = useAuthenticatedAudience();
   return useQuery<DrilldownResult>({
     queryKey: [
       'cfo-impact-drilldown',
@@ -53,9 +55,10 @@ export function useCFOImpactDrilldown(
       landlordFilters?.region ?? null,
       landlordFilters?.accountStatus ?? null,
     ],
-    enabled: enabled && !!metric,
+    enabled: ready && enabled && !!metric,
     staleTime: 60 * 1000,
     queryFn: async () => {
+      await requireUserSession();
       if (!metric) return { records: [], total: 0, truncated: false };
       const fromIso = from ? from.toISOString() : null;
       const toIso = to ? new Date(to.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString() : null;

@@ -1,4 +1,4 @@
-import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { getSessionCheckedUser, withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { formatUGX } from '@/lib/rentCalculations';
 import { supabase } from '@/integrations/supabase/client';
@@ -150,10 +150,10 @@ async function fetchPortfolioDetailsMap(portfolioIds: string[]): Promise<Map<str
   const map = new Map<string, any>();
   if (portfolioIds.length === 0) return map;
   const unique = Array.from(new Set(portfolioIds));
-  const { data } = await withUuidIds(unique, (validIds) => supabase
+  const { data } = await withUuidIds(unique, (validIds) => withUserSession(() => supabase
     .from('investor_portfolios')
     .select('id, portfolio_code, account_name, investment_amount, roi_percentage, roi_mode, status, duration_months, maturity_date, next_roi_date, payout_day, auto_reinvest, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, display_currency, created_at, total_roi_earned, investor_id, agent_id')
-    .in('id', validIds));
+    .in('id', validIds)));
   (data || []).forEach((p: any) => map.set(p.id, p));
   return map;
 }

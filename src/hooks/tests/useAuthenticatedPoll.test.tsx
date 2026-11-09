@@ -72,7 +72,7 @@ describe('hasUsableUserSession', () => {
 
   it('is true when getSession returns an unexpired access token', async () => {
     getSession.mockResolvedValue({
-      data: { session: { access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 600 } },
+      data: { session: { user: { id: 'staff-1' }, access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 600 } },
       error: null,
     });
     await expect(hasUsableUserSession()).resolves.toBe(true);
@@ -93,7 +93,7 @@ describe('useAuthenticatedPoll', () => {
     auth.roles = ['tenant'];
     getSession.mockReset();
     getSession.mockResolvedValue({
-      data: { session: { access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 } },
+      data: { session: { user: { id: 'staff-1' }, access_token: 'jwt', expires_at: Math.floor(Date.now() / 1000) + 3600 } },
       error: null,
     });
   });

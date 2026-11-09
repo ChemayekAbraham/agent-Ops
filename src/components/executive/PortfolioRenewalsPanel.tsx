@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,6 +36,7 @@ type Row = {
 const fmtUGX = (n: number) => `UGX ${Number(n || 0).toLocaleString()}`;
 
 export function PortfolioRenewalsPanel() {
+  const authenticatedReady = useAuthenticatedAudience();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'active' | 'reversed'>('all');
@@ -43,6 +46,7 @@ export function PortfolioRenewalsPanel() {
   const [running, setRunning] = useState(false);
 
   const { data: rows = [], isLoading, refetch } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['portfolio-renewals-log'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -53,10 +57,10 @@ export function PortfolioRenewalsPanel() {
       if (error) throw error;
 
       const ids = Array.from(new Set((data || []).map((r: any) => r.portfolio_id)));
-      const { data: ports } = await withUuidIds(ids.length ? ids : ['00000000-0000-0000-0000-000000000000'], (validIds) => supabase
+      const { data: ports } = await withUuidIds(ids.length ? ids : ['00000000-0000-0000-0000-000000000000'], (validIds) => withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, status')
-        .in('id', validIds));
+        .in('id', validIds)));
       const map = new Map((ports || []).map((p: any) => [p.id, p]));
       return (data || []).map((r: any) => ({ ...r, portfolio: map.get(r.portfolio_id) || null })) as Row[];
     },

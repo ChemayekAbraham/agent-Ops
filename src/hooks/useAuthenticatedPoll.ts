@@ -41,7 +41,7 @@ export async function hasUsableUserSession(): Promise<boolean> {
   try {
     const { data, error } = await supabase.auth.getSession();
     if (error) return false;
-    return sessionHasUsableAccessToken(data.session);
+    return !!data.session?.user?.id && sessionHasUsableAccessToken(data.session);
   } catch {
     return false;
   }

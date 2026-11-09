@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -123,7 +124,7 @@ export default function PartnerAgreementSignOff({
             .select('*')
             .limit(1)
             .maybeSingle(),
-          supabase.from('investor_portfolios').select('id, portfolio_code, roi_percentage, investment_amount, roi_mode').eq('investor_id', partner.id).order('created_at', { ascending: true }),
+          withUserSession(() => supabase.from('investor_portfolios').select('id, portfolio_code, roi_percentage, investment_amount, roi_mode').eq('investor_id', partner.id).order('created_at', { ascending: true })),
         ]);
         if (cancelled) return;
         if (agErr) throw agErr;

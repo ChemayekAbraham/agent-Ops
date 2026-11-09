@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useReceivablesTotal } from '@/hooks/useReceivables';
 import { cfoWalletTotalsOptions } from './cfoWalletTotals';
@@ -9,11 +11,12 @@ const STALE_TIME = 300_000; // 5 minutes
 
 
 export function useCFOOverviewData({ cashDetails = false, cashVisible = true, todayDetails = false } = {}) {
+  const authenticatedReady = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   // Platform cash from ledger RPCs (source-based, not channel-based)
   const platformCash = useQuery({
     queryKey: ['cfo-overview-platform-cash'],
-    enabled: cashDetails,
+    enabled: authenticatedReady && (cashDetails),
     retry: cfoReportRetry,
     queryFn: async () => {
       const [{ data: treasuryData, error: treasuryError }, { data: partnerTotals, error: partnerTotalsError }] = await Promise.all([
@@ -217,11 +220,11 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
       } else {
         // Fallback: deterministic ordered paging over every portfolio.
         for (let from = 0; from < 20000; from += 1000) {
-          const { data: page } = await supabase
+          const { data: page } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('id, investment_amount')
             .order('id', { ascending: true })
-            .range(from, from + 999);
+            .range(from, from + 999));
           const rows = (page as any[]) || [];
           rows.forEach((p) => {
             recordedPartnerFunding += Number(p.investment_amount || 0);

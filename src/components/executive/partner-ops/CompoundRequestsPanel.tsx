@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -18,18 +20,19 @@ import {
 interface PortfolioHit { id: string; portfolio_code: string | null; investment_amount: number; investor_id: string; partner_name: string | null }
 
 function usePortfolioSearch(term: string) {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['compound-portfolio-search', term],
-    enabled: term.trim().length >= 3,
+    enabled: authenticatedReady && (term.trim().length >= 3),
     queryFn: async (): Promise<PortfolioHit[]> => {
       const t = term.trim();
       const { rows: people } = await searchProfilesTypeahead(t, { limit: 20, columns: 'id, full_name' });
       const ids = (people || []).map((p) => p.id);
-      const byCode = await supabase.from('investor_portfolios')
-        .select('id, portfolio_code, investment_amount, investor_id').ilike('portfolio_code', `%${t}%`).limit(20);
+      const byCode = await withUserSession(() => supabase.from('investor_portfolios')
+        .select('id, portfolio_code, investment_amount, investor_id').ilike('portfolio_code', `%${t}%`).limit(20));
       const byPartner = ids.length
-        ? await supabase.from('investor_portfolios').select('id, portfolio_code, investment_amount, investor_id')
-            .in('investor_id', ids).limit(40)
+        ? await withUserSession(() => supabase.from('investor_portfolios').select('id, portfolio_code, investment_amount, investor_id')
+            .in('investor_id', ids).limit(40))
         : { data: [] as any[] };
       const rows = [...(byCode.data || []), ...(byPartner.data || [])];
       const seen = new Set<string>();

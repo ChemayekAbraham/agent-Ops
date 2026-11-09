@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -102,14 +104,15 @@ const SOURCE_ICONS: Record<string, LucideIcon> = {
 };
 
 function useSourceTransactions(category: string | null, page: number) {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['cfo-cash-source-transactions', category, page],
-    enabled: !!category,
+    enabled: authenticatedReady && (!!category),
     queryFn: async () => {
       // Recorded partner funding drills into the portfolio records themselves —
       // the same rows the Partnership Dashboard reports from.
       if (category === 'partner_capital_recorded') {
-        const { data, count, error } = await supabase
+        const { data, count, error } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .select(
             'id, portfolio_code, account_name, investment_amount, status, created_at, payment_method',
@@ -117,7 +120,7 @@ function useSourceTransactions(category: string | null, page: number) {
           )
           .eq('status', 'active')
           .order('created_at', { ascending: false })
-          .range(page * PAGE, page * PAGE + PAGE - 1);
+          .range(page * PAGE, page * PAGE + PAGE - 1));
         if (error) throw error;
         const rows: TxRow[] = ((data as any[]) || []).map((p) => ({
           id: p.id,

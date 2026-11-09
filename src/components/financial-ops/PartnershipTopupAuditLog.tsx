@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -71,7 +73,9 @@ interface TopupRow {
  * so an operator can verify a top-up at a glance without a SQL query.
  */
 export function PartnershipTopupAuditLog() {
+  const authenticatedReady = useAuthenticatedAudience();
   const { data: rows = [], isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['partnership-topup-audit-log'],
     queryFn: async (): Promise<TopupRow[]> => {
       const { data: ops, error } = await supabase
@@ -96,10 +100,10 @@ export function PartnershipTopupAuditLog() {
               .in('transaction_group_id', groupIds)
           : Promise.resolve({ data: [] as any[] }),
         portfolioIds.length
-          ? withUuidIds(portfolioIds, (validIds) => supabase
+          ? withUuidIds(portfolioIds, (validIds) => withUserSession(() => supabase
               .from('investor_portfolios')
               .select('id, portfolio_code, account_name')
-              .in('id', validIds))
+              .in('id', validIds)))
           : Promise.resolve({ data: [] as any[] }),
         partnerIds.length
           ? withUuidIds(partnerIds, (validIds) => supabase

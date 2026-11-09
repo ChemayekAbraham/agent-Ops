@@ -172,6 +172,11 @@ export function TenantToSubAgentPanel() {
             verified_by: user.id,
             verified_at: new Date().toISOString(),
           });
+        if (insErr?.code === '23505') {
+          toast.info('This agent is already linked. Refresh to see the current assignment.');
+          setSelectedTenant(null);
+          return;
+        }
         if (insErr) throw insErr;
       }
 

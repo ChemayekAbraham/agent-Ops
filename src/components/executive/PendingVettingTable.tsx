@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -70,6 +72,7 @@ const dayLabel = (iso: string) =>
  * Rows are clickable — the side panel carries the full record plus the actions.
  */
 export function PendingVettingTable() {
+  const authenticatedReady = useAuthenticatedAudience();
   const qc = useQueryClient();
   const { user } = useAuth();
   const [filter, setFilter] = useState<'all' | Kind>('all');
@@ -90,6 +93,7 @@ export function PendingVettingTable() {
   });
 
   const funders = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['pending-funder-approvals'],
     staleTime: 15_000,
     queryFn: async () => {
@@ -106,11 +110,11 @@ export function PendingVettingTable() {
       const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles').select('id, full_name, phone').in('id', validIds));
       const pMap = new Map((profiles || []).map(p => [p.id, p]));
-      const { data: ports } = await supabase
+      const { data: ports } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('investor_id, investment_amount')
         .in('investor_id', base.map(r => r.beneficiary_id))
-        .eq('status', 'active');
+        .eq('status', 'active'));
       const amountMap = new Map<string, number>();
       (ports || []).forEach(p => {
         amountMap.set(p.investor_id, (amountMap.get(p.investor_id) || 0) + (Number(p.investment_amount) || 0));

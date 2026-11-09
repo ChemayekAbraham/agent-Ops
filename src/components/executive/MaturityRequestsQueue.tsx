@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,6 +110,7 @@ function computeRenewalPreview(req: Req): {
 }
 
 export function MaturityRequestsQueue() {
+  const authenticatedReady = useAuthenticatedAudience();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -141,16 +144,17 @@ export function MaturityRequestsQueue() {
   });
 
   const { data: scheduled = [], isLoading: loadingScheduled } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['scheduled-portfolio-renewals'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select(
           'id, portfolio_code, account_name, investment_amount, pending_renewal_effective_date, investor:profiles!investor_portfolios_investor_id_fkey(full_name, email)'
         )
         .not('pending_renewal_effective_date', 'is', null)
         .order('pending_renewal_effective_date', { ascending: true })
-        .limit(300);
+        .limit(300));
       if (error) throw error;
       return (data || []) as unknown as ScheduledRenewal[];
     },

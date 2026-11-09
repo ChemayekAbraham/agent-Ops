@@ -1,4 +1,4 @@
-import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { getSessionCheckedUser, withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { safeUUID } from '@/lib/safeUUID';
 import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
@@ -700,11 +700,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       batchedQuery<any>(ids, (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at').in('id', validIds))),
       batchedQuery<any>(ids, (batch) => supabase.from('wallets').select('user_id, balance').in('user_id', batch)),
       batchedQuery<any>(ids, (batch) =>
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, investor_id, agent_id, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, next_roi_date')
           .or(`investor_id.in.(${batch.join(',')}),agent_id.in.(${batch.join(',')})`)
           .in('status', ['active', 'pending_approval', 'pending'])
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }))
       ),
     ]);
 
@@ -921,10 +921,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
   // Fetch pending_approval count
   const fetchPendingCount = useCallback(async () => {
-    const { count } = await supabase
+    const { count } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending_approval');
+      .eq('status', 'pending_approval'));
     setPendingApprovalCount(count || 0);
   }, []);
 
@@ -957,11 +957,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const handleApprovePortfolio = async (portfolioId: string) => {
     setApprovingId(portfolioId);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ status: 'active' })
         .eq('id', portfolioId)
-        .eq('status', 'pending_approval');
+        .eq('status', 'pending_approval'));
 
       if (error) throw error;
 
@@ -997,10 +997,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const handleBulkActivate = async () => {
     setActivatingAll(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ status: 'active' })
-        .eq('status', 'pending_approval');
+        .eq('status', 'pending_approval'));
 
       if (error) throw error;
 
@@ -1025,10 +1025,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       const [profileRes, walletRes, portfolioRes, ledgerRes, selfCommitRes, selfLinesRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).maybeSingle(),
         supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', partnerId).single(),
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, maturity_date, total_roi_earned, duration_months, next_roi_date, investor_id, agent_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, pending_renewal_effective_date, pending_renewal_duration_months, locked_from_portfolio_id, locked_at, lock_reason')
           .or(`investor_id.eq.${partnerId},agent_id.eq.${partnerId}`)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })),
         supabase.from('general_ledger')
           .select('amount, direction, category')
           .eq('user_id', partnerId)
@@ -1303,10 +1303,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     const trimmed = editingNameValue.trim();
     setSavingName(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ account_name: trimmed || null })
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
 
       const { data: { user: currentUser } } = await getSessionCheckedUser();
@@ -1341,11 +1341,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // next_roi_date whenever it is populated. Realign the stored date (same
       // month/year) to the new day-of-month, but only if that cycle is still
       // in the future — past/overdue cycles stay visible untouched.
-      const { data: current } = await supabase
+      const { data: current } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('next_roi_date')
         .eq('id', portfolioId)
-        .maybeSingle();
+        .maybeSingle());
 
       const patch: { payout_day: number; next_roi_date?: string } = { payout_day: day };
       const existingNext = current?.next_roi_date as string | null | undefined;
@@ -1359,10 +1359,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         }
       }
 
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(patch)
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
       toast.success(
         patch.next_roi_date
@@ -1388,10 +1388,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     if (!editingNextPayoutDate) { toast.error('Please select a date'); return; }
     setSavingPortfolio(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ next_roi_date: editingNextPayoutDate })
-        .eq('id', portfolioId);
+        .eq('id', portfolioId));
       if (error) throw error;
       toast.success('Next payout date updated');
       setEditingNextPayoutId(null);
@@ -1451,10 +1451,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         });
         if (auditErr) throw auditErr;
 
-        const { error: unlinkErr } = await supabase
+        const { error: unlinkErr } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .update({ agent_id: deletePortfolio.investor_id })
-          .eq('id', deletePortfolio.id);
+          .eq('id', deletePortfolio.id));
         if (unlinkErr) throw unlinkErr;
 
         toast.success(`Portfolio ${deletePortfolio.portfolio_code} removed from this account`, {
@@ -1654,12 +1654,12 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       // Read the stored rate back: with the Partner Returns switch on a changed rate waits for the CFO
       // and the portfolio keeps its old rate until then (trg_partner_return_rate_policy).
-      const { data: savedRow, error } = await supabase
+      const { data: savedRow, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(updatePayload)
         .eq('id', editPortfolio.id)
         .select('roi_percentage')
-        .maybeSingle();
+        .maybeSingle());
       if (error) throw error;
       const storedRoi = savedRow?.roi_percentage != null ? Number(savedRow.roi_percentage) : roi;
 
@@ -1871,11 +1871,11 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       // deal out into its own row ("{{PartnerName}} ({{PortfolioName}})").
       const filteredIds = filtered.map(r => r.id);
       const exportPortfoliosRaw = await batchedQuery<any>(filteredIds, (batch) =>
-        supabase.from('investor_portfolios')
+        withUserSession(() => supabase.from('investor_portfolios')
           .select('id, investor_id, agent_id, account_name, portfolio_code, investment_amount, roi_percentage, total_roi_earned, payout_day, roi_mode, status, created_at, next_roi_date')
           .or(`investor_id.in.(${batch.join(',')}),agent_id.in.(${batch.join(',')})`)
           .in('status', ['active', 'pending_approval', 'pending'])
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }))
       );
       const seenExportPortfolioIds = new Set<string>();
       const exportPortfolios = (exportPortfoliosRaw as any[]).filter(p => {
@@ -2031,8 +2031,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (editRoiMode === 'monthly_payout' || editRoiMode === 'monthly_compounding') updateFields.roi_mode = editRoiMode;
 
       if (Object.keys(updateFields).length > 0) {
-        await supabase.from('investor_portfolios').update(updateFields).eq('investor_id', editPartner.id).in('status', ['active', 'pending']);
-        await supabase.from('investor_portfolios').update(updateFields).eq('agent_id', editPartner.id).is('investor_id', null).in('status', ['active', 'pending']);
+        const byInvestor = await withUserSession(() => supabase.from('investor_portfolios').update(updateFields).eq('investor_id', editPartner.id).in('status', ['active', 'pending']));
+        if (byInvestor.error) throw byInvestor.error;
+        const byAgent = await withUserSession(() => supabase.from('investor_portfolios').update(updateFields).eq('agent_id', editPartner.id).is('investor_id', null).in('status', ['active', 'pending']));
+        if (byAgent.error) throw byAgent.error;
       }
       toast.success(`Updated ${editName.trim()}`);
       setEditPartner(null);
@@ -5095,11 +5097,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         reference: p.portfolioId.slice(0, 8).toUpperCase(),
       };
 
-      const { data: det } = await supabase
+      const { data: det } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, account_name')
         .eq('id', p.portfolioId)
-        .maybeSingle();
+        .maybeSingle());
 
       if (det?.payment_method === 'mobile_money') {
         cardData = {
@@ -5680,11 +5682,11 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
         const isPlaceholder = !recipientEmail || recipientEmail.includes('placeholder');
         if (!isPlaceholder) {
           // Fetch portfolio_code + duration_months to mirror exact ledger values.
-          const { data: pf } = await supabase
+          const { data: pf } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('portfolio_code, duration_months, next_roi_date, payout_day, created_at')
             .eq('id', p.portfolioId)
-            .maybeSingle();
+            .maybeSingle());
 
           const portfolioName = pf?.portfolio_code || p.portfolioName || 'Portfolio';
           const portfolioShortId = p.portfolioId.replace(/-/g, '').slice(0, 8).toUpperCase();

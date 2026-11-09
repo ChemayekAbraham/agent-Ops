@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,10 +71,10 @@ async function fetchTopUpRows(): Promise<TopUpRow[]> {
 
   const portfolioMap: Record<string, { account_name: string | null; portfolio_code: string | null; investor_id: string | null; investment_amount: number }> = {};
   if (portfolioIds.length > 0) {
-    const { data: portfolios } = await withUuidIds(portfolioIds, (validIds) => supabase
+    const { data: portfolios } = await withUuidIds(portfolioIds, (validIds) => withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id, account_name, portfolio_code, investor_id, investment_amount')
-      .in('id', validIds));
+      .in('id', validIds)));
     (portfolios || []).forEach((p: any) => {
       portfolioMap[p.id] = {
         account_name: p.account_name,

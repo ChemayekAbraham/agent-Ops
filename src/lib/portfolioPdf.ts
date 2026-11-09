@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { formatUGX } from '@/lib/rentCalculations';
 
 export interface PortfolioPdfData {
@@ -40,11 +41,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function lookupOwnerName(portfolioRef: string): Promise<string | undefined> {
   try {
     const { supabase } = await import('@/integrations/supabase/client');
-    const { data: acct } = await supabase
+    const { data: acct } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('investor_id')
       .eq(UUID.test(portfolioRef) ? 'id' : 'portfolio_code', portfolioRef)
-      .maybeSingle();
+      .maybeSingle());
     if (!acct?.investor_id) return undefined;
     const { data: prof } = await supabase
       .from('profiles')

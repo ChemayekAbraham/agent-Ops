@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
@@ -112,10 +113,10 @@ export function PendingWalletOperationsWidget({ requirePaymentRef = true }: { re
         // Fetch portfolio → investor (owner) name map
         let portfolioOwnerMap = new Map<string, string>();
         if (portfolioCodes.length > 0) {
-          const { data: portfolios } = await supabase
+          const { data: portfolios } = await withUserSession(() => supabase
             .from('investor_portfolios')
             .select('portfolio_code, investor_id')
-            .in('portfolio_code', portfolioCodes);
+            .in('portfolio_code', portfolioCodes));
           const ownerIds = [...new Set((portfolios || []).map((p: any) => p.investor_id).filter(Boolean))];
           let ownerNameMap = new Map<string, string>();
           if (ownerIds.length > 0) {

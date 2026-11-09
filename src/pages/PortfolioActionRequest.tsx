@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,6 +50,7 @@ Kindly advise on the next steps and expected processing timelines.
 Thank you.`;
 
 export default function PortfolioActionRequest({ mode }: Props) {
+  const ready = useAuthenticatedAudience();
   const { portfolioId } = useParams<{ portfolioId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,12 +75,13 @@ export default function PortfolioActionRequest({ mode }: Props) {
   }, [authLoading, user, navigate, location.pathname]);
 
   useEffect(() => {
-    if (!portfolioId || !user) return;
+    if (!ready || !portfolioId || !user) return;
     let active = true;
     (async () => {
       setLoading(true);
       setError('');
       try {
+        await requireUserSession();
         let query = supabase
           .from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, total_roi_earned, maturity_date, display_currency, investor_id, agent_id, status');
@@ -106,7 +109,7 @@ export default function PortfolioActionRequest({ mode }: Props) {
       }
     })();
     return () => { active = false; };
-  }, [portfolioId, user, mode]);
+  }, [ready, portfolioId, user, mode]);
 
   const portfolioCode = useMemo(() => {
     if (!portfolio) return '';

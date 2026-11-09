@@ -1,4 +1,3 @@
-import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 import { withUserSession } from '@/lib/authenticatedRequests';
 /**
  * Concerns forwarded to the signed-in person that they have not yet seen.
@@ -40,11 +39,10 @@ const anyDb = supabase as any;
 export const MY_PENDING_CONCERNS_KEY = ['cc-my-pending-concerns'];
 
 export function useMyPendingConcerns(enabled = true) {
-  const authenticatedReady = useAuthenticatedAudience();
   const signedIn = useAuthenticatedAudience();
   return useQuery({
     queryKey: MY_PENDING_CONCERNS_KEY,
-    enabled: authenticatedReady && (enabled && signedIn),
+    enabled: enabled && signedIn,
     staleTime: 60 * 1000,
     retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async (): Promise<PendingConcern[]> => {
