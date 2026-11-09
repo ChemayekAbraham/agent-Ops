@@ -85498,7 +85498,7 @@ export type Database = {
         Args: { p_from?: string; p_include_adjustments?: boolean }
         Returns: Json
       }
-      get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
+      get_cfo_weekly_report: { Args: { p_week_start?: string }; Returns: Json }
       get_cfo_withdrawable_credits_page: {
         Args: {
           p_from: string
