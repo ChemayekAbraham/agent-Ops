@@ -1,42 +1,52 @@
-import { useEffect, useRef, useState } from 'react';
-import { Maximize, Radio } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Maximize, Radio, X } from 'lucide-react';
 import logo from '@/assets/welile-logo.png';
-import { loadBoardDisplay } from '@/lib/boardDisplayClient';
+import { loadBoardDisplay, loadBoardList } from '@/lib/boardDisplayClient';
 import {
   BOARD_IDLE_MS,
+  BOARD_PANEL_IDLE_MS,
+  BOARD_PERIODS,
+  BOARD_PERIOD_LABELS,
   BOARD_POLL_MS,
   BOARD_PULSE_MS,
   BOARD_RETRY_MS,
   type BoardFeed,
+  type BoardList,
   type BoardMetric,
-  type BoardStage,
+  type BoardPeriod,
+  boardDays,
   boardDisplayToken,
   boardIsStale,
   boardMoney,
-  boardStageDoneOnly,
   boardUpdatedText,
   isBoardLinkError,
   kampalaClock,
+  kampalaDate,
+  readBoardPeriod,
+  storeBoardPeriod,
 } from '@/lib/boardDisplay';
 
 /**
  * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
  * funders' board totals, public behind a token. It boots on its own from
- * main.tsx — no sign-in, no app shell, no pop-ups — and reads only totals:
- * never names, phones or request ids (readBoardFeed whitelists the contract).
+ * main.tsx — no sign-in, no app shell, no pop-ups. A light board: one period
+ * toggle above three big tiles (posted, sold, waiting); a tap on a tile lists
+ * the requests behind it. Never names, phones or request ids: readBoardFeed
+ * and readBoardList whitelist their contracts.
  */
 
-const METRICS: { key: BoardMetric; title: string; row: string; caption: string }[] = [
-  { key: 'posted', title: 'Rent requests posted', row: 'Posted', caption: "From the COO to the funders' board" },
-  { key: 'sold', title: 'Rent requests sold', row: 'Sold', caption: 'Partner took it and money released to the landlord' },
-  { key: 'waiting', title: 'Waiting for funder', row: 'Waiting', caption: 'Posted and not yet sold' },
+const METRICS: { key: BoardMetric; title: string; caption: string }[] = [
+  { key: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
+  { key: 'sold', title: 'Rent requests sold', caption: 'Partner took it and money released to the landlord' },
+  { key: 'waiting', title: 'Waiting for funder', caption: 'Posted and not yet sold' },
 ];
-const PERIODS = [
-  { key: '7d', label: '7 days' },
-  { key: '30d', label: '30 days' },
-  { key: '90d', label: '90 days' },
-  { key: 'all', label: 'All time' },
-] as const;
+const safeStorage = () => {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
 
 /** A number that pulses for 0.8 s when it changes (not on its first appearance). */
 function ChangedNumber({ value, money = false }: { value: number | null; money?: boolean }) {
@@ -55,27 +65,116 @@ function ChangedNumber({ value, money = false }: { value: number | null; money?:
   return <span className={pulse ? 'board-number board-number-changed' : 'board-number'} data-changed={pulse || undefined}>{text}</span>;
 }
 
-function StageCard({ stage }: { stage: BoardStage }) {
-  const doneOnly = boardStageDoneOnly(stage);
+/**
+ * The requests behind one tile: a side panel on a wide screen, a bottom sheet
+ * on a narrow one (CSS decides). Close button and Esc; closes itself after a
+ * minute with no touch so the room is back on the tiles; refreshes every 30 s
+ * while open. Only ref, area, rent, dates and status ever reach it.
+ */
+function ListPanel({ token, period, kind, onClose }: { token: string; period: BoardPeriod; kind: BoardMetric; onClose: () => void }) {
+  const [list, setList] = useState<BoardList | null>(null);
+  const [error, setError] = useState('');
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const title = METRICS.find((m) => m.key === kind)?.title ?? kind;
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number;
+    const controller = new AbortController();
+    async function refresh() {
+      try {
+        const data = await loadBoardList(token, period, kind, controller.signal);
+        if (!cancelled) {
+          setList(data);
+          setError('');
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error && err.message ? err.message : 'This list is temporarily unavailable.');
+      }
+      if (!cancelled) timer = window.setTimeout(refresh, BOARD_POLL_MS);
+    }
+    void refresh();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
+  }, [token, period, kind]);
+
+  // Esc closes; any touch, key or scroll restarts the one-minute auto-close.
+  useEffect(() => {
+    closeRef.current?.focus();
+    let timer = window.setTimeout(onClose, BOARD_PANEL_IDLE_MS);
+    const touched = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(onClose, BOARD_PANEL_IDLE_MS);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else touched();
+    };
+    const events = ['pointerdown', 'pointermove', 'wheel', 'touchstart', 'scroll'] as const;
+    events.forEach((e) => window.addEventListener(e, touched, { passive: true, capture: true }));
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, touched, { capture: true }));
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
   return (
-    <article className="board-stage" data-stage={stage.ord}>
-      <h3>{stage.stage}</h3>
-      {doneOnly ? (
-        <>
-          <div className="board-stage-big"><ChangedNumber value={stage.done_24h} /></div>
-          <p className="board-stage-sub">came in · last 24 h</p>
-        </>
-      ) : (
-        <>
-          <div className="board-stage-big"><ChangedNumber value={stage.waiting} /></div>
-          <p className="board-stage-sub">waiting · <ChangedNumber value={stage.waiting_ugx} money /></p>
-          <dl className="board-stage-facts">
-            <div><dt>Done 24 h</dt><dd><ChangedNumber value={stage.done_24h} /></dd></div>
-            <div><dt>Days to clear</dt><dd><ChangedNumber value={stage.days_to_clear} /></dd></div>
-          </dl>
-        </>
-      )}
-    </article>
+    <div className="board-panel-wrap" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" className="board-panel-backdrop" aria-label="Close" tabIndex={-1} onClick={onClose} />
+      <section className={`board-panel board-${kind}`}>
+        <header className="board-panel-header">
+          <div>
+            <h2>{title}</h2>
+            <p data-board-list-summary>
+              {BOARD_PERIOD_LABELS[period]}
+              {list && (
+                <>
+                  {' · '}
+                  <strong>
+                    {list.count.toLocaleString('en-GB')} {list.count === 1 ? 'request' : 'requests'}
+                  </strong>
+                  {' · '}
+                  <strong>{boardMoney(list.ugx)}</strong>
+                </>
+              )}
+              {list && list.shown < list.count && <> · newest {list.shown.toLocaleString('en-GB')} of {list.count.toLocaleString('en-GB')}</>}
+            </p>
+          </div>
+          <button ref={closeRef} type="button" className="board-panel-close" onClick={onClose} aria-label="Close">
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        {error && <p role="alert" className="board-panel-error">{error}</p>}
+        {!list ? (
+          !error && <p className="board-panel-empty">Loading…</p>
+        ) : list.rows.length === 0 ? (
+          <p className="board-panel-empty">Nothing in this period</p>
+        ) : (
+          <ul className="board-list" aria-label={title}>
+            {list.rows.map((r, i) => (
+              <li key={`${r.ref}-${i}`} className="board-list-row" data-board-row>
+                <div className="board-list-top">
+                  <span className="board-list-ref">{r.ref}</span>
+                  <span className="board-list-area">{r.area ?? '—'}</span>
+                  <strong className="board-list-rent">{r.rent == null ? '—' : boardMoney(r.rent)}</strong>
+                </div>
+                <div className="board-list-meta">
+                  <span>Posted {kampalaDate(r.posted_at)}</span>
+                  <span>{boardDays(r.days_since_posted)} since posted</span>
+                  {r.status_label && <span className="board-list-status">{r.status_label}</span>}
+                  {kind === 'sold' && <span data-board-released>Money released {kampalaDate(r.money_released_at)}</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
 
@@ -86,6 +185,13 @@ export default function BoardDisplay() {
   const [lastGood, setLastGood] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [idle, setIdle] = useState(false);
+  const [period, setPeriodState] = useState<BoardPeriod>(() => readBoardPeriod(safeStorage()));
+  const [open, setOpen] = useState<BoardMetric | null>(null);
+  const setPeriod = (p: BoardPeriod) => {
+    setPeriodState(p);
+    storeBoardPeriod(safeStorage(), p);
+  };
+  const close = useCallback(() => setOpen(null), []);
 
   // Not for search engines.
   useEffect(() => {
@@ -187,7 +293,7 @@ export default function BoardDisplay() {
   const fatal = !!error && (error.link || !feed);
 
   return (
-    <main className={`board-display dark ${idle ? 'board-idle' : ''}`} data-board-state={fatal ? 'error' : feed ? 'live' : 'connecting'}>
+    <main className={`board-display ${idle ? 'board-idle' : ''}`} data-board-state={fatal ? 'error' : feed ? 'live' : 'connecting'}>
       <header className="board-topbar">
         <div className="board-brand">
           <img src={logo} alt="Welile" />
@@ -233,47 +339,27 @@ export default function BoardDisplay() {
         </section>
       ) : (
         <>
-          <section className="board-hero" aria-label="Today">
-            {METRICS.map(({ key, title, caption }) => (
-              <article key={key} className={`board-tile board-${key}`} data-metric={key}>
-                <span className="board-tile-when">Today</span>
-                <h2>{title}</h2>
-                <div className="board-hero-count"><ChangedNumber value={feed.headline.today[key].n} /></div>
-                <div className="board-hero-money"><ChangedNumber value={feed.headline.today[key].ugx} money /></div>
-                <p>{caption}</p>
-              </article>
+          <div className="board-periods" role="group" aria-label="Period">
+            {BOARD_PERIODS.map((p) => (
+              <button key={p} type="button" aria-pressed={period === p} className="board-period" onClick={() => setPeriod(p)}>
+                {BOARD_PERIOD_LABELS[p]}
+              </button>
             ))}
-          </section>
-
-          <section className="board-comparison" aria-label="Rent requests by period">
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col"><span className="sr-only">Rent requests</span></th>
-                  {PERIODS.map((p) => <th key={p.key} scope="col">{p.label}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {METRICS.map(({ key, row }) => (
-                  <tr key={key} className={`board-${key}`}>
-                    <th scope="row">{row}</th>
-                    {PERIODS.map((p) => (
-                      <td key={p.key}>
-                        <strong><ChangedNumber value={feed.headline[p.key][key].n} /></strong>
-                        <small><ChangedNumber value={feed.headline[p.key][key].ugx} money /></small>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
-
-          <section className="board-pipeline" aria-label="Pipeline">
-            {feed.stages.map((stage) => <StageCard key={`${stage.ord}-${stage.stage}`} stage={stage} />)}
+          </div>
+          <section className="board-hero" aria-label={`Rent requests · ${BOARD_PERIOD_LABELS[period]}`}>
+            {METRICS.map(({ key, title, caption }) => (
+              <button key={key} type="button" aria-haspopup="dialog" className={`board-tile board-${key}`} data-metric={key} onClick={() => setOpen(key)}>
+                <span className="board-tile-when">{BOARD_PERIOD_LABELS[period]}</span>
+                <h2>{title}</h2>
+                <div className="board-hero-count"><ChangedNumber key={period} value={feed.headline[period][key].n} /></div>
+                <div className="board-hero-money"><ChangedNumber key={period} value={feed.headline[period][key].ugx} money /></div>
+                <p>{caption}</p>
+              </button>
+            ))}
           </section>
         </>
       )}
+      {open && feed && !fatal && <ListPanel token={token} period={period} kind={open} onClose={close} />}
     </main>
   );
 }
