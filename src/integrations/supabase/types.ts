@@ -96726,6 +96726,23 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: Json
       }
+      staff_assistant_crm_messages: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          created_at: string
+          id: string
+          latency_ms: number
+          model: string
+          outcome: string
+          period_label: string
+          question_text: string
+          role: string
+          source_label: string
+          tools_called: string[]
+          user_id: string
+        }[]
+      }
       staff_assistant_crm_review_dashboard:
         | {
             Args: {
