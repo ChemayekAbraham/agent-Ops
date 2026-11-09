@@ -19482,6 +19482,66 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_cash_accounts: {
+        Row: {
+          code: string
+          included: boolean
+          label: string
+          note: string | null
+          restricted: boolean
+        }
+        Insert: {
+          code: string
+          included?: boolean
+          label: string
+          note?: string | null
+          restricted?: boolean
+        }
+        Update: {
+          code?: string
+          included?: boolean
+          label?: string
+          note?: string | null
+          restricted?: boolean
+        }
+        Relationships: []
+      }
+      fin_cash_flow_map: {
+        Row: {
+          account_code: string | null
+          category: string | null
+          group_label: string
+          group_sort: number
+          id: number
+          line_in: string
+          line_out: string
+          section: string
+          sort: number
+        }
+        Insert: {
+          account_code?: string | null
+          category?: string | null
+          group_label: string
+          group_sort?: number
+          id?: number
+          line_in: string
+          line_out: string
+          section: string
+          sort?: number
+        }
+        Update: {
+          account_code?: string | null
+          category?: string | null
+          group_label?: string
+          group_sort?: number
+          id?: number
+          line_in?: string
+          line_out?: string
+          section?: string
+          sort?: number
+        }
+        Relationships: []
+      }
       fin_collection_evidence_s12: {
         Row: {
           attachment_path: string | null
@@ -19930,6 +19990,36 @@ export type Database = {
           tenant_name?: string | null
           tenant_phone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      fin_pnl_lines: {
+        Row: {
+          account_code: string
+          category: string | null
+          flag: string | null
+          id: number
+          line_label: string
+          section: string
+          sort: number
+        }
+        Insert: {
+          account_code: string
+          category?: string | null
+          flag?: string | null
+          id?: number
+          line_label: string
+          section: string
+          sort?: number
+        }
+        Update: {
+          account_code?: string
+          category?: string | null
+          flag?: string | null
+          id?: number
+          line_label?: string
+          section?: string
+          sort?: number
         }
         Relationships: []
       }
@@ -76435,6 +76525,7 @@ export type Database = {
         Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
         Returns: string
       }
+      _fin_can_view: { Args: never; Returns: boolean }
       _food_default_period: { Args: never; Returns: string }
       _food_list_meal_on_day: {
         Args: { p_day: string; p_meal_id: string }
@@ -83284,9 +83375,16 @@ export type Database = {
       }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
       feature_preview_on: { Args: { p_feature: string }; Returns: boolean }
+      fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
+      fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
+      fin_controls: { Args: { p_as_at?: string }; Returns: Json }
       fin_correction_review_flags: {
         Args: { p: Json; p_collection_id: string }
         Returns: string[]
+      }
+      fin_income_statement: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
       }
       fin_ops_cash_codes_page: {
         Args: {
@@ -83494,10 +83592,6 @@ export type Database = {
           village: string
         }[]
       }
-      fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
-      fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
-      fin_controls: { Args: { p_as_at?: string }; Returns: Json }
-      fin_income_statement: { Args: { p_from: string; p_to: string }; Returns: Json }
       finops_adopt_national_id_name: {
         Args: { p_id: string; p_reason?: string }
         Returns: Json
