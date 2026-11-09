@@ -11,6 +11,10 @@ const KIND_LABEL: Record<EarningKind, string> = {
   note: 'Promissory Note', initial: 'Initial Support', topup: 'Partner Top-up', other: 'Commission',
 };
 
+/** Recorded descriptions say "investment"; agents see "support" instead. */
+const supportWording = (s: string) =>
+  s.replace(/investment/gi, (m) => (m[0] === 'I' ? 'Support' : 'support'));
+
 export function ProxyEarningsSection({ userId, summary }: { userId?: string; summary?: ProxyPerformanceDashboard }) {
   const navigate = useNavigate();
   const hist = useProxyEarningsHistory(userId);
@@ -71,7 +75,7 @@ export function ProxyEarningsSection({ userId, summary }: { userId?: string; sum
               <div key={r.id} className="flex items-start justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{KIND_LABEL[earningKind(r)]}</p>
-                  {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
+                  {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{supportWording(r.description)}</p>}
                   <p className="text-[11px] text-muted-foreground">{shortDate(r.transaction_date)}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
