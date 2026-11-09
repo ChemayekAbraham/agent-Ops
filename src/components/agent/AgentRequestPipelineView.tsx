@@ -72,7 +72,7 @@ import { toast } from 'sonner';
 import { format, isToday, isThisWeek, isThisMonth } from 'date-fns';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentRejectedRequests } from '@/hooks/useAgentRejectedRequests';
-import { AgentEditRentRequestDialog } from './AgentEditRentRequestDialog';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 import type { AgentRejectedRequest } from '@/hooks/useAgentRejectedRequests';
 
 export type PipelineTab = 'submitted' | 'approved' | 'rejected' | 'landlords';
@@ -479,7 +479,13 @@ export function AgentRequestPipelineView({
   const [submittedPage, setSubmittedPage] = useState(0);
   const [approvedPage, setApprovedPage] = useState(0);
   const [rejectedPage, setRejectedPage] = useState(0);
-  const [editing, setEditing] = useState<AgentRejectedRequest | null>(null);
+  /** After a T4 resubmit: refresh both lists so it leaves Rejected and shows under Submitted. */
+  const onResubmitted = () => {
+    rejectedQuery.refetch();
+    queryClient.invalidateQueries({ queryKey: ['agent-pipeline', 'submitted'] });
+    setSubmittedPage(0);
+    setTab('submitted');
+  };
   const [detailRow, setDetailRow] = useState<PipelineRow | null>(null);
 
   // When opening straight to a freshly submitted record, scroll it into view
@@ -1093,7 +1099,7 @@ export function AgentRequestPipelineView({
                       <div className="flex justify-end pt-1">
                         <Button
                           size="sm"
-                          onClick={() => setEditing(r)}
+                          onClick={() => openT4RentRequest({ mode: 'resubmit', rejected: r, entry: 'request-pipeline', onDone: onResubmitted })}
                           className="gap-1.5 h-8"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -1183,19 +1189,6 @@ export function AgentRequestPipelineView({
         </div>
       )}
 
-      <AgentEditRentRequestDialog
-        request={editing}
-        open={!!editing}
-        onOpenChange={(o) => { if (!o) setEditing(null); }}
-        onResubmitted={() => {
-          setEditing(null);
-          // Refresh both lists so the request leaves Rejected and appears under Submitted
-          rejectedQuery.refetch();
-          queryClient.invalidateQueries({ queryKey: ['agent-pipeline', 'submitted'] });
-          setSubmittedPage(0);
-          setTab('submitted');
-        }}
-      />
 
       <RequestDetailDrawer
         row={detailRow}

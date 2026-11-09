@@ -5,6 +5,7 @@ import {
   X, Search, AlertCircle, ArrowLeftRight, ArrowUpRight, Banknote, BookOpen, Briefcase, Building, Building2, Calculator, Coins, CreditCard, FileCheck, FileSignature, FileText, Gift, HandCoins, HelpCircle, History, Home, Key, LogOut, MapPin, MessageSquare, Settings, TrendingUp, User, UserCheck, UserPlus, Users, Wallet, type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 
 interface MenuItem {
   name: string;
@@ -12,7 +13,7 @@ interface MenuItem {
   route?: string;
   /** WhatsApp line to open (digits only, international format). */
   whatsapp?: string;
-  action?: 'sign_out';
+  action?: 'sign_out' | 'post_rent_request';
   keywords?: string;
   /** Icon tint tone — each item gets its own hue while staying theme-consistent. */
   tone: keyof typeof toneClasses;
@@ -40,6 +41,10 @@ const SUPPORT_WHATSAPP_NUMBER = '256777607640';
 const SUPPORT_WHATSAPP_MESSAGE = 'Hello Welile Support, I need help with my agent account.';
 
 const menuData: MenuSection[] = [
+  // First: the T4 form is the only way to post a rent request.
+  { title: 'Rent requests', items: [
+    { name: 'Post a rent request', icon: FileSignature, action: 'post_rent_request', tone: 'violet', keywords: 'rent request tenant new post' },
+  ]},
   { title: 'Money', items: [
     { name: 'Pay Rent', icon: Banknote, tone: 'violet' },
     { name: 'Issue Receipt', icon: FileText, tone: 'green' },
@@ -125,6 +130,7 @@ export function AgentHubDrawer({ open, onClose }: Props) {
     onClose();
     setTimeout(() => {
       if (item.action === 'sign_out') signOut();
+      else if (item.action === 'post_rent_request') openT4RentRequest({ mode: 'new', entry: 'agent-hub-drawer' });
       else if (item.whatsapp) window.open(`https://wa.me/${item.whatsapp}?text=${encodeURIComponent(SUPPORT_WHATSAPP_MESSAGE)}`, '_blank', 'noopener,noreferrer');
       else if (item.route?.startsWith('http')) window.open(item.route, '_blank', 'noopener,noreferrer');
       else if (item.route) navigate(item.route);

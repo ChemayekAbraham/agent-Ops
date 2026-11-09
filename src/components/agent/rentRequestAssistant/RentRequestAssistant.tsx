@@ -6,9 +6,15 @@
  * AgentRentRequestDialog collects for the daily / weekly / monthly flows and
  * posts through submitAssistantRentRequest, which mirrors the form's submit.
  *
- * The agent dashboard's "Post rent request" for all agents since 2026-11-03
- * (DASHBOARD_RENT_REQUEST_FLOW in AgentDashboardBk). Renew, the tenant intake
- * queue and the listing "swap tenant" flow still open AgentRentRequestDialog.
+ * The T4 form: since 2026-11-09 the only way an agent posts, resubmits or
+ * renews a rent request. Every entry point opens it with openT4RentRequest
+ * (src/lib/t4RentRequest.ts) and T4RentRequestHost shows it. `request.mode`:
+ *   - 'new'      the full chat, optionally prefilled (intake queue, swap tenant).
+ *   - 'resubmit' a rejected request, prefilled, opening at the review; sent
+ *                with agent_resubmit_rent_request.
+ *   - 'renewal'  a completed plan: the agent's rent/days choice and the
+ *                tenant's code, then renew_rent_request.
+ * Submit stays off until t4Missing() is empty (SC-2 and Agent Ops gate items).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, Camera, Check, ImagePlus, Loader2, Lock, MapPin, RotateCcw, Send, Square, UserPlus, Volume2, VolumeX } from 'lucide-react';
@@ -35,7 +41,35 @@ import { notifyVerificationCreated } from '@/lib/landlordVerificationNotify';
 import { normalizeDistrict } from '@/lib/ugandaDistricts';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticSuccess, hapticTap } from '@/lib/haptics';
-import { joinPersonName, type PersonNameParts } from '@/lib/authValidation';
+import { joinPersonName, splitPersonName, type PersonNameParts } from '@/lib/authValidation';
+import { useRenewalFlow } from '@/components/agent/RenewalDialog';
+import { resubmitAttemptsLeft } from '@/lib/rentRequestReopen';
+import {
+  RESUBMIT_DAYS_MAX,
+  RESUBMIT_DAYS_MIN,
+  RESUBMIT_NOTE_MIN_CHARS,
+  rejectedToValues,
+  resubmitPatch,
+  hasTenantId,
+  MIN_HOUSE_PHOTOS,
+  t4Missing,
+  type ResubmitValues,
+  type T4ItemKey,
+  type T4MissingItem,
+  type T4Request,
+} from '@/lib/t4RentRequest';
+import {
+  attachRenewalPhotos,
+  findOpenRequest,
+  finishRenewalIntake,
+  loadRequestOnFile,
+  loadTenantRecord,
+  postRenewal,
+  resubmitT4Request,
+  saveTenantProfile,
+  type T4IntakeOutcome,
+  type TenantRecord,
+} from '@/lib/t4RentRequestSubmit';
 import { cn } from '@/lib/utils';
 import {
   computeAssistantFees,
@@ -136,6 +170,7 @@ type StepId =
   | 'familySize' | 'work' | 'workLocation'
   | 'landlord' | 'house' | 'location' | 'address' | 'category' | 'photos' | 'tenantPhoto' | 'gps'
   | 'lc1' | 'lc1Phone' | 'lc1Name' | 'lc1Village' | 'city' | 'lcLetter' | 'payoutDay'
+  | 'days' | 'note'
   | 'review';
 
 /** Every question in order; `steps` drops the ones an answer makes unnecessary. */
@@ -147,14 +182,41 @@ const ALL_STEPS: StepId[] = [
   'lc1', 'lc1Phone', 'lc1Name', 'lc1Village', 'city', 'lcLetter', 'payoutDay', 'review',
 ];
 
+/** Resubmit: what a rejected request can change, the T4 intake, and a note for the reviewer. */
+const RESUBMIT_STEPS: StepId[] = [
+  'rent', 'days', 'tenantName', 'tenantPhone', 'nationalId', 'language', 'smartphone',
+  'familySize', 'work', 'workLocation', 'landlord', 'category', 'photos', 'gps', 'lcLetter', 'note', 'review',
+];
+/**
+ * Renewal: same tenant, house and landlord. The Agent Ops gate still needs the
+ * full name, a tenant ID, 3+ house photos, GPS and the LC1 letter; each is
+ * prefilled from what is on file and asked only when it is missing.
+ */
+const RENEWAL_STEPS: StepId[] = ['tenantName', 'nationalId', 'photos', 'gps', 'lcLetter', 'review'];
+/** The question that fixes each checklist item. */
+const ITEM_STEP: Partial<Record<T4ItemKey, StepId>> = {
+  plan: 'type', rent: 'rent', tenantPhone: 'tenantPhone', tenantName: 'tenantName', tenantId: 'nationalId',
+  familySize: 'familySize', work: 'work', landlord: 'landlord', house: 'category', photos: 'photos',
+  tenantPhoto: 'tenantPhoto', gps: 'gps', lc1: 'lc1', lcLetter: 'lcLetter', payoutDay: 'payoutDay', note: 'note',
+};
+
 type PlanType = 'daily' | 'weekly' | 'monthly';
 type Lc1Match = { id: string; name: string; verified: boolean; village: string } | null;
-type Photo = { file: File; preview: string };
+/** A photo taken now, or one already on file (file null, preview = its URL). */
+type Photo = { file: File | null; preview: string };
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
+  /** Called with the request id once the Service Centre has it. */
+  onSuccess?: (requestId: string) => void;
+  /** What to open: a new request (optionally prefilled), a resubmit or a renewal. */
+  request?: T4Request | null;
+}
+
+/** Where the form opens: a resubmit or renewal at its review, with the checklist of what is missing. */
+function firstStep(request: T4Request | null | undefined): StepId {
+  return request?.mode === 'resubmit' || request?.mode === 'renewal' ? 'review' : 'type';
 }
 
 function greetingNow(): { text: string; emoji: string } {
@@ -164,13 +226,18 @@ function greetingNow(): { text: string; emoji: string } {
   return { text: 'Good evening', emoji: '🌙' };
 }
 
-export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: Props) {
+export default function RentRequestAssistant({ open, onOpenChange, onSuccess, request }: Props) {
   const { user } = useAuth();
+  const mode = request?.mode ?? 'new';
+  const rejected = request?.mode === 'resubmit' ? request.rejected : null;
+  const renewal = request?.mode === 'renewal' ? request.renewal : null;
   const capIds = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(capIds);
+  const { data: capMap, isLoading: capQueryLoading } = useAgentCapacityMap(capIds);
   const myCap = user?.id ? capMap?.get(user.id) : undefined;
   const perTenantMax = myCap?.unlimited_posting ? Number.MAX_SAFE_INTEGER : (myCap?.per_tenant_max ?? 500_000);
-  const postingBlocked = !!myCap && !myCap.unlimited_posting && !myCap.can_post_rent_today;
+  // The daily posting gate is for new requests; a resubmit or renewal was never gated by it.
+  const capLoading = mode === 'new' && capQueryLoading;
+  const postingBlocked = mode === 'new' && !!myCap && !myCap.unlimited_posting && !myCap.can_post_rent_today;
 
   // ----- answers -----
   const [planType, setPlanType] = useState<PlanType | null>(null);
@@ -216,10 +283,32 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   const [noLc1Reason, setNoLc1Reason] = useState('');
   const [payoutDay, setPayoutDay] = useState('');
   const [consent, setConsent] = useState(false);
+  // ----- resubmit / renewal -----
+  const [resubmitDays, setResubmitDays] = useState('');
+  const [note, setNote] = useState('');
+  /** The rejected request's values before any change, for the resubmit patch. */
+  const [original, setOriginal] = useState<ResubmitValues | null>(null);
+  /** An LC letter is already on the request (resubmit) or the plan being renewed. */
+  const [lcOnFile, setLcOnFile] = useState(false);
+  /** The Service Centre confirmed the LC1 by phone (pipeline_intake_details.lc1_phone_confirmation). */
+  const [lc1PhoneConfirmed, setLc1PhoneConfirmed] = useState(false);
+  /** The tenant's profile (name, the four ID fields, occupation) for an existing tenant. */
+  const [tenantOnFile, setTenantOnFile] = useState<TenantRecord | null>(null);
+  /** The tenant's other open request: its status, null when there is none, undefined while checking. */
+  const [openStatus, setOpenStatus] = useState<string | null | undefined>(() => (
+    request?.mode === 'resubmit' || request?.mode === 'renewal' || (request?.mode === 'new' && request.prefill?.tenantId)
+      ? undefined
+      : null
+  ));
+  /** The GPS the request already had (resubmit / renewal); a newly captured one is sent with it. */
+  const [gpsOnFile, setGpsOnFile] = useState(false);
+  /** The renewal choice and tenant code dialogs are up; the form steps aside. */
+  const [renewing, setRenewing] = useState(false);
+  const renewalFlow = useRenewalFlow();
 
   // ----- flow -----
-  const [current, setCurrent] = useState<StepId>('type');
-  const [furthest, setFurthest] = useState<StepId>('type');
+  const [current, setCurrent] = useState<StepId>(() => firstStep(request));
+  const [furthest, setFurthest] = useState<StepId>(() => (mode === 'new' ? 'type' : 'review'));
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
   /** A corrected answer the agent can accept with one tap ("Did you mean …?"). */
@@ -260,13 +349,19 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   }, [open, user]);
 
   const steps: StepId[] = useMemo(() => {
+    if (mode === 'renewal') return RENEWAL_STEPS;
+    if (mode === 'resubmit') {
+      // SC-2 does not ask a renewal for family size or work again.
+      const skip = rejected?.registration_type === 'renewal' ? ['familySize', 'work', 'workLocation'] : [];
+      return RESUBMIT_STEPS.filter((s) => !skip.includes(s));
+    }
     return ALL_STEPS.filter((s) => {
       // Picked from the search: phone and name are already known.
       if (lc1Mode === 'existing' && (s === 'lc1Phone' || s === 'lc1Name')) return false;
       // New LC1 whose phone turned out to be on file: the name is known.
       return !(s === 'lc1Name' && lc1Match);
     });
-  }, [lc1Match, lc1Mode]);
+  }, [lc1Match, lc1Mode, mode, rejected?.registration_type]);
   const idx = steps.indexOf(current);
   const furthestIdx = Math.max(steps.indexOf(furthest), idx);
 
@@ -283,6 +378,107 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     setFixOffer(null); setWrongTries({});
   }, []);
 
+  // Fill the form from what opened it. The host mounts a fresh form for each request.
+  useEffect(() => {
+    if (!request) return;
+    let cancelled = false;
+    /** The gate refuses a tenant who already has a request on its way. */
+    const checkOpen = (tenantId: string | null | undefined, exceptId?: string) => {
+      if (!tenantId) { setOpenStatus(null); return; }
+      findOpenRequest(tenantId, exceptId)
+        .then((status) => { if (!cancelled) setOpenStatus(status); })
+        // A failed look-up does not block: the database still refuses a duplicate.
+        .catch((e) => { console.warn('[T4] open-request check failed', e); if (!cancelled) setOpenStatus(null); });
+    };
+    if (request.mode === 'new') {
+      const p = request.prefill;
+      if (!p) return;
+      if (p.tenantId) checkOpen(p.tenantId);
+      if (p.tenantName) setTenantNameParts(splitPersonName(p.tenantName));
+      if (p.tenantPhone) setTenantPhone(formatPhone(p.tenantPhone));
+      if (p.rentAmount && p.rentAmount > 0) setRentText(String(Math.round(p.rentAmount)));
+      const h = p.house;
+      if (h) {
+        if (h.landlord_id) setLandlord({ id: h.landlord_id, name: h.landlord_name ?? '', phone: h.landlord_phone ?? '', property_address: h.address });
+        setHouse({
+          id: h.id, title: h.title, address: h.address, region: h.region, district: h.district, house_category: h.house_category,
+          monthly_rent: h.monthly_rent, latitude: h.latitude, longitude: h.longitude, landlord_id: h.landlord_id, image_urls: h.image_urls ?? [],
+        });
+        setHouseChoiceMade(true);
+        if (h.address) setAddress(h.address);
+        if (h.district) setDistrict(normalizeDistrict(h.district));
+        if (h.region) setCity(h.region);
+        const mapped = mapHouseCategory(h.house_category);
+        if (mapped) setCategory(mapped);
+        if (h.latitude != null && h.longitude != null) setGps({ lat: Number(h.latitude), lng: Number(h.longitude), accuracy: 0 });
+        if (!p.rentAmount && h.monthly_rent) setRentText(String(Math.round(Number(h.monthly_rent))));
+      }
+      return () => { cancelled = true; };
+    }
+    if (request.mode === 'renewal') {
+      const r = request.renewal;
+      setTenantNameParts(splitPersonName(r.tenantName));
+      if (r.tenantPhone) setTenantPhone(formatPhone(r.tenantPhone));
+      setRentText(String(Math.round(r.currentRent)));
+      checkOpen(r.tenantId);
+      (async () => {
+        // The renewal re-posts the previous plan, so what that plan has on file is what the gate will see.
+        const [plan, tenant] = await Promise.all([loadRequestOnFile(r.prevId), r.tenantId ? loadTenantRecord(r.tenantId) : null]);
+        if (cancelled) return;
+        if (plan) {
+          setHousePhotos([0, 1, 2, 3].map((i) => (plan.photos[i] ? { file: null, preview: plan.photos[i] } : null)));
+          if (plan.gps) { setGps({ ...plan.gps, accuracy: 0 }); setGpsOnFile(true); }
+          setLcOnFile(plan.lcLetter);
+          setLc1PhoneConfirmed(plan.lc1PhoneConfirmed);
+        }
+        if (tenant) {
+          setTenantOnFile(tenant);
+          if (tenant.full_name) setTenantNameParts(splitPersonName(tenant.full_name));
+          if (tenant.national_id) setNationalId(tenant.national_id.toUpperCase());
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+    const r = request.rejected;
+    const urls = Array.isArray(r.house_image_urls) ? r.house_image_urls : [];
+    setRentText(String(Math.round(Number(r.rent_amount) || 0)));
+    setResubmitDays(r.duration_days ? String(r.duration_days) : '');
+    setLanguage(r.preferred_language ?? '');
+    setNoSmartphone(r.tenant_no_smartphone ?? false);
+    setCategory(r.house_category ?? '');
+    if (r.landlord_id) setLandlord({ id: r.landlord_id, name: r.landlord_name ?? '', phone: '', property_address: r.landlord_address ?? null });
+    setHousePhotos([0, 1, 2, 3].map((i) => (urls[i] ? { file: null, preview: urls[i] } : null)));
+    setLcOnFile(!!r.lc_letter_path?.trim());
+    if (r.request_latitude != null && r.request_longitude != null) {
+      setGps({ lat: Number(r.request_latitude), lng: Number(r.request_longitude), accuracy: 0 });
+      setGpsOnFile(true);
+    }
+    setTenantNameParts(splitPersonName(r.tenant_name ?? ''));
+    setTenantPhone(r.tenant_phone ? formatPhone(r.tenant_phone) : '');
+    checkOpen(r.tenant_id, r.id);
+    (async () => {
+      // The tenant's record (name, ID, occupation) and the intake already saved for this request.
+      const [t, onFile] = await Promise.all([loadTenantRecord(r.tenant_id), loadRequestOnFile(r.id)]);
+      if (cancelled) return;
+      if (t) setTenantOnFile(t);
+      if (onFile?.lc1PhoneConfirmed) setLc1PhoneConfirmed(true);
+      const d = onFile ? { family_size: onFile.familySize, work_business: onFile.workBusiness, work_location: onFile.workLocation } : null;
+      const name = t?.full_name || r.tenant_name || '';
+      const phone = t?.phone || r.tenant_phone || '';
+      if (name) setTenantNameParts(splitPersonName(name));
+      if (phone) setTenantPhone(formatPhone(phone));
+      if (t?.national_id) setNationalId(t.national_id.toUpperCase());
+      if (d?.family_size) setFamilySize(String(d.family_size));
+      const w = d?.work_business || t?.occupation || '';
+      if (w) setWork(w);
+      if (d?.work_location) setWorkLocation(d.work_location);
+      setOriginal(rejectedToValues(r, { name, phone, nationalId: t?.national_id ?? '' }));
+    })();
+    return () => { cancelled = true; };
+    // Runs once: the form is mounted per request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }));
@@ -293,6 +489,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     const seed: Partial<Record<StepId, string>> = {
       rent: rentText ? groupDigits(rentText) : '',
       tenantPhone, nationalId, familySize, work, workLocation, address, lc1Phone, lc1Village, city,
+      days: resubmitDays, note,
     };
     setDraft(seed[current] ?? '');
     setError(null);
@@ -403,7 +600,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   };
 
   // ----- photos -----
-  const readPhoto = async (file: File): Promise<Photo | null> => {
+  const readPhoto = async (file: File): Promise<(Photo & { file: File }) | null> => {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) { toast.error('Use a JPG, PNG, WebP or HEIC photo'); return null; }
     if (file.size > 10 * 1024 * 1024) { toast.error('That photo is over 10 MB'); return null; }
     try {
@@ -480,7 +677,15 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'work':
         return workProblem(text);
       case 'lcLetter':
-        return lc1LetterProblem({ hasLetter: !!lcLetter, noLetterYet: noLc1Letter, reason: noLc1Reason });
+        return lc1LetterProblem({ hasLetter: !!lcLetter || lcOnFile || lc1PhoneConfirmed, noLetterYet: noLc1Letter, reason: noLc1Reason });
+      case 'days': {
+        const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
+        return n >= RESUBMIT_DAYS_MIN && n <= RESUBMIT_DAYS_MAX ? null : `Type the number of days, from ${RESUBMIT_DAYS_MIN} to ${RESUBMIT_DAYS_MAX} 📅`;
+      }
+      case 'note':
+        return text.trim().length >= RESUBMIT_NOTE_MIN_CHARS
+          ? null
+          : `Tell the reviewer what you changed, in at least ${RESUBMIT_NOTE_MIN_CHARS} characters ✍️`;
       case 'rent': {
         const n = parseInt(text.replace(/\D/g, ''), 10) || 0;
         if (!n) return 'I didn’t catch an amount 🤔 Type the monthly rent, like 450,000.';
@@ -513,6 +718,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'address':
         return text.trim() ? null : 'Type an address, even a nearby landmark works 🙂';
       case 'photos': {
+        if (mode !== 'new') {
+          const have = housePhotos.filter(Boolean).length;
+          return have >= MIN_HOUSE_PHOTOS ? null : `Agent Ops needs at least ${MIN_HOUSE_PHOTOS} house photos 📸 Add ${MIN_HOUSE_PHOTOS - have} more.`;
+        }
         const missing = housePhotos.filter((p) => !p).length;
         return missing ? `${missing === 4 ? 'I need' : 'Just'} ${missing} more photo${missing === 1 ? '' : 's'} 📸 Front, back, left and right.` : null;
       }
@@ -662,16 +871,22 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'rent': setRentText(text.replace(/\D/g, '')); break;
       case 'tenantPhone': {
         const value = formatPhone(text);
-        if (!(await recordIsNew('tenantPhone', value))) return;
+        // A resubmit keeps the tenant's own number: it is on file because it is theirs.
+        const kept = mode === 'resubmit' && !!original && clean(value) === clean(formatPhone(original.tenantPhone));
+        if (!kept && !(await recordIsNew('tenantPhone', value))) return;
         setTenantPhone(value);
         break;
       }
       case 'nationalId': {
         const value = text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-        if (!(await recordIsNew('nationalId', value))) return;
+        const kept = (mode === 'resubmit' && !!original && value === original.nationalId.toUpperCase())
+          || (mode === 'renewal' && value === (tenantOnFile?.national_id ?? '').toUpperCase());
+        if (!kept && !(await recordIsNew('nationalId', value))) return;
         setNationalId(value);
         break;
       }
+      case 'days': setResubmitDays(String(parseInt(text.replace(/\D/g, ''), 10))); break;
+      case 'note': setNote(text.trim()); break;
       case 'familySize': setFamilySize(String(parseFamilySize(text))); break;
       case 'work': setWork(text.trim()); break;
       case 'workLocation': setWorkLocation(text.trim()); break;
@@ -708,8 +923,100 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
     advance(current);
   };
 
+  const showSent = (id: string, o: T4IntakeOutcome) => {
+    hapticSuccess();
+    setResult({
+      id, existing: true, lcLetterFailed: o.lcLetterFailed, intakeError: o.intakeError,
+      lc1AttachError: o.lc1AttachError, lc1NoteError: o.lc1NoteError,
+    });
+    onSuccess?.(id);
+    request?.onDone?.(id);
+  };
+
+  const postResubmit = async () => {
+    if (!user || !rejected || !original || posting || missing.length) return;
+    setPosting(true);
+    setError(null);
+    const after: ResubmitValues = {
+      rentAmount: amount,
+      durationDays: parseInt(resubmitDays, 10) || original.durationDays,
+      preferredLanguage: language || null,
+      noSmartphone,
+      landlordId: landlord?.id ?? original.landlordId,
+      landlordName: landlord?.name ?? original.landlordName,
+      landlordPhone: landlord?.phone ?? '',
+      houseCategory: category || null,
+      tenantName,
+      tenantPhone,
+      nationalId,
+    };
+    const urls = Array.isArray(rejected.house_image_urls) ? rejected.house_image_urls : [];
+    const patch = resubmitPatch(original, after);
+    // The request had no GPS; send the one captured at the house now.
+    if (!gpsOnFile && gps) { patch.request_latitude = gps.lat; patch.request_longitude = gps.lng; }
+    const res = await resubmitT4Request({
+      agentId: user.id,
+      requestId: rejected.id,
+      patch,
+      note,
+      photos: housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)),
+      extraPhotoUrls: urls.slice(4),
+      lcLetter: lcLetter?.file ?? null,
+      noLc1Reason: !lcLetter && !lcOnFile && noLc1Letter ? noLc1Reason : null,
+      details: rejected.registration_type === 'renewal'
+        ? null
+        : { familySize: parseFamilySize(familySize), workBusiness: work, workLocation },
+    });
+    setPosting(false);
+    // Server errors are shown as they come.
+    if ('message' in res) { setError(res.message); return; }
+    showSent(res.requestId, res);
+  };
+
+  const postRenewalPlan = async () => {
+    if (!user || !renewal || posting || missing.length) return;
+    setError(null);
+    // The rent and days (with the server's advice), then the tenant's code: the same audited steps as before.
+    setRenewing(true);
+    const choice = await renewalFlow.start({
+      prevId: renewal.prevId,
+      tenantName: tenantName || renewal.tenantName,
+      currentRent: renewal.currentRent,
+      currentDays: renewal.currentDays,
+    });
+    setRenewing(false);
+    if (!choice) return;
+    setPosting(true);
+    try {
+      // A changed name, or a NIN for a tenant with no ID on file, goes on the tenant's profile first.
+      const nameChanged = tenantName.trim() !== (tenantOnFile?.full_name ?? renewal.tenantName).trim();
+      const ninNew = !hasTenantId(tenantOnFile) && !!nationalId.trim();
+      if (renewal.tenantId && (nameChanged || ninNew)) {
+        const saved = await saveTenantProfile(renewal.tenantId, { fullName: nameChanged ? tenantName : null, nationalId: ninNew ? nationalId : null });
+        if (!saved.ok) { setError(saved.message); return; }
+      }
+      const newId = await postRenewal(
+        renewal.prevId,
+        choice,
+        () => toast.info('Capturing the property GPS at the house…'),
+        !gpsOnFile && gps ? { latitude: gps.lat, longitude: gps.lng } : null,
+      );
+      setRentText(String(choice.newRent));
+      const photoError = await attachRenewalPhotos(user.id, newId, housePhotos.map((p) => (p ? (p.file ?? p.preview) : null)));
+      const o = await finishRenewalIntake(user.id, newId, lcLetter?.file ?? null, !lcLetter && !lcOnFile && noLc1Letter ? noLc1Reason : null);
+      showSent(newId, { ...o, lcLetterFailed: o.lcLetterFailed, lc1AttachError: o.lc1AttachError ?? (photoError ? `House photos not saved: ${photoError}` : null) });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPosting(false);
+    }
+  };
+
   const post = async () => {
+    if (mode === 'resubmit') return postResubmit();
+    if (mode === 'renewal') return postRenewalPlan();
     if (!user || !fees || !landlord || !tenantPhoto || posting) return;
+    if (missing.length) { setError(`Still missing: ${missing.map((m) => m.label).join(', ')}.`); return; }
     if (!consent) { setError('Tick the box to accept guarantor responsibility.'); return; }
     if (postingBlocked) { setError('Posting is closed for you right now.'); return; }
     // Required intake: every step checks its own answer; this catches anything skipped.
@@ -754,8 +1061,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       propertyDistrict: district || location?.district || '',
       location,
       gps,
-      housePhotos: housePhotos.filter(Boolean).map((p) => p!.file),
-      tenantPhoto: tenantPhoto.file,
+      housePhotos: housePhotos.map((p) => p?.file).filter((f): f is File => !!f),
+      tenantPhoto: tenantPhoto.file as File,
       faceCheckSha256: faceCheck?.sha256 ?? null,
       lc1Name,
       lc1Phone,
@@ -778,7 +1085,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         lc1AttachError: res.lc1AttachError,
         lc1NoteError: res.lc1NoteError,
       });
-      onSuccess?.();
+      onSuccess?.(res.rentRequestId);
+      request?.onDone?.(res.rentRequestId);
       return;
     }
     const fail = res as Extract<AssistantSubmitResult, { ok: false }>;
@@ -792,6 +1100,43 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       setCurrent(fail.backTo);
     }
   };
+
+  // ----- what T4 still needs: the Agent Ops gate (_ao_gate_missing), then what this form needs to send -----
+  const ninTyped = validate('nationalId', nationalId) === null;
+  const facts: Partial<Record<T4ItemKey, boolean>> = {
+    // The gate: Service Centre basics, SC-2 intake, LC1, full name, tenant ID, no other open request.
+    photos: housePhotos.filter(Boolean).length >= MIN_HOUSE_PHOTOS,
+    landlord: mode === 'renewal' ? true : !!landlord && landlordStatus !== 'missing',
+    rent: mode === 'renewal' ? (renewal?.currentRent ?? 0) > 0 : amount > 0 && validate('rent', rentText) === null,
+    gps: !!gps,
+    familySize: familySizeProblem(familySize) === null,
+    work: workProblem(work) === null || !!tenantOnFile?.occupation?.trim(),
+    // The letter, or the LC1 confirmed by phone. A "no letter yet" reason does not pass the gate.
+    lcLetter: !!lcLetter || lcOnFile || lc1PhoneConfirmed,
+    tenantName: isFullName(tenantName),
+    tenantId: mode === 'new' ? ninTyped : hasTenantId(tenantOnFile) || ninTyped,
+    openRequest: openStatus === null,
+    // What this form needs to send.
+    plan: !!planType && !!fees,
+    tenantPhone: isUgPhone(tenantPhone),
+    house: !!category && !!address.trim(),
+    tenantPhoto: !!tenantPhoto && faceCheckBlocker(faceCheck) === null,
+    lc1: !!lc1Mode && !!clean(lc1Phone) && !!lc1Name.trim() && !!lc1Village.trim(),
+    payoutDay: !!payoutDay,
+    consent,
+    note: note.trim().length >= RESUBMIT_NOTE_MIN_CHARS,
+    resubmitsLeft: !rejected || resubmitAttemptsLeft(rejected.reopen_count, rejected.rejected_reason) !== 0,
+  };
+  const missing = t4Missing(mode, facts, rejected?.registration_type, openStatus);
+  const fixItem = (k: T4ItemKey) => {
+    const s = ITEM_STEP[k];
+    if (s && steps.includes(s)) { hapticTap(); setCurrent(s); }
+  };
+  const sentLine = mode === 'resubmit'
+    ? `${tenantNameParts.firstName || 'The tenant'}’s request is back with the Service Centre for a fresh review.`
+    : mode === 'renewal'
+      ? `${tenantNameParts.firstName || 'The tenant'}’s renewal for ${formatUGX(amount)} is with the Service Centre.`
+      : `${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is with the Service Centre.`;
 
   // ----- copy -----
   const questionOf = (s: StepId): string => {
@@ -830,7 +1175,14 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'city': return 'Which town or city is the house in? 🌆';
       case 'lcLetter': return 'Now a photo of the stamped LC1 letter 📄 JPG or PNG, up to 10 MB. No letter yet? Tick the box and tell me why.';
       case 'payoutDay': return `Which day of the month should Welile pay ${landlordFirst}? 🗓️ Most agents pick the day the rent falls due.`;
-      case 'review': return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
+      case 'days': return 'How many days should the Rent Plan run? From 7 to 120 📅';
+      case 'note': return 'Last thing: tell the reviewer what you changed ✍️ At least 10 characters.';
+      case 'review':
+        if (mode === 'resubmit') {
+          return `Here’s the request with your changes.${rejected?.rejected_reason ? ` The reviewer said: “${rejected.rejected_reason}”.` : ''} Tap any answer above to change it.`;
+        }
+        if (mode === 'renewal') return `Renewing ${first}’s Rent Plan: same house, same landlord. Tap any answer above to change it.`;
+        return 'All done, well done! 🎉 Here’s the request. Tap any answer above if you want to change it.';
     }
   };
 
@@ -841,7 +1193,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'plan': return planType === 'daily' ? `${duration} days` : planType === 'weekly' ? `${parseInt(repaymentPeriod, 10) / 7} week${repaymentPeriod === '7' ? '' : 's'}` : repaymentPeriod === '30' ? 'After 1 month' : 'Over 4 months';
       case 'tenantPhone': return tenantPhone;
       case 'tenantName': return tenantName;
-      case 'nationalId': return nationalId;
+      case 'nationalId': return nationalId || (hasTenantId(tenantOnFile) ? 'ID on file' : '');
       case 'language': return language;
       case 'smartphone': return noSmartphone ? 'No smartphone' : 'Has a smartphone';
       case 'familySize': return familySize ? `${familySize} ${familySize === '1' ? 'person' : 'people'}` : '';
@@ -852,28 +1204,32 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
       case 'location': return location ? `${location.district} › ${location.subcounty} › ${location.village}` : '';
       case 'address': return address;
       case 'category': return HOUSE_CATEGORIES.find((c) => c.value === category)?.label ?? '';
-      case 'photos': return '4 house photos taken';
+      case 'photos': return housePhotos.every(Boolean)
+        ? (housePhotos.some((p) => p?.file) ? '4 house photos taken' : 'House photos on file')
+        : housePhotos.some(Boolean) ? `${housePhotos.filter(Boolean).length} of 4 house photos` : '';
       case 'tenantPhoto': return 'Passport photo taken';
-      case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : 'GPS from the house listing') : '';
+      case 'gps': return gps ? (gps.accuracy ? `GPS captured, accurate to ${Math.round(gps.accuracy)} m` : gpsOnFile ? 'GPS on file' : 'GPS from the house listing') : '';
       case 'lc1': return lc1Mode === 'existing' ? lc1Name : lc1Mode === 'new' ? 'Register a new LC1' : '';
       case 'lc1Phone': return lc1Phone;
       case 'lc1Name': return lc1Name;
       case 'lc1Village': return lc1Village;
       case 'city': return city;
-      case 'lcLetter': return lcLetter ? 'LC letter added' : noLc1Letter ? 'No LC1 letter yet' : '';
+      case 'lcLetter': return lcLetter ? 'LC letter added' : lcOnFile ? 'LC letter on file' : lc1PhoneConfirmed ? 'LC1 confirmed by phone' : noLc1Letter ? 'No LC1 letter yet' : '';
       case 'payoutDay': return `The ${ordinal(payoutDay)}`;
+      case 'days': return resubmitDays ? `${resubmitDays} days` : '';
+      case 'note': return note;
       case 'review': return '';
     }
   };
 
-  const isTextStep = ['rent', 'tenantPhone', 'nationalId', 'familySize', 'work', 'workLocation', 'address', 'lc1Phone', 'lc1Village', 'city'].includes(current);
+  const isTextStep = ['rent', 'days', 'tenantPhone', 'nationalId', 'familySize', 'work', 'workLocation', 'address', 'lc1Phone', 'lc1Village', 'city', 'note'].includes(current);
 
   const spokenReply = capLoading
     ? 'Checking whether you can post today.'
     : postingBlocked && myCap
       ? `You can’t post a Rent Plan yet ${myCap.posting_rule === 'weekly' ? 'this week' : 'today'}. ${blockedReason(myCap)}`
       : result
-        ? `Done. ${tenantNameParts.firstName}’s request for ${formatUGX(amount)} is now with our team.${!result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}${result.intakeError ? ' Details not saved. Open Complete your requests on your home screen.' : ''}`
+        ? `Sent to the Service Centre. ${sentLine}${mode === 'new' && !result.existing ? ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.` : ''}${result.lcLetterFailed ? ' The LC letter didn’t upload. Add it later from My rent requests.' : ''}${result.intakeError ? ' Details not saved. Open Complete your requests on your home screen.' : ''}`
         : recordBlock && recordBlock.step === current
           ? `${recordHeadline(recordBlock, true)} ${recordBody(recordBlock)}`
           : error || questionOf(current);
@@ -888,17 +1244,17 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
   // ----- render -----
   // z-[115]: full-screen, so it must cover the bottom role bar (100), the assistant launcher/bubble (105/106) and the WhatsApp button (60).
   return (
-    <div className="rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground" role="dialog" aria-modal="true" aria-label="Rent request assistant">
+    <div className={cn('rent-request-assistant fixed inset-0 z-[115] flex flex-col bg-background text-foreground', renewing && 'invisible')} role="dialog" aria-modal="true" aria-label="Rent request assistant" data-t4-mode={mode}>
       <header className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5 pt-safe">
         <button type="button" aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <Avatar size="lg" />
         <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-bold leading-tight">Post Rent Request</p>
+          <p className="font-display text-base font-bold leading-tight">{mode === 'resubmit' ? 'Resubmit Rent Request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post Rent Request'}</p>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            {result ? 'Request posted' : 'Posting a Rent Plan with you'}
+            {result ? 'Sent to the Service Centre' : mode === 'resubmit' ? 'Fixing a returned request with you' : mode === 'renewal' ? 'Renewing a Rent Plan with you' : 'Posting a Rent Plan with you'}
           </p>
         </div>
         <TooltipProvider>
@@ -929,7 +1285,9 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
             <h1 className="font-display text-[26px] font-extrabold leading-8 tracking-tight">
               {greeting.text}, <span className="text-foreground/65">{metaOf(user).full_name?.split(' ')[0] || 'Agent'}</span> {greeting.emoji}
             </h1>
-            <p className="mt-1 text-base text-muted-foreground">I’ll help you add a new tenant whenever you’re ready!</p>
+            <p className="mt-1 text-base text-muted-foreground">
+              {mode === 'resubmit' ? 'Let’s fix this request and send it back.' : mode === 'renewal' ? 'Let’s renew this Rent Plan.' : 'I’ll help you add a new tenant whenever you’re ready!'}
+            </p>
           </div>
 
           {capLoading ? (
@@ -992,10 +1350,10 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                 <>
                   <Bot>
                     <Bubble>
-                      <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success"><Check className="h-3 w-3" /> Posted</span>
+                      <span className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-xs font-semibold text-success"><Check className="h-3 w-3" /> Sent to the Service Centre</span>
                       <br />
-                      Done. {tenantNameParts.firstName}’s request for {formatUGX(amount)} is now with our team.
-                      {!result.existing && ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.`}
+                      {sentLine}
+                      {mode === 'new' && !result.existing && ` ${tenantNameParts.firstName} will get an SMS in ${language || 'English'} inviting them to join Welile.`}
                     </Bubble>
                   </Bot>
                   {result.lcLetterFailed && <Bot><Bubble tone="warn">The LC letter didn’t upload. Add it later from My rent requests.</Bubble></Bot>}
@@ -1014,8 +1372,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                     </Bot>
                   )}
                   <div className="flex flex-wrap gap-2 pl-9">
-                    <Chip onClick={reset}>Post another</Chip>
-                    <Chip onClick={() => onOpenChange(false)}>Back to dashboard</Chip>
+                    {mode === 'new' && <Chip onClick={reset}>Post another</Chip>}
+                    <Chip onClick={() => onOpenChange(false)}>{mode === 'new' ? 'Back to dashboard' : 'Done'}</Chip>
                   </div>
                 </>
               )}
@@ -1035,7 +1393,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                 <input
                   aria-label="Your answer"
                   autoFocus
-                  inputMode={['rent', 'tenantPhone', 'lc1Phone', 'familySize'].includes(current) ? 'numeric' : 'text'}
+                  inputMode={['rent', 'days', 'tenantPhone', 'lc1Phone', 'familySize'].includes(current) ? 'numeric' : 'text'}
                   value={draft}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -1043,6 +1401,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                     else if (current === 'tenantPhone' || current === 'lc1Phone') setDraft(formatPhone(v));
                     else if (current === 'nationalId') setDraft(v.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 14));
                     else if (current === 'familySize') setDraft(v.replace(/\D/g, '').slice(0, 2));
+                    else if (current === 'days') setDraft(v.replace(/\D/g, '').slice(0, 3));
                     else setDraft(v);
                     setError(null);
                     setFixOffer(null);
@@ -1068,6 +1427,7 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         </footer>
       )}
 
+      {renewalFlow.dialogs}
       <RegisterLandlordDialog
         open={showRegisterLandlord}
         onOpenChange={setShowRegisterLandlord}
@@ -1300,7 +1660,8 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
                   className="rounded-xl border border-border bg-background px-3 py-2 text-base outline-none focus:border-primary"
                 />
                 <p className="text-xs text-muted-foreground">
-                  At least {NO_LC1_REASON_MIN_CHARS} characters. The request still posts, and the Service Centre will call the LC1.
+                  At least {NO_LC1_REASON_MIN_CHARS} characters. Agent Ops only takes a request with the LC1 letter, or with the LC1
+                  confirmed by phone, so Send stays off until one of them is in.
                 </p>
               </div>
             )}
@@ -1319,24 +1680,57 @@ export default function RentRequestAssistant({ open, onOpenChange, onSuccess }: 
         return (
           <div className="flex flex-col gap-3">
             <div className="rounded-2xl border border-border bg-card p-3 text-sm">
+              {mode === 'resubmit' ? (
+                <>
+                  <Row k="Rent Plan" v={`${formatUGX(amount)} · ${answerOf('days')}`} />
+                  <Row k="Tenant" v={`${tenantName} · ${tenantPhone}`} />
+                  <Row k="Landlord" v={landlord?.name ?? ''} />
+                  <Row k="House" v={answerOf('category')} />
+                  <Row k="House photos" v={answerOf('photos') || 'Missing'} />
+                  <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
+                  <Row k="Tenant ID" v={answerOf('nationalId') || 'Missing'} />
+                  <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
+                  {rejected?.registration_type !== 'renewal' && <Row k="Household" v={answerOf('familySize') || 'Missing'} />}
+                  {rejected?.registration_type !== 'renewal' && <Row k="Work" v={work ? `${work}${workLocation ? ` · ${workLocation}` : ''}` : 'Missing'} />}
+                  <Row k="Note" v={note || 'Missing'} />
+                </>
+              ) : mode === 'renewal' ? (
+                <>
+                  <Row k="Rent Plan now" v={`${formatUGX(renewal?.currentRent ?? 0)} · ${renewal?.currentDays ?? ''} days`} />
+                  <Row k="Tenant" v={`${tenantName}${tenantPhone ? ` · ${tenantPhone}` : ''}`} />
+                  {renewal?.landlordName && <Row k="Landlord" v={renewal.landlordName} />}
+                  {renewal?.houseLabel && <Row k="House" v={renewal.houseLabel} />}
+                  <Row k="House photos" v={answerOf('photos') || 'Missing'} />
+                  <Row k="House GPS" v={gps ? 'On file' : 'Missing'} />
+                  <Row k="Tenant ID" v={answerOf('nationalId') || 'Missing'} />
+                  <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
+                </>
+              ) : (
+              <>
               <Row k="Rent Plan" v={`${formatUGX(amount)} · ${answerOf('plan')}`} />
               <Row k="Tenant" v={`${tenantName} · ${tenantPhone}`} />
               <Row k="Landlord" v={`${landlord?.name ?? ''}${landlordStatus === 'unverified' ? ' (verification pending)' : ''}`} />
               <Row k="House" v={`${answerOf('category')} · ${address}`} />
               <Row k="LC1" v={`${lc1Name} · ${lc1Village}`} />
-              <Row k="LC1 letter" v={lcLetter ? 'Photo added' : 'Not yet, the Service Centre will call the LC1'} />
+              <Row k="LC1 letter" v={answerOf('lcLetter') || 'Missing'} />
               <Row k="Household" v={answerOf('familySize')} />
               <Row k="Work" v={`${work}${workLocation ? ` · ${workLocation}` : ''}`} />
               <Row k="Landlord paid on" v={`The ${ordinal(payoutDay)}`} />
+              </>
+              )}
             </div>
-            <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />
+            {mode === 'renewal' && <p className="text-sm text-muted-foreground">Next you set the new rent and days, then {tenantNameParts.firstName || 'the tenant'} confirms with the code we text them.</p>}
+            {mode === 'new' && <GuarantorConsentCheckbox checked={consent} onCheckedChange={(c) => { setConsent(c); setError(null); }} />}
+            <MissingChecklist items={missing} onFix={fixItem} />
             <button
               type="button"
               onClick={() => void post()}
-              disabled={posting}
-              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:opacity-70"
+              disabled={posting || missing.length > 0 || (mode === 'resubmit' && !original)}
+              className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary font-display text-base font-bold text-primary-foreground shadow-lg disabled:opacity-50"
             >
-              {posting ? <><Loader2 className="h-5 w-5 animate-spin" /> Posting…</> : <><Send className="h-5 w-5" /> Post rent request</>}
+              {posting
+                ? <><Loader2 className="h-5 w-5 animate-spin" /> Sending…</>
+                : <><Send className="h-5 w-5" /> {mode === 'resubmit' ? 'Resubmit rent request' : mode === 'renewal' ? 'Renew Rent Plan' : 'Post rent request'}</>}
             </button>
           </div>
         );
@@ -1365,6 +1759,8 @@ function ordinal(d: string): string {
 function placeholderOf(s: StepId): string {
   switch (s) {
     case 'rent': return 'e.g. 450,000';
+    case 'days': return 'e.g. 30';
+    case 'note': return 'e.g. Added the LC1 letter and fixed the landlord';
     case 'tenantPhone': case 'lc1Phone': return 'e.g. 0783 123 456';
     case 'nationalId': return 'e.g. CM12345678ABCD';
     case 'familySize': return 'e.g. 4';
@@ -1479,6 +1875,42 @@ function Chip({ children, on, onClick }: { children: ReactNode; on?: boolean; on
       {on && <Check className="h-3.5 w-3.5" />}
       {children}
     </button>
+  );
+}
+
+/**
+ * What is still missing before Send turns on, in two groups: the Agent Ops gate
+ * (exactly what _ao_gate_missing checks) and what this form needs to send.
+ * Each line jumps to the question that fixes it.
+ */
+function MissingChecklist({ items, onFix }: { items: T4MissingItem[]; onFix: (k: T4ItemKey) => void }) {
+  if (!items.length) {
+    return (
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-success" data-testid="t4-ready">
+        <Check className="h-4 w-4" /> Everything Agent Ops needs is in.
+      </p>
+    );
+  }
+  const groups: [string, T4MissingItem[]][] = [
+    ['Agent Ops will refuse it without', items.filter((i) => i.group === 'gate')],
+    ['To send this form', items.filter((i) => i.group === 'form')],
+  ];
+  return (
+    <div className="rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm" role="status" aria-label="Still missing" data-testid="t4-missing">
+      <p className="font-semibold">Still missing before you can send it ({items.length})</p>
+      {groups.filter(([, list]) => list.length > 0).map(([title, list]) => (
+        <div key={title} className="mt-2" data-testid={title.startsWith('Agent') ? 't4-missing-gate' : 't4-missing-form'}>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+          <ul className="mt-1 flex flex-col gap-1">
+            {list.map((i) => (
+              <li key={i.key}>
+                <button type="button" onClick={() => onFix(i.key)} className="text-left underline-offset-2 hover:underline">• {i.label}</button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }
 

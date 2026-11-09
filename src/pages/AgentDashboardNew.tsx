@@ -1,5 +1,4 @@
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { Suspense, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardHeader from '@/components/DashboardHeader';
 import BottomRoleSwitcher from '@/components/BottomRoleSwitcher';
@@ -13,17 +12,13 @@ import AiIdButton from '@/components/ai-id/AiIdButton';
 import { BadgeCheck } from 'lucide-react';
 import { SignatureRentRequestCard } from '@/components/agent/SignatureRentRequestCard';
 import { AgentHubDrawer } from '@/components/agent/AgentHubDrawer';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 
-const AgentRentRequestDialog = lazyWithRetry(() => import('@/components/agent/AgentRentRequestDialog'));
-const RentRequestAssistant = lazyWithRetry(() => import('@/components/agent/rentRequestAssistant/RentRequestAssistant'));
-/** Same switch as AgentDashboardBk (the live /dashboard/agent): 'classic' brings back the old form. */
-const DASHBOARD_RENT_REQUEST_FLOW = 'assistant' as 'assistant' | 'classic';
 
 export default function AgentDashboardNew() {
   const { signOut, roles, switchRole } = useAuth();
   const { profile } = useProfile();
   const navigate = useNavigate();
-  const [rentRequestOpen, setRentRequestOpen] = useState(false);
   const [hubOpen, setHubOpen] = useState(false);
 
   const firstName = profile?.full_name?.trim().split(/\s+/)[0] || 'Agent';
@@ -60,16 +55,9 @@ export default function AgentDashboardNew() {
           </div>
         </div>
         <div className="mt-5">
-          <SignatureRentRequestCard fullName={profile?.full_name} onPostRequest={() => setRentRequestOpen(true)} />
+          <SignatureRentRequestCard fullName={profile?.full_name} onPostRequest={() => openT4RentRequest({ mode: 'new', entry: 'agent-dashboard-new' })} />
         </div>
       </main>
-      {rentRequestOpen && (
-        <Suspense fallback={null}>
-          {DASHBOARD_RENT_REQUEST_FLOW === 'assistant'
-            ? <RentRequestAssistant open={rentRequestOpen} onOpenChange={setRentRequestOpen} />
-            : <AgentRentRequestDialog presentation="chat" open={rentRequestOpen} onOpenChange={setRentRequestOpen} />}
-        </Suspense>
-      )}
       <BottomRoleSwitcher currentRole={'agent' as AppRole} onRoleChange={handleRoleChange} />
     </div>
   );

@@ -28,12 +28,10 @@ import { downloadRentStatement, buildRentStatementWhatsApp } from '@/lib/receipt
 import { shareDailyAllocationPdf, type AllocationRow } from '@/lib/dailyAllocationPdf';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
-import AgentRentRequestDialog from './AgentRentRequestDialog';
 import { AgentTenantCollectDialog } from './AgentTenantCollectDialog';
 import { TenantBehaviorCard } from './TenantBehaviorCard';
 import { TenantProfileView } from './TenantProfileView';
-import { useRenewalFlow } from '@/components/agent/RenewalDialog';
-import { renewRpcArgs, renewalErrorMessage } from '@/lib/renewalAdvice';
+import { openT4RentRequest } from '@/lib/t4RentRequest';
 import { captureGps, isGpsRequiredError } from '@/lib/captureGps';
 import { TenantFieldCollectDialog } from './TenantFieldCollectDialog';
 import { AgentRequestPipelineView } from './AgentRequestPipelineView';
@@ -303,7 +301,6 @@ function Highlight({ text, query }: { text?: string | null; query: string }) {
 
 export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipelineTab, initialHighlightId, initialProfileTenantId }: AgentTenantsSheetProps) {
   const { user } = useAuth();
-  const renewalFlow = useRenewalFlow();
   const { toast } = useToast();
   const [view, setView] = useState<'tenants' | 'pipeline'>(initialView ?? 'tenants');
   // When the sheet is (re)opened with a requested initial view (e.g. straight
@@ -1099,42 +1096,31 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       toast({ title: 'Cannot renew', description: 'Landlord info missing on prior request.', variant: 'destructive' });
       return;
     }
-    // The agent picks the rent and days (advice and daily payment come from the server), then the tenant
-    // confirms exactly those figures with the code texted to them.
-    const choice = await renewalFlow.start({
-      prevId: req.id,
-      tenantName: tenant.full_name || 'the tenant',
-      currentRent: req.rent_amount,
-      currentDays: req.duration_days,
+    // The T4 form: the agent checks the tenant's full name and the LC1 letter, then picks the rent and days
+    // and the tenant confirms with the code (the same audited server renewal as before).
+    openT4RentRequest({
+      mode: 'renewal',
+      entry: 'tenants-sheet',
+      renewal: {
+        prevId: req.id,
+        tenantId: tenant.id,
+        tenantName: tenant.full_name || '',
+        tenantPhone: tenant.phone,
+        currentRent: req.rent_amount,
+        currentDays: req.duration_days,
+        landlordName: req.landlord?.name ?? null,
+        houseLabel: req.landlord?.property_address ?? null,
+      },
+      onDone: () => {
+        setTenantRequests((prev) => {
+          const updated = { ...prev };
+          delete updated[tenant.id];
+          return updated;
+        });
+        fetchTenantRequests(tenant.id);
+        fetchTenants();
+      },
     });
-    if (!choice) return;
-    setRenewingReqId(req.id);
-    try {
-      // One atomic server call: the server re-posts the prior plan, prices the new rent and days, and keeps the previous plan as it was.
-      const post = (gps?: { latitude: number; longitude: number }) => supabase.rpc('renew_rent_request', renewRpcArgs(req.id, choice, gps));
-      let { error } = await post();
-      // No property GPS on record anywhere: capture it here at the house and retry once.
-      if (error && isGpsRequiredError(error.message)) {
-        toast({ title: 'Capturing the property GPS at the house…' });
-        const gps = await captureGps();
-        ({ error } = await post(gps));
-      }
-      if (error) throw error;
-      toast({ title: 'Rent request renewed ✅', description: `Posted for ${tenant.full_name}` });
-      // Force-refresh this tenant's requests
-      setTenantRequests(prev => {
-        const updated = { ...prev };
-        delete updated[tenant.id];
-        return updated;
-      });
-      fetchTenantRequests(tenant.id);
-      fetchTenants();
-    } catch (err: any) {
-      console.error('Renew failed:', err);
-      toast({ title: 'Renew failed', description: renewalErrorMessage(err), variant: 'destructive' });
-    } finally {
-      setRenewingReqId(null);
-    }
   };
 
   // Top-level "Resubmit" entry point for tenants whose entire history is settled.
@@ -1238,7 +1224,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
 
   return (
     <>
-    {renewalFlow.dialogs}
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -1462,7 +1447,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
                   size="sm"
                   className="h-9 rounded-xl px-2.5 text-xs font-bold"
                   aria-label="Post a rent request"
-                  onClick={() => { setRenewPrefill(null); setRenewDialogOpen(true); }}
+                  onClick={() => openT4RentRequest({ mode: 'new', entry: 'tenants-sheet-post', onDone: () => fetchTenants() })}
                 >
                   Post
                 </Button>
@@ -2900,22 +2885,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
         )}
       </SheetContent>
 
-      <AgentRentRequestDialog
-        presentation="chat"
-        open={renewDialogOpen}
-        onOpenChange={(open) => {
-          setRenewDialogOpen(open);
-          if (!open) setRenewPrefill(null);
-        }}
-        onSuccess={() => {
-          setRenewDialogOpen(false);
-          setRenewPrefill(null);
-          fetchTenants();
-        }}
-        prefillTenantName={renewPrefill?.name}
-        prefillTenantPhone={renewPrefill?.phone}
-        prefillRentAmount={renewPrefill?.amount}
-      />
 
       <AgentTenantCollectDialog
         open={collectDialogOpen}
