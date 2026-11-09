@@ -545,7 +545,12 @@ const MyRequisitions = () => {
                   variant="outline"
                   onClick={() => {
                     if (eligibleForUsageReport.length === 0) {
-                      toast.info('No approved requisitions are waiting for a usage report.');
+                      toast.error(
+                        <span className="text-red-600 dark:text-red-400 font-medium">
+                          No approved requisitions are waiting for a usage report.
+                        </span>,
+                        { className: '!text-red-600 dark:!text-red-400' },
+                      );
                       return;
                     }
                     if (eligibleForUsageReport.length === 1) {
