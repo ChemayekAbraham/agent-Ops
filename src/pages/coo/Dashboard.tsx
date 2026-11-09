@@ -1,53 +1,55 @@
-import { OverdueVettingOpsCard } from '@/components/service-center/OverdueVettingOpsCard';
+import { Suspense } from 'react';
+import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
+const OverdueVettingOpsCard = lazy(() => import('@/components/service-center/OverdueVettingOpsCard').then((m) => ({ default: m.OverdueVettingOpsCard })));
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
-import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
+const BusinessAdvanceQueue = lazy(() => import('@/components/ops/BusinessAdvanceQueue').then((m) => ({ default: m.BusinessAdvanceQueue })));
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
-import { COOWithdrawalApprovals } from '@/components/coo/COOWithdrawalApprovals';
-import { COOPartnerWithdrawalApprovals } from '@/components/coo/COOPartnerWithdrawalApprovals';
-import { COOROIApprovals } from '@/components/coo/COOROIApprovals';
-import { CancelledProxyWithdrawals } from '@/components/coo/CancelledProxyWithdrawals';
-import FinancialTransactionsTable from '@/components/coo/FinancialTransactionsTable';
-import AgentCollectionsOverview from '@/components/coo/AgentCollectionsOverview';
-import { AgentCollectionsCommandCenter } from '@/components/executive/agent-ops-v2/AgentCollectionsCommandCenter';
-import FinancialReportsPanel from '@/components/coo/FinancialReportsPanel';
-import COOPartnersPage from '@/components/coo/COOPartnersPage';
-import { StaffPerformancePanel } from '@/components/executive/StaffPerformancePanel';
-import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
-import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
+const COOWithdrawalApprovals = lazy(() => import('@/components/coo/COOWithdrawalApprovals').then((m) => ({ default: m.COOWithdrawalApprovals })));
+const COOPartnerWithdrawalApprovals = lazy(() => import('@/components/coo/COOPartnerWithdrawalApprovals').then((m) => ({ default: m.COOPartnerWithdrawalApprovals })));
+const COOROIApprovals = lazy(() => import('@/components/coo/COOROIApprovals').then((m) => ({ default: m.COOROIApprovals })));
+const CancelledProxyWithdrawals = lazy(() => import('@/components/coo/CancelledProxyWithdrawals').then((m) => ({ default: m.CancelledProxyWithdrawals })));
+const FinancialTransactionsTable = lazy(() => import('@/components/coo/FinancialTransactionsTable'));
+const AgentCollectionsOverview = lazy(() => import('@/components/coo/AgentCollectionsOverview'));
+const AgentCollectionsCommandCenter = lazy(() => import('@/components/executive/agent-ops-v2/AgentCollectionsCommandCenter').then((m) => ({ default: m.AgentCollectionsCommandCenter })));
+const FinancialReportsPanel = lazy(() => import('@/components/coo/FinancialReportsPanel'));
+const COOPartnersPage = lazy(() => import('@/components/coo/COOPartnersPage'));
+const StaffPerformancePanel = lazy(() => import('@/components/executive/StaffPerformancePanel').then((m) => ({ default: m.StaffPerformancePanel })));
+const ExecutiveBrief = lazy(() => import('@/hr/components/ExecutiveBrief'));
+const RequisitionsWorkspace = lazy(() => import('@/components/requisitions/RequisitionsWorkspace').then((m) => ({ default: m.RequisitionsWorkspace })));
 
-import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
-import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
-import { COOWelileHomesApprovalDesk } from '@/components/coo/COOWelileHomesApprovalDesk';
-import { WelileSignagesOps } from '@/components/executive/agent-ops-v2/WelileSignagesOps';
-import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
-import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
-import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
-import { COOAgentHub } from '@/components/coo/COOAgentHub';
-import { COOPartnerBroadcast } from '@/components/coo/COOPartnerBroadcast';
-import { MissedDaysTracker } from '@/components/executive/MissedDaysTracker';
-import { PendingPortfolioTopUps } from '@/components/cfo/PendingPortfolioTopUps';
-import { PartnerFinancialActivity } from '@/components/executive/PartnerFinancialActivity';
-import DailyCollectionMonitoringDashboard from '@/components/shared/DailyCollectionMonitoringDashboard';
+const RentPipelineQueue = lazy(() => import('@/components/executive/RentPipelineQueue').then((m) => ({ default: m.RentPipelineQueue })));
+const RejectedRequestsQueue = lazy(() => import('@/components/executive/RejectedRequestsQueue').then((m) => ({ default: m.RejectedRequestsQueue })));
+const COOWelileHomesApprovalDesk = lazy(() => import('@/components/coo/COOWelileHomesApprovalDesk').then((m) => ({ default: m.COOWelileHomesApprovalDesk })));
+const WelileSignagesOps = lazy(() => import('@/components/executive/agent-ops-v2/WelileSignagesOps').then((m) => ({ default: m.WelileSignagesOps })));
+const WhHistoricalDisbursementsPanel = lazy(() => import('@/components/welile-homes/historical/WhHistoricalDisbursementsPanel').then((m) => ({ default: m.WhHistoricalDisbursementsPanel })));
+const FinancialOpsCommandCenter = lazy(() => import('@/components/financial-ops/FinancialOpsCommandCenter').then((m) => ({ default: m.FinancialOpsCommandCenter })));
+const ShareSupporterRecruit = lazy(() => import('@/components/shared/ShareSupporterRecruit').then((m) => ({ default: m.ShareSupporterRecruit })));
+const COOAgentHub = lazy(() => import('@/components/coo/COOAgentHub').then((m) => ({ default: m.COOAgentHub })));
+const COOPartnerBroadcast = lazy(() => import('@/components/coo/COOPartnerBroadcast').then((m) => ({ default: m.COOPartnerBroadcast })));
+const MissedDaysTracker = lazy(() => import('@/components/executive/MissedDaysTracker').then((m) => ({ default: m.MissedDaysTracker })));
+const PendingPortfolioTopUps = lazy(() => import('@/components/cfo/PendingPortfolioTopUps').then((m) => ({ default: m.PendingPortfolioTopUps })));
+const PartnerFinancialActivity = lazy(() => import('@/components/executive/PartnerFinancialActivity').then((m) => ({ default: m.PartnerFinancialActivity })));
+const DailyCollectionMonitoringDashboard = lazy(() => import('@/components/shared/DailyCollectionMonitoringDashboard'));
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link, useNavigate } from 'react-router-dom';
-import { COOScaleVisionView } from '@/components/coo/COOScaleVisionView';
-import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
-import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
-import { ApprovalHistoryLog } from '@/components/executive/ApprovalHistoryLog';
-import COOOverviewSnapshot from '@/components/coo/COOOverviewSnapshot';
-import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
-import COODepartmentBudgets from '@/components/coo/COODepartmentBudgets';
-import { COOServiceCentreVetting } from '@/components/coo/COOServiceCentreVetting';
-import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetworkBadge';
+const COOScaleVisionView = lazy(() => import('@/components/coo/COOScaleVisionView').then((m) => ({ default: m.COOScaleVisionView })));
+const WelileOperationsHub = lazy(() => import('@/components/executive/WelileOperationsHub').then((m) => ({ default: m.WelileOperationsHub })));
+const GlobalVerificationHub = lazy(() => import('@/components/executive/GlobalVerificationHub').then((m) => ({ default: m.GlobalVerificationHub })));
+const ApprovalHistoryLog = lazy(() => import('@/components/executive/ApprovalHistoryLog').then((m) => ({ default: m.ApprovalHistoryLog })));
+const COOOverviewSnapshot = lazy(() => import('@/components/coo/COOOverviewSnapshot'));
+const ServiceCentreReceivablesPanel = lazy(() => import('@/components/cfo/ServiceCentreReceivablesPanel').then((m) => ({ default: m.ServiceCentreReceivablesPanel })));
+const COODepartmentBudgets = lazy(() => import('@/components/coo/COODepartmentBudgets'));
+const COOServiceCentreVetting = lazy(() => import('@/components/coo/COOServiceCentreVetting').then((m) => ({ default: m.COOServiceCentreVetting })));
+const AgentNetworkBadge = lazy(() => import('@/components/executive/tenant-ops/AgentNetworkBadge').then((m) => ({ default: m.AgentNetworkBadge })));
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
   TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone, ShoppingBag, LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
-import { BoutiqueOrderApprovalQueue } from '@/components/executive/agent-ops/BoutiqueOrderApprovalQueue';
-import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
+const BikeLeaseApprovalQueue = lazy(() => import('@/components/executive/agent-ops/BikeLeaseApprovalQueue').then((m) => ({ default: m.BikeLeaseApprovalQueue })));
+const BoutiqueOrderApprovalQueue = lazy(() => import('@/components/executive/agent-ops/BoutiqueOrderApprovalQueue').then((m) => ({ default: m.BoutiqueOrderApprovalQueue })));
+const SmartphoneOrderApprovalQueue = lazy(() => import('@/components/executive/agent-ops/SmartphoneOrderApprovalQueue').then((m) => ({ default: m.SmartphoneOrderApprovalQueue })));
 
 interface QuickNavItem {
   id: string;
@@ -435,7 +437,7 @@ export default function COODashboardPage() {
         </Link>
       }
     >
-      {renderContent()}
+      <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-muted-foreground">Loading section…</p>}>{renderContent()}</Suspense>
     </ExecutiveDashboardLayout>
   );
 }

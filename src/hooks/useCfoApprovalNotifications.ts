@@ -202,13 +202,14 @@ const DEFINITIONS: CategoryDef[] = [
   },
 ];
 
-export function useCfoApprovalNotifications() {
+export function useCfoApprovalNotifications(enabled = true) {
   const queryClient = useQueryClient();
 
   // One independent query per approval queue — a failure in one queue can
   // never blank out the others.
   const results = useQueries({
     queries: DEFINITIONS.map((def) => ({
+      enabled,
       queryKey: ['cfo-approval-notifications', def.key],
       staleTime: 30_000,
       refetchInterval: 60_000,

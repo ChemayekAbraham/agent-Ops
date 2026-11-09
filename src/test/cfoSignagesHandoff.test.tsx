@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
 
 vi.mock('@/hooks/useWelileSignages', () => ({
+  useSignageDetail: () => ({ data: { photos: [] }, isPending: false }),
   useSignageOpsQueue: () => ({ data: [
     { id: 'coo-approved', status: 'approved_for_installation', property_name: 'Approved shop',
       reference_no: 'SGN-1', owner_full_name: 'Owner', owner_phone: '0700000000', district_name: 'Kampala',

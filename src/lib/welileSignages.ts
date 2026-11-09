@@ -30,6 +30,7 @@ export type SignageStatus =
   | 'approved_for_installation'
   | 'pending_installation'
   | 'installation_verification'
+  | 'awaiting_cfo'
   | 'active'
   | 'temporarily_inactive'
   | 'payment_on_hold'
@@ -125,6 +126,9 @@ export interface SignageRecord {
   owner_rent_disbursed_at?: string;
   owner_rent_disbursed_by?: string;
   owner_rent_tx_ref?: string;
+  owner_rent_due_at?: string;
+  owner_rent_period_index?: number;
+  owner_rent_payable?: boolean;
 
   created_at: string;
   updated_at: string;
@@ -143,6 +147,9 @@ export interface SignageOwnerObligation {
   transaction_ref?: string;
   disbursed_at?: string;
 }
+
+/** Queue rows intentionally omit embedded image data; evidence is fetched by ID. */
+export type SignageListRecord = Omit<SignageRecord, 'photos' | 'installation_photos'>;
 
 export interface SignageAgentReward {
   id: string;
@@ -169,6 +176,8 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
       return { label: 'Pending Installation', variant: 'secondary' };
     case 'installation_verification':
       return { label: 'Verifying Installation', variant: 'secondary' };
+    case 'awaiting_cfo':
+      return { label: 'Awaiting CFO', variant: 'secondary' };
     case 'active':
       return { label: 'Active (Billing)', variant: 'success' };
     case 'changes_required':
@@ -215,7 +224,11 @@ export function hasInstalledSignagePhoto(photos: SignagePhoto[] | undefined): bo
   return !!photos?.some((photo) => photo.category === 'installed_signage' && /^(data:image\/(webp|jpeg|png);base64,|https:\/\/)/.test(photo.url));
 }
 
-export function signagePipelineRecords(records: SignageRecord[]): SignageRecord[] {
+export function signagePipelineRecords<T extends SignageListRecord>(records: T[]): T[] {
   return records.filter((record) => ['draft', 'submitted', 'pending', 'under_review', 'awaiting_coo', 'approved_for_installation',
-    'pending_installation', 'installation_verification', 'changes_required', 'rejected'].includes(record.status));
+    'pending_installation', 'installation_verification', 'awaiting_cfo', 'changes_required', 'rejected'].includes(record.status));
+}
+
+export function canPaySignage(record: SignageListRecord): boolean {
+  return ['awaiting_cfo', 'active'].includes(record.status) && !!record.verified_at && !!record.installed_at;
 }

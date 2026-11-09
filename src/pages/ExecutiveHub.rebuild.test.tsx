@@ -13,6 +13,8 @@ vi.mock('@/components/executive/TenantOpsHub', () => ({
   },
 }));
 vi.mock('@/components/mission/MissionBanner', () => ({ MissionBanner: () => null }));
+vi.mock('@/components/v360/V360StaffPricingBanner', () => ({ V360StaffPricingBanner: () => null }));
+vi.mock('@/components/receivables/ReceivablesSummaryGate', () => ({ ReceivablesSummaryGate: ({ children }: { children: React.ReactNode }) => children }));
 vi.mock('@/components/budget/BudgetDepartmentNotificationBell', () => ({ BudgetDepartmentNotificationBell: () => null }));
 vi.mock('@/pages/NotFound', () => ({ default: () => <div data-testid="not-found" /> }));
 vi.mock('@/components/common/ScreenLoader', () => ({ default: () => <div data-testid="screen-loader" /> }));
@@ -24,6 +26,7 @@ vi.mock('@/hooks/useAuth', () => ({ useAuth: () => auth }));
 let reads = 0;
 vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'u-1' }, access_token: 'test', expires_at: Date.now() / 1000 + 3600 } }, error: null }) },
     from: () => {
       const chain: Record<string, unknown> = {};
       chain.select = () => chain;

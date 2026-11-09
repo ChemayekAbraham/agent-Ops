@@ -9,10 +9,11 @@ import { supabase } from '@/integrations/supabase/client';
  * Used to badge the CFO "Advances" menu item so the CFO always sees how many
  * advances are pending disbursement. Kept live via realtime.
  */
-export function useCfoAdvanceDisbursementCount() {
+export function useCfoAdvanceDisbursementCount(enabled = true) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
+    enabled,
     queryKey: ['cfo-advance-disbursement-count'],
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -27,6 +28,7 @@ export function useCfoAdvanceDisbursementCount() {
   });
 
   useEffect(() => {
+    if (!enabled) return;
     const channel = supabase
       .channel('cfo-advance-disbursement-count')
       .on(
@@ -40,7 +42,7 @@ export function useCfoAdvanceDisbursementCount() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 
   return query.data ?? 0;
 }

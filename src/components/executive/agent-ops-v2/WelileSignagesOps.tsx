@@ -1,3 +1,4 @@
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
 import React, { useState } from 'react';
 import {
   ArrowLeft,
@@ -33,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import {
   SIGNAGE_RATES,
-  SignageRecord,
+  SignageListRecord,
   SignageStatus,
   formatSignageStatus,
   canReviewSignage,
@@ -59,7 +60,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
 
   // Modal states
-  const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
+  const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isVerifyOpen, setIsVerifyOpen] = useState(false);
 
@@ -228,6 +229,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
             ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
             { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
             { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
+            { id: 'awaiting_cfo', label: 'Awaiting CFO' },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -309,7 +311,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <div className="flex items-center justify-between pt-1 gap-2 border-t border-border/40">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Camera className="h-3.5 w-3.5" />
-                      <span>{item.photos?.length ?? 0} photos attached</span>
+                      <span>Photographic evidence</span>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -372,22 +374,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
               {/* Photos Gallery */}
               <div>
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">Photographic Evidence</Label>
-                {selectedSignage.photos?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedSignage.photos.map((photo, i) => (
-                      <div key={photo.id || i} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black/10">
-                        <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
-                          {photo.category?.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-xl text-center">
-                    No photographs provided.
-                  </p>
-                )}
+                {isReviewOpen && <SignageEvidence signageId={selectedSignage.id} />}
               </div>
 
               {/* Location & Coordinates Audit */}
@@ -508,14 +495,14 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <DialogTitle className="text-base font-bold">Verify Physical Installation</DialogTitle>
                 </div>
                 <DialogDescription className="text-xs">
-                  Confirm the signage has been physically mounted at {selectedSignage.property_name}. This independently activates the recurring owner payments and the agent reward.
+                  Confirm the signage has been physically mounted at {selectedSignage.property_name}. It will await CFO payment of both the agent reward and first owner rent before becoming active.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1 text-emerald-800 dark:text-emerald-300">
-                <p className="font-bold">⚡ Financial Actions Triggered by Verification:</p>
+                <p className="font-bold">Awaiting CFO after verification:</p>
                 <p>• Unlocks <strong>UGX 3,000</strong> one-time agent reward for {selectedSignage.agent_name || 'Agent'}.</p>
-                <p>• Starts <strong>UGX 10,000/month</strong> recurring rent obligation for property owner {selectedSignage.owner_full_name}.</p>
+                <p>• Queues the first <strong>UGX 10,000</strong> owner rent for {selectedSignage.owner_full_name}; monthly billing starts after both payments.</p>
               </div>
 
               <div className="space-y-3">
@@ -577,7 +564,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   disabled={verifyMutation.isPending || preparingPhoto || !installerName.trim() || !installedPhoto}
                   className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {verifyMutation.isPending ? 'Activating...' : 'Verify & Activate Signage'}
+                  {verifyMutation.isPending ? 'Verifying...' : 'Verify & Send to CFO'}
                 </Button>
               </DialogFooter>
             </div>
