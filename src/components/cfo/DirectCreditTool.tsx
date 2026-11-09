@@ -1264,17 +1264,27 @@ export function DirectCreditTool() {
             )}
 
             <div className="space-y-2">
-              <Label className="text-xs font-semibold text-foreground">Amount (UGX)</Label>
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-xs font-bold text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="payout-amount" className="text-xs font-semibold text-foreground">
+                  Amount (UGX) <span className="text-destructive">*</span>
+                </Label>
+                {amt > 0 && (
+                  <span className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                    UGX {amt.toLocaleString()}
+                  </span>
+                )}
+              </div>
+              <div className="relative flex items-center">
+                <div className="pointer-events-none absolute left-3 z-10 flex items-center justify-center h-8 px-2.5 rounded-lg bg-muted text-foreground font-bold text-xs border border-border/70 shadow-2xs">
                   UGX
                 </div>
                 <Input
+                  id="payout-amount"
                   type="number"
-                  placeholder="50000"
+                  placeholder="0"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  className="pl-13 h-11 rounded-xl text-sm font-semibold tracking-wide border-border/70"
+                  className="pl-20 h-14 rounded-2xl text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary shadow-xs"
                 />
               </div>
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -1284,7 +1294,7 @@ export function DirectCreditTool() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="text-xs h-7 px-2.5 rounded-lg border-border/70 hover:border-primary/50 hover:bg-primary/5 hover:text-primary font-medium"
+                    className="text-xs h-8 px-3 rounded-xl border-border/70 hover:border-primary/50 hover:bg-primary/5 hover:text-primary font-semibold"
                     onClick={() => setAmount(String(v))}
                   >
                     {(v / 1000).toFixed(0)}K
