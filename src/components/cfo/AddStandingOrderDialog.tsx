@@ -237,312 +237,280 @@ export function AddStandingOrderDialog({
           </div>
         </DialogHeader>
 
-        {/* STEP 1: Select Category */}
-        {!selectedCategory ? (
-          <div className="py-2 space-y-4">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Select Payout Category
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Choose an authorized wallet credit category to schedule for recurring payments.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {CREDIT_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategoryId(cat.id)}
-                  className="group relative text-left p-3.5 rounded-2xl border border-border/70 bg-card hover:border-primary/60 hover:bg-primary/5 transition-all shadow-2xs hover:shadow-xs"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                      {cat.label}
+        <form onSubmit={handleSubmit} className="py-2 space-y-5">
+          {/* Payout Category Dropdown */}
+          <div className="space-y-1.5">
+            <Label htmlFor="so-category" className="text-xs font-semibold text-foreground flex items-center gap-1">
+              Payout Category <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={selectedCategoryId}
+              onValueChange={(val) => {
+                setSelectedCategoryId(val);
+                setSelectedSubCategoryId('');
+              }}
+            >
+              <SelectTrigger id="so-category" className="h-11 rounded-xl text-sm border-border/80 bg-background">
+                <SelectValue placeholder="Select a payout category..." />
+              </SelectTrigger>
+              <SelectContent className="max-h-64 rounded-xl shadow-lg border-border/80">
+                {CREDIT_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id} className="py-2 rounded-lg cursor-pointer">
+                    <span className="flex items-center justify-between gap-3 w-full">
+                      <span className="font-semibold">{cat.label}</span>
+                      <span className="text-xs text-muted-foreground capitalize">({cat.impact})</span>
                     </span>
-                    <Badge variant="outline" className="text-[10px] capitalize px-2 py-0">
-                      {cat.impact}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {cat.description}
-                  </p>
-                  {cat.subCategories && (
-                    <div className="text-[10px] text-primary/80 font-medium mt-1.5 flex items-center gap-1">
-                      <span>📂 {cat.subCategories.length} subcategories available</span>
-                    </div>
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* STEP 2: Fill Form Fields */
-          <form onSubmit={handleSubmit} className="py-2 space-y-5">
-            {/* Active Category Header */}
-            <div className="flex items-center justify-between p-3.5 rounded-2xl border border-primary/30 bg-primary/5 shadow-2xs">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold shrink-0">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground font-medium">Selected Category</p>
-                  <p className="text-sm font-bold text-foreground truncate">{selectedCategory.label}</p>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs font-semibold gap-1 text-primary hover:text-primary hover:bg-primary/10"
-                onClick={() => {
-                  setSelectedCategoryId('');
-                  setSelectedSubCategoryId('');
-                }}
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Change
-              </Button>
-            </div>
-
-            {/* Subcategory */}
-            {hasSubCategories && (
-              <div className="space-y-1.5">
-                <Label htmlFor="so-subcategory" className="text-xs font-semibold text-foreground flex items-center gap-1">
-                  Subcategory <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <select
-                    id="so-subcategory"
-                    value={selectedSubCategoryId}
-                    onChange={(e) => setSelectedSubCategoryId(e.target.value)}
-                    className="flex h-11 w-full appearance-none rounded-xl border border-border/80 bg-background px-3.5 py-2 pr-10 text-sm text-foreground transition-colors ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary/50"
-                  >
-                    <option value="">Select subcategory...</option>
-                    {selectedCategory.subCategories?.map((sub) => (
-                      <option key={sub.id} value={sub.id}>
-                        {sub.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                </div>
-              </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedCategory && (
+              <p className="text-xs text-muted-foreground pt-0.5 leading-relaxed">
+                {selectedCategory.description}
+              </p>
             )}
+          </div>
 
-            {/* Recipient User Picker */}
-            <UserSearchPicker
-              label="Recipient User"
-              placeholder="Search user by name or phone..."
-              selectedUser={selectedUser}
-              onSelect={(u) => setSelectedUser(u)}
-            />
-
-            {/* Amount Field with Big Visible Typography */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="so-amount" className="text-xs font-semibold text-foreground">
-                  Recurring Amount (UGX) <span className="text-destructive">*</span>
-                </Label>
-                {numAmount > 0 && (
-                  <span className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
-                    UGX {numAmount.toLocaleString()}
-                  </span>
-                )}
-              </div>
-              <div className="relative flex items-center">
-                <div className="pointer-events-none absolute left-3 z-10 flex items-center justify-center h-8 px-2.5 rounded-lg bg-muted text-foreground font-bold text-xs border border-border/70 shadow-2xs">
-                  UGX
-                </div>
-                <Input
-                  id="so-amount"
-                  type="number"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="pl-20 h-14 rounded-2xl text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary shadow-xs"
-                />
-              </div>
-            </div>
-
-            {/* Recurrence Schedule Config */}
-            <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                  <CalendarClock className="h-4 w-4 text-primary" />
-                  Recurrence Schedule
-                </Label>
-                <Badge variant="outline" className="text-[11px] font-medium border-primary/30 text-primary bg-primary/5">
-                  {describeSchedule(scheduleConfig)}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Form Fields: Displayed upon category selection */}
+          {selectedCategory && (
+            <>
+              {/* Subcategory */}
+              {hasSubCategories && (
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Frequency</Label>
-                  <Select
-                    value={scheduleConfig.frequency}
-                    onValueChange={(val: any) =>
-                      setScheduleConfig((c) => ({ ...c, frequency: val }))
-                    }
-                  >
-                    <SelectTrigger className="h-10 rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="interval">Every N Days</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="so-subcategory" className="text-xs font-semibold text-foreground flex items-center gap-1">
+                    Subcategory <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <select
+                      id="so-subcategory"
+                      value={selectedSubCategoryId}
+                      onChange={(e) => setSelectedSubCategoryId(e.target.value)}
+                      className="flex h-11 w-full appearance-none rounded-xl border border-border/80 bg-background px-3.5 py-2 pr-10 text-sm text-foreground transition-colors ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary/50"
+                    >
+                      <option value="">Select subcategory...</option>
+                      {selectedCategory.subCategories?.map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+
+              {/* Recipient User Picker */}
+              <UserSearchPicker
+                label="Recipient User"
+                placeholder="Search user by name or phone..."
+                selectedUser={selectedUser}
+                onSelect={(u) => setSelectedUser(u)}
+              />
+
+              {/* Amount Field with Big Visible Typography */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="so-amount" className="text-xs font-semibold text-foreground">
+                    Recurring Amount (UGX) <span className="text-destructive">*</span>
+                  </Label>
+                  {numAmount > 0 && (
+                    <span className="text-xs font-bold font-mono text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                      UGX {numAmount.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="relative flex items-center">
+                  <div className="pointer-events-none absolute left-3 z-10 flex items-center justify-center h-8 px-2.5 rounded-lg bg-muted text-foreground font-bold text-xs border border-border/70 shadow-2xs">
+                    UGX
+                  </div>
+                  <Input
+                    id="so-amount"
+                    type="number"
+                    placeholder="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="pl-20 h-14 rounded-2xl text-xl sm:text-2xl font-bold tracking-tight text-foreground bg-background border-border/80 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary shadow-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Recurrence Schedule Config */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <CalendarClock className="h-4 w-4 text-primary" />
+                    Recurrence Schedule
+                  </Label>
+                  <Badge variant="outline" className="text-[11px] font-medium border-primary/30 text-primary bg-primary/5">
+                    {describeSchedule(scheduleConfig)}
+                  </Badge>
                 </div>
 
-                {scheduleConfig.frequency === 'monthly' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Day of Month</Label>
+                    <Label className="text-xs text-muted-foreground">Frequency</Label>
                     <Select
-                      value={String(scheduleConfig.dayOfMonth)}
-                      onValueChange={(val) =>
-                        setScheduleConfig((c) => ({ ...c, dayOfMonth: Number(val) }))
-                      }
-                    >
-                      <SelectTrigger className="h-10 rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-56">
-                        {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                          <SelectItem key={d} value={String(d)}>
-                            Day {d} of month
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {scheduleConfig.frequency === 'weekly' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Day of Week</Label>
-                    <Select
-                      value={String(scheduleConfig.dayOfWeek)}
-                      onValueChange={(val) =>
-                        setScheduleConfig((c) => ({ ...c, dayOfWeek: Number(val) }))
+                      value={scheduleConfig.frequency}
+                      onValueChange={(val: any) =>
+                        setScheduleConfig((c) => ({ ...c, frequency: val }))
                       }
                     >
                       <SelectTrigger className="h-10 rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1">Every Monday</SelectItem>
-                        <SelectItem value="2">Every Tuesday</SelectItem>
-                        <SelectItem value="3">Every Wednesday</SelectItem>
-                        <SelectItem value="4">Every Thursday</SelectItem>
-                        <SelectItem value="5">Every Friday</SelectItem>
-                        <SelectItem value="6">Every Saturday</SelectItem>
-                        <SelectItem value="0">Every Sunday</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="interval">Every N Days</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                )}
 
-                {scheduleConfig.frequency === 'interval' && (
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Interval (Days)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={90}
-                      value={scheduleConfig.intervalDays}
-                      onChange={(e) =>
-                        setScheduleConfig((c) => ({
-                          ...c,
-                          intervalDays: Math.max(1, Number(e.target.value) || 1),
-                        }))
-                      }
-                      className="h-10 rounded-xl"
-                    />
-                  </div>
-                )}
+                  {scheduleConfig.frequency === 'monthly' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Day of Month</Label>
+                      <Select
+                        value={String(scheduleConfig.dayOfMonth)}
+                        onValueChange={(val) =>
+                          setScheduleConfig((c) => ({ ...c, dayOfMonth: Number(val) }))
+                        }
+                      >
+                        <SelectTrigger className="h-10 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-56">
+                          {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                            <SelectItem key={d} value={String(d)}>
+                              Day {d} of month
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {scheduleConfig.frequency === 'weekly' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Day of Week</Label>
+                      <Select
+                        value={String(scheduleConfig.dayOfWeek)}
+                        onValueChange={(val) =>
+                          setScheduleConfig((c) => ({ ...c, dayOfWeek: Number(val) }))
+                        }
+                      >
+                        <SelectTrigger className="h-10 rounded-xl">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">Every Monday</SelectItem>
+                          <SelectItem value="2">Every Tuesday</SelectItem>
+                          <SelectItem value="3">Every Wednesday</SelectItem>
+                          <SelectItem value="4">Every Thursday</SelectItem>
+                          <SelectItem value="5">Every Friday</SelectItem>
+                          <SelectItem value="6">Every Saturday</SelectItem>
+                          <SelectItem value="0">Every Sunday</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {scheduleConfig.frequency === 'interval' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Interval (Days)</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={90}
+                        value={scheduleConfig.intervalDays}
+                        onChange={(e) =>
+                          setScheduleConfig((c) => ({
+                            ...c,
+                            intervalDays: Math.max(1, Number(e.target.value) || 1),
+                          }))
+                        }
+                        className="h-10 rounded-xl"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {/* Audit Reason */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="so-reason" className="text-xs font-semibold text-foreground">
-                  Audit Reason <span className="text-destructive">*</span>
-                </Label>
-                <span
-                  className={`text-[11px] font-medium transition-colors ${
-                    reason.trim().length >= 20
-                      ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
-                      : 'text-muted-foreground'
-                  }`}
+              {/* Audit Reason */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="so-reason" className="text-xs font-semibold text-foreground">
+                    Audit Reason <span className="text-destructive">*</span>
+                  </Label>
+                  <span
+                    className={`text-[11px] font-medium transition-colors ${
+                      reason.trim().length >= 20
+                        ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                        : 'text-muted-foreground'
+                    }`}
+                  >
+                    {reason.trim().length}/20 characters minimum
+                  </span>
+                </div>
+                <Textarea
+                  id="so-reason"
+                  placeholder="e.g. Monthly stipend advance for technical operations, authorized by CFO..."
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={2}
+                  className="rounded-xl border-border/80 focus-visible:ring-primary/20 text-sm"
+                />
+              </div>
+
+              {/* Optional First Payout Now */}
+              <div className="rounded-2xl border border-border/70 bg-muted/30 p-3.5 flex items-start gap-3">
+                <input
+                  id="disburse-now-checkbox"
+                  type="checkbox"
+                  checked={disburseFirstNow}
+                  onChange={(e) => setDisburseFirstNow(e.target.checked)}
+                  className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
+                />
+                <label htmlFor="disburse-now-checkbox" className="text-xs cursor-pointer select-none">
+                  <p className="font-semibold text-foreground">Disburse first payout immediately today</p>
+                  <p className="text-muted-foreground mt-0.5">
+                    Sends UGX {numAmount > 0 ? numAmount.toLocaleString() : '...'} to the user's wallet right now via CFO Direct Credit, and schedules subsequent payouts starting on schedule.
+                  </p>
+                </label>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleClose(false)}
+                  disabled={isSubmitting}
+                  className="h-11 rounded-xl px-5 font-semibold"
                 >
-                  {reason.trim().length}/20 characters minimum
-                </span>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={!isFormValid || isSubmitting}
+                  className="h-11 rounded-xl px-6 font-semibold gap-2 bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving Standing Order...
+                    </>
+                  ) : (
+                    <>
+                      <CalendarClock className="h-4 w-4" />
+                      {disburseFirstNow ? 'Disburse & Schedule' : 'Schedule Standing Order'}
+                    </>
+                  )}
+                </Button>
               </div>
-              <Textarea
-                id="so-reason"
-                placeholder="e.g. Monthly stipend advance for technical operations, authorized by CFO..."
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={2}
-                className="rounded-xl border-border/80 focus-visible:ring-primary/20 text-sm"
-              />
-            </div>
-
-            {/* Optional First Payout Now */}
-            <div className="rounded-2xl border border-border/70 bg-muted/30 p-3.5 flex items-start gap-3">
-              <input
-                id="disburse-now-checkbox"
-                type="checkbox"
-                checked={disburseFirstNow}
-                onChange={(e) => setDisburseFirstNow(e.target.checked)}
-                className="h-4 w-4 mt-0.5 rounded border-border text-primary focus:ring-primary/20 cursor-pointer"
-              />
-              <label htmlFor="disburse-now-checkbox" className="text-xs cursor-pointer select-none">
-                <p className="font-semibold text-foreground">Disburse first payout immediately today</p>
-                <p className="text-muted-foreground mt-0.5">
-                  Sends UGX {numAmount > 0 ? numAmount.toLocaleString() : '...'} to the user's wallet right now via CFO Direct Credit, and schedules subsequent payouts starting on schedule.
-                </p>
-              </label>
-            </div>
-
-            {/* Action buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleClose(false)}
-                disabled={isSubmitting}
-                className="h-11 rounded-xl px-5 font-semibold"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!isFormValid || isSubmitting}
-                className="h-11 rounded-xl px-6 font-semibold gap-2 bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Saving Standing Order...
-                  </>
-                ) : (
-                  <>
-                    <CalendarClock className="h-4 w-4" />
-                    {disburseFirstNow ? 'Disburse & Schedule' : 'Schedule Standing Order'}
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        )}
+            </>
+          )}
+        </form>
       </DialogContent>
     </Dialog>
   );
