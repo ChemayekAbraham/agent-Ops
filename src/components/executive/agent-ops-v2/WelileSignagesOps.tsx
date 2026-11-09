@@ -333,6 +333,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                           size="sm"
                           onClick={() => {
                             setSelectedSignage(item);
+                            setInstallerName(item.agent_name || '');
                             setIsVerifyOpen(true);
                           }}
                           className="rounded-xl text-xs h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -514,7 +515,12 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                     onChange={(e) => setInstallerName(e.target.value)}
                     className="mt-1 h-10 text-xs rounded-xl"
                     required
+                    disabled={!!selectedSignage.agent_name}
+                    readOnly={!!selectedSignage.agent_name}
                   />
+                  {selectedSignage.agent_name && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">The agent who submitted this application — cannot be changed.</p>
+                  )}
                 </div>
 
                 <div>
