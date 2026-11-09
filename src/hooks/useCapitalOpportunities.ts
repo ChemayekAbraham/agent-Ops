@@ -1,3 +1,4 @@
+import { fetchFundersBoardHeadline } from '@/lib/fundersBoard';
 import { withUserSession } from '@/lib/authenticatedRequests';
 import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -106,7 +107,7 @@ export function useCapitalOpportunities(options: { enabled?: boolean } = {}) {
     if (!(await hasUsableUserSession())) { setLoading(false); return; }
 
     try {
-      const [byInvestor, byAgent, summaryRes, emptyHousesRes] = await Promise.all([
+      const [byInvestor, byAgent, summaryRes, emptyHousesRes, board] = await Promise.all([
         withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at, cfo_verified_at, locked_from_portfolio_id')
@@ -127,7 +128,9 @@ export function useCapitalOpportunities(options: { enabled?: boolean } = {}) {
           .limit(1)
           .maybeSingle(),
         supabase.rpc('empty_house_opportunity_summary'),
+        fetchFundersBoardHeadline(),
       ]);
+      const useBoard = board?.on === true;
 
       // Deduplicate portfolios by id
       const all = [
@@ -165,10 +168,10 @@ export function useCapitalOpportunities(options: { enabled?: boolean } = {}) {
               })
             : [];
         setEmptyHouseSummary({
-          house_count: Number(raw.house_count ?? 0),
-          total_rent_needed: Number(raw.total_rent_needed ?? 0),
+          house_count: useBoard ? board.houses_waiting : Number(raw.house_count ?? 0),
+          total_rent_needed: useBoard ? board.amount_needed_ugx : Number(raw.total_rent_needed ?? 0),
           monthly_return_if_all_funded: Number(raw.monthly_return_if_all_funded ?? 0),
-          avg_monthly_rent: Number(raw.avg_monthly_rent ?? 0),
+          avg_monthly_rent: useBoard ? board.avg_monthly_rent : Number(raw.avg_monthly_rent ?? 0),
           funded_count: Number(raw.funded_count ?? 0),
           funded_rent: Number(raw.funded_rent ?? 0),
           total_listed: Number(raw.total_listed ?? 0),

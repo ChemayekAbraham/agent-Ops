@@ -10,10 +10,9 @@ import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { FunderV3HouseCard } from './FunderV3HouseCard';
 import { FunderV3Hero } from './FunderV3Hero';
-import { countLabel, readChipDismissed } from './FunderV3HousesScreen';
+import { countLabel, mapShrinkFor, readChipDismissed } from './FunderV3HousesScreen';
 import { columnsForWidth, cardIdOf } from './FunderV3HousesList';
 import { layoutModeFor } from './useLayoutMode';
-import { nearestSnap, snapHeights } from './FunderV3Sheet';
 import { launcherHidden, isFunderRoute } from '@/components/FloatingToolbar';
 import { FIXTURE_DEVICE, FIXTURE_SUMMARY, makeFeed } from './__fixtures__/funderV3Fixtures';
 import { itemCoordinates } from '@/components/funder-new/utils';
@@ -103,23 +102,13 @@ describe('funder V3 — presentation helpers', () => {
     expect(columnsForWidth(1100)).toBe(3);
   });
 
-  it('sheet snap heights are recomputed from the live viewport', () => {
-    const portrait = snapHeights(844, 76);
-    expect(portrait).toEqual({ peek: 96, half: 422, full: 768 });
-    const landscape = snapHeights(390, 76);
-    expect(landscape.half).toBe(195);
-    expect(landscape.full).toBe(314);
-    // Keyboard open: much shorter visible viewport.
-    expect(snapHeights(420, 76).full).toBe(344);
-  });
-
-  it('a released drag settles on the nearest snap, a flick moves one snap', () => {
-    const h = snapHeights(800, 76);
-    expect(nearestSnap(110, h)).toBe('peek');
-    expect(nearestSnap(420, h)).toBe('half');
-    expect(nearestSnap(700, h)).toBe('full');
-    expect(nearestSnap(430, h, -1)).toBe('full');
-    expect(nearestSnap(390, h, 1)).toBe('peek');
+  it('the map shrinks 1:1 with the list scroll, from half the screen to a quarter', () => {
+    // 800px screen: the map window is 400px (50%); it may shrink by 200px (to 25%).
+    expect(mapShrinkFor(0, 400)).toBe(0);
+    expect(mapShrinkFor(-30, 400)).toBe(0); // iOS overscroll at the top
+    expect(mapShrinkFor(120, 400)).toBe(120);
+    expect(mapShrinkFor(200, 400)).toBe(200);
+    expect(mapShrinkFor(5000, 400)).toBe(200);
   });
 
   it('location chip dismissal lasts 7 days', () => {

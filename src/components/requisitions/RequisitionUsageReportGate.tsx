@@ -337,7 +337,7 @@ export function RequisitionUsageReportGate() {
             <ClipboardCheck className="h-5 w-5 text-emerald-600" />
             Your requisition was approved
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-red-600 dark:text-red-400 font-medium">
             You must now submit a report explaining how the money was used.
           </DialogDescription>
         </DialogHeader>
@@ -358,7 +358,7 @@ export function RequisitionUsageReportGate() {
               <Wallet className="h-4 w-4 text-emerald-600" /> {formatUGX(approvedAmount)}
             </p>
             <p className="text-xs text-muted-foreground">Approved {fmtDate(current.cfo_decided_at)}</p>
-            <p className="text-xs text-muted-foreground">Report due {fmtDate(current.grace_ends_at)} · Deferred {deferCount} of {MAX_DEFERRALS}</p>
+            <p className="text-xs font-medium text-red-600 dark:text-red-400">Report due {fmtDate(current.grace_ends_at)} · Deferred {deferCount} of {MAX_DEFERRALS}</p>
             <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{current.reason}</p>
           </div>
 
@@ -488,12 +488,12 @@ export function RequisitionUsageReportGate() {
                   accept="image/jpeg,image/png,image/webp,application/pdf"
                   onChange={(e) => { pickReceipts(e.target.files); e.target.value = ''; }}
                 />
-                <p className="text-xs text-muted-foreground">At least one required. You can attach several — photos or PDFs, up to 10MB each.</p>
+                <p className="text-xs text-red-600 dark:text-red-400">At least one required. You can attach several — photos or PDFs, up to 10MB each.</p>
               </div>
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-red-600 dark:text-red-400">
             Deferred {deferCount} of {MAX_DEFERRALS} times.
           </p>
           {limitReached && (
@@ -502,10 +502,10 @@ export function RequisitionUsageReportGate() {
             </p>
           )}
           {limitReached && !isAcked && !showForm && (
-            <label className="flex items-start gap-2 rounded-xl border p-3 text-sm">
+            <label className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-600 dark:text-red-400">
               <input
                 type="checkbox"
-                className="mt-0.5 h-4 w-4"
+                className="mt-0.5 h-4 w-4 accent-red-600"
                 checked={ackChecked}
                 onChange={(e) => setAckChecked(e.target.checked)}
               />
@@ -515,7 +515,7 @@ export function RequisitionUsageReportGate() {
 
           {showDefer && !limitReached && !showForm && (
             <div className="space-y-2">
-              <Label htmlFor="usage-defer-reason">Why are you deferring?</Label>
+              <Label htmlFor="usage-defer-reason" className="text-red-600 dark:text-red-400 font-medium">Why are you deferring?</Label>
               <Textarea
                 id="usage-defer-reason"
                 rows={3}
@@ -530,7 +530,7 @@ export function RequisitionUsageReportGate() {
           )}
 
           {pending.length > 1 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs font-medium text-red-600 dark:text-red-400">
               {pending.length - 1} other approved requisition{pending.length - 1 === 1 ? '' : 's'} still needs a report.
             </p>
           )}

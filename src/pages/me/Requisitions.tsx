@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { staffLoanSchedule, MONTH_WORDS } from '@/lib/staffLoanSchedule';
 import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
 import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
+import RequisitionUsageReportDialog from '@/components/requisitions/RequisitionUsageReportDialog';
 import { ReceiptMatchNotice } from '@/components/requisitions/ReceiptMatchNotice';
 
 type RequestKind = 'requisition' | 'staff_loan' | 'facilitation';
@@ -215,6 +216,8 @@ const MyRequisitions = () => {
   const [isOfficer, setIsOfficer] = useState(false);
   const [facOpen, setFacOpen] = useState(false);
   const [accountFor, setAccountFor] = useState<Requisition | null>(null);
+  const [usageReportFor, setUsageReportFor] = useState<Requisition | null>(null);
+  const [selectReqForReportOpen, setSelectReqForReportOpen] = useState(false);
 
   const fetchRows = useCallback(async () => {
     const { data: userRes } = await getSessionCheckedUser();
@@ -339,6 +342,17 @@ const MyRequisitions = () => {
       .map((s) => (s === 'supervisor' ? supervisorLabel : STAGE_LABEL[s] || s));
     return chain.join(' → ');
   }, [route]);
+
+  const eligibleForUsageReport = useMemo(() => {
+    return rows.filter(
+      (r) =>
+        r.stage === 'approved' &&
+        !usageReports[r.id] &&
+        !isRefundCategory(r.category) &&
+        r.request_kind !== 'staff_loan' &&
+        r.request_kind !== 'facilitation',
+    );
+  }, [rows, usageReports]);
 
 
   const startNew = (nextKind: RequestKind = 'requisition') => {
@@ -527,6 +541,27 @@ const MyRequisitions = () => {
                     <MapPin className="mr-2 h-4 w-4" /> Request facilitation
                   </Button>
                 )}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (eligibleForUsageReport.length === 0) {
+                      toast.error(
+                        <span className="text-red-600 dark:text-red-400 font-medium">
+                          No approved requisitions are waiting for a usage report.
+                        </span>,
+                        { className: '!text-red-600 dark:!text-red-400' },
+                      );
+                      return;
+                    }
+                    if (eligibleForUsageReport.length === 1) {
+                      setUsageReportFor(eligibleForUsageReport[0]);
+                      return;
+                    }
+                    setSelectReqForReportOpen(true);
+                  }}
+                >
+                  <ClipboardCheck className="mr-2 h-4 w-4" /> Submit usage report
+                </Button>
               </div>
               <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
                 <DialogHeader>
@@ -668,7 +703,7 @@ const MyRequisitions = () => {
                       <span>{isRefund ? 'Receipts / proof of payment' : 'Attachments / Receipts'} <span className="text-xs text-muted-foreground font-normal">{isRefund ? '(required)' : '(optional)'}</span></span>
                       <span className="text-[11px] text-muted-foreground">PDF, PNG, JPG (max 10MB)</span>
                     </Label>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[11px] text-red-600 dark:text-red-400">
                       A receipt is read and compared with the amount you type. You can still submit. If the figures differ, payout waits until they match or the CFO clears the gap.
                     </p>
                     <div className="border border-dashed border-border rounded-xl p-3 bg-muted/20 hover:bg-muted/30 transition-colors text-center">
@@ -729,25 +764,36 @@ const MyRequisitions = () => {
         </Card>
 
         {dueReports.length > 0 && (
-          <Card className="rounded-2xl border-amber-500/30 bg-amber-500/5 p-4">
+          <Card className="rounded-2xl border-red-500/30 bg-red-500/5 p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <ClipboardCheck className="h-4 w-4 text-amber-600" />
+                <p className="flex items-center gap-2 text-sm font-semibold text-red-600 dark:text-red-400">
+                  <ClipboardCheck className="h-4 w-4 text-red-600 dark:text-red-400" />
                   {dueReports.length === 1 ? '1 usage report due' : `${dueReports.length} usage reports due`}
                 </p>
-                <ul className="text-xs text-muted-foreground">
+                <ul className="text-xs text-red-600 dark:text-red-400 space-y-0.5">
                   {dueReports.map((d) => (
                     <li key={d.requisition_id}>
-                      <span className="font-mono">{d.requisition_code}</span> {d.title} • {formatUGX(Number(d.approved_amount ?? d.amount))}
+                      <span className="font-mono font-medium">{d.requisition_code}</span> {d.title} • {formatUGX(Number(d.approved_amount ?? d.amount))}
                       {d.grace_ends_at ? ` • due ${fmtDate(d.grace_ends_at)}` : ''}
                     </li>
                   ))}
                 </ul>
-                <p className="text-xs text-muted-foreground">Refund requests never need one: the receipt you attach is the proof.</p>
+                <p className="text-xs text-red-600 dark:text-red-400">Refund requests never need one: the receipt you attach is the proof.</p>
               </div>
-              <Button onClick={() => window.dispatchEvent(new CustomEvent('welile:open-usage-report'))}>
-                <FileText className="mr-2 h-4 w-4" /> Write report
+              <Button
+                variant="destructive"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  const target = rows.find((r) => r.id === dueReports[0].requisition_id);
+                  if (target) {
+                    setUsageReportFor(target);
+                  } else {
+                    window.dispatchEvent(new CustomEvent('welile:open-usage-report'));
+                  }
+                }}
+              >
+                <ClipboardCheck className="mr-2 h-4 w-4" /> Submit usage report
               </Button>
             </div>
           </Card>
@@ -957,6 +1003,15 @@ const MyRequisitions = () => {
                       <FileText className="mr-2 h-3 w-3" /> Account for this facilitation
                     </Button>
                   )}
+                  {row.stage === 'approved'
+                    && !usageReports[row.id]
+                    && !isRefundCategory(row.category)
+                    && row.request_kind !== 'staff_loan'
+                    && row.request_kind !== 'facilitation' && (
+                    <Button size="sm" variant="outline" onClick={() => setUsageReportFor(row)}>
+                      <ClipboardCheck className="mr-2 h-3 w-3" /> Submit usage report
+                    </Button>
+                  )}
                   <span className="inline-flex items-center gap-2 text-sm">
                     {uploadingId === row.id
                       ? <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
@@ -1006,6 +1061,47 @@ const MyRequisitions = () => {
             open
             onOpenChange={(o) => { if (!o) setAccountFor(null); }}
             onSubmitted={() => { setAccountFor(null); void fetchRows(); }}
+          />
+        )}
+
+        <Dialog open={selectReqForReportOpen} onOpenChange={setSelectReqForReportOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Select Requisition</DialogTitle>
+              <DialogDescription>
+                Choose which approved requisition you want to submit a usage report for.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {eligibleForUsageReport.map((req) => (
+                <Button
+                  key={req.id}
+                  variant="outline"
+                  className="w-full justify-between text-left h-auto py-2.5 px-3"
+                  onClick={() => {
+                    setSelectReqForReportOpen(false);
+                    setUsageReportFor(req);
+                  }}
+                >
+                  <div className="min-w-0 pr-2">
+                    <p className="font-medium text-xs truncate">{req.title}</p>
+                    <span className="font-mono text-[11px] text-muted-foreground">{req.requisition_code}</span>
+                  </div>
+                  <span className="font-semibold text-xs shrink-0">
+                    {formatUGX(Number(req.approved_amount ?? req.amount))}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {usageReportFor && (
+          <RequisitionUsageReportDialog
+            requisition={usageReportFor}
+            open={!!usageReportFor}
+            onOpenChange={(o) => { if (!o) setUsageReportFor(null); }}
+            onSubmitted={() => { setUsageReportFor(null); void fetchRows(); }}
           />
         )}
       </div>

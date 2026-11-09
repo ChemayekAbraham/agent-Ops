@@ -771,7 +771,7 @@ export default function SupporterDashboard({
             <Suspense fallback={null}>
             <MapBottomSheet
               defaultSnap="half"
-              header={({ snap, setSnap }) => (
+              header={({ snap, setSnap, layout }) => (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <p className="text-[15px] font-bold text-foreground">
@@ -781,14 +781,14 @@ export default function SupporterDashboard({
                       {shownFundingHomes} shown
                     </span>
                   </div>
-                  <button
+                  {layout === 'sheet' && <button
                     type="button"
                     onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
                     className="flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground touch-manipulation transition active:scale-95 hover:bg-muted/70"
                   >
                     <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
                     {snap === 'collapsed' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  </button>
+                  </button>}
                 </div>
               )}
             >

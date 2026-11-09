@@ -1,7 +1,7 @@
 /**
  * Partner Returns 4b READINESS CHECK: screen code that turns a masked figure into a number.
  *
- * Migration 4b (supabase/pending/…_phase4_masks.sql, owner decision D9) sets the trust-profile Returns
+ * Migration 4b (supabase/migrations/…_phase4_masks.sql, applied 2026-11-08, owner decision D9) sets the trust-profile Returns
  * figures and the wallet-hub Returns figures to null for a viewer who may not see the person's Returns.
  * tsconfig.app.json has strictNullChecks off, so `number | null` collapses to `number` and tsc cannot
  * catch `x ?? 0`, `Number(x) || 0`, `Math.round(x)`, `x * 2`, `x >= 50` or `formatUGX(x)` on such a
@@ -136,7 +136,7 @@ function scanScreens(): string[] {
 
 describe('masked-figure misuse detector', () => {
   it('covers every trust path migration 4b masks (container.leaf of each FOREACH path)', () => {
-    const sql = readFileSync(join(SRC, '..', 'supabase', 'pending', '20261108163000_partner_return_policy_phase4_masks.sql'), 'utf8');
+    const sql = readFileSync(join(SRC, '..', 'supabase', 'migrations', '20261108163000_partner_return_policy_phase4_masks.sql'), 'utf8');
     const arr = sql.match(/FOREACH v_path IN ARRAY ARRAY\[([\s\S]*?)\]\s*LOOP/);
     expect(arr).not.toBeNull();
     const fromSql = [...arr![1].matchAll(/'([^']+)'/g)].map((m) => m[1].split('.').slice(-2).join('.')).sort();

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
+import React, { useRef, useState } from 'react';
 import {
   Megaphone,
   CheckCircle2,
@@ -37,42 +38,45 @@ import {
 } from '@/components/ui/dialog';
 import {
   SIGNAGE_RATES,
-  SignageRecord,
+  SignageListRecord,
   formatSignageStatus,
+  canPaySignage,
 } from '@/lib/welileSignages';
-import { useSignageOpsQueue, useCfoDisburseSignage } from '@/hooks/useWelileSignages';
+import { useSignageCfoQueue, useCfoDisburseSignage } from '@/hooks/useWelileSignages';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { toast } from 'sonner';
 
 export function CFOSignagesDesk() {
-  const { data: signages = [], isLoading, refetch } = useSignageOpsQueue();
+  const { data: signages = [], isLoading, isError, error, refetch } = useSignageCfoQueue();
   const disburseMutation = useCfoDisburseSignage();
 
   const [search, setSearch] = useState('');
   const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('all');
-  const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
+  const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [disburseModal, setDisburseModal] = useState<{
-    signage: SignageRecord;
+    signage: SignageListRecord;
     type: 'agent_reward' | 'owner_rent';
   } | null>(null);
-  const [customTxRef, setCustomTxRef] = useState('');
+  const [batchConfirm, setBatchConfirm] = useState(false);
+  const [batchPending, setBatchPending] = useState(false);
+  const paymentLock = useRef(false);
 
-  // COO-approved applications appear immediately; payment eligibility still requires installation verification.
+  // COO-approved applications are payable; paying both initial amounts activates the signage.
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
 
   // Signages with pending rewards or rent obligations
   const pendingAgentRewards = approvedSignages.filter(
-    (s) => s.status === 'active' && s.agent_reward_status !== 'paid'
+    (s) => canPaySignage(s) && s.agent_reward_status !== 'paid'
   );
   const pendingOwnerRents = approvedSignages.filter(
-    (s) => s.status === 'active' && s.owner_rent_status !== 'paid'
+    (s) => canPaySignage(s) && s.owner_rent_payable === true
   );
 
   const totalActive = approvedSignages.filter((s) => s.status === 'active').length;
-  const totalApprovedAwaitingInstall = approvedSignages.filter((s) => s.status !== 'active').length;
+    const totalApprovedAwaitingInstall = approvedSignages.filter((s) => s.status !== 'active').length;
   const totalDisbursedCount = approvedSignages.filter(
     (s) => s.agent_reward_status === 'paid' || s.owner_rent_status === 'paid'
   ).length;
@@ -97,8 +101,8 @@ export function CFOSignagesDesk() {
 
     if (filterTab === 'pending_payout') {
       return (
-        item.status === 'active' &&
-        (item.agent_reward_status !== 'paid' || item.owner_rent_status !== 'paid')
+        canPaySignage(item) &&
+        (item.agent_reward_status !== 'paid' || item.owner_rent_payable === true)
       );
     }
     if (filterTab === 'active') {
@@ -113,14 +117,13 @@ export function CFOSignagesDesk() {
     return true;
   });
 
-  const handleOpenDisburse = (signage: SignageRecord, type: 'agent_reward' | 'owner_rent') => {
+  const handleOpenDisburse = (signage: SignageListRecord, type: 'agent_reward' | 'owner_rent') => {
     hapticTap();
     setDisburseModal({ signage, type });
-    setCustomTxRef(`MOMO-${Date.now().toString().slice(-6)}`);
   };
 
   const handleConfirmDisburse = async () => {
-    if (!disburseModal) return;
+    if (!disburseModal || paymentLock.current) return;
     const { signage, type } = disburseModal;
 
     const amountUgx =
@@ -130,42 +133,53 @@ export function CFOSignagesDesk() {
     const recipientName =
       type === 'agent_reward' ? signage.agent_name || 'Agent' : signage.owner_payment_name || signage.owner_full_name;
 
-    await disburseMutation.mutateAsync({
-      signageId: signage.id,
-      payoutType: type,
-      transactionRef: customTxRef.trim() || undefined,
-      recipientPhone,
-      recipientName,
-      amountUgx,
-    });
+    paymentLock.current = true;
+    try {
+      await disburseMutation.mutateAsync({
+        signageId: signage.id,
+        payoutType: type,
+        recipientPhone,
+        recipientName,
+        amountUgx,
+        periodIndex: type === 'agent_reward' ? 0 : signage.owner_rent_period_index ?? 0,
+      });
 
-    hapticSuccess();
-    setDisburseModal(null);
-    setCustomTxRef('');
+      hapticSuccess();
+      setDisburseModal(null);
+    } catch { /* Mutation displays the server refusal; keep the confirmation open. */ }
+    finally { paymentLock.current = false; }
   };
 
   const handleBatchDisburseAgentRewards = async () => {
-    if (pendingAgentRewards.length === 0) return;
+    if (pendingAgentRewards.length === 0 || paymentLock.current) return;
+    paymentLock.current = true;
+    setBatchPending(true);
+    setBatchConfirm(false);
     hapticTap();
     const toastId = toast.loading(`Batch disbursing ${pendingAgentRewards.length} agent rewards...`);
 
     let successCount = 0;
+    let failureCount = 0;
     for (const s of pendingAgentRewards) {
       try {
         await disburseMutation.mutateAsync({
           signageId: s.id,
           payoutType: 'agent_reward',
-          transactionRef: `BATCH-AGNT-${Date.now().toString().slice(-5)}-${Math.floor(Math.random() * 900)}`,
           amountUgx: SIGNAGE_RATES.AGENT_REWARD_UGX,
+          periodIndex: 0,
         });
         successCount++;
       } catch (err) {
+        failureCount++;
         console.error('Failed for signage:', s.id, err);
       }
     }
 
     toast.dismiss(toastId);
-    toast.success(`Disbursed ${successCount} agent rewards successfully!`);
+    paymentLock.current = false;
+    setBatchPending(false);
+    if (failureCount) toast.error(`${successCount} agent rewards credited; ${failureCount} failed. Review errors and refresh.`);
+    else toast.success(`${successCount} agent rewards credited to Welile wallets.`);
   };
 
   return (
@@ -184,7 +198,7 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              COO-approved applications. Payments require verified installation.
+              COO-approved applications. Paying both initial amounts makes the signage Active.
             </p>
           </div>
         </div>
@@ -193,13 +207,12 @@ export function CFOSignagesDesk() {
           {pendingAgentRewards.length > 0 && (
             <Button
               size="sm"
-              onClick={handleBatchDisburseAgentRewards}
-              disabled
-              title="Coming soon — not yet connected to the payment process"
-              className="rounded-xl text-xs font-bold gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+              onClick={() => setBatchConfirm(true)}
+              disabled={disburseMutation.isPending || batchPending}
+              className="rounded-xl text-xs font-bold gap-1.5 h-9"
             >
               <Send className="h-3.5 w-3.5" />
-              <span>Batch Pay Agents — coming soon</span>
+              <span>{batchPending ? 'Paying agents...' : 'Batch Pay Agents'}</span>
             </Button>
           )}
           <Button
@@ -223,7 +236,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-foreground">{totalActive}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {totalApprovedAwaitingInstall} approved awaiting mounting
+            {totalApprovedAwaitingInstall} awaiting CFO payment
           </p>
         </div>
 
@@ -300,12 +313,14 @@ export function CFOSignagesDesk() {
           <RefreshCw className="h-6 w-6 animate-spin text-primary" />
           <span>Loading CFO Signages Payables Queue...</span>
         </div>
+      ) : isError ? (
+        <div role="alert" className="p-4 text-sm text-destructive">Could not load Signages payments: {(error as Error)?.message}</div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center bg-card border border-border/60 rounded-2xl p-8 space-y-2">
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Applications appear here after COO approval. Payments require verified installation.
+            Applications appear here after COO approval. Paying both initial amounts makes the signage Active.
           </p>
         </div>
       ) : (
@@ -313,8 +328,8 @@ export function CFOSignagesDesk() {
           {filtered.map((item) => {
             const statusMeta = formatSignageStatus(item.status);
             const isRewardPaid = item.agent_reward_status === 'paid';
-            const isRentPaid = item.owner_rent_status === 'paid';
-            const isInstalled = item.status === 'active';
+            const isRentPaid = item.owner_rent_status === 'paid' && item.owner_rent_payable !== true;
+            const isInstalled = canPaySignage(item);
 
             return (
               <Card key={item.id} className="rounded-2xl border-border/60 shadow-sm overflow-hidden hover:border-primary/40 transition-colors">
@@ -377,15 +392,15 @@ export function CFOSignagesDesk() {
                         ) : isInstalled ? (
                           <Button
                             size="sm"
-                            disabled
-                            title="Coming soon — not yet connected to the payment process"
+                            disabled={disburseMutation.isPending || batchPending}
+                            onClick={() => handleOpenDisburse(item, 'agent_reward')}
                             className="rounded-xl text-xs h-8 font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Agent — coming soon</span>
+                            <span>Pay Agent</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Awaiting Mount</span>
+                          <span className="text-[10px] text-muted-foreground italic">Awaiting COO approval</span>
                         )}
                       </div>
                     </div>
@@ -412,19 +427,19 @@ export function CFOSignagesDesk() {
                             <Check className="h-3 w-3" />
                             <span>Paid</span>
                           </Badge>
-                        ) : isInstalled ? (
+                        ) : isInstalled && item.owner_rent_payable === true ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled
-                            title="Coming soon — not yet connected to the payment process"
+                            disabled={disburseMutation.isPending || batchPending}
+                            onClick={() => handleOpenDisburse(item, 'owner_rent')}
                             className="rounded-xl text-xs h-8 font-bold border-primary text-primary hover:bg-primary/10 gap-1"
                           >
                             <Send className="h-3 w-3" />
-                            <span>Pay Owner — coming soon</span>
+                            <span>Pay Owner</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Awaiting Mount</span>
+                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'Awaiting first payment'}</span>
                         )}
                       </div>
                     </div>
@@ -434,7 +449,7 @@ export function CFOSignagesDesk() {
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
                     <div className="flex items-center gap-2">
                       <Camera className="h-3.5 w-3.5" />
-                      <span>{item.photos?.length || 0} photos verified</span>
+                      <span>Photographic evidence</span>
                       {item.installer_name && (
                         <span>• Installer: <strong className="text-foreground">{item.installer_name}</strong></span>
                       )}
@@ -472,22 +487,7 @@ export function CFOSignagesDesk() {
               {/* Photos Gallery */}
               <div>
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">Photos & Physical Evidence</Label>
-                {selectedSignage.photos?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedSignage.photos.map((photo, i) => (
-                      <div key={photo.id || i} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black/10">
-                        <img src={photo.url} alt={photo.caption || 'Signage'} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
-                          {photo.category?.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-xl text-center">
-                    No photographs attached.
-                  </p>
-                )}
+                {isDetailOpen && <SignageEvidence signageId={selectedSignage.id} />}
               </div>
 
               {/* GPS & Locality */}
@@ -548,7 +548,7 @@ export function CFOSignagesDesk() {
                 <DialogDescription className="text-xs">
                   {disburseModal.type === 'agent_reward'
                     ? `Disburse one-time acquisition reward to field agent for ${disburseModal.signage.reference_no}.`
-                    : `Disburse monthly premise rent to property owner for ${disburseModal.signage.reference_no}.`}
+                    : `Credit monthly premise rent to the owner's Welile wallet for ${disburseModal.signage.reference_no}.`}
                 </DialogDescription>
               </DialogHeader>
 
@@ -573,22 +573,13 @@ export function CFOSignagesDesk() {
                   <span className="text-muted-foreground">Payment Target:</span>
                   <span className="font-bold text-foreground">
                     {disburseModal.type === 'agent_reward'
-                      ? disburseModal.signage.agent_phone || 'Agent Wallet'
-                      : `${disburseModal.signage.owner_payment_number} (${disburseModal.signage.owner_payment_method.toUpperCase()})`}
+                      ? 'Agent Welile wallet'
+                      : `Owner Welile wallet (${disburseModal.signage.owner_payment_number || disburseModal.signage.owner_phone})`}
                   </span>
                 </div>
               </div>
 
-              <div>
-                <Label className="text-xs font-medium">Transaction / Payout Reference *</Label>
-                <Input
-                  value={customTxRef}
-                  onChange={(e) => setCustomTxRef(e.target.value)}
-                  placeholder="e.g. MOMO-849201"
-                  className="mt-1 h-10 text-xs rounded-xl font-mono"
-                  required
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">The payment reference is recorded automatically. Activation requires both the agent reward and first owner rent.</p>
 
               <DialogFooter className="pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setDisburseModal(null)}>
@@ -597,14 +588,20 @@ export function CFOSignagesDesk() {
                 <Button
                   size="sm"
                   onClick={handleConfirmDisburse}
-                  disabled={disburseMutation.isPending || !customTxRef.trim()}
-                  className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                  disabled={disburseMutation.isPending || batchPending}
+                  className="rounded-xl text-xs font-bold"
                 >
                   {disburseMutation.isPending ? 'Processing...' : 'Confirm & Disburse'}
                 </Button>
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={batchConfirm} onOpenChange={setBatchConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Batch Pay Agents</DialogTitle><DialogDescription>Credit {pendingAgentRewards.length} one-time agent rewards of UGX 3,000 each to Welile wallets. Total UGX {totalPendingRewardsUgx.toLocaleString()}. Owner rent is paid separately.</DialogDescription></DialogHeader>
+          <DialogFooter><Button variant="ghost" onClick={() => setBatchConfirm(false)}>Cancel</Button><Button onClick={handleBatchDisburseAgentRewards} disabled={batchPending || disburseMutation.isPending}>Confirm batch payment</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

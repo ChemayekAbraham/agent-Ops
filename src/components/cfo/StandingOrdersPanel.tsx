@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, Search,
   ShieldAlert, ShieldQuestion, UserX, Coins, Calendar,
   PauseCircle, AlertCircle, X,
-  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight,
+  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight, Sliders, Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { showStandingOrderWarning, standingOrderErrorText } from '@/lib/standingOrderError';
 import { useAuth } from '@/hooks/useAuth';
 import { StandingOrderAmountDialog } from './StandingOrderAmountDialog';
+import { EditStandingOrderDialog } from './EditStandingOrderDialog';
 import { StandingOrderDeleteDialog } from './StandingOrderDeleteDialog';
 import {
   useStandingOrders, useSetStandingOrderEnabled,
@@ -87,6 +88,7 @@ export function StandingOrdersPanel() {
   const setEnabled = useSetStandingOrderEnabled();
   const { roles } = useAuth();
   const [editingAmount, setEditingAmount] = useState<StandingOrderRow | null>(null);
+  const [editingOrder, setEditingOrder] = useState<StandingOrderRow | null>(null);
   // Any account holding CFO or super admin sees the control, whichever role is active in the switcher (CFO accounts
   // also hold Supporter, which is the default active role). standing_order_set_amount still checks cfo/super_admin
   // and staff MFA on every save, and the dialog stays preview-only outside local development.
@@ -404,6 +406,11 @@ export function StandingOrdersPanel() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
+                                {canEditAmount && (
+                                  <DropdownMenuItem onClick={() => setEditingOrder(row)}>
+                                    <Sliders className="h-4 w-4 mr-2" />Edit standing order
+                                  </DropdownMenuItem>
+                                )}
                                 {canEditAmount && <DropdownMenuItem onClick={() => setEditingAmount(row)}><Pencil className="h-4 w-4 mr-2" />Change amount</DropdownMenuItem>}
                                 <DropdownMenuItem disabled={setEnabled.isPending} onClick={() => handleToggle(row, !row.enabled)}>
                                   <PauseCircle className="h-4 w-4 mr-2" />{row.enabled ? 'Pause order' : 'Resume order'}
@@ -465,6 +472,7 @@ export function StandingOrdersPanel() {
           )}
         </div>
       </div>
+      {editingOrder && <EditStandingOrderDialog key={editingOrder.id} order={editingOrder} onClose={() => setEditingOrder(null)} />}
       {editingAmount && <StandingOrderAmountDialog key={editingAmount.id} order={editingAmount} onClose={() => setEditingAmount(null)} />}
       {deleting && <StandingOrderDeleteDialog key={deleting.id} order={deleting} onClose={() => setDeleting(null)} />}
     </TooltipProvider>

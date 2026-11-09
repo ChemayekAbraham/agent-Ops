@@ -390,7 +390,8 @@ export function FunderNewRouteMap({
     // Keep the matches clear of the floating search bar and the sheet below.
     map.fitBounds(bounds, {
       top: reserveTopForSearch ? 96 : 48,
-      bottom: fullscreen ? Math.round(window.innerHeight * 0.5) : 48,
+      // On desktop the list is a side panel beside the map, so nothing covers the bottom.
+      bottom: fullscreen && document.body.dataset.mapSidePanel !== 'true' ? Math.round(window.innerHeight * 0.5) : 48,
       left: 40,
       right: 40,
     });

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fmt } from './format';
@@ -11,6 +11,7 @@ import type { OpenDrawer } from './ReadyBoard';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { concernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import type { ChipModel } from './boardRowModel';
+import { AgentSheet } from './agents/AgentSheet';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -224,6 +225,7 @@ function CooRowLine({
   layout,
   onOpen,
   onPush,
+  onAgent,
   concerns,
 }: {
   row: CooRow;
@@ -232,15 +234,33 @@ function CooRowLine({
   layout: 'card' | 'md' | 'lg';
   onOpen: OpenDrawer;
   onPush: (row: CooRow) => void;
+  /** Opens the agent's sheet (the Agents desk's): from the agent name or the Frozen chip. */
+  onAgent: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const chips = cooChips(row, concerns).map((c) => (
-    <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
-      {c.text}
-    </Chip>
-  ));
+  const chips = cooChips(row, concerns).map((c) =>
+    c.key === 'frozen' ? (
+      <button
+        key={c.key}
+        type="button"
+        onClick={() => onAgent(row)}
+        aria-label={`Frozen — open ${row.agent ?? 'the agent'}'s rent plans`}
+        className={`rounded-full ${CALM} ${FOCUS} hover:opacity-80`}
+        style={{ display: 'inline-flex', padding: 0, border: 0, background: 'none', cursor: 'pointer' }}
+        data-frozen-chip
+      >
+        <Chip tone={c.tone} title={c.title} strong={c.strong}>
+          {c.text}
+        </Chip>
+      </button>
+    ) : (
+      <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
+        {c.text}
+      </Chip>
+    ),
+  );
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
@@ -260,7 +280,20 @@ function CooRowLine({
   );
   const agent = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-      <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
+      {row.agent && row.agent !== '—' ? (
+        <button
+          type="button"
+          onClick={() => onAgent(row)}
+          aria-label={`Open ${row.agent}'s rent plans`}
+          className={`rounded text-left underline decoration-dotted underline-offset-2 hover:decoration-solid ${CALM} ${FOCUS}`}
+          style={{ overflowWrap: 'anywhere', padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer' }}
+          data-agent-link
+        >
+          {row.agent}
+        </button>
+      ) : (
+        <span style={{ overflowWrap: 'anywhere' }}>{row.agent ?? 'No agent'}</span>
+      )}
       {row.agent_grade && <GradeBadge grade={row.agent_grade} />}
     </span>
   );
@@ -497,6 +530,8 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const [n, setN] = useState(COO_PUSH_DEFAULT);
   const [confirm, setConfirm] = useState(false);
   const [pushRow, setPushRow] = useState<CooRow | null>(null);
+  const [agentRow, setAgentRow] = useState<CooRow | null>(null);
+  const closeAgent = useCallback(() => setAgentRow(null), []);
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
   // One batch call per board load: the concerns logged on every row.
@@ -565,13 +600,16 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       ) : (
         <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
+      {agentRow && (
+        <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />
+      )}
     </section>
   );
 }

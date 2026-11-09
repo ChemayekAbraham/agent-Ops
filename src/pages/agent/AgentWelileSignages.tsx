@@ -1,3 +1,5 @@
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
+import { useLoadSignageDetail } from '@/hooks/useWelileSignages';
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,6 +56,7 @@ import {
   SignagePropertyType,
   SignageFootTraffic,
   SignageRecord,
+  SignageListRecord,
   SignagePhoto,
   formatSignageStatus,
   signagePipelineRecords,
@@ -73,13 +76,16 @@ export default function AgentWelileSignages() {
   const deleteMutation = useDeleteSignage();
   const resubmitMutation = useResubmitSignage();
   const [editingSignage, setEditingSignage] = useState<SignageRecord | null>(null);
-  const [signageToDelete, setSignageToDelete] = useState<SignageRecord | null>(null);
+  const [signageToDelete, setSignageToDelete] = useState<SignageListRecord | null>(null);
+  const [inspectingId, setInspectingId] = useState<string>();
+  const loadDetail = useLoadSignageDetail();
+  const [loadingEditId, setLoadingEditId] = useState<string>();
   const [pendingFilter, setPendingFilter] = useState<'all' | 'pipeline' | 'declined'>('all');
 
   // Metrics & Filters
   // Approved by Ops: signages that have passed Ops review
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
   const activeSignages = signages.filter((s) => s.status === 'active');
   const installingSignages = approvedSignages.filter((s) => s.status !== 'active');
@@ -205,7 +211,13 @@ export default function AgentWelileSignages() {
     }
   };
 
-  const handleEditReturned = (record: SignageRecord) => {
+  const handleEditReturned = async (summary: SignageListRecord) => {
+    setLoadingEditId(summary.id);
+    let record: SignageRecord;
+    try { record = await loadDetail(summary.id); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not load the application.'); return; }
+    finally { setLoadingEditId(undefined); }
+    if (record.status !== 'changes_required') { toast.error('This application is no longer awaiting changes.'); return; }
     setEditingSignage(record);
     setPropertyName(record.property_name);
     setPropertyType(record.property_type);
@@ -597,7 +609,7 @@ export default function AgentWelileSignages() {
                               {!isRejected && (
                                 <Badge
                                   variant={
-                                    signage.status === 'approved_for_installation' || signage.status === 'installation_verification'
+                                    signage.status === 'installation_in_progress' || signage.status === 'installation_verification'
                                       ? 'default'
                                       : signage.status === 'changes_required'
                                         ? 'destructive'
@@ -651,7 +663,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['under_review', 'awaiting_coo', 'approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['under_review', 'awaiting_coo', 'approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : signage.status === 'changes_required'
                                             ? 'bg-amber-500'
@@ -665,7 +677,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : 'bg-muted-foreground/25'
                                       )}
@@ -736,27 +748,10 @@ export default function AgentWelileSignages() {
                             )}
 
                             {/* Photos preview if present */}
-                            {signage.photos && signage.photos.length > 0 && (
-                              <div className="pt-1">
-                                <span className="text-[10px] text-muted-foreground block mb-1.5">
-                                  Submitted Photos ({signage.photos.length}):
-                                </span>
-                                <div className="flex gap-2 overflow-x-auto pb-1">
-                                  {signage.photos.map((p, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted/40"
-                                    >
-                                      <img
-                                        src={p.url}
-                                        alt={p.caption || 'Signage photo'}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => setInspectingId(inspectingId === signage.id ? undefined : signage.id)}>
+                              {inspectingId === signage.id ? 'Hide photographs' : 'Inspect photographs'}
+                            </Button>
+                            {inspectingId === signage.id && <SignageEvidence signageId={signage.id} />}
 
                             {/* Bottom Action: Delete Declined or Pending Application */}
                             <div className="pt-2 border-t border-border/40 flex items-center justify-between">
@@ -779,7 +774,7 @@ export default function AgentWelileSignages() {
                               ) : ['draft', 'submitted', 'changes_required'].includes(signage.status) ? (
                                 <>
                                   <span className="text-[10px] text-muted-foreground">
-                                    {signage.status === 'changes_required' ? <Button type="button" size="sm" onClick={() => handleEditReturned(signage)}>Edit & Resubmit</Button> : 'Awaiting review'}
+                                    {signage.status === 'changes_required' ? <Button type="button" size="sm" disabled={loadingEditId === signage.id} onClick={() => void handleEditReturned(signage)}>Edit & Resubmit</Button> : 'Awaiting review'}
                                   </span>
                                   <Button
                                     type="button"
@@ -1337,7 +1332,7 @@ export default function AgentWelileSignages() {
                     onClick={() => setSubmissionsFilter('installing')}
                     className="h-7 text-xs rounded-lg px-2.5"
                   >
-                    Awaiting Install ({installingCount})
+                    Awaiting Install / CFO ({installingCount})
                   </Button>
                 )}
               </div>
@@ -1413,11 +1408,11 @@ export default function AgentWelileSignages() {
                           </div>
                         )}
 
-                        {signage.status === 'approved_for_installation' && (
+                        {signage.status === 'installation_in_progress' && (
                           <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
-                              Approved by Ops • Queued for Installation
+                              Paid by CFO • Install the board and submit photos
                             </span>
                           </div>
                         )}

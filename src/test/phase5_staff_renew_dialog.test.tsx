@@ -21,6 +21,8 @@ vi.mock('@/integrations/supabase/client', () => ({
   supabase: {
     rpc: mocks.rpc,
     functions: { invoke: mocks.invoke },
+    // withUserSession checks the session before the update (src/lib/authenticatedRequests).
+    auth: { getSession: async () => ({ data: { session: { user: { id: 'staff-1' }, access_token: 'test-token', expires_at: null } }, error: null }), },
     from: (table: string) => ({
       update: (payload: Record<string, unknown>) => {
         mocks.updates.push({ table, payload });

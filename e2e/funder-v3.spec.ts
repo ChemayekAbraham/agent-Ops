@@ -115,31 +115,96 @@ test('≥1024: the list pane scrolls with the mouse wheel', async ({ page }) => 
   await expect.poll(() => pane.evaluate((el) => el.scrollTop)).toBeGreaterThan(200);
 });
 
-test('<1024: the list scrolls while the sheet rests at half', async ({ page }) => {
-  for (const size of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
+/** Share of the screen height the map window shows right now. */
+async function mapShare(page: Page): Promise<number> {
+  return page.getByTestId('fv3-map-window').evaluate((el) => {
+    const rect = el.getBoundingClientRect();
+    const visible = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    return visible / window.innerHeight;
+  });
+}
+
+for (const size of [{ width: 360, height: 800 }, { width: 390, height: 844 }]) {
+  test(`${size.width}x${size.height}: map is half the screen, shrinks to a quarter as the list scrolls, and grows back`, async ({ page }) => {
     await page.setViewportSize(size);
     await open(page, 'view=houses&count=24');
-    const sheet = page.getByTestId('fv3-sheet');
-    await expect(sheet).toHaveAttribute('data-snap', 'half');
-    const content = page.getByTestId('fv3-sheet-content');
-    const box = (await content.boundingBox())!;
-    // Wheel over the visible part of the sheet (its lower part is below the screen).
-    const y = Math.min(box.y + 120, size.height - 80);
-    await page.mouse.move(box.x + box.width / 2, y);
-    await page.mouse.wheel(0, 700);
-    await expect.poll(() => content.evaluate((el) => el.scrollTop)).toBeGreaterThan(150);
-  }
-});
+    const scroller = page.getByTestId('fv3-scroll');
+    await expect(page.getByTestId('fv3-map-window')).toBeVisible();
+    expect(await mapShare(page)).toBeGreaterThan(0.47);
+    expect(await mapShare(page)).toBeLessThan(0.53);
 
-test('<1024: Map/List toggle and handle move the sheet', async ({ page }) => {
+    // Scroll the list 300px with the wheel, over the list.
+    await page.mouse.move(size.width / 2, size.height * 0.8);
+    await page.mouse.wheel(0, 300);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThanOrEqual(290);
+    await expect.poll(() => mapShare(page)).toBeLessThan(0.27);
+    expect(await mapShare(page)).toBeGreaterThan(0.23);
+    // The houses keep scrolling under the pinned map: never stuck.
+    await page.mouse.wheel(0, 900);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(1000);
+    expect(await mapShare(page)).toBeGreaterThan(0.23);
+    await page.screenshot({ path: join(SHOTS, `houses-scrolled-${size.width}x${size.height}.png`) });
+
+    // Back to the top: the map grows back to half.
+    await page.mouse.wheel(0, -5000);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(0);
+    await expect.poll(() => mapShare(page)).toBeGreaterThan(0.47);
+
+    // The wheel over the map itself scrolls the list too (one scroll).
+    await page.mouse.move(size.width / 2, size.height * 0.3);
+    await page.mouse.wheel(0, 250);
+    await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThan(200);
+  });
+}
+
+test('<1024: the shrinking map also works with the Android compositor rules on', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 'view=houses&count=24');
-  const sheet = page.getByTestId('fv3-sheet');
-  await page.getByTestId('fv3-toggle').click();
-  await expect(sheet).toHaveAttribute('data-snap', 'full');
-  await expect(page.getByTestId('fv3-toggle')).toHaveText(/Map/);
-  await page.getByTestId('fv3-toggle').click();
-  await expect(sheet).toHaveAttribute('data-snap', 'peek');
+  // main.tsx sets this class on Android and low-end phones; its rules strip transforms and sticky inside dialogs.
+  await page.evaluate(() => document.documentElement.classList.add('android-compositor-safe'));
+  const scroller = page.getByTestId('fv3-scroll');
+  await page.mouse.move(195, 700);
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeGreaterThanOrEqual(390);
+  await expect.poll(() => mapShare(page)).toBeLessThan(0.27);
+  expect(await mapShare(page)).toBeGreaterThan(0.23);
+});
+
+test('<1024: back returns to the funder home', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24');
+  await page.mouse.move(195, 700);
+  await page.mouse.wheel(0, 800);
+  await page.getByTestId('fv3-back').click();
+  await expect(page.getByTestId('fv3-houses')).toHaveCount(0);
+  await expect(page.getByTestId('fv3-home')).toBeVisible();
+
+  // The phone's back gesture does the same.
+  await page.getByTestId('fv3-hero-cta').click();
+  await expect(page.getByTestId('fv3-houses')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByTestId('fv3-houses')).toHaveCount(0);
+  await expect(page.getByTestId('fv3-home')).toBeVisible();
+});
+
+test('<1024: tapping the map or its expand button opens it full screen; close returns', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24');
+  const screen = page.getByTestId('fv3-houses');
+  await page.getByTestId('fv3-map-fullscreen').click();
+  await expect(screen).toHaveAttribute('data-map-full', 'true');
+  await expect.poll(() => mapShare(page)).toBeGreaterThan(0.97);
+  await expect(page.getByTestId('fv3-fake-map')).toHaveAttribute('data-interactive', 'true');
+  await page.getByTestId('fv3-map-fullscreen').click();
+  await expect(screen).not.toHaveAttribute('data-map-full', 'true');
+  await expect.poll(() => mapShare(page)).toBeLessThan(0.53);
+
+  // A tap on the still map (not a pin) also opens it.
+  await page.getByTestId('fv3-fake-map').dispatchEvent('click');
+  await expect(screen).toHaveAttribute('data-map-full', 'true');
+  await page.keyboard.press('Escape');
+  await expect(screen).not.toHaveAttribute('data-map-full', 'true');
+  await expect(screen).toBeVisible();
 });
 
 test('≥1024: a pin scrolls to its card and highlights it; hovering a card lights its pin', async ({ page }) => {
@@ -157,13 +222,22 @@ test('≥1024: a pin scrolls to its card and highlights it; hovering a card ligh
   await expect(page.locator('[data-testid="fv3-fake-pin"][data-house-id="house-2"]')).toHaveAttribute('data-active', 'true');
 });
 
-test('<1024: a pin opens the house (live behaviour)', async ({ page }) => {
+test('<1024: a pin scrolls the list to its house and highlights it, clear of the map', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, 'view=houses&count=24');
-  await page.getByTestId('fv3-toggle').click(); // full
-  await page.getByTestId('fv3-toggle').click(); // peek: pins clear of the sheet
-  await page.locator('[data-testid="fv3-fake-pin"]').first().click();
-  await expect(page.getByTestId('fv3-harness-detail')).toBeVisible();
+  await page.locator('[data-testid="fv3-fake-pin"][data-house-id="house-15"]').click();
+  const card = page.locator('[data-card-id="empty:house-15"]');
+  await expect(card).toHaveAttribute('data-highlighted', 'true');
+  await expect(card).toBeInViewport();
+  await expect(page.getByTestId('fv3-harness-detail')).toHaveCount(0);
+  // Once settled the card's top is below the pinned map.
+  await expect
+    .poll(async () => {
+      const cardTop = (await card.boundingBox())!.y;
+      const mapBottom = await page.getByTestId('fv3-map-window').evaluate((el) => el.getBoundingClientRect().bottom);
+      return cardTop - mapBottom;
+    })
+    .toBeGreaterThan(-1);
 });
 
 test('live resize 1280 → 390 → 1280 keeps the right layout and scrolling', async ({ page }) => {
@@ -174,7 +248,7 @@ test('live resize 1280 → 390 → 1280 keeps the right layout and scrolling', a
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(screen).toHaveAttribute('data-layout', 'compact');
-  await expect(page.getByTestId('fv3-sheet')).toBeVisible();
+  await expect(page.getByTestId('fv3-map-window')).toBeVisible();
   await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
   await noHorizontalScroll(page);
 

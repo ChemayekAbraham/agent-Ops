@@ -13,6 +13,8 @@
 //
 // WHO IS SKIPPED
 //   * notes created in the last 48 hours - nobody is late yet;
+//   * notes linked to a partner who holds an active portfolio, opened before
+//     or after the note (dropFulfilledNotes);
 //   * agents who recorded a follow-up in the last 7 days - they are already
 //     chasing it, and nagging someone who acted is how a reminder channel
 //     loses its meaning.
