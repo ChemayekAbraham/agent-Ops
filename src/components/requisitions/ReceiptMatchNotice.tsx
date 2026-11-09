@@ -27,10 +27,10 @@ export function ReceiptMatchNotice({ row, className }: { row: ReceiptFacts; clas
   const verdict = assessReceiptPayout(row);
   if (!verdict.active || verdict.status === 'no_receipt') return null;
   const tone = verdict.payoutFrozen
-    ? 'border-amber-500/40 bg-amber-500/10 text-amber-950'
+    ? 'border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400'
     : verdict.status === 'matched'
-      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-950'
-      : 'border-muted bg-muted/40';
+      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-950 dark:text-emerald-300'
+      : 'border-red-500/30 bg-red-500/5 text-red-600 dark:text-red-400';
   return (
     <div className={cn('rounded-xl border p-3 text-sm', tone, className)}>
       <p className="font-medium">{TITLES[verdict.status]}</p>
