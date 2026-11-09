@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 /**
  * Shared Operations Data Layer hooks.
  *
@@ -121,7 +122,7 @@ export const opsWalletKey = (userId: string | null | undefined) =>
 
 export async function fetchOpsWallet(userId: string): Promise<OpsWallet | null> {
   if (!userId) return null;
-  const { data, error } = await supabase.rpc("get_authoritative_wallet", { p_user_id: userId });
+  const { data, error } = await withUserSession(() => supabase.rpc("get_authoritative_wallet", { p_user_id: userId }));
   if (error) throw error;
   const d: any = data ?? {};
   return {

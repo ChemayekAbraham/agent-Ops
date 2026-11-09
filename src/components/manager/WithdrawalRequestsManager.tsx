@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -179,7 +180,7 @@ export function WithdrawalRequestsManager({ subCategoryFilter: propSubCategoryFi
   const openUserDetail = useCallback(async (userId: string) => {
     try {
       const [profileRes, rolesRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).single(),
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', userId),
       ]);
       if (profileRes.data) {
@@ -235,10 +236,10 @@ export function WithdrawalRequestsManager({ subCategoryFilter: propSubCategoryFi
 
       // Fetch user profiles for all requests
       const userIds = [...new Set(exportData.map(r => r.user_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', userIds);
+        .in('id', validIds));
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 
@@ -525,7 +526,7 @@ export function WithdrawalRequestsManager({ subCategoryFilter: propSubCategoryFi
         // Fetch user profiles, wallet balances (via shared ops layer → single
         // batched RPC, request-deduped across the app), and fund sources.
         const [profilesRes, walletBuckets, ledgerRes] = await Promise.all([
-          supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', userIds),
+          withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', validIds)),
           trackOpsQuery('withdrawal-requests', 'wallet-buckets', () => fetchOpsWalletBuckets(userIds)),
           supabase.from('general_ledger')
             .select('user_id, category, amount, direction')
@@ -639,10 +640,10 @@ export function WithdrawalRequestsManager({ subCategoryFilter: propSubCategoryFi
 
       if (historyData && historyData.length > 0) {
         const userIds = [...new Set(historyData.map(r => r.user_id))];
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, avatar_url')
-          .in('id', userIds);
+          .in('id', validIds));
 
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

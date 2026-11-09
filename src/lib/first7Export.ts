@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 // Export of the First 7 Days tab as it is on screen: the Rent Plans left after the filters, the filters themselves and when it was made
 // (Kampala time). Presentation only: every figure and state is the server's (am_new_tenant_first7_v2); nothing is worked out here.
 import jsPDF from 'jspdf';
@@ -120,7 +121,7 @@ const ugx = (n: number) => Math.round(n).toLocaleString('en-US');
 
 async function logPdfExport(filename: string, count: number) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'pdf_report_exported',

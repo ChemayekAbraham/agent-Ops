@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,7 +11,9 @@ interface PartnerOpsBriefProps {
 }
 
 export function PartnerOpsBrief({ onNavigate }: PartnerOpsBriefProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { data } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['partner-ops-brief'],
     queryFn: async () => {
       const since = subHours(new Date(), 24).toISOString();
@@ -21,11 +25,11 @@ export function PartnerOpsBrief({ onNavigate }: PartnerOpsBriefProps) {
         { data: recentROI },
         escalationsRes,
       ] = await Promise.all([
-        supabase.from('investor_portfolios').select('*', { count: 'exact', head: true }).gte('created_at', since),
-        supabase.from('investor_portfolios').select('*', { count: 'exact', head: true }).eq('status', 'pending_approval'),
-        supabase.from('investor_portfolios').select('id').eq('status', 'active')
+        withUserSession(() => supabase.from('investor_portfolios').select('*', { count: 'exact', head: true }).gte('created_at', since)),
+        withUserSession(() => supabase.from('investor_portfolios').select('*', { count: 'exact', head: true }).eq('status', 'pending_approval')),
+        withUserSession(() => supabase.from('investor_portfolios').select('id').eq('status', 'active')
           .gte('next_roi_date', format(new Date(), 'yyyy-MM-dd'))
-          .lte('next_roi_date', format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd')),
+          .lte('next_roi_date', format(new Date(Date.now() + 7 * 86400000), 'yyyy-MM-dd'))),
         supabase.from('supporter_roi_payments').select('roi_amount').gte('due_date', since).eq('status', 'paid'),
         supabase.from('partner_escalations').select('*', { count: 'exact', head: true }).eq('status', 'open'),
       ]);

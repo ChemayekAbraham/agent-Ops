@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -226,10 +228,10 @@ export function GeneralPayoutActivities() {
       const ids = Array.from(new Set(allRows.map((r) => r.target_user_id).filter(Boolean)));
       const names: Record<string, { full_name: string | null; phone: string | null }> = {};
       for (let i = 0; i < ids.length; i += 500) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids.slice(i, i + 500), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids.slice(i, i + 500));
+          .in('id', validIds));
         for (const p of profiles ?? []) {
           names[(p as any).id] = { full_name: (p as any).full_name, phone: (p as any).phone };
         }
@@ -378,7 +380,7 @@ export function GeneralPayoutActivities() {
       // Never blocks the actual download.
       (async () => {
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: 'pdf_report_exported',
@@ -454,10 +456,10 @@ export function GeneralPayoutActivities() {
       const ids = Array.from(new Set(list.map((r) => r.target_user_id).filter(Boolean)));
       let names: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (ids.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         names = Object.fromEntries(
           (profiles ?? []).map((p: any) => [p.id, { full_name: p.full_name, phone: p.phone }]),
         );

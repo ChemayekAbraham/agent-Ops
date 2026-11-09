@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -312,7 +313,7 @@ function IssueDialog({ onSaved }: { onSaved: () => void }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       const { error } = await supabase.from('crm_customer_issues').insert({
         customer_name: customerName.trim(),
         contact: contact.trim() || null,
@@ -407,7 +408,7 @@ function SupportDialog({ onSaved }: { onSaved: () => void }) {
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       const { error } = await supabase.from('crm_tenant_support').insert({
         partner_name: partnerName.trim(),
         invested_on: investedOn,

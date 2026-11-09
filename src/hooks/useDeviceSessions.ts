@@ -1,6 +1,8 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 const DEVICE_ID_KEY = 'welile_device_id';
 const DEVICE_LABEL_KEY = 'welile_device_label';
@@ -65,6 +67,7 @@ function getDeviceLabel(): string {
  * currently signed in on. Registers a heartbeat so other devices show up.
  */
 export function useDeviceSessions(userId: string | undefined) {
+  const ready = useAuthenticatedAudience();
   const [sessions, setSessions] = useState<DeviceSession[]>([]);
   const [loading, setLoading] = useState(true);
   const deviceIdRef = useRef<string>(getDeviceId());
@@ -85,18 +88,18 @@ export function useDeviceSessions(userId: string | undefined) {
 
   const refresh = useCallback(async () => {
     if (!userId) return;
-    const { data, error } = await supabase
+    const { data, error } = await withUserSession(() => supabase
       .from('user_device_sessions')
       .select('id, device_id, device_label, user_agent, last_seen_at')
       .eq('user_id', userId)
-      .order('last_seen_at', { ascending: false });
+      .order('last_seen_at', { ascending: false }));
     if (!error) setSessions(mapRows(data));
     setLoading(false);
   }, [userId, mapRows]);
 
   const heartbeat = useCallback(async () => {
     if (!userId) return;
-    await supabase
+    await withUserSession(() => supabase
       .from('user_device_sessions')
       .upsert(
         {
@@ -107,17 +110,17 @@ export function useDeviceSessions(userId: string | undefined) {
           last_seen_at: new Date().toISOString(),
         },
         { onConflict: 'user_id,device_id' },
-      );
+      ));
   }, [userId]);
 
   const signOutDevice = useCallback(
     async (deviceId: string) => {
       if (!userId) return;
-      await supabase
+      await withUserSession(() => supabase
         .from('user_device_sessions')
         .delete()
         .eq('user_id', userId)
-        .eq('device_id', deviceId);
+        .eq('device_id', deviceId));
       await refresh();
     },
     [userId, refresh],
@@ -136,18 +139,18 @@ export function useDeviceSessions(userId: string | undefined) {
           /* ignore */
         }
       }
-      await supabase
+      await withUserSession(() => supabase
         .from('user_device_sessions')
         .update({ device_label: trimmed })
         .eq('user_id', userId)
-        .eq('device_id', deviceId);
+        .eq('device_id', deviceId));
       await refresh();
     },
     [userId, refresh],
   );
 
   useEffect(() => {
-    if (!userId) return;
+    if (!ready || !userId) { setSessions([]); setLoading(false); return; }
     let cancelled = false;
     const run = async () => {
       await heartbeat();
@@ -159,7 +162,7 @@ export function useDeviceSessions(userId: string | undefined) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [userId, heartbeat, refresh]);
+  }, [ready, userId, heartbeat, refresh]);
 
   const activeSessions = sessions.filter((s) => s.isActive);
 

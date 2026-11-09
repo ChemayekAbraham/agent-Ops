@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -54,7 +55,7 @@ export function FunderFunnelDrilldown({
     staleTime: 300_000,
     queryFn: async () => {
       const [profRes, houseRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', userIds),
+        withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         houseIds.length
           ? supabase.from('house_listings').select('id, title, monthly_rent, region').in('id', houseIds.slice(0, 300))
           : Promise.resolve({ data: [] as House[] }),

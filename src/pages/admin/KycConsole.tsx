@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -64,7 +65,7 @@ export default function KycConsole() {
     const userIds = list.map((r) => r.user_id);
     if (userIds.length) {
       const [{ data: profs }, { data: risksData }, { data: flagRows }] = await Promise.all([
-        supabase.from('profiles').select('id,full_name,phone,email').in('id', userIds),
+        withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id,full_name,phone,email').in('id', validIds)),
         supabase.from('kyc_risk_scores').select('user_id,score,tier,factors').in('user_id', userIds),
         supabase.from('kyc_flags').select('user_id,status').in('user_id', userIds).in('status', ['open', 'reviewing']),
       ]);

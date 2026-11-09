@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { sortFunderHousesByCompleteness, compareFunderHousesByCompleteness } from '@/lib/funderHouseSort';
@@ -651,7 +652,7 @@ export function SelfPortfolioFundingCard({
       try {
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await getSessionCheckedUser();
         if (!user?.email) return;
         const ready = houses.filter((h) => houseSelected.includes(h.house_id));
         if (ready.length === 0) return;

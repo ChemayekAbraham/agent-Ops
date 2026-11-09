@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Received calls and forwarded concerns for the Calling Center.
  *
@@ -262,7 +263,7 @@ export function useForwardedConcerns(opts: { days?: number; scope?: 'all' | 'to_
         .order('created_at', { ascending: false })
         .limit(1000);
       if (scope !== 'all') {
-        const { data: auth } = await supabase.auth.getUser();
+        const { data: auth } = await getSessionCheckedUser();
         const uid = auth?.user?.id;
         if (!uid) return [];
         q = scope === 'to_me' ? q.eq('forwarded_to', uid) : q.eq('forwarded_by', uid);

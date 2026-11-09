@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { Fragment, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -179,10 +180,10 @@ export function SystemLogsViewer() {
       const allIds = [...new Set([...userIds, ...recordIds])].filter(id => UUID_RE.test(id));
       let profiles: { id: string; full_name: string | null }[] = [];
       if (allIds.length) {
-        const { data: profileRows } = await supabase
+        const { data: profileRows } = await withUuidIds(allIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', allIds);
+          .in('id', validIds));
         profiles = profileRows ?? [];
       }
 

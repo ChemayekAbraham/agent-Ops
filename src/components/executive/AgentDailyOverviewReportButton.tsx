@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { FileBarChart, Loader2, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -165,10 +166,10 @@ export function AgentDailyOverviewReportButton() {
       const chunk = 500;
       for (let i = 0; i < agentIds.length; i += chunk) {
         const slice = agentIds.slice(i, i + chunk);
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(slice, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', slice);
+          .in('id', validIds));
         if (error) throw error;
         (data || []).forEach((p: any) => profileMap.set(p.id, p));
       }

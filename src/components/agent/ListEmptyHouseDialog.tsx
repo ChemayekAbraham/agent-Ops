@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -393,7 +394,7 @@ export function ListEmptyHouseDialog({ open, onOpenChange, onSuccess, initialLan
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user || cancelled) return;
 
       // 1) Pre-fill the house location + LC1 area from the agent's profile.
@@ -656,7 +657,7 @@ export function ListEmptyHouseDialog({ open, onOpenChange, onSuccess, initialLan
     if (!selectedLandlord?.id) return;
     setVerifyReqState('sending');
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) { setVerifyReqState('idle'); return; }
       const agentName =
         (user.user_metadata as any)?.full_name ||
@@ -1126,7 +1127,7 @@ export function ListEmptyHouseDialog({ open, onOpenChange, onSuccess, initialLan
 
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Try to find or create landlord reference

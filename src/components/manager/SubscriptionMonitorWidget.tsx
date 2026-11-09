@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,10 +62,10 @@ export function SubscriptionMonitorWidget() {
       // Resolve tenant names
       const tenantIds = [...new Set(items.map(c => c.tenant_id))];
       if (tenantIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', tenantIds);
+          .in('id', validIds));
         const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
         items.forEach(c => { c.tenant_name = profileMap.get(c.tenant_id) || undefined; });
       }

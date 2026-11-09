@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,7 @@ export function EmailAutoMatchPanel() {
     const userIds = Array.from(new Set(raw.map((m) => m.user_id)));
     const depositIds = raw.map((m) => m.deposit_request_id);
     const [{ data: profiles }, { data: deposits }] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone').in('id', userIds),
+      withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
       supabase.from('deposit_requests').select('id, transaction_id, status, notes').in('id', depositIds),
     ]);
     const pmap = new Map<string, { name: string; phone: string }>();

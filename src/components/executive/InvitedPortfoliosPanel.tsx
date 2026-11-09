@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 // ═══════════════════════════════════════════════════════════════════════════
 // Invited Portfolios Panel
 // Lists portfolios in the invite pipeline (statuses `awaiting_partner_details`
@@ -67,6 +70,7 @@ function wsrTerms(r: Row): string {
 }
 
 export function InvitedPortfoliosPanel() {
+  const authenticatedReady = useAuthenticatedAudience();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -82,6 +86,7 @@ export function InvitedPortfoliosPanel() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
+    enabled: authenticatedReady,
     queryKey: ['invited-portfolios'],
     queryFn: async () => {
       // Pull the portfolios in the invite pipeline, then resolve the partner
@@ -89,12 +94,12 @@ export function InvitedPortfoliosPanel() {
       // token and send-log tables are RLS-locked or far too large to read by id
       // from the browser, so Ops goes through `partner_ops_invite_partners` and
       // `partner_ops_invite_visibility`.
-      const { data: portfolios, error } = await supabase
+      const { data: portfolios, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, roi_mode, duration_months, status, created_at, investor_id')
         .in('status', ['awaiting_partner_details', 'pending_ops_approval', 'active'])
         .order('created_at', { ascending: false })
-        .limit(2000);
+        .limit(2000));
       if (error) throw error;
       if (!portfolios || portfolios.length === 0) return [];
 
@@ -143,9 +148,9 @@ export function InvitedPortfoliosPanel() {
         try {
           const byInvestor = new Map<string, PartnerInfo>();
           const profiles = await readInBatches(async (ids) => {
-            const { data, error } = await (supabase.from('profiles') as any)
+            const { data, error } = await withUuidIds(ids, (validIds) => (supabase.from('profiles') as any)
               .select('id, full_name, phone, email')
-              .in('id', ids);
+              .in('id', validIds));
             if (error) throw error;
             return (data || []) as any[];
           }, partnerIds);

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -262,10 +263,10 @@ export function AgentCollectionsDrilldownDialog({
       ) as string[];
       const nameById = new Map<string, string>();
       if (tenantIds.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(tenantIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', tenantIds);
+          .in('id', validIds));
         (profs || []).forEach((p: any) => {
           nameById.set(p.id, p.full_name || p.phone || 'Tenant');
         });

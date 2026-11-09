@@ -1,3 +1,5 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -58,10 +60,10 @@ async function resolveRunningStarts(rows: Array<{ id: string; created_at: string
     .map(r => r.locked_from_portfolio_id)
     .filter((id): id is string => !!id && !byId.has(id));
   for (let depth = 0; depth < 10 && frontier.length > 0; depth++) {
-    const { data } = await supabase
+    const { data } = await withUuidIds(frontier, (validIds) => withUserSession(() => supabase
       .from('investor_portfolios')
       .select(PORTFOLIO_CHAIN_COLUMNS)
-      .in('id', frontier);
+      .in('id', validIds)));
     frontier = [];
     for (const p of data || []) {
       if (byId.has(p.id)) continue;
@@ -105,19 +107,19 @@ export function useCapitalOpportunities(options: { enabled?: boolean } = {}) {
 
     try {
       const [byInvestor, byAgent, summaryRes, emptyHousesRes] = await Promise.all([
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at, cfo_verified_at, locked_from_portfolio_id')
           .eq('investor_id', user.id)
           .in('status', ['active', 'pending', 'pending_approval', 'matured', 'withdrawn'])
-          .limit(100),
-        supabase
+          .limit(100)),
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at, cfo_verified_at, locked_from_portfolio_id')
           .eq('agent_id', user.id)
           .is('investor_id', null)
           .in('status', ['active', 'pending', 'pending_approval', 'matured', 'withdrawn'])
-          .limit(100),
+          .limit(100)),
         supabase
           .from('opportunity_summaries')
           .select('*')

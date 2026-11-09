@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -54,10 +55,10 @@ export default function MerchantTransactionHistory() {
       const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
       const byId = new Map<string, { name: string; phone: string | null }>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of (profs || []) as any[]) {
           byId.set(p.id, { name: p.full_name || 'Customer', phone: p.phone ?? null });
         }

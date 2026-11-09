@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,7 +42,7 @@ export function CustomerLeadsPanel() {
     queryKey: ['lead-link-users', userIds],
     enabled: userIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', userIds);
+      const { data } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       return Object.fromEntries((data ?? []).map((p: any) => [p.id, p]));
     },
   });

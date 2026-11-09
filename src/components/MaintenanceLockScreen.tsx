@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,7 +64,7 @@ export default function MaintenanceLockScreen() {
   useEffect(() => {
     let cancelled = false;
     const checkBypass = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) {
         if (!cancelled) setBypass(false);
         return;

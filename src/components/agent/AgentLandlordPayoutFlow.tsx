@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,6 +53,7 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 }
 
 export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPayoutFlowProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>('select');
@@ -80,12 +83,12 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
       // recall has pulled back (status `return_pending`). Everything in this
       // flow compares it against a rent amount to decide whether the agent can
       // pay, so it has to be the spendable figure the backend enforces.
-      const { data: available } = await supabase.rpc('get_agent_lp_float_available', {
+      const { data: available } = await withUserSession(() => supabase.rpc('get_agent_lp_float_available', {
         p_agent_id: user.id,
-      });
+      }));
       return { ...data, balance: Number(available ?? 0) };
     },
-    enabled: !!user && open,
+    enabled: authenticatedReady && (!!user && open),
     staleTime: 0,
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
@@ -122,7 +125,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         const [{ data: landlord }, { data: tenant }, { data: livePayouts }, { data: legacyPayout }] = await Promise.all([
           // Only the Landlord-Ops-approved payout number is read or shown here.
           supabase.from('landlords').select('id, name, verified_mobile_money_number, verification_status').eq('id', r.landlord_id).single(),
-          supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).single(),
+          supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).maybeSingle(),
           supabase
             .from('landlord_payouts')
             .select('id, status')

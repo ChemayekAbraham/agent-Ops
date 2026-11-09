@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +41,7 @@ export function AgentPerformanceTiers() {
       if (ids.length === 0) return [];
 
       const [profilesData, earningsData, collectionsData, visitsData, referralsData] = await Promise.all([
-        batchedQuery<any>(ids, b => supabase.from('profiles').select('id, full_name').in('id', b)),
+        batchedQuery<any>(ids, b => withUuidIds(b, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))),
         batchedQuery<any>(ids, b => supabase.from('agent_earnings').select('agent_id, amount').in('agent_id', b)),
         batchedQuery<any>(ids, b => supabase.from('agent_collections').select('agent_id').is('reversed_at', null).in('agent_id', b)),
         batchedQuery<any>(ids, b => supabase.from('agent_visits').select('agent_id').in('agent_id', b)),

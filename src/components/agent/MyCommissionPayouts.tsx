@@ -71,7 +71,7 @@ export function MyCommissionPayouts({ minimal = false }: MyCommissionPayoutsProp
               .from('profiles')
               .select('full_name')
               .eq('id', payout.processed_by)
-              .single();
+              .maybeSingle();
             return { ...payout, processor_name: profile?.full_name };
           }
           return payout;

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -53,11 +54,11 @@ export default function DashboardPermissionsTab({ userId }: DashboardPermissions
 
   useEffect(() => {
     const fetch = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('staff_permissions')
         .select('id, permitted_dashboard')
         .eq('user_id', userId)
-        .is('revoked_at', null);
+        .is('revoked_at', null));
       if (error) {
         toast.error(error.message);
       }

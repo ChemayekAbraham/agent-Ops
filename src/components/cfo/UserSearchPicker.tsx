@@ -1,3 +1,4 @@
+import { withUserSession, getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef, forwardRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -83,13 +84,13 @@ export const UserSearchPicker = forwardRef<HTMLDivElement, UserSearchPickerProps
     useEffect(() => {
       let active = true;
       (async () => {
-        const { data: auth } = await supabase.auth.getUser();
+        const { data: auth } = await getSessionCheckedUser();
         const uid = auth?.user?.id;
         if (!uid) return;
 
         const [{ data: roleRows }, { data: permRows }] = await Promise.all([
           supabase.from('user_roles').select('role').eq('user_id', uid).eq('enabled', true),
-          supabase.from('staff_permissions').select('permitted_dashboard').eq('user_id', uid),
+          withUserSession(() => supabase.from('staff_permissions').select('permitted_dashboard').eq('user_id', uid)),
         ]);
 
         if (!active) return;

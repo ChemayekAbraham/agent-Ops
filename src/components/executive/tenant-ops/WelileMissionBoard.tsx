@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -125,6 +128,7 @@ function recommend(s: MissionSummary): { key: PriorityKey; text: string; severit
 }
 
 export function WelileMissionBoard() {
+  const authenticatedReady = useAuthenticatedAudience();
   const navigate = useNavigate();
   const [win, setWin] = useState<CounterWindow>('7d');
   const [dayBoundary, setDayBoundary] = useState<DayBoundary>('kampala');
@@ -248,14 +252,15 @@ export function WelileMissionBoard() {
   // ROI payable OUT to funders in the next cycle (~next 31 days).
   // Drives the "ROI payable next cycle" figure on Priority 3 (Onboard funders).
   const { data: roiPayableRows } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['mission-roi-payable-next', intervalMs],
     refetchInterval: intervalMs,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, investment_amount, roi_percentage, next_roi_date')
         .eq('status', 'active')
-        .not('next_roi_date', 'is', null);
+        .not('next_roi_date', 'is', null));
       if (error) throw error;
       return (data ?? [])
         .filter((p: any) => !!p.next_roi_date)
@@ -1604,19 +1609,20 @@ function ROIDetailDialog({
   onClose: () => void;
   onSchedule: (line: ROIPayableLine) => void;
 }) {
+  const authenticatedReady = useAuthenticatedAudience();
   const open = !!line;
   const portfolioId = line?.id ?? null;
 
   // Full portfolio record — gives us the canonical inputs & cycle metadata.
   const { data: portfolio, isLoading: pLoading } = useQuery({
     queryKey: ['roi-detail-portfolio', portfolioId],
-    enabled: open && !!portfolioId,
+    enabled: authenticatedReady && (open && !!portfolioId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, roi_percentage, next_roi_date, maturity_date, duration_months, total_roi_earned, payout_day, status, created_at')
         .eq('id', portfolioId!)
-        .maybeSingle();
+        .maybeSingle());
       if (error) throw error;
       return data;
     },
@@ -1646,10 +1652,10 @@ function ROIDetailDialog({
     queryKey: ['roi-detail-schedulers', schedulerIds.sort().join(',')],
     enabled: open && schedulerIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(schedulerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, email')
-        .in('id', schedulerIds);
+        .in('id', validIds));
       if (error) throw error;
       const m = new Map<string, { full_name: string | null; email: string | null }>();
       (data ?? []).forEach((p: any) => m.set(p.id, { full_name: p.full_name, email: p.email }));
@@ -2748,6 +2754,7 @@ function ROIPayableDialog({
   cardPeriod?: 'day' | 'week' | 'month' | 'custom';
   cardCustomRange?: { from?: Date; to?: Date };
 }) {
+  const authenticatedReady = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   const [period, setPeriod] = useState<ROIPeriodKey>('7d');
   const [customDays, setCustomDays] = useState<number>(14);
@@ -2788,15 +2795,15 @@ function ROIPayableDialog({
 
   const { data, isLoading } = useQuery({
     queryKey: ['roi-payable-lines'],
-    enabled: open,
+    enabled: authenticatedReady && (open),
     refetchInterval: open ? refetchIntervalMs : false,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, roi_percentage, next_roi_date')
         .eq('status', 'active')
         .not('next_roi_date', 'is', null)
-        .order('next_roi_date', { ascending: true });
+        .order('next_roi_date', { ascending: true }));
       if (error) throw error;
       return (data ?? []).map((p: any): ROIPayableLine => ({
         id: p.id,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,7 +60,7 @@ export default function FundFlowTracker() {
 
     const [profilesRes, landlordsRes] = await Promise.all([
       userIds.length > 0
-        ? supabase.from('profiles').select('id, full_name').in('id', userIds)
+        ? withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] },
       landlordIds.length > 0
         ? supabase.from('landlords').select('id, name').in('id', landlordIds)

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -71,10 +72,10 @@ export function DriveDocumentReviewPanel() {
 
     const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean))) as string[];
     if (ids.length) {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', ids);
+        .in('id', validIds));
       const map: Record<string, string> = {};
       for (const p of profs ?? []) map[p.id] = p.full_name || p.phone || 'Unknown user';
       setNames(map);

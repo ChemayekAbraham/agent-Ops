@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,10 +49,10 @@ export function TenantReassignmentSuggestions({ onApply }: TenantReassignmentSug
 
       const [profilesRes, agentsRes] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         agentIds.length
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', agentIds)
+          ? withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
       ]);
 

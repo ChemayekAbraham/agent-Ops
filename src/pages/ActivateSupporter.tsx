@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -264,7 +265,7 @@ export default function ActivateSupporter() {
         // Save location after sign-in
         if (locationData) {
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { data: { user } } = await getSessionCheckedUser();
             if (user) {
               await supabase.from('user_locations').insert({
                 user_id: user.id,

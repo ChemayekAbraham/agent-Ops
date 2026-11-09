@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import welileWordmark from '@/assets/welile-wordmark.png.asset.json';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -139,10 +140,10 @@ export async function generateAgentRentCollectionsPdf(params: {
   const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter((v): v is string => !!v)));
   const tenantMap = new Map<string, string>();
   if (tenantIds.length > 0) {
-    const { data: tenants } = await supabase
+    const { data: tenants } = await withUuidIds(tenantIds, (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', tenantIds);
+      .in('id', validIds));
     ((tenants as TenantLite[]) || []).forEach(t => {
       tenantMap.set(t.id, t.full_name || t.phone || '—');
     });

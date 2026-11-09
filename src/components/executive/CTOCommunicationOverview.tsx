@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -274,9 +277,11 @@ function TenantNotificationsTab() {
 }
 
 export function CTOCommunicationOverview() {
+  const authenticatedReady = useAuthenticatedAudience();
   const [search, setSearch] = useState('');
 
   const { data: partners, isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['cto-communication-partners'],
     queryFn: async () => {
       // A "partner" = a user who owns one or more investor portfolios.
@@ -287,10 +292,10 @@ export function CTOCommunicationOverview() {
       let from = 0;
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { data, error } = await supabase
+        const { data, error } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .select('investor_id')
-          .range(from, from + pageSize - 1);
+          .range(from, from + pageSize - 1));
         if (error) throw error;
         if (!data || data.length === 0) break;
         for (const r of data as any[]) {
@@ -309,10 +314,10 @@ export function CTOCommunicationOverview() {
       const all: Partner[] = [];
       for (let i = 0; i < ids.length; i += chunkSize) {
         const slice = ids.slice(i, i + chunkSize);
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(slice, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, email, created_at, last_active_at')
-          .in('id', slice);
+          .in('id', validIds));
         if (error) throw error;
         for (const p of (data || []) as Partner[]) {
           all.push({ ...p, portfolios: portfolioCount[p.id] || 0 } as Partner);

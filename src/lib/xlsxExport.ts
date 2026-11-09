@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 // Minimal zero-dependency .xlsx (OpenXML) generator using fflate (already bundled via jspdf).
 // Produces a valid single- or multi-sheet Excel workbook with:
 //   - Guaranteed `.xlsx` filename extension (`ensureXlsxFilename`)
@@ -38,7 +39,7 @@ async function logBulkXlsxExport(filename: string, sheetLabel: string, rowCount:
     const { supabase } = await import('@/integrations/supabase/client');
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'bulk_data_exported',

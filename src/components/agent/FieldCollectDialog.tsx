@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -961,10 +962,10 @@ export function FieldCollectDialog({ open, onOpenChange }: FieldCollectDialogPro
 
       let extras: any[] = [];
       if (extraIds.length) {
-        const { data } = await supabase
+        const { data } = await withUuidIds([...new Set(extraIds)], (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, monthly_rent')
-          .in('id', [...new Set(extraIds)]);
+          .in('id', validIds));
         extras = data || [];
       }
 

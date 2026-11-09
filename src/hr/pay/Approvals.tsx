@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Approvals inbox. What appears here is decided by the position the signed-in
  * user holds (hr_my_approvals), never by their role.
@@ -55,7 +56,7 @@ export function ApprovalsInbox() {
       const ids = Array.from(new Set(rows.map((r) => r.raised_by).filter(Boolean))) as string[];
       if (ids.length > 0) {
         const { supabase } = await import('@/hr/api/client');
-        const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         if (!alive) return;
         const map: Record<string, string> = {};
         (data ?? []).forEach((p: any) => {

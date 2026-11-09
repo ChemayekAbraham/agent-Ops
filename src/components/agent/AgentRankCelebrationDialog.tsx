@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Gem, Zap, Users, FlaskConical, Trophy, UserPlus, Percent, BadgeCheck } from 'lucide-react';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 type Tier = 'diamond' | 'platinum' | 'gold' | 'silver';
 
@@ -34,9 +35,10 @@ export const RANK_PERKS: Record<Tier, Perk[]> = {
 
 export function useMyEliteRank() {
   const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['my-elite-rank', user?.id],
-    enabled: !!user?.id,
+    enabled: ready && !!user?.id,
     queryFn: async () => {
       const { data, error } = await (supabase.rpc as any)('get_my_elite_rank');
       if (error) throw error;

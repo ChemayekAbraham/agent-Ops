@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import {
   createContext,
   useCallback,
@@ -75,11 +76,11 @@ export function DashboardGrantsProvider({
       return;
     }
     setLoading(true);
-    supabase
+    withUserSession(() => supabase
       .from('staff_permissions')
       .select('id, user_id, permitted_dashboard')
       .in('user_id', ids)
-      .is('revoked_at', null)
+      .is('revoked_at', null))
       .then(({ data }) => {
         if (cancelled) return;
         const next: Record<string, Record<string, string>> = {};
@@ -151,18 +152,18 @@ export function DashboardGrants({
     setBusy(dashboard);
     try {
       if (activeId) {
-        const { error } = await supabase
+        const { error } = await withUserSession(() => supabase
           .from('staff_permissions')
           .update({
             revoked_at: new Date().toISOString(),
             revoked_by: actorId,
             revoke_reason: reason.trim() || null,
           })
-          .eq('id', activeId);
+          .eq('id', activeId));
         if (error) throw error;
         clearGrant(userId, dashboard);
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await withUserSession(() => supabase
           .from('staff_permissions')
           .insert({
             user_id: userId,
@@ -170,7 +171,7 @@ export function DashboardGrants({
             granted_by: actorId,
           })
           .select('id')
-          .single();
+          .single());
         if (error) throw error;
         setGrant(userId, dashboard, data.id);
       }

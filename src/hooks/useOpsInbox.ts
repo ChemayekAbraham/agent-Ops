@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,7 +55,7 @@ export function useOpsInbox(bucket: OpsInboxBucket, opsUserId?: string | null) {
 }
 
 export async function snoozeInboxRow(tenantId: string, hours = 24) {
-  const { data: u } = await supabase.auth.getUser();
+  const { data: u } = await getSessionCheckedUser();
   const uid = u.user?.id;
   if (!uid) return;
   const snoozedUntil = new Date(Date.now() + hours * 3_600_000).toISOString();
@@ -67,7 +68,7 @@ export async function snoozeInboxRow(tenantId: string, hours = 24) {
 }
 
 export async function escalateInboxRow(tenantId: string, note?: string) {
-  const { data: u } = await supabase.auth.getUser();
+  const { data: u } = await getSessionCheckedUser();
   const uid = u.user?.id;
   if (!uid) return;
   await supabase

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -468,7 +470,7 @@ function LandlordTenantsDrawer({
     if (!landlordId) return;
     setBusy(channel);
     try {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       await supabase
         .from('landlords')
         .update({
@@ -511,7 +513,7 @@ function LandlordTenantsDrawer({
     if (!landlordId) return;
     setBusy(status === 'true_landlord' ? 'true' : 'false');
     try {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('landlords')
         .update({
@@ -565,10 +567,10 @@ function LandlordTenantsDrawer({
       const tenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean)));
       const profileMap = new Map<string, { id: string; full_name: string | null; phone: string | null }>();
       for (let i = 0; i < tenantIds.length; i += 200) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(tenantIds.slice(i, i + 200), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', tenantIds.slice(i, i + 200));
+          .in('id', validIds));
         for (const p of profs || []) profileMap.set(p.id, p as any);
       }
 

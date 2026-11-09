@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { TOTAL_POOL_UGX, TOTAL_SHARES, PRICE_PER_SHARE, POOL_PERCENT } from '@/components/angel-pool/constants';
@@ -39,7 +40,7 @@ export function useAngelPoolConfig() {
 
   const updateConfig = useMutation({
     mutationFn: async (values: Partial<Omit<AngelPoolConfig, 'id' | 'updated_at' | 'updated_by'>>) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       const existing = query.data;

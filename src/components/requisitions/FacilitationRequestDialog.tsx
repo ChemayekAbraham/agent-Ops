@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,7 +67,7 @@ export function FacilitationRequestDialog({ open, onOpenChange, onSubmitted }: P
   };
 
   const submit = async () => {
-    const { data: userRes } = await supabase.auth.getUser();
+    const { data: userRes } = await getSessionCheckedUser();
     const uid = userRes.user?.id;
     if (!uid) { toast.error('Please sign in again'); return; }
 

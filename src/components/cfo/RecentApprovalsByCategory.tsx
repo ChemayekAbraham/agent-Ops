@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -158,10 +159,10 @@ export function RecentApprovalsByCategory({ showCardWrapper = true }: { showCard
       );
       let people: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (ids.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         people = Object.fromEntries(
           (profiles ?? []).map((p: any) => [p.id, { full_name: p.full_name, phone: p.phone }]),
         );

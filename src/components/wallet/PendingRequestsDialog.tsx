@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
@@ -75,10 +76,10 @@ export function PendingRequestsDialog({ open, onOpenChange }: PendingRequestsDia
     if (data && data.length > 0) {
       const userIds = [...new Set([...data.map(r => r.requester_id), ...data.map(r => r.recipient_id)])];
       
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', userIds);
+        .in('id', validIds));
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

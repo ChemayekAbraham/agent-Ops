@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -57,7 +58,7 @@ export function useAuthenticatorMfa(userId: string | undefined) {
       setStage('loading');
       return;
     }
-    const { data: raw, error: statusErr } = await (supabase as any).rpc('my_staff_mfa_status');
+    const { data: raw, error: statusErr } = await withUserSession(() => (supabase as any).rpc('my_staff_mfa_status'));
     if (statusErr || !raw) {
       // Fail open for display only: the server still enforces. Never block the app on a status failure.
       setStage('not_required');

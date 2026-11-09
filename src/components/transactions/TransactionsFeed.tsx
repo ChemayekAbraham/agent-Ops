@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * TransactionsFeed — the canonical customer transaction history UI.
  *
@@ -531,7 +532,7 @@ function TransferReversalDetails({
     enabled: open,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       if (!auth.user) return null;
       const { data, error } = await supabase
         .from("general_ledger")

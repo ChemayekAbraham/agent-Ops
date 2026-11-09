@@ -18,14 +18,19 @@ Avatar.displayName = AvatarPrimitive.Root.displayName;
 const AvatarImage = React.forwardRef<
   React.ElementRef<typeof AvatarPrimitive.Image>,
   React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, src, ...props }, ref) => {
+>(({ className, src, onLoadingStatusChange, ...props }, ref) => {
   // Auto-sign Supabase storage URLs
   const signedSrc = useSignedUrl(src);
+  const [failedSrc, setFailedSrc] = React.useState<string>();
   return (
     <AvatarPrimitive.Image
       ref={ref}
       className={cn("aspect-square h-full w-full object-cover", className)}
-      src={signedSrc || undefined}
+      src={failedSrc === signedSrc ? undefined : signedSrc || undefined}
+      onLoadingStatusChange={(status) => {
+        if (status === 'error') setFailedSrc(signedSrc);
+        onLoadingStatusChange?.(status);
+      }}
       {...props}
     />
   );

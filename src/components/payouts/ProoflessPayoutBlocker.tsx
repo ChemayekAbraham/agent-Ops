@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -112,10 +113,10 @@ export function ProoflessPayoutBlocker() {
       const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean))) as string[];
       let names = new Map<string, { full_name: string | null; phone: string | null }>();
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         names = new Map((profs || []).map((p: any) => [p.id, { full_name: p.full_name, phone: p.phone }]));
       }
       return list.map((r) => ({

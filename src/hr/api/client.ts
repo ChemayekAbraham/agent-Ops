@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * HR transport layer — the single swap point.
  *
@@ -16,7 +17,7 @@ export function unwrap<T>(res: { data: T | null; error: { message: string } | nu
 
 /** The auth user id of the caller. Required for every HR write. */
 export async function requireUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await getSessionCheckedUser();
   if (error) throw new Error(error.message);
   if (!data.user) throw new Error('Not signed in');
   return data.user.id;

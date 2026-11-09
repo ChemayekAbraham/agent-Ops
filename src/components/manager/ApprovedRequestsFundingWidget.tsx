@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -89,7 +90,7 @@ export function ApprovedRequestsFundingWidget() {
 
     const [profilesRes, landlordsRes] = await Promise.all([
       allUserIds.length > 0
-        ? supabase.from('profiles').select('id, full_name').in('id', allUserIds)
+        ? withUuidIds(allUserIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] },
       landlordIds.length > 0
         ? supabase.from('landlords').select('id, name').in('id', landlordIds)

@@ -1,3 +1,5 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
@@ -117,10 +119,10 @@ export async function fetchAllPartnerIds(): Promise<string[]> {
   let hasMore = true;
   const ownerIds = new Set<string>();
   while (hasMore) {
-    const { data } = await supabase
+    const { data } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('investor_id')
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (data && data.length > 0) {
       data.forEach((p: any) => { if (p.investor_id) ownerIds.add(p.investor_id); });
       offset += PAGE;
@@ -245,11 +247,11 @@ export async function fetchVerifiedFundedProspectIds(
   } else {
     for (let i = 0; i < candidateIds.length; i += 100) {
       const batch = candidateIds.slice(i, i + 100);
-      const { data } = await supabase
+      const { data } = await withUuidIds(batch, (validIds) => supabase
         .from('profiles')
         .select('id')
-        .in('id', batch)
-        .eq('verified', true);
+        .in('id', validIds)
+        .eq('verified', true));
       (data || []).forEach((p: any) => { if (p.id) verifiedIds.push(p.id as string); });
     }
   }
@@ -300,12 +302,12 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
   let hasMore = true;
   const portfolios: any[] = [];
   while (hasMore) {
-    const { data, error } = await supabase
+    const { data, error } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id, investor_id, agent_id, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, next_roi_date, account_name, portfolio_code, duration_months, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (error) break;
     if (data && data.length > 0) {
       portfolios.push(...data);
@@ -325,7 +327,7 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
 
   const profiles = await batchedQuery<{ id: string; full_name: string; phone: string; email: string; frozen_at: string | null; is_frozen: boolean }>(
     Array.from(ownerIds),
-    (batch) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at, is_frozen').in('id', batch)
+    (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at, is_frozen').in('id', validIds))
   );
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
@@ -592,10 +594,10 @@ export async function fetchSupporterSummary(): Promise<{
   const portfolioRows: { investment_amount: number | null; investor_id: string | null }[] = [];
 
   while (hasMore) {
-    const { data } = await supabase
+    const { data } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('investment_amount, investor_id')
-      .range(offset, offset + PAGE - 1);
+      .range(offset, offset + PAGE - 1));
     if (data && data.length > 0) {
       portfolioRows.push(...(data as any));
       offset += PAGE;
@@ -627,10 +629,10 @@ export async function fetchSupporterSummary(): Promise<{
       supabase.from('wallets').select('user_id, balance').in('user_id', batch)
     ),
     batchedQuery<{ id: string; frozen_at: string | null }>(ids, (batch) =>
-      supabase.from('profiles').select('id, frozen_at').in('id', batch).not('frozen_at', 'is', null)
+      withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, frozen_at').in('id', validIds).not('frozen_at', 'is', null))
     ),
     batchedQuery<{ id: string; created_at: string }>(ids, (batch) =>
-      supabase.from('profiles').select('id, created_at').in('id', batch).gte('created_at', todayStartIso)
+      withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, created_at').in('id', validIds).gte('created_at', todayStartIso))
     ),
   ]);
 

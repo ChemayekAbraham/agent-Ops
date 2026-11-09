@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -216,7 +217,7 @@ async function fetchAgentReport(agentId: string) {
   const tenantPhoneMap = new Map<string, string>();
   for (let i = 0; i < tenantIds.length; i += 500) {
     const slice = tenantIds.slice(i, i + 500);
-    const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', slice);
+    const { data } = await withUuidIds(slice, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
     (data || []).forEach(p => {
       tenantNameMap.set(p.id, p.full_name || 'Tenant');
       if (p.phone) tenantPhoneMap.set(p.id, p.phone);
@@ -996,10 +997,10 @@ function AgentPicker({ onPick, onBack }: { onPick: (id: string) => void; onBack:
       const profiles: any[] = [];
       for (let i = 0; i < ids.length; i += 500) {
         const slice = ids.slice(i, i + 500);
-        const { data } = await supabase
+        const { data } = await withUuidIds(slice, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, city')
-          .in('id', slice);
+          .in('id', validIds));
         if (data) profiles.push(...data);
       }
       return profiles.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));

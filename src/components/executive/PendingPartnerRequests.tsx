@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,7 +45,7 @@ export function PendingPartnerRequests() {
       const base = rows || [];
       if (base.length === 0) return [] as PendingRequest[];
       const ids = Array.from(new Set(base.map(r => r.user_id)));
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+      const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       const pMap = new Map((profiles || []).map(p => [p.id, p]));
       return base.map(r => ({
         ...r,

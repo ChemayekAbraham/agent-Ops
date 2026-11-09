@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -90,7 +91,7 @@ export function CFOROIRequests() {
     queryKey: ['roi-profiles', userIds.join(',')],
     queryFn: async () => {
       if (userIds.length === 0) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', userIds);
+      const { data } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       return data || [];
     },
     enabled: userIds.length > 0,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -57,10 +58,10 @@ export default function PayoutReceiptHistory() {
       const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
       const nameById = new Map<string, string>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of (profs || []) as any[]) nameById.set(p.id, p.full_name);
       }
       return list.map((r) => ({

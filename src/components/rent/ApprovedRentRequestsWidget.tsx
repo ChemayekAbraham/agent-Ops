@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -81,7 +82,7 @@ export function ApprovedRentRequestsWidget({ mode }: ApprovedRentRequestsWidgetP
       const allIds = [...new Set([...tenantIds, ...agentIds])];
 
       const { data: profiles } = allIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', allIds)
+        ? await withUuidIds(allIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] };
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));

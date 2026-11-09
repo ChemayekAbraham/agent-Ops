@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * useWalletBreakdownData — cached agent-earnings/commission-payout data for
  * WalletBreakdown.tsx. Previously this component ran both queries fresh
@@ -66,7 +67,7 @@ async function fetchAgentEarnings(userId: string): Promise<AgentEarningRow[]> {
   const sourceUserIds = [...new Set(rows.filter((e) => e.source_user_id).map((e) => e.source_user_id as string))];
   let userNamesMap: Record<string, string> = {};
   if (sourceUserIds.length > 0) {
-    const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", sourceUserIds);
+    const { data: profiles } = await withUuidIds(sourceUserIds, (validIds) => supabase.from("profiles").select("id, full_name").in("id", validIds));
     userNamesMap = (profiles ?? []).reduce((acc, p) => {
       acc[p.id] = p.full_name || "Unknown User";
       return acc;

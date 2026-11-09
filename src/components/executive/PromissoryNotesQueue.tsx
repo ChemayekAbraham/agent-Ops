@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useRef, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -523,7 +524,7 @@ export function PromissoryNotesQueue({
     const wasPending = (deleteTarget.status || '').toLowerCase() === 'pending';
     if (wasPending) bumpPromissoryPendingCount(queryClient, -1);
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await getSessionCheckedUser();
       const actorId = userData?.user?.id;
 
       // Record the deletion in the audit trail BEFORE removing the record

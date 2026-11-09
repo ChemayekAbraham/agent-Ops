@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,7 +75,7 @@ export function TenantPhoneDuplicateSettingsDialog({ open, onOpenChange }: Props
 
   const save = useMutation({
     mutationFn: async () => {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('tenant_phone_duplicate_settings')
         .upsert(

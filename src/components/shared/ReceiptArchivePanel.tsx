@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -218,10 +219,10 @@ export function ReceiptArchivePanel() {
 
       let profilesById: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (ids.size > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(Array.from(ids), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', Array.from(ids));
+          .in('id', validIds));
         profilesById = Object.fromEntries(
           (profs ?? []).map((p: any) => [p.id, { full_name: p.full_name, phone: p.phone }]),
         );

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -80,7 +82,7 @@ export function DepositDecisionAuditPanel() {
       const actorIds = Array.from(new Set(audit.map((r) => r.actor_id).filter(Boolean))) as string[];
       const pmap = new Map<string, string>();
       if (actorIds.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', actorIds);
+        const { data: profs } = await withUuidIds(actorIds, (validIds) => supabase.from('profiles').select('id, full_name, email').in('id', validIds));
         (profs ?? []).forEach((p: any) => pmap.set(p.id, p.full_name ?? p.email ?? p.id.slice(0, 8)));
       }
       setRows(audit.map((r) => ({ ...r, actor_name: r.actor_id ? (pmap.get(r.actor_id) ?? r.actor_email ?? null) : null })));
@@ -157,7 +159,7 @@ export function DepositDecisionAuditPanel() {
     // download.
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: user?.id ?? null,
           action_type: 'csv_exported',

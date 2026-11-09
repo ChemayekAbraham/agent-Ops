@@ -1,7 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-
 // In-memory cache for signed URLs (avoids re-signing on every render)
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const CACHE_TTL_MS = 55 * 60 * 1000; // 55 minutes (URLs valid for 1 hour)
@@ -18,7 +16,7 @@ export function parseStorageUrl(url: string): { bucket: string; path: string } |
 
   try {
     // Match the public object URL pattern
-    const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)/);
+    const match = new URL(url).pathname.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
     if (match) {
       return { bucket: match[1], path: decodeURIComponent(match[2]) };
     }
@@ -34,7 +32,7 @@ export function parseStorageUrl(url: string): { bucket: string; path: string } |
  */
 export function isStorageUrl(url: string | null | undefined): boolean {
   if (!url) return false;
-  return url.includes('/storage/v1/object/public/');
+  return /\/storage\/v1\/object\/(?:public|sign)\//.test(url);
 }
 
 /**
@@ -67,7 +65,9 @@ export async function getSignedUrl(storedUrl: string): Promise<string> {
 
       if (error || !data?.signedUrl) {
         console.warn('[storageUtils] Failed to sign URL:', parsed.bucket, parsed.path);
-        return storedUrl; // Fall back to original URL
+        const fallback = parsed.bucket === 'avatars' ? '' : storedUrl;
+        signedUrlCache.set(storedUrl, { url: fallback, expiresAt: Date.now() + CACHE_TTL_MS });
+        return fallback;
       }
 
       // Cache the result
@@ -79,7 +79,9 @@ export async function getSignedUrl(storedUrl: string): Promise<string> {
       return data.signedUrl;
     } catch (err) {
       console.warn('[storageUtils] Error signing URL:', err);
-      return storedUrl;
+      const fallback = parsed.bucket === 'avatars' ? '' : storedUrl;
+      signedUrlCache.set(storedUrl, { url: fallback, expiresAt: Date.now() + CACHE_TTL_MS });
+      return fallback;
     } finally {
       pendingRequests.delete(storedUrl);
     }

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Salary advances (hr_pay_advances).
  *
@@ -70,7 +72,7 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
   const nameByUser = new Map<string, string | null>();
   if (userIds.length > 0) {
     const profiles = (unwrap(
-      await supabase.from('profiles').select('id, full_name').in('id', userIds),
+      await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     ) ?? []) as Array<{ id: string; full_name: string | null }>;
     profiles.forEach((p) => nameByUser.set(p.id, p.full_name ?? null));
   }
@@ -124,7 +126,7 @@ export async function requestAdvance(
   recoveryMonths: number,
 ): Promise<void> {
   assertRecoveryMonths(recoveryMonths);
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await getSessionCheckedUser();
   const userId = userData?.user?.id;
   if (!userId) {
     throw new Error('You must be signed in to request an advance.');
@@ -154,7 +156,7 @@ export async function requestOwnAdvance(
   firstRecoveryOn: string,
 ): Promise<void> {
   assertRecoveryMonths(recoveryMonths);
-  const { data: userData } = await supabase.auth.getUser();
+  const { data: userData } = await getSessionCheckedUser();
   const userId = userData?.user?.id;
   if (!userId) {
     throw new Error('You must be signed in to request an advance.');

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,10 +57,10 @@ async function fetchWalletsFor(userIds: string[]): Promise<Map<string, WalletRow
 async function fetchProfileNames(ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (!ids.length) return map;
-  const { data } = await supabase
+  const { data } = await withUuidIds(ids, (validIds) => supabase
     .from('profiles')
     .select('id, full_name, phone')
-    .in('id', ids);
+    .in('id', validIds));
   (data || []).forEach((p: any) => map.set(p.id, p.full_name || p.phone || p.id.slice(0, 8)));
   return map;
 }

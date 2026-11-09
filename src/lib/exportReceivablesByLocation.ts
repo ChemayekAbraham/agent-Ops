@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 // One-click export of tenant receivables by the approved Uganda location
 // hierarchy (region -> district -> town/sub-county -> village) with the
 // drill-down totals at every level. Read-only: it only calls the existing
@@ -180,7 +181,7 @@ function download(blob: Blob, filename: string) {
 // browser IP directly. Never blocks the actual download.
 async function logReceivablesExport(format: 'csv' | 'pdf', data: ReceivablesExportData) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'receivables_by_location_exported',

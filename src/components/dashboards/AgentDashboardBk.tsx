@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
@@ -315,6 +317,7 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboardBk({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   // Agent Ops approval (agent vetting), never profiles.verified.
   const agentVerifiedState = useAgentVerifiedState();
   // Behaviour telemetry tracking
@@ -384,11 +387,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // landing period.
   const { data: mySubagentRank } = useQuery({
     queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_my_subagent_rank', {
         p_period: 'weekly',
-      });
+      }));
       if (error) throw error;
       return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
     },

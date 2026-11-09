@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -36,7 +37,7 @@ export function useVerificationStatus(userId: string | undefined) {
           // Landlord: has ≥1 tenant attached with active rent
           supabase.from('landlords').select('id', { count: 'exact', head: true }).eq('tenant_id', userId).eq('verified', true),
           // Supporter: ≥50K deployed
-          supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', userId).in('status', ['active', 'pending', 'pending_approval']),
+          withUserSession(() => supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', userId).in('status', ['active', 'pending', 'pending_approval'])),
           // Agent (extended): listed houses
           supabase.from('house_listings').select('id', { count: 'exact', head: true }).eq('agent_id', userId),
           // Agent (extended): landlord float allocations

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -170,7 +171,7 @@ export function AgentLeaderboardPanel() {
       // Never blocks the actual download.
       (async () => {
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: 'pdf_report_exported',

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -2354,8 +2355,8 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
         .eq('landlord_id', landlordId).eq('active', true);
       const ids = (data ?? []).map((r: any) => r.funder_id);
       if (!ids.length) return [];
-      const { data: profs } = await supabase
-        .from('profiles').select('id, full_name, phone').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
+        .from('profiles').select('id, full_name, phone').in('id', validIds));
       const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
       return (data ?? []).map((r: any) => ({ ...r, funder: map.get(r.funder_id) ?? null }));
     },
@@ -2378,8 +2379,8 @@ function LandlordPane({ landlordId, isOps }: { landlordId: string; isOps: boolea
       const ids = Array.from(new Set(rows.map((r: any) => r.tenant_id).filter(Boolean)));
       let nameMap = new Map<string, any>();
       if (ids.length) {
-        const { data: profs } = await supabase
-          .from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
+          .from('profiles').select('id, full_name, phone').in('id', validIds));
         nameMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
       }
       // Recorded A/C entries (payable + receivable) from the dedicated
@@ -3248,10 +3249,10 @@ function UserTransfersList({
       const counterpartIds = Array.from(new Set(Object.values(counterpartByRef)));
       const nameMap: Record<string, string> = {};
       if (counterpartIds.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(counterpartIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', counterpartIds);
+          .in('id', validIds));
         (profs ?? []).forEach((p: any) => { nameMap[p.id] = p.full_name; });
       }
 
@@ -3515,7 +3516,7 @@ function AgentTenantsList({ agentId, onSelectTenant }: { agentId: string; onSele
       const landlordIds = Array.from(new Set(rows.map((r) => r.landlord_id).filter(Boolean)));
       const [tenants, landlords, ledgerRes] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         landlordIds.length
           ? supabase.from('landlords').select('id, name, phone').in('id', landlordIds as any)

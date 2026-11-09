@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -574,7 +575,7 @@ export function useLandlordOnboardingTargets(enabled = true) {
 export function useTargetLandlordForOnboarding() {
   const qc = useQueryClient();
   return useCallback(async (landlordId: string, listingId?: string | null) => {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await getSessionCheckedUser();
     const { error } = await supabase
       .from('landlord_onboarding_targets' as any)
       .upsert(
@@ -589,7 +590,7 @@ export function useTargetLandlordForOnboarding() {
 export function useBulkTargetLandlordsForOnboarding() {
   const qc = useQueryClient();
   return useCallback(async (items: { landlordId: string; listingId?: string | null }[]) => {
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await getSessionCheckedUser();
     const rows = items.map((item) => ({
       landlord_id: item.landlordId,
       listing_id: item.listingId ?? null,

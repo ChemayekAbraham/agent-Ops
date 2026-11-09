@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import HRPlaceholderPage from './HRPlaceholderPage';
 import ExecutiveBrief from '../components/ExecutiveBrief';
@@ -21,7 +22,7 @@ export default function ExecutiveBriefPage() {
         ok = false;
       }
       if (!ok) {
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData } = await getSessionCheckedUser();
         const uid = userData.user?.id;
         if (uid) {
           const { data: roles } = await supabase

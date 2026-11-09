@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAllAgentIds, batchedQuery } from '@/lib/supabaseBatchUtils';
@@ -27,7 +28,7 @@ export function AgentLifecyclePipeline() {
       if (agentIds.length === 0) return { new: 0, active: 0, top: 0, idle: 0, dormant: 0, total: 0 };
 
       const [profiles, earnings] = await Promise.all([
-        batchedQuery<any>(agentIds, b => supabase.from('profiles').select('id, last_active_at, created_at').in('id', b)),
+        batchedQuery<any>(agentIds, b => withUuidIds(b, (validIds) => supabase.from('profiles').select('id, last_active_at, created_at').in('id', validIds))),
         batchedQuery<any>(agentIds, b => supabase.from('agent_earnings').select('agent_id, amount').in('agent_id', b)),
       ]);
 

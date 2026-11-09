@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +44,7 @@ function Row({ label, value }: { label: ReactNode; value: ReactNode }) {
 }
 
 export function UserProfileDrilldown({ open, onOpenChange, userId, breadcrumbs }: Props) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['profile-drilldown', userId],
     enabled: !!userId && open,
@@ -73,15 +76,15 @@ export function UserProfileDrilldown({ open, onOpenChange, userId, breadcrumbs }
 
   const { data: portfolios, isLoading: portfoliosLoading } = useQuery({
     queryKey: ['profile-drilldown-portfolios', userId],
-    enabled: !!userId && open,
+    enabled: authenticatedReady && (!!userId && open),
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, investment_amount, roi_percentage, duration_months, status, created_at, maturity_date, total_roi_earned')
         .eq('investor_id', userId!)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(100));
       if (error) throw error;
       return data ?? [];
     },

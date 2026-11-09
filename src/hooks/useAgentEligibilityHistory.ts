@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -97,10 +98,10 @@ export function useAgentEligibilityTransitions(days = 90, limit = 200) {
       const agentIds = Array.from(new Set(top.map(t => t.agent_id)));
       const profileMap = new Map<string, { name: string; phone: string | null }>();
       if (agentIds.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', agentIds);
+          .in('id', validIds));
         (profs || []).forEach((p: any) => {
           profileMap.set(p.id, { name: p.full_name || 'Unknown', phone: p.phone });
         });

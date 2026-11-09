@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -881,10 +882,10 @@ export function NewPartnersPanel() {
     if (!u) return;
     const [{ data: roleRow }, { data: ports }] = await Promise.all([
       supabase.from('user_roles').select('id').eq('user_id', u.id).eq('role', 'supporter').eq('enabled', true).maybeSingle(),
-      supabase.from('investor_portfolios')
+      withUserSession(() => supabase.from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, roi_percentage, status, investor_id, agent_id, display_currency, payment_method, mobile_money_number, mobile_network, bank_name, bank_account_name, account_number, payout_day, next_roi_date, created_at')
         .eq('investor_id', u.id)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })),
     ]);
     setSelectedIsPartner(!!roleRow);
     setSelectedPortfolios(ports || []);
@@ -2614,7 +2615,7 @@ function InlinePortfolioRow({ portfolio: p, expanded, onToggle, onSaved, onDirty
         patch.next_roi_date = recomputeNextRoiDateForPayoutDay(p.next_roi_date ?? null, p.created_at ?? null, validated.payout_day);
       }
 
-      const { error } = await supabase.from('investor_portfolios').update(patch).eq('id', p.id);
+      const { error } = await withUserSession(() => supabase.from('investor_portfolios').update(patch).eq('id', p.id));
       if (error) throw error;
 
       await supabase.from('audit_logs').insert({

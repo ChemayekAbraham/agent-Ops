@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -169,10 +170,10 @@ export function TenantOverviewList({ data, loading, initialCategory, onSelectTen
     (async () => {
       try {
         const [{ data: profiles }, { data: rentReqs }] = await Promise.all([
-          supabase
+          withUuidIds(tenantIds, (validIds) => supabase
             .from('profiles')
             .select('id, referrer_id, region, village, district, city, country')
-            .in('id', tenantIds),
+            .in('id', validIds)),
           supabase
             .from('rent_requests')
             .select('tenant_id, agent_id, created_at')
@@ -207,7 +208,7 @@ export function TenantOverviewList({ data, loading, initialCategory, onSelectTen
           ]),
         );
         const { data: agentProfiles } = allAgentIds.length
-          ? await supabase.from('profiles').select('id, full_name').in('id', allAgentIds)
+          ? await withUuidIds(allAgentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : { data: [] as any[] };
         const agentNameMap = new Map<string, string>(
           (agentProfiles || []).map((p: any) => [p.id, p.full_name || 'Unnamed agent']),

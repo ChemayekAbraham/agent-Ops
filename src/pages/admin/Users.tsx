@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,7 +86,7 @@ export default function AdminUsersPage() {
 
       // Fetch profiles + staff_profiles in parallel
       const [profilesRes, staffProfilesRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, email, phone, avatar_url, created_at, verified, last_active_at').in('id', staffUserIds),
+        withUuidIds(staffUserIds, (validIds) => supabase.from('profiles').select('id, full_name, email, phone, avatar_url, created_at, verified, last_active_at').in('id', validIds)),
         supabase.from('staff_profiles').select('user_id, employee_id, department, position').in('user_id', staffUserIds),
       ]);
 

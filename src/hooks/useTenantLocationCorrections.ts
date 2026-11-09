@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 export interface TenantLocationCorrectionRow {
   tenant_id: string;
@@ -144,11 +145,13 @@ export function useTenantLocationCorrectionAgents(search = '', enabled = true) {
 }
 
 export function useTenantLocationProgress(agentId?: string | null, enabled = true) {
+  const ready = useAuthenticatedAudience();
   return useQuery({
     queryKey: [TENANT_LOCATION_KEYS.progress, agentId ?? 'all'],
-    enabled,
+    enabled: ready && enabled,
     staleTime: 60_000,
     queryFn: async (): Promise<TenantLocationProgress> => {
+      await requireUserSession();
       const { data, error } = await supabase.rpc('tenant_location_correction_progress' as any, {
         p_agent_id: agentId ?? null,
       });

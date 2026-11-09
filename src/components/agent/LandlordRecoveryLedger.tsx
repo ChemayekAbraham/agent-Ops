@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -52,10 +53,10 @@ export function LandlordRecoveryLedger({ open, onOpenChange }: Props) {
 
       // Get tenant profiles
       const tenantIds = [...new Set(requests.map(r => r.tenant_id))];
-      const { data: tenants } = await supabase
+      const { data: tenants } = await withUuidIds(tenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', tenantIds);
+        .in('id', validIds));
 
       const tenantMap = new Map((tenants || []).map(t => [t.id, t]));
       const landlordMap = new Map((landlords || []).map(l => [l.id, l]));

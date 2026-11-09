@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -203,7 +204,7 @@ export function RentRequestsManager() {
 
     const [profileResults, landlordResults, repaymentsRes, walletsRes] = await Promise.all([
       Promise.all(profileChunks.map(chunk =>
-        supabase.from('profiles').select('id, full_name, phone, email, avatar_url, verified, national_id, city, country, created_at, monthly_rent, mobile_money_number, mobile_money_provider').in('id', chunk)
+        withUuidIds(chunk, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, avatar_url, verified, national_id, city, country, created_at, monthly_rent, mobile_money_number, mobile_money_provider').in('id', validIds))
       )),
       Promise.all(landlordChunks.map(chunk =>
         supabase.from('landlords').select('id, name, property_address, verified, ready_to_receive').in('id', chunk)

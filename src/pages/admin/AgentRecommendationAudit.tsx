@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -71,10 +72,10 @@ export default function AgentRecommendationAudit() {
       ];
       const nameMap = new Map<string, string>();
       if (ids.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         profiles?.forEach((p) => nameMap.set(p.id, p.full_name || 'Unknown'));
       }
       return list.map((r) => ({

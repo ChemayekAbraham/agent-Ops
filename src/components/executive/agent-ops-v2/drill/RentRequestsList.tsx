@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,10 +61,10 @@ export function RentRequestsList({ range }: { range: DateRange }) {
       const ids = (reqs ?? []).map((r: any) => r.tenant_id).filter(Boolean);
       const profMap = new Map<string, string>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         (profs ?? []).forEach((p: any) => profMap.set(p.id, p.full_name));
       }
       const rows: RequestRow[] = (reqs ?? []).map((r: any) => ({

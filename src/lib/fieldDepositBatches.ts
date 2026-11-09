@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 
 export type DepositChannel = 'mtn' | 'airtel' | 'bank' | 'cash_merchant';
@@ -249,10 +250,10 @@ export async function listPendingFinOpsBatches(limit = 50): Promise<PendingBatch
       .from('field_deposit_batch_items')
       .select('id, batch_id, amount, field_collection_id, field_collections(tenant_name, tenant_phone)')
       .in('batch_id', batchIds),
-    supabase
+    withUuidIds(agentIds, (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', agentIds),
+      .in('id', validIds)),
   ]);
   if (itemsErr) throw itemsErr;
   if (agentsErr) throw agentsErr;
@@ -416,10 +417,10 @@ export async function listBatchAuditTrail(batchId: string): Promise<BatchAuditEn
   );
   if (actorIds.length === 0) return rows;
 
-  const { data: profs } = await supabase
+  const { data: profs } = await withUuidIds(actorIds, (validIds) => supabase
     .from('profiles')
     .select('id, full_name')
-    .in('id', actorIds);
+    .in('id', validIds));
   const nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
   return rows.map((r) => ({
     ...r,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -81,10 +82,10 @@ export default function LandlordWelileHomesPage() {
       if (!subscriptions || subscriptions.length === 0) return [];
 
       const subscribedTenantIds = subscriptions.map((s) => s.tenant_id);
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(subscribedTenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', subscribedTenantIds);
+        .in('id', validIds));
 
       return subscriptions.map((sub) => {
         const profile = profiles?.find((p) => p.id === sub.tenant_id);

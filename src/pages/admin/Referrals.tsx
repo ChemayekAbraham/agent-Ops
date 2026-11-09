@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -97,7 +98,7 @@ export default function AdminReferralsPage() {
 
       const [{ data: profiles }, { data: ledger }] = await Promise.all([
         userIds.length
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', userIds)
+          ? withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] as ProfileLite[] } as any),
         refIds.length
           ? supabase

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,7 +40,7 @@ export function BatchPayoutProcessor() {
       const userIds = [...new Set(rows.map(r => r.tenant_id))];
       const profileMap = new Map<string, string>();
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         for (const p of profiles || []) profileMap.set(p.id, p.full_name);
       }
 

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -74,10 +76,10 @@ export function AutoCreditReviewPanel() {
       const list = (data ?? []) as ReviewRow[];
       const ids = Array.from(new Set(list.map(r => r.user_id))).filter(Boolean);
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, email')
-          .in('id', ids);
+          .in('id', validIds));
         const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
         list.forEach(r => { r.profile = map.get(r.user_id) ?? null; });
       }
@@ -89,7 +91,7 @@ export function AutoCreditReviewPanel() {
   const confirm = async (row: ReviewRow) => {
     setBusyId(row.id);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('deposit_requests')
         .update({
@@ -131,7 +133,7 @@ export function AutoCreditReviewPanel() {
         errorTitle: 'Reversal failed',
       });
       if (error) return;
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       // 1. Mark the deposit row reversed + cancel its status so it no
       //    longer counts as a live credit anywhere downstream.
       await supabase

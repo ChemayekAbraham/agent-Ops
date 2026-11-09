@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -322,10 +323,10 @@ async function attachProfiles(rows: any[]) {
     ),
   );
   if (ids.length === 0) return rows;
-  const { data: profs } = await supabase
+  const { data: profs } = await withUuidIds(ids, (validIds) => supabase
     .from('profiles')
     .select('id, full_name, phone')
-    .in('id', ids);
+    .in('id', validIds));
   const map = new Map((profs || []).map((p: any) => [p.id, p]));
   return rows.map((r: any) => ({
     ...r,

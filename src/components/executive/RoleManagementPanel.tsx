@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
@@ -99,10 +100,10 @@ export function RoleManagementPanel() {
       });
       const nameMap = new Map<string, string>();
       if (ids.size > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(Array.from(ids), (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', Array.from(ids));
+          .in('id', validIds));
         profs?.forEach(p => nameMap.set(p.id, p.full_name || 'Unnamed user'));
       }
 

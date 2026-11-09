@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +95,7 @@ export function CFOReceivablesTracker() {
       const landlordIds = [...new Set(data.map(r => r.landlord_id).filter(Boolean))] as string[];
 
       const [profilesRes, landlordsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').in('id', tenantIds),
+        withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
         supabase.from('landlords').select('id, name').in('id', landlordIds),
       ]);
 

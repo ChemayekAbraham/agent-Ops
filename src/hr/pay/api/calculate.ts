@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * HR Payroll calculation orchestration.
  *
@@ -113,7 +114,7 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
   const nameByUser: Record<string, string> = {};
   if (userIds.length > 0) {
     const rows = (unwrap(
-      await supabase.from('profiles').select('id, full_name').in('id', userIds),
+      await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     ) ?? []) as Array<{ id: string; full_name: string | null }>;
     for (const r of rows) if (r.full_name) nameByUser[r.id] = r.full_name;
   }

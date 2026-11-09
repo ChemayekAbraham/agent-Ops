@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -227,7 +228,7 @@ export function TenantRegistrationReview({ tenantId, tenantName, onBack }: Props
       if (error) throw error;
 
       // Audit log
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: user?.id || '',
         action_type: 'tenant_registration_edited',

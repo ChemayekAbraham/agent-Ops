@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * The pool of people a work item can be escalated to — anyone holding one of
  * the six tops_ roles (tenant_ops/operations/coo/cfo/ceo/super_admin), the
@@ -27,10 +28,10 @@ async function fetchOpsTeamMembers(): Promise<OpsTeamMember[]> {
   const ids = Array.from(new Set((roleRows ?? []).map((r: any) => String(r.user_id))));
   if (ids.length === 0) return [];
 
-  const { data: profileRows, error: profileError } = await anyDb
+  const { data: profileRows, error: profileError } = await withUuidIds(ids, (validIds) => anyDb
     .from('profiles')
     .select('id, full_name')
-    .in('id', ids);
+    .in('id', validIds));
   if (profileError) throw profileError;
 
   return (profileRows ?? [])

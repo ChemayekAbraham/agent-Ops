@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -181,7 +182,7 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
 
       const [tenantsRes, landlordsRes, payoutsRes] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         landlordIds.length
           ? supabase

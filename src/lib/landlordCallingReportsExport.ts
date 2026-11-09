@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * PDF, Excel (.xlsx), and CSV export builders + export-audit logger for the
  * Landlord Ops Calling Center Reports tab.
@@ -78,7 +79,7 @@ export async function logLandlordReportExport(
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getSessionCheckedUser();
     if (!user) return;
     await supabase.from('audit_logs').insert({
       user_id: user.id,

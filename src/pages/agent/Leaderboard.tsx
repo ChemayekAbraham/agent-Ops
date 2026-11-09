@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -49,6 +51,7 @@ const RANK_META = [
 ];
 
 export default function AgentLeaderboard() {
+  const authenticatedReady = useAuthenticatedAudience();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
@@ -71,11 +74,11 @@ export default function AgentLeaderboard() {
 
   const { data: myRank } = useQuery({
     queryKey: ['my-subagent-rank', period, user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_my_subagent_rank', {
         p_period: period,
-      });
+      }));
       if (error) throw error;
       return ((data?.[0] as MyRank) ?? null);
     },

@@ -18,6 +18,7 @@ import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWor
 import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
 import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
 import { COOWelileHomesApprovalDesk } from '@/components/coo/COOWelileHomesApprovalDesk';
+import { WelileSignagesOps } from '@/components/executive/agent-ops-v2/WelileSignagesOps';
 import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
 import { FinancialOpsCommandCenter } from '@/components/financial-ops/FinancialOpsCommandCenter';
 import { ShareSupporterRecruit } from '@/components/shared/ShareSupporterRecruit';
@@ -58,6 +59,7 @@ interface QuickNavItem {
 }
 
 const quickNavItems: QuickNavItem[] = [
+  { id: 'welile-signages-approvals', label: 'Welile Signages', icon: Megaphone, color: 'bg-primary/10 text-primary border-primary/20', description: 'Pending COO approval' },
   { id: 'rent-approvals', label: 'Rent Approvals', icon: ClipboardList, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', description: 'Review & approve' },
   { id: 'tenants', label: 'Tenants', icon: Home, color: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20', description: 'Repayment tracker' },
   { id: 'wallets', label: 'Wallets & Ops', icon: Wallet, color: 'bg-primary/10 text-primary border-primary/20', description: 'Deposits & payouts' },
@@ -116,6 +118,8 @@ export default function COODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'welile-signages-approvals':
+        return <WelileSignagesOps stage="coo" onBack={() => handleNavTo('overview')} />;
       case 'requisitions':
         return <RequisitionsWorkspace />;
       case 'service-centres':

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,10 +62,10 @@ export default function InvestmentPortfolio() {
   const handleSaveName = useCallback(async (accountId: string) => {
     if (!editName.trim()) return;
     setSavingName(true);
-    const { error } = await supabase
+    const { error } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .update({ account_name: editName.trim() })
-      .eq('id', accountId);
+      .eq('id', accountId));
     setSavingName(false);
     if (error) {
       toast({ title: 'Failed to rename', description: error.message, variant: 'destructive' });
@@ -82,11 +83,11 @@ export default function InvestmentPortfolio() {
     setLoading(true);
     try {
       const [portfoliosRes, pendingOpsRes] = await Promise.all([
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios').select('*')
           .or(`investor_id.eq.${user.id},agent_id.eq.${user.id}`)
           .in('status', ['active', 'pending_approval'])
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })),
         supabase
           .from('pending_wallet_operations')
           .select('source_id, amount')

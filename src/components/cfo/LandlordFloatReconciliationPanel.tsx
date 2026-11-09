@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,7 +74,7 @@ export function LandlordFloatReconciliationPanel() {
       const ids = [...new Set(rows.map((r) => r.agent_id))];
       const names: Record<string, string> = {};
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (profs || []).forEach((p: any) => { names[p.id] = p.full_name; });
       }
       return rows.map((r) => ({ ...r, agent_name: names[r.agent_id] }));

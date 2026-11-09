@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -231,10 +232,10 @@ export function FinOpsWithdrawalVerification() {
 
     let profileMap = new Map<string, any>();
     if (userIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, avatar_url')
-        .in('id', userIds);
+        .in('id', validIds));
       profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
     }
     return data.map(r => {

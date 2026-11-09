@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logStandingOrderAction } from '@/lib/standingOrderAudit';
@@ -47,10 +48,10 @@ export function useStandingOrders() {
       if (!rows.length) return [];
 
       const targetIds = Array.from(new Set(rows.map((r) => r.target_user_id).filter(Boolean)));
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(targetIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', targetIds);
+        .in('id', validIds));
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
       const orderIds = rows.map((r) => r.id);

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +30,7 @@ export function useEliteRanks() {
       const rows = data ?? [];
       const ids = rows.map((r) => r.agent_id);
       const { data: profs } = ids.length
-        ? await supabase.from('profiles').select('id, full_name, avatar_url').in('id', ids)
+        ? await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, avatar_url').in('id', validIds))
         : { data: [] as { id: string; full_name: string | null; avatar_url: string | null }[] };
       const byId = new Map((profs ?? []).map((p) => [p.id, p]));
       return rows.map((r) => ({

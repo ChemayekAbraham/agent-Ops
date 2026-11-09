@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -139,7 +140,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
 
       const agentIds = [...new Set((requestsRes.data || []).flatMap(r => [r.assigned_agent_id, r.agent_id]).filter(Boolean))] as string[];
       const agentRes = agentIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', agentIds)
+        ? await withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] as { id: string; full_name: string; phone: string }[] };
       const agentMap = new Map((agentRes.data || []).map(a => [a.id, a]));
 

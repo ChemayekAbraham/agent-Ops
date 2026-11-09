@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,7 +109,7 @@ export function useRelatedHouses(currentHouse: HouseOpportunity | null) {
           ? supabase.from('landlords').select('id, name, phone').in('id', landlordIds)
           : Promise.resolve({ data: [] as any[], error: null }),
         agentIds.length > 0
-          ? supabase.from('profiles').select('id, full_name').in('id', agentIds)
+          ? withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : Promise.resolve({ data: [] as any[], error: null }),
       ]);
 

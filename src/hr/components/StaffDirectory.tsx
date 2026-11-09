@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -293,7 +294,7 @@ export default function StaffDirectory() {
     // Never blocks the actual download.
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: user?.id ?? null,
           action_type: 'csv_exported',

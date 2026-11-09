@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +9,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { Undo2, Phone, Loader2, Check, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ReturnedRow {
   rent_request_id: string;
@@ -27,13 +30,16 @@ interface ReturnedRow {
  * confirms they've seen it, which closes the follow-up task.
  */
 export function AgentReturnedInactivationsPanel() {
+  const authenticatedReady = useAuthenticatedAudience();
+  const { user } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
 
   const { data = [] } = useQuery({
-    queryKey: ['agent-returned-inactivations'],
+    enabled: authenticatedReady,
+    queryKey: ['agent-returned-inactivations', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('agent_returned_inactivations');
+      const { data, error } = await withUserSession(() => supabase.rpc('agent_returned_inactivations'));
       if (error) throw error;
       return (data ?? []) as ReturnedRow[];
     },
@@ -55,7 +61,7 @@ export function AgentReturnedInactivationsPanel() {
       toast({ title: 'Could not update', description: e?.message, variant: 'destructive' }),
   });
 
-  if (data.length === 0) return null;
+  if (!authenticatedReady || data.length === 0) return null;
 
   return (
     <div className="rounded-2xl border-2 border-warning/40 bg-warning/5 p-4 space-y-3 animate-fade-in">

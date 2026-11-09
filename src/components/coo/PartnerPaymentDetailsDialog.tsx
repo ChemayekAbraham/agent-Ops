@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -135,12 +136,12 @@ export default function PartnerPaymentDetailsDialog({ open, onOpenChange, partne
               : null,
         account_number: mode === 'bank_transfer' ? bankAccNumber.trim() : null,
       };
-      const { data: saved, error } = await supabase
+      const { data: saved, error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update(updates)
         .eq('id', portfolio.id)
         .select('id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number')
-        .maybeSingle();
+        .maybeSingle());
       if (error) throw error;
       if (!saved) throw new Error('Save returned no rows — check permissions');
       // Extra numbers are validated and saved by the server (Admin / Partner Ops only).

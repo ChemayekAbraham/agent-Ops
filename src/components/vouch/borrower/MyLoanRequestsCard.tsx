@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Card, CardContent } from '@/components/ui/card';
@@ -54,10 +55,10 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
       setLoaded(true);
       const ids = [...new Set(rows.map((r) => r.lender_agent_id))];
       if (ids.length > 0) {
-        const { data: profs } = await (supabase
+        const { data: profs } = await (withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids) as any);
+          .in('id', validIds)) as any);
         if (!cancelled && profs) {
           setLenderNames(Object.fromEntries((profs as any[]).map((p) => [p.id, p.full_name ?? 'Lending agent'])));
         }

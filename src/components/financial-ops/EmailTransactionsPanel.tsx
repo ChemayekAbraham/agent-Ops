@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -3045,7 +3046,7 @@ export function EmailTransactionsPanel({ onBack }: { onBack?: () => void } = {})
           let me: { id: string } | null = null;
           let routedByName: string | null = null;
           try {
-            const { data: meRes } = await supabase.auth.getUser();
+            const { data: meRes } = await getSessionCheckedUser();
             if (meRes?.user?.id) {
               me = { id: meRes.user.id };
               const { data: rp } = await (supabase.from('profiles') as any)

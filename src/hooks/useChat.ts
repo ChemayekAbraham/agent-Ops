@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,7 +68,7 @@ async function getProfilesAndRoles(userIds: string[]): Promise<{
 
   if (uncachedIds.length > 0 && navigator.onLine) {
     const [profilesRes, rolesRes] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, avatar_url').in('id', uncachedIds),
+      withUuidIds(uncachedIds, (validIds) => supabase.from('profiles').select('id, full_name, avatar_url').in('id', validIds)),
       supabase.from('user_roles').select('user_id, role').in('user_id', uncachedIds)
     ]);
 

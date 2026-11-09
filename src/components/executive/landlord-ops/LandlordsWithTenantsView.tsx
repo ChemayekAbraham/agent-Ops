@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -152,10 +153,10 @@ export function LandlordsWithTenantsView() {
       const tenantMap = new Map<string, { id: string; full_name: string | null; phone: string | null }>();
       const tIdArr = [...tenantIds];
       for (let i = 0; i < tIdArr.length; i += 200) {
-        const { data: tt } = await supabase
+        const { data: tt } = await withUuidIds(tIdArr.slice(i, i + 200), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', tIdArr.slice(i, i + 200));
+          .in('id', validIds));
         for (const t of tt || []) tenantMap.set(t.id, t as any);
       }
 
@@ -421,10 +422,10 @@ export function LandlordsWithTenantsView() {
       const tenantMap = new Map<string, any>();
       const tIdArr = [...tenantIds];
       for (let i = 0; i < tIdArr.length; i += 200) {
-        const { data: tt } = await supabase
+        const { data: tt } = await withUuidIds(tIdArr.slice(i, i + 200), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, national_id')
-          .in('id', tIdArr.slice(i, i + 200));
+          .in('id', validIds));
         for (const t of tt || []) tenantMap.set(t.id, t);
       }
 

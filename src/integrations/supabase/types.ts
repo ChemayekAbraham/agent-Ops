@@ -56013,13 +56013,6 @@ export type Database = {
             referencedRelation: "staff_assistant_messages"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "staff_assistant_feedback_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
-            referencedColumns: ["id"]
-          },
         ]
       }
       staff_assistant_glossary: {
@@ -56154,13 +56147,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_ideas_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
         ]
@@ -56439,13 +56425,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_learning_log_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
         ]
@@ -56961,13 +56940,6 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "staff_assistant_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_assistant_unanswered_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "v_staff_assistant_crm_messages_redacted"
             referencedColumns: ["id"]
           },
           {
@@ -68536,6 +68508,9 @@ export type Database = {
           agent_reward_tx_ref: string | null
           business_category: string | null
           consenting_relation: string
+          coo_approved_at: string | null
+          coo_approved_by: string | null
+          coo_review_notes: string | null
           county_name: string | null
           created_at: string
           district_name: string
@@ -68544,6 +68519,7 @@ export type Database = {
           gps_captured_at: string
           gps_latitude: number
           gps_longitude: number
+          gps_source: string | null
           id: string
           installation_photos: Json
           installed_at: string | null
@@ -68571,6 +68547,7 @@ export type Database = {
           reference_no: string | null
           rejection_reason: string | null
           removal_effective_at: string | null
+          repeat_owner_phone: boolean
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -68595,6 +68572,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name: string
@@ -68603,6 +68583,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude: number
           gps_longitude: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68630,6 +68611,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -68654,6 +68636,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation?: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name?: string
@@ -68662,6 +68647,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude?: number
           gps_longitude?: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68689,6 +68675,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -74744,59 +74731,6 @@ export type Database = {
           unexplained: number | null
         }
         Relationships: []
-      }
-      v_staff_assistant_crm_messages_redacted: {
-        Row: {
-          conversation_id: string | null
-          created_at: string | null
-          id: string | null
-          latency_ms: number | null
-          model: string | null
-          outcome: string | null
-          period_label: string | null
-          question_text: string | null
-          role: string | null
-          source_label: string | null
-          tools_called: string[] | null
-          user_id: string | null
-        }
-        Insert: {
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          outcome?: string | null
-          period_label?: string | null
-          question_text?: never
-          role?: string | null
-          source_label?: string | null
-          tools_called?: string[] | null
-          user_id?: string | null
-        }
-        Update: {
-          conversation_id?: string | null
-          created_at?: string | null
-          id?: string | null
-          latency_ms?: number | null
-          model?: string | null
-          outcome?: string | null
-          period_label?: string | null
-          question_text?: never
-          role?: string | null
-          source_label?: string | null
-          tools_called?: string[] | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_assistant_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "staff_assistant_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       v_staff_requisition_budget_context: {
         Row: {
@@ -81581,6 +81515,10 @@ export type Database = {
           p_reason_text?: string
           p_request_ids: string[]
         }
+        Returns: Json
+      }
+      coo_decide_signage: {
+        Args: { p_decision: string; p_notes?: string; p_signage_id: string }
         Returns: Json
       }
       coo_push_selected: {
@@ -96725,6 +96663,23 @@ export type Database = {
       staff_assistant_crm_conversation_thread: {
         Args: { p_conversation_id: string }
         Returns: Json
+      }
+      staff_assistant_crm_messages: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          created_at: string
+          id: string
+          latency_ms: number
+          model: string
+          outcome: string
+          period_label: string
+          question_text: string
+          role: string
+          source_label: string
+          tools_called: string[]
+          user_id: string
+        }[]
       }
       staff_assistant_crm_review_dashboard:
         | {

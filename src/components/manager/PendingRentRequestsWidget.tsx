@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -68,10 +69,10 @@ export function PendingRentRequestsWidget() {
       const agentIds = [...new Set(data.map(r => r.agent_id).filter(Boolean))] as string[];
       const allIds = [...new Set([...tenantIds, ...agentIds])];
       
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(allIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', allIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 

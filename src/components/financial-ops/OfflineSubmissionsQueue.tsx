@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,10 +148,10 @@ export function OfflineSubmissionsQueue() {
       new Set(submissions.flatMap((r) => [r.agent_id, r.tenant_id])),
     );
     if (ids.length > 0) {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', ids);
+        .in('id', validIds));
       const map: Record<string, ProfileLite> = {};
       (profs ?? []).forEach((p) => { map[p.id] = p as ProfileLite; });
       setProfiles(map);

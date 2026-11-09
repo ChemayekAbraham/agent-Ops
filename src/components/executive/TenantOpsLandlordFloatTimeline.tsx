@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -340,10 +341,10 @@ export function TenantOpsLandlordFloatTimeline() {
       }
       const nameMap = new Map<string, string>();
       if (ids.size) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds([...ids], (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', [...ids]);
+          .in('id', validIds));
         for (const p of profs || []) nameMap.set(p.id, p.full_name || 'Unknown');
       }
 

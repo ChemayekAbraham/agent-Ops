@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -111,10 +112,10 @@ export function LedgerEntryDetailDialog({
       }
       const names: Record<string, string> = {};
       if (ids.size) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(Array.from(ids), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', Array.from(ids));
+          .in('id', validIds));
         for (const p of profs ?? []) {
           names[p.id] = [p.full_name, p.phone].filter(Boolean).join(' · ') || p.id;
         }
