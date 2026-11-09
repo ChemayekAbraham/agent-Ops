@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -160,7 +161,7 @@ export default function MerchantRegister() {
       }
 
       // Persist NIN + merchant flags on the profile.
-      const { data: sessionData } = await supabase.auth.getUser();
+      const { data: sessionData } = await getSessionCheckedUser();
       const uid = sessionData.user?.id;
       if (uid) {
         await supabase

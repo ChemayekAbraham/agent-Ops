@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { formatUGX } from '@/lib/rentCalculations';
 import { supabase } from '@/integrations/supabase/client';
 import welileLogoUrl from '@/assets/welile-logo.png';
@@ -148,10 +150,10 @@ async function fetchPortfolioDetailsMap(portfolioIds: string[]): Promise<Map<str
   const map = new Map<string, any>();
   if (portfolioIds.length === 0) return map;
   const unique = Array.from(new Set(portfolioIds));
-  const { data } = await supabase
+  const { data } = await withUuidIds(unique, (validIds) => supabase
     .from('investor_portfolios')
     .select('id, portfolio_code, account_name, investment_amount, roi_percentage, roi_mode, status, duration_months, maturity_date, next_roi_date, payout_day, auto_reinvest, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, display_currency, created_at, total_roi_earned, investor_id, agent_id')
-    .in('id', unique);
+    .in('id', validIds));
   (data || []).forEach((p: any) => map.set(p.id, p));
   return map;
 }
@@ -523,7 +525,7 @@ export function downloadBlob(blob: Blob, filename: string): void {
   // blocks the actual download.
   (async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: user?.id ?? null,
         action_type: 'pdf_report_exported',

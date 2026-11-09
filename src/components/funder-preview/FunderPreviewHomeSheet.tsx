@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
@@ -150,7 +151,7 @@ export function FunderPreviewHomeSheet({
       }
 
       const plan = entry.item as FunderNewReadyPlan;
-      const { data: session } = await supabase.auth.getUser();
+      const { data: session } = await getSessionCheckedUser();
       const userId = session.user?.id;
       if (!userId) throw new Error('Sign in to share this Rent Plan');
       const link = await createPlanShareLink(userId, plan.rent_request_id);

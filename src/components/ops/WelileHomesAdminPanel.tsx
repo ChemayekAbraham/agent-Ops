@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -332,7 +333,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
       const list = (subRows ?? []) as Row[];
       const ids = Array.from(new Set([...list.map((r) => r.tenant_id), ...list.map((r) => r.agent_id).filter(Boolean) as string[]]));
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name, phone, verified').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone, verified').in('id', validIds));
         const profileList = (profs ?? []) as unknown as { id: string; full_name: string | null; phone: string | null; verified?: boolean | null }[];
         const map = new Map(profileList.map((p) => [p.id, p]));
         list.forEach((r) => {
@@ -392,7 +393,7 @@ export function WelileHomesAdminPanel({ onBack }: { onBack?: () => void } = {}) 
 
         if (fReqs && fReqs.length > 0) {
           const fAgentIds = Array.from(new Set(fReqs.map((f) => f.agent_id).filter(Boolean)));
-          const { data: fProfs } = await supabase.from('profiles').select('id, full_name, phone').in('id', fAgentIds);
+          const { data: fProfs } = await withUuidIds(fAgentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
           const fMap = new Map((fProfs ?? []).map((p: { id: string; full_name: string | null; phone: string | null }) => [p.id, p]));
           setFloatRequests(fReqs.map((f: FloatRequestItem) => ({
             ...f,

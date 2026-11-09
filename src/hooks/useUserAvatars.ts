@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,10 +23,10 @@ export function useUserAvatars(userIds: (string | null | undefined)[], enabled =
     enabled: enabled && ids.length > 0,
     staleTime: 60_000,
     queryFn: async (): Promise<Record<string, string | null>> => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, avatar_url, full_name')
-        .in('id', ids);
+        .in('id', validIds));
       if (error) throw error;
       const map: Record<string, string | null> = {};
       (data ?? []).forEach((row: { id: string; avatar_url: string | null }) => {

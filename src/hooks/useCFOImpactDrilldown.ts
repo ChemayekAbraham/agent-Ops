@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -95,7 +96,7 @@ export function useCFOImpactDrilldown(
         const rows = data || [];
         const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id).filter(Boolean))] as string[];
         const { data: profiles } = tenantIds.length
-          ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+          ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : { data: [] as any[] };
         const map = new Map((profiles || []).map((p: any) => [p.id, p]));
         // Dedupe per tenant — keep most recent
@@ -139,7 +140,7 @@ export function useCFOImpactDrilldown(
         }
         const agentIds = [...agg.keys()];
         const { data: profiles } = agentIds.length
-          ? await supabase.from('profiles').select('id, full_name, phone').in('id', agentIds)
+          ? await withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : { data: [] as any[] };
         const map = new Map((profiles || []).map((p: any) => [p.id, p]));
         const records: DrilldownRecord[] = agentIds
@@ -184,7 +185,7 @@ export function useCFOImpactDrilldown(
       }
       const ids = [...agg.keys()];
       const { data: profiles } = ids.length
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', ids)
+        ? await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] as any[] };
       const map = new Map((profiles || []).map((p: any) => [p.id, p]));
       const records: DrilldownRecord[] = ids

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,13 +73,13 @@ export default function UserTermsSection({ userId, userRoles }: UserTermsSection
               .maybeSingle()
           : Promise.resolve({ data: null }),
         userRoles.includes('supporter')
-          ? supabase
+          ? withUserSession(() => supabase
               .from('supporter_agreement_acceptance')
               .select('*')
               .eq('supporter_id', userId)
               .order('accepted_at', { ascending: false })
               .limit(1)
-              .maybeSingle()
+              .maybeSingle())
           : Promise.resolve({ data: null }),
         // agent_agreement_acceptance table removed
         Promise.resolve({ data: null }),

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, subDays, startOfDay } from 'date-fns';
@@ -46,10 +48,10 @@ function formatLabel(cat: string): string {
 async function fetchPartyNames(userIds: string[]): Promise<PartyMap> {
   const ids = Array.from(new Set(userIds.filter(isUuid)));
   if (ids.length === 0) return {};
-  const { data } = await supabase
+  const { data } = await withUuidIds(ids, (validIds) => supabase
     .from('profiles')
     .select('id, full_name, phone_number')
-    .in('id', ids);
+    .in('id', validIds));
   const map: PartyMap = {};
   (data || []).forEach((p: any) => {
     map[p.id] = { name: p.full_name || '—', phone: p.phone_number };
@@ -118,7 +120,7 @@ function drawFooter(doc: any, auditRef: string) {
 
 async function logExport(category: string, type: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     if (!user) return;
     await supabase.from('audit_logs').insert({
       user_id: user.id,

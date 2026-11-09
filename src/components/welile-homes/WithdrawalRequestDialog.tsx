@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -70,7 +71,7 @@ export function WithdrawalRequestDialog({
         throw new Error('You must be enrolled for at least 24 months to withdraw for non-housing purposes');
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // welile_homes_withdrawals table removed

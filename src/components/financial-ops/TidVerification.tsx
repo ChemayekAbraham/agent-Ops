@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
@@ -332,10 +333,10 @@ export function TidVerification() {
       const userIds = Array.from(new Set(rows.map((d) => d.user_id)));
       const profileMap = new Map<string, { name: string; phone: string }>();
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds);
+          .in('id', validIds));
         (profiles ?? []).forEach((p: any) => {
           profileMap.set(p.id, {
             name: p.full_name ?? 'Unknown depositor',
@@ -944,10 +945,10 @@ export function TidVerification() {
       if (deposits?.length) {
         // Found pending deposits — resolve profiles and show matches
         const userIds = [...new Set(deposits.map(d => d.user_id))];
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds);
+          .in('id', validIds));
         const pm = new Map(profiles?.map(p => [p.id, p]) || []);
 
         const results: MatchResult[] = deposits.map(d => {

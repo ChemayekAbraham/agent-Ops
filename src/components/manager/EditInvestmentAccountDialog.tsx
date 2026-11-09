@@ -96,7 +96,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       const uid = account.investor_id || account.agent_id;
       if (uid) {
         setLoadingEmail(true);
-        supabase.from('profiles').select('email').eq('id', uid).single()
+        supabase.from('profiles').select('email').eq('id', uid).maybeSingle()
           .then(({ data }) => { setEmail(data?.email || ''); setLoadingEmail(false); });
       }
     }
@@ -166,7 +166,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
 
       const uid = account.investor_id || account.agent_id;
       if (email.trim() && uid) {
-        const { data: priorProfile } = await supabase.from('profiles').select('email').eq('id', uid).single();
+        const { data: priorProfile } = await supabase.from('profiles').select('email').eq('id', uid).maybeSingle();
         if ((priorProfile?.email || '') !== email.trim()) {
           changedFields['email'] = { from: priorProfile?.email ?? null, to: email.trim() };
         }
@@ -176,7 +176,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       // Resolve editor name for richer audit context
       let editorName: string | null = null;
       if (user?.id) {
-        const { data: ed } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+        const { data: ed } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
         editorName = ed?.full_name || null;
       }
 

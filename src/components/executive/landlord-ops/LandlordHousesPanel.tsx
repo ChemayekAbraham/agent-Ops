@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -126,7 +127,7 @@ export function LandlordHousesPanel() {
         ...houses.map(h => h.agent_id),
       ]));
       if (!ids.length) return {} as Record<string, { name: string; phone: string | null }>;
-      const { data } = await supabase.from('profiles').select('id,full_name,phone').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id,full_name,phone').in('id', validIds));
       const out: Record<string, { name: string; phone: string | null }> = {};
       for (const p of (data ?? []) as Array<{ id: string; full_name: string | null; phone: string | null }>) {
         out[p.id] = { name: p.full_name || 'Unnamed', phone: p.phone ?? null };

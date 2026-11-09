@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +47,7 @@ export async function fetchAgentCapacityTenants(
     ...new Set((rents || []).map((r: any) => r.tenant_id).filter(Boolean)),
   ] as string[];
   const { data: profs } = tenantIds.length
-    ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+    ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
     : { data: [] as any[] };
   const profileMap = new Map<string, { full_name: string; phone: string | null }>(
     (profs || []).map((p: any) => [p.id, { full_name: p.full_name || 'Unknown', phone: p.phone }]),
@@ -276,7 +278,7 @@ export function downloadCapacityPdf(blob: Blob, agentName: string) {
   // actual download.
   (async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: user?.id ?? null,
         action_type: 'pdf_report_exported',

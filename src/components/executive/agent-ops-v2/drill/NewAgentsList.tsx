@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -51,10 +52,10 @@ export function NewAgentsList({ range }: { range: DateRange }) {
       if (error) throw error;
       const ids = (roles ?? []).map((r) => r.user_id);
       if (ids.length === 0) return { rows: [] as AgentRow[], hasMore: false };
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, avatar_url')
-        .in('id', ids);
+        .in('id', validIds));
       const pmap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
       const rows: AgentRow[] = (roles ?? []).map((r) => {
         const p = pmap.get(r.user_id);

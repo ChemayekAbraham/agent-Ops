@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -150,10 +151,10 @@ export function TenantCallReportsPanel({
       const map = new Map<string, string>();
       if (!staffIds.length) return map;
       for (let i = 0; i < staffIds.length; i += 300) {
-        const { data } = await supabase
+        const { data } = await withUuidIds(staffIds.slice(i, i + 300), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, email')
-          .in('id', staffIds.slice(i, i + 300));
+          .in('id', validIds));
         (data || []).forEach((p: any) => map.set(p.id, p.full_name || p.email || p.id));
       }
       return map;

@@ -71,7 +71,7 @@ export function RequestDetailSheet({ open, onOpenChange, userId, requestType, re
     const fetchAll = async () => {
       const sessionOk = await hasUsableUserSession();
       const [profileRes, walletRes, rolesRes, txRes, depositRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, avatar_url, created_at, last_active_at, city, country').eq('id', userId).single(),
+        supabase.from('profiles').select('id, full_name, phone, avatar_url, created_at, last_active_at, city, country').eq('id', userId).maybeSingle(),
         sessionOk
           ? supabase.rpc('get_user_wallet_view', { p_user_id: userId })
           : Promise.resolve({ data: null, error: null }),

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -213,10 +214,10 @@ export function RejectedRequestsQueue({ stageFilter, title = 'Rejected Rent Requ
       const landlordIds = [...new Set((data ?? []).map((r) => r.landlord_id).filter(Boolean))] as string[];
       const [profiles, landlords] = await Promise.all([
         tenantIds.length
-          ? supabase
+          ? withUuidIds(tenantIds, (validIds) => supabase
               .from('profiles')
               .select('id, full_name, phone, region, district, sub_county, parish, village, city, town, landmark')
-              .in('id', tenantIds)
+              .in('id', validIds))
               .then((res) => res.data ?? [])
           : Promise.resolve([] as any[]),
         landlordIds.length

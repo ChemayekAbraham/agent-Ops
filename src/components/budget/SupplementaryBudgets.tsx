@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -262,7 +263,7 @@ function RequestDialog({ onClose, onDone }: { onClose: () => void; onDone: () =>
       } as never);
       if (e) throw e;
       const created = data as unknown as { id: string };
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       const failed: string[] = [];
       for (const f of files) {
         const path = `supplements/${u.user?.id}/${created.id}/${Date.now()}-${f.name.replace(/[^\w.-]/g, '_')}`;

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,7 +81,7 @@ export function BulkBankPayoutPanel() {
     const allocs = (data || []) as Allocation[];
     const ids = Array.from(new Set(allocs.flatMap((a) => [a.partner_id, a.proxy_agent_id]).filter(Boolean)));
     if (ids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const map = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
       allocs.forEach((a) => {
         a.partner_name = map.get(a.partner_id) || a.partner_id.slice(0, 8);

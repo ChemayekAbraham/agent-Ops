@@ -30,7 +30,7 @@ export default function RentAccessLimitPublic() {
     (async () => {
       try {
         const [{ data: prof }, { data: reps }] = await Promise.all([
-          supabase.from('profiles').select('full_name, monthly_rent').eq('id', tenantId).single(),
+          supabase.from('profiles').select('full_name, monthly_rent').eq('id', tenantId).maybeSingle(),
           supabase.from('repayments').select('amount, created_at').eq('tenant_id', tenantId),
         ]);
         if (!prof) {

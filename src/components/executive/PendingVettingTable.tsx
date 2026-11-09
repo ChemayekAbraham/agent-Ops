@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,8 +103,8 @@ export function PendingVettingTable() {
       const base = rows || [];
       if (base.length === 0) return [] as any[];
       const ids = Array.from(new Set(base.flatMap(r => [r.agent_id, r.beneficiary_id]).filter(Boolean)));
-      const { data: profiles } = await supabase
-        .from('profiles').select('id, full_name, phone').in('id', ids);
+      const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
+        .from('profiles').select('id, full_name, phone').in('id', validIds));
       const pMap = new Map((profiles || []).map(p => [p.id, p]));
       const { data: ports } = await supabase
         .from('investor_portfolios')

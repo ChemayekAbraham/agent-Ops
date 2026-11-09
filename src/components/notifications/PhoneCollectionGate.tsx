@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -96,7 +97,7 @@ async function logPromptEvent(
   } = {},
 ) {
   try {
-    await supabase.from("phone_collection_prompt_events").insert([
+    await withUserSession(() => supabase.from("phone_collection_prompt_events").insert([
       {
         user_id: userId,
         action,
@@ -104,7 +105,7 @@ async function logPromptEvent(
         had_prior_phone: extras.had_prior_phone ?? null,
         meta: (extras.meta ?? {}) as any,
       },
-    ]);
+    ]));
   } catch (e) {
     console.warn("[PhoneCollectionGate] audit log failed:", e);
   }

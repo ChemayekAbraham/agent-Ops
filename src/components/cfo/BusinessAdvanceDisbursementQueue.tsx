@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,8 +68,8 @@ export function BusinessAdvanceDisbursementQueue() {
       ];
       const profileMap = new Map<string, string>();
       if (userIds.length) {
-        const { data: profiles } = await supabase
-          .from('profiles').select('id, full_name').in('id', userIds);
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
+          .from('profiles').select('id, full_name').in('id', validIds));
         for (const p of profiles || []) profileMap.set(p.id, p.full_name || 'Unknown');
       }
 

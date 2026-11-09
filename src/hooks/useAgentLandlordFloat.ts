@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -13,6 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
  * what the agent sees and spends against.
  */
 export function useAgentLandlordFloat(agentId?: string) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user } = useAuth();
   const effectiveId = agentId || user?.id;
   const queryClient = useQueryClient();
@@ -104,14 +107,14 @@ export function useAgentLandlordFloat(agentId?: string) {
     queryKey: availableKey,
     queryFn: async (): Promise<number> => {
       if (!effectiveId) return 0;
-      const { data, error } = await supabase.rpc('get_agent_lp_float_available', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_agent_lp_float_available', {
         p_agent_id: effectiveId,
-      });
+      }));
       if (error) throw error;
       const n = Number(data ?? 0);
       return Number.isFinite(n) ? n : 0;
     },
-    enabled: !!effectiveId,
+    enabled: authenticatedReady && (!!effectiveId),
     staleTime: 0,
     gcTime: 0,
     refetchOnMount: 'always',

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +48,7 @@ export function useListingPhotoActions(listingId: string | null) {
   /** Optimize (1200px WebP) + upload to storage + insert a row. */
   const upload = useCallback(async (files: File[]) => {
     if (!listingId) throw new Error('No listing selected');
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await getSessionCheckedUser();
     const uid = auth.user?.id ?? null;
 
     for (const file of files) {

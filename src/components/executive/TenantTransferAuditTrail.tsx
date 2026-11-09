@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { TenantOpsReportToolbar } from './TenantOpsReportToolbar';
 import { useQuery } from '@tanstack/react-query';
@@ -123,7 +124,7 @@ export function TenantTransferAuditTrail() {
 
       const idArr = Array.from(ids);
       const profilesRes = idArr.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', idArr)
+        ? await withUuidIds(idArr, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] as Array<{ id: string; full_name: string | null }> };
       const nameOf = new Map(
         (profilesRes.data || []).map((p) => [p.id, p.full_name || '—']),

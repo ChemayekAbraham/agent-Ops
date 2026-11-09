@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -309,10 +310,10 @@ export function CTOCommunicationOverview() {
       const all: Partner[] = [];
       for (let i = 0; i < ids.length; i += chunkSize) {
         const slice = ids.slice(i, i + chunkSize);
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(slice, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, email, created_at, last_active_at')
-          .in('id', slice);
+          .in('id', validIds));
         if (error) throw error;
         for (const p of (data || []) as Partner[]) {
           all.push({ ...p, portfolios: portfolioCount[p.id] || 0 } as Partner);

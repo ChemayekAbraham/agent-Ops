@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,10 +65,10 @@ export function PendingFunderApprovals({ defaultExpanded = false, showWhenEmpty 
       const profileIds = Array.from(
         new Set(baseRows.flatMap(r => [r.agent_id, r.beneficiary_id]).filter(Boolean))
       );
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(profileIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', profileIds);
+        .in('id', validIds));
       const profileMap = new Map(
         (profiles || []).map(p => [p.id, { full_name: p.full_name, phone: p.phone }])
       );

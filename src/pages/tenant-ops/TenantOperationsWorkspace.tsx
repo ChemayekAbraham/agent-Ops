@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Suspense, useMemo, useState } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { useSearchParams } from 'react-router-dom';
@@ -287,7 +288,7 @@ function TopUpEligibilityTab() {
     const toastId = toast.loading('Generating professional PDF report…');
     try {
       const allRows = await fetchAllRowsForExport();
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       await generateTopupEligibilityPdf(allRows, { generatedByUserId: auth?.user?.id });
       toast.success('PDF report ready', { id: toastId });
     } catch (e: unknown) {

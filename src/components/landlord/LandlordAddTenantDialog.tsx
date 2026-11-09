@@ -148,7 +148,7 @@ export default function LandlordAddTenantDialog({
         .from('profiles')
         .select('phone, full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!landlordProfile) {
         toast.error('Could not load your profile');

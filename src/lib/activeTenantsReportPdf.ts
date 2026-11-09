@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { format } from 'date-fns';
 import { generateTenantOpsExtractPdf, downloadPdfBlob } from './generateTenantOpsExtractPdf';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,10 +55,10 @@ async function fetchProfilesMap(ids: string[]) {
   const PAGE = 500;
   for (let i = 0; i < unique.length; i += PAGE) {
     const slice = unique.slice(i, i + PAGE);
-    const { data, error } = await supabase
+    const { data, error } = await withUuidIds(slice, (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', slice);
+      .in('id', validIds));
     if (error) throw error;
     (data ?? []).forEach((p: any) => {
       map.set(p.id, { name: p.full_name ?? '—', phone: p.phone ?? '—' });

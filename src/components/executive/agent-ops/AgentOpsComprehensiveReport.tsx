@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { endOfMonth, endOfYear, format, startOfMonth, startOfWeek, startOfYear, subDays } from 'date-fns';
@@ -192,7 +193,7 @@ export function AgentOpsComprehensiveReport() {
     // sees the real browser IP directly. Never blocks the actual download.
     (async () => {
       try {
-        const { data: { user: actor } } = await supabase.auth.getUser();
+        const { data: { user: actor } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: actor?.id ?? null,
           action_type: 'pdf_report_exported',

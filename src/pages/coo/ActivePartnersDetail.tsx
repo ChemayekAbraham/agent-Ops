@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
@@ -102,7 +103,7 @@ export default function ActivePartnersDetail() {
             .in('category', ['supporter_rent_fund', 'supporter_facilitation_capital', 'coo_proxy_investment'])
         ),
         batchedQuery<any>(ids, (batch) =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', batch)
+          withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         ),
         batchedQuery<any>(ids, (batch) =>
           supabase.from('wallets').select('user_id, balance').in('user_id', batch)

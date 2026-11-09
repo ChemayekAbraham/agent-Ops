@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ProfileLite {
@@ -44,9 +45,9 @@ export async function fetchProfilesByIds(
   const workers = Array.from({ length: Math.min(concurrency, chunks.length) }, async () => {
     while (cursor < chunks.length) {
       const idx = cursor++;
-      const { data, error } = await (supabase.from("profiles") as any)
+      const { data, error } = await withUuidIds(chunks[idx], (validIds) => (supabase.from("profiles") as any)
         .select(columns)
-        .in("id", chunks[idx]);
+        .in("id", validIds));
       if (error) throw error;
       for (const row of (data ?? []) as ProfileLite[]) {
         result.set(row.id, row);

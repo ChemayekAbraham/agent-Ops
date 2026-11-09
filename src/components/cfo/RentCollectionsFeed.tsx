@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,10 +57,10 @@ export function RentCollectionsFeed() {
       logs.forEach(l => userIds.add(l.tenant_id));
       (subs || []).forEach(s => { if (s.agent_id) userIds.add(s.agent_id); });
 
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds([...userIds], (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', [...userIds]);
+        .in('id', validIds));
 
       const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown']));
 
@@ -94,10 +95,10 @@ export function RentCollectionsFeed() {
       if (!entries?.length) return [];
 
       const userIds = [...new Set(entries.filter(e => e.user_id).map(e => e.user_id!))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', userIds);
+        .in('id', validIds));
 
       const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown']));
 

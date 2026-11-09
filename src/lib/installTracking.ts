@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 import {
   isIOSInAppBrowser,
@@ -88,7 +89,7 @@ export async function trackInstallEvent(
   try {
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await getSessionCheckedUser();
 
     const payload = {
       user_id: user?.id ?? null,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 // ═══════════════════════════════════════════════════════════════════════════
 // Invited Portfolios Panel
 // Lists portfolios in the invite pipeline (statuses `awaiting_partner_details`
@@ -143,9 +144,9 @@ export function InvitedPortfoliosPanel() {
         try {
           const byInvestor = new Map<string, PartnerInfo>();
           const profiles = await readInBatches(async (ids) => {
-            const { data, error } = await (supabase.from('profiles') as any)
+            const { data, error } = await withUuidIds(ids, (validIds) => (supabase.from('profiles') as any)
               .select('id, full_name, phone, email')
-              .in('id', ids);
+              .in('id', validIds));
             if (error) throw error;
             return (data || []) as any[];
           }, partnerIds);

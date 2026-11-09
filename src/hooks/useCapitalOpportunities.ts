@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -58,10 +59,10 @@ async function resolveRunningStarts(rows: Array<{ id: string; created_at: string
     .map(r => r.locked_from_portfolio_id)
     .filter((id): id is string => !!id && !byId.has(id));
   for (let depth = 0; depth < 10 && frontier.length > 0; depth++) {
-    const { data } = await supabase
+    const { data } = await withUuidIds(frontier, (validIds) => supabase
       .from('investor_portfolios')
       .select(PORTFOLIO_CHAIN_COLUMNS)
-      .in('id', frontier);
+      .in('id', validIds));
     frontier = [];
     for (const p of data || []) {
       if (byId.has(p.id)) continue;

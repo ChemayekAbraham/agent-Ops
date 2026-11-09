@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -269,7 +270,7 @@ export function Lc1VerificationInboxPanel({ onResolved, standalone = false, init
       // Never blocks the actual download.
       (async () => {
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: 'pdf_report_exported',

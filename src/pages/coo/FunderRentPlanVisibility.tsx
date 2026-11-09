@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,7 +70,7 @@ function useFunderRentPlans() {
 
       const [profiles, claims] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : Promise.resolve({ data: [], error: null } as never),
         planIds.length
           ? supabase

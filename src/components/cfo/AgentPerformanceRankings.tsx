@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -64,10 +65,10 @@ export function AgentPerformanceRankings({ compact = false }: Props) {
 
       // Resolve names
       const agentIds = [...agentMap.keys()];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       const nameMap = new Map((profiles || []).map(p => [p.id, p.full_name || 'Unknown']));
 

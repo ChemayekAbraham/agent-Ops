@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -139,10 +140,10 @@ export function useTenantCallingList() {
       if (!userIds.length) return [] as ProfileRow[];
       const batches = await Promise.all(
         chunk(userIds).map(ids =>
-          supabase
+          withUuidIds(ids, (validIds) => supabase
             .from('profiles')
             .select(PROFILE_COLS)
-            .in('id', ids),
+            .in('id', validIds)),
         ),
       );
       return batches.flatMap(b => (b.data || [])) as ProfileRow[];

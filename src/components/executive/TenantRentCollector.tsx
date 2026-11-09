@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +53,7 @@ export function TenantRentCollector() {
 
       if (agentIds.length > 0) {
         const [agentProfiles, agentWallets] = await Promise.all([
-          supabase.from('profiles').select('id, full_name').in('id', agentIds),
+          withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
           supabase.from('wallets').select('user_id, balance').in('user_id', agentIds),
         ]);
         const walletMap = new Map((agentWallets.data || []).map(w => [w.user_id, Number(w.balance)]));

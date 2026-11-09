@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -123,10 +124,10 @@ export default function MoneyFlowTrace() {
       const userIds = [...new Set(legs.map((l) => l.user_id).filter(Boolean))] as string[];
       const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
       if (userIds.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds);
+          .in('id', validIds));
         (profiles ?? []).forEach((p) => profileMap.set(p.id, p));
       }
 

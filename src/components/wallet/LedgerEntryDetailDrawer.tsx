@@ -116,7 +116,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
       // Fetch related data in parallel
       const [ownerRes, relatedRes, linkedRes] = await Promise.all([
         e.user_id
-          ? supabase.from('profiles').select('full_name, phone').eq('id', e.user_id).single()
+          ? supabase.from('profiles').select('full_name, phone').eq('id', e.user_id).maybeSingle()
           : Promise.resolve({ data: null }),
         e.transaction_group_id
           ? applyCustomerWalletLedgerFilters(supabase.from('general_ledger')
@@ -126,7 +126,7 @@ export function LedgerEntryDetailDrawer({ entryId, open, onOpenChange }: LedgerE
               .order('transaction_date', { ascending: false })
           : Promise.resolve({ data: [] }),
         e.linked_party && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(e.linked_party)
-          ? supabase.from('profiles').select('full_name, phone').eq('id', e.linked_party).single()
+          ? supabase.from('profiles').select('full_name, phone').eq('id', e.linked_party).maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
 

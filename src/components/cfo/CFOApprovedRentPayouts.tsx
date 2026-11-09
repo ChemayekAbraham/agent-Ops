@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,7 +128,7 @@ export function CFOApprovedRentPayouts() {
     queryFn: async () => {
       const m = new Map<string, string>();
       for (let i = 0; i < userIds.length; i += 200) {
-        const { data } = await supabase.from('profiles').select('id, full_name').in('id', userIds.slice(i, i + 200));
+        const { data } = await withUuidIds(userIds.slice(i, i + 200), (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (data || []).forEach((p: any) => m.set(p.id, p.full_name || '—'));
       }
       for (let i = 0; i < landlordIds.length; i += 200) {

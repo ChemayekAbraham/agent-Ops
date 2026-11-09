@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Flame, X, Check, Clock, CircleHelp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 export const STREAK_TIERS = [
   { active: 7, reward: 50000 },
@@ -21,8 +23,11 @@ const rewardFor = (active: number) => STREAK_TIERS.find((t) => active >= t.activ
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export function useWeeklyStreak() {
+  const { user } = useAuth();
+  const ready = useAuthenticatedAudience();
   return useQuery({
-    queryKey: ['agent-weekly-collection-streak'],
+    queryKey: ['agent-weekly-collection-streak', user?.id],
+    enabled: ready,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_agent_weekly_collection_streak' as any, {});
       if (error) throw error;

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef } from 'react';
 import airtelLogo from '@/assets/airtel-logo.jpeg.asset.json';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -1020,7 +1021,7 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
     if (!validateForm()) return;
     setSubmitError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) {
         toast.error('Please log in');
         setStep('form');

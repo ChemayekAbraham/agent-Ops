@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -315,10 +316,10 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
     queryKey: ['funder-onboarding-referrers', referrerIds.sort().join(',')],
     enabled: referrerIds.length > 0,
     queryFn: async () => {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(referrerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', referrerIds);
+        .in('id', validIds));
       const map = new Map<string, string>();
       (profs || []).forEach(p => map.set(p.id, p.full_name || '—'));
       return map;
@@ -344,7 +345,7 @@ export default function FunderOnboarding({ embedded = false }: { embedded?: bool
       const userIds = Array.from(agg.keys());
       if (userIds.length === 0) return [] as Array<{ user_id: string; full_name: string; clicks: number; signups: number }>;
       const [{ data: profs }, { data: signups }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').in('id', userIds),
+        withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
         supabase.from('profiles').select('referrer_id').eq('signup_source', 'funder-onboarding').in('referrer_id', userIds),
       ]);
       const nameMap = new Map<string, string>();

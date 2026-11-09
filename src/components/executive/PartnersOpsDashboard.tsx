@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import SharesOnboardingPanel from './shares/SharesOnboardingPanel';
 import { useState, useEffect, useRef } from 'react';
@@ -122,7 +123,7 @@ export function PartnersOpsDashboard() {
 
       const ids = new Set<string>();
       data.forEach(p => { if (p.investor_id) ids.add(p.investor_id); ids.add(p.agent_id); });
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name, frozen_at').in('id', Array.from(ids));
+      const { data: profiles } = await withUuidIds(Array.from(ids), (validIds) => supabase.from('profiles').select('id, full_name, frozen_at').in('id', validIds));
       const nameMap = new Map<string, string>();
       const frozenIds = new Set<string>();
       (profiles || []).forEach(p => {

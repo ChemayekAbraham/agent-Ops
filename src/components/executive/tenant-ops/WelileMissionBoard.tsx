@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -1646,10 +1647,10 @@ function ROIDetailDialog({
     queryKey: ['roi-detail-schedulers', schedulerIds.sort().join(',')],
     enabled: open && schedulerIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(schedulerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, email')
-        .in('id', schedulerIds);
+        .in('id', validIds));
       if (error) throw error;
       const m = new Map<string, { full_name: string | null; email: string | null }>();
       (data ?? []).forEach((p: any) => m.set(p.id, { full_name: p.full_name, email: p.email }));

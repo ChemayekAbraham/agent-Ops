@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -146,7 +148,7 @@ export function PromissoryConversionQueue() {
   const { data: myId } = useQuery({
     queryKey: ['promissory-ops-me'],
     staleTime: Infinity,
-    queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+    queryFn: async () => (await getSessionCheckedUser()).data.user?.id ?? null,
   });
 
   const { data: myName = '' } = useQuery({
@@ -202,10 +204,10 @@ export function PromissoryConversionQueue() {
     staleTime: 300_000,
     queryFn: async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', agentIds);
+          .in('id', validIds));
         if (error) return {};
         const map: Record<string, string> = {};
         for (const p of data || []) map[(p as any).id] = (p as any).full_name || '';

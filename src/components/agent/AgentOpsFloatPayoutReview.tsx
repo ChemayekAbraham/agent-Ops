@@ -66,8 +66,8 @@ export function AgentOpsFloatPayoutReview({
       // Enrich with agent + landlord names
       const enriched = await Promise.all((data || []).map(async (p: any) => {
         const [{ data: agent }, { data: tenant }] = await Promise.all([
-          supabase.from('profiles').select('full_name, phone').eq('id', p.agent_id).single(),
-          supabase.from('profiles').select('full_name, phone').eq('id', p.tenant_id).single(),
+          supabase.from('profiles').select('full_name, phone').eq('id', p.agent_id).maybeSingle(),
+          supabase.from('profiles').select('full_name, phone').eq('id', p.tenant_id).maybeSingle(),
         ]);
         return { ...p, agent, tenant };
       }));

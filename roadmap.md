@@ -1,3 +1,9 @@
+# Production frontend errors (9 November)
+- [ ] Correct realtime owner columns and wallet transaction reads.
+- [ ] Sanitize UUID lookup lists and handle normal missing rows.
+- [ ] Gate authenticated work, handle duplicates and role mapping, and prevent broken avatar requests.
+- [ ] Run targeted regression tests, guards, and available browser checks; report limitations.
+
 # Agreement Returns rate input
 - [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
 - [x] Run focused tests and guards (6 tests passed; all safeguards passed).

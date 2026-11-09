@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Card, CardContent } from '@/components/ui/card';
@@ -119,7 +120,7 @@ export function UserDepositRequests() {
       const cashIds = rawRequests.filter((r) => r.provider === 'cash_deposit').map((r) => r.id);
 
       const [profilesRes, versRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name').in('id', agentIds),
+        withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
         cashIds.length > 0
           ? supabase
               .from('cash_deposit_verifications')

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,12 +93,12 @@ export function TenantToSubAgentPanel() {
         .limit(50);
       const agentIds = (agentRoleRows || []).map(r => r.user_id);
       if (agentIds.length === 0) return [];
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, email')
-        .in('id', agentIds)
+        .in('id', validIds)
         .order('full_name', { ascending: true })
-        .limit(50);
+        .limit(50));
       if (error) throw error;
       return data || [];
     },

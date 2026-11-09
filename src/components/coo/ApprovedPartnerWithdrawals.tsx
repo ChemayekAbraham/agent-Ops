@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -82,10 +83,10 @@ export function ApprovedPartnerWithdrawals({ onBack }: Props) {
       const uniqueIds = [...ids].filter(isUuid);
       const map: Record<string, string> = {};
       for (let i = 0; i < uniqueIds.length; i += 500) {
-        const { data: profileData } = await supabase
+        const { data: profileData } = await withUuidIds(uniqueIds.slice(i, i + 500), (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', uniqueIds.slice(i, i + 500));
+          .in('id', validIds));
         // Keep empty when the name is missing so the render can fall back to the
         // payout (momo / bank) name instead of showing the literal "Unknown".
         (profileData || []).forEach(p => { map[p.id] = p.full_name || ''; });

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,7 +130,7 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
 
     const [{ data: profiles }, { data: landlords }] = await Promise.all([
       tenantIds.length > 0
-        ? supabase.from('profiles').select('id, full_name, phone, city').in('id', tenantIds)
+        ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, city').in('id', validIds))
         : Promise.resolve({ data: [] as any[] }),
       landlordIds.length > 0
         ? supabase.from('landlords').select('id, name, property_address, verified, ready_to_receive, latitude, longitude').in('id', landlordIds)

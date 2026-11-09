@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logCreditLoading } from '@/lib/creditLoadingDebug';
@@ -158,7 +159,7 @@ export function useCreditAccessLimit(userId: string | undefined) {
     }
     try {
       // Recalculate and fetch in one go
-      await supabase.rpc('recalculate_credit_limit', { p_user_id: userId });
+      await withUserSession(() => supabase.rpc('recalculate_credit_limit', { p_user_id: userId }));
       
       const { data } = await supabase
         .from('credit_access_limits')

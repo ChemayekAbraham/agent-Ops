@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Tiny PDF audit-report helper used by FinOps verification exports.
  * Mirrors the CSV export contract: same headers, same row cells, same filter
@@ -18,7 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 // blocks the actual download.
 async function logAuditPdfExport(filename: string, rowCount: number) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'pdf_report_exported',

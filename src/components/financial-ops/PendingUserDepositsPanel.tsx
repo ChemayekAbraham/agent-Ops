@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -104,10 +105,10 @@ export function PendingUserDepositsPanel({
     const list = (data ?? []) as PendingUserDepositRow[];
     const ids = Array.from(new Set(list.map((r) => r.user_id).filter(Boolean)));
     if (ids.length > 0) {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id,full_name,phone')
-        .in('id', ids);
+        .in('id', validIds));
       const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
       for (const r of list) {
         const p = map.get(r.user_id);

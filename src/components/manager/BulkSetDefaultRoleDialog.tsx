@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -43,10 +44,10 @@ export default function BulkSetDefaultRoleDialog({ open, onOpenChange, selectedU
         ? { forced_default_role: null, forced_default_role_set_by: null, forced_default_role_set_at: null }
         : { forced_default_role: selected, forced_default_role_set_by: user?.id ?? null, forced_default_role_set_at: new Date().toISOString() };
 
-      const { error } = await supabase
+      const { error } = await withUuidIds(selectedUserIds, (validIds) => supabase
         .from('profiles')
         .update(payload as any)
-        .in('id', selectedUserIds);
+        .in('id', validIds));
 
       if (error) throw error;
 

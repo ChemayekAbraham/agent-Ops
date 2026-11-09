@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CalendarClock, CheckCircle2, Clock, Home, Loader2, RotateCcw, Wallet } from 'lucide-react';
@@ -50,7 +51,7 @@ export function FunderBookedHousesPanel() {
   const { rate: ownRate } = useOwnNewPortfolioRate();
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('funder_booked_houses');
+    const { data, error } = await withUserSession(() => supabase.rpc('funder_booked_houses'));
     if (error) {
       console.error('[FunderBookedHousesPanel]', error.message);
       setRows([]);

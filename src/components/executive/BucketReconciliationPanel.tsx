@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useQuery } from '@tanstack/react-query';
@@ -279,10 +280,10 @@ async function fetchNames(ids: string[]): Promise<Map<string, string>> {
   const unique = Array.from(new Set(ids.filter(Boolean)));
   const BATCH = 100;
   for (let i = 0; i < unique.length; i += BATCH) {
-    const { data } = await supabase
+    const { data } = await withUuidIds(unique.slice(i, i + BATCH), (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', unique.slice(i, i + BATCH));
+      .in('id', validIds));
     (data || []).forEach((p: { id: string; full_name?: string | null; phone?: string | null }) => {
       map.set(p.id, p.full_name || p.phone || p.id.slice(0, 8));
     });

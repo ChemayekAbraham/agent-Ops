@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,19 +32,20 @@ async function userHasEnabledRole(role: string): Promise<boolean> {
 
 export async function readCommunication(role: string, id: string): Promise<Communication | null> {
   if (!(await userHasEnabledRole(role))) return null;
-  const { data, error } = await supabase.rpc('crm_communication_inbox', { p_role: role, p_id: id });
+  const { data, error } = await withUserSession(() => supabase.rpc('crm_communication_inbox', { p_role: role, p_id: id }));
   if (error) throw new Error(error.message);
   const rows = data as unknown as Communication[];
   return rows[0] ?? null;
 }
 export function useCommunicationInbox(role: string | null, enabled: boolean) {
+  const authenticatedReady = useAuthenticatedAudience();
   const { user, loading, rolesResolved, enabledRoles } = useAuth();
   const allowed = !!user && !loading && rolesResolved && communicationInboxAllowed(role, enabledRoles);
   return useQuery({
-    queryKey: ['crm-communication-inbox', user?.id, role], enabled: !!role && enabled && allowed,
+    queryKey: ['crm-communication-inbox', user?.id, role], enabled: authenticatedReady && (!!role && enabled && allowed),
     queryFn: async () => {
       if (!role || !communicationInboxAllowed(role, enabledRoles)) return [];
-      const { data, error } = await supabase.rpc('crm_communication_inbox', { p_role: role });
+      const { data, error } = await withUserSession(() => supabase.rpc('crm_communication_inbox', { p_role: role }));
       if (error) throw new Error(error.message);
       return data as unknown as Communication[];
     },

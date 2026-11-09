@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 
 // Untyped escape hatch keeps wrappers stable if generated types lag behind the live schema.
@@ -70,7 +71,7 @@ export async function approverWatchStatus(p_requisition_id: string) {
 export const listTopics = () => rows(db.from('ops_tutorial_topics').select('*').order('created_at', { ascending: false }));
 export const listRates = () => rows(db.from('ops_tutorial_rates').select('*'));
 export async function listMyVideos() {
-  const { data: u } = await supabase.auth.getUser();
+  const { data: u } = await getSessionCheckedUser();
   if (!u.user) return [];
   return rows(db.from('ops_tutorial_videos').select(WITH_TOPIC).eq('uploaded_by', u.user.id).order('created_at', { ascending: false }));
 }
@@ -83,7 +84,7 @@ export async function listMyLiveClaimVideoIds(): Promise<string[]> {
   return data.map((r) => r.video_id);
 }
 export async function myReviewProgress(videoId: string): Promise<number> {
-  const { data: u } = await supabase.auth.getUser();
+  const { data: u } = await getSessionCheckedUser();
   if (!u.user) return 0;
   const r = await rows<{ max_position_seconds: number }>(db.from('ops_tutorial_view_events').select('max_position_seconds')
     .eq('video_id', videoId).eq('viewer_id', u.user.id).eq('context', 'review'));

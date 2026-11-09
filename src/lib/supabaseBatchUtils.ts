@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { supabase } from '@/integrations/supabase/client';
 import { extractDateOnly, dateOnlyToLocalDate, formatLocalDateOnly } from '@/lib/portfolioDates';
 import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
@@ -245,11 +246,11 @@ export async function fetchVerifiedFundedProspectIds(
   } else {
     for (let i = 0; i < candidateIds.length; i += 100) {
       const batch = candidateIds.slice(i, i + 100);
-      const { data } = await supabase
+      const { data } = await withUuidIds(batch, (validIds) => supabase
         .from('profiles')
         .select('id')
-        .in('id', batch)
-        .eq('verified', true);
+        .in('id', validIds)
+        .eq('verified', true));
       (data || []).forEach((p: any) => { if (p.id) verifiedIds.push(p.id as string); });
     }
   }
@@ -325,7 +326,7 @@ export async function fetchAllNearingPayoutPortfolios(): Promise<{
 
   const profiles = await batchedQuery<{ id: string; full_name: string; phone: string; email: string; frozen_at: string | null; is_frozen: boolean }>(
     Array.from(ownerIds),
-    (batch) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at, is_frozen').in('id', batch)
+    (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, frozen_at, is_frozen').in('id', validIds))
   );
 
   const profileMap = new Map(profiles.map(p => [p.id, p]));
@@ -627,10 +628,10 @@ export async function fetchSupporterSummary(): Promise<{
       supabase.from('wallets').select('user_id, balance').in('user_id', batch)
     ),
     batchedQuery<{ id: string; frozen_at: string | null }>(ids, (batch) =>
-      supabase.from('profiles').select('id, frozen_at').in('id', batch).not('frozen_at', 'is', null)
+      withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, frozen_at').in('id', validIds).not('frozen_at', 'is', null))
     ),
     batchedQuery<{ id: string; created_at: string }>(ids, (batch) =>
-      supabase.from('profiles').select('id, created_at').in('id', batch).gte('created_at', todayStartIso)
+      withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, created_at').in('id', validIds).gte('created_at', todayStartIso))
     ),
   ]);
 

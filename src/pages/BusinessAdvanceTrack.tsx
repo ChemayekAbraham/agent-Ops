@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -87,7 +88,7 @@ export default function BusinessAdvanceTrack() {
 
   const aliveRef = useRef(true);
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     if (aliveRef.current) {
       setIsAuthed(!!user);
       setAuthedUserId(user?.id ?? null);

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -154,7 +155,7 @@ export function useAgentRejectedRequests() {
 
       const [{ data: profiles }, { data: landlords }] = await Promise.all([
         profileIds.length
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', profileIds)
+          ? withUuidIds(profileIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         landlordIds.length
           ? supabase

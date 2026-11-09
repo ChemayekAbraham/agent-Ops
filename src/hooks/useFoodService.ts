@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,7 +190,7 @@ async function resolveFoodUserId(): Promise<string | null> {
   if (!id) {
     try {
       if (typeof supabase?.auth?.getUser === 'function') {
-        const { data } = await supabase.auth.getUser();
+        const { data } = await getSessionCheckedUser();
         id = data?.user?.id ?? null;
       }
     } catch {

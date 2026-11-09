@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,7 +55,7 @@ export function AuditFeed() {
         const batches: string[][] = [];
         for (let i = 0; i < userIds.length; i += 50) batches.push(userIds.slice(i, i + 50));
         for (const batch of batches) {
-          const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', batch);
+          const { data: profiles } = await withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
           profiles?.forEach(p => profileMap.set(p.id, p.full_name || 'Unknown'));
         }
       }

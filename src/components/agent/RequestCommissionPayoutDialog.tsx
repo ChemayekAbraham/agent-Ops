@@ -45,7 +45,7 @@ export function RequestCommissionPayoutDialog({
       .from('profiles')
       .select('mobile_money_number, mobile_money_provider')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (data?.mobile_money_number) {
       setMobileNumber(data.mobile_money_number);

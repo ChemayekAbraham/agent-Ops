@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,14 +54,14 @@ export function PortfolioTopUpVerification() {
 
       // Batch fetch portfolios and profiles
       const [portfolioRes, profileRes] = await Promise.all([
-        supabase
+        withUuidIds(portfolioIds, (validIds) => supabase
           .from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, investor_id, agent_id')
-          .in('id', portfolioIds),
-        supabase
+          .in('id', validIds)),
+        withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds),
+          .in('id', validIds)),
       ]);
 
       const portfolioMap = new Map((portfolioRes.data || []).map(p => [p.id, p]));

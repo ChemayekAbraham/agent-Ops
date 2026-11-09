@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
@@ -79,10 +80,10 @@ export function DepositRequestsManager() {
           ...data.filter(d => d.agent_id).map(d => d.agent_id)
         ])];
 
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds);
+          .in('id', validIds));
 
         const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

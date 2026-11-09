@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FileText, CalendarRange, User } from 'lucide-react';
@@ -75,10 +76,10 @@ export default function HRSubmittedReports() {
     queryKey: ['hr-submitted-tppo-submitters', submitterIds],
     enabled: submitterIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(submitterIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', submitterIds);
+        .in('id', validIds));
       if (error) return {};
       const map: Record<string, string> = {};
       (data || []).forEach((p: { id: string; full_name: string | null }) => {

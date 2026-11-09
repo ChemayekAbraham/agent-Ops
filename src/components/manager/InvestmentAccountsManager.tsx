@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,10 +75,10 @@ export function InvestmentAccountsManager() {
       userIds.add(p.agent_id);
     });
 
-    const { data: profiles } = await supabase
+    const { data: profiles } = await withUuidIds(Array.from(userIds), (validIds) => supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', Array.from(userIds));
+      .in('id', validIds));
 
     const nameMap = new Map<string, string>();
     (profiles || []).forEach(p => nameMap.set(p.id, p.full_name));

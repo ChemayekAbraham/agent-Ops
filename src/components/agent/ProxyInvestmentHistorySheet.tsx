@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -39,7 +40,7 @@ export function ProxyInvestmentHistorySheet({ open, onOpenChange }: ProxyInvestm
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) return;
 
       const { data, error } = await applyCustomerWalletLedgerFilters(supabase

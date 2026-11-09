@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, format, startOfDay, subDays } from 'date-fns';
@@ -529,10 +530,10 @@ export function AgentMonitoring() {
       const profiles: Profile[] = [];
       const CHUNK = 300;
       for (let index = 0; index < ids.length; index += CHUNK) {
-        const { data: batch, error: profileError } = await supabase
+        const { data: batch, error: profileError } = await withUuidIds(ids.slice(index, index + CHUNK), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, created_at')
-          .in('id', ids.slice(index, index + CHUNK));
+          .in('id', validIds));
         if (profileError) throw profileError;
         profiles.push(...((batch ?? []) as Profile[]));
       }

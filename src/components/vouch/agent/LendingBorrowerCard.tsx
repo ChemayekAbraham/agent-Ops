@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -182,7 +183,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
       let agentName: string | null = null;
       let fundingBreakdown: { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }[] | undefined;
       try {
-        const { data: u } = await supabase.auth.getUser();
+        const { data: u } = await getSessionCheckedUser();
         if (u?.user) {
           const { data: pr } = await (supabase.from('profiles' as any).select('full_name').eq('id', u.user.id).maybeSingle() as any);
           agentName = pr?.full_name ?? null;

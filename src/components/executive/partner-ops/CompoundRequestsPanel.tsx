@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,7 +36,7 @@ function usePortfolioSearch(term: string) {
       const uniq = rows.filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
       const missing = uniq.map((r: any) => r.investor_id).filter((id: string) => !ids.includes(id));
       const extra = missing.length
-        ? (await supabase.from('profiles').select('id, full_name').in('id', missing)).data || []
+        ? (await withUuidIds(missing, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))).data || []
         : [];
       const names = new Map([...(people || []), ...extra].map((p: any) => [p.id, p.full_name]));
       return uniq.map((r: any) => ({ ...r, partner_name: names.get(r.investor_id) ?? null }));

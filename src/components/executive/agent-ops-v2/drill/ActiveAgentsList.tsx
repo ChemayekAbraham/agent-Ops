@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -126,10 +127,10 @@ export function ActiveAgentsList({ range }: { range: DateRange }) {
       const map = new Map<string, any>();
       const BATCH = 50;
       for (let i = 0; i < filtered.agentIds.length; i += BATCH) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(filtered.agentIds.slice(i, i + BATCH), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, avatar_url, phone')
-          .in('id', filtered.agentIds.slice(i, i + BATCH));
+          .in('id', validIds));
         (profs ?? []).forEach((p: any) => map.set(p.id, p));
       }
       return map;

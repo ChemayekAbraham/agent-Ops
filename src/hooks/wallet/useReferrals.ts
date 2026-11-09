@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * useReferralCount / useReferralsList — direct React Query replacements for
  * the referrals slice of useUserSnapshot (an IndexedDB cache with its own
@@ -70,10 +71,10 @@ async function fetchReferralsList(userId: string): Promise<ReferralRow[]> {
   if (rows.length === 0) return [];
 
   const referredIds = rows.map((r) => r.referred_id);
-  const { data: referredProfiles } = await supabase
+  const { data: referredProfiles } = await withUuidIds(referredIds, (validIds) => supabase
     .from("profiles")
     .select("id, full_name, phone, city")
-    .in("id", referredIds);
+    .in("id", validIds));
 
   const profileMap = new Map((referredProfiles ?? []).map((p) => [p.id, p]));
 

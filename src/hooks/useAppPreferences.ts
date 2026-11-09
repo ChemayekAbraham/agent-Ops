@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchServerRoutingPrefs, saveServerRoutingPrefs } from '@/lib/routingPrefsServer';
@@ -72,7 +73,7 @@ export function useAppPreferences() {
     // Mirror routing-relevant prefs to the user's profile so cleared
     // localStorage on another device still gets the same default.
     if (key === 'defaultRole' || key === 'disableAgentAutoDefault') {
-      supabase.auth.getUser().then(({ data }) => {
+      getSessionCheckedUser().then(({ data }) => {
         const uid = data?.user?.id;
         if (!uid) return;
         saveServerRoutingPrefs(uid, { [key]: value } as any);
@@ -95,7 +96,7 @@ export function useAppPreferences() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await supabase.auth.getUser();
+        const { data } = await getSessionCheckedUser();
         const uid = data?.user?.id;
         if (!uid) return;
         const server = await fetchServerRoutingPrefs(uid);

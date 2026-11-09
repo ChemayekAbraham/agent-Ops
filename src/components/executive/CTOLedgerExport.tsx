@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { searchProfilesTypeahead } from '@/lib/profileTypeahead';
@@ -24,7 +25,7 @@ function csvEscape(v: unknown): string {
 // sees the real browser IP directly. Never blocks the actual export.
 async function logLedgerExport(actionType: 'bulk_ledger_export_all' | 'ledger_export_single_user', rowCount: number, targetUserId?: string) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: actionType,

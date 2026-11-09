@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { safeUUID } from '@/lib/safeUUID';
 import { usePartnerReturnsArrears } from '@/hooks/usePartnerReturnsArrears';
 import { useEffect, useState, useCallback, useMemo, useRef, useDeferredValue } from 'react';
@@ -628,7 +630,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       const roiAmount = Math.round(portfolio.investment_amount * portfolio.roi_percentage / 100);
       const newAmount = portfolio.investment_amount + roiAmount;
       const refId = `CMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Advance next_roi_date by +1 month on compound
@@ -695,7 +697,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const buildRowsForIds = useCallback(async (ids: string[]): Promise<PartnerRow[]> => {
     if (ids.length === 0) return [];
     const [profiles, wallets, portfolios] = await Promise.all([
-      batchedQuery<any>(ids, (batch) => supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at').in('id', batch)),
+      batchedQuery<any>(ids, (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at').in('id', validIds))),
       batchedQuery<any>(ids, (batch) => supabase.from('wallets').select('user_id, balance').in('user_id', batch)),
       batchedQuery<any>(ids, (batch) =>
         supabase.from('investor_portfolios')
@@ -815,7 +817,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         const profiles = ids.length
           ? await batchedQuery<{ id: string; full_name: string | null; phone: string | null; email: string | null }>(
               ids,
-              (batch) => supabase.from('profiles').select('id, full_name, phone, email').in('id', batch),
+              (batch) => withUuidIds(batch, (validIds) => supabase.from('profiles').select('id, full_name, phone, email').in('id', validIds)),
             )
           : [];
         const pMap = new Map(profiles.map(p => [p.id, p]));
@@ -971,7 +973,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         .eq('status', 'pending');
 
       // Audit log
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'approve_portfolio',
@@ -1021,7 +1023,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     setDetailSelfCommitments([]);
     try {
       const [profileRes, walletRes, portfolioRes, ledgerRes, selfCommitRes, selfLinesRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).single(),
+        supabase.from('profiles').select('id, full_name, phone, email, created_at, frozen_at, frozen_reason, funder_verified_at, signup_source').eq('id', partnerId).maybeSingle(),
         supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', partnerId).single(),
         supabase.from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, roi_percentage, payout_day, roi_mode, status, created_at, maturity_date, total_roi_earned, duration_months, next_roi_date, investor_id, agent_id, payment_method, mobile_network, mobile_money_number, bank_name, bank_account_name, account_number, pending_renewal_effective_date, pending_renewal_duration_months, locked_from_portfolio_id, locked_at, lock_reason')
@@ -1061,10 +1063,10 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         const tenantIds = Array.from(new Set((rrRows || []).map((r: any) => r.tenant_id).filter(Boolean)));
         const nameById: Record<string, string> = {};
         if (tenantIds.length > 0) {
-          const { data: tenantRows } = await supabase
+          const { data: tenantRows } = await withUuidIds(tenantIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name')
-            .in('id', tenantIds);
+            .in('id', validIds));
           (tenantRows || []).forEach((t: any) => { nameById[t.id] = t.full_name; });
         }
         (rrRows || []).forEach((r: any) => {
@@ -1307,7 +1309,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         .eq('id', portfolioId);
       if (error) throw error;
 
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'edit_portfolio_name',
@@ -1416,7 +1418,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
     setDeleting(true);
     try {
       // Get current user for audit
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Proxy-safe delete: if the portfolio actually belongs to another partner
@@ -1603,7 +1605,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
     setSavingEditPortfolio(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Resolve editor name for audit trail (shown in PDF appendix)
@@ -1929,7 +1931,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
 
       if (proxyAssignment?.agent_id) {
         const [profileRes, walletRes] = await Promise.all([
-          supabase.from('profiles').select('full_name').eq('id', proxyAssignment.agent_id).single(),
+          supabase.from('profiles').select('full_name').eq('id', proxyAssignment.agent_id).maybeSingle(),
           supabase.from('wallets').select('balance, withdrawable_balance, float_balance').eq('user_id', proxyAssignment.agent_id).maybeSingle(),
         ]);
         setProxyAgentInfo({
@@ -2084,7 +2086,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (profileErr) throw profileErr;
 
       // Audit log
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await getSessionCheckedUser();
       await supabase.from('audit_logs').insert({
         user_id: currentUser?.id,
         action_type: 'partner_deleted',
@@ -5149,7 +5151,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
       const newAmount = p.investmentAmount + roiAmount;
       const refId = generateRef('CMP');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Advance next_roi_date by +1 month on compound
@@ -5270,7 +5272,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     try {
       let roiAmount = Math.round(p.investmentAmount * p.roiPercentage / 100);
       const refId = generateRef('PAY');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────
@@ -5535,7 +5537,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       if (payMode === 'different_wallet') reinvestMode = 'keep_returns';
 
       const refId = generateRef('SPL');
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // ── RETURN CYCLE GUARD (once per cycle = calendar month) ──────────────

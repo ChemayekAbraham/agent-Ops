@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -838,7 +839,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         if (loggedBlockKeys.current.has(key)) return;
         loggedBlockKeys.current.add(key);
       }
-      const { data: me } = await supabase.auth.getUser();
+      const { data: me } = await getSessionCheckedUser();
       const createdBy = me?.user?.id ?? null;
       if (!createdBy) return;
       let createdByName: string | null = null;
@@ -1185,7 +1186,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
       // (WALLET_CORRECTION_SELF_BLOCKED) refuses any wallet movement whose
       // author is also its target. Catch it here so the operator gets a plain
       // instruction instead of a raw 403 from the edge function.
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: authData } = await getSessionCheckedUser();
       const selfId = authData?.user?.id ?? null;
       if (selfId) {
         const selfTargets = [
@@ -1331,7 +1332,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         }
 
         try {
-          const { data: me } = await supabase.auth.getUser();
+          const { data: me } = await getSessionCheckedUser();
           if (me?.user?.id) {
             let routedByName: string | null = null;
             try {
@@ -1452,7 +1453,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
 
         // Best-effort routing-history + SMS so the move is auditable.
         try {
-          const { data: me } = await supabase.auth.getUser();
+          const { data: me } = await getSessionCheckedUser();
           if (me?.user?.id) {
             await (supabase.from('email_routing_history') as any).insert({
               gmail_transaction_id: row.id,
@@ -1517,7 +1518,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
 
           // Best-effort routing-history so the move is auditable.
           try {
-            const { data: me } = await supabase.auth.getUser();
+            const { data: me } = await getSessionCheckedUser();
             if (me?.user?.id) {
               await (supabase.from('email_routing_history') as any).insert({
                 gmail_transaction_id: row.id,
@@ -1600,7 +1601,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
           }
         } catch (e) { console.warn('[RouteEmailDeposit] transfer source SMS failed', e); }
         try {
-          const { data: me } = await supabase.auth.getUser();
+          const { data: me } = await getSessionCheckedUser();
           if (me?.user?.id) {
             await (supabase.from('email_routing_history') as any).insert({
               gmail_transaction_id: row.id,
@@ -1664,7 +1665,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
 
         // Log the reversal in routing history (best-effort).
         try {
-          const { data: me } = await supabase.auth.getUser();
+          const { data: me } = await getSessionCheckedUser();
           if (me?.user?.id) {
             await (supabase.from('email_routing_history') as any).insert({
               gmail_transaction_id: row.id,
@@ -1813,7 +1814,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
 
       // 3) Record routing history (best-effort — never block the credit).
       try {
-        const { data: me } = await supabase.auth.getUser();
+        const { data: me } = await getSessionCheckedUser();
         const routedBy = me?.user?.id;
         if (routedBy) {
           let routedByName: string | null = null;

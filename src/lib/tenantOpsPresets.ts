@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 import type { TenantOpsFilters } from './tenantOpsFilters';
 
@@ -22,7 +23,7 @@ function makeSlug(): string {
 }
 
 export async function listPresets(): Promise<TenantOpsPresetRemote[]> {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const uid = auth.user?.id ?? null;
   const { data, error } = await supabase
     .from('tenant_ops_filter_presets' as any)
@@ -58,7 +59,7 @@ export async function createPreset(input: {
     .select('id,name,filters,visibility,share_slug,owner_id,created_at')
     .single();
   if (error) throw error;
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const row = data as any;
   return {
     id: row.id, name: row.name,
@@ -89,7 +90,7 @@ export async function setPresetVisibility(
     .select('id,name,filters,visibility,share_slug,owner_id,created_at')
     .single();
   if (error) throw error;
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const row = data as any;
   return {
     id: row.id, name: row.name,
@@ -107,7 +108,7 @@ export async function resolvePresetBySlug(slug: string): Promise<TenantOpsPreset
   if (error) throw error;
   const row = (data as any[])?.[0];
   if (!row) return null;
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   return {
     id: row.id, name: row.name,
     filters: row.filters as TenantOpsFilters,

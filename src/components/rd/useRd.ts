@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -51,7 +52,7 @@ async function unwrap<T>(p: PromiseLike<{ data: T; error: any }>): Promise<T> {
 export function useCurrentUserId() {
   return useQuery({
     queryKey: ['rd', 'uid'],
-    queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+    queryFn: async () => (await getSessionCheckedUser()).data.user?.id ?? null,
     staleTime: Infinity,
   });
 }

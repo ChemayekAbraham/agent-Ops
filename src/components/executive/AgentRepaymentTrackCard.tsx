@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -99,10 +100,10 @@ export function AgentRepaymentTrackCard({ agentId, currentRequestId }: Props) {
       const tenantIds = [...new Set(plans.map((p) => p.tenant_id).filter(Boolean))];
       if (tenantIds.length === 0) return plans;
 
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', tenantIds);
+        .in('id', validIds));
 
       const nameMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
       return plans.map((p) => ({ ...p, tenant_name: nameMap.get(p.tenant_id) || 'Unknown Tenant' }));

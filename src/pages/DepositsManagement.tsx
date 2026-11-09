@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -152,10 +153,10 @@ export default function DepositsManagement() {
 
       if (data && data.length > 0) {
         const agentIds = data.map(r => r.user_id);
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', agentIds);
+          .in('id', validIds));
 
         setAgents(profiles?.map(p => ({ id: p.id, full_name: p.full_name })) || []);
       }

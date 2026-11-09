@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -292,7 +293,7 @@ export default function ManagerDashboard({ user, signOut, currentRole, available
       await supabase.from('user_roles').delete().in('user_id', userIds);
       
       // Delete profiles for all selected users (wallets cleaned up by cascade/triggers)
-      const { error } = await supabase.from('profiles').delete().in('id', userIds);
+      const { error } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').delete().in('id', validIds));
       
       if (error) throw error;
       
@@ -597,7 +598,7 @@ export default function ManagerDashboard({ user, signOut, currentRole, available
     // Fetch full user details including roles and ratings
     // Only fetch profiles + roles (core), stub ratings to reduce DB calls
     const [profileRes, rolesRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       supabase.from('user_roles').select('role').eq('user_id', userId),
     ]);
 

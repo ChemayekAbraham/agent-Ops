@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,10 +33,10 @@ function useAgentAvatars(agentIds: string[]) {
       const map: Record<string, string | null> = {};
       const CHUNK = 500;
       for (let i = 0; i < key.length; i += CHUNK) {
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(key.slice(i, i + CHUNK), (validIds) => supabase
           .from('profiles')
           .select('id, avatar_url')
-          .in('id', key.slice(i, i + CHUNK));
+          .in('id', validIds));
         if (error) throw error;
         (data || []).forEach((p: any) => { map[p.id] = p.avatar_url ?? null; });
       }

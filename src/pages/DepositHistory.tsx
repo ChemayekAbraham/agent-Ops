@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { useNavigate } from 'react-router-dom';
@@ -89,7 +90,7 @@ export default function DepositHistory() {
 
   const fetchDeposits = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) {
         navigate('/auth');
         return;

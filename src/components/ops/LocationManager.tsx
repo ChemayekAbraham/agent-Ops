@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -98,7 +99,7 @@ export function LocationManager() {
   useEffect(() => {
     load();
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) return;
       const { data: roles } = await supabase
@@ -262,7 +263,7 @@ export function LocationManager() {
       }
       toast.success('Location updated');
     } else {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('managed_locations')
         .insert({ ...payload, created_by: auth.user?.id ?? null });

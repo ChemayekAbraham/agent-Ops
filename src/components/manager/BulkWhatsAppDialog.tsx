@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -107,7 +108,7 @@ export default function BulkWhatsAppDialog({
     }
 
     setSavingTemplate(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     
     if (!user) {
       toast.error('You must be logged in to save templates');

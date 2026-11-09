@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,10 +67,10 @@ export default function UserEcosystemSection({ userId }: UserEcosystemSectionPro
       let profiles: Record<string, { id: string; full_name: string; phone: string }> = {};
 
       if (profileIds.length > 0) {
-        const { data: p } = await supabase
+        const { data: p } = await withUuidIds(profileIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', profileIds);
+          .in('id', validIds));
         if (p) {
           profiles = p.reduce((acc, pr) => { acc[pr.id] = pr; return acc; }, {} as typeof profiles);
         }

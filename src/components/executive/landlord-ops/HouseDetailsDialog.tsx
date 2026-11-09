@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState }  from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,8 +37,8 @@ export function HouseDetailsDialog({ houseId, onOpenChange }: Props) {
       const ids = [house.agent_id, house.landlord_id, house.tenant_id].filter(Boolean) as string[];
       let profiles: Record<string, { name: string; phone: string | null }> = {};
       if (ids.length) {
-        const { data: profs } = await supabase
-          .from('profiles').select('id,full_name,phone').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
+          .from('profiles').select('id,full_name,phone').in('id', validIds));
         for (const p of (profs ?? []) as any[]) {
           profiles[p.id] = { name: p.full_name || 'Unnamed', phone: p.phone ?? null };
         }

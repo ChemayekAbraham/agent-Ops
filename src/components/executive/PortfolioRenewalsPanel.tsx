@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,10 +53,10 @@ export function PortfolioRenewalsPanel() {
       if (error) throw error;
 
       const ids = Array.from(new Set((data || []).map((r: any) => r.portfolio_id)));
-      const { data: ports } = await supabase
+      const { data: ports } = await withUuidIds(ids.length ? ids : ['00000000-0000-0000-0000-000000000000'], (validIds) => supabase
         .from('investor_portfolios')
         .select('id, portfolio_code, account_name, investment_amount, status')
-        .in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+        .in('id', validIds));
       const map = new Map((ports || []).map((p: any) => [p.id, p]));
       return (data || []).map((r: any) => ({ ...r, portfolio: map.get(r.portfolio_id) || null })) as Row[];
     },

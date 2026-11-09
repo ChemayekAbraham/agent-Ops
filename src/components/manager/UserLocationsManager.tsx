@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -95,10 +96,10 @@ export default function UserLocationsManager() {
       // Fetch user profiles
       let profiles: Record<string, any> = {};
       if (userIds.length > 0) {
-        const { data: profilesData } = await supabase
+        const { data: profilesData } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, email')
-          .in('id', userIds);
+          .in('id', validIds));
         
         profiles = (profilesData || []).reduce((acc, p) => {
           acc[p.id] = p;

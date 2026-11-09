@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -847,7 +848,7 @@ export function AgentProductsPanel({ category, mode = 'full', showReceivablesRec
 
   const exportPdf = async () => {
     if (!effectiveKpis) return;
-    const { data: auth } = await supabase.auth.getUser();
+    const { data: auth } = await getSessionCheckedUser();
     const actor = auth.user?.email || 'Agent Operations';
     const blob = generateAgentProductsInFieldPdf({ kpis: effectiveKpis, rows, actor });
     const filename = `Agent_Products_In_Field_${format(new Date(), 'yyyy-MM-dd')}.pdf`;

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -94,7 +95,7 @@ export default function JobApplicationsPanel() {
   useEffect(() => { fetchApps(); }, [fetchApps]);
 
   const changeStatus = async (id: string, status: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     const patch: Record<string, any> = { status };
     if (status !== 'new') {
       patch.contacted_by = user?.id ?? null;

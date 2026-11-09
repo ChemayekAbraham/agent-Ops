@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -76,10 +77,10 @@ export function FloatToWithdrawablePanel() {
       const adminIds = [...new Set(logs.map((l) => l.user_id).filter(Boolean))];
       const adminMap = new Map<string, string>();
       if (adminIds.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(adminIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', adminIds);
+          .in('id', validIds));
         profiles?.forEach((p) => adminMap.set(p.id, p.full_name || 'Unknown'));
       }
 

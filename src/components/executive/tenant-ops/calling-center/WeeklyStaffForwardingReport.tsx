@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Weekly Staff Forwarding Report — Wednesday to Tuesday.
  *
@@ -151,7 +152,7 @@ export function WeeklyStaffForwardingReport() {
       const officerNames = new Map<string, string>();
       const officerIds = [...new Set(attempts.map((a) => a.caller_id).filter(Boolean) as string[])];
       for (const slice of chunk(officerIds, 300)) {
-        const { data: profs } = await anyDb.from('profiles').select('id, full_name').in('id', slice);
+        const { data: profs } = await withUuidIds(slice, (validIds) => anyDb.from('profiles').select('id, full_name').in('id', validIds));
         ((profs ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
           if (p.full_name) officerNames.set(p.id, p.full_name);
         });

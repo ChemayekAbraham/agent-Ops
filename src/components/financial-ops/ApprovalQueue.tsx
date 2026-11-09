@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,10 +105,10 @@ export function ApprovalQueue() {
       if (!data?.length) return [];
 
       const userIds = [...new Set(data.map(d => d.user_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', userIds);
+        .in('id', validIds));
       const pm = new Map(profiles?.map(p => [p.id, p]) || []);
 
       const { data: roles } = await supabase
@@ -194,10 +195,10 @@ export function ApprovalQueue() {
       if (!data?.length) return [];
 
       const userIds = [...new Set(data.filter(d => d.user_id).map(d => d.user_id!))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(userIds.length ? userIds : ['__none__'], (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', userIds.length ? userIds : ['__none__']);
+        .in('id', validIds));
       const pm = new Map(profiles?.map(p => [p.id, p]) || []);
 
       // ── Collapse paired double-entry legs into a single business event ──

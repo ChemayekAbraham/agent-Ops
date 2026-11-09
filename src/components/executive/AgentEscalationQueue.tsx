@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -35,8 +36,8 @@ export function AgentEscalationQueue() {
         .limit(50);
 
       const agentIds = [...new Set((data || []).map(e => e.agent_id))];
-      const { data: profiles } = await supabase.from('profiles')
-        .select('id, full_name').in('id', agentIds);
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase.from('profiles')
+        .select('id, full_name').in('id', validIds));
       const nameMap: Record<string, string> = {};
       (profiles || []).forEach(p => { nameMap[p.id] = p.full_name; });
 

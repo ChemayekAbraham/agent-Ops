@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * HR contracts and MOUs data access (hr_contracts, hr_doc_types).
  *
@@ -201,7 +202,7 @@ export async function listContracts(): Promise<ContractRow[]> {
   const nameByUser = new Map<string, string>();
   if (userIds.length > 0) {
     const profiles = ((unwrap(
-      await supabase.from('profiles').select('id, full_name').in('id', userIds),
+      await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     ) ?? []) as { id: string; full_name: string | null }[]);
     profiles.forEach((p) => nameByUser.set(p.id, p.full_name ?? ''));
   }

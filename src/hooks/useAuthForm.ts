@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -215,7 +216,7 @@ export function useAuthForm() {
   const saveLocationInBackground = () => {
     getLocationData().then(async (locationData) => {
       if (locationData?.country || locationData?.city) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         if (user) {
           await supabase
             .from('profiles')
@@ -1055,7 +1056,7 @@ export function useAuthForm() {
       try {
         // Cosmetic greeting only — never let it hold the spinner open.
         const currentUser = await Promise.race([
-          supabase.auth.getUser().then(({ data }) => data.user),
+          getSessionCheckedUser().then(({ data }) => data.user),
           sleep(1500).then(() => null),
         ]);
         if (currentUser) {

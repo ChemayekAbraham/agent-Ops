@@ -79,7 +79,7 @@ export function isUnauthenticatedRpcError(error: unknown): boolean {
  */
 export function useAuthenticatedAudience(roles?: readonly AppRole[]): boolean {
   const { user, session, loading, roles: held } = useAuth();
-  if (loading || !user?.id || !session?.access_token) return false;
+  if (loading || !user?.id || !session?.user?.id || !sessionHasUsableAccessToken(session)) return false;
   if (!roles || roles.length === 0) return true;
   return held.some((role) => roles.includes(role));
 }

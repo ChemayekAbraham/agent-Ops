@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -137,7 +138,7 @@ export function useLogTenantCall() {
       rentRequestId?: string | null;
       followUpAt?: string | null;
     }) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth.user?.id;
       if (!uid) throw new Error('You must be signed in to log a call.');
       const status: TenantCallStatus =

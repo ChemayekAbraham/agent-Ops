@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { Fragment, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -172,10 +173,10 @@ export default function HRAudit() {
     queryKey: ['hr-people-access-audit-names', profileIds],
     enabled: profileIds.length > 0,
     queryFn: async (): Promise<Record<string, string>> => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(profileIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', profileIds);
+        .in('id', validIds));
       if (error) throw error;
       const map: Record<string, string> = {};
       for (const p of data || []) {

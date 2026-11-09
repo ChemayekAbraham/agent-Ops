@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Combined Calling Center Report button — sits beside the existing History PDF.
  *
@@ -79,7 +80,7 @@ export function CombinedCallingCenterReportButton({
   const build = async () => {
     setBusy(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
 
       const [callsRes, concernsRes] = await Promise.all([
         anyDb

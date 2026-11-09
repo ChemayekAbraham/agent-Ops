@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -45,7 +46,7 @@ export function ChangeMaturityDateDialog({ open, onOpenChange, portfolio, onSucc
     }
 
     // Log in portfolio_renewals as audit
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('portfolio_renewals').insert({
       portfolio_id: portfolio.id,
       renewed_by: user?.id || 'system',

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,16 +96,16 @@ export function PartnershipTopupAuditLog() {
               .in('transaction_group_id', groupIds)
           : Promise.resolve({ data: [] as any[] }),
         portfolioIds.length
-          ? supabase
+          ? withUuidIds(portfolioIds, (validIds) => supabase
               .from('investor_portfolios')
               .select('id, portfolio_code, account_name')
-              .in('id', portfolioIds)
+              .in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         partnerIds.length
-          ? supabase
+          ? withUuidIds(partnerIds, (validIds) => supabase
               .from('profiles')
               .select('id, full_name')
-              .in('id', partnerIds)
+              .in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
       ]);
 

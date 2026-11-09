@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -88,7 +89,7 @@ export function CFOPartnerInvestments() {
 
   const verifyMutation = useMutation({
     mutationFn: async (portfolioId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('investor_portfolios')
@@ -110,7 +111,7 @@ export function CFOPartnerInvestments() {
 
   const flagMutation = useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
       const { error } = await supabase
         .from('investor_portfolios')

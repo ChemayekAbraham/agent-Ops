@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,7 +99,7 @@ export default function UserRentSection({ userId }: UserRentSectionProps) {
         .from('profiles')
         .select('full_name')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
       if (tenantProfile) {
         setTenantName(tenantProfile.full_name);
@@ -119,10 +120,10 @@ export default function UserRentSection({ userId }: UserRentSectionProps) {
       let agentProfiles: Record<string, { full_name: string; phone: string }> = {};
       
       if (agentIds.length > 0) {
-        const { data: agents } = await supabase
+        const { data: agents } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', agentIds);
+          .in('id', validIds));
         
         if (agents) {
           agentProfiles = agents.reduce((acc, agent) => {
