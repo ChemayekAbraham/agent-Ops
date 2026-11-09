@@ -26,6 +26,7 @@ export type SignageStatus =
   | 'under_review'
   | 'changes_required'
   | 'rejected'
+  | 'awaiting_coo'
   | 'approved_for_installation'
   | 'pending_installation'
   | 'installation_verification'
@@ -96,6 +97,9 @@ export interface SignageRecord {
   review_notes?: string;
   reviewed_by?: string;
   reviewed_at?: string;
+  coo_approved_by?: string;
+  coo_approved_at?: string;
+  coo_review_notes?: string;
 
   // Installation & Verification
   installed_at?: string;
@@ -155,6 +159,8 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
       return { label: 'Pending', variant: 'secondary' };
     case 'under_review':
       return { label: 'Under Review', variant: 'secondary' };
+    case 'awaiting_coo':
+      return { label: 'Awaiting COO', variant: 'secondary' };
     case 'approved_for_installation':
       return { label: 'Approved for Installation', variant: 'default' };
     case 'pending_installation':
@@ -180,4 +186,18 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
     default:
       return { label: status, variant: 'outline' };
   }
+}
+
+export function signageReviewTarget(decision: 'approve' | 'return' | 'reject', stage: 'agent_ops' | 'coo'): SignageStatus {
+  if (decision === 'return') return 'changes_required';
+  if (decision === 'reject') return 'rejected';
+  return stage === 'coo' ? 'approved_for_installation' : 'awaiting_coo';
+}
+
+export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'coo'): boolean {
+  return stage === 'coo' ? status === 'awaiting_coo' : ['submitted', 'pending', 'under_review', 'changes_required'].includes(status);
+}
+
+export function canInstallSignage(status: SignageStatus): boolean {
+  return ['approved_for_installation', 'pending_installation'].includes(status);
 }

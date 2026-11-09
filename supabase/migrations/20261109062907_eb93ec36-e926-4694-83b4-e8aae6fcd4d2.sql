@@ -1,0 +1,1 @@
+ALTER FUNCTION public.coo_decide_signage(uuid,text,text) SECURITY INVOKER;

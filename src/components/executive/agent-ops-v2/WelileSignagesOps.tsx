@@ -36,21 +36,24 @@ import {
   SignageRecord,
   SignageStatus,
   formatSignageStatus,
+  canReviewSignage,
+  canInstallSignage,
 } from '@/lib/welileSignages';
 import { useSignageOpsQueue, useReviewSignage, useVerifyInstallation } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
 interface WelileSignagesOpsProps {
   onBack: () => void;
+  stage?: 'agent_ops' | 'coo';
 }
 
-export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
+export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignagesOpsProps) {
   const { data: signages = [], isLoading, isError, error, refetch, isFetching } = useSignageOpsQueue();
-  const reviewMutation = useReviewSignage();
+  const reviewMutation = useReviewSignage(stage);
   const verifyMutation = useVerifyInstallation();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
 
   // Modal states
   const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
@@ -78,7 +81,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
     if (statusFilter === 'all') return matchesSearch;
     if (statusFilter === 'pending_review') {
-      return matchesSearch && ['submitted', 'under_review'].includes(s.status);
+      return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
       return matchesSearch && ['approved_for_installation', 'pending_installation'].includes(s.status);
@@ -91,7 +94,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
 
   // Summary counts
   const totalActive = signages.filter((s) => s.status === 'active').length;
-  const pendingReview = signages.filter((s) => ['submitted', 'under_review'].includes(s.status)).length;
+  const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
+  const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
   const awaitingInstallation = signages.filter((s) => ['approved_for_installation', 'pending_installation'].includes(s.status)).length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
@@ -104,13 +108,19 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       toast.error('Please enter a rejection reason.');
       return;
     }
+    if (stage === 'coo' && reviewAction !== 'approve' && (reviewAction === 'reject' ? rejectionReason : reviewNote).trim().length < 10) {
+      toast.error('Please enter a reason of at least 10 characters.');
+      return;
+    }
 
-    await reviewMutation.mutateAsync({
-      signageId: selectedSignage.id,
-      decision: reviewAction,
-      notes: reviewNote.trim() || undefined,
-      rejectionReason: rejectionReason.trim() || undefined,
-    });
+    try {
+      await reviewMutation.mutateAsync({
+        signageId: selectedSignage.id,
+        decision: reviewAction,
+        notes: reviewNote.trim() || undefined,
+        rejectionReason: rejectionReason.trim() || undefined,
+      });
+    } catch { return; }
 
     setIsReviewOpen(false);
     setSelectedSignage(null);
@@ -128,12 +138,14 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       return;
     }
 
-    await verifyMutation.mutateAsync({
-      signageId: selectedSignage.id,
-      installerName: installerName.trim(),
-      installedAt,
-      verificationNotes: verificationNotes.trim() || undefined,
-    });
+    try {
+      await verifyMutation.mutateAsync({
+        signageId: selectedSignage.id,
+        installerName: installerName.trim(),
+        installedAt,
+        verificationNotes: verificationNotes.trim() || undefined,
+      });
+    } catch { return; }
 
     setIsVerifyOpen(false);
     setSelectedSignage(null);
@@ -152,13 +164,13 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Megaphone className="h-5 w-5 text-primary" />
-              <h2 className="text-base font-bold text-foreground">Welile Signages Operations</h2>
+              <h2 className="text-base font-bold text-foreground">{stage === 'coo' ? 'Welile Signages Approvals' : 'Welile Signages Operations'}</h2>
               <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary font-bold">
-                Admin Ops
+                {stage === 'coo' ? 'COO' : 'Agent Ops'}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              Review locations, verify physical installations, and manage monthly owner obligations.
+              {stage === 'coo' ? 'Awaiting COO approval' : 'Agent Ops review'}
             </p>
           </div>
         </div>
@@ -171,7 +183,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Pending Review</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">{stage === 'coo' ? 'Awaiting COO' : 'Pending Review'}</span>
           <span className="text-lg font-bold text-amber-600">{pendingReview}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
@@ -202,7 +214,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
           {[
             { id: 'all', label: 'All' },
-            { id: 'pending_review', label: `Pending (${pendingReview})` },
+            ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
+            { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
             { id: 'approved', label: `Approved (${awaitingInstallation})` },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
@@ -299,7 +312,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                         <span>Inspect & Decide</span>
                       </Button>
 
-                      {['approved_for_installation', 'pending_installation'].includes(item.status) && (
+                      {stage === 'agent_ops' && canInstallSignage(item.status) && (
                         <Button
                           size="sm"
                           onClick={() => {
@@ -391,8 +404,8 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
               </div>
 
               {/* Decision Section */}
-              <div className="space-y-3 pt-2 border-t border-border">
-                <Label className="text-xs font-bold">Ops Decision</Label>
+              {canReviewSignage(selectedSignage.status, stage) && <div className="space-y-3 pt-2 border-t border-border">
+                <Label className="text-xs font-bold">{stage === 'coo' ? 'COO Decision' : 'Agent Ops Decision'}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   <Button
                     type="button"
@@ -402,7 +415,7 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     className="rounded-xl text-xs h-9"
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1 text-emerald-500" />
-                    Approve
+                    {stage === 'coo' ? 'Approve' : 'Send to COO'}
                   </Button>
                   <Button
                     type="button"
@@ -448,20 +461,20 @@ export function WelileSignagesOps({ onBack }: WelileSignagesOpsProps) {
                     />
                   </div>
                 )}
-              </div>
+              </div>}
 
               <DialogFooter className="pt-2">
                 <Button variant="ghost" size="sm" onClick={() => setIsReviewOpen(false)}>
                   Cancel
                 </Button>
-                <Button
+                {canReviewSignage(selectedSignage.status, stage) && <Button
                   size="sm"
                   onClick={handleConfirmReview}
                   disabled={reviewMutation.isPending}
                   className="rounded-xl text-xs font-bold"
                 >
                   {reviewMutation.isPending ? 'Recording...' : 'Confirm Decision'}
-                </Button>
+                </Button>}
               </DialogFooter>
             </div>
           )}

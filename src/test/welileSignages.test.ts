@@ -4,9 +4,27 @@ import {
   formatSignageStatus,
   type SignageStatus,
   type SignagePropertyType,
+  signageReviewTarget,
+  canReviewSignage,
+  canInstallSignage,
 } from '@/lib/welileSignages';
 
 describe('Welile Signages business rules & configuration', () => {
+  it('routes Agent Ops approval to COO instead of installation', () => {
+    expect(signageReviewTarget('approve', 'agent_ops')).toBe('awaiting_coo');
+  });
+  it('routes COO approval to installation', () => {
+    expect(signageReviewTarget('approve', 'coo')).toBe('approved_for_installation');
+  });
+  it('blocks installation while awaiting COO', () => {
+    expect(canInstallSignage('awaiting_coo')).toBe(false);
+    expect(canInstallSignage('approved_for_installation')).toBe(true);
+  });
+  it('only allows COO decisions on applications awaiting COO', () => {
+    expect(canReviewSignage('awaiting_coo', 'coo')).toBe(true);
+    expect(canReviewSignage('submitted', 'coo')).toBe(false);
+    expect(canReviewSignage('awaiting_coo', 'agent_ops')).toBe(false);
+  });
   it('confirms the non-negotiable financial rates', () => {
     expect(SIGNAGE_RATES.OWNER_MONTHLY_UGX).toBe(10000);
     expect(SIGNAGE_RATES.AGENT_REWARD_UGX).toBe(3000);

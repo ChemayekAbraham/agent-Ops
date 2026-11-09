@@ -1,7 +1,8 @@
 # Welile Signages COO approval
-- [ ] Add Awaiting COO and enforce Agent Ops → COO → installation → existing CFO workflow.
-- [ ] Add the COO Signages approval tab and test the status transitions and controls.
-- [ ] Verify available preview signals; authenticated end-to-end testing requires an externally managed session.
+- [x] Add Awaiting COO and enforce Agent Ops → COO → installation → existing CFO workflow.
+- [x] Add the COO Signages approval tab and test the status transitions and controls.
+- [x] Check build, guards and signed-out routing without runtime errors.
+- [ ] Verify a real Agent Ops → COO approval through signed-in screens; external unmanaged authentication prevents authenticated testing here.
 
 # Production frontend errors (9 November)
 - [x] Audit realtime owner columns and wallet transaction reads; current frontend already uses valid columns. SMS-log duplicate writes and partner-enum failures have no frontend source.

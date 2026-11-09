@@ -275,6 +275,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'COO desk', icon: Gauge, id: 'coo-desk', route: '/desk/coo' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
         { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
+        { label: 'Welile Signages Approvals', icon: Megaphone, id: 'welile-signages-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },
         { label: 'Transactions', icon: ClipboardList, id: 'transactions' },
         { label: 'Agent Collections', icon: Users, id: 'collections' },

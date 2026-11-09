@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SignageStatus, SIGNAGE_RATES } from '@/lib/welileSignages';
+import { SignageRecord, SIGNAGE_RATES, signageReviewTarget } from '@/lib/welileSignages';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
 
@@ -94,17 +94,18 @@ function useLegacySignageSync(userId?: string) {
 }
 
 export function useMySignages() {
-  const { user } = useAuth();
-  useLegacySignageSync(user?.id);
+  const { user, loading } = useAuth();
+  useLegacySignageSync(!loading ? user?.id : undefined);
 
   return useQuery({
     queryKey: ['welile-signages', 'my', user?.id],
-    enabled: !!user?.id,
+    enabled: !loading && !!user?.id,
     queryFn: async (): Promise<SignageRecord[]> => {
+      if (!user?.id) return [];
       const { data, error } = await db()
         .from('welile_signages')
         .select('*')
-        .eq('agent_id', user!.id)
+        .eq('agent_id', user.id)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return (data ?? []) as SignageRecord[];
@@ -113,8 +114,10 @@ export function useMySignages() {
 }
 
 export function useSignageOpsQueue() {
+  const { user, loading } = useAuth();
   return useQuery({
-    queryKey: ['welile-signages', 'ops-queue'],
+    queryKey: ['welile-signages', 'ops-queue', user?.id],
+    enabled: !loading && !!user?.id,
     queryFn: async (): Promise<SignageRecord[]> => {
       const { data, error } = await db()
         .from('welile_signages')
@@ -175,7 +178,7 @@ async function updateSignage(signageId: string, updates: Record<string, unknown>
   if (!data || data.length === 0) throw new Error('You are not allowed to change this application, or it no longer exists.');
 }
 
-export function useReviewSignage() {
+export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -190,10 +193,16 @@ export function useReviewSignage() {
       notes?: string;
       rejectionReason?: string;
     }) => {
-      let targetStatus: SignageStatus = 'under_review';
-      if (decision === 'approve') targetStatus = 'approved_for_installation';
-      if (decision === 'return') targetStatus = 'changes_required';
-      if (decision === 'reject') targetStatus = 'rejected';
+      const targetStatus = signageReviewTarget(decision, stage);
+      if (stage === 'coo') {
+        const { data, error } = await db().rpc('coo_decide_signage', {
+          p_signage_id: signageId, p_decision: decision,
+          p_notes: (decision === 'reject' ? rejectionReason : notes) || null,
+        });
+        if (error) throw new Error(error.message);
+        if (data?.status !== targetStatus) throw new Error('The decision could not be confirmed. Refresh the queue.');
+        return { signageId, targetStatus };
+      }
       // reviewed_by / reviewed_at are stamped by the server.
       await updateSignage(signageId, {
         status: targetStatus,
@@ -202,9 +211,9 @@ export function useReviewSignage() {
       });
       return { signageId, targetStatus };
     },
-    onSuccess: () => {
+    onSuccess: ({ targetStatus }) => {
       queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Signage review decision recorded.');
+      toast.success(targetStatus === 'awaiting_coo' ? 'Approved by Agent Ops. Sent to the COO for approval.' : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
   });
