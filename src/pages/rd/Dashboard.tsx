@@ -23,6 +23,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuth } from '@/hooks/useAuth';
+import MonthlyProjectPlans from './MonthlyProjectPlans';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -271,6 +273,7 @@ const REPORT_PERIODS: { id: RdReportPeriod; label: string }[] = [
 ];
 
 export default function RDDashboard() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -476,6 +479,8 @@ export default function RDDashboard() {
         </div>
 
         <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
+
+        {user && <MonthlyProjectPlans key={user.id} userId={user.id} projects={ideaRows} />}
 
         <IdeaCanvasBoard />
 
