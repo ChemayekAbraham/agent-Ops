@@ -454,6 +454,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
+        // The Partner Returns switch (CEO-only; others see it read-only). Also on the CFO dashboard under Investor Returns.
+        { label: 'Partner Returns', icon: TrendingUp, id: 'partner-returns' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances' },

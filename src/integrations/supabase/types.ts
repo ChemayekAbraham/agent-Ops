@@ -76046,6 +76046,7 @@ export type Database = {
         Args: { p_day: string; p_partner_id: string }
         Returns: Json
       }
+      _funders_headline: { Args: { p_from: string }; Returns: Json }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
