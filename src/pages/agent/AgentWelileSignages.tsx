@@ -85,7 +85,7 @@ export default function AgentWelileSignages() {
   // Metrics & Filters
   // Approved by Ops: signages that have passed Ops review
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
   const activeSignages = signages.filter((s) => s.status === 'active');
   const installingSignages = approvedSignages.filter((s) => s.status !== 'active');
@@ -1332,7 +1332,7 @@ export default function AgentWelileSignages() {
                     onClick={() => setSubmissionsFilter('installing')}
                     className="h-7 text-xs rounded-lg px-2.5"
                   >
-                    Awaiting Install ({installingCount})
+                    Awaiting Install / CFO ({installingCount})
                   </Button>
                 )}
               </div>

@@ -6,6 +6,7 @@ import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, c
 import { readStoredAuthSession, isSessionPastMaxAge } from '@/lib/sessionCache';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
 // Legacy device-only cache. Read only for the one-time upload to the server; never written.
 const STORAGE_KEY = 'welile:signages:local_cache';
@@ -308,19 +309,19 @@ export function useVerifyInstallation() {
       if (!current || !canInstallSignage(current.status)) throw new Error('This application is not awaiting installation verification.');
       // verified_by / verified_at / activated_at are stamped by the server.
       const { data: saved, error } = await db().from('welile_signages').update({
-        status: 'active',
+        status: 'awaiting_cfo',
         installed_at: installedAt,
         installer_name: installerName,
         verification_notes: verificationNotes || null,
         installation_photos: installationPhotos,
       }).eq('id', signageId).eq('status', current.status).select('id,status').maybeSingle();
       if (error) throw new Error(error.message);
-      if (saved?.status !== 'active') throw new Error('Installation could not be confirmed. Refresh the queue.');
+      if (saved?.status !== 'awaiting_cfo') throw new Error('Installation could not be confirmed. Refresh the queue.');
       return { signageId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success(`Installation verified. Signage is now active (owner UGX ${SIGNAGE_RATES.OWNER_MONTHLY_UGX.toLocaleString()}/month).`);
+      toast.success('Installation verified. Awaiting CFO payment of the agent reward and first owner rent.');
     },
     onError: (err: Error) => toast.error('Could not mark installed: ' + err.message),
   });
@@ -357,20 +358,49 @@ export function useResubmitSignage() {
   });
 }
 
-/** Signage payouts are not connected to the payment process yet; nothing is ever marked paid here. */
-export const SIGNAGE_PAYOUTS_AVAILABLE = false;
+export const SIGNAGE_PAYOUTS_AVAILABLE = true;
+
+export function useSignageCfoQueue() {
+  const userId = useSignageQueryUser();
+  return useQuery({
+    queryKey: ['welile-signages', 'cfo-queue', userId], enabled: !!userId,
+    staleTime: 60_000, gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
+      const { data, error } = await db().rpc('cfo_signages_queue').abortSignal(signal);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+}
 
 export function useCfoDisburseSignage() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_args: {
+    mutationFn: async (args: {
       signageId: string;
       payoutType: 'agent_reward' | 'owner_rent';
       transactionRef?: string;
       recipientPhone?: string;
       recipientName?: string;
       amountUgx: number;
-    }): Promise<never> => {
-      throw new Error('Signage payouts are coming soon. No payment was made.');
+      periodIndex: number;
+    }) => {
+      const expected = args.payoutType === 'agent_reward' ? SIGNAGE_RATES.AGENT_REWARD_UGX : SIGNAGE_RATES.OWNER_MONTHLY_UGX;
+      if (args.amountUgx !== expected) throw new Error('Incorrect signage payment amount.');
+      const { data, error } = await withUserSession(() => db().rpc('cfo_disburse_signage', {
+        p_signage_id: args.signageId, p_payout_type: args.payoutType, p_period_index: args.periodIndex,
+      }));
+      if (error) throw new Error(error.message);
+      if (!data?.ledger_group_id || data.signage_id !== args.signageId || Number(data.amount_ugx) !== expected) {
+        throw new Error('Payment could not be confirmed. Refresh before trying again.');
+      }
+      return data;
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
+        : data.status === 'active' ? 'Payment credited to Welile wallet. Signage is active.'
+          : 'Payment credited to Welile wallet. Awaiting the remaining CFO payment.');
     },
     onError: (err: any) => toast.error(err.message),
   });
