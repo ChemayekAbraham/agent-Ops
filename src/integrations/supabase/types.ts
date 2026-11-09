@@ -75782,6 +75782,7 @@ export type Database = {
           yesterday_pct: number
         }[]
       }
+      _agent_elig_basis: { Args: never; Returns: string }
       _agent_eligibility: { Args: { p_agent: string }; Returns: Json }
       _agent_expected_effective: {
         Args: { p_agent_ids: string[]; p_from: string; p_to: string }
@@ -76720,6 +76721,7 @@ export type Database = {
         Returns: Json
       }
       _pipeline_staff_ref: { Args: { p_uid: string }; Returns: string }
+      _pipeline_stage_rank: { Args: { p_stage: string }; Returns: number }
       _pipeline_stage_rating: {
         Args: { p_auto: Json; p_request_id: string; p_stage: string }
         Returns: number
@@ -82778,6 +82780,12 @@ export type Database = {
       }
       desk_accountability: {
         Args: { p_days?: number; p_desk?: string }
+        Returns: Json
+      }
+      desk_accountability_tile: { Args: { p_days?: number }; Returns: Json }
+      desk_agent_plans: { Args: { p_agent: string }; Returns: Json }
+      desk_agent_portfolio: {
+        Args: { p_filter?: string; p_limit?: number; p_search?: string }
         Returns: Json
       }
       desk_agents_live: { Args: { p_days?: number }; Returns: Json }
@@ -94074,6 +94082,10 @@ export type Database = {
       }
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_send_back_options: {
+        Args: { p_from_stage: string }
+        Returns: Json
+      }
       pipeline_send_back_reasons: {
         Args: { p_agent_id?: string; p_days?: number }
         Returns: {
@@ -94085,6 +94097,16 @@ export type Database = {
           share_pct: number
           times: number
         }[]
+      }
+      pipeline_send_back_to: {
+        Args: {
+          p_from_stage: string
+          p_note?: string
+          p_reason_code: string
+          p_request_id: string
+          p_to: string
+        }
+        Returns: Json
       }
       pipeline_set_waiting: {
         Args: {
