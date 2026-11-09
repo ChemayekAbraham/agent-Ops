@@ -68457,6 +68457,53 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_signage_payments: {
+        Row: {
+          amount_ugx: number
+          created_at: string
+          id: string
+          ledger_group_id: string
+          paid_by: string
+          payout_type: string
+          period_index: number
+          recipient_id: string
+          reference_id: string
+          signage_id: string
+        }
+        Insert: {
+          amount_ugx: number
+          created_at?: string
+          id?: string
+          ledger_group_id: string
+          paid_by: string
+          payout_type: string
+          period_index: number
+          recipient_id: string
+          reference_id: string
+          signage_id: string
+        }
+        Update: {
+          amount_ugx?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string
+          paid_by?: string
+          payout_type?: string
+          period_index?: number
+          recipient_id?: string
+          reference_id?: string
+          signage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_signage_payments_signage_id_fkey"
+            columns: ["signage_id"]
+            isOneToOne: false
+            referencedRelation: "welile_signages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_signage_status_events: {
         Row: {
           changed_by: string | null
@@ -68534,6 +68581,7 @@ export type Database = {
           owner_phone: string
           owner_rent_disbursed_at: string | null
           owner_rent_disbursed_by: string | null
+          owner_rent_due_at: string | null
           owner_rent_status: string
           owner_rent_tx_ref: string | null
           parish_name: string | null
@@ -68598,6 +68646,7 @@ export type Database = {
           owner_phone: string
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
+          owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
           parish_name?: string | null
@@ -68662,6 +68711,7 @@ export type Database = {
           owner_phone?: string
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
+          owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
           parish_name?: string | null
@@ -80743,6 +80793,14 @@ export type Database = {
       }
       cfo_disburse_bike_lease: {
         Args: { p_note?: string; p_sale_id: string; p_valuation?: number }
+        Returns: Json
+      }
+      cfo_disburse_signage: {
+        Args: {
+          p_payout_type: string
+          p_period_index: number
+          p_signage_id: string
+        }
         Returns: Json
       }
       cfo_disburse_smartphone_order: {
