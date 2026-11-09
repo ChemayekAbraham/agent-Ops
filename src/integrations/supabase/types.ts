@@ -22840,6 +22840,162 @@ export type Database = {
           },
         ]
       }
+      funders_board_baseline_items: {
+        Row: {
+          amount: number
+          frozen_at: string
+          item_id: string
+          item_kind: string
+        }
+        Insert: {
+          amount?: number
+          frozen_at?: string
+          item_id: string
+          item_kind: string
+        }
+        Update: {
+          amount?: number
+          frozen_at?: string
+          item_id?: string
+          item_kind?: string
+        }
+        Relationships: []
+      }
+      funders_board_counter_events: {
+        Row: {
+          actor: string | null
+          amount_delta: number
+          created_at: string
+          demotion_id: string | null
+          event: string
+          house_listing_id: string | null
+          houses_delta: number
+          id: number
+          item_id: string | null
+          item_kind: string | null
+          note: string | null
+          rent_request_id: string | null
+          source: string
+          staff_ref: string | null
+          tag: string | null
+        }
+        Insert: {
+          actor?: string | null
+          amount_delta: number
+          created_at?: string
+          demotion_id?: string | null
+          event: string
+          house_listing_id?: string | null
+          houses_delta: number
+          id?: number
+          item_id?: string | null
+          item_kind?: string | null
+          note?: string | null
+          rent_request_id?: string | null
+          source: string
+          staff_ref?: string | null
+          tag?: string | null
+        }
+        Update: {
+          actor?: string | null
+          amount_delta?: number
+          created_at?: string
+          demotion_id?: string | null
+          event?: string
+          house_listing_id?: string | null
+          houses_delta?: number
+          id?: number
+          item_id?: string | null
+          item_kind?: string | null
+          note?: string | null
+          rent_request_id?: string | null
+          source?: string
+          staff_ref?: string | null
+          tag?: string | null
+        }
+        Relationships: []
+      }
+      funders_board_demotions: {
+        Row: {
+          amount: number
+          counted_removed: boolean
+          demoted_at: string
+          demoted_by: string
+          demoted_position: string
+          demoted_staff_ref: string
+          house_listing_id: string | null
+          id: string
+          item_id: string
+          item_kind: string
+          level: string | null
+          level_at: string | null
+          level_by: string | null
+          level_note: string | null
+          level_staff_ref: string | null
+          place: string | null
+          reason_code: string
+          reason_text: string | null
+          rent_request_id: string | null
+          result: Json | null
+          state: string
+          status_before: string | null
+          tag: string
+          title: string | null
+        }
+        Insert: {
+          amount?: number
+          counted_removed?: boolean
+          demoted_at?: string
+          demoted_by: string
+          demoted_position: string
+          demoted_staff_ref: string
+          house_listing_id?: string | null
+          id?: string
+          item_id: string
+          item_kind: string
+          level?: string | null
+          level_at?: string | null
+          level_by?: string | null
+          level_note?: string | null
+          level_staff_ref?: string | null
+          place?: string | null
+          reason_code: string
+          reason_text?: string | null
+          rent_request_id?: string | null
+          result?: Json | null
+          state?: string
+          status_before?: string | null
+          tag: string
+          title?: string | null
+        }
+        Update: {
+          amount?: number
+          counted_removed?: boolean
+          demoted_at?: string
+          demoted_by?: string
+          demoted_position?: string
+          demoted_staff_ref?: string
+          house_listing_id?: string | null
+          id?: string
+          item_id?: string
+          item_kind?: string
+          level?: string | null
+          level_at?: string | null
+          level_by?: string | null
+          level_note?: string | null
+          level_staff_ref?: string | null
+          place?: string | null
+          reason_code?: string
+          reason_text?: string | null
+          rent_request_id?: string | null
+          result?: Json | null
+          state?: string
+          status_before?: string | null
+          tag?: string
+          title?: string | null
+        }
+        Relationships: []
+      }
       general_ledger: {
         Row: {
           account: string | null
@@ -36835,6 +36991,13 @@ export type Database = {
           created_at: string
           desk_id: string
           excess_amount: number
+          excess_resolution: string | null
+          excess_resolution_group_id: string | null
+          excess_resolution_reason: string | null
+          excess_resolved_amount: number | null
+          excess_resolved_at: string | null
+          excess_resolved_bucket: string | null
+          excess_resolved_by: string | null
           float_after: number | null
           float_before: number | null
           gmail_transaction_id: string
@@ -36851,6 +37014,13 @@ export type Database = {
           created_at?: string
           desk_id: string
           excess_amount?: number
+          excess_resolution?: string | null
+          excess_resolution_group_id?: string | null
+          excess_resolution_reason?: string | null
+          excess_resolved_amount?: number | null
+          excess_resolved_at?: string | null
+          excess_resolved_bucket?: string | null
+          excess_resolved_by?: string | null
           float_after?: number | null
           float_before?: number | null
           gmail_transaction_id: string
@@ -36867,6 +37037,13 @@ export type Database = {
           created_at?: string
           desk_id?: string
           excess_amount?: number
+          excess_resolution?: string | null
+          excess_resolution_group_id?: string | null
+          excess_resolution_reason?: string | null
+          excess_resolved_amount?: number | null
+          excess_resolved_at?: string | null
+          excess_resolved_bucket?: string | null
+          excess_resolved_by?: string | null
           float_after?: number | null
           float_before?: number | null
           gmail_transaction_id?: string
@@ -43793,6 +43970,48 @@ export type Database = {
           noted_by?: string
           noted_staff_ref?: string | null
           rent_request_id?: string
+        }
+        Relationships: []
+      }
+      pipeline_guard_log: {
+        Row: {
+          actor_id: string | null
+          actor_staff_ref: string | null
+          asked_status: string | null
+          at: string
+          detail: Json
+          final_status: string | null
+          from_status: string | null
+          id: number
+          outcome: string
+          rent_request_id: string
+          rule: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_staff_ref?: string | null
+          asked_status?: string | null
+          at?: string
+          detail?: Json
+          final_status?: string | null
+          from_status?: string | null
+          id?: number
+          outcome: string
+          rent_request_id: string
+          rule: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_staff_ref?: string | null
+          asked_status?: string | null
+          at?: string
+          detail?: Json
+          final_status?: string | null
+          from_status?: string | null
+          id?: number
+          outcome?: string
+          rent_request_id?: string
+          rule?: string
         }
         Relationships: []
       }
@@ -57790,9 +58009,10 @@ export type Database = {
           office_key: string
           prompts_moved: number
           reason: string
+          source: string
           to_holder: string
           transferred_at: string
-          transferred_by: string
+          transferred_by: string | null
         }
         Insert: {
           from_holder?: string | null
@@ -57800,9 +58020,10 @@ export type Database = {
           office_key: string
           prompts_moved?: number
           reason: string
+          source?: string
           to_holder: string
           transferred_at?: string
-          transferred_by: string
+          transferred_by?: string | null
         }
         Update: {
           from_holder?: string | null
@@ -57810,9 +58031,10 @@ export type Database = {
           office_key?: string
           prompts_moved?: number
           reason?: string
+          source?: string
           to_holder?: string
           transferred_at?: string
-          transferred_by?: string
+          transferred_by?: string | null
         }
         Relationships: []
       }
@@ -75560,6 +75782,7 @@ export type Database = {
           yesterday_pct: number
         }[]
       }
+      _agent_elig_basis: { Args: never; Returns: string }
       _agent_eligibility: { Args: { p_agent: string }; Returns: Json }
       _agent_expected_effective: {
         Args: { p_agent_ids: string[]; p_from: string; p_to: string }
@@ -76202,6 +76425,12 @@ export type Database = {
           plans: number
         }[]
       }
+      _fb_demotion_json: {
+        Args: {
+          d: Database["public"]["Tables"]["funders_board_demotions"]["Row"]
+        }
+        Returns: Json
+      }
       _file_allocation_return_for_rejected_payout: {
         Args: { p_decider: string; p_reason: string; p_withdrawal_id: string }
         Returns: string
@@ -76215,6 +76444,12 @@ export type Database = {
         Args: { p_day: string; p_partner_id: string }
         Returns: Json
       }
+      _funders_board_authority: { Args: { p_uid: string }; Returns: string }
+      _funders_board_is_counted: {
+        Args: { p_id: string; p_kind: string }
+        Returns: boolean
+      }
+      _funders_board_staff_ok: { Args: { p_uid: string }; Returns: boolean }
       _funders_headline: { Args: { p_from: string }; Returns: Json }
       _funders_headline_sets: {
         Args: { p_from: string }
@@ -76476,12 +76711,17 @@ export type Database = {
         Args: { p_auto?: Json; p_request_id: string }
         Returns: Json
       }
+      _pipeline_move_ok: {
+        Args: { p_from: string; p_to: string }
+        Returns: boolean
+      }
       _pipeline_my_roles: { Args: { p_uid: string }; Returns: string[] }
       _pipeline_sc_decide: {
         Args: { p_auto: Json; p_request_id: string }
         Returns: Json
       }
       _pipeline_staff_ref: { Args: { p_uid: string }; Returns: string }
+      _pipeline_stage_rank: { Args: { p_stage: string }; Returns: number }
       _pipeline_stage_rating: {
         Args: { p_auto: Json; p_request_id: string; p_stage: string }
         Returns: number
@@ -81724,6 +81964,7 @@ export type Database = {
         Args: { p_decision: string; p_notes?: string; p_signage_id: string }
         Returns: Json
       }
+      coo_demoted_board: { Args: { p_days?: number }; Returns: Json }
       coo_push_selected: {
         Args: { p_comment?: string; p_ids: string[] }
         Returns: Json
@@ -82539,6 +82780,12 @@ export type Database = {
       }
       desk_accountability: {
         Args: { p_days?: number; p_desk?: string }
+        Returns: Json
+      }
+      desk_accountability_tile: { Args: { p_days?: number }; Returns: Json }
+      desk_agent_plans: { Args: { p_agent: string }; Returns: Json }
+      desk_agent_portfolio: {
+        Args: { p_filter?: string; p_limit?: number; p_search?: string }
         Returns: Json
       }
       desk_agents_live: { Args: { p_days?: number }; Returns: Json }
@@ -83937,6 +84184,21 @@ export type Database = {
           village: string
         }[]
       }
+      funders_board_can_demote: { Args: never; Returns: boolean }
+      funders_board_counter: { Args: never; Returns: Json }
+      funders_board_counter_list: {
+        Args: { p_kind?: string; p_limit?: number }
+        Returns: Json
+      }
+      funders_board_decide_level: {
+        Args: { p_demotion_id: string; p_level: string; p_note?: string }
+        Returns: Json
+      }
+      funders_board_demote: {
+        Args: { p_items: Json; p_reason_code?: string; p_reason_text?: string }
+        Returns: Json
+      }
+      funders_board_headline: { Args: never; Returns: Json }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funders_headline_list: {
         Args: { p_kind?: string; p_period?: string }
@@ -93824,6 +94086,10 @@ export type Database = {
       }
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_send_back_options: {
+        Args: { p_from_stage: string }
+        Returns: Json
+      }
       pipeline_send_back_reasons: {
         Args: { p_agent_id?: string; p_days?: number }
         Returns: {
@@ -93835,6 +94101,16 @@ export type Database = {
           share_pct: number
           times: number
         }[]
+      }
+      pipeline_send_back_to: {
+        Args: {
+          p_from_stage: string
+          p_note?: string
+          p_reason_code: string
+          p_request_id: string
+          p_to: string
+        }
+        Returns: Json
       }
       pipeline_set_waiting: {
         Args: {
@@ -97390,12 +97666,26 @@ export type Database = {
         Args: { p_notice_id: string }
         Returns: undefined
       }
+      staff_requisition_office_apply_transfer: {
+        Args: {
+          p_actor: string
+          p_new_holder: string
+          p_office: string
+          p_reason: string
+          p_source?: string
+        }
+        Returns: number
+      }
       staff_requisition_office_candidates: {
         Args: { p_office: string }
         Returns: {
           full_name: string
           user_id: string
         }[]
+      }
+      staff_requisition_office_hr_holder: {
+        Args: { p_office: string }
+        Returns: string
       }
       staff_requisition_office_transfer: {
         Args: { p_new_holder: string; p_office: string; p_reason: string }
@@ -97410,6 +97700,15 @@ export type Database = {
           holder_since: string
           office_code: string
           office_key: string
+        }[]
+      }
+      staff_requisition_offices_reconcile: {
+        Args: { p_apply?: boolean }
+        Returns: {
+          action: string
+          hr_holder: string
+          office: string
+          office_holder: string
         }[]
       }
       staff_requisition_pending_prompt: {

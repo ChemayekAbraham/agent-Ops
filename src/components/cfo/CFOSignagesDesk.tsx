@@ -62,7 +62,7 @@ export function CFOSignagesDesk() {
   const [batchPending, setBatchPending] = useState(false);
   const paymentLock = useRef(false);
 
-  // COO-approved applications appear immediately; payment eligibility still requires installation verification.
+  // COO-approved applications are payable; paying both initial amounts activates the signage.
   const approvedSignages = signages.filter((s) =>
     ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
@@ -198,7 +198,7 @@ export function CFOSignagesDesk() {
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              COO-approved applications. Payments require verified installation.
+              COO-approved applications. Paying both initial amounts makes the signage Active.
             </p>
           </div>
         </div>
@@ -236,7 +236,7 @@ export function CFOSignagesDesk() {
           </div>
           <div className="text-2xl font-bold text-foreground">{totalActive}</div>
           <p className="text-[10px] text-muted-foreground mt-1">
-            {totalApprovedAwaitingInstall} awaiting installation / CFO
+            {totalApprovedAwaitingInstall} awaiting CFO payment
           </p>
         </div>
 
@@ -320,7 +320,7 @@ export function CFOSignagesDesk() {
           <Megaphone className="h-10 w-10 text-muted-foreground/30 mx-auto" />
           <h4 className="text-sm font-semibold">No Signages in this Queue</h4>
           <p className="text-xs text-muted-foreground">
-            Applications appear here after COO approval. Payments require verified installation.
+            Applications appear here after COO approval. Paying both initial amounts makes the signage Active.
           </p>
         </div>
       ) : (
@@ -400,7 +400,7 @@ export function CFOSignagesDesk() {
                             <span>Pay Agent</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">Awaiting verified installation</span>
+                          <span className="text-[10px] text-muted-foreground italic">Awaiting COO approval</span>
                         )}
                       </div>
                     </div>
@@ -439,7 +439,7 @@ export function CFOSignagesDesk() {
                             <span>Pay Owner</span>
                           </Button>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'Awaiting verified installation'}</span>
+                          <span className="text-[10px] text-muted-foreground italic">{item.owner_rent_due_at ? `Due ${new Date(item.owner_rent_due_at).toLocaleDateString()}` : 'Awaiting first payment'}</span>
                         )}
                       </div>
                     </div>

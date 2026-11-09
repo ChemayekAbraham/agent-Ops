@@ -12,6 +12,7 @@
  *   total=2534         filtered total reported by the read service
  *   state=ready|loading|error|empty
  *   loc=granted|prompt|denied
+ *   map=fake|real      real = the V3 Google map (live pin read; needs Maps to load)
  */
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -20,16 +21,24 @@ import { itemId } from '@/components/funder-new/utils';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import { FunderV3HousesScreen, type FunderV3MapRenderProps } from '@/components/funder-v3/FunderV3HousesScreen';
 import { FunderV3Home } from '@/components/funder-v3/FunderV3Home';
+import { FunderV3Map } from '@/components/funder-v3/FunderV3Map';
 import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { launcherHidden, useOverlayState } from '@/components/FloatingToolbar';
 import { FIXTURE_SUMMARY, fixtureApi, fixtureLocation, makeFeed } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 
-function FakeMap({ api, activeHouseId, onPinHouse, insets }: FunderV3MapRenderProps & { api: ReturnType<typeof fixtureApi> }) {
+function FakeMap({ api, activeHouseId, onPinHouse, insets, interactive, onMapTap }: FunderV3MapRenderProps & { api: ReturnType<typeof fixtureApi> }) {
   const pins = api.items.filter((entry) => entry.category === 'empty').slice(0, 40) as Array<{ category: 'empty'; item: FunderNewEmptyHouse }>;
   return (
-    <div data-testid="fv3-fake-map" className="relative h-full w-full overflow-hidden bg-[hsl(140_20%_88%)] dark:bg-[hsl(220_15%_18%)]">
+    <div
+      data-testid="fv3-fake-map"
+      data-interactive={interactive ? 'true' : 'false'}
+      onClick={() => {
+        if (!interactive) onMapTap?.();
+      }}
+      className="relative h-full w-full overflow-hidden bg-[hsl(210_14%_95%)] dark:bg-[hsl(220_15%_18%)]"
+    >
       <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(hsl(0_0%_100%/.6)_1px,transparent_1px),linear-gradient(90deg,hsl(0_0%_100%/.6)_1px,transparent_1px)] [background-size:48px_48px]" />
       <div className="absolute" style={{ top: insets.top, right: insets.right, bottom: insets.bottom, left: insets.left }}>
         {pins.map(({ item }, index) => {
@@ -44,8 +53,11 @@ function FakeMap({ api, activeHouseId, onPinHouse, insets }: FunderV3MapRenderPr
               data-testid="fv3-fake-pin"
               data-house-id={house.house_id}
               data-active={active ? 'true' : undefined}
-              onClick={() => onPinHouse(house)}
-              className={`absolute -translate-x-1/2 -translate-y-full rounded-full border px-2 py-1 text-[11px] font-bold shadow ${active ? 'z-10 border-white bg-green-600 text-white' : 'border-green-300 bg-white text-green-700'}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onPinHouse(house);
+              }}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11.5px] font-bold shadow-[0_2px_6px_rgb(15_23_42/0.22)] ring-1 ${active ? 'z-10 scale-110 bg-[hsl(271_100%_40%)] text-white ring-white' : 'bg-white text-[#1f2328] ring-black/10'}`}
               style={{ left: `${x}%`, top: `${y}%` }}
             >
               {formatDynamic(Number(house.monthly_rent) || 100000)}
@@ -145,7 +157,13 @@ export default function FunderV3Harness() {
         <FunderV3HousesScreen
           api={api}
           onClose={() => setOpen(false)}
-          renderMap={(props) => <FakeMap api={api} {...props} />}
+          renderMap={(props) =>
+            params.get('map') === 'real' ? (
+              <FunderV3Map filters={api.filters} location={api.location} {...props} />
+            ) : (
+              <FakeMap api={api} {...props} />
+            )
+          }
         />
       ) : null}
       {detail ? (

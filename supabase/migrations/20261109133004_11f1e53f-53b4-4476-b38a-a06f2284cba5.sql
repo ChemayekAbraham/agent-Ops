@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.staff_requisition_office_hr_holder(text) FROM public, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.staff_requisition_offices_reconcile(boolean) FROM public, anon, authenticated;

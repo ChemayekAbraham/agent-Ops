@@ -4,7 +4,7 @@
  * Business Rules:
  *  - Eligible: Busy houses and shops / business premises.
  *  - Property Owner: UGX 10,000 per active signage per month (commences on verified activation date).
- *  - Agent Reward: UGX 3,000 once per qualifying installation (eligible only after installation verification).
+ *  - Agent Reward: UGX 3,000 once per qualifying installation (paid by the CFO after COO approval; payment activates the signage).
  *  - Mandatory Live GPS: Required before submission (accuracy <= 25m recommended).
  *  - Administrative Location: Dataset-driven (UgLocationPicker: District -> Village).
  */
@@ -212,10 +212,6 @@ export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'co
   return stage === 'coo' ? status === 'awaiting_coo' : ['submitted', 'pending', 'under_review', 'changes_required'].includes(status);
 }
 
-export function canInstallSignage(status: SignageStatus): boolean {
-  return status === 'installation_verification';
-}
-
 export function hasDeviceSignageGps(record: Pick<SignageRecord, 'gps_latitude' | 'gps_longitude' | 'gps_accuracy_meters' | 'gps_captured_at' | 'gps_source'>): boolean {
   return record.gps_source === 'device' && Number.isFinite(record.gps_latitude) && Math.abs(record.gps_latitude) <= 90
     && Number.isFinite(record.gps_longitude) && Math.abs(record.gps_longitude) <= 180
@@ -236,5 +232,3 @@ export function canPaySignage(record: SignageListRecord): boolean {
   return ['awaiting_cfo', 'active'].includes(record.status) && (!!record.coo_approved_at || (!!record.verified_at && !!record.installed_at));
 }
 
-/** After CFO payment, the applying agent is reminded every 30 seconds until installation photos are submitted. */
-export const SIGNAGE_PROMPT_REPEAT_MS = 30_000;

@@ -25,6 +25,7 @@ import { V360StaffPricingBanner } from '@/components/v360/V360StaffPricingBanner
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import MonthlyProjectPlans from './MonthlyProjectPlans';
+import DailyActivityLog from './DailyActivityLog';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -502,6 +503,7 @@ export default function RDDashboard() {
 
         <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
 
+        {user && <DailyActivityLog key={`act-${user.id}`} userId={user.id} projects={ideaRows} />}
         {user && <MonthlyProjectPlans key={user.id} userId={user.id} projects={ideaRows} />}
 
         <IdeaCanvasBoard />
