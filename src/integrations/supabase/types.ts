@@ -76047,6 +76047,14 @@ export type Database = {
         Returns: Json
       }
       _funders_headline: { Args: { p_from: string }; Returns: Json }
+      _funders_headline_sets: {
+        Args: { p_from: string }
+        Returns: {
+          at: string
+          kind: string
+          rent_request_id: string
+        }[]
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -83732,6 +83740,10 @@ export type Database = {
         }[]
       }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
+      funders_headline_list: {
+        Args: { p_kind?: string; p_period?: string }
+        Returns: Json
+      }
       funders_home_counts: { Args: never; Returns: Json }
       funders_map_points: { Args: never; Returns: Json }
       funding_commission_summary: {
