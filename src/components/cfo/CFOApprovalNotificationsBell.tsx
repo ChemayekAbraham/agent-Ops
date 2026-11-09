@@ -41,15 +41,15 @@ export function CFOApprovalNotificationsBell({
 }: {
   onJump: (tabId: string) => void;
 }) {
-  const { notifications, failed, total, isLoading } = useCfoApprovalNotifications();
   const [open, setOpen] = useState(false);
+  const { notifications, failed, total, isLoading } = useCfoApprovalNotifications(open);
   const navigate = useNavigate();
   const {
     items: budgetItems,
     unread: budgetUnread,
     markRead: markBudgetRead,
     markAll: markAllBudgetRead,
-  } = useBudgetDepartmentNotifications('cfo');
+  } = useBudgetDepartmentNotifications('cfo', undefined, open);
 
   const badgeTotal = total + budgetUnread;
 
@@ -84,7 +84,7 @@ export function CFOApprovalNotificationsBell({
           aria-label={
             badgeTotal > 0
               ? `${badgeTotal} notifications awaiting your review`
-              : 'No pending notifications'
+              : 'Open notifications'
           }
           className="relative p-1.5 rounded-lg hover:bg-white/10 transition-colors"
           style={{ touchAction: 'manipulation' }}

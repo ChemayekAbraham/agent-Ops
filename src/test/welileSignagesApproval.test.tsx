@@ -4,6 +4,7 @@ import { WelileSignagesOps } from '@/components/executive/agent-ops-v2/WelileSig
 
 const mocks = vi.hoisted(() => ({ status: 'awaiting_coo', decide: vi.fn() }));
 vi.mock('@/hooks/useWelileSignages', () => ({
+  useSignageDetail: () => ({ data: { photos: [] }, isPending: false }),
   useSignageOpsQueue: () => ({ data: [{ id: 'signage', property_name: 'Busy shop', reference_no: 'SGN-1', status: mocks.status,
     property_type: 'shop', owner_phone: '0700000000', district_name: 'Kampala', village_name: 'Central',
     gps_latitude: 0.3, gps_longitude: 32.5, gps_accuracy_meters: 10, owner_full_name: 'Owner', owner_payment_method: 'momo_mtn', photos: [] }], refetch: vi.fn() }),

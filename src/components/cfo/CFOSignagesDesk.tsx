@@ -1,3 +1,4 @@
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
 import React, { useState } from 'react';
 import {
   Megaphone,
@@ -37,7 +38,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   SIGNAGE_RATES,
-  SignageRecord,
+  SignageListRecord,
   formatSignageStatus,
 } from '@/lib/welileSignages';
 import { useSignageOpsQueue, useCfoDisburseSignage } from '@/hooks/useWelileSignages';
@@ -50,10 +51,10 @@ export function CFOSignagesDesk() {
 
   const [search, setSearch] = useState('');
   const [filterTab, setFilterTab] = useState<'pending_payout' | 'active' | 'pipeline' | 'disbursed' | 'all'>('all');
-  const [selectedSignage, setSelectedSignage] = useState<SignageRecord | null>(null);
+  const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [disburseModal, setDisburseModal] = useState<{
-    signage: SignageRecord;
+    signage: SignageListRecord;
     type: 'agent_reward' | 'owner_rent';
   } | null>(null);
   const [customTxRef, setCustomTxRef] = useState('');
@@ -113,7 +114,7 @@ export function CFOSignagesDesk() {
     return true;
   });
 
-  const handleOpenDisburse = (signage: SignageRecord, type: 'agent_reward' | 'owner_rent') => {
+  const handleOpenDisburse = (signage: SignageListRecord, type: 'agent_reward' | 'owner_rent') => {
     hapticTap();
     setDisburseModal({ signage, type });
     setCustomTxRef(`MOMO-${Date.now().toString().slice(-6)}`);
@@ -434,7 +435,7 @@ export function CFOSignagesDesk() {
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1">
                     <div className="flex items-center gap-2">
                       <Camera className="h-3.5 w-3.5" />
-                      <span>{item.photos?.length || 0} photos verified</span>
+                      <span>Photographic evidence</span>
                       {item.installer_name && (
                         <span>• Installer: <strong className="text-foreground">{item.installer_name}</strong></span>
                       )}
@@ -472,22 +473,7 @@ export function CFOSignagesDesk() {
               {/* Photos Gallery */}
               <div>
                 <Label className="text-xs font-semibold text-foreground mb-1.5 block">Photos & Physical Evidence</Label>
-                {selectedSignage.photos?.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedSignage.photos.map((photo, i) => (
-                      <div key={photo.id || i} className="relative aspect-video rounded-xl overflow-hidden border border-border bg-black/10">
-                        <img src={photo.url} alt={photo.caption || 'Signage'} className="w-full h-full object-cover" />
-                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/60 text-[9px] text-white font-medium">
-                          {photo.category?.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground p-3 bg-muted/40 rounded-xl text-center">
-                    No photographs attached.
-                  </p>
-                )}
+                {isDetailOpen && <SignageEvidence signageId={selectedSignage.id} />}
               </div>
 
               {/* GPS & Locality */}

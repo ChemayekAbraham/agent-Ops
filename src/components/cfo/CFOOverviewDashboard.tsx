@@ -86,8 +86,8 @@ export function CFOOverviewDashboard({
     cashVisible: showCashPosition,
     todayDetails: ['cashIn', 'cashOut', 'netCash'].includes(activeBreakdown ?? ''),
   });
-  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
-  const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
+  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld(showCashPosition && isOpen('position'));
+  const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed(showCashPosition && isOpen('position'));
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);

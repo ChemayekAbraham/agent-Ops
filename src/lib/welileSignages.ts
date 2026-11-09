@@ -144,6 +144,9 @@ export interface SignageOwnerObligation {
   disbursed_at?: string;
 }
 
+/** Queue rows intentionally omit embedded image data; evidence is fetched by ID. */
+export type SignageListRecord = Omit<SignageRecord, 'photos' | 'installation_photos'>;
+
 export interface SignageAgentReward {
   id: string;
   signage_id: string;
@@ -215,7 +218,7 @@ export function hasInstalledSignagePhoto(photos: SignagePhoto[] | undefined): bo
   return !!photos?.some((photo) => photo.category === 'installed_signage' && /^(data:image\/(webp|jpeg|png);base64,|https:\/\/)/.test(photo.url));
 }
 
-export function signagePipelineRecords(records: SignageRecord[]): SignageRecord[] {
+export function signagePipelineRecords<T extends SignageListRecord>(records: T[]): T[] {
   return records.filter((record) => ['draft', 'submitted', 'pending', 'under_review', 'awaiting_coo', 'approved_for_installation',
     'pending_installation', 'installation_verification', 'changes_required', 'rejected'].includes(record.status));
 }

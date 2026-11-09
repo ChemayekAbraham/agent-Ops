@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, canInstallSignage, hasDeviceSignageGps, hasInstalledSignagePhoto, SignagePhoto } from '@/lib/welileSignages';
+import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, canInstallSignage, hasDeviceSignageGps, hasInstalledSignagePhoto, SignagePhoto } from '@/lib/welileSignages';
+import { readStoredAuthSession, isSessionPastMaxAge } from '@/lib/sessionCache';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
 
@@ -22,6 +23,47 @@ const INSERT_COLUMNS = [
 ] as const;
 
 const db = () => supabase as any;
+
+// Explicit projection: never download base64 application/installation photos with a queue.
+export const SIGNAGE_QUEUE_COLUMNS = 'id,reference_no,agent_id,agent_name,agent_phone,property_name,property_type,business_category,owner_full_name,owner_phone,owner_alt_phone,consenting_relation,permission_confirmed,owner_payment_method,owner_payment_number,owner_payment_name,gps_latitude,gps_longitude,gps_accuracy_meters,gps_captured_at,gps_source,repeat_owner_phone,district_name,county_name,sub_county_name,parish_name,village_name,plot_or_landmark,foot_traffic,road_visibility,operating_hours,nearby_landmarks,proposed_surface,proposed_dimensions,accessibility_notes,status,rejection_reason,review_notes,reviewed_by,reviewed_at,coo_approved_by,coo_approved_at,coo_review_notes,installed_at,installer_name,verified_by,verified_at,verification_notes,activated_at,removal_effective_at,agent_reward_status,agent_reward_disbursed_at,agent_reward_disbursed_by,agent_reward_tx_ref,owner_rent_status,owner_rent_disbursed_at,owner_rent_disbursed_by,owner_rent_tx_ref,created_at,updated_at';
+
+function useSignageQueryUser() {
+  const { user, session, loading } = useAuth();
+  // A role/profile lookup need not hold up RLS-protected reads. Supabase still checks the JWT.
+  const stored = loading && !session ? readStoredAuthSession() : null;
+  const current = session ?? stored;
+  if (!current?.access_token || isSessionPastMaxAge(current)
+    || (current.expires_at ?? 0) <= Date.now() / 1000) return undefined;
+  if (user && user.id !== current.user?.id) return undefined;
+  return current.user?.id as string | undefined;
+}
+
+export function signageDetailQuery(userId: string | undefined, signageId: string | undefined) {
+  return {
+    queryKey: ['welile-signages', 'detail', userId, signageId],
+    enabled: !!userId && !!signageId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }: { signal: AbortSignal }): Promise<SignageRecord> => {
+      if (!userId || !signageId) throw new Error('Sign in and select an application.');
+      const { data, error } = await db().from('welile_signages').select('*')
+        .eq('id', signageId).abortSignal(signal).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('This signage is unavailable or you cannot inspect it.');
+      return data as SignageRecord;
+    },
+  };
+}
+
+export function useSignageDetail(signageId?: string) {
+  return useQuery(signageDetailQuery(useSignageQueryUser(), signageId));
+}
+
+export function useLoadSignageDetail() {
+  const userId = useSignageQueryUser();
+  const queryClient = useQueryClient();
+  return (signageId: string) => queryClient.fetchQuery(signageDetailQuery(userId, signageId));
+}
 
 function pickInsert(rec: Partial<SignageRecord>): Record<string, unknown> {
   const out: Record<string, unknown> = { status: 'submitted' };
@@ -97,37 +139,43 @@ function useLegacySignageSync(userId?: string) {
 }
 
 export function useMySignages() {
-  const { user, loading } = useAuth();
-  useLegacySignageSync(!loading ? user?.id : undefined);
+  const userId = useSignageQueryUser();
+  useLegacySignageSync(userId);
 
   return useQuery({
-    queryKey: ['welile-signages', 'my', user?.id],
-    enabled: !loading && !!user?.id,
-    queryFn: async (): Promise<SignageRecord[]> => {
-      if (!user?.id) return [];
+    queryKey: ['welile-signages', 'my', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
+      if (!userId) return [];
       const { data, error } = await db()
         .from('welile_signages')
-        .select('*')
-        .eq('agent_id', user.id)
+        .select(SIGNAGE_QUEUE_COLUMNS)
+        .eq('agent_id', userId)
+        .abortSignal(signal)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []) as SignageRecord[];
+      return (data ?? []) as SignageListRecord[];
     },
   });
 }
 
 export function useSignageOpsQueue() {
-  const { user, loading } = useAuth();
+  const userId = useSignageQueryUser();
   return useQuery({
-    queryKey: ['welile-signages', 'ops-queue', user?.id],
-    enabled: !loading && !!user?.id,
-    queryFn: async (): Promise<SignageRecord[]> => {
+    queryKey: ['welile-signages', 'ops-queue', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
       const { data, error } = await db()
         .from('welile_signages')
-        .select('*')
+        .select(SIGNAGE_QUEUE_COLUMNS)
+        .abortSignal(signal)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []) as SignageRecord[];
+      return (data ?? []) as SignageListRecord[];
     },
   });
 }
