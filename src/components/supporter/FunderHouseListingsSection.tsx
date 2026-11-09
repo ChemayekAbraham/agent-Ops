@@ -378,7 +378,7 @@ export function FunderHouseListingsSection({
       {/* On the full screen map the search floats at the top, like a maps app. */}
       {searchOnMap && typeof document !== 'undefined' && createPortal(
         <div
-          className="pointer-events-none fixed inset-x-0 top-0 z-[90] mx-auto max-w-lg px-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
+          className="fn-map-search-float pointer-events-none fixed inset-x-0 top-0 z-[90] mx-auto max-w-lg px-3 pt-[max(0.75rem,env(safe-area-inset-top))]"
           // This bar renders in a portal but is still a React child of the bottom
           // sheet, so its presses would otherwise reach the sheet's drag handlers.
           onMouseDown={(event) => event.stopPropagation()}

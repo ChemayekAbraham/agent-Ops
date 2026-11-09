@@ -24,6 +24,25 @@ const FULL_VH = 92;
 const SNAP_TRANSITION = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
 
 type SnapPoint = 'collapsed' | 'half' | 'full';
+export type MapPanelLayout = 'sheet' | 'side';
+
+/** Desktop (≥ 1024px): the list docks on the left as a side panel instead of a bottom sheet. */
+const SIDE_PANEL_QUERY = '(min-width: 1024px)';
+
+function useSidePanelLayout(): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(SIDE_PANEL_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia(SIDE_PANEL_QUERY);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return matches;
+}
 
 const fullHeightPx = () => Math.round((window.innerHeight * FULL_VH) / 100);
 
@@ -57,7 +76,7 @@ export function MapBottomSheet({
 }: {
   children: ReactNode;
   /** Content rendered in the fixed header area (title, filter chips, etc.) */
-  header?: ReactNode | ((props: { snap: SnapPoint; setSnap: (s: SnapPoint) => void }) => ReactNode);
+  header?: ReactNode | ((props: { snap: SnapPoint; setSnap: (s: SnapPoint) => void; layout: MapPanelLayout }) => ReactNode);
   defaultSnap?: SnapPoint;
   snap?: SnapPoint;
   onSnapChange?: (snap: SnapPoint) => void;
@@ -198,6 +217,38 @@ export function MapBottomSheet({
     });
   }, [setSnap]);
 
+  // Desktop: tell the full screen map and its floating search to start right of
+  // the panel (see funderNewMap.css), for as long as the panel is up.
+  const sidePanel = useSidePanelLayout();
+  useEffect(() => {
+    if (!sidePanel) return;
+    document.body.dataset.mapSidePanel = 'true';
+    return () => { delete document.body.dataset.mapSidePanel; };
+  }, [sidePanel]);
+
+  if (sidePanel) {
+    return createPortal(
+      <aside
+        role="region"
+        aria-label="House listings panel"
+        data-testid="map-side-panel"
+        className="fixed inset-y-0 left-0 z-[80] flex flex-col border-r border-border/60 bg-background shadow-[4px_0_24px_rgba(0,0,0,0.08)]"
+        style={{ width: 'var(--fn-side-panel-w, 420px)' }}
+      >
+        {header && (
+          <div className="flex-none border-b border-border/50 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))]">
+            {typeof header === 'function' ? header({ snap, setSnap, layout: 'side' }) : header}
+          </div>
+        )}
+        {/* The list scrolls natively with the wheel and trackpad; no snaps on desktop. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-3 [scrollbar-gutter:stable]">
+          {children}
+        </div>
+      </aside>,
+      document.body,
+    );
+  }
+
   const sheetContent = (
     <div
       ref={sheetRef}
@@ -229,7 +280,7 @@ export function MapBottomSheet({
       {/* Header (title + chips + controls) */}
       {header && (
         <div className="flex-none px-4 pb-2">
-          {typeof header === 'function' ? header({ snap, setSnap }) : header}
+          {typeof header === 'function' ? header({ snap, setSnap, layout: 'sheet' }) : header}
         </div>
       )}
 
