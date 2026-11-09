@@ -64,6 +64,12 @@ const BALANCE_TILES: Tile[] = [
   { label: 'Returns credited to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
 ];
 
+/** The Agents desk (E61): COO, CEO, Agent Ops and CFO, plus the admins who open every desk. */
+export const AGENTS_DESK_ROLES = ['coo', 'ceo', 'agent_ops', 'cfo', 'cto', 'super_admin'];
+
+/** Desks that draw their own page and read none of the desk feeds. */
+export const SELF_DRAWN_DESKS = new Set(['agents']);
+
 /** Other names a desk answers to in the URL: /desk/funders opens the cfo desk. */
 export const DESK_ALIASES: Record<string, string> = { funders: 'cfo' };
 
@@ -136,6 +142,14 @@ export const DESKS: Desk[] = [
         columns: [{ field: 'ym', label: 'Month' }, { field: 'submitted', label: 'Submitted', fmt: 'int', right: true }, { field: 'funded', label: 'Funded', fmt: 'bar', right: true }, { field: 'funder_tagged', label: 'Funder-tagged', fmt: 'int', right: true }],
       },
     ],
+  },
+  {
+    // E61: every agent's rent plans and eligibility. The page draws itself (agents/AgentsDesk) from
+    // desk_agent_portfolio / desk_agent_plans, so it reads no desk feed.
+    id: 'agents', name: 'Agents', question: 'Which agents may bring new requests, and how their tenants are repaying.', roles: AGENTS_DESK_ROLES,
+    lead: () => '',
+    tiles: [],
+    tables: [],
   },
   {
     // The id stays 'cfo' so the switch key stays desk_live:cfo; /desk/funders is an alias (DESK_ALIASES).
@@ -232,6 +246,7 @@ export function landingDesk(roles: string[], allowed: Desk[]): Desk {
 }
 
 export function feedsOf(desk: Desk): string[] {
+  if (SELF_DRAWN_DESKS.has(desk.id)) return [];
   const s = new Set<string>();
   desk.tiles.forEach((t) => { s.add(t.feed); if (t.sub) s.add(t.sub.feed); });
   desk.tables.forEach((t) => s.add(t.feed));

@@ -29,6 +29,8 @@ interface Props {
   /** The element that scrolls this list (sheet body or list pane). */
   scrollRef: RefObject<HTMLElement | null>;
   highlightedId: string | null;
+  /** Part of the scroller covered at the top (the pinned map): scrolling to a card keeps clear of it. */
+  scrollPaddingTop?: number;
   onHoverCard?: (cardId: string | null) => void;
   reducedMotion?: boolean;
 }
@@ -40,7 +42,7 @@ interface Props {
  * rows are windowed so a long scroll stays light on phones.
  */
 export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(function FunderV3HousesList(
-  { api, scrollRef, highlightedId, onHoverCard, reducedMotion = false },
+  { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false },
   ref,
 ) {
   const {
@@ -97,6 +99,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
     estimateSize: () => 430,
     overscan: 4,
     scrollMargin,
+    scrollPaddingStart: scrollPaddingTop,
     enabled: virtual,
   });
 

@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, canInstallSignage, hasDeviceSignageGps, hasInstalledSignagePhoto, SignagePhoto } from '@/lib/welileSignages';
+import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, hasDeviceSignageGps, SignagePhoto } from '@/lib/welileSignages';
 import { readStoredAuthSession, isSessionPastMaxAge } from '@/lib/sessionCache';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
@@ -278,52 +278,11 @@ export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
       toast.success(targetStatus === 'awaiting_coo'
         ? 'Awaiting COO. Sent to the COO for approval.'
-        : stage === 'coo' && targetStatus === 'approved_for_installation'
-          ? 'COO approved. Sent to the CFO Signages desk; installation verification is required before payment.'
+        : stage === 'coo' && targetStatus === 'awaiting_cfo'
+          ? 'COO approved. Sent to the CFO for disbursement.'
           : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
-  });
-}
-
-export function useVerifyInstallation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      signageId,
-      installerName,
-      installedAt,
-      verificationNotes,
-      installationPhotos,
-    }: {
-      signageId: string;
-      installerName: string;
-      installedAt: string;
-      verificationNotes?: string;
-      installationPhotos: SignagePhoto[];
-    }) => {
-      if (!hasInstalledSignagePhoto(installationPhotos)) throw new Error('Add a photo of the installed board before activating billing.');
-      const { data: current, error: readError } = await db().from('welile_signages').select('id,status').eq('id', signageId).maybeSingle();
-      if (readError) throw new Error(readError.message);
-      if (!current || !canInstallSignage(current.status)) throw new Error('This application is not awaiting installation verification.');
-      // verified_by / verified_at / activated_at are stamped by the server.
-      const { data: saved, error } = await db().from('welile_signages').update({
-        status: 'awaiting_cfo',
-        installed_at: installedAt,
-        installer_name: installerName,
-        verification_notes: verificationNotes || null,
-        installation_photos: installationPhotos,
-      }).eq('id', signageId).eq('status', current.status).select('id,status').maybeSingle();
-      if (error) throw new Error(error.message);
-      if (saved?.status !== 'awaiting_cfo') throw new Error('Installation could not be confirmed. Refresh the queue.');
-      return { signageId };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Installation verified. Awaiting CFO payment of the agent reward and first owner rent.');
-    },
-    onError: (err: Error) => toast.error('Could not mark installed: ' + err.message),
   });
 }
 
@@ -399,7 +358,7 @@ export function useCfoDisburseSignage() {
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
       toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
-        : data.status === 'active' ? 'Payment credited to Welile wallet. Signage is active.'
+        : data.status === 'active' ? 'Payment credited. The signage is now Active.'
           : 'Payment credited to Welile wallet. Awaiting the remaining CFO payment.');
     },
     onError: (err: any) => toast.error(err.message),

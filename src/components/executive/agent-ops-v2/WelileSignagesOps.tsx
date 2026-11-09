@@ -14,11 +14,9 @@ import {
   Building2,
   Calendar,
   ExternalLink,
-  ShieldCheck,
   Clock,
   Eye,
   Loader2,
-  FileCheck,
   RefreshCw,
   Store,
   Home,
@@ -38,12 +36,8 @@ import {
   SignageStatus,
   formatSignageStatus,
   canReviewSignage,
-  canInstallSignage,
-  hasInstalledSignagePhoto,
-  SignagePhoto,
 } from '@/lib/welileSignages';
-import { prepareSignagePhoto } from '@/lib/signagePhoto';
-import { useSignageOpsQueue, useReviewSignage, useVerifyInstallation } from '@/hooks/useWelileSignages';
+import { useSignageOpsQueue, useReviewSignage } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
 interface WelileSignagesOpsProps {
@@ -54,7 +48,6 @@ interface WelileSignagesOpsProps {
 export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignagesOpsProps) {
   const { data: signages = [], isLoading, isError, error, refetch, isFetching } = useSignageOpsQueue();
   const reviewMutation = useReviewSignage(stage);
-  const verifyMutation = useVerifyInstallation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
@@ -62,19 +55,12 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   // Modal states
   const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
 
   // Review decision form
   const [reviewNote, setReviewNote] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [reviewAction, setReviewAction] = useState<'approve' | 'return' | 'reject'>('approve');
 
-  // Installation verification form
-  const [installerName, setInstallerName] = useState('');
-  const [installedAt, setInstalledAt] = useState(new Date().toISOString().split('T')[0]);
-  const [verificationNotes, setVerificationNotes] = useState('');
-  const [installedPhoto, setInstalledPhoto] = useState<SignagePhoto | null>(null);
-  const [preparingPhoto, setPreparingPhoto] = useState(false);
 
   // Filtering
   const filtered = signages.filter((s) => {
@@ -90,7 +76,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
       return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
-      return matchesSearch && ['approved_for_installation', 'pending_installation'].includes(s.status);
+      return matchesSearch && s.status === 'awaiting_cfo';
     }
     if (statusFilter === 'active') {
       return matchesSearch && s.status === 'active';
@@ -102,7 +88,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const totalActive = signages.filter((s) => s.status === 'active').length;
   const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
   const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
-  const awaitingInstallation = signages.filter((s) => ['approved_for_installation', 'pending_installation'].includes(s.status)).length;
+  const awaitingCfo = signages.filter((s) => s.status === 'awaiting_cfo').length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
   // Review submission
@@ -132,37 +118,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
     setSelectedSignage(null);
     setReviewNote('');
     setRejectionReason('');
-  };
-
-  // Installation verification submission
-  const handleConfirmVerification = async () => {
-    if (!selectedSignage) return;
-    hapticTap();
-
-    if (!installerName.trim()) {
-      toast.error('Please enter the installer name.');
-      return;
-    }
-    if (!installedPhoto || !hasInstalledSignagePhoto([installedPhoto])) {
-      toast.error('Add a photo of the installed board before activating billing.');
-      return;
-    }
-
-    try {
-      await verifyMutation.mutateAsync({
-        signageId: selectedSignage.id,
-        installerName: installerName.trim(),
-        installedAt,
-        verificationNotes: verificationNotes.trim() || undefined,
-        installationPhotos: [installedPhoto],
-      });
-    } catch { return; }
-
-    setIsVerifyOpen(false);
-    setSelectedSignage(null);
-    setInstallerName('');
-    setVerificationNotes('');
-    setInstalledPhoto(null);
   };
 
   return (
@@ -199,8 +154,8 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
           <span className="text-lg font-bold text-amber-600">{pendingReview}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Awaiting Installation</span>
-          <span className="text-lg font-bold text-primary">{awaitingInstallation}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Awaiting CFO</span>
+          <span className="text-lg font-bold text-primary">{awaitingCfo}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Active Signages</span>
@@ -228,8 +183,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
             { id: 'all', label: 'All' },
             ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
             { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
-            { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
-            { id: 'awaiting_cfo', label: 'Awaiting CFO' },
+            { id: 'awaiting_cfo', label: `Awaiting CFO (${awaitingCfo})` },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -328,20 +282,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                         <span>{item.status === 'active' ? 'View (read-only)' : 'Inspect & Decide'}</span>
                       </Button>
 
-                      {stage === 'agent_ops' && canInstallSignage(item.status) && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSignage(item);
-                            setInstallerName(item.agent_name || '');
-                            setIsVerifyOpen(true);
-                          }}
-                          className="rounded-xl text-xs h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                          <FileCheck className="h-3.5 w-3.5" />
-                          <span>Verify Installation</span>
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -458,7 +398,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <div>
                     <Label className="text-xs font-medium">Ops Review Notes (Optional)</Label>
                     <Textarea
-                      placeholder="Add instructions for the installation team..."
+                      placeholder="Add a note for the CFO..."
                       value={reviewNote}
                       onChange={(e) => setReviewNote(e.target.value)}
                       className="mt-1 text-xs rounded-xl"
@@ -485,98 +425,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
         </DialogContent>
       </Dialog>
 
-      {/* ── MODAL 2: INSTALLATION VERIFICATION & ACTIVATION DIALOG ── */}
-      <Dialog open={isVerifyOpen} onOpenChange={setIsVerifyOpen}>
-        <DialogContent className="max-w-md rounded-2xl font-sans">
-          {selectedSignage && (
-            <div className="space-y-4">
-              <DialogHeader className="pr-8">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                  <DialogTitle className="text-base font-bold">Verify Physical Installation</DialogTitle>
-                </div>
-                <DialogDescription className="text-xs">
-                  Confirm the signage has been physically mounted at {selectedSignage.property_name}. It will await CFO payment of both the agent reward and first owner rent before becoming active.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1 text-emerald-800 dark:text-emerald-300">
-                <p className="font-bold">Awaiting CFO after verification:</p>
-                <p>• Unlocks <strong>UGX 3,000</strong> one-time agent reward for {selectedSignage.agent_name || 'Agent'}.</p>
-                <p>• Queues the first <strong>UGX 10,000</strong> owner rent for {selectedSignage.owner_full_name}; monthly billing starts after both payments.</p>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs font-medium">Installer Name / Field Officer *</Label>
-                  <Input
-                    placeholder="Name of person or team who mounted signage"
-                    value={installerName}
-                    onChange={(e) => setInstallerName(e.target.value)}
-                    className="mt-1 h-10 text-xs rounded-xl"
-                    required
-                    disabled={!!selectedSignage.agent_name}
-                    readOnly={!!selectedSignage.agent_name}
-                  />
-                  {selectedSignage.agent_name && (
-                    <p className="mt-1 text-[11px] text-muted-foreground">The agent who submitted this application — cannot be changed.</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium">Date Installed *</Label>
-                  <Input
-                    type="date"
-                    value={installedAt}
-                    onChange={(e) => setInstalledAt(e.target.value)}
-                    className="mt-1 h-10 text-xs rounded-xl"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-xs font-medium">Verification Notes</Label>
-                  <Textarea
-                    placeholder="Confirm placement height, visibility, and condition..."
-                    value={verificationNotes}
-                    onChange={(e) => setVerificationNotes(e.target.value)}
-                    className="mt-1 text-xs rounded-xl"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium" htmlFor="installed-board-photo">Installed board photo *</Label>
-                  <Input id="installed-board-photo" type="file" accept="image/*" capture="environment" disabled={preparingPhoto}
-                    className="mt-1 h-10 text-xs rounded-xl"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = '';
-                      if (!file) return;
-                      setPreparingPhoto(true);
-                      try { setInstalledPhoto(await prepareSignagePhoto(file, 'installed_signage')); }
-                      catch (err) { toast.error(err instanceof Error ? err.message : 'Could not add photo.'); }
-                      finally { setPreparingPhoto(false); }
-                    }} />
-                  {installedPhoto && <img src={installedPhoto.url} alt="Installed board" className="mt-2 h-24 w-full rounded-xl object-cover" />}
-                </div>
-              </div>
-
-              <DialogFooter className="pt-2">
-                <Button variant="ghost" size="sm" onClick={() => setIsVerifyOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleConfirmVerification}
-                  disabled={verifyMutation.isPending || preparingPhoto || !installerName.trim() || !installedPhoto}
-                  className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  {verifyMutation.isPending ? 'Verifying...' : 'Verify & Send to CFO'}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

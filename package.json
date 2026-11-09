@@ -39,6 +39,7 @@
     "test:food-db": "vitest run --config vitest.config.food-db.ts --no-file-parallelism src/__tests__/foodCancelStockRelease.integration.test.ts src/__tests__/foodIdempotencyRace.integration.test.ts src/__tests__/foodTransferEligibility.integration.test.ts"
   },
   "dependencies": {
+    "@googlemaps/markerclusterer": "^2.6.2",
     "@hookform/resolvers": "^3.10.0",
     "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@lovable.dev/mcp-js": "^0.26.1",
@@ -153,6 +154,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@lovable.dev/vite-plugin-dev-server-bridge": "^1.0.2",
+    "@lovable.dev/vite-plugin-hmr-gate": "^1.8.0",
     "@playwright/test": "^1.60.0",
     "@react-email/components": "^0.0.22",
     "@tailwindcss/container-queries": "^0.1.1",

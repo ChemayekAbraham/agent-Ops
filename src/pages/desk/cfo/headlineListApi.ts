@@ -16,7 +16,7 @@ export type HeadlineKind = 'posted' | 'sold' | 'waiting';
 
 export const HEADLINE_KINDS: { kind: HeadlineKind; title: string; caption: string }[] = [
   { kind: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
-  { kind: 'sold', title: 'Rent requests sold', caption: 'Funded by partners in the field' },
+  { kind: 'sold', title: 'Rent requests sold', caption: 'Money released to the landlord' },
   { kind: 'waiting', title: 'Waiting for funder', caption: 'Posted minus sold' },
 ];
 

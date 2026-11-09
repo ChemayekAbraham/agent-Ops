@@ -85,7 +85,7 @@ export default function AgentWelileSignages() {
   // Metrics & Filters
   // Approved by Ops: signages that have passed Ops review
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
   const activeSignages = signages.filter((s) => s.status === 'active');
   const installingSignages = approvedSignages.filter((s) => s.status !== 'active');
@@ -609,7 +609,7 @@ export default function AgentWelileSignages() {
                               {!isRejected && (
                                 <Badge
                                   variant={
-                                    signage.status === 'approved_for_installation' || signage.status === 'installation_verification'
+                                    signage.status === 'installation_in_progress' || signage.status === 'installation_verification'
                                       ? 'default'
                                       : signage.status === 'changes_required'
                                         ? 'destructive'
@@ -663,7 +663,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['under_review', 'awaiting_coo', 'approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['under_review', 'awaiting_coo', 'approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : signage.status === 'changes_required'
                                             ? 'bg-amber-500'
@@ -677,7 +677,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : 'bg-muted-foreground/25'
                                       )}
@@ -1408,11 +1408,11 @@ export default function AgentWelileSignages() {
                           </div>
                         )}
 
-                        {signage.status === 'approved_for_installation' && (
+                        {signage.status === 'installation_in_progress' && (
                           <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
-                              Approved by Ops • Queued for Installation
+                              Paid by CFO • Install the board and submit photos
                             </span>
                           </div>
                         )}

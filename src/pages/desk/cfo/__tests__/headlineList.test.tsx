@@ -85,6 +85,7 @@ describe('Funders headline tiles open their list', () => {
       expect(b.className).toContain('active:scale-[0.98]');
       expect(b.className).toContain('cursor-pointer');
     }
+    expect((await tile(/^Rent requests sold/)).textContent).toContain('Money released to the landlord');
   });
 
   it('posted: asks for the page period and kind, header shows period, count and UGX, rows newest first', async () => {
