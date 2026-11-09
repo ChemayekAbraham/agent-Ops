@@ -26,7 +26,11 @@ vi.mock('@/integrations/supabase/client', () => ({
     from: () => ({
       select: () => ({ eq: () => ({ limit: async () => ({ data: mocks.rows, error: null }) }) }),
     }),
-    auth: { getUser: async () => ({ data: { user: { id: 'partner-1' } } }) },
+    // withUserSession / getSessionCheckedUser check the session first (src/lib/authenticatedRequests).
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'partner-1' }, access_token: 'test-token', expires_at: null } }, error: null }),
+      getUser: async () => ({ data: { user: { id: 'partner-1' } }, error: null }),
+    },
   },
 }));
 vi.mock('@/lib/planShareLink', async (importOriginal) => {

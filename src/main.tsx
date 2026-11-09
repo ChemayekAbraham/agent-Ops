@@ -6,22 +6,17 @@
 import { ensureRuntimePolyfills } from './lib/runtimePolyfills';
 // Then: drops the stored session on a cold start when the user opted
 // out of "remember this device", before Supabase/session-cache read any token.
-import './lib/ephemeralGuard';
 // Then: a hung auth token request can no longer hold the Supabase auth lock
 // forever (which blocked both session restore and the Sign in button).
-import './lib/authFetchTimeout';
 // Clipboard writes fall back to execCommand when the async API is refused
 // ("Write permission denied." on old Android WebViews) — doc 160.
 import { installClipboardFallback } from './lib/clipboardFallback';
 installClipboardFallback();
 // Initialize login telemetry as early as possible so we capture the very first
 // paint / bootstrap phases (before AuthProvider mounts).
-import { loginTelemetry } from './lib/loginTelemetry';
-loginTelemetry.init();
-loginTelemetry.mark('app.boot');
 // Initialize user behaviour telemetry (batched, auto-capture clicks/taps/sections)
-import { userBehaviourTracker } from './lib/userBehaviourTracker';
-userBehaviourTracker.init();
+import { isBoardDisplayPath } from './lib/boardDisplay';
+const boardDisplayStartup = isBoardDisplayPath(window.location.pathname);
 // Stamp the running revision (window.__WELILE_BUILD__, <html data-build>).
 import { exposeBuildInfo } from './lib/buildInfo';
 exposeBuildInfo();
@@ -33,7 +28,8 @@ import {
 } from './lib/startupBoot';
 import { createRoot } from 'react-dom/client';
 
-const root = document.getElementById('root')!;
+const root = document.getElementById('root');
+if (!root) throw new Error('App root is missing.');
 const host = window.location.hostname;
 const isPreviewHost =
   host.includes('id-preview--') ||
@@ -169,6 +165,21 @@ const loadApp = async () => {
     // No-op (no network) on modern devices; fetches the polyfill chunk only when
     // a required method is missing, so app modules never touch an unpatched API.
     await ensureRuntimePolyfills();
+    if (boardDisplayStartup) {
+      const [, , { default: BoardDisplay }] = await Promise.all([
+        import('./critical.css'), import('./index.css'), import('./pages/BoardDisplay'),
+      ]);
+      createRoot(root).render(<BoardDisplay />);
+      (window as any).__WELILE_APP_READY__ = true;
+      return;
+    }
+    // Preserve the account bootstrap ordering, but never restore accounts or track board links.
+    await import('./lib/ephemeralGuard');
+    await import('./lib/authFetchTimeout');
+    const { loginTelemetry } = await import('./lib/loginTelemetry');
+    loginTelemetry.init(); loginTelemetry.mark('app.boot');
+    const { userBehaviourTracker } = await import('./lib/userBehaviourTracker');
+    userBehaviourTracker.init();
 
     // Production only. Preview builds and the Lovable editor routinely take
     // longer than 30s to compile; a hard reject there is a false "Import timeout".
@@ -328,7 +339,7 @@ loadApp();
 // Install centralized client-side error reporting (window.onerror +
 // unhandledrejection). Lazy-loaded to avoid pulling supabase into the
 // critical startup path.
-import('./lib/errorReporting')
+if (!boardDisplayStartup) import('./lib/errorReporting')
   .then((m) => m.installGlobalErrorReporting())
   .catch(() => {});
 

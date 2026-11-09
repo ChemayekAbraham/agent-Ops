@@ -9609,6 +9609,48 @@ export type Database = {
         }
         Relationships: []
       }
+      board_display_tokens: {
+        Row: {
+          allowed_ip_prefix: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          label: string
+          last_seen_at: string | null
+          last_seen_ip: string | null
+          revoked_at: string | null
+          seen_count: number
+          token_hash: string
+        }
+        Insert: {
+          allowed_ip_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label: string
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          revoked_at?: string | null
+          seen_count?: number
+          token_hash: string
+        }
+        Update: {
+          allowed_ip_prefix?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string
+          last_seen_at?: string | null
+          last_seen_ip?: string | null
+          revoked_at?: string | null
+          seen_count?: number
+          token_hash?: string
+        }
+        Relationships: []
+      }
       borrower_vouch_disclosures: {
         Row: {
           acknowledged_at: string
@@ -68457,6 +68499,53 @@ export type Database = {
         }
         Relationships: []
       }
+      welile_signage_payments: {
+        Row: {
+          amount_ugx: number
+          created_at: string
+          id: string
+          ledger_group_id: string
+          paid_by: string
+          payout_type: string
+          period_index: number
+          recipient_id: string
+          reference_id: string
+          signage_id: string
+        }
+        Insert: {
+          amount_ugx: number
+          created_at?: string
+          id?: string
+          ledger_group_id: string
+          paid_by: string
+          payout_type: string
+          period_index: number
+          recipient_id: string
+          reference_id: string
+          signage_id: string
+        }
+        Update: {
+          amount_ugx?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string
+          paid_by?: string
+          payout_type?: string
+          period_index?: number
+          recipient_id?: string
+          reference_id?: string
+          signage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "welile_signage_payments_signage_id_fkey"
+            columns: ["signage_id"]
+            isOneToOne: false
+            referencedRelation: "welile_signages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       welile_signage_status_events: {
         Row: {
           changed_by: string | null
@@ -68508,6 +68597,9 @@ export type Database = {
           agent_reward_tx_ref: string | null
           business_category: string | null
           consenting_relation: string
+          coo_approved_at: string | null
+          coo_approved_by: string | null
+          coo_review_notes: string | null
           county_name: string | null
           created_at: string
           district_name: string
@@ -68516,6 +68608,7 @@ export type Database = {
           gps_captured_at: string
           gps_latitude: number
           gps_longitude: number
+          gps_source: string | null
           id: string
           installation_photos: Json
           installed_at: string | null
@@ -68530,6 +68623,7 @@ export type Database = {
           owner_phone: string
           owner_rent_disbursed_at: string | null
           owner_rent_disbursed_by: string | null
+          owner_rent_due_at: string | null
           owner_rent_status: string
           owner_rent_tx_ref: string | null
           parish_name: string | null
@@ -68543,6 +68637,7 @@ export type Database = {
           reference_no: string | null
           rejection_reason: string | null
           removal_effective_at: string | null
+          repeat_owner_phone: boolean
           review_notes: string | null
           reviewed_at: string | null
           reviewed_by: string | null
@@ -68567,6 +68662,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name: string
@@ -68575,6 +68673,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude: number
           gps_longitude: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68589,6 +68688,7 @@ export type Database = {
           owner_phone: string
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
+          owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
           parish_name?: string | null
@@ -68602,6 +68702,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -68626,6 +68727,9 @@ export type Database = {
           agent_reward_tx_ref?: string | null
           business_category?: string | null
           consenting_relation?: string
+          coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_review_notes?: string | null
           county_name?: string | null
           created_at?: string
           district_name?: string
@@ -68634,6 +68738,7 @@ export type Database = {
           gps_captured_at?: string
           gps_latitude?: number
           gps_longitude?: number
+          gps_source?: string | null
           id?: string
           installation_photos?: Json
           installed_at?: string | null
@@ -68648,6 +68753,7 @@ export type Database = {
           owner_phone?: string
           owner_rent_disbursed_at?: string | null
           owner_rent_disbursed_by?: string | null
+          owner_rent_due_at?: string | null
           owner_rent_status?: string
           owner_rent_tx_ref?: string | null
           parish_name?: string | null
@@ -68661,6 +68767,7 @@ export type Database = {
           reference_no?: string | null
           rejection_reason?: string | null
           removal_effective_at?: string | null
+          repeat_owner_phone?: boolean
           review_notes?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
@@ -75986,6 +76093,7 @@ export type Database = {
           waiting_ugx: number
         }[]
       }
+      _desk_stage_flow_data: { Args: never; Returns: Json }
       _desk_take_stage_snapshot: { Args: never; Returns: number }
       _desk_viewer_ok: { Args: { p_roles: string[] }; Returns: boolean }
       _direct_client_call: { Args: never; Returns: boolean }
@@ -76030,6 +76138,15 @@ export type Database = {
       _funder_nudge_stats: {
         Args: { p_day: string; p_partner_id: string }
         Returns: Json
+      }
+      _funders_headline: { Args: { p_from: string }; Returns: Json }
+      _funders_headline_sets: {
+        Args: { p_from: string }
+        Returns: {
+          at: string
+          kind: string
+          rent_request_id: string
+        }[]
       }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
@@ -79461,6 +79578,7 @@ export type Database = {
           id: string
         }[]
       }
+      board_display_feed: { Args: { p_token: string }; Returns: Json }
       bonus_restriction_config: {
         Args: { p_category: string }
         Returns: {
@@ -80721,6 +80839,14 @@ export type Database = {
         Args: { p_note?: string; p_sale_id: string; p_valuation?: number }
         Returns: Json
       }
+      cfo_disburse_signage: {
+        Args: {
+          p_payout_type: string
+          p_period_index: number
+          p_signage_id: string
+        }
+        Returns: Json
+      }
       cfo_disburse_smartphone_order: {
         Args: { p_amount?: number; p_note?: string; p_sale_id: string }
         Returns: Json
@@ -80975,6 +81101,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_signages_queue: { Args: never; Returns: Json }
       cfo_staff_tax_register: {
         Args: { p_run_id?: string }
         Returns: {
@@ -81500,6 +81627,10 @@ export type Database = {
           p_reason_text?: string
           p_request_ids: string[]
         }
+        Returns: Json
+      }
+      coo_decide_signage: {
+        Args: { p_decision: string; p_notes?: string; p_signage_id: string }
         Returns: Json
       }
       coo_push_selected: {
@@ -83712,6 +83843,10 @@ export type Database = {
         }[]
       }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
+      funders_headline_list: {
+        Args: { p_kind?: string; p_period?: string }
+        Returns: Json
+      }
       funders_home_counts: { Args: never; Returns: Json }
       funders_map_points: { Args: never; Returns: Json }
       funding_commission_summary: {

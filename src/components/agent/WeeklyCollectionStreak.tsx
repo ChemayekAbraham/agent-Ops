@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Flame, X, Check, Clock, CircleHelp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useIsActiveAgent } from '@/hooks/useIsActiveAgent';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
@@ -38,6 +39,12 @@ export function useWeeklyStreak() {
 }
 
 export function WeeklyCollectionStreakCard({ compact = false }: { compact?: boolean }) {
+  const { data: isActiveAgent } = useIsActiveAgent();
+  if (!isActiveAgent) return null;
+  return <StreakCardBody compact={compact} />;
+}
+
+function StreakCardBody({ compact }: { compact: boolean }) {
   const { data, isLoading, error } = useWeeklyStreak();
   const [helpOpen, setHelpOpen] = useState(false);
   if (isLoading) return <div className="h-40 rounded-2xl bg-muted/40 animate-pulse" />;
@@ -143,15 +150,18 @@ const STORAGE_KEY = 'welile.weeklyStreakDialog.dismissedAt';
 const SUPPRESS_MS = 12 * 60 * 60 * 1000;
 
 export function WeeklyStreakDialog() {
+  const { data: isActiveAgent } = useIsActiveAgent();
   const [open, setOpen] = useState(false);
   useEffect(() => {
+    // Only active agents (with repaying tenants) get the pop-up.
+    if (!isActiveAgent) return;
     try {
       const at = Number(localStorage.getItem(STORAGE_KEY) || '0');
       if (at && Date.now() - at < SUPPRESS_MS) return;
     } catch {}
     const t = setTimeout(() => setOpen(true), 900);
     return () => clearTimeout(t);
-  }, []);
+  }, [isActiveAgent]);
   const close = () => { try { localStorage.setItem(STORAGE_KEY, String(Date.now())); } catch {} setOpen(false); };
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>

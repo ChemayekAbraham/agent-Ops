@@ -11,6 +11,8 @@
 // WHO IS SKIPPED
 //   * notes created in the last 48 hours - nobody is late yet;
 //   * notes already funded, fulfilled, cancelled or released (status filter);
+//   * notes linked to a partner who holds an active portfolio, opened before
+//     or after the note (dropFulfilledNotes);
 //   * partners with no reachable phone (note snapshot, then profile).
 //
 // The signup prompt is suppressed: recipients are already partners with open

@@ -79,7 +79,8 @@ describe('rate pushes on existing portfolios are typed changes', () => {
   it('ActivePartnersDetail: rate push only when edited (or switch seen off); insert omits the rate unless so; stored rate read back', () => {
     const code = src('pages/coo/ActivePartnersDetail.tsx');
     expect(code).toMatch(/\(rateSwitchOffSeen \|\| roiEdited\)\) updateFields\.roi_percentage = newRoi;/);
-    expect(code).toContain('...(sendInsertRoi ? { roi_percentage: insertRoi } : {})');
+    // The spread may carry a type cast (the generated types mark roi_percentage required).
+    expect(code).toMatch(/\.\.\.\(\(?sendInsertRoi \? \{ roi_percentage: insertRoi \} : \{\}\)/);
     expect(code).toMatch(/const sendInsertRoi = rateSwitchOffSeen \|\| \(roiEdited && rateOrNull\(insertRoi\) !== null\);/);
     expect(code).toMatch(/\.insert\(\{[\s\S]*?\}\)\s*\.select\('roi_percentage'\)/);
     expect(code).toContain('created missing portfolio with ${createdRoi}% monthly Returns');

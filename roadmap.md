@@ -1,3 +1,36 @@
+# Boardroom display and reminder deployment
+- [x] Confirm pushed commit 24ae17b868 is included and reminder sources match it unchanged.
+- [x] Deploy partner/proxy promissory reminders from unchanged pushed sources; 7 helper tests passed. Deployment tool reports source hashes, not numeric versions.
+- [x] Add an isolated public totals-only boardroom display with polling and TV controls.
+- [x] Test display privacy, refresh/retry behavior and TV/mobile rendering; 8 display tests passed, no extra account requests or horizontal overflow.
+- [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
+
+# Signages CFO disbursement
+- [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
+- [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
+- [ ] Test installation/payment rules and verify available preview signals.
+
+# Signages and dashboard loading
+- [x] Fetch photo-free cached Signages queues from the restored/cached session; load evidence only for the selected application.
+- [x] Lazy-load inactive Agent Ops, COO and CFO sections and defer unrelated background reads.
+- [x] Run loading/approval regressions (33 tests), guards and signed-out route checks; build OK.
+- [ ] Measure signed-in queue/dashboard speed and inspect real evidence; no authorized browser session is available.
+
+# Welile Signages COO approval
+- [x] Use standard sans-serif throughout Signages applications and dialogs; existing Agent Ops → Awaiting COO handoff and COO tab confirmed in source, 20 regression tests passed and build OK (signed-in verification remains blocked by external unmanaged authentication).
+- [x] Require real GPS, block duplicate locations and flag repeat owner phones.
+- [x] Require installed-board evidence before billing and keep active reviews read-only.
+- [x] Allow agent returned-application edits/resubmit and hide cancelled declined spots.
+- [x] Test Signages safeguards (20 tests passed; guards passed; build OK).
+- [ ] Verify GPS capture, resubmit and installed-photo activation on a signed-in phone; external sign-in prevents testing here.
+- [x] Confirm Agent Ops approvals against fresh server status and refresh the queues immediately.
+- [x] Show COO-approved Signages in the CFO default queue and clarify the COO handoff.
+- [x] Run approval regression tests and project safeguards for the updated handoff (16 tests passed; build OK; all guards passed).
+- [x] Add Awaiting COO and enforce Agent Ops → COO → installation → existing CFO workflow.
+- [x] Add the COO Signages approval tab and test the status transitions and controls.
+- [x] Check build, guards and signed-out routing without runtime errors.
+- [ ] Verify a real Agent Ops → COO approval through signed-in screens; external unmanaged authentication prevents authenticated testing here.
+
 # Production frontend errors (9 November)
 - [x] Audit realtime owner columns and wallet transaction reads; current frontend already uses valid columns. SMS-log duplicate writes and partner-enum failures have no frontend source.
 - [x] Sanitize UUID lookup lists and handle normal missing rows.

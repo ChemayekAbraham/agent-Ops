@@ -11409,6 +11409,7 @@
         "npm:@streamdown/math@^1.0.3",
         "npm:@streamdown/mermaid@^1.0.3",
         "npm:@supabase/supabase-js@2.89.0",
+        "npm:@tailwindcss/container-queries@~0.1.1",
         "npm:@tailwindcss/typography@~0.5.16",
         "npm:@tanstack/react-query@^5.83.0",
         "npm:@tanstack/react-virtual@^3.13.24",

@@ -20,6 +20,8 @@ import { ReviewDrawer } from './ReviewDrawer';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
 import { FundersDashboard } from './cfo/FundersDashboard';
+import { FundersHeadline } from './cfo/FundersHeadline';
+import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
 import { DeskSwitcher, DeskTabs } from './DeskTabs';
@@ -451,6 +453,7 @@ function DeskView({
   // its `desk_live:<id>` switch is not off and VITE_DESK_CHECKLIST is not false.
   const deskLive = useDeskLive();
   const checklistOn = deskLive(desk.id);
+  const [fundersPeriod, setFundersPeriod] = useState<FundersPeriod>('today');
   const stage = checklistOn ? (DESK_STAGE[desk.id] ?? null) : null;
   const [openRequest, setOpenRequest] = useState<string | null>(null);
   // The board's ⋯ menu opens the drawer on a chosen decision or on "Wait on…".
@@ -635,6 +638,7 @@ function DeskView({
     return (
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
+        {desk.id === 'cfo' && <FundersHeadline board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />}
         {intro}
 
         <section className="space-y-3" aria-labelledby="desk-ready">
@@ -646,7 +650,7 @@ function DeskView({
           {tabs}
           {extraView}
           {desk.id === 'cfo' ? (
-            <FundersDashboard board={board} />
+            <FundersDashboard board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />
           ) : desk.id === 'coo' ? (
             <CooBoard board={board} onOpen={openFromBoard} />
           ) : showQueue && stage && BOARD_DESKS.has(desk.id) ? (
