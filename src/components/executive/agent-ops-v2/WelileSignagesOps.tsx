@@ -229,6 +229,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
             ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
             { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
             { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
+            { id: 'awaiting_cfo', label: 'Awaiting CFO' },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -494,14 +495,14 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <DialogTitle className="text-base font-bold">Verify Physical Installation</DialogTitle>
                 </div>
                 <DialogDescription className="text-xs">
-                  Confirm the signage has been physically mounted at {selectedSignage.property_name}. This independently activates the recurring owner payments and the agent reward.
+                  Confirm the signage has been physically mounted at {selectedSignage.property_name}. It will await CFO payment of both the agent reward and first owner rent before becoming active.
                 </DialogDescription>
               </DialogHeader>
 
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1 text-emerald-800 dark:text-emerald-300">
-                <p className="font-bold">⚡ Financial Actions Triggered by Verification:</p>
+                <p className="font-bold">Awaiting CFO after verification:</p>
                 <p>• Unlocks <strong>UGX 3,000</strong> one-time agent reward for {selectedSignage.agent_name || 'Agent'}.</p>
-                <p>• Starts <strong>UGX 10,000/month</strong> recurring rent obligation for property owner {selectedSignage.owner_full_name}.</p>
+                <p>• Queues the first <strong>UGX 10,000</strong> owner rent for {selectedSignage.owner_full_name}; monthly billing starts after both payments.</p>
               </div>
 
               <div className="space-y-3">
@@ -563,7 +564,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   disabled={verifyMutation.isPending || preparingPhoto || !installerName.trim() || !installedPhoto}
                   className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {verifyMutation.isPending ? 'Activating...' : 'Verify & Activate Signage'}
+                  {verifyMutation.isPending ? 'Verifying...' : 'Verify & Send to CFO'}
                 </Button>
               </DialogFooter>
             </div>
