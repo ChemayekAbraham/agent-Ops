@@ -9,6 +9,7 @@
  * see the code was accepted.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -96,6 +97,31 @@ export function useAgentVerifiedState(): 'verified' | 'unverified' | null {
   const { vetting, applicability } = useAgentVetting();
   if (applicability !== 'ready' || !vetting || !vettingApplies(vetting)) return null;
   return vetting.status === 'verified' ? 'verified' : 'unverified';
+}
+
+export const AGENT_VERIFICATION_PATH = '/dashboard/agent/verification';
+
+/**
+ * Someone who chose "Agent" at signup must verify: while their record is still unverified,
+ * the agent dashboard sends them to the verification screen once per browser session.
+ */
+export function useAgentSignupVerifyRedirect(): void {
+  const { user } = useAuth();
+  const { vetting, applicability } = useAgentVetting();
+  const navigate = useNavigate();
+  const due = applicability === 'ready' && !!vetting && vetting.signed_up_as_agent
+    && vetting.applies && vetting.status === 'unverified';
+  useEffect(() => {
+    if (!due || !user?.id) return;
+    const key = `agent-vetting-signup-redirect:${user.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      return;
+    }
+    navigate(AGENT_VERIFICATION_PATH);
+  }, [due, user?.id, navigate]);
 }
 
 export function useAgentVetting() {

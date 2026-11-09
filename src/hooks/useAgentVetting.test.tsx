@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { renderHook, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { createElement } from 'react';
 import {
@@ -44,7 +44,7 @@ vi.mock('@/components/location/UgLocationPicker', () => ({ UgLocationPicker: () 
 vi.mock('@/components/wallet/IdentityPhotoCapture', () => ({ default: () => null }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-import { useAgentVetting, useAgentVerifiedState } from '@/hooks/useAgentVetting';
+import { useAgentSignupVerifyRedirect, useAgentVetting, useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 import AgentVerification from '@/pages/agent/AgentVerification';
 
@@ -249,6 +249,42 @@ describe('useAgentVetting', () => {
     const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(result.current).toBe('unverified');
+  });
+
+  it('gives no badge state to a partner with no agent work', async () => {
+    auth.enabledRoles = ['agent'];
+    rpc.mockImplementation((fn: string) =>
+      Promise.resolve({ data: fn === 'get_my_agent_vetting' ? { ...agentRecord, in_scope: false, applies: false } : { found: false }, error: null }));
+    const { result } = renderHook(() => useAgentVerifiedState(), { wrapper: wrapperFor(client()) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(result.current).toBeNull();
+  });
+
+  it.each([
+    [{ signed_up_as_agent: true, applies: true, status: 'unverified' }, true],
+    [{ signed_up_as_agent: true, applies: true, status: 'submitted' }, false],
+    [{ signed_up_as_agent: false, applies: true, status: 'unverified' }, false],
+    [{ signed_up_as_agent: true, applies: false, status: 'unverified' }, false],
+  ] as const)('sends a new agent signup to verification once per session (%o -> %s)', async (rec, expected) => {
+    auth.enabledRoles = ['agent'];
+    sessionStorage.clear();
+    rpc.mockImplementation((fn: string) =>
+      Promise.resolve({ data: fn === 'get_my_agent_vetting' ? { ...agentRecord, ...rec } : { found: false }, error: null }));
+    const seen: string[] = [];
+    function Probe() {
+      useAgentSignupVerifyRedirect();
+      return null;
+    }
+    function Where() {
+      const loc = useLocation();
+      seen.push(loc.pathname);
+      return null;
+    }
+    const qc = client();
+    render(createElement(QueryClientProvider, { client: qc },
+      createElement(MemoryRouter, { initialEntries: ['/dashboard/agent'] }, createElement(Probe), createElement(Where))));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(seen.includes('/dashboard/agent/verification')).toBe(expected);
   });
 
   it('gives no badge state to someone who is not a real agent', async () => {

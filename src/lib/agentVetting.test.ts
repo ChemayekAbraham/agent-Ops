@@ -222,12 +222,20 @@ describe('idComparison', () => {
 });
 
 describe('vettingApplies', () => {
-  it('applies to agents by footprint and to anyone who started verification, not to bare role holders', () => {
-    expect(vettingApplies({ in_scope: true, status: 'unverified' })).toBe(true);
-    expect(vettingApplies({ in_scope: false, status: 'unverified' })).toBe(false);
-    expect(vettingApplies({ in_scope: false, status: 'submitted' })).toBe(true);
-    expect(vettingApplies({ in_scope: false, status: 'verified' })).toBe(true);
-    expect(vettingApplies({ in_scope: false, status: 'rejected' })).toBe(true);
+  it('follows the server decision, including hiding it from a partner with no agent work', () => {
+    expect(vettingApplies(parseAgentVetting({ status: 'unverified', applies: true, signed_up_as_agent: true }))).toBe(true);
+    expect(vettingApplies(parseAgentVetting({ status: 'unverified', in_scope: false, applies: false }))).toBe(false);
+    expect(vettingApplies(parseAgentVetting({ status: 'unverified', in_scope: true, applies: false }))).toBe(false);
+  });
+  it('falls back to agent work or verification started when the server sends no decision', () => {
+    expect(vettingApplies(parseAgentVetting({ status: 'unverified', in_scope: true }))).toBe(true);
+    expect(vettingApplies(parseAgentVetting({ status: 'unverified', in_scope: false }))).toBe(false);
+    expect(vettingApplies(parseAgentVetting({ status: 'submitted', in_scope: false }))).toBe(true);
+    expect(vettingApplies(parseAgentVetting({ status: 'rejected', in_scope: false }))).toBe(true);
+  });
+  it('reads the agent signup flag, false when missing', () => {
+    expect(parseAgentVetting({ status: 'unverified', signed_up_as_agent: true }).signed_up_as_agent).toBe(true);
+    expect(parseAgentVetting({ status: 'unverified' }).signed_up_as_agent).toBe(false);
   });
   it('reads in_scope from the record, false when missing', () => {
     expect(parseAgentVetting({ status: 'unverified', in_scope: true }).in_scope).toBe(true);
