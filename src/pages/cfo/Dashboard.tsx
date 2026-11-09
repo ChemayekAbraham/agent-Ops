@@ -329,7 +329,7 @@ export default function CFODashboardPage() {
                 </Button>
               </div>
             </div>
-            <StandingOrdersPanel onAddNew={() => setActiveTab('wallet-payout')} />
+            <StandingOrdersPanel />
           </div>
         );
       case 'approved-rent-payouts':
