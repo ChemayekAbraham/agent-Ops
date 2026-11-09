@@ -97407,12 +97407,25 @@ export type Database = {
         Args: { p_notice_id: string }
         Returns: undefined
       }
+      staff_requisition_office_apply_transfer: {
+        Args: {
+          p_actor: string
+          p_new_holder: string
+          p_office: string
+          p_reason: string
+        }
+        Returns: number
+      }
       staff_requisition_office_candidates: {
         Args: { p_office: string }
         Returns: {
           full_name: string
           user_id: string
         }[]
+      }
+      staff_requisition_office_hr_holder: {
+        Args: { p_office: string }
+        Returns: string
       }
       staff_requisition_office_transfer: {
         Args: { p_new_holder: string; p_office: string; p_reason: string }
@@ -97427,6 +97440,15 @@ export type Database = {
           holder_since: string
           office_code: string
           office_key: string
+        }[]
+      }
+      staff_requisition_offices_reconcile: {
+        Args: { p_apply?: boolean }
+        Returns: {
+          action: string
+          hr_holder: string
+          office: string
+          office_holder: string
         }[]
       }
       staff_requisition_pending_prompt: {
