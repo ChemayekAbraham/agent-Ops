@@ -45,6 +45,7 @@ const ApprovedRequisitionsPayoutPanel = lazy(() => import('@/components/cfo/Appr
 const ExpenseReportPanel = lazy(() => import('@/components/cfo/ExpenseReportPanel'));
 const SmsOtpCostsPanel = lazy(() => import('@/components/cfo/SmsOtpCostsPanel'));
 const CFOWeeklyReportPanel = lazy(() => import('@/components/cfo/CFOWeeklyReportPanel'));
+const AccountingHealthPanel = lazy(() => import('@/components/cfo/AccountingHealthPanel'));
 const CashflowForecastGraphs = lazy(() => import('@/components/cfo/CashflowForecastGraphs').then((m) => ({ default: m.CashflowForecastGraphs })));
 const PartnerReceiptsPanel = lazy(() => import('@/components/shared/PartnerReceiptsPanel').then((m) => ({ default: m.PartnerReceiptsPanel })));
 const RequisitionsWorkspace = lazy(() => import('@/components/requisitions/RequisitionsWorkspace').then((m) => ({ default: m.RequisitionsWorkspace })));
@@ -365,6 +366,8 @@ export default function CFODashboardPage() {
         return <FinancialStatementsPanel />;
       case 'weekly-report':
         return <CFOWeeklyReportPanel />;
+      case 'accounting-health':
+        return <AccountingHealthPanel />;
       case 'department-budgets':
         return (
           <div className="space-y-4">

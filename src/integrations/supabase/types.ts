@@ -83247,6 +83247,10 @@ export type Database = {
           village: string
         }[]
       }
+      fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
+      fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
+      fin_controls: { Args: { p_as_at?: string }; Returns: Json }
+      fin_income_statement: { Args: { p_from: string; p_to: string }; Returns: Json }
       finops_adopt_national_id_name: {
         Args: { p_id: string; p_reason?: string }
         Returns: Json
