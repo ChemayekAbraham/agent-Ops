@@ -1,4 +1,6 @@
-import { Wallet } from 'lucide-react';
+import { Banknote, Wallet } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ProxyPerformanceDashboard } from '@/hooks/useProxyPerformanceDashboard';
@@ -10,6 +12,7 @@ const KIND_LABEL: Record<EarningKind, string> = {
 };
 
 export function ProxyEarningsSection({ userId, summary }: { userId?: string; summary?: ProxyPerformanceDashboard }) {
+  const navigate = useNavigate();
   const hist = useProxyEarningsHistory(userId);
   const c = summary?.commission;
   const total = c?.earned ?? 0;
@@ -28,6 +31,10 @@ export function ProxyEarningsSection({ userId, summary }: { userId?: string; sum
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total earned</p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-success">{ugx(total)}</p>
             <p className="mt-1 text-xs text-muted-foreground">Paid into your wallet. Today: {ugx(c.today)}</p>
+            <Button className="mt-3 w-full rounded-md" onClick={() => navigate('/dashboard/agent?section=wallet')}>
+              <Banknote className="mr-2 h-4 w-4" />
+              Withdraw
+            </Button>
             <div className="mt-3 rounded-lg border border-warning/25 bg-warning/5 p-2.5">
               <p className="text-xs text-muted-foreground">Pending</p>
               <p className="text-lg font-bold tabular-nums text-warning">{ugx(c.pending)}</p>
