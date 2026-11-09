@@ -83495,6 +83495,7 @@ export type Database = {
         }[]
       }
       fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
+      fin_bank_anchor: { Args: { p_account_key?: string }; Returns: Json }
       fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
       fin_controls: { Args: { p_as_at?: string }; Returns: Json }
       fin_income_statement: { Args: { p_from: string; p_to: string }; Returns: Json }

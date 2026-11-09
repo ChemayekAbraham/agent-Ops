@@ -68,7 +68,7 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     expect(result.current.data).toEqual({
       mtn: 1000, airtel: 2000, cashAtHand: 800, custodyNotConfirmedBanked: 800,
       // Money We Have = MTN + Airtel + email-derived bank balance (700), not the cumulative banked deposits (350).
-      bankedCash: 350, bankReconciliation: 700, bankBalance: 700, total: 3700,
+      bankedCash: 350, bankReconciliation: 700, bankBalance: 700, bankAnchored: false, bankAnchorNote: null, total: 3700,
       bankedCashCount: 2, bankedComputedAt: '2026-10-23T07:05:00Z', bankedLastMovementAt: '2026-10-23T07:00:00Z',
       finOpsBankedCash: 350, finOpsBankedCount: 2, bankedDifference: 0, bankedInSync: true,
       agentFloatHeld: 6789, outsideBankHeld: 3800,
@@ -83,6 +83,26 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mocks.ranges.mock.calls).toEqual([[0, 999], [1000, 1999]]);
     expect(result.current.data).toMatchObject({ total: 3700, finOpsBankedCash: 400, finOpsBankedCount: 3, bankedDifference: 50, bankedInSync: false });
+    unmount(); client.clear();
+  });
+
+  it('marks the bank line anchored when a confirmed balance exists at the bank-email start date', async () => {
+    const original = mocks.rpc.getMockImplementation();
+    mocks.rpc.mockImplementation((name: string) => {
+      if (name === 'fin_bank_anchor') {
+        return Promise.resolve({ data: { anchor_at: '2026-10-06T21:00:00+00:00', balance: 0, source: 'cfo_confirmation' }, error: null });
+      }
+      if (name === 'get_money_at_bank_reconciliation') {
+        return Promise.resolve({ data: { banked_cash_reference: 350, money_at_bank_total: 700, banked_cash_reference_count: 2,
+          computed_at: '2026-10-23T07:05:00Z', email_cutoff_at: '2026-10-06T21:00:00+00:00' }, error: null });
+      }
+      return original?.(name);
+    });
+    const { result, unmount, client } = setup(() => useActualMoneyHeld());
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.bankAnchored).toBe(true);
+    expect(result.current.data?.bankAnchorNote).toBe('opening balance UGX 0 on 07 Oct 2026, confirmed by the CFO');
+    expect(result.current.data?.total).toBe(3700);
     unmount(); client.clear();
   });
 

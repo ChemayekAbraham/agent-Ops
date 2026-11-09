@@ -294,7 +294,7 @@ export function MoneyWeCanUseBreakdown() {
     {
       label: 'Cash at Bank (Equity, from bank emails)',
       value: money?.bankBalance ?? 0,
-      note: `Credits in less debits out from Equity bank emails; not yet anchored to a bank statement. For reference, deposits marked banked total ${fmt(money?.bankedCash ?? 0)} (${money?.bankedCashCount ?? 0} deposits) — a running total, not a balance.`,
+      note: `Credits in less debits out from Equity bank emails; ${money?.bankAnchored ? money.bankAnchorNote : 'not yet anchored to a bank statement'}. For reference, deposits marked banked total ${fmt(money?.bankedCash ?? 0)} (${money?.bankedCashCount ?? 0} deposits) — a running total, not a balance.`,
     },
   ];
 

@@ -535,7 +535,7 @@ export function CFOOverviewDashboard({
               percentageValue={!actualLoading ? actualMoney?.bankBalance ?? 0 : undefined}
               percentageTotal={actualMoneyTotal}
               items={[
-                { dot: 'bg-sky-500', label: 'Equity balance from bank emails (not yet anchored to a statement)', value: fmt(actualMoney?.bankBalance ?? 0), onSelect: () => setActualMoneyLine('bank') },
+                { dot: 'bg-sky-500', label: actualMoney?.bankAnchored ? `Equity balance from bank emails (${actualMoney.bankAnchorNote})` : 'Equity balance from bank emails (not yet anchored to a statement)', value: fmt(actualMoney?.bankBalance ?? 0), onSelect: () => setActualMoneyLine('bank') },
                 { dot: 'bg-slate-400', label: 'Deposits marked banked — cumulative, not a balance', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-slate-400', label: 'Cash and Bank Balances (A1, accounting)', value: positionUnavailable ? '—' : fmt(bankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
