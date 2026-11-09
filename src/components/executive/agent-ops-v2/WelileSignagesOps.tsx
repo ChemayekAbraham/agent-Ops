@@ -165,7 +165,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   };
 
   return (
-    <div className="space-y-4 w-full pb-16">
+    <div className="space-y-4 w-full pb-16 font-sans">
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-sm">
         <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -275,7 +275,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Ref: <span className="font-mono font-bold text-foreground">{item.reference_no}</span> • Agent: {item.agent_name || 'Agent'} ({item.agent_phone || 'N/A'})
+                        Ref: <span className="font-bold text-foreground">{item.reference_no}</span> • Agent: {item.agent_name || 'Agent'} ({item.agent_phone || 'N/A'})
                       </p>
                       {item.repeat_owner_phone && (
                         <Badge variant="destructive" className="mt-1 text-[10px]">Repeat owner phone — review</Badge>
@@ -295,7 +295,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block font-medium">GPS Verification:</span>
-                      <span className="font-mono text-foreground">{item.gps_latitude?.toFixed(4)}, {item.gps_longitude?.toFixed(4)}</span>
+                      <span className="text-foreground">{item.gps_latitude?.toFixed(4)}, {item.gps_longitude?.toFixed(4)}</span>
                       <p className="text-[10px] text-emerald-600 font-medium">Accuracy ±{Math.round(item.gps_accuracy_meters)}m</p>
                     </div>
                     <div>
@@ -350,7 +350,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
 
       {/* ── MODAL 1: INSPECTION & DECISION DIALOG ── */}
       <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl font-sans">
           {selectedSignage && (
             <div className="space-y-4">
               <DialogHeader className="pr-8">
@@ -404,7 +404,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 </div>
-                <p className="font-mono text-muted-foreground">
+                <p className="text-muted-foreground">
                   Lat: {selectedSignage.gps_latitude}, Lng: {selectedSignage.gps_longitude} (Accuracy: ±{Math.round(selectedSignage.gps_accuracy_meters)}m)
                 </p>
                 <p className="text-muted-foreground">
@@ -499,7 +499,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
 
       {/* ── MODAL 2: INSTALLATION VERIFICATION & ACTIVATION DIALOG ── */}
       <Dialog open={isVerifyOpen} onOpenChange={setIsVerifyOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
+        <DialogContent className="max-w-md rounded-2xl font-sans">
           {selectedSignage && (
             <div className="space-y-4">
               <DialogHeader className="pr-8">

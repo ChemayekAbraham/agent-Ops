@@ -1,4 +1,5 @@
 # Welile Signages COO approval
+- [x] Use standard sans-serif throughout Signages applications and dialogs; existing Agent Ops → Awaiting COO handoff and COO tab confirmed in source, 20 regression tests passed and build OK (signed-in verification remains blocked by external unmanaged authentication).
 - [x] Require real GPS, block duplicate locations and flag repeat owner phones.
 - [x] Require installed-board evidence before billing and keep active reviews read-only.
 - [x] Allow agent returned-application edits/resubmit and hide cancelled declined spots.
