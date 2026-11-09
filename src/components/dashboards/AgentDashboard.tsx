@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { lazyWithRetry as lazy, lazyNamed } from '@/lib/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -254,6 +256,7 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
@@ -326,11 +329,11 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // landing period.
   const { data: mySubagentRank } = useQuery({
     queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_my_subagent_rank', {
         p_period: 'weekly',
-      });
+      }));
       if (error) throw error;
       return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
     },
@@ -2009,7 +2012,13 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             if (error || data?.error) throw new Error(data?.error || error?.message || 'Failed to generate link');
             const { createShortLink } = await import('@/lib/createShortLink');
             const partnerFormLink = await createShortLink(user.id, '/register-partner', { agent: user.id, token: data.token });
-            const shareText = `🤝 Partner with Welile and earn 15% monthly Returns! Register here: ${partnerFormLink}`;
+            // The PUBLIC new-partner rate (15 while the switch has never been on); no rate known -> no figure.
+            const { getPublicPartnerRate } = await import('@/lib/publicPartnerRate');
+            const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
+            const newRatePct = formatRatePct(await getPublicPartnerRate());
+            const shareText = newRatePct
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {

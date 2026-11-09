@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './types';
-import { FUNDER_NEW_RETURN_RATE, emptyHousePlace, emptyHouseTitle, itemAmount, itemMonthlyReturn } from './utils';
+import { emptyHousePlace, emptyHouseTitle, itemAmount } from './utils';
 import { useFunderNewRecommendations } from './useFunderNewOpportunities';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 
 type Mode = 'per_house' | 'total_budget';
 
@@ -36,6 +38,10 @@ export function FunderNewCalculatorDialog({
   const [mode, setMode] = useState<Mode>('per_house');
   const [amountText, setAmountText] = useState('');
   const [housesText, setHousesText] = useState('3');
+  // A planning estimate for this partner's next portfolio: their own rate (partner_quote_rate('me')).
+  // null while it loads or on error: no figure.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = formatRatePct(ownRate);
 
   const entered = Math.max(0, Number(amountText.replace(/[^\d]/g, '')) || 0);
   const houses = Math.max(1, Math.min(50, Number(housesText.replace(/[^\d]/g, '')) || 1));
@@ -43,16 +49,21 @@ export function FunderNewCalculatorDialog({
   // The two modes are explicit — the same number is never treated as both.
   const perHouse = mode === 'per_house' ? entered : Math.floor(entered / houses);
   const hypotheticalTotal = mode === 'per_house' ? entered * houses : entered;
-  const hypotheticalMonthly = Math.round(hypotheticalTotal * FUNDER_NEW_RETURN_RATE);
+  const hypotheticalMonthly = monthlyReturnFor(hypotheticalTotal, ownRate);
 
   const recommendations = useFunderNewRecommendations(perHouse, houses, filters, origin, open);
   const matches = recommendations.data?.items ?? [];
 
   const actual = useMemo(() => {
     const total = matches.reduce((sum, house) => sum + itemAmount('empty', house), 0);
-    const monthly = matches.reduce((sum, house) => sum + (itemMonthlyReturn('empty', house) ?? 0), 0);
+    // Priced at the partner's own rate, not the list's partner_monthly_return (quoted at the public
+    // new-partner rate). A house without a rent adds nothing, as before; null when the rate is unknown.
+    const monthly =
+      ownRate === null
+        ? null
+        : matches.reduce((sum, house) => sum + (monthlyReturnFor(itemAmount('empty', house), ownRate) ?? 0), 0);
     return { total, monthly };
-  }, [matches]);
+  }, [matches, ownRate]);
 
   const searchScope = [
     `homes at or under ${formatDynamic(perHouse)} each`,
@@ -70,7 +81,7 @@ export function FunderNewCalculatorDialog({
             <Calculator className="h-5 w-5 text-primary" aria-hidden /> Return calculator
           </DialogTitle>
           <DialogDescription>
-            A planning estimate at the current 15% rate. Nothing is funded from this screen.
+            A planning estimate{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}. Nothing is funded from this screen.
           </DialogDescription>
         </DialogHeader>
 
@@ -126,8 +137,8 @@ export function FunderNewCalculatorDialog({
               ) : null}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Projected return each month (15%)</p>
-              <p className="break-words text-xl font-bold text-success">{formatDynamic(hypotheticalMonthly)}</p>
+              <p className="text-xs text-muted-foreground">Projected Returns each month{ownRatePct ? ` (${ownRatePct})` : ''}</p>
+              <p className="break-words text-xl font-bold text-success">{hypotheticalMonthly === null ? '—' : formatDynamic(hypotheticalMonthly)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Hypothetical scenario, returns only — your support amount is not included.
               </p>
@@ -167,7 +178,7 @@ export function FunderNewCalculatorDialog({
                 </p>
                 <p className="text-sm">
                   <span className="text-muted-foreground">Their real monthly return </span>
-                  <span className="font-semibold text-success">{formatDynamic(actual.monthly)}</span>
+                  <span className="font-semibold text-success">{actual.monthly === null ? '—' : formatDynamic(actual.monthly)}</span>
                 </p>
               </div>
               <ul className="space-y-2">
@@ -201,7 +212,7 @@ export function FunderNewCalculatorDialog({
 
         <p className="flex items-start gap-2 rounded-2xl border bg-muted/40 p-4 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
-          Returns are projections at the current 15% rate, not a guarantee. Selecting homes here is planning only.
+          Returns are projections{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}, not a guarantee. Selecting homes here is planning only.
         </p>
 
         {matches.length > 0 ? (

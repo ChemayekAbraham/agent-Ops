@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { landlordRejectedGate, landlordRejectedErrorText } from '@/lib/landlordRejectedGate';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
@@ -870,10 +871,10 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
       const [profilesRes, landlordsRes, lc1Res] = await Promise.all([
         ids.size > 0
-          ? supabase
+          ? withUuidIds([...ids], (validIds) => supabase
               .from('profiles')
               .select('id, full_name, phone, email, region, district, sub_county, parish, village, city, town, landmark')
-              .in('id', [...ids])
+              .in('id', validIds))
           : { data: [] },
         landlordIds.length > 0
           ? supabase

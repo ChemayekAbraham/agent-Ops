@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -361,10 +362,10 @@ function RentRequestList({ country }: { country: string }) {
       const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id).filter(Boolean))];
       const tenantName = new Map<string, string>();
       if (tenantIds.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(tenantIds as string[], (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', tenantIds as string[]);
+          .in('id', validIds));
         for (const p of profs ?? []) tenantName.set((p as any).id, (p as any).full_name);
       }
       return rows.map((r: any) => ({

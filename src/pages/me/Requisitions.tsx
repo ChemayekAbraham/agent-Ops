@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -216,7 +217,7 @@ const MyRequisitions = () => {
   const [accountFor, setAccountFor] = useState<Requisition | null>(null);
 
   const fetchRows = useCallback(async () => {
-    const { data: userRes } = await supabase.auth.getUser();
+    const { data: userRes } = await getSessionCheckedUser();
     const uid = userRes.user?.id;
     if (!uid) { setLoading(false); return; }
 
@@ -266,7 +267,7 @@ const MyRequisitions = () => {
     setLoanInfo((elig ?? null) as unknown as LoanEligibility | null);
     // Only the person's own loans: the COO, CFO, CEO, Financial Ops and HR roles are allowed to read every staff loan, so the
     // list must be narrowed here or they see everyone's under "Your loans".
-    const { data: userRes } = await supabase.auth.getUser();
+    const { data: userRes } = await getSessionCheckedUser();
     const loanUid = userRes.user?.id;
     const { data: loanRows } = loanUid
       ? await supabase

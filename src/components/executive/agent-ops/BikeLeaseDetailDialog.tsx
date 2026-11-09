@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -140,7 +141,7 @@ export function BikeLeaseDetailDialog({
       const names = async (ids: string[]) => {
         const map: Record<string, string> = {};
         if (!ids.length) return map;
-        const { data } = await db.from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data } = await withUuidIds(ids, (validIds) => db.from('profiles').select('id, full_name, phone').in('id', validIds));
         (data || []).forEach((p: any) => { map[p.id] = p.full_name || p.phone || 'Unknown'; });
         return map;
       };

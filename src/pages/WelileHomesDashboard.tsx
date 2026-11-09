@@ -53,7 +53,7 @@ export default function WelileHomesDashboard() {
         .from('profiles')
         .select('monthly_rent, full_name')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       return data;
     },
     enabled: !!user?.id

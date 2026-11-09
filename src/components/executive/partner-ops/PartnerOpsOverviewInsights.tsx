@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
@@ -165,15 +167,17 @@ interface SupportMixSlice {
 }
 
 export function PartnerSupportMixChart() {
+  const authenticatedReady = useAuthenticatedAudience();
   const { data, isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['partner-ops-support-mix'],
     queryFn: async () => {
       const [portfoliosRes, linesRes] = await Promise.all([
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investor_id, investment_amount, status')
           .eq('status', 'active')
-          .limit(5000),
+          .limit(5000)),
         supabase
           .from('partner_self_funding_lines')
           .select('partner_id, status')

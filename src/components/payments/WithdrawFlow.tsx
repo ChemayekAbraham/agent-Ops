@@ -71,7 +71,8 @@ interface WithdrawFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availableBalance?: number;
-  roiBalance?: number;
+  /** The Returns balance; null = unknown (masked or not read), which is never withdrawable. */
+  roiBalance?: number | null;
   onSuccess?: () => void;
   /**
    * Optional pre-fill for the amount step. When set (and > 0), the amount
@@ -438,8 +439,12 @@ export default function WithdrawFlow({
   });
   // Daily withdrawal limits removed globally (2026-08-10). The only cap is
   // the caller-supplied or ledger-true available balance.
-  const rawMax = source === 'available' ? trueAvailable : roiBalance;
-  const maxAmount = rawMax;
+  // A null Returns balance is UNKNOWN (a masked or unread figure), not 0 and not a cap: the 'roi'
+  // source then has no cap (maxUnknown) and every step refuses. maxAmount stays a number for display.
+  const roiCap = typeof roiBalance === 'number' && Number.isFinite(roiBalance) ? roiBalance : null;
+  const rawMax = source === 'available' ? trueAvailable : roiCap;
+  const maxUnknown = rawMax === null;
+  const maxAmount = maxUnknown ? 0 : rawMax;
 
   // 20% daily-collection withdrawal gate REMOVED (2026-08-01) — agents can
   // withdraw regardless of today's collection performance. Kept as a constant
@@ -840,6 +845,7 @@ export default function WithdrawFlow({
         // does nothing" reports.
         return (
           amount >= MIN_WITHDRAWAL &&
+          !maxUnknown &&
           // If we have a verified ledger figure, enforce it. If we don't
           // (RPC slow/failed), let the tap through — handleNext will refetch
           // and either advance or show a real error.
@@ -864,6 +870,7 @@ export default function WithdrawFlow({
         // then proceed — so the button must remain clickable.
         return (
           ledgerAvailable !== null &&
+          !maxUnknown &&
           amount <= maxAmount &&
           (!requiresOtp || otpCode.trim().length === 6) &&
           pinNeeded &&
@@ -1259,7 +1266,11 @@ export default function WithdrawFlow({
                 : fresh !== null
                   ? Math.min(availableBalance, fresh)
                   : availableBalance)
-            : roiBalance;
+            : roiCap;
+        if (freshMax === null) {
+          toast.error('Your Returns balance could not be checked. Reload the page and try again.', { duration: 6000 });
+          return false;
+        }
         if (fresh === null && ledgerAvailable === null) {
           toast.error(
             'Could not verify your live balance. Check your connection and try again.',
@@ -1500,7 +1511,7 @@ export default function WithdrawFlow({
               />
               <p className="text-xs text-muted-foreground text-center">
                 Withdraw between {formatCurrency(MIN_WITHDRAWAL, currency)} and{' '}
-                {formatCurrency(maxAmount, currency)}
+                {maxUnknown ? '—' : formatCurrency(maxAmount, currency)}
               </p>
               {/* Inline validation — fires the moment the user crosses a
                   boundary so they don't tap Continue and get a silent no-op. */}
@@ -1511,7 +1522,7 @@ export default function WithdrawFlow({
               )}
               {amount > maxAmount && (
                 <p className="text-xs text-destructive text-center font-medium">
-                  Insufficient funds — exceeds available balance ({formatCurrency(maxAmount, currency)})
+                  Insufficient funds — exceeds available balance ({maxUnknown ? '—' : formatCurrency(maxAmount, currency)})
                 </p>
               )}
               {/* Live ledger sync indicator — gates Continue */}
@@ -1520,7 +1531,7 @@ export default function WithdrawFlow({
                   ? 'Checking live ledger balance…'
                   : isStale
                     ? 'Balance may be stale — re-checking…'
-                    : `Verified against live ledger · ${formatCurrency(maxAmount, currency)} available`}
+                    : `Verified against live ledger · ${maxUnknown ? '—' : formatCurrency(maxAmount, currency)} available`}
               </p>
               {/* Zero-fee assurance — Welile wallet has no withdrawal fees,
                   so users see the full amount on the other side. */}
@@ -2116,7 +2127,7 @@ export default function WithdrawFlow({
               } else if (ledgerAvailable === null) {
                 reason = 'Waiting for your ledger balance to load…';
               } else if (amount > maxAmount) {
-                reason = `Amount exceeds your available balance (UGX ${maxAmount.toLocaleString()}).`;
+                reason = `Amount exceeds your available balance (${maxUnknown ? '—' : `UGX ${maxAmount.toLocaleString()}`}).`;
               }
 
               return (
@@ -2155,10 +2166,10 @@ export default function WithdrawFlow({
               ]}
               fees={[
                 { label: 'Withdrawal fee', value: 'Free' },
-                { label: 'Available balance', value: formatCurrency(maxAmount, currency) },
+                { label: 'Available balance', value: maxUnknown ? '—' : formatCurrency(maxAmount, currency) },
                 {
                   label: 'Balance after withdrawal',
-                  value: formatCurrency(Math.max(0, maxAmount - amount), currency),
+                  value: maxUnknown ? '—' : formatCurrency(Math.max(0, maxAmount - amount), currency),
                 },
               ]}
               total={{ label: "You'll Receive", value: formatCurrency(amount, currency) }}

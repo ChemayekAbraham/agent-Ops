@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Agent block: current agent from rent_requests' own columns (assigned_agent_id
  * takes precedence over agent_id, matching the reassignment-attribution
@@ -45,7 +46,7 @@ async function fetchAgentInfo(rentRequestId: string): Promise<AgentInfo> {
 
   const [namesRes, historyRes] = await Promise.all([
     idsToName.length > 0
-      ? supabase.from('profiles').select('id, full_name').in('id', idsToName)
+      ? withUuidIds(idsToName, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
       : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
     rr?.tenant_id
       ? anyDb.rpc('get_tenant_transfer_history', { p_tenant_id: rr.tenant_id })

@@ -38,5 +38,5 @@ export function isRestrictedInternalStaffQuery(text: string): boolean {
     || /\b(?:another|other|someone else|all users?|every user)\b.*\b(?:phone|wallet|balance|ledger|transactions?)\b|\b(?:phone|wallet|balance|ledger)\b.*\b(?:another user|other users?|someone else)\b/.test(normalized);
 }
 export function buildInternalStaffRefusalReply(): string {
-  return 'That information is restricted to authorized Welile internal staff dashboards and cannot be shared publicly. I can help with public Supporter projections at 15% monthly Returns, Tenant Rent Access up to UGX 30,000,000, Agent opportunities, Landlord services, or Careers.';
+  return 'That information is restricted to authorized Welile internal staff dashboards and cannot be shared publicly. I can help with public Supporter projections at the current monthly Returns rate for new partners, Tenant Rent Access up to UGX 30,000,000, Agent opportunities, Landlord services, or Careers.';
 }

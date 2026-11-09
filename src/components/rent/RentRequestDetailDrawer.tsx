@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -142,10 +144,10 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
       // One batched read per source — never one query per person.
       const [profilesRes, landlordRes, repaymentsRes, ledgerRes, listingRes] = await Promise.all([
         profileIds.length > 0
-          ? supabase
+          ? withUuidIds(profileIds, (validIds) => supabase
               .from('profiles')
               .select('id, full_name, phone, email, village, parish, sub_county, district, city')
-              .in('id', profileIds)
+              .in('id', validIds))
           : Promise.resolve({ data: [] }),
         supabase.from('landlords').select('name, phone, property_address, mobile_money_number, mobile_money_name').eq('id', req.landlord_id).single(),
         supabase.from('repayments').select('id, amount, created_at').eq('rent_request_id', requestId).order('created_at', { ascending: false }),
@@ -199,7 +201,7 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
     const targetUserId = targetRole === 'tenant' ? request.tenant_id : request.agent_id;
     if (!targetUserId) { toast.error('No user found for this role'); return; }
 
-    const { data: user } = await supabase.auth.getUser();
+    const { data: user } = await getSessionCheckedUser();
     if (!user?.user?.id) return;
 
     const { data, error } = await supabase

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -242,7 +243,7 @@ export function useBudgetReferenceData() {
 
   useEffect(() => {
     (async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const userId = auth.user?.id ?? null;
 
       const [acc, dep, mine, primaryId] = await Promise.all([
@@ -338,7 +339,7 @@ export async function fetchConsolidation(callId: string) {
 }
 
 export async function uploadBudgetDocument(file: File, submissionId?: string | null) {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const uid = auth.user?.id ?? 'anon';
   const path = `${uid}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, '_')}`;
   const { error } = await supabase.storage.from(BUDGET_DOCUMENTS_BUCKET).upload(path, file);

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -96,7 +97,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       const uid = account.investor_id || account.agent_id;
       if (uid) {
         setLoadingEmail(true);
-        supabase.from('profiles').select('email').eq('id', uid).single()
+        supabase.from('profiles').select('email').eq('id', uid).maybeSingle()
           .then(({ data }) => { setEmail(data?.email || ''); setLoadingEmail(false); });
       }
     }
@@ -159,14 +160,14 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
 
       // Explicit staff edit of principal / Returns: the database accepts such a change only with a new token
       // (migration 20261024140000). The token is not part of the audited change list above.
-      const { error } = await supabase.from('investor_portfolios')
-        .update({ ...updates, return_fields_edit_token: safeUUID() } as any).eq('id', account.id);
+      const { error } = await withUserSession(() => supabase.from('investor_portfolios')
+        .update({ ...updates, return_fields_edit_token: safeUUID() } as any).eq('id', account.id));
 
       if (error) throw error;
 
       const uid = account.investor_id || account.agent_id;
       if (email.trim() && uid) {
-        const { data: priorProfile } = await supabase.from('profiles').select('email').eq('id', uid).single();
+        const { data: priorProfile } = await supabase.from('profiles').select('email').eq('id', uid).maybeSingle();
         if ((priorProfile?.email || '') !== email.trim()) {
           changedFields['email'] = { from: priorProfile?.email ?? null, to: email.trim() };
         }
@@ -176,7 +177,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
       // Resolve editor name for richer audit context
       let editorName: string | null = null;
       if (user?.id) {
-        const { data: ed } = await supabase.from('profiles').select('full_name').eq('id', user.id).single();
+        const { data: ed } = await supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
         editorName = ed?.full_name || null;
       }
 

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -124,9 +125,9 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
       // still carries allocations the 24h idle recall has pulled back, and the
       // disbursement backend enforces this same RPC. Validating against the
       // gross figure would let an agent key in an amount the payout rejects.
-      const { data } = await supabase.rpc('get_agent_lp_float_available', {
+      const { data } = await withUserSession(() => supabase.rpc('get_agent_lp_float_available', {
         p_agent_id: user.id,
-      });
+      }));
       if (!cancelled) setFloatBalance(Number(data ?? 0));
     })();
     return () => { cancelled = true; };

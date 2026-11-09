@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,25 +20,26 @@ import {
 interface PortfolioHit { id: string; portfolio_code: string | null; investment_amount: number; investor_id: string; partner_name: string | null }
 
 function usePortfolioSearch(term: string) {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['compound-portfolio-search', term],
-    enabled: term.trim().length >= 3,
+    enabled: authenticatedReady && (term.trim().length >= 3),
     queryFn: async (): Promise<PortfolioHit[]> => {
       const t = term.trim();
       const { rows: people } = await searchProfilesTypeahead(t, { limit: 20, columns: 'id, full_name' });
       const ids = (people || []).map((p) => p.id);
-      const byCode = await supabase.from('investor_portfolios')
-        .select('id, portfolio_code, investment_amount, investor_id').ilike('portfolio_code', `%${t}%`).limit(20);
+      const byCode = await withUserSession(() => supabase.from('investor_portfolios')
+        .select('id, portfolio_code, investment_amount, investor_id').ilike('portfolio_code', `%${t}%`).limit(20));
       const byPartner = ids.length
-        ? await supabase.from('investor_portfolios').select('id, portfolio_code, investment_amount, investor_id')
-            .in('investor_id', ids).limit(40)
+        ? await withUserSession(() => supabase.from('investor_portfolios').select('id, portfolio_code, investment_amount, investor_id')
+            .in('investor_id', ids).limit(40))
         : { data: [] as any[] };
       const rows = [...(byCode.data || []), ...(byPartner.data || [])];
       const seen = new Set<string>();
       const uniq = rows.filter((r: any) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
       const missing = uniq.map((r: any) => r.investor_id).filter((id: string) => !ids.includes(id));
       const extra = missing.length
-        ? (await supabase.from('profiles').select('id, full_name').in('id', missing)).data || []
+        ? (await withUuidIds(missing, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))).data || []
         : [];
       const names = new Map([...(people || []), ...extra].map((p: any) => [p.id, p.full_name]));
       return uniq.map((r: any) => ({ ...r, partner_name: names.get(r.investor_id) ?? null }));

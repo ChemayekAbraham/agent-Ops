@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,7 +63,7 @@ export function COOROIApprovals() {
     queryKey: ['coo-roi-profiles', userIds.join(',')],
     queryFn: async () => {
       if (userIds.length === 0) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', userIds);
+      const { data } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       return data || [];
     },
     enabled: userIds.length > 0,

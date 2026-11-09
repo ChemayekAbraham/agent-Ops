@@ -40,7 +40,7 @@ const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const
 
 const ROLE_OPTIONS = [
   { role: 'tenant' as const, emoji: '🏠', label: 'I need rent help', desc: 'Get funded instantly', gradient: 'from-blue-500 to-indigo-600' },
-  { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: '15% monthly returns', gradient: 'from-emerald-500 to-teal-600' },
+  { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: 'Monthly Returns', gradient: 'from-emerald-500 to-teal-600' },
   { role: 'agent' as const, emoji: '⚡', label: 'I want to earn and learn', desc: 'Register & earn cash', gradient: 'from-amber-500 to-orange-600' },
   { role: 'landlord' as const, emoji: '🏢', label: 'Guaranteed rent', desc: 'Never chase tenants', gradient: 'from-purple-500 to-violet-600' },
 ];

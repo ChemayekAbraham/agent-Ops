@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -162,7 +163,7 @@ export default function MyTenantsSection() {
       .from('profiles')
       .select('phone')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     if (!profile) {
       setLoading(false);
       return;
@@ -183,7 +184,7 @@ export default function MyTenantsSection() {
     const tenantIds = [...new Set(entries.map((e) => e.tenant_id as string))];
 
     const [profilesRes, rentRes] = await Promise.all([
-      supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', tenantIds),
+      withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone, avatar_url').in('id', validIds)),
       supabase
         .from('rent_requests')
         .select(

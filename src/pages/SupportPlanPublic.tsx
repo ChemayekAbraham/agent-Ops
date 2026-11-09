@@ -16,10 +16,13 @@ import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/rentCalculations';
 import { fetchPublicSupportPlan, type PublicSupportPlan } from '@/lib/publicSupportPlan';
 import { SupportPlanExample } from '@/components/support-plan/SupportPlanExample';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 import { toast } from 'sonner';
 
-const POINTS = [
-  { icon: HandCoins, text: 'You support a tenant — you earn 15% of their rent.' },
+/** The first point quotes the public new-partner rate; with no rate known it states no figure. */
+const pointsFor = (newRatePct: string | null) => [
+  { icon: HandCoins, text: newRatePct ? `You support a tenant — you earn ${newRatePct} of their rent.` : 'You support a tenant — you earn monthly Returns on their rent.' },
   { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
   { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
 ];
@@ -30,13 +33,18 @@ const HOW_STEPS = [
   { icon: Send, text: 'Welile sends the money straight to the landlord.' },
 ];
 
-function buildShareMessage(plan: PublicSupportPlan, link: string): string {
+/** Share text at the PUBLIC new-partner rate (15 while the switch has never been on). No rate known:
+ *  the text states no rate. */
+function buildShareMessage(plan: PublicSupportPlan, link: string, ratePct: string | null): string {
   const who = plan.tenantFirstName || 'a tenant';
-  return `Help ${who} keep their home. Support their rent on Welile and earn 15% of the rent monthly for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+  const earn = ratePct ? `earn ${ratePct} of the rent monthly for 12 months` : 'earn monthly Returns for 12 months';
+  return `Help ${who} keep their home. Support their rent on Welile and ${earn}, with Welile's operational guarantee. See the plan: ${link}`;
 }
 
 export default function SupportPlanPublic() {
   const { planId } = useParams<{ planId: string }>();
+  // Public page: the worked example uses the public new-partner rate (null while unknown = no figure).
+  const { newContractRate } = usePartnerReturnPolicy();
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'unavailable' }
@@ -95,14 +103,17 @@ export default function SupportPlanPublic() {
   }
 
   const { plan } = state;
-  const message = buildShareMessage(plan, link);
+  const newRatePct = formatRatePct(newContractRate);
+  const message = buildShareMessage(plan, link, newRatePct);
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
   // Signed-out visitors sign up / log in, then land on the funder dashboard
   // with ?plan= so this exact plan opens automatically.
   const fundRedirect = `/dashboard/funder-new?plan=${encodeURIComponent(plan.planId)}`;
   const authUrl = `/auth?redirect=${encodeURIComponent(fundRedirect)}&role=supporter`;
   const title = `Support ${plan.tenantFirstName ?? 'a tenant'}'s rent — Welile`;
-  const description = `Turn rent into an asset. Support this tenant's rent once and earn 15% of their rent every month for 12 months.`;
+  const description = newRatePct
+    ? `Turn rent into an asset. Support this tenant's rent once and earn ${newRatePct} of their rent every month for 12 months.`
+    : `Turn rent into an asset. Support this tenant's rent once and earn monthly Returns for 12 months.`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -132,8 +143,8 @@ export default function SupportPlanPublic() {
         <div className="space-y-2">
           <h1 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h1>
           <p className="text-base leading-relaxed text-muted-foreground">
-            Support {plan.tenantFirstName ?? 'this tenant'}'s rent once. Earn 15% of their rent
-            every month for the next 12 months.
+            Support {plan.tenantFirstName ?? 'this tenant'}'s rent once.{' '}
+            {newRatePct ? `Earn ${newRatePct} of their rent every month for the next 12 months.` : 'Earn monthly Returns for the next 12 months.'}
           </p>
           {plan.city ? (
             <p className="text-sm text-muted-foreground">
@@ -149,7 +160,7 @@ export default function SupportPlanPublic() {
             <p className="text-sm font-bold sm:text-base">{formatUGX(plan.fundingAmount)}</p>
           </div>
           <div className="rounded-2xl bg-muted/40 p-3 text-center">
-            <p className="text-xs text-muted-foreground">Monthly at 15%</p>
+            <p className="text-xs text-muted-foreground">{newRatePct ? `Monthly at ${newRatePct}` : 'Monthly Returns'}</p>
             <p className="text-sm font-bold sm:text-base">{formatUGX(plan.monthlyReturn)}</p>
           </div>
           <div className="rounded-2xl bg-muted/40 p-3 text-center">
@@ -159,7 +170,7 @@ export default function SupportPlanPublic() {
         </div>
 
         <ul className="space-y-3">
-          {POINTS.map((p) => (
+          {pointsFor(newRatePct).map((p) => (
             <li key={p.text} className="flex items-start gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
                 <p.icon className="h-5 w-5" />
@@ -186,7 +197,7 @@ export default function SupportPlanPublic() {
           </ol>
         </div>
 
-        <SupportPlanExample fundingAmount={plan.fundingAmount} headingTag="h2" />
+        <SupportPlanExample fundingAmount={plan.fundingAmount} rate={newContractRate} headingTag="h2" />
 
         <div className="space-y-2">
           <a

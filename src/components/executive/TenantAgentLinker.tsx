@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -164,10 +165,10 @@ export function TenantAgentLinker() {
       const agentIds = [...new Set(data.map(r => r.agent_id).filter(Boolean))];
       let agentMap = new Map<string, string>();
       if (agentIds.length > 0) {
-        const { data: agents } = await supabase
+        const { data: agents } = await withUuidIds(agentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', agentIds);
+          .in('id', validIds));
         if (agents) agents.forEach(a => agentMap.set(a.id, a.full_name || '—'));
       }
 

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -112,7 +113,7 @@ export function PartnerFinancialActivity() {
     queryKey: ['partner-fin-profiles', allUserIds.join(',')],
     queryFn: async () => {
       if (allUserIds.length === 0) return {};
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', allUserIds);
+      const { data } = await withUuidIds(allUserIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const map: Record<string, string> = {};
       (data || []).forEach(p => { map[p.id] = p.full_name; });
       return map;

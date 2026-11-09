@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -25,10 +26,10 @@ export function TodayCollectionsCard({ agentId, onViewTenants }: Props) {
 
       // Get unique tenant IDs and fetch profiles
       const tenantIds = [...new Set(allRequests.map(r => r.tenant_id))];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', tenantIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
       const tenants = allRequests;

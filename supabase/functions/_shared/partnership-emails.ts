@@ -35,26 +35,27 @@ export interface PartnershipAgreementInput {
   partnerId: string;            // for idempotency key scoping
   portfolioId: string;          // for idempotency key scoping
   amount: number;
-  monthlyReward: number;
+  /**
+   * Monthly Returns amount for THIS portfolio (stored rate x amount). null / omitted -> the
+   * monthly and projected Returns lines are left out (the recipient may not see figures).
+   */
+  monthlyReward?: number | null;
   contributionDateIso: string;
   firstPayoutDateIso: string;
   payoutDay: number;
   /**
-   * Agreed monthly ROI % for THIS portfolio (e.g. 15, 12.5, 10).
-   * Optional — when omitted the template derives it from monthlyReward/amount.
-   * Pass the actual investor_portfolios.roi_percentage so partners on
-   * non-15% rates see their real rate in the email.
+   * Agreed monthly Returns rate for THIS portfolio: the STORED investor_portfolios.roi_percentage.
+   * null / omitted -> the rate line is left out. Never derived from amounts.
    */
-  roiPercentage?: number;
+  roiPercentage?: number | null;
 }
 
+const positiveOrUndefined = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+
 export function buildPartnershipAgreementRequest(input: PartnershipAgreementInput) {
-  const derivedPct = input.amount > 0
-    ? Math.round((input.monthlyReward / input.amount) * 10000) / 100
-    : 0;
-  const pct = typeof input.roiPercentage === 'number' && input.roiPercentage > 0
-    ? input.roiPercentage
-    : derivedPct;
+  const pct = positiveOrUndefined(input.roiPercentage);
+  const monthly = positiveOrUndefined(input.monthlyReward);
   return {
     templateName: "partnership-agreement",
     recipientEmail: input.recipientEmail,
@@ -63,9 +64,10 @@ export function buildPartnershipAgreementRequest(input: PartnershipAgreementInpu
       partner_name: input.partnerName || "Partner",
       partnership_amount: input.amount,
       contribution_date: formatLongDate(input.contributionDateIso),
-      monthly_return_amount: input.monthlyReward,
-      total_projected_return: input.monthlyReward * 12,
-      roi_percentage: pct,
+      ...(monthly !== undefined
+        ? { monthly_return_amount: monthly, total_projected_return: monthly * 12 }
+        : {}),
+      ...(pct !== undefined ? { roi_percentage: pct } : {}),
       first_payment_date: formatLongDate(input.firstPayoutDateIso),
       roi_payment_day: input.payoutDay,
       currency: CURRENCY,
@@ -138,7 +140,7 @@ export interface PartnerCompoundInput {
   portfolioId: string;           // idempotency scoping + shown in email
   paymentNumber: number;         // idempotency scoping (one email per cycle)
   initialAmount: number;         // portfolio value before compounding
-  roiPercentage?: number;        // e.g. 15 for "15%"; derived from amounts when omitted
+  roiPercentage?: number | null; // the rate this cycle was paid at (stored/posted); omitted -> no rate line
   returnAmount: number;          // monetary amount earned this cycle
   newTotal: number;              // portfolio value after compounding
   compoundDateIso?: string;      // defaults to now
@@ -174,12 +176,8 @@ function shortPortfolioId(portfolioId: string): string {
 export function buildPartnerCompoundRequest(input: PartnerCompoundInput) {
   const compoundIso = input.compoundDateIso || new Date().toISOString();
   const contributionIso = input.contributionDateIso || compoundIso;
-  const derivedPct = input.initialAmount > 0
-    ? Math.round((input.returnAmount / input.initialAmount) * 10000) / 100
-    : 0;
-  const pct = typeof input.roiPercentage === 'number' && input.roiPercentage > 0
-    ? input.roiPercentage
-    : derivedPct;
+  // Never derived from amounts (design v2 R1): no rate passed -> the rate lines are left out.
+  const pct = positiveOrUndefined(input.roiPercentage);
   return {
     // Existing partners (auto cron compound on a live portfolio).
     // First-time partners who choose compound at portfolio creation
@@ -192,8 +190,7 @@ export function buildPartnerCompoundRequest(input: PartnerCompoundInput) {
       portfolio_id: shortPortfolioId(input.portfolioId),
       compound_date: formatOrdinalDate(compoundIso),
       initial_partnership_amount: input.initialAmount,
-      roi_return: `${pct}%`,
-      roi_percentage: pct,
+      ...(pct !== undefined ? { roi_return: `${pct}%`, roi_percentage: pct } : {}),
       return_amount: input.returnAmount,
       new_total_partnership_value: input.newTotal,
       // Cycle index for this compounding event (1-based). The template
@@ -220,7 +217,9 @@ export interface PartnerCompoundCreationInput {
   partnerId: string;             // idempotency scoping
   portfolioId: string;           // idempotency scoping + shown in email
   initialAmount: number;         // portfolio principal at creation
-  roiPercentage: number;         // agreed monthly ROI % for this portfolio
+  /** The STORED monthly Returns rate of this portfolio. null -> no rate, Returns or projected
+   *  total in the email (the recipient may not see figures). */
+  roiPercentage: number | null;
   contributionDateIso?: string;  // defaults to now — drives the projection start
 }
 
@@ -233,9 +232,18 @@ export interface PartnerCompoundCreationInput {
  */
 export function buildPartnerCompoundCreationRequest(input: PartnerCompoundCreationInput) {
   const contributionIso = input.contributionDateIso || new Date().toISOString();
-  const pct = input.roiPercentage > 0 ? input.roiPercentage : 0;
-  const returnAmount = Math.round(input.initialAmount * (pct / 100));
-  const newTotal = input.initialAmount + returnAmount;
+  const pct = positiveOrUndefined(input.roiPercentage);
+  const figures = pct !== undefined
+    ? (() => {
+      const returnAmount = Math.round(input.initialAmount * pct / 100);
+      return {
+        roi_return: `${pct}%`,
+        roi_percentage: pct,
+        return_amount: returnAmount,
+        new_total_partnership_value: input.initialAmount + returnAmount,
+      };
+    })()
+    : {};
   return {
     templateName: "partner-compound",
     recipientEmail: input.recipientEmail,
@@ -245,10 +253,7 @@ export function buildPartnerCompoundCreationRequest(input: PartnerCompoundCreati
       portfolio_id: shortPortfolioId(input.portfolioId),
       compound_date: formatOrdinalDate(contributionIso),
       initial_partnership_amount: input.initialAmount,
-      roi_return: `${pct}%`,
-      roi_percentage: pct,
-      return_amount: returnAmount,
-      new_total_partnership_value: newTotal,
+      ...figures,
       payment_number: 1,
       currency: CURRENCY,
       company_name: COMPANY_NAME,

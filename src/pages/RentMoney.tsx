@@ -12,6 +12,8 @@ import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { Helmet } from 'react-helmet-async';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 const ORIGIN = getPublicOrigin();
 const PAGE_URL = `${ORIGIN}/rent-money`;
@@ -52,16 +54,20 @@ const benefits = [
   { icon: Star, text: 'Earn referral rewards when friends join' },
 ];
 
-const stats = [
+/** The last stat quotes the public new-partner rate; "—" while no rate is known. */
+const statsFor = (newRatePct: string | null) => [
   { value: '5,000+', label: 'Active Users' },
   { value: 'UGX 5K', label: 'Min Deposit' },
   { value: '24/7', label: 'Access' },
-  { value: '15%', label: 'Supporter Rewards' },
+  { value: newRatePct ?? '—', label: 'Supporter Returns (new partners)' },
 ];
 
 export default function RentMoney() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // The PUBLIC new-partner rate (15 while the switch has never been on); null while unknown -> no figure.
+  const newRatePct = formatRatePct(usePartnerReturnPolicy().newContractRate);
+  const stats = statsFor(newRatePct);
 
   const shareLink = user
     ? `${ORIGIN}/rent-money?ref=${user.id}`
@@ -223,10 +229,10 @@ Join now: ${shareLink}`;
               For Supporters
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-              Earn Up to 15% Monthly Rewards
+              {newRatePct ? `Earn ${newRatePct} Monthly Returns` : 'Earn Monthly Returns'}
             </h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              Help tenants pay rent and earn platform rewards. Your contribution is secured by Welile's Operational Assurance.
+              Help tenants pay rent and earn monthly Returns. Your contribution is secured by Welile's Operational Assurance.
             </p>
             <p className="text-sm font-semibold italic text-purple-600 dark:text-purple-400">
               ✨ Welile is turning rent into an asset

@@ -85,8 +85,10 @@ export function CEORevenueGrowth() {
     queryKey: ['ceo-rev-data-asset'],
     staleTime: 600000,
     queryFn: async () => {
-      const head = async (table: string, mod?: (q: any) => any) => {
-        let q = supabase.from(table as any).select('*', { count: 'exact', head: true });
+      // `column`: 4b removes the browser's SELECT on welile_trust_score_cache.borrowing_limit_ugx, so count that
+      // table by a column the browser may still read (a `*` select would be refused).
+      const head = async (table: string, mod?: (q: any) => any, column = '*') => {
+        let q = supabase.from(table as any).select(column, { count: 'exact', head: true });
         if (mod) q = mod(q);
         const { count } = await q;
         return count || 0;
@@ -96,7 +98,7 @@ export function CEORevenueGrowth() {
         totalUsers, trustScored, events30d, agentVisits, rentHistory, verifiedIds, rentRequests,
       ] = await Promise.all([
         head('profiles'),
-        head('welile_trust_score_cache'),
+        head('welile_trust_score_cache', undefined, 'user_id'),
         head('system_events', (q) => q.gte('created_at', since30)),
         head('agent_visits'),
         head('rent_history_records'),

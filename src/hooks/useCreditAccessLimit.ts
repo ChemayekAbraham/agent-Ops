@@ -1,6 +1,8 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logCreditLoading } from '@/lib/creditLoadingDebug';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 export interface CreditAccessLimit {
   totalLimit: number;
@@ -94,6 +96,7 @@ export function invalidateCreditAccessLimit(userId: string | undefined) {
 }
 
 export function useCreditAccessLimit(userId: string | undefined) {
+  const ready = useAuthenticatedAudience();
   const cached = userId ? limitCache.get(userId) : undefined;
   const persisted = userId ? loadFromLS(userId) : null;
   // Seed module cache from localStorage on cold load so other instances
@@ -128,7 +131,7 @@ export function useCreditAccessLimit(userId: string | undefined) {
   const hasLoadedOnce = useRef<boolean>(!!cached || !!persisted);
 
   const fetchLimit = useCallback(async (forceFresh = false) => {
-    if (!userId) return;
+    if (!ready || !userId) return;
 
     // Check module-level cache first
     const existing = limitCache.get(userId);
@@ -158,7 +161,8 @@ export function useCreditAccessLimit(userId: string | undefined) {
     }
     try {
       // Recalculate and fetch in one go
-      await supabase.rpc('recalculate_credit_limit', { p_user_id: userId });
+      const recalculation = await withUserSession(() => supabase.rpc('recalculate_credit_limit', { p_user_id: userId }));
+      if (recalculation.error) throw recalculation.error;
       
       const { data } = await supabase
         .from('credit_access_limits')
@@ -191,7 +195,7 @@ export function useCreditAccessLimit(userId: string | undefined) {
       setLoading(false);
       logCreditLoading('done', { userId, loading: false, note: 'fetch settled' });
     }
-  }, [userId]);
+  }, [ready, userId]);
 
   // Read-only fetch (NO recalculate). Used by realtime / refresh-event
   // handlers so reacting to a row change never writes back to the table —

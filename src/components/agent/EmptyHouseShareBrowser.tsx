@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -83,6 +84,7 @@ export function EmptyHouseShareBrowser({
   selectedHouseIds?: Set<string>;
   onToggleHouse?: (house: HouseOpportunity) => void;
 }) {
+  const authenticatedReady = useAuthenticatedAudience();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(0);
@@ -178,9 +180,10 @@ export function EmptyHouseShareBrowser({
 
   // Live funding / tenant / payout progress for houses this user already supports.
   const { data: progressRows } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['empty-house-progress'],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('partner_supported_house_returns');
+      const { data, error } = await withUserSession(() => supabase.rpc('partner_supported_house_returns'));
       if (error) throw error;
       const payload = (data ?? {}) as { houses?: HouseProgress[] };
       return payload.houses ?? [];

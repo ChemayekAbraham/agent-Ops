@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
@@ -127,10 +128,10 @@ export function CFOOverviewDashboard({
 
       // Get unique agent IDs and fetch names
       const agentIds = [...new Set(data.map(r => r.agent_id).filter(Boolean))] as string[];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 

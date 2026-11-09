@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ShieldAlert, ArrowLeft, Home } from 'lucide-react';
 
 export default function AgentsSpacePage() {
+  const authenticatedReady = useAuthenticatedAudience();
   const navigate = useNavigate();
   const { user, roles, loading: authLoading } = useAuth();
 
@@ -21,16 +24,16 @@ export default function AgentsSpacePage() {
   // Check if user is an explicitly designated Unique / Special Agent
   const { data: isSpecialAgent = false, isLoading: isCheckingDesignation } = useQuery({
     queryKey: ['check-user-is-special-agent', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
       if (!user?.id) return false;
-      const { data, error } = await supabase
+      const { data, error } = await withUserSession(() => supabase
         .from('staff_permissions')
         .select('user_id')
         .eq('user_id', user.id)
         .eq('permitted_dashboard', 'agents-space')
         .is('revoked_at', null)
-        .maybeSingle();
+        .maybeSingle());
 
       if (error || !data) return false;
       return true;
@@ -41,9 +44,9 @@ export default function AgentsSpacePage() {
   // Anyone repaying a released phone gets automatic access to their phone section.
   const { data: hasPhonePlan = false, isLoading: isCheckingPhone } = useQuery({
     queryKey: ['user-has-active-smartphone-plan', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data } = await supabase.rpc('has_active_smartphone_plan', { p_user: user!.id });
+      const { data } = await withUserSession(() => supabase.rpc('has_active_smartphone_plan', { p_user: user!.id }));
       return !!data;
     },
     staleTime: 60_000,

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -112,7 +113,7 @@ export function SubmitGate({
     setArchiveFailed(false);
 
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const userId = auth.user?.id;
       if (!userId) throw new Error('No signed-in user');
 

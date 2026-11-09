@@ -13,6 +13,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { fetchAgentLedgerEarnings } from '@/lib/agentLedgerEarnings';
 import { fetchAgentOnboardedPortfolios } from '@/lib/agentPartnerPortfolios';
 import { cn } from '@/lib/utils';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import {
   Users, TrendingUp, Wallet, Banknote, Copy, Check, Share2,
   Activity, Clock, ArrowUpRight, Loader2, RefreshCw, Link2,
@@ -26,7 +27,8 @@ interface Partner {
   phone: string;
   status: string;
   investedAmount: number;
-  roiPercentage: number;
+  /** The portfolio's stored rate, or null (masked by 4b, or missing): show "—", never a default. */
+  roiPercentage: number | null;
   dateJoined: string;
 }
 
@@ -84,7 +86,7 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
             phone: '',
             status: p.status === 'active' ? 'Active' : 'Pending',
             investedAmount: Number(p.investment_amount) || 0,
-            roiPercentage: Number(p.roi_percentage) || 10,
+            roiPercentage: rateOrNull(p.roi_percentage),
             dateJoined: p.created_at || new Date().toISOString(),
           });
         }
@@ -422,7 +424,7 @@ I'll personally guide you.`;
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground">Monthly ROI</p>
-                              <p className="text-xs font-bold text-success">{p.roiPercentage}%</p>
+                              <p className="text-xs font-bold text-success">{formatRatePct(p.roiPercentage) ?? '—'}</p>
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground">Joined</p>

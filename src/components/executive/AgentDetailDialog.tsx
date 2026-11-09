@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -78,7 +79,7 @@ export function AgentDetailDialog({ agentId, open, onOpenChange }: Props) {
       ));
       const tenantMap: Record<string, any> = {};
       if (tenantIds.length > 0) {
-        const { data: ts } = await sb.from('profiles').select('id, full_name, phone').in('id', tenantIds);
+        const { data: ts } = await withUuidIds(tenantIds, (validIds) => sb.from('profiles').select('id, full_name, phone').in('id', validIds));
         for (const t of ts || []) tenantMap[t.id] = t;
       }
       const collectionsEnriched = (collectionsRes.data || []).map((c: any) => ({

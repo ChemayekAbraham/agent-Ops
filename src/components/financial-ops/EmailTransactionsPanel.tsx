@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -42,8 +43,8 @@ import { DepositNumberConflictsPanel } from './DepositNumberConflictsPanel';
 import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
 import { DialableNumber } from './DialableNumber';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
-import { EmailTransactionsTableView } from './EmailTransactionsTableView';
-import { PageHeader } from './FinopsKit';
+import { EmailTransactionsTableView, EmailDetailPanel, useIsXl, type MatchInfo } from './EmailTransactionsTableView';
+import { ArrowLeft, Bell, Settings as SettingsIcon } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -94,12 +95,12 @@ function TelecomBalanceStrip({ refreshKey }: { refreshKey: string | null }) {
 
   const item = (label: string, tone: string, v: { amount: number; at: string } | null) => (
     <div
-      className="flex items-center gap-1.5 rounded-full border bg-muted/40 px-2 py-1"
+      className="flex items-center gap-2 rounded-full border border-[#E3E6EE] bg-white px-4 py-2.5 shadow-sm dark:border-slate-700 dark:bg-card"
       title={v ? `${label} balance from the latest email · ${time(v.at)}` : `No ${label} balance found yet`}
     >
-      <span className={`h-2 w-2 rounded-full ${tone}`} aria-hidden />
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
-      <span className="text-xs font-semibold tabular-nums">{v ? fmt(v.amount) : '—'}</span>
+      <span className={`h-3 w-3 rounded-full ${tone}`} aria-hidden />
+      <span className="text-sm font-bold text-foreground">{label}</span>
+      <span className="text-sm font-semibold text-foreground">{v ? fmt(v.amount) : '—'}</span>
     </div>
   );
 
@@ -112,17 +113,17 @@ function TelecomBalanceStrip({ refreshKey }: { refreshKey: string | null }) {
     <div className="flex flex-wrap items-center gap-2 shrink-0" aria-label="Latest telecom balances">
       {/* Total is the primary, easy-to-read element */}
       <div
-        className="flex flex-col rounded-lg border-2 border-purple-400 bg-purple-100 px-3 py-1.5 shadow-sm dark:border-purple-700 dark:bg-purple-950/60"
+        className="flex items-center gap-3 rounded-xl bg-[#5A1FD0] px-5 py-2.5 text-white shadow-sm"
         title={totalAt ? `Combined float balance · latest email ${time(totalAt)}` : 'Combined float balance'}
       >
-        <span className="text-[10px] font-bold uppercase tracking-wide text-purple-800 dark:text-purple-200">Total float</span>
-        <span className="text-base font-extrabold tabular-nums leading-tight text-purple-900 dark:text-purple-100">{fmt(totalAmount)}</span>
+        <span className="text-sm font-bold">Total float</span>
+        <span className="text-base font-extrabold leading-tight">{fmt(totalAmount)}</span>
       </div>
 
       {/* Provider breakdown shown as smaller secondary chips */}
       <div className="flex items-center gap-1.5">
-        {item('MTN', 'bg-warning', bal.mtn)}
-        {item('Airtel', 'bg-destructive', bal.airtel)}
+        {item('MTN', 'bg-[#F5C518]', bal.mtn)}
+        {item('Airtel', 'bg-[#E5322D]', bal.airtel)}
       </div>
     </div>
   );
@@ -137,7 +138,7 @@ function TelecomBalanceStrip({ refreshKey }: { refreshKey: string | null }) {
  * (src/hooks/useEmailTransactionsPanel.ts) — this component is presentation
  * only. See docs/HANDOVER for the relocation note.
  */
-export function EmailTransactionsPanel() {
+export function EmailTransactionsPanel({ onBack }: { onBack?: () => void } = {}) {
   const {
     toast, rows, setRows, state, setState, loadError,
     setLoadError, lastSuccessAt, setLastSuccessAt, loading, setLoading, polling,
@@ -181,6 +182,34 @@ export function EmailTransactionsPanel() {
     startHistoryQueue, historyQueueIndex, swipeNavigate, refreshRowStatus, gmailLabelCounts, gmailLabels,
     applyRecentWindow,
   } = useEmailTransactionsPanel();
+  // Detail panel (Table layout): beside the list from xl up, a drawer below that.
+  const isXl = useIsXl();
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [panelDismissed, setPanelDismissed] = useState(false);
+  const pickDetail = (id: string | null) => {
+    setDetailId(id);
+    if (id) setPanelDismissed(false);
+  };
+  const matchFor = (r: GmailTx): MatchInfo | null => {
+    const ms = userMatches[r.id] ?? [];
+    let best: { u: MatchedUser; s: number } | null = null;
+    for (const u of ms) {
+      const s = u.matched_on.startsWith('reference ') ? 100
+        : u.matched_on.startsWith('to ') || u.matched_on.startsWith('from ') ? 90
+        : u.matched_on.startsWith('name-') ? 75
+        : 60;
+      if (!best || s > best.s) best = { u, s };
+    }
+    if (!best) return null;
+    return { name: best.u.full_name, score: best.s, label: best.s >= 100 ? 'Certain' : best.s >= 90 ? 'High' : best.s >= 75 ? 'Likely' : 'Weak' };
+  };
+  const channelLabelFor = (r: GmailTx) => {
+    const c = ch(r).channel;
+    if (c === 'mtn_momo') return { label: 'MTN MoMo', tone: 'amber' as const };
+    if (c === 'airtel_money') return { label: 'Airtel Money', tone: 'red' as const };
+    if (c === 'bank') return { label: 'Bank', tone: 'blue' as const };
+    return null;
+  };
   // Which of the quick date windows (Today / 7 / 30 days) is currently applied.
   const todayKeyNow = dateKeyInTz(new Date(), tz);
   const windowStartKey = (days: number) => {
@@ -191,122 +220,96 @@ export function EmailTransactionsPanel() {
   const isWindowActive = (days: number) => toDate === todayKeyNow && fromDate === windowStartKey(days);
   return (
     <div className="space-y-3.5">
-      <PageHeader
-        icon={Mail}
-        title="Email Transactions"
-        description="Scan and process incoming deposit notifications from email."
-        actions={
-          <>
-            <Button
-              variant="outline"
-              className="min-h-[44px] sm:min-h-[40px] gap-2"
-              onClick={() => { void load(); }}
-              disabled={loading}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
-            </Button>
-            <Button
-              className="min-h-[44px] sm:min-h-[40px] gap-2"
-              onClick={() => {
-                setSearchQuery('');
-                setPhoneQuery('');
-                setSearchOptionsOpen(true);
-                if (typeof document !== 'undefined') document.getElementById('email-tx-search')?.focus();
-              }}
-            >
-              <Search className="h-4 w-4" aria-hidden="true" /> New search
-            </Button>
-          </>
-        }
-      />
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div className="flex min-w-0 items-center gap-4">
+          {onBack && (
+            <>
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full border border-[#D5DAE3] bg-white px-5 text-sm font-semibold text-foreground shadow-sm hover:bg-muted dark:border-slate-600 dark:bg-card"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to overview
+              </button>
+              <span aria-hidden="true" className="hidden h-12 w-px bg-border sm:block" />
+            </>
+          )}
+          <span className="hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-[#D2BFFA] bg-[#EFE8FF] text-[#6D2EE8] sm:flex dark:bg-violet-500/20">
+            <Mail className="h-7 w-7" strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-[28px]">Welile Email Transactions</h1>
+            <p className="text-sm text-muted-foreground">Scan and process incoming deposit notifications from email.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            className="h-12 gap-2 rounded-xl border-[#D5DAE3] px-5 text-base font-semibold dark:border-slate-600"
+            onClick={() => { void load(); }}
+            disabled={loading}
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
+          </Button>
+          <Button
+            className="h-12 gap-2 rounded-xl bg-[#5A1FD0] px-5 text-base font-bold text-white hover:bg-[#4413A8]"
+            onClick={() => {
+              setSearchQuery('');
+              setPhoneQuery('');
+              setSearchOptionsOpen(true);
+              if (typeof document !== 'undefined') document.getElementById('email-tx-search')?.focus();
+            }}
+          >
+            <Search className="h-5 w-5" aria-hidden="true" /> New search
+          </Button>
+        </div>
+      </header>
 
       {/* ── Top Workspace Tab Navigation ── */}
-      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/80 overflow-x-auto shadow-sm">
-        <button
-          type="button"
-          onClick={() => setWorkspaceTab('inbox')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-            workspaceTab === 'inbox'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Inbox className="h-4 w-4" /> Live Inbox
-          <span className="text-[11px] tabular-nums font-normal opacity-80">({rows.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setWorkspaceTab('needs_review');
-            setFocusView('ops');
-          }}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-            workspaceTab === 'needs_review'
-              ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <AlertTriangle className="h-4 w-4 text-amber-600" /> Needs Review
-          {(flaggedCount + unmatchedInCount + unmatchedOutCount) > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
-              {flaggedCount + unmatchedInCount + unmatchedOutCount}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setWorkspaceTab('settled');
-            setFocusView('ops');
-          }}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-            workspaceTab === 'settled'
-              ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/30'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Auto-Matched & Settled
-        </button>
-        <button
-          type="button"
-          onClick={() => setWorkspaceTab('analytics')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-            workspaceTab === 'analytics'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <TrendingUp className="h-4 w-4" /> Analytics & Breakdown
-        </button>
-        <button
-          type="button"
-          onClick={() => setWorkspaceTab('diagnostics')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
-            workspaceTab === 'diagnostics'
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          <Wrench className="h-4 w-4" /> Connection & Diagnostics
-        </button>
+      <div role="tablist" aria-label="Email Transactions sections" className="flex items-center gap-1 overflow-x-auto border-b">
+        {([
+          { key: 'inbox', label: 'Live Inbox', count: rows.length, pill: 'bg-[#5A1FD0] text-white', onSelect: () => setWorkspaceTab('inbox') },
+          { key: 'needs_review', label: 'Needs Review', count: flaggedCount + unmatchedInCount + unmatchedOutCount, pill: 'bg-[#F5B72E] text-[#4A3000]', onSelect: () => { setWorkspaceTab('needs_review'); setFocusView('ops'); } },
+          { key: 'settled', label: 'Auto-Matched & Settled', count: 0, pill: '', onSelect: () => { setWorkspaceTab('settled'); setFocusView('ops'); } },
+          { key: 'analytics', label: 'Analytics & Breakdown', count: 0, pill: '', onSelect: () => setWorkspaceTab('analytics') },
+          { key: 'diagnostics', label: 'Connection & Diagnostics', count: 0, pill: '', onSelect: () => setWorkspaceTab('diagnostics') },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={workspaceTab === t.key}
+            onClick={t.onSelect}
+            className={`-mb-px flex shrink-0 items-center gap-2.5 border-b-[3px] px-5 py-3.5 text-base font-semibold transition-colors ${
+              workspaceTab === t.key
+                ? 'border-[#5A1FD0] text-[#5A1FD0] dark:border-violet-400 dark:text-violet-300'
+                : 'border-transparent text-foreground/80 hover:text-foreground'
+            }`}
+          >
+            {t.label}
+            {t.count > 0 && (
+              <span className={`rounded-full px-2.5 py-0.5 text-sm font-bold tabular-nums ${t.pill}`}>{t.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* ── Gmail-style app bar: hamburger, product name, one big rounded
-          search field, then the layout switch on the far right. ───────── */}
-      <div className="flex items-center gap-2 sm:gap-3 rounded-full border bg-card px-2 py-1.5 sm:px-3 sm:py-2">
+      {/* ── Float, search, filters and layout switch ── */}
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           size="icon"
-          variant="ghost"
-          className="h-9 w-9 shrink-0 rounded-full lg:hidden"
+          variant="outline"
+          className="h-12 w-12 shrink-0 rounded-xl lg:hidden"
           aria-label={gmailNavOpen ? 'Hide labels' : 'Show labels'}
           aria-expanded={gmailNavOpen}
           onClick={() => setGmailNavOpen((v) => !v)}
         >
-          <Menu className="h-4 w-4" />
+          <Menu className="h-5 w-5" />
         </Button>
         <TelecomBalanceStrip refreshKey={rows[0]?.id ?? null} />
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+        <span aria-hidden="true" className="hidden h-9 w-px bg-border xl:block" />
+        <div className="relative min-w-[16rem] flex-1">
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <input
             id="email-tx-search"
             type="search"
@@ -314,32 +317,28 @@ export function EmailTransactionsPanel() {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search mail — amount, name, phone, transaction id…"
             aria-label="Search mail"
-            className="h-10 w-full rounded-full border-0 bg-muted/60 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background placeholder:text-muted-foreground/70 transition-colors"
+            className="h-12 w-full rounded-xl border border-[#D5DAE3] bg-white pl-12 pr-10 text-base placeholder:text-muted-foreground/80 focus:outline-none focus:ring-2 focus:ring-ring dark:border-slate-600 dark:bg-card"
           />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
+          {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchOptionsOpen((v) => !v)}
-              aria-expanded={searchOptionsOpen}
-              aria-label="Show search options"
-              title="Show search options"
-              className={`rounded-full p-1.5 hover:bg-muted ${searchOptionsOpen ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Clear search"
             >
-              <SlidersHorizontal className="h-4 w-4" />
+              <X className="h-4 w-4" />
             </button>
-          </div>
+          )}
         </div>
-        <div className="shrink-0 flex items-center gap-0.5 rounded-full bg-muted/60 p-0.5" role="group" aria-label="Layout">
+        <Button
+          variant="outline"
+          className="h-12 gap-2 rounded-xl border-[#D5DAE3] px-5 text-base font-semibold dark:border-slate-600"
+          aria-expanded={searchOptionsOpen}
+          onClick={() => setSearchOptionsOpen((v) => !v)}
+        >
+          <SlidersHorizontal className="h-5 w-5" aria-hidden="true" /> Filters
+        </Button>
+        <div className="flex shrink-0 items-center gap-1 rounded-2xl border border-[#D5DAE3] bg-white p-1 dark:border-slate-600 dark:bg-card" role="group" aria-label="Layout">
           {([
             { key: 'table', label: 'Table' },
             { key: 'gmail', label: 'Inbox' },
@@ -353,10 +352,10 @@ export function EmailTransactionsPanel() {
                 setFocusView(l.key);
                 if (l.key !== 'ops') setFocusDirection(null);
               }}
-              className={`h-8 rounded-full px-3 text-xs font-medium transition-colors ${
+              className={`h-10 rounded-xl px-5 text-base font-semibold transition-colors ${
                 focusView === l.key
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-[#5A1FD0] text-white shadow-sm'
+                  : 'text-foreground/80 hover:text-foreground'
               }`}
             >
               {l.label}
@@ -470,38 +469,6 @@ export function EmailTransactionsPanel() {
         </div>
       )}
 
-      {/* Compact quick date pills (Gmail chip row) — always visible. */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-        {([
-          { label: 'Today', days: 1 },
-          { label: 'Last 7 days', days: 7 },
-          { label: 'Last 30 days', days: 30 },
-        ]).map((p) => (
-          <button
-            key={p.label}
-            type="button"
-            onClick={() => applyRecentWindow(p.days)}
-            aria-pressed={isWindowActive(p.days)}
-            className={`shrink-0 rounded-full border px-4 py-2 text-xs font-medium shadow-sm transition-colors ${
-              isWindowActive(p.days)
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'bg-card text-foreground hover:bg-muted'
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-        {(searchQuery || phoneQuery) && (
-          <button
-            type="button"
-            onClick={() => { setSearchQuery(''); setPhoneQuery(''); }}
-            className="shrink-0 inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-primary"
-          >
-            Clear filters <X className="h-3 w-3" />
-          </button>
-        )}
-      </div>
-
       {/* ── Gmail body: label rail on the left, mail list + ops panels on
           the right (visible on inbox, needs_review and settled tabs). ─── */}
       {(workspaceTab === 'inbox' || workspaceTab === 'needs_review' || workspaceTab === 'settled') && (
@@ -510,10 +477,11 @@ export function EmailTransactionsPanel() {
           className={`${gmailNavOpen ? 'block' : 'hidden'} lg:block w-full max-w-[256px] shrink-0 lg:w-[232px] lg:sticky lg:top-3 lg:self-start`}
           aria-label="Mail labels"
         >
-          <nav className="space-y-0.5 pr-1 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
+          <nav className="space-y-1 rounded-2xl border bg-card p-3 shadow-sm lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto">
             {gmailLabels.map(({ key, label, Icon, count, active, apply }) => (
+              <Fragment key={key}>
+              {['ch_mtn_momo', 'in', 'needs_routing', 'unparsed'].includes(key) && <div role="separator" className="!my-2.5 border-t" />}
               <button
-                key={key}
                 type="button"
                 aria-current={active ? 'page' : undefined}
                 onClick={() => {
@@ -533,20 +501,21 @@ export function EmailTransactionsPanel() {
                     document.getElementById('email-tx-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }
                 }}
-                className={`group flex w-full items-center gap-3.5 rounded-r-full py-2 pl-4 pr-3 text-left text-[13px] transition-colors ${
+                className={`group flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-left text-base transition-colors ${
                   active
-                    ? 'bg-primary/10 font-bold text-primary'
-                    : 'text-foreground/70 hover:bg-muted/70 hover:text-foreground'
+                    ? 'bg-[#F3EEFF] font-bold text-[#5A1FD0] dark:bg-violet-500/15 dark:text-violet-300'
+                    : 'font-medium text-foreground/80 hover:bg-muted/70 hover:text-foreground'
                 }`}
               >
-                <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`} />
+                <Icon className={`h-5 w-5 shrink-0 ${active ? 'text-[#5A1FD0] dark:text-violet-300' : 'text-slate-500 group-hover:text-foreground'}`} />
                 <span className="min-w-0 flex-1 truncate">{label}</span>
                 {/* Always show the counter — a visible 0 explains an empty view
                     instead of leaving the label looking broken. */}
-                <span className={`shrink-0 text-[11px] tabular-nums ${active ? 'font-bold text-primary' : count > 0 ? 'font-semibold text-muted-foreground' : 'text-muted-foreground/50'}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-sm tabular-nums ${active ? 'bg-[#E4D9FB] font-bold text-[#5A1FD0] dark:bg-violet-500/25 dark:text-violet-200' : count > 0 ? 'bg-slate-100 font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200' : 'bg-slate-100 text-slate-400 dark:bg-slate-800'}`}>
                   {count}
                 </span>
               </button>
+              </Fragment>
             ))}
           </nav>
         </aside>
@@ -555,177 +524,89 @@ export function EmailTransactionsPanel() {
         {/* Prominent, full-width search bar — lets ops find any email by
             amount, name, phone (any format), reference id, or any word in
             the body / subject. Sticky on scroll so it's always reachable. */}
-        <div className="p-3.5 border-b bg-card/95 backdrop-blur sm:sticky sm:top-0 sm:z-10 space-y-2">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="font-medium text-sm flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-              <button
-                type="button"
-                onClick={() => {
-                  // Clicking "Recent emails" narrows the list to the last 7 days
-                  // (the standard "recent" window) and clears the free-text search
-                  // so the date filter is actually applied.
-                  const todayKey = dateKeyInTz(new Date(), tz);
-                  const [y, m, d] = todayKey.split('-').map(Number);
-                  const toUtc = Date.UTC(y, m - 1, d);
-                  const fromUtc = toUtc - 6 * 86_400_000; // inclusive 7-day window
-                  const fmtKey = (ms: number) => {
-                    const dt = new Date(ms);
-                    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
-                  };
-                  setSearchQuery('');
-                  setPhoneQuery('');
-                  setFromDate(fmtKey(fromUtc));
-                  setToDate(fmtKey(toUtc));
-                  if (typeof document !== 'undefined') {
-                    document.getElementById('email-tx-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }
-                }}
-                className="hover:underline underline-offset-4 decoration-muted-foreground/40 cursor-pointer"
-                aria-label="Show recent emails (last 7 days)"
-                title="Show recent emails (last 7 days)"
-              >
-                Recent emails
-              </button>
+        <div className="border-b">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3 pt-5">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Clicking "Recent emails" narrows the list to the last 7 days and
+                    // clears the free-text search so the date filter is actually applied.
+                    setSearchQuery('');
+                    setPhoneQuery('');
+                    applyRecentWindow(7);
+                    if (typeof document !== 'undefined') {
+                      document.getElementById('email-tx-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="cursor-pointer hover:underline underline-offset-4"
+                  aria-label="Show recent emails (last 7 days)"
+                  title="Show recent emails (last 7 days)"
+                >
+                  Recent emails
+                </button>
+              </h2>
               {unreadAlertCount > 0 && (
-                <Badge
-                  variant="outline"
-                  className="border-orange-600/40 text-orange-600 text-[10px] font-mono font-normal"
+                <span
+                  className="rounded-full bg-[#F5A524] px-3 py-1 text-sm font-bold text-[#3D2600]"
                   aria-label={`${unreadAlertCount} unread items needing attention`}
                 >
                   {unreadAlertCount} new
-                </Badge>
+                </span>
               )}
+              <span className="text-base text-foreground/80">{visibleRows.length.toLocaleString()} matches</span>
+            </div>
+            <div className="flex items-center gap-2">
               <Button
-                size="sm"
-                variant="ghost"
-                className="h-7 px-2 text-[11px]"
+                size="icon"
+                variant="outline"
+                className="h-11 w-11 rounded-xl border-[#D5DAE3] dark:border-slate-600"
                 onClick={() => setAlertSettingsOpen(true)}
                 aria-label="Alert notification settings"
                 title="Alert notification settings"
               >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <Bell className="h-5 w-5" />
               </Button>
-            </h3>
-            <div className="flex items-center gap-2">
-              {searchActive && (
-                <span className="text-xs text-muted-foreground">
-                  {filteredRows.length} match{filteredRows.length === 1 ? '' : 'es'}
-                </span>
-              )}
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-11 w-11 rounded-xl border-[#D5DAE3] dark:border-slate-600"
+                onClick={() => setAlertSettingsOpen(true)}
+                aria-label="View settings"
+                title="View settings"
+              >
+                <SettingsIcon className="h-5 w-5" />
+              </Button>
             </div>
           </div>
-          {/* Mobile quick date windows. Flow/status narrowing lives in the
-              left label rail (Inbox / Money in / Money out / Needs routing /
-              Unparsed / Credited). */}
-          <div className="sm:hidden -mx-1 overflow-x-auto">
-            <div className="flex items-center gap-1.5 px-1 pb-1 w-max">
-              {([
-                { label: 'Today', days: 1, offset: 0 },
-                { label: '7d', days: 7, offset: 0 },
-                { label: '30d', days: 30, offset: 0 },
-              ] as Array<{ label: string; days: number; offset: number }>).map((p) => {
-                const applyPreset = () => {
-                  const todayKey = dateKeyInTz(new Date(), tz);
-                  const [y, m, d] = todayKey.split('-').map(Number);
-                  const toUtc = Date.UTC(y, m - 1, d) - p.offset * 86_400_000;
-                  const fromUtc = toUtc - (p.days - 1) * 86_400_000;
-                  const fmtKey = (ms: number) => {
-                    const dt = new Date(ms);
-                    return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}-${String(dt.getUTCDate()).padStart(2, '0')}`;
-                  };
-                  setSearchQuery('');
-                  setFromDate(fmtKey(fromUtc));
-                  setToDate(fmtKey(toUtc));
-                };
-                return (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={applyPreset}
-                    className="shrink-0 text-[11px] px-2.5 py-1 rounded-full border bg-background hover:bg-muted text-muted-foreground border-border"
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-              {/* Custom window — same from/to state the desktop date inputs use,
-                  so a hand-picked range behaves exactly like a preset. */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="shrink-0 inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full border bg-background hover:bg-muted text-muted-foreground border-border"
-                    aria-label="Pick a custom date range"
-                  >
-                    <CalendarRange className="h-3 w-3" />
-                    Custom
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 p-3 space-y-2 z-[200] pointer-events-auto">
-                  <p className="text-[11px] font-medium">Custom date range</p>
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] uppercase tracking-wide text-muted-foreground">From</label>
-                    <Input
-                      type="date"
-                      value={fromDate}
-                      max={toDate || undefined}
-                      onChange={(e) => { setSearchQuery(''); setFromDate(e.target.value); }}
-                      className="h-9 text-sm"
-                      aria-label="Custom range date from"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] uppercase tracking-wide text-muted-foreground">To</label>
-                    <Input
-                      type="date"
-                      value={toDate}
-                      min={fromDate || undefined}
-                      onChange={(e) => { setSearchQuery(''); setToDate(e.target.value); }}
-                      className="h-9 text-sm"
-                      aria-label="Custom range date to"
-                    />
-                  </div>
-                  <p className="text-[10px] text-muted-foreground">
-                    Both ends are inclusive, in {tz.split('/').pop()} time.
-                  </p>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-        </div>
-        
-        <div className="p-3 sm:p-4 border-b sticky top-[104px] z-[18] bg-card sm:static sm:z-auto">
-          {/* Saved filter presets — one-tap switching between saved views.
-              Always visible (mobile-first) so operators never have to expand the
-              chip groups to restore a triage view. */}
-          <div className="mt-2 sm:mt-0 sm:mb-3">
-            <div className="flex items-center gap-1 overflow-x-auto pb-1" role="group" aria-label="Saved filter presets">
-              <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground pr-1">Views</span>
+
+          {/* Saved filter presets — one-tap switching between saved views. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pb-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label="Saved filter presets">
+              <span className="shrink-0 text-base text-foreground/80">Saved views:</span>
               {filterPresets.length === 0 && (
-                <span className="shrink-0 text-[11px] text-muted-foreground">None saved yet</span>
+                <span className="shrink-0 rounded-full bg-muted px-4 py-2 text-sm text-muted-foreground">None saved yet</span>
               )}
               {filterPresets.map((p) => {
                 const active = activePresetId === p.id;
                 return (
                   <span
                     key={p.id}
-                    className={`shrink-0 inline-flex items-center gap-1 rounded-full border pl-2.5 pr-1 py-1 text-[11px] transition-colors ${
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-muted text-muted-foreground border-border'
+                    className={`inline-flex shrink-0 items-center gap-1 rounded-full border py-1.5 pl-4 pr-2 text-sm transition-colors ${
+                      active ? 'border-[#5A1FD0] bg-[#5A1FD0] text-white' : 'bg-background hover:bg-muted'
                     }`}
                   >
-                    <button type="button" onClick={() => applyPreset(p)} aria-pressed={active} className="max-w-[120px] truncate">
+                    <button type="button" onClick={() => applyPreset(p)} aria-pressed={active} className="max-w-[140px] truncate">
                       {p.name}
                     </button>
                     <button
                       type="button"
                       onClick={() => deletePreset(p.id)}
                       aria-label={`Delete preset ${p.name}`}
-                      className="opacity-70 hover:opacity-100 p-0.5"
+                      className="p-0.5 opacity-70 hover:opacity-100"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
                   </span>
                 );
@@ -733,58 +614,107 @@ export function EmailTransactionsPanel() {
               <button
                 type="button"
                 onClick={() => setPresetSaveOpen((v) => !v)}
-                className="shrink-0 inline-flex items-center gap-1 rounded-full border border-dashed border-border px-2.5 py-1 text-[11px] font-medium hover:bg-muted"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-[#C9B8F5] bg-[#F3EEFF] px-4 py-2 text-sm font-semibold text-[#5A1FD0] hover:bg-[#E9DFFC] dark:border-violet-500/50 dark:bg-violet-500/15 dark:text-violet-300"
               >
-                <Star className="h-3 w-3" /> Save view
+                <span aria-hidden="true">+</span> Save view
               </button>
             </div>
-            {presetSaveOpen && (
-              <div className="mt-2 flex items-center gap-2">
-                <Input
-                  value={presetNameDraft}
-                  onChange={(e) => setPresetNameDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') savePreset(); }}
-                  placeholder="Name this view (e.g. Needs routing)"
-                  className="h-8 text-xs"
-                  aria-label="Preset name"
-                />
-                <Button size="sm" className="h-8 text-xs" onClick={savePreset} disabled={!presetNameDraft.trim()}>
-                  Save
-                </Button>
-              </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" className="h-11 gap-2 rounded-xl border-[#D5DAE3] px-4 font-semibold dark:border-slate-600" onClick={() => load()} disabled={loading}>
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" /> Refresh
+              </Button>
+              <Button variant="outline" className="h-11 gap-2 rounded-xl border-[#D5DAE3] px-4 font-semibold dark:border-slate-600" onClick={() => setAlertSettingsOpen(true)}>
+                <SettingsIcon className="h-4 w-4" aria-hidden="true" /> View settings
+              </Button>
+            </div>
+          </div>
+          {presetSaveOpen && (
+            <div className="flex items-center gap-2 px-5 pb-3">
+              <Input
+                value={presetNameDraft}
+                onChange={(e) => setPresetNameDraft(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') savePreset(); }}
+                placeholder="Name this view (e.g. Needs routing)"
+                className="h-10 max-w-xs text-sm"
+                aria-label="Preset name"
+              />
+              <Button size="sm" className="h-10" onClick={savePreset} disabled={!presetNameDraft.trim()}>
+                Save
+              </Button>
+            </div>
+          )}
+
+          {/* Quick date windows, plus a custom range */}
+          <div className="flex flex-wrap items-center gap-2 px-5 pb-4">
+            {([
+              { label: 'Today', days: 1 },
+              { label: 'Last 7 days', days: 7 },
+              { label: 'Last 30 days', days: 30 },
+            ]).map((w) => (
+              <button
+                key={w.label}
+                type="button"
+                onClick={() => applyRecentWindow(w.days)}
+                aria-pressed={isWindowActive(w.days)}
+                className={`rounded-full border px-5 py-2 text-base font-medium transition-colors ${
+                  isWindowActive(w.days)
+                    ? 'border-[#C9B8F5] bg-[#EFE8FF] text-[#5A1FD0] dark:border-violet-500/50 dark:bg-violet-500/20 dark:text-violet-200'
+                    : 'border-[#D5DAE3] bg-background text-foreground/80 hover:bg-muted dark:border-slate-600'
+                }`}
+              >
+                {w.label}
+              </button>
+            ))}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-[#D5DAE3] bg-background px-5 py-2 text-base font-medium text-foreground/80 hover:bg-muted dark:border-slate-600"
+                  aria-label="Pick a custom date range"
+                >
+                  <CalendarRange className="h-4 w-4" />
+                  Custom
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="z-[200] w-64 space-y-2 p-3 pointer-events-auto">
+                <p className="text-[11px] font-medium">Custom date range</p>
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase tracking-wide text-muted-foreground">From</label>
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    max={toDate || undefined}
+                    onChange={(e) => { setSearchQuery(''); setFromDate(e.target.value); }}
+                    className="h-9 text-sm"
+                    aria-label="Custom range date from"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase tracking-wide text-muted-foreground">To</label>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    min={fromDate || undefined}
+                    onChange={(e) => { setSearchQuery(''); setToDate(e.target.value); }}
+                    className="h-9 text-sm"
+                    aria-label="Custom range date to"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Both ends are inclusive, in {tz.split('/').pop()} time.
+                </p>
+              </PopoverContent>
+            </Popover>
+            {(searchQuery || phoneQuery) && (
+              <button
+                type="button"
+                onClick={() => { setSearchQuery(''); setPhoneQuery(''); }}
+                className="inline-flex items-center gap-1 rounded-full border border-[#C9B8F5] bg-[#EFE8FF] px-4 py-2 text-sm font-medium text-[#5A1FD0]"
+              >
+                Clear filters <X className="h-3 w-3" />
+              </button>
             )}
           </div>
-        </div>
-
-        {/* ── Gmail list toolbar: refresh on the left, result count on the
-            right — the strip that sits above every Gmail inbox. ────────── */}
-        <div className="flex items-center justify-between gap-2 border-b px-2 py-1.5">
-          <div className="flex items-center gap-0.5">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-full"
-              onClick={() => load()}
-              disabled={loading}
-              aria-label="Refresh"
-              title="Refresh"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8 rounded-full"
-              onClick={() => setAlertSettingsOpen(true)}
-              aria-label="View settings"
-              title="View settings"
-            >
-              <SlidersHorizontal className="h-4 w-4" />
-            </Button>
-          </div>
-          <span className="pr-1 text-[11px] tabular-nums text-muted-foreground">
-            {visibleRows.length} of {rows.length}
-          </span>
         </div>
 
         {!loading && loadError && rows.length > 0 && (
@@ -892,6 +822,11 @@ export function EmailTransactionsPanel() {
                 onChargeWallet={(row) => setPendingSwipe({ row, mode: 'debit' })}
                 onMarkResolved={(row) => setPendingSwipe({ row, mode: 'resolve' })}
                 onViewHistory={(row) => setHistoryDrawerRow(row)}
+                detailId={detailId}
+                setDetailId={pickDetail}
+                inlinePanel={isXl && !panelDismissed}
+                matchFor={matchFor}
+                channelLabelFor={channelLabelFor}
               />
             ) : focusView === 'gmail' ? (
               // Every label (Inbox / Money in / Money out / Needs routing /
@@ -2600,6 +2535,27 @@ export function EmailTransactionsPanel() {
         })()}
           </div>
         </div>
+        {focusView === 'table' && isXl && !panelDismissed && (() => {
+          const detailRow = detailId ? visibleRows.find((r) => r.id === detailId) ?? null : null;
+          if (!detailRow) return null;
+          return (
+            <aside className="hidden w-[400px] shrink-0 xl:sticky xl:top-3 xl:block xl:self-start" aria-label="Transaction details">
+              <EmailDetailPanel
+                row={detailRow}
+                maps={{ routingHistory, creditedDeposits, manualMarks, ledgerCredits, justRoutedIds }}
+                match={matchFor(detailRow)}
+                channel={channelLabelFor(detailRow)}
+                actions={{
+                  onSendToWallet: (row) => setPendingSwipe({ row, mode: 'credit' }),
+                  onChargeWallet: (row) => setPendingSwipe({ row, mode: 'debit' }),
+                  onMarkResolved: (row) => setPendingSwipe({ row, mode: 'resolve' }),
+                  onViewHistory: (row) => setHistoryDrawerRow(row),
+                }}
+                onClose={() => { setPanelDismissed(true); setDetailId(null); }}
+              />
+            </aside>
+          );
+        })()}
       </div>
       )}
 
@@ -3090,7 +3046,7 @@ export function EmailTransactionsPanel() {
           let me: { id: string } | null = null;
           let routedByName: string | null = null;
           try {
-            const { data: meRes } = await supabase.auth.getUser();
+            const { data: meRes } = await getSessionCheckedUser();
             if (meRes?.user?.id) {
               me = { id: meRes.user.id };
               const { data: rp } = await (supabase.from('profiles') as any)

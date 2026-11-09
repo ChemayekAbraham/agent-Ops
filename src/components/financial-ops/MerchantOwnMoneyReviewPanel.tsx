@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Check, ChevronDown } from 'lucide-react';
@@ -53,10 +54,10 @@ function useOwnMoneyReviewQueue() {
       const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean)));
       const names = new Map<string, string>();
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         (profs ?? []).forEach((p: any) => names.set(String(p.id), p.full_name ?? 'Unknown agent'));
       }
       return rows.map((r) => ({

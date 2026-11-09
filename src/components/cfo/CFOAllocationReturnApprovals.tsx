@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -62,10 +63,10 @@ export function CFOAllocationReturnApprovals() {
       setItems(rows);
       const ids = Array.from(new Set(rows.map((r) => r.agent_id)));
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         const map: Record<string, AgentInfo> = {};
         (profs || []).forEach((p: any) => { map[p.id] = p; });
         setAgents(map);

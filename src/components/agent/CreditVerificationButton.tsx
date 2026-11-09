@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,10 +68,10 @@ export function CreditVerificationButton() {
       const lenderIds = [...new Set(data.map(d => d.lender_id))];
       const allIds = [...new Set([...borrowerIds, ...lenderIds])];
 
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(allIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, city')
-        .in('id', allIds);
+        .in('id', validIds));
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

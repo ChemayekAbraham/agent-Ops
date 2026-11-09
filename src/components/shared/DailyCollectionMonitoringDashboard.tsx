@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -359,10 +360,10 @@ export default function DailyCollectionMonitoringDashboard({ mode, title }: Prop
       const CHUNK = 50;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const batch = ids.slice(i, i + CHUNK);
-        const { data, error } = await supabase
+        const { data, error } = await withUuidIds(batch, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', batch);
+          .in('id', validIds));
         if (error) throw error;
         (data || []).forEach((p: any) => map.set(p.id, p));
       }

@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,12 +31,14 @@ interface GroupedTopUp {
 }
 
 export function PortfolioTopUpVerification() {
+  const authenticatedReady = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ portfolio_id: string; action: 'approve' | 'reject'; group: GroupedTopUp } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
   const { data: groups = [], isLoading } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['awaiting-verification-topups'],
     queryFn: async () => {
       // Fetch all awaiting_verification portfolio top-ups
@@ -53,14 +58,14 @@ export function PortfolioTopUpVerification() {
 
       // Batch fetch portfolios and profiles
       const [portfolioRes, profileRes] = await Promise.all([
-        supabase
+        withUuidIds(portfolioIds, (validIds) => withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, portfolio_code, account_name, investment_amount, investor_id, agent_id')
-          .in('id', portfolioIds),
-        supabase
+          .in('id', validIds))),
+        withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds),
+          .in('id', validIds)),
       ]);
 
       const portfolioMap = new Map((portfolioRes.data || []).map(p => [p.id, p]));

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Lock, Wallet, TrendingUp, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
-import { formatUGX } from '@/lib/rentCalculations';
-import type { FunderEarnings } from '@/lib/funderEarnings';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
+import type { FunderEarningsAt } from '@/lib/funderEarnings';
+import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -26,8 +27,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   houses: ConfirmHouse[];
-  totals: FunderEarnings;
+  /** From sumFunderEarningsAt: the Returns figures are null when the rate is unknown. */
+  totals: FunderEarningsAt;
   walletBalance: number;
+  /** The viewer's own monthly Returns rate (the rate `totals` was priced at); null = no figure. */
+  rate: number | null;
   /** Called when the funder confirms — locks the selection and moves to funding. */
   onConfirm: () => void;
 }
@@ -38,6 +42,7 @@ export function FunderSelectionConfirmDialog({
   houses,
   totals,
   walletBalance,
+  rate,
   onConfirm,
 }: Props) {
   const [agreed, setAgreed] = useState(false);
@@ -76,7 +81,7 @@ export function FunderSelectionConfirmDialog({
                 <div className="text-right shrink-0">
                   <p className="text-xs font-black text-foreground">{formatUGX(h.monthly_rent)}</p>
                   <p className="text-[9px] text-success font-semibold">
-                    +{formatUGX(Math.round(h.monthly_rent * 0.15))}/mo
+                    +{formatUGXOrDash(monthlyReturnFor(h.monthly_rent, rate))}/mo
                   </p>
                 </div>
               </li>
@@ -98,7 +103,7 @@ export function FunderSelectionConfirmDialog({
               { label: '12 months', value: totals.annual },
             ].map((m) => (
               <div key={m.label} className="rounded-xl bg-primary/5 border border-primary/15 py-1.5 text-center">
-                <p className="text-[11px] font-black text-primary leading-tight">{formatUGX(m.value)}</p>
+                <p className="text-[11px] font-black text-primary leading-tight">{formatUGXOrDash(m.value)}</p>
                 <p className="text-[8px] text-muted-foreground font-medium">{m.label}</p>
               </div>
             ))}

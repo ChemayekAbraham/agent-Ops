@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
@@ -45,7 +46,7 @@ export default function StaffPortal() {
       return;
     }
 
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const { data: { user: authUser } } = await getSessionCheckedUser();
     if (!authUser) {
       toast.error('Authentication failed');
       setSigningIn(false);

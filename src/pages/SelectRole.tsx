@@ -48,7 +48,7 @@ const roleOptions: RoleOption[] = [
   { 
     value: 'supporter', 
     label: 'Supporter', 
-    description: 'Fund rent requests and earn 15% returns',
+    description: 'Fund rent requests and earn monthly Returns',
     icon: <Wallet className="h-6 w-6" />,
     requiresCode: false
   },
@@ -251,9 +251,10 @@ export default function SelectRole() {
         });
         
         if (subAgentError) {
-          console.error('Sub-agent relationship error:', subAgentError);
           // Check if it's a duplicate - that's okay, continue
-          if (!subAgentError.message.includes('duplicate')) {
+          if (subAgentError.code === '23505') {
+            toast({ title: 'Already linked', description: 'Your sub-agent link is already on file.' });
+          } else {
             throw subAgentError;
           }
         }

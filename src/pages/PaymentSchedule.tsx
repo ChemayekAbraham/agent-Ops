@@ -60,7 +60,7 @@ export default function PaymentSchedule() {
             .from('profiles')
             .select('full_name')
             .eq('id', loan.lender_id)
-            .single();
+            .maybeSingle();
           return { ...loan, lender: profile };
         })
       );

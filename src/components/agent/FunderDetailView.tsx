@@ -10,10 +10,11 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { AgentProxyWithdrawalDialog } from './AgentProxyWithdrawalDialog';
 import { ProxyPartnerDepositDialog } from './ProxyPartnerDepositDialog';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import { useFunderAccountsRealtime } from '@/hooks/useFunderAccountsRealtime';
 import { fetchAgentOnboardedPortfolios, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
+import { formatRatePct, rateOrNull } from '@/lib/partnerReturnPolicy';
 import {
   ArrowLeft, Phone, MessageSquare, Banknote, ArrowDownToLine,
   Wallet, Home, TrendingUp, Calendar, CircleDot, Loader2, Send,
@@ -28,7 +29,7 @@ interface FunderDetailViewProps {
     created_at: string;
     beneficiary: { id: string; full_name: string; phone: string } | null;
   };
-  stats: { totalInvested: number; totalROI: number; activeCount: number; walletBalance: number } | null;
+  stats: { totalInvested: number; totalROI: number | null; activeCount: number; walletBalance: number } | null;
   onBack: () => void;
   onSendStatement: () => void;
   sendingSMS: boolean;
@@ -40,8 +41,10 @@ interface FunderPortfolio {
   account_name: string | null;
   portfolio_code: string;
   investment_amount: number;
-  total_roi_earned: number;
-  roi_percentage: number;
+  /** null when 4b masks it (creator-only rows): show "—", never 0. */
+  total_roi_earned: number | null;
+  /** The stored rate, or null (masked by 4b, or missing): show "—", never a default. */
+  roi_percentage: number | null;
   status: string;
   duration_months: number;
   maturity_date: string | null;
@@ -125,8 +128,8 @@ export function FunderDetailView({
         account_name: null,
         portfolio_code: c.portfolio_code_masked || 'Portfolio',
         investment_amount: Number(c.investment_amount) || 0,
-        total_roi_earned: Number(c.total_roi_earned) || 0,
-        roi_percentage: Number(c.roi_percentage) || 0,
+        total_roi_earned: c.total_roi_earned == null ? null : Number(c.total_roi_earned) || 0,
+        roi_percentage: rateOrNull(c.roi_percentage),
         status: c.status || '',
         duration_months: c.duration_months || 0,
         maturity_date: c.maturity_date,
@@ -232,7 +235,7 @@ export function FunderDetailView({
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
                   <p className="text-[9px] text-muted-foreground">Returns</p>
-                  <p className="text-xs font-bold text-success truncate">{formatUGX(stats.totalROI)}</p>
+                  <p className="text-xs font-bold text-success truncate">{formatUGXOrDash(stats.totalROI)}</p>
                 </div>
                 <div className="rounded-lg bg-background/80 p-2 text-center">
                   <p className="text-[9px] text-muted-foreground">Wallet</p>
@@ -434,11 +437,11 @@ export function FunderDetailView({
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <p className="text-[10px] text-muted-foreground">ROI Earned</p>
-                          <p className="text-xs font-bold text-success">{formatUGX(p.total_roi_earned)}</p>
+                          <p className="text-xs font-bold text-success">{formatUGXOrDash(p.total_roi_earned)}</p>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
                           <p className="text-[10px] text-muted-foreground">Rate</p>
-                          <p className="text-xs font-bold">{p.roi_percentage}%</p>
+                          <p className="text-xs font-bold">{formatRatePct(p.roi_percentage) ?? '—'}</p>
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground">

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -334,10 +335,10 @@ export function DepositReviewTimeline({ request }: Props) {
     if (ids.size === 0) return;
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(Array.from(ids), (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', Array.from(ids));
+        .in('id', validIds));
       if (cancelled) return;
       if (error) {
         // Non-fatal — we'll just show shortened IDs.

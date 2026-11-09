@@ -1,8 +1,20 @@
+# Production frontend errors (9 November)
+- [x] Audit realtime owner columns and wallet transaction reads; current frontend already uses valid columns. SMS-log duplicate writes and partner-enum failures have no frontend source.
+- [x] Sanitize UUID lookup lists and handle normal missing rows.
+- [x] Gate authenticated work, handle subagent/LC1 duplicates, and prevent broken avatar requests.
+- [x] Run targeted regression tests, guards, and signed-out browser checks; build OK.
+- [ ] Verify authenticated production flows and reduction in production log errors; external unmanaged authentication prevents signed-in testing here.
+
+# Agreement Returns rate input
+- [x] Add selected-portfolio rate editing through the existing server approval workflow and active-rate contract rendering.
+- [x] Run focused tests and guards (6 tests passed; all safeguards passed).
+- [ ] Verify an actual authorized rate save; external unmanaged authentication prevents signed-in browser verification.
+
 # Funders Houses to fund switch
 - [x] Fix obsolete test imports after the restored discovery change.
 - [x] Restore empty-house discovery and amounts with pending-verification labels; preserve server funding enforcement and bookings.
 - [x] Run focused discovery regression tests and check preview signals (8 tests passed; build OK).
-- [ ] Restrict desk-script reading; waiting on user confirmation of intended readers for the automatic security finding.
+- [x] Restrict desk-script reading to active assigned desk staff; live access assertions passed and security finding resolved.
 - [x] Apply fail-closed empty-house visibility to discovery, pins, recommendations and counts; preserve bookings and server errors.
 - [x] Run focused switch and discovery regression tests; verify available preview signals.
 - [ ] Verify through a real signed-in Funder; external unmanaged authentication prevents an authenticated browser check.

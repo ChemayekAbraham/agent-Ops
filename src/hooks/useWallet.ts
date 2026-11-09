@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -116,10 +117,10 @@ export function useWallet() {
         ];
 
         const { data: profiles } = userIds.length > 0
-          ? await supabase
+          ? await withUuidIds(userIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone, avatar_url')
-            .in('id', userIds)
+            .in('id', validIds))
           : { data: [] };
 
         const profileMap = new Map<string, WalletProfileRow>();

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,7 +16,7 @@ export function useIsPartnerGrowthLead() {
     staleTime: 5 * 60_000,
     retry: false,
     queryFn: async (): Promise<boolean> => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const userId = auth?.user?.id;
       if (!userId) return false;
 

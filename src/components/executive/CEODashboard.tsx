@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,6 +21,7 @@ import { V360PlanCaptions } from '@/components/v360/V360PlanCaptions';
 
 
 export function CEODashboard() {
+  const authenticatedReady = useAuthenticatedAudience();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get('section') || '';
   const { data: profiles, isLoading: loadingProfiles } = useQuery({
@@ -53,9 +56,10 @@ export function CEODashboard() {
   });
 
   const { data: investorCount } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['exec-investors-count'],
     queryFn: async () => {
-      const { count } = await supabase.from('investor_portfolios').select('*', { count: 'exact', head: true });
+      const { count } = await withUserSession(() => supabase.from('investor_portfolios').select('*', { count: 'exact', head: true }));
       return count || 0;
     },
     staleTime: 600000,

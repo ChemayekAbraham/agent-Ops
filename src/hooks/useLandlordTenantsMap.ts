@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -52,10 +53,10 @@ export function useLandlordTenantsMap(landlordIds: string[]) {
       const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
       for (let i = 0; i < tenantIds.length; i += CHUNK) {
         const slice = tenantIds.slice(i, i + CHUNK);
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(slice, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', slice);
+          .in('id', validIds));
         (profiles ?? []).forEach((p: any) =>
           profileMap.set(p.id, { full_name: p.full_name, phone: p.phone }),
         );

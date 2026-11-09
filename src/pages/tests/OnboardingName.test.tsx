@@ -45,6 +45,10 @@ const toastError = vi.fn();
 
 const AUTH = { user: null, loading: false };
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => AUTH }));
+// The page reads the public new-partner rate (Partner Returns); the switch-off answer is 15.
+vi.mock('@/hooks/usePartnerReturnPolicy', () => ({
+  usePartnerReturnPolicy: () => ({ newContractRate: 15, enabled: false, policy: null, cutoffAt: null, isLoading: false, fromNetwork: true }),
+}));
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: toastError, info: vi.fn() },
   Toaster: () => null,

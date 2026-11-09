@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Payout destination verification — Financial Ops queue + decisions.
  *
@@ -155,7 +156,7 @@ async function buildQueueError(
 ): Promise<PayoutQueueError> {
   let signedInUserId: string | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data } = await getSessionCheckedUser();
     signedInUserId = data.user?.id ?? null;
   } catch {
     signedInUserId = null;

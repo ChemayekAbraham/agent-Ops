@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,7 +53,7 @@ export function AdvanceWriteOffApprovals({ hideWhenEmpty = false }: { hideWhenEm
         .select('id, agent_id, outstanding_balance').in('id', reqs.map((r) => r.advance_id));
       const advMap = new Map<string, { agent_id: string; outstanding_balance: number }>((advs ?? []).map((a: any) => [a.id, a]));
       const people = [...new Set([...reqs.map((r) => r.requested_by), ...(advs ?? []).map((a: any) => a.agent_id)])];
-      const { data: profs } = await db.from('profiles').select('id, full_name').in('id', people);
+      const { data: profs } = await withUuidIds(people, (validIds) => db.from('profiles').select('id, full_name').in('id', validIds));
       const names = new Map<string, string>((profs ?? []).map((p: any) => [p.id, p.full_name]));
       return reqs.map((r) => {
         const adv = advMap.get(r.advance_id);

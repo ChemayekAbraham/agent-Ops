@@ -1,3 +1,5 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cancelDebounceKeyed, debounceKeyed, PROFILE_TYPEAHEAD_MIN_CHARS, searchProfilesTypeahead } from '@/lib/profileTypeahead';
 import { usePolling } from '@/hooks/usePolling';
@@ -248,10 +250,10 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     if (mode === 'ops') {
       const userIds = [...new Set(fetchedRows.map((r) => r.requester_id).filter(Boolean))];
       if (userIds.length > 0) {
-        const { data: pData } = await supabase
+        const { data: pData } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, avatar_url, territory')
-          .in('id', userIds);
+          .in('id', validIds));
         if (pData) {
           const pMap: Record<string, ProfileSummary> = {};
           pData.forEach((p) => { pMap[p.id] = p; });
@@ -266,11 +268,11 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
   const fetchPermissions = useCallback(async () => {
     if (mode !== 'ops') return;
     setLoadingPerms(true);
-    const { data, error } = await supabase
+    const { data, error } = await withUserSession(() => supabase
       .from('staff_permissions')
       .select('*')
       .eq('permitted_dashboard', AGENTS_SPACE_DASHBOARD_KEY)
-      .order('granted_at', { ascending: false });
+      .order('granted_at', { ascending: false }));
 
     if (!error && data) {
       const perms = data as unknown as StaffPermissionRow[];
@@ -278,10 +280,10 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
 
       const uIds = perms.map((c) => c.user_id).filter(Boolean);
       if (uIds.length > 0) {
-        const { data: pData } = await supabase
+        const { data: pData } = await withUuidIds(uIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, email, avatar_url, territory')
-          .in('id', uIds);
+          .in('id', validIds));
         if (pData) {
           const map: Record<string, ProfileSummary> = {};
           pData.forEach((p) => { map[p.id] = p; });

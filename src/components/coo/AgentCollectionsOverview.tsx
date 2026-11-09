@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,7 +54,7 @@ export default function AgentCollectionsOverview() {
         return { kpis: { totalToday: 0, totalMonth: 0, totalAll: 0, activeAgents: 0, activeCollecting: 0, avgPerAgent: 0, topAgent: '—', tenantCollTotal: 0, landlordPayTotal: 0 } };
       }
 
-      const profilesRes = await supabase.from('profiles').select('id, full_name').in('id', activeAgentIds);
+      const profilesRes = await withUuidIds(activeAgentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p.full_name || 'Unknown Agent']));
 
       const agentMap = new Map<string, AgentSummary>();

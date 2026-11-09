@@ -13,6 +13,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { UserPlus, LogIn, ArrowLeft, Lock, User, Phone, TrendingUp, Wallet, Users, Sparkles, Gift, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { CurrencySwitcher } from '@/components/CurrencySwitcher';
+import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
 
 import {
   validateFullName,
@@ -37,13 +39,18 @@ const validateSignIn = (data: { phone: string; password: string }) => {
   return null;
 };
 
-const benefits = [
-  { icon: TrendingUp, title: 'Partner Returns target 15%, not guaranteed', description: 'Illustrative Returns on support you provide' },
+/** The first benefit quotes the public new-partner rate; with no rate known it states no figure. */
+const benefitsFor = (newRatePct: string | null) => [
+  { icon: TrendingUp, title: newRatePct ? `Partner Returns target ${newRatePct} for new partners, not guaranteed` : 'Partner Returns, not guaranteed', description: 'Illustrative Returns on support you provide' },
   { icon: Wallet, title: 'Flexible Withdrawals', description: 'Access your funds anytime' },
   { icon: Users, title: 'Help Tenants', description: 'Support people with rent payments' },
 ];
 
 export default function BecomeSupporter() {
+  // A new Supporter signs a new contract: the PUBLIC new-partner rate (15 while the switch has never
+  // been on). Unknown rate -> the copy states no figure.
+  const newRatePct = formatRatePct(usePartnerReturnPolicy().newContractRate);
+  const benefits = benefitsFor(newRatePct);
   const [searchParams] = useSearchParams();
   const referrerId = searchParams.get('ref');
   
@@ -82,7 +89,7 @@ export default function BecomeSupporter() {
         .from('profiles')
         .select('full_name')
         .eq('id', referrerId)
-        .single()
+        .maybeSingle()
         .then(({ data }) => {
           if (data) {
             setReferrerName(data.full_name);
@@ -263,13 +270,13 @@ export default function BecomeSupporter() {
         <title>Become a Supporter — Earn Returns | Welile</title>
         <meta
           name="description"
-          content="Become a Welile Supporter: fund tenants' rent, earn monthly returns on your capital, and withdraw flexibly while helping people stay housed in Uganda."
+          content="Become a Welile Supporter: fund tenants' rent, earn monthly Returns on your capital, and withdraw flexibly while helping people stay housed in Uganda."
         />
         <link rel="canonical" href="https://welileapp.com/become-supporter" />
         <meta property="og:title" content="Become a Welile Supporter — Earn Returns" />
         <meta
           property="og:description"
-          content="Fund tenants' rent and earn monthly returns while helping people stay housed across Uganda."
+          content="Fund tenants' rent and earn monthly Returns while helping people stay housed across Uganda."
         />
         <meta property="og:url" content="https://welileapp.com/become-supporter" />
       </Helmet>
@@ -309,10 +316,10 @@ export default function BecomeSupporter() {
               <span className="text-sm font-medium text-success">Become a Tenant Supporter</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-black mb-3">
-              Support & Earn <span className="text-success">15% Monthly</span>
+              Support & Earn <span className="text-success">{newRatePct ? `${newRatePct} Monthly` : 'Monthly Returns'}</span>
             </h1>
             <p className="text-muted-foreground max-w-md mx-auto">
-              Help tenants pay their rent while growing your support portfolio with steady returns
+              Help tenants pay their rent while growing your support portfolio with steady Returns
             </p>
           </div>
 
@@ -374,8 +381,8 @@ export default function BecomeSupporter() {
               {/* Stats */}
               <div className="grid grid-cols-3 gap-3 mt-6">
                 <div className="p-4 rounded-xl bg-success/5 border border-success/20 text-center">
-                  <p className="text-2xl font-black text-success">15%</p>
-                  <p className="text-xs text-muted-foreground">Monthly Returns</p>
+                  <p className="text-2xl font-black text-success">{newRatePct ?? '—'}</p>
+                  <p className="text-xs text-muted-foreground">Monthly Returns (new partners)</p>
                 </div>
                 <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 text-center">
                   <p className="text-2xl font-black text-primary">24/7</p>

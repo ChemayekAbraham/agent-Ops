@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -124,10 +125,10 @@ export default function OperationalFloatTenantAllocator({
         let extras: TenantOption[] = [];
         if (extraIds.length > 0) {
           const unique = [...new Set(extraIds)];
-          const { data } = await supabase
+          const { data } = await withUuidIds(unique, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone, monthly_rent, updated_at')
-            .in('id', unique);
+            .in('id', validIds));
           extras = ((data || []) as any[]).map((t) => ({
             id: t.id,
             full_name: t.full_name,

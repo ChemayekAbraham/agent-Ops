@@ -7,7 +7,10 @@ export interface AgentPartnerPortfolioCard {
   partner_name: string;
   portfolio_code_masked: string | null;
   investment_amount: number;
-  total_roi_earned: number;
+  /** null from migration 4b unless the caller is the partner, partner staff or their approved
+   *  proxy agent (creator-only rows): show "—", never 0. */
+  total_roi_earned: number | null;
+  /** Same rule as total_roi_earned. */
   roi_percentage: number | null;
   duration_months: number | null;
   status: string | null;

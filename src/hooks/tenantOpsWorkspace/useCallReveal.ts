@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Reveal flow, replicated exactly as src/hooks/useCcCallingHub.ts does it:
  * this is not an RPC — it looks for an existing unrecorded attempt on this
@@ -16,7 +17,7 @@ export function useCallReveal() {
 
   return useMutation({
     mutationFn: async (cycleRowId: string) => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await getSessionCheckedUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error('Not signed in');
 

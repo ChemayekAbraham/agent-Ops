@@ -12,6 +12,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipAgreementRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
+import {
+  monthlyReturnFor,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -231,15 +238,25 @@ Deno.serve(async (req) => {
     // Fetch portfolio + partner for the final email.
     const { data: portfolio, error: pErr } = await admin
       .from("investor_portfolios")
-      .select("id, investor_id, investment_amount, roi_percentage, roi_mode, duration_months, payout_day, portfolio_code, next_roi_date, created_at")
+      .select("id, investor_id, investment_amount, roi_percentage, rate_basis, roi_mode, duration_months, payout_day, portfolio_code, next_roi_date, created_at")
       .eq("id", portfolioId).maybeSingle();
     if (pErr || !portfolio) {
       console.warn("[approve-pending-portfolio] Portfolio lookup after approval failed:", pErr?.message);
       return json({ success: true, portfolio_id: portfolioId }, 200);
     }
 
-    const { data: partner } = await admin
-      .from("profiles").select("full_name, email").eq("id", portfolio.investor_id).maybeSingle();
+    // Both emails below carry the portfolio's rate and monthly Returns. They go to the profile email
+    // when the row's rate applies to everyone (switch off, as before); otherwise to the confirmed login
+    // email, or to the profile email without the rate and Returns when there is none (D4).
+    const stored = storedRate(portfolio);
+    const rateIsPublic = await rowRateIsPublic(admin, portfolio);
+    const [{ data: partner }, loginEmails] = await Promise.all([
+      admin.from("profiles").select("full_name, email").eq("id", portfolio.investor_id).maybeSingle(),
+      rateIsPublic || !portfolio.investor_id ? null : readConfirmedLoginEmails(admin, [portfolio.investor_id]),
+    ]);
+    const emailTarget = rateEmailTarget(loginEmails?.get(portfolio.investor_id) ?? null, partner?.email ?? null, rateIsPublic);
+    const figureRate = emailTarget.withFigures ? stored : null;
+    const monthlyReward = monthlyReturnFor(portfolio.investment_amount, figureRate);
 
     // Self-managed portfolios (partner picked the tenants themselves) get a
     // dedicated deployment confirmation instead of the managed agreement email.
@@ -282,8 +299,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    if (partner?.email && isSelfManaged) {
-      const monthlyReward = Math.round(Number(portfolio.investment_amount) * (Number(portfolio.roi_percentage) / 100));
+    if (emailTarget.to && isSelfManaged) {
       let tenants: Array<Record<string, unknown>> = [];
       // Supported empty houses reuse the same template rows — each line is a
       // house instead of a tenant.
@@ -390,14 +406,13 @@ Deno.serve(async (req) => {
       try {
         await dispatchTransactionalEmail(supabaseUrl, serviceKey, {
           templateName: "partner-self-managed-deployment",
-          recipientEmail: partner.email,
+          recipientEmail: emailTarget.to,
           idempotencyKey: `partner-self-managed-deployment-${portfolioId}`,
           templateData: {
-            partner_name: partner.full_name || "Partner",
+            partner_name: partner?.full_name || "Partner",
             portfolio_reference: portfolio.portfolio_code || "",
             principal_amount: Number(portfolio.investment_amount),
-            monthly_return_amount: monthlyReward,
-            roi_percentage: Number(portfolio.roi_percentage),
+            ...(figureRate !== null ? { monthly_return_amount: monthlyReward, roi_percentage: figureRate } : {}),
             term_months: Number(pendingRow?.term_months || portfolio.duration_months || 1),
             deployment_date: fmtDate(portfolio.created_at),
             first_payout_date: fmtDate(portfolio.next_roi_date),
@@ -412,15 +427,14 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.warn("[approve-pending-portfolio] Self-managed deployment email failed:", (e as Error)?.message);
       }
-    } else if (partner?.email) {
-      const monthlyReward = Math.round(Number(portfolio.investment_amount) * (Number(portfolio.roi_percentage) / 100));
+    } else if (emailTarget.to) {
       try {
         await dispatchTransactionalEmail(
           supabaseUrl,
           serviceKey,
           buildPartnershipAgreementRequest({
-            recipientEmail: partner.email,
-            partnerName: partner.full_name,
+            recipientEmail: emailTarget.to,
+            partnerName: partner?.full_name,
             partnerId: portfolio.investor_id,
             portfolioId: portfolio.id,
             amount: Number(portfolio.investment_amount),
@@ -428,7 +442,7 @@ Deno.serve(async (req) => {
             contributionDateIso: portfolio.created_at,
             firstPayoutDateIso: portfolio.next_roi_date || portfolio.created_at,
             payoutDay: portfolio.payout_day || 15,
-            roiPercentage: Number(portfolio.roi_percentage),
+            roiPercentage: figureRate,
           }),
         );
       } catch (e) {

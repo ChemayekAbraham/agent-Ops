@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarRange, Download, FileBarChart, Info, Loader2, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -235,7 +236,7 @@ export function ReportsOverview() {
     // the actual export.
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: user?.id ?? null,
           action_type: 'pdf_report_exported',

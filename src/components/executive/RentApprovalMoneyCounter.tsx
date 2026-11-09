@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -285,7 +286,7 @@ export function RentApprovalMoneyCounter({
 
       const [profilesRes, landlordsRes] = await Promise.all([
         tenantIds.length > 0
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] }),
         landlordIds.length > 0
           ? supabase.from('landlords').select('id, name, phone, property_address').in('id', landlordIds)

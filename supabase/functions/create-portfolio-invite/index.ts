@@ -16,6 +16,19 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipAgreementRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { withRetry } from "../_shared/rpcRetry.ts";
+import {
+  callerIsPartnerStaff,
+  monthlyReturnFor,
+  POLICY_CHANGED_RESPONSE,
+  RATE_NOTE_FOR_OTHER_STAFF,
+  rateAwaitsCfo,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+  typedRate,
+  typedRateNeedsReload,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -71,7 +84,10 @@ Deno.serve(async (req) => {
     const partnerId = String(body?.partner_id || "");
     const amount = Number(body?.amount);
     const durationMonths = Number(body?.duration_months);
-    const roiPercentage = Number(body?.roi_percentage);
+    // Partner Returns: a rate is sent only when staff typed one; otherwise the database gate decides
+    // (the person's own rate). A typed rate that differs is stored at the person's rate and queued
+    // for the CFO.
+    const typed = typedRate(body?.roi_percentage);
     const roiMode = String(body?.roi_mode || "monthly_payout");
     const nickname = body?.nickname ? String(body.nickname).slice(0, 120) : null;
     // When true → skip the invite link email and instead immediately approve
@@ -84,14 +100,19 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(durationMonths) || durationMonths < 1 || durationMonths > 60) {
       return json({ error: "Duration must be between 1 and 60 months" }, 400);
     }
-    if (!Number.isFinite(roiPercentage) || roiPercentage <= 0 || roiPercentage > 100) {
-      return json({ error: "ROI % must be between 0 and 100" }, 400);
+    if (typed === "invalid") {
+      return json({ error: "Monthly Returns rate must be above 0% and at most 100%" }, 400);
     }
     if (!["monthly_payout", "monthly_compounding"].includes(roiMode)) {
-      return json({ error: "Invalid ROI mode" }, 400);
+      return json({ error: "Invalid Returns mode" }, 400);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // A screen that typed a rate without seeing the switch on is stale once the switch is on (409).
+    if (await typedRateNeedsReload(admin, typed !== null, body?.policy_enabled_seen)) {
+      return json(POLICY_CHANGED_RESPONSE, 409);
+    }
 
     const guardBlock = await checkTreasuryGuard(admin, "any", authHeader);
     if (guardBlock) return guardBlock;
@@ -170,7 +191,7 @@ Deno.serve(async (req) => {
       p_partner_id: partnerId,
       p_amount: amount,
       p_duration_months: durationMonths,
-      p_roi_percentage: roiPercentage,
+      p_roi_percentage: typed,
       p_roi_mode: roiMode,
       p_nickname: nickname,
       p_raw_token: rawToken,
@@ -250,6 +271,33 @@ Deno.serve(async (req) => {
     }
     const fundingTxGroupId = String(fundingLedgerRes.data || "");
 
+    // The row as stored: the gate decided the rate. Both branches read it here.
+    const { data: portfolio } = await admin
+      .from("investor_portfolios")
+      .select("id, investor_id, investment_amount, roi_percentage, rate_basis, roi_mode, duration_months, payout_day, portfolio_code, next_roi_date, created_at")
+      .eq("id", portfolioId).maybeSingle();
+    const stored = storedRate(portfolio);
+    const rateIsPublic = await rowRateIsPublic(admin, portfolio);
+
+    // Rate-bearing email recipient: the profile email when the row's rate applies to everyone;
+    // otherwise the confirmed login email, or the profile email without figures when there is none.
+    let loginEmail: string | null = null;
+    if (portfolio && !rateIsPublic) {
+      loginEmail = (await readConfirmedLoginEmails(admin, [partnerId])).get(partnerId) ?? null;
+    }
+    const emailTarget = rateEmailTarget(loginEmail, partner.email, rateIsPublic);
+
+    // Stored rates go back to partner staff only (owner decision D11), or to any permitted caller
+    // when the row's rate applies to everyone (switch off).
+    const showRates = rateIsPublic || await callerIsPartnerStaff(admin, caller.id);
+    const rateKeys = showRates
+      ? {
+        roi_percentage: stored,
+        requested_roi_percentage: typed,
+        rate_awaits_cfo: rateAwaitsCfo(typed, stored),
+      }
+      : { rate_note: RATE_NOTE_FOR_OTHER_STAFF };
+
     // Mirror to wallet_transactions for the partner's activity feed.
     const { error: wtErr } = await admin.from("wallet_transactions").insert({
       sender_id: partnerId,
@@ -271,11 +319,6 @@ Deno.serve(async (req) => {
     // Approve the freshly-created portfolio right away and send the standard
     // Tenant Partnership Confirmation email. No invite link is sent.
     if (directConfirmation) {
-      const { data: portfolio } = await admin
-        .from("investor_portfolios")
-        .select("id, investor_id, investment_amount, roi_percentage, roi_mode, duration_months, payout_day, portfolio_code, next_roi_date, created_at")
-        .eq("id", portfolioId).maybeSingle();
-
       if (!portfolio) {
         return json({ error: "Portfolio was created but could not be loaded for funding." }, 500);
       }
@@ -343,23 +386,23 @@ Deno.serve(async (req) => {
 
       let emailDispatched = false;
       let emailError: string | null = null;
-      if (portfolio && partner.email) {
-        const monthlyReward = Math.round(Number(portfolio.investment_amount) * (Number(portfolio.roi_percentage) / 100));
+      if (portfolio && emailTarget.to) {
+        const withFigures = emailTarget.withFigures && stored !== null;
         try {
           await dispatchTransactionalEmail(
             supabaseUrl,
             serviceKey,
             buildPartnershipAgreementRequest({
-              recipientEmail: partner.email,
+              recipientEmail: emailTarget.to,
               partnerName: partner.full_name,
               partnerId: portfolio.investor_id,
               portfolioId: portfolio.id,
               amount: Number(portfolio.investment_amount),
-              monthlyReward,
+              monthlyReward: withFigures ? monthlyReturnFor(portfolio.investment_amount, stored) : null,
               contributionDateIso: portfolio.created_at,
               firstPayoutDateIso: portfolio.next_roi_date || portfolio.created_at,
               payoutDay: portfolio.payout_day || 15,
-              roiPercentage: Number(portfolio.roi_percentage),
+              roiPercentage: withFigures ? stored : null,
             }),
           );
           emailDispatched = true;
@@ -377,6 +420,7 @@ Deno.serve(async (req) => {
         partner_email: partner.email,
         email_dispatched: emailDispatched,
         email_error: emailError,
+        ...rateKeys,
       }, 200);
     }
 
@@ -385,6 +429,10 @@ Deno.serve(async (req) => {
     // We reuse the plain 'transactional' template with inline HTML — no new
     // Mailgun template needed for MVP.
     const partnerName = partner.full_name || "Partner";
+    // partner.email is required above, so the invite always has a recipient. The rate line goes in
+    // only when the recipient may see it (rateEmailTarget).
+    const inviteTo = emailTarget.to ?? partner.email;
+    const inviteWithFigures = emailTarget.to !== null && emailTarget.withFigures && stored !== null;
     let emailDispatched = false;
     let emailError: string | null = null;
     try {
@@ -393,14 +441,14 @@ Deno.serve(async (req) => {
         {
           body: {
             templateName: "partner-portfolio-invite",
-            recipientEmail: partner.email,
+            recipientEmail: inviteTo,
             idempotencyKey: `portfolio-invite-${portfolioId}`,
             templateData: {
               partner_name: partnerName,
               portfolio_code: portfolioCode,
               amount,
               duration_months: durationMonths,
-              roi_percentage: roiPercentage,
+              ...(inviteWithFigures ? { roi_percentage: stored } : {}),
               roi_mode: roiMode,
               completion_url: completionUrl,
               currency: "UGX",
@@ -414,7 +462,7 @@ Deno.serve(async (req) => {
         console.error("[create-portfolio-invite] Email dispatch error:", emailError, emailData);
       } else {
         emailDispatched = true;
-        console.log("[create-portfolio-invite] Invite email enqueued", { portfolioId, to: partner.email });
+        console.log("[create-portfolio-invite] Invite email enqueued", { portfolioId, to: inviteTo });
       }
     } catch (e) {
       emailError = (e as Error)?.message || "unknown";
@@ -429,6 +477,7 @@ Deno.serve(async (req) => {
       partner_email: partner.email,
       email_dispatched: emailDispatched,
       email_error: emailError,
+      ...rateKeys,
     }, 200);
   } catch (e) {
     console.error("[create-portfolio-invite] Fatal:", (e as Error)?.message, (e as Error)?.stack);

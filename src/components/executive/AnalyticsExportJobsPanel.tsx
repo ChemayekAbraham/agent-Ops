@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,7 +55,7 @@ export function AnalyticsExportJobsPanel({ start, end, rangeLabel }: Props) {
   const startExport = async () => {
     try {
       setStarting(true);
-      const { data: userRes } = await supabase.auth.getUser();
+      const { data: userRes } = await getSessionCheckedUser();
       const uid = userRes?.user?.id;
       if (!uid) throw new Error('Not signed in');
 

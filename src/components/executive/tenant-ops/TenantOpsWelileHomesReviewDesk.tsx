@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,10 +96,10 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
       if (welileRows.length === 0) return [];
 
       const agentIds = Array.from(new Set(welileRows.map((r) => r.agent_id).filter(Boolean)));
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
@@ -128,10 +129,10 @@ export function TenantOpsWelileHomesReviewDesk({ onBack }: Props) {
       if (!subs || subs.length === 0) return [];
 
       const tIds = Array.from(new Set(subs.map((s) => s.tenant_id).filter(Boolean)));
-      const { data: tProfiles } = await supabase
+      const { data: tProfiles } = await withUuidIds(tIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', tIds);
+        .in('id', validIds));
 
       const tMap = new Map((tProfiles ?? []).map((p) => [p.id, p]));
 

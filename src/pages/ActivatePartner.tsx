@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,14 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { getSignupDeviceFp } from '@/lib/signupGuard';
+import { formatRatePct } from '@/lib/partnerReturnPolicy';
+import {
+  activationErrorFrom,
+  noteReturnFigures,
+  parseActivationResult,
+  type ActivationError,
+  type ActivationResult,
+} from '@/lib/promissoryNoteActivation';
 
 export default function ActivatePartner() {
   const [searchParams] = useSearchParams();
@@ -34,6 +43,46 @@ export default function ActivatePartner() {
   const [phone, setPhone] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [activated, setActivated] = useState(false);
+  // What activate-promissory-note answered (rate fields null when absent), and why it refused.
+  const [activation, setActivation] = useState<ActivationResult | null>(null);
+  const [activationError, setActivationError] = useState<ActivationError | null>(null);
+
+  // Rates come only from the database answers; null = hidden (a person-stamped note that is not
+  // the viewer's, or an older lookup without rate fields). Never a fallback rate (design v2 §3.4.3).
+  const { rate: noteRate, monthlyReturn: noteMonthlyReturn } = noteReturnFigures(note);
+  const noteRatePct = formatRatePct(noteRate);
+  const yourRate = activation?.yourRate ?? null;
+  const yourRatePct = formatRatePct(yourRate);
+
+  // Lookup by token through the edge function (the caller's session, when there is one, lets the
+  // database show the rate of a note linked to them). `initial` also decides the signed-in state.
+  const fetchNote = useCallback(async (initial: boolean) => {
+    if (!token) return;
+    const { data, error: fetchError } = await supabase.functions.invoke('lookup-promissory-note', {
+      body: { token },
+    });
+
+    if (fetchError || !data?.note) {
+      if (initial) {
+        setError('This activation link is invalid or has expired');
+        setLoading(false);
+      }
+      return;
+    }
+
+    setNote(data.note);
+    if (!initial) return;
+    // The lookup returns only masked contact hints (shown as placeholders), so the
+    // partner types their own phone and email.
+    setNameParts(splitPersonName(data.note.partner_name || ''));
+
+    // Check if user is already logged in
+    const { data: { user } } = await getSessionCheckedUser();
+    if (user) {
+      setIsLoggedIn(true);
+    }
+    setLoading(false);
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -41,33 +90,8 @@ export default function ActivatePartner() {
       setLoading(false);
       return;
     }
-
-    const fetchNote = async () => {
-      // Use edge function to look up by token (bypasses RLS)
-      const { data, error: fetchError } = await supabase.functions.invoke('lookup-promissory-note', {
-        body: { token },
-      });
-
-      if (fetchError || !data?.note) {
-        setError('This activation link is invalid or has expired');
-        setLoading(false);
-        return;
-      }
-
-      setNote(data.note);
-      if (data.note.email) setEmail(data.note.email);
-      setNameParts(splitPersonName(data.note.partner_name || ''));
-      setPhone(data.note.whatsapp_number);
-
-      // Check if user is already logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setIsLoggedIn(true);
-      }
-      setLoading(false);
-    };
-    fetchNote();
-  }, [token]);
+    fetchNote(true);
+  }, [token, fetchNote]);
 
   const handleAuth = async () => {
     setAuthLoading(true);
@@ -101,6 +125,10 @@ export default function ActivatePartner() {
         if (loginError) throw loginError;
         setIsLoggedIn(true);
       }
+      // Signed in now (a sign-up that waits for email confirmation has no session yet): look the
+      // note up again, so a note already linked to this account shows its own rate.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) await fetchNote(false);
     } catch (err: any) {
       toast.error(err.message || 'Authentication failed');
     } finally {
@@ -110,26 +138,45 @@ export default function ActivatePartner() {
 
   const handleActivate = async () => {
     setAuthLoading(true);
+    setActivationError(null);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        const e = activationErrorFrom(401, null);
+        setActivationError(e);
+        setIsLoggedIn(false);
+        toast.error(e.message);
+        return;
+      }
 
-      const { error: activateError } = await supabase.functions.invoke('activate-promissory-note', {
-        body: { token, user_id: user.id },
+      // The function links the note to the signed-in account from the session token. `user_id` is
+      // ignored by the new function and still read by the old one until both are live (design v2 §8.6).
+      const { data, error: activateError } = await supabase.functions.invoke('activate-promissory-note', {
+        body: { token, user_id: session.user.id },
       });
 
       if (activateError) {
-        let msg = activateError.message;
-        try { const b = await (activateError as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* keep default */ }
-        throw new Error(msg);
+        const ctx = (activateError as any).context;
+        const status = typeof ctx?.status === 'number' ? ctx.status : null;
+        let body: unknown = null;
+        try { body = await ctx?.json?.(); } catch { /* no JSON body */ }
+        const e = activationErrorFrom(status, body);
+        setActivationError(e);
+        if (e.kind === 'sign_in') setIsLoggedIn(false);
+        if (e.kind === 'changed') void fetchNote(false);
+        toast.error(e.message);
+        return;
       }
+      setActivation(parseActivationResult(data));
       setActivated(true);
       toast.success('Your support account is now active!');
       // Land them on the supporter dashboard immediately — all 4 public roles
       // are now granted, so RoleSwitcher will let them access the others too.
       setTimeout(() => navigate('/dashboard/funder'), 1200);
     } catch (err: any) {
-      toast.error(err.message || 'Activation failed');
+      const e = activationErrorFrom(null, null);
+      setActivationError(e);
+      toast.error(e.message);
     } finally {
       setAuthLoading(false);
     }
@@ -187,12 +234,20 @@ export default function ActivatePartner() {
 
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
               <TrendingUp className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
-              <p className="text-xs font-medium text-emerald-700">
-                Earn <span className="text-base font-bold">15%</span> monthly returns on your support
-              </p>
-              <p className="text-xs text-emerald-600 mt-1">
-                Expected: {formatUGX(Number(note.amount) * 0.15)}/month
-              </p>
+              {noteRatePct ? (
+                <>
+                  <p className="text-xs font-medium text-emerald-700">
+                    Earn <span className="text-base font-bold">{noteRatePct}</span> monthly Returns on your support
+                  </p>
+                  {noteMonthlyReturn != null && (
+                    <p className="text-xs text-emerald-600 mt-1">
+                      Expected: {formatUGX(noteMonthlyReturn)}/month
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs font-medium text-emerald-700">Sign in to see your Returns rate</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -204,8 +259,11 @@ export default function ActivatePartner() {
               <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto" />
               <h2 className="text-lg font-bold text-emerald-700">Account Activated!</h2>
               <p className="text-sm text-emerald-600">
-                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning 15% monthly returns.
+                Deposit {formatUGX(Number(note.amount))} into your wallet to start earning monthly Returns.
               </p>
+              {yourRatePct && (
+                <p className="text-xs text-emerald-600">A deposit opens at {yourRatePct} monthly Returns for you.</p>
+              )}
               <Button onClick={() => navigate('/dashboard/funder')} className="w-full gap-2">
                 Go to Dashboard <ArrowRight className="h-4 w-4" />
               </Button>
@@ -222,6 +280,9 @@ export default function ActivatePartner() {
                 {authLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                 Activate Support
               </Button>
+              {activationError && activationError.kind !== 'sign_in' && (
+                <p role="alert" className="text-sm text-destructive text-center">{activationError.message}</p>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -246,13 +307,13 @@ export default function ActivatePartner() {
                   </div>
                   <div>
                     <Label>Phone Number</Label>
-                    <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" className="mt-1" />
+                    <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" className="mt-1" placeholder={note?.whatsapp_hint || undefined} />
                   </div>
                 </>
               )}
               <div>
                 <Label>Email</Label>
-                <Input value={email} onChange={e => setEmail(e.target.value)} type="email" className="mt-1" />
+                <Input value={email} onChange={e => setEmail(e.target.value)} type="email" className="mt-1" placeholder={note?.email_hint || undefined} />
               </div>
               <div>
                 <Label>Password</Label>

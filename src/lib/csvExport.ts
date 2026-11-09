@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 
 // Shared choke point for the 13 components that call downloadCsv with data
@@ -8,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 // real browser IP directly. Never blocks the actual download.
 async function logCsvExport(filename: string, rowCount: number) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('audit_logs').insert({
       user_id: user?.id ?? null,
       action_type: 'csv_exported',

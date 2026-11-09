@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -276,10 +277,10 @@ export default function DepositReferenceMatcher({
     if (picked.length === 0) return [];
     // Hydrate tenant names.
     const tenantIds = [...new Set(picked.map((r) => r.tenant_id))];
-    const { data: profiles } = await supabase
+    const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
       .from('profiles')
       .select('id, full_name, phone')
-      .in('id', tenantIds);
+      .in('id', validIds));
     const nameById = new Map((profiles ?? []).map((p: any) => [p.id, p]));
     // Aggregate per tenant.
     const byTenant = new Map<string, TenantAllocation>();
@@ -324,7 +325,7 @@ export default function DepositReferenceMatcher({
     // Hydrate tenant names in one round trip.
     const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id).filter(Boolean))];
     const profiles = tenantIds.length
-      ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+      ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
       : { data: [] as any[] };
     const nameById = new Map((profiles.data ?? []).map((p: any) => [p.id, p]));
     const enriched: CollectionRow[] = rows.map((r: any) => ({

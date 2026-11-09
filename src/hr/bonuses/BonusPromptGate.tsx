@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -40,7 +41,7 @@ export function BonusPromptGate() {
 
   const load = useCallback(async () => {
     try {
-      const { data } = await supabase.auth.getUser();
+      const { data } = await getSessionCheckedUser();
       const u = data.user?.id;
       if (!u) { setItem(null); return; }
       setUid(u);

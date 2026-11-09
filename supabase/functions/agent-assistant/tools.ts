@@ -613,6 +613,17 @@ export const PARTNER_TOOLS: ToolDef[] = [
     rpc: "assistant_partner_upcoming",
     toRpcArgs: (a) => ({ p_days: (a as { days?: number }).days ?? 60 }),
   },
+  {
+    // Partner Returns per person: the caller's OWN rate for a new portfolio (partner_rate_now(auth.uid())).
+    name: "get_my_new_portfolio_rate",
+    description:
+      "This partner's own monthly Returns rate for a NEW portfolio: available, and rate_percent when available. It can differ from the rate on their existing portfolios. " +
+      "Use it only for 'what would a new portfolio earn for me' or 'what rate would I get on another portfolio'. Never use it for an existing portfolio: each existing portfolio has its own rate_percent.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_partner_new_portfolio_rate",
+    toRpcArgs: () => ({}),
+  },
 ];
 
 /** Handled by the edge function itself, never a database call. */

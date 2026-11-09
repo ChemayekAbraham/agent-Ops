@@ -1,3 +1,5 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -55,11 +57,11 @@ export function InvestmentAccountsManager() {
 
   const fetchPortfolios = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .select('id, portfolio_code, account_name, investment_amount, roi_percentage, status, created_at, investor_id, agent_id')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(200));
 
     if (error) {
       console.error('Failed to fetch portfolios:', error);
@@ -74,10 +76,10 @@ export function InvestmentAccountsManager() {
       userIds.add(p.agent_id);
     });
 
-    const { data: profiles } = await supabase
+    const { data: profiles } = await withUuidIds(Array.from(userIds), (validIds) => supabase
       .from('profiles')
       .select('id, full_name')
-      .in('id', Array.from(userIds));
+      .in('id', validIds));
 
     const nameMap = new Map<string, string>();
     (profiles || []).forEach(p => nameMap.set(p.id, p.full_name));
@@ -175,10 +177,10 @@ export function InvestmentAccountsManager() {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await withUserSession(() => supabase
       .from('investor_portfolios')
       .update({ account_name: trimmed })
-      .eq('id', portfolioId);
+      .eq('id', portfolioId));
 
     if (error) {
       toast({ title: 'Failed to update', description: error.message, variant: 'destructive' });

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Issues Review — every concern forwarded out of the Calling Center, from both
  * outbound recorded calls and received calls.
@@ -509,7 +510,7 @@ export function ConcernsReviewTab() {
   const exportPdf = async () => {
     setExporting(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const pct = (n: number) => (rows.length ? Math.round((n / rows.length) * 100) : 0);
       const bySource = ['outbound_call', 'received_call'].map((s) => {
         const count = rows.filter((c) => c.source_kind === s).length;

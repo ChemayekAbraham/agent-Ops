@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Payroll release data access (hr_pay_release_preview, hr_pay_disbursements,
  * the hr-pay-release edge function and the 'paid' run event).
@@ -95,7 +96,7 @@ export async function runRelease(
 }
 
 export async function markRunPaid(runId: string, note: string): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const res = await supabase
     .from('hr_pay_run_events')
     .insert({

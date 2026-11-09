@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,9 +112,9 @@ export function LendingAgentsPanel() {
       const all: any[] = [];
       const BATCH = 100;
       for (let i = 0; i < agentIds.length; i += BATCH) {
-        const { data } = await supabase.from('profiles')
+        const { data } = await withUuidIds(agentIds.slice(i, i + BATCH), (validIds) => supabase.from('profiles')
           .select('id, full_name, phone')
-          .in('id', agentIds.slice(i, i + BATCH));
+          .in('id', validIds));
         if (data) all.push(...data);
       }
       const m: Record<string, { full_name: string; phone: string | null }> = {};

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useMemo, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -677,7 +678,7 @@ export function DirectCreditTool() {
 
       if (automateEnabled && selectedUser && targets.length <= 1) {
         const { data: schedRow, error: schedErr } = await supabase.from('scheduled_payouts').insert({
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: (await getSessionCheckedUser()).data.user?.id,
           target_user_id: selectedUser.id,
           amount: amt,
           category_id: selectedCategoryId,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
@@ -1026,9 +1027,9 @@ export function LandlordOpsDashboard({
       const landlordIds = [...new Set(items.map(r => r.landlord_id).filter(Boolean))];
       const agentIds = [...new Set(items.map(r => r.agent_id).filter(Boolean))];
       const [tenantsRes, landlordsRes, agentsRes] = await Promise.all([
-        tenantIds.length ? supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds.slice(0, 100)) : { data: [] },
+        tenantIds.length ? withUuidIds(tenantIds.slice(0, 100), (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)) : { data: [] },
         landlordIds.length ? supabase.from('landlords').select('id, name, phone').in('id', landlordIds.slice(0, 100)) : { data: [] },
-        agentIds.length ? supabase.from('profiles').select('id, full_name').in('id', agentIds.slice(0, 100)) : { data: [] },
+        agentIds.length ? withUuidIds(agentIds.slice(0, 100), (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)) : { data: [] },
       ]);
       const tMap = new Map(((tenantsRes as any).data || []).map((p: any) => [p.id, p]));
       const lMap = new Map(((landlordsRes as any).data || []).map((l: any) => [l.id, l]));
@@ -1462,7 +1463,7 @@ export function LandlordOpsDashboard({
       const profileMap = new Map<string, { full_name: string | null; phone: string | null }>();
       // Batch fetch in chunks of 50
       for (let i = 0; i < idArr.length; i += 50) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name, phone').in('id', idArr.slice(i, i + 50));
+        const { data: profiles } = await withUuidIds(idArr.slice(i, i + 50), (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
         if (profiles) profiles.forEach(p => profileMap.set(p.id, p));
       }
 
@@ -1533,7 +1534,7 @@ export function LandlordOpsDashboard({
       const allIds = [...new Set([...allTenantIds, ...allAgentIds])];
 
       const { data: profiles } = allIds.length
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', allIds)
+        ? await withUuidIds(allIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] };
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));

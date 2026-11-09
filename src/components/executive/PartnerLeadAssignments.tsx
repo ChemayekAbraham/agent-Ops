@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,10 +54,10 @@ export function PartnerLeadAssignments() {
     queryKey: ['partner-lead-assignments', 'names', personIds],
     enabled: personIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(personIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', personIds);
+        .in('id', validIds));
       if (error) throw error;
       const map: Record<string, string> = {};
       for (const p of data ?? []) map[p.id] = p.full_name ?? p.id;
@@ -115,7 +117,7 @@ export function PartnerLeadAssignments() {
   const handleDetach = async (id: string) => {
     setDetaching(id);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth?.user?.id;
       if (!uid) throw new Error('Not signed in');
 

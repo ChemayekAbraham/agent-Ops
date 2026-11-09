@@ -18,6 +18,9 @@ export function classifyRentRewardPost(data: unknown, error: RpcError | null | u
     // It is NOT paid to the wallet instead — that would change the partner's chosen treatment.
     if (msg.includes('PORTFOLIO_ON_HOLD')) return { action: 'defer', reason: 'reinvest_portfolio_on_hold' };
     if (msg.includes('RENT_REWARD_REINVEST_TARGET_UNAVAILABLE')) return { action: 'defer', reason: 'reinvest_portfolio_unavailable' };
+    // No stored Returns rate for this funding (Partner Returns, Phase 2): never paid at a guessed rate;
+    // logged as rent_reward_deferred so it shows up instead of failing silently every day.
+    if (msg.includes('RENT_REWARD_RATE_MISSING')) return { action: 'defer', reason: 'rate_missing' };
     return { action: 'error', reason: msg || 'post_rent_facilitation_reward failed' };
   }
   const status = (data as { status?: string } | null)?.status;

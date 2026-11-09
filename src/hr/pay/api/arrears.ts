@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Off-cycle arrears runs (hr_pay_arrears).
  *
@@ -80,7 +81,7 @@ export async function listPendingArrears(): Promise<PendingArrearsRow[]> {
   const nameByUser: Record<string, string> = {};
   if (userIds.length > 0) {
     const profiles = (unwrap(
-      await supabase.from('profiles').select('id, full_name').in('id', userIds),
+      await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     ) ?? []) as Array<{ id: string; full_name: string | null }>;
     for (const p of profiles) if (p.full_name) nameByUser[p.id] = p.full_name;
   }

@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -247,10 +248,10 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     if (!trimmed || !portfolio.id) return;
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .update({ account_name: trimmed } as any)
-        .eq('id', portfolio.id);
+        .eq('id', portfolio.id));
       if (error) throw error;
       // Update local state immediately so UI reflects the change
       (portfolio as any).account_name = trimmed;

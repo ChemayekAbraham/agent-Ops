@@ -2,6 +2,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildPartnershipAgreementRequest, buildPartnerCompoundCreationRequest, dispatchTransactionalEmail } from "../_shared/partnership-emails.ts";
 import { withRetry } from "../_shared/rpcRetry.ts";
 import { isValidInvestmentAmount, MIN_INVESTMENT_ERROR } from "../_shared/investmentAmount.ts";
+import {
+  callerIsPartnerStaff,
+  formatRatePct,
+  monthlyReturnFor,
+  POLICY_CHANGED_RESPONSE,
+  RATE_NOTE_FOR_OTHER_STAFF,
+  rateAwaitsCfo,
+  rateEmailTarget,
+  rowRateIsPublic,
+  readConfirmedLoginEmails,
+  storedRate,
+  typedRate,
+  typedRateNeedsReload,
+} from "../_shared/partnerReturnPolicy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +43,12 @@ Deno.serve(async (req) => {
     const { data: { user: caller }, error: callerError } = await userClient.auth.getUser();
     if (callerError || !caller) return json({ error: "Unauthorized" }, 401);
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Built per request with the caller as x-welile-actor, so a typed rate the gate queues for the
+    // CFO records who typed it (trg_portfolio_rate_requests_stamp_actor; service role only).
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey, {
+      global: { headers: { "x-welile-actor": caller.id } },
+      auth: { persistSession: false },
+    });
 
     // COO/Manager/Partner-Ops guard
     const [{ data: managerRoles, error: roleErr }, { data: staffPerms, error: permErr }] = await Promise.all([
@@ -56,22 +75,31 @@ Deno.serve(async (req) => {
     const body = await req.json() as {
       partner_id: string;
       amount: number;
-      roi_percentage: number;
+      /** Optional: a typed rate. Omitted -> the database gate stores the partner's own rate. */
+      roi_percentage?: number | string | null;
       roi_mode: "monthly_payout" | "monthly_compounding";
       duration_months: number;
       contribution_date?: string | null;     // YYYY-MM-DD or ISO
       payment_method: "wallet" | "proxy_agent";
       source_wallet_user_id: string;         // partner id OR proxy agent id
+      policy_enabled_seen?: boolean;
     };
 
     // Validate
+    const typed = typedRate(body.roi_percentage);
     if (!body.partner_id || !UUID.test(body.partner_id)) return json({ error: "Invalid partner ID" }, 400);
     if (!body.source_wallet_user_id || !UUID.test(body.source_wallet_user_id)) return json({ error: "Invalid source wallet" }, 400);
     if (!isValidInvestmentAmount(body.amount)) return json({ error: MIN_INVESTMENT_ERROR }, 400);
-    if (!body.roi_percentage || body.roi_percentage <= 0 || body.roi_percentage > 100) return json({ error: "ROI must be 1-100%" }, 400);
+    if (typed === "invalid") return json({ error: "Monthly Returns rate must be above 0% and at most 100%" }, 400);
     if (!body.duration_months || body.duration_months < 1 || body.duration_months > 60) return json({ error: "Duration must be 1-60 months" }, 400);
-    if (!["monthly_payout", "monthly_compounding"].includes(body.roi_mode)) return json({ error: "Invalid ROI mode" }, 400);
+    if (!["monthly_payout", "monthly_compounding"].includes(body.roi_mode)) return json({ error: "Invalid Returns mode" }, 400);
     if (!["wallet", "proxy_agent"].includes(body.payment_method)) return json({ error: "Invalid payment method" }, 400);
+
+    // A screen that typed a rate without seeing the switch on is stale once it is on (409, before any
+    // money moves).
+    if (await typedRateNeedsReload(adminClient, typed !== null, body.policy_enabled_seen)) {
+      return json(POLICY_CHANGED_RESPONSE, 409);
+    }
 
     // Verify partner is supporter
     const { data: partnerRole } = await adminClient
@@ -246,7 +274,8 @@ Deno.serve(async (req) => {
         agent_id: body.partner_id,
         portfolio_code: referenceId,
         investment_amount: body.amount,
-        roi_percentage: body.roi_percentage,
+        // Rate only when typed; otherwise the gate stores the partner's own rate.
+        ...(typed !== null ? { roi_percentage: typed } : {}),
         roi_mode: body.roi_mode,
         total_roi_earned: 0,
         status: "active",
@@ -259,13 +288,18 @@ Deno.serve(async (req) => {
         activation_token: crypto.randomUUID(),
         created_at: contributionDate.toISOString(),
       })
-      .select("id")
+      .select("id, roi_percentage, rate_basis")
       .single();
 
     if (portfolioErr) {
       console.error("[coo-create-portfolio] Portfolio insert failed:", portfolioErr.message);
       return json({ error: `Funds were deducted but portfolio record failed. Contact Ops with ref ${referenceId}. Error: ${portfolioErr.message}` }, 500);
     }
+
+    // The rate the gate stored (a typed rate that differs waits for the CFO), and whether it applies
+    // to everyone (read from the row).
+    const stored = storedRate(portfolio);
+    const rateIsPublic = await rowRateIsPublic(adminClient, portfolio);
 
     // Audit log
     await adminClient.from("audit_logs").insert({
@@ -277,7 +311,8 @@ Deno.serve(async (req) => {
         partner_id: body.partner_id,
         partner_name: partnerName,
         investment_amount: body.amount,
-        roi_percentage: body.roi_percentage,
+        roi_percentage: stored,
+        requested_roi_percentage: typed,
         roi_mode: body.roi_mode,
         duration_months: body.duration_months,
         portfolio_code: referenceId,
@@ -290,13 +325,19 @@ Deno.serve(async (req) => {
     });
 
     // Notify partner
-    const monthlyReward = Math.round(body.amount * (body.roi_percentage / 100));
+    const monthlyReward = monthlyReturnFor(body.amount, stored);
     await adminClient.from("notifications").insert({
       user_id: body.partner_id,
       title: "🎉 New Portfolio Created",
-      message: `A portfolio of UGX ${body.amount.toLocaleString()} was created for you (${referenceId}). You'll earn ${body.roi_percentage}% (UGX ${monthlyReward.toLocaleString()}) per month. First payout: ${fmt(nextRoiDate)}.`,
+      message: stored !== null && monthlyReward !== null
+        ? `A portfolio of UGX ${body.amount.toLocaleString()} was created for you (${referenceId}). You'll earn ${formatRatePct(stored)} (UGX ${monthlyReward.toLocaleString()}) per month. First payout: ${fmt(nextRoiDate)}.`
+        : `A portfolio of UGX ${body.amount.toLocaleString()} was created for you (${referenceId}). Your monthly Returns are shown on your dashboard. First payout: ${fmt(nextRoiDate)}.`,
       type: "success",
-      metadata: { reference_id: referenceId, amount: body.amount, monthly_reward: monthlyReward },
+      metadata: {
+        reference_id: referenceId,
+        amount: body.amount,
+        ...(monthlyReward !== null ? { monthly_reward: monthlyReward } : {}),
+      },
     });
 
     console.log(`[coo-create-portfolio] ${caller.id} created portfolio ${referenceId} for partner ${body.partner_id}, source=${body.payment_method}, amt=${body.amount}`);
@@ -307,38 +348,41 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Partnership Agreement email — fire-and-forget, target = partner (not the COO actor)
+    // Partnership Agreement email — fire-and-forget, target = partner (not the COO actor). It carries
+    // the rate and monthly Returns: the profile email when the row's rate applies to everyone (switch
+    // off, as before); otherwise the confirmed login email, or the profile email without figures (D4).
     try {
-      const { data: partnerProfile } = await adminClient
-        .from("profiles")
-        .select("email, full_name")
-        .eq("id", body.partner_id)
-        .maybeSingle();
-      if (partnerProfile?.email) {
+      const [{ data: partnerProfile }, loginEmails] = await Promise.all([
+        adminClient.from("profiles").select("email, full_name").eq("id", body.partner_id).maybeSingle(),
+        rateIsPublic ? null : readConfirmedLoginEmails(adminClient, [body.partner_id]),
+      ]);
+      const target = rateEmailTarget(loginEmails?.get(body.partner_id) ?? null, partnerProfile?.email ?? null, rateIsPublic);
+      const figureRate = target.withFigures ? stored : null;
+      if (target.to) {
         dispatchTransactionalEmail(
           supabaseUrl,
           supabaseServiceKey,
           body.roi_mode === "monthly_compounding"
             ? buildPartnerCompoundCreationRequest({
-                recipientEmail: partnerProfile.email,
-                partnerName: partnerProfile.full_name || partnerName,
+                recipientEmail: target.to,
+                partnerName: partnerProfile?.full_name || partnerName,
                 partnerId: body.partner_id,
                 portfolioId: portfolio.id,
                 initialAmount: body.amount,
-                roiPercentage: body.roi_percentage,
+                roiPercentage: figureRate,
                 contributionDateIso: contributionDate.toISOString(),
               })
             : buildPartnershipAgreementRequest({
-                recipientEmail: partnerProfile.email,
-                partnerName: partnerProfile.full_name || partnerName,
+                recipientEmail: target.to,
+                partnerName: partnerProfile?.full_name || partnerName,
                 partnerId: body.partner_id,
                 portfolioId: portfolio.id,
                 amount: body.amount,
-                monthlyReward,
+                monthlyReward: target.withFigures ? monthlyReward : null,
                 contributionDateIso: contributionDate.toISOString(),
                 firstPayoutDateIso: fmt(nextRoiDate),
                 payoutDay,
-                roiPercentage: body.roi_percentage,
+                roiPercentage: figureRate,
               }),
           "coo-create-portfolio",
         );
@@ -347,12 +391,18 @@ Deno.serve(async (req) => {
       console.warn("[coo-create-portfolio] Email lookup failed (non-blocking):", emailErr);
     }
 
+    // Stored rates go back to partner staff (D11; cto is not partner staff), or to any permitted
+    // caller when the row's rate applies to everyone (switch off).
+    const showRates = rateIsPublic || await callerIsPartnerStaff(adminClient, caller.id);
     return json({
       success: true,
       portfolio_id: portfolio.id,
       portfolio_code: referenceId,
       reference_id: referenceId,
       tx_group_id: txGroupId,
+      ...(showRates
+        ? { roi_percentage: stored, requested_roi_percentage: typed, rate_awaits_cfo: rateAwaitsCfo(typed, stored) }
+        : { rate_note: RATE_NOTE_FOR_OTHER_STAFF }),
     }, 200);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown error";

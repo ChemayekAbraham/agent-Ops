@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -78,7 +79,7 @@ function useTenantLocations(tenantIds: string[]) {
       const chunks: string[][] = [];
       for (let index = 0; index < tenantIds.length; index += 200) chunks.push(tenantIds.slice(index, index + 200));
       const responses = await Promise.all(chunks.map((ids) =>
-        supabase.from('profiles').select('id,district,city,region').in('id', ids),
+        withUuidIds(ids, (validIds) => supabase.from('profiles').select('id,district,city,region').in('id', validIds)),
       ));
       const locationMap = new Map<string, ProfileLocation>();
       responses.forEach(({ data, error }) => {

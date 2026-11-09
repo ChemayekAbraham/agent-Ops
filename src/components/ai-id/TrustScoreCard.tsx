@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Shield, TrendingUp, Wallet, Users, BadgeCheck, MapPin, Home, Sparkles, Share2, Trophy } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGXOrDash } from '@/lib/rentCalculations';
 import { getRiskTierLabel } from '@/lib/welileAiId';
 import type { TrustProfile } from '@/hooks/useTrustProfile';
 
@@ -31,15 +31,17 @@ const tierBg: Record<string, string> = {
 
 export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) {
   const tier = getRiskTierLabel(trust.tier);
-  const score = Math.round(trust.score);
+  // null from 4b when the viewer may not see the person's Returns: unknown, so an empty ring and "—".
+  const score = trust.score != null ? Math.round(trust.score) : null;
   const isNew = trust.tier === 'new';
+  const emptyRing = isNew || score === null;
   const gradient = tierGradient[trust.tier] || tierGradient.standard;
   const bg = tierBg[trust.tier] || tierBg.standard;
 
   // Circular progress
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
+  const offset = score === null ? circumference : circumference - (score / 100) * circumference;
 
   return (
     <Card className={`overflow-hidden ${bg}`}>
@@ -74,7 +76,7 @@ export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) 
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 initial={{ strokeDashoffset: circumference }}
-                animate={{ strokeDashoffset: isNew ? circumference : offset }}
+                animate={{ strokeDashoffset: emptyRing ? circumference : offset }}
                 transition={{ duration: 1.2, ease: 'easeOut' }}
               />
               <defs>
@@ -85,7 +87,7 @@ export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) 
               </defs>
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold text-foreground">{isNew ? '–' : score}</span>
+              <span className="text-3xl font-bold text-foreground">{isNew ? '–' : score ?? '—'}</span>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">/ 100</span>
             </div>
           </motion.div>
@@ -98,10 +100,10 @@ export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) 
             <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-bold text-white bg-gradient-to-r ${gradient}`}>
               {tier.label}
             </div>
-            {!isNew && trust.borrowing_limit_ugx > 0 && (
+            {!isNew && (trust.borrowing_limit_ugx != null ? trust.borrowing_limit_ugx > 0 : true) && (
               <div className="pt-1">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Welile Vouches Up To</p>
-                <p className="font-bold text-emerald-600 text-base break-words">{formatUGX(trust.borrowing_limit_ugx)}</p>
+                <p className="font-bold text-emerald-600 text-base break-words">{formatUGXOrDash(trust.borrowing_limit_ugx)}</p>
               </div>
             )}
             {isNew && (
@@ -115,12 +117,12 @@ export function TrustScoreCard({ trust, agentPerformance, primaryRole }: Props) 
         {/* Breakdown bars */}
         <div className="space-y-2 pt-2 border-t border-border/50">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Score Breakdown</p>
-          {trust.weights.supporter !== undefined && (
+          {trust.weights.supporter !== undefined && trust.breakdown.supporter != null && (
             <BreakdownBar
               icon={<Sparkles className="h-3 w-3 text-amber-500" />}
-              label="Supporter Portfolio & ROI"
+              label="Supporter Portfolio & Returns"
               weight={trust.weights.supporter}
-              score={trust.breakdown.supporter ?? 0}
+              score={trust.breakdown.supporter}
               highlight
             />
           )}

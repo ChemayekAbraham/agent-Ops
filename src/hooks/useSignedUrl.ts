@@ -29,6 +29,7 @@ export function useSignedUrl(storedUrl: string | null | undefined): string | und
     }
 
     let cancelled = false;
+    setSignedUrl(undefined);
     getSignedUrl(storedUrl).then(url => {
       if (!cancelled && urlRef.current === storedUrl) {
         setSignedUrl(url);
@@ -38,5 +39,5 @@ export function useSignedUrl(storedUrl: string | null | undefined): string | und
     return () => { cancelled = true; };
   }, [storedUrl]);
 
-  return signedUrl;
+  return urlRef.current === storedUrl ? signedUrl : undefined;
 }

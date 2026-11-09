@@ -15,6 +15,8 @@ import welileLogo from '@/assets/welile-logo-small.png';
 import { motion, AnimatePresence } from 'framer-motion';
 import { hapticTap } from '@/lib/haptics';
 import { format, addMonths } from 'date-fns';
+import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
+import { formatRatePct, monthlyReturnFor, rateOrNull } from '@/lib/partnerReturnPolicy';
 // jsPDF loaded dynamically when needed
 
 interface InvestmentPackageSheetProps {
@@ -25,14 +27,13 @@ interface InvestmentPackageSheetProps {
     totalHouses: number;
     totalRent: number;
     avgRent: number;
-    expectedReturn: number;
+    /** RentCategoryFeed prices it at the viewer's own rate; null when unknown. */
+    expectedReturn: number | null;
   } | null;
   onAcceptAndDeposit: () => void;
 }
 
 type SheetStep = 'summary' | 'accepted' | 'deposit';
-
-const REWARD_RATE = 0.15; // 15% monthly supporter reward
 
 export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptAndDeposit }: InvestmentPackageSheetProps) {
   const { formatAmount } = useCurrency();
@@ -40,22 +41,31 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
   const [autoCompound, setAutoCompound] = useState(false);
   const [generating, setGenerating] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  // The supporter's own monthly rate (partner_quote_rate('me')): the rate a funding is stamped at.
+  // null while it loads or on error: every reward figure is null (no number), never a default.
+  const { rate: ownRate } = useOwnNewPortfolioRate();
+  const ownRatePct = rateOrNull(ownRate);
+  const ratePctLabel = formatRatePct(ownRatePct);
 
   if (!category) return null;
 
+  const rewardRate = ownRatePct === null ? null : ownRatePct / 100;
   const rentAmount = category.avgRent || category.totalRent;
-  const monthlyReward = Math.round(rentAmount * REWARD_RATE);
+  const monthlyReward = monthlyReturnFor(rentAmount, ownRatePct);
   const estimatedLandlords = Math.max(1, Math.ceil(category.totalHouses * 0.7));
 
   // 12-month reward schedule with tenant growth
   const rewardSchedule = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
     const date = addMonths(new Date(), month);
-    let payout: number;
+    let payout: number | null;
     let tenantsSupported: number;
-    if (autoCompound) {
-      const compoundedCapital = rentAmount * Math.pow(1 + REWARD_RATE, month);
-      payout = Math.round(rentAmount * (Math.pow(1 + REWARD_RATE, month) - Math.pow(1 + REWARD_RATE, month - 1)));
+    if (rewardRate === null) {
+      payout = null;
+      tenantsSupported = category.totalHouses;
+    } else if (autoCompound) {
+      const compoundedCapital = rentAmount * Math.pow(1 + rewardRate, month);
+      payout = Math.round(rentAmount * (Math.pow(1 + rewardRate, month) - Math.pow(1 + rewardRate, month - 1)));
       tenantsSupported = Math.max(category.totalHouses, Math.round(category.totalHouses * (compoundedCapital / rentAmount)));
     } else {
       payout = monthlyReward;
@@ -64,8 +74,8 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     return { month, date, payout, tenantsSupported };
   });
 
-  const totalRewards12Months = rewardSchedule.reduce((s, r) => s + r.payout, 0);
-  const totalWithCapital = rentAmount + totalRewards12Months;
+  const totalRewards12Months = rewardRate === null ? null : rewardSchedule.reduce((s, r) => s + (r.payout as number), 0);
+  const totalWithCapital = totalRewards12Months === null ? null : rentAmount + totalRewards12Months;
 
   const handleAccept = () => {
     hapticTap();
@@ -167,7 +177,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     doc.setTextColor(mutedText.r, mutedText.g, mutedText.b);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('MONTHLY REWARD (15%)', col2, y + 12);
+    doc.text(`MONTHLY REWARD (${ratePctLabel})`, col2, y + 12);
     doc.setTextColor(green.r, green.g, green.b);
     doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
@@ -270,7 +280,15 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
     return doc;
   };
 
+  /** The PDF and the share text state the rate and the rewards: refuse while the rate is unknown. */
+  const rateUnavailable = () => {
+    if (ratePctLabel !== null) return false;
+    toast.error('Your Returns rate has not loaded yet. Try again in a moment.');
+    return true;
+  };
+
   const generatePDF = async () => {
+    if (rateUnavailable()) return;
     setGenerating(true);
     try {
       const doc = await buildPDF();
@@ -285,6 +303,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
   };
 
   const handleShareWhatsApp = async () => {
+    if (rateUnavailable()) return;
     setGenerating(true);
     try {
       const doc = await buildPDF();
@@ -300,7 +319,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
       } else {
         // Fallback: download the PDF and open WhatsApp with a message
         doc.save(fileName);
-        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ 15% Monthly Reward | 90-day lock-in\n\nJoin Welile Supporters today!`;
+        const text = `📊 Welile Supporter Package — ${category.category}\n\nPlease see the attached PDF for full details.\n\n✅ ${ratePctLabel} Monthly Reward | 90-day lock-in\n\nJoin Welile Supporters today!`;
         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
         toast.success('PDF downloaded — attach it in WhatsApp');
       }
@@ -410,9 +429,11 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Facilitation Amount</p>
                     <p className="text-2xl font-black mt-0.5">{formatAmount(rentAmount)}</p>
                   </div>
-                  <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
-                    15% Monthly Reward
-                  </Badge>
+                  {ratePctLabel && (
+                    <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-xs">
+                      {ratePctLabel} Monthly Reward
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -438,14 +459,14 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                       <TrendingUp className="h-3.5 w-3.5 text-success" />
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Monthly Reward</span>
                     </div>
-                    <p className="text-lg font-bold text-success">{formatAmount(monthlyReward)}</p>
+                    <p className="text-lg font-bold text-success">{monthlyReward === null ? '—' : formatAmount(monthlyReward)}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-1.5 mb-1">
                       <Calendar className="h-3.5 w-3.5 text-primary" />
                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">12-Mo Rewards</span>
                     </div>
-                    <p className="text-lg font-bold text-primary">{formatAmount(totalRewards12Months)}</p>
+                    <p className="text-lg font-bold text-primary">{totalRewards12Months === null ? '—' : formatAmount(totalRewards12Months)}</p>
                   </div>
                 </div>
 
@@ -460,7 +481,7 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile pays rent <strong className="text-foreground">upfront</strong> for tenants — never in arrears. Your funds are deployed immediately.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Welile Agents hold <strong className="text-foreground">tenant placement rights</strong> — if a tenant defaults, the agent replaces them with a paying tenant.</span></li>
                     <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Defaults <strong className="text-foreground">do not affect supporters</strong>. Welile's operational model absorbs and mitigates all default risk.</span></li>
-                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">15% monthly reward</strong> is a platform service reward — not an investment return.</span></li>
+                    <li className="flex gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /><span>Your <strong className="text-foreground">{ratePctLabel ? `${ratePctLabel} monthly reward` : 'monthly reward'}</strong> is a platform service reward — not an investment return.</span></li>
                   </ul>
                 </div>
 
@@ -511,14 +532,14 @@ export function InvestmentPackageSheet({ open, onOpenChange, category, onAcceptA
                           <span className="text-xs text-foreground font-medium">Month {r.month}</span>
                           <span className="text-xs text-muted-foreground">{format(r.date, 'MMM yyyy')}</span>
                           {autoCompound && <span className="text-xs font-bold text-primary text-center">{r.tenantsSupported}</span>}
-                          <span className="text-xs font-bold text-success text-right">+{formatAmount(r.payout)}</span>
+                          <span className="text-xs font-bold text-success text-right">{r.payout === null ? '—' : `+${formatAmount(r.payout)}`}</span>
                         </div>
                       ))}
                     </div>
                     {/* Total */}
                     <div className="grid grid-cols-3 gap-0 px-3 py-2.5 bg-success/5 border-t border-success/20">
                       <span className="text-xs font-bold text-foreground col-span-2">Total Rewards</span>
-                      <span className="text-sm font-black text-success text-right">{formatAmount(totalRewards12Months)}</span>
+                      <span className="text-sm font-black text-success text-right">{totalRewards12Months === null ? '—' : formatAmount(totalRewards12Months)}</span>
                     </div>
                   </div>
                 </div>

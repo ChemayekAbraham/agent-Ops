@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,10 +74,10 @@ export default function MyProxyNotesFeed() {
       if (error) throw error;
       const rows = (data || []) as NoteRow[];
       const names: Record<string, string> = {};
-      const { data: profiles, error: pErr } = await supabase
+      const { data: profiles, error: pErr } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', agentIds);
+        .in('id', validIds));
       if (pErr) throw pErr;
       (profiles || []).forEach((p: { id: string; full_name: string | null }) => {
         if (p.full_name) names[p.id] = p.full_name;

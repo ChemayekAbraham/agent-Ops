@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -99,10 +100,10 @@ export function AgentLeaderboard() {
       }
 
       // Fetch agent profiles
-      const { data: profiles, error: profileError } = await supabase
+      const { data: profiles, error: profileError } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       if (profileError) throw profileError;
 

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -90,10 +91,10 @@ export function WelileHomesLandlordLeaderboard({ limit = 10 }: WelileHomesLandlo
       const landlordIds = Object.keys(landlordStats);
       if (landlordIds.length === 0) return [];
 
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(landlordIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, avatar_url')
-        .in('id', landlordIds);
+        .in('id', validIds));
 
       // Build leaderboard entries
       const entries: LeaderboardEntry[] = landlordIds.map(landlordId => {

@@ -6,13 +6,14 @@ import type { ReactNode } from 'react';
 const rpc = vi.fn();
 const auth = {
   user: { id: 'user-1' } as { id: string } | null,
+  session: { user: { id: 'user-1' }, access_token: 'test-session' },
   loading: false,
   rolesResolved: true,
   roles: ['agent', 'supporter'] as string[],
   enabledRoles: ['supporter'] as string[],
 };
 const session = {
-  current: { user: { id: 'user-1' } } as { user: { id: string } } | null,
+  current: { user: { id: 'user-1' }, access_token: 'test-session' } as { user: { id: string }; access_token: string } | null,
 };
 const roleRow = { current: null as { role: string } | null };
 
@@ -62,7 +63,7 @@ describe('useCommunicationInbox', () => {
     auth.rolesResolved = true;
     auth.roles = ['agent', 'supporter'];
     auth.enabledRoles = ['supporter'];
-    session.current = { user: { id: 'user-1' } };
+    session.current = { user: { id: 'user-1' }, access_token: 'test-session' };
     roleRow.current = null;
   });
 
@@ -97,7 +98,7 @@ describe('readCommunication', () => {
   beforeEach(() => {
     rpc.mockReset();
     rpc.mockResolvedValue({ data: [{ id: 'm1' }], error: null });
-    session.current = { user: { id: 'user-1' } };
+    session.current = { user: { id: 'user-1' }, access_token: 'test-session' };
     roleRow.current = null;
   });
 

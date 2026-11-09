@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, isSameDay } from 'date-fns';
@@ -140,10 +141,10 @@ export function AgentProductsOnlyReportSection({ className }: { className?: stri
 
       let profileMap: Record<string, { full_name: string; phone: string | null }> = {};
       if (lenderIds.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(lenderIds.slice(0, 100), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', lenderIds.slice(0, 100));
+          .in('id', validIds));
         (profs || []).forEach((p) => {
           profileMap[p.id] = { full_name: p.full_name || 'Lending Agent', phone: p.phone };
         });

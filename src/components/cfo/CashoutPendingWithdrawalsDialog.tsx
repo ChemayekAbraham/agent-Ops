@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -33,10 +34,10 @@ export function CashoutPendingWithdrawalsDialog({ open, onOpenChange, agent }: P
       const ids = Array.from(new Set(
         rows.flatMap((r: any) => [r.user_id, r.linked_party]).filter(isUuid),
       ));
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', ids);
+        .in('id', validIds));
       const map = new Map((profs || []).map((p: any) => [p.id, p]));
       return rows.map((r: any) => ({
         ...r,

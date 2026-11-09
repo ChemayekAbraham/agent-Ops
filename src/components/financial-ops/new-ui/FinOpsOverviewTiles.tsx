@@ -31,7 +31,7 @@ function Tile({
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[112px] items-start gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="group flex min-h-[72px] items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left shadow-sm sm:min-h-[112px] sm:items-start sm:p-4 transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
         <Icon className="h-5 w-5" aria-hidden />
@@ -43,11 +43,11 @@ function Tile({
             {chip}
           </span>
         ) : (
-          <span className="mt-1.5 block h-6" aria-hidden />
+          <span className="mt-1.5 hidden h-6 sm:block" aria-hidden />
         )}
         <span className="mt-1 block truncate text-xs text-muted-foreground">{sub}</span>
       </span>
-      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground/60 transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
+      <ChevronRight className="h-4 w-4 shrink-0 sm:mt-1 text-muted-foreground/60 transition group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
     </button>
   );
 }

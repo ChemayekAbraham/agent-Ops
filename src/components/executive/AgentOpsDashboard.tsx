@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
@@ -325,9 +326,9 @@ export function AgentOpsDashboard() {
       const BATCH = 50;
       const allProfiles: any[] = [];
       for (let i = 0; i < agentIds.length; i += BATCH) {
-        const { data } = await supabase.from('profiles')
+        const { data } = await withUuidIds(agentIds.slice(i, i + BATCH), (validIds) => supabase.from('profiles')
           .select('id, full_name, phone, email, avatar_url, verified, created_at, territory')
-          .in('id', agentIds.slice(i, i + BATCH));
+          .in('id', validIds));
         if (data) allProfiles.push(...data);
       }
       const map: Record<string, any> = {};

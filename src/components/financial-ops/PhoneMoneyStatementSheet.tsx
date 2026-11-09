@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -502,7 +503,7 @@ export function PhoneMoneyStatementSheet({ line, onOpenChange, onSelectLine }: P
 async function resolveNames(userIds: (string | null)[]): Promise<Map<string, { name: string; phone: string | null }>> {
   const ids = Array.from(new Set(userIds.filter(Boolean) as string[]));
   if (!ids.length) return new Map();
-  const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+  const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
   return new Map(
     (data ?? []).map((p: any) => [p.id, { name: p.full_name || p.phone || 'Unnamed user', phone: p.phone ?? null }]),
   );

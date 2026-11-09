@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * HR Payroll enrollment view — one row per active worker with their basic pay
  * and statutory deduction profile.
@@ -159,7 +160,7 @@ export async function listEnrollment(): Promise<EnrollmentResult> {
   const userIds = staff.map((s) => s.user_id).filter(Boolean);
 
   const [profiles, statutory, comp, openComp, statIds] = await Promise.all([
-    supabase.from('profiles').select('id, full_name').in('id', userIds),
+    withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     supabase
       .from('hr_pay_statutory_profiles')
       .select(

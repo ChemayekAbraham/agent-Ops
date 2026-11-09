@@ -1,0 +1,1040 @@
+{
+ "_about": "Partner Returns Phase 4 static scans (design v2 section 10.1 T1.11), used by supabase/functions/_shared/partnerReturnPolicy_test.ts. Every match of the 15% patterns in supabase/functions, src/lib and src/hooks (non-test, non-comment lines) must be listed under fifteen by file and exact line text; every line of a Phase 4 file matching ROI/interest/loan/lender must be listed under words. 'line' is where the text was when the list was made (2026-11-07); matching is by file + text so unrelated edits above a line do not break the scan. A new match fails the test: fix it (no 15 fallback, no ROI/interest/loan/lender in partner copy) or add it here with a reason.",
+ "phase4_files": [
+  "supabase/functions/_shared/partnerReturnPolicy.ts",
+  "supabase/functions/_shared/partnership-emails.ts",
+  "supabase/functions/_shared/rentRewardOutcome.ts",
+  "supabase/functions/_shared/dispatchMerchants.ts",
+  "supabase/functions/_shared/nexaGuides.ts",
+  "supabase/functions/_shared/nexaSignup.ts",
+  "supabase/functions/_shared/nexaTools.ts",
+  "supabase/functions/_shared/nexa.ts",
+  "supabase/functions/_shared/nexaPublicCatalog.ts",
+  "supabase/functions/_shared/transactional-email-templates/funder-house-booking.tsx",
+  "supabase/functions/_shared/transactional-email-templates/funder-house-progress.tsx",
+  "supabase/functions/_shared/transactional-email-templates/funder-saved-house-fundable.tsx",
+  "supabase/functions/_shared/transactional-email-templates/promissory-note-pledge.tsx",
+  "supabase/functions/_shared/transactional-email-templates/partner-self-managed-deployment.tsx",
+  "supabase/functions/_shared/transactional-email-templates/portfolio-redemption.tsx",
+  "supabase/functions/_shared/transactional-email-templates/partner-portfolio-invite.tsx",
+  "supabase/functions/_shared/transactional-email-templates/proxy-daily-nudge.tsx",
+  "supabase/functions/_shared/transactional-email-templates/returns-disbursement-confirmation.tsx",
+  "supabase/functions/_shared/transactional-email-templates/partnership-agreement.tsx",
+  "supabase/functions/_shared/transactional-email-templates/partner-compound.tsx",
+  "supabase/functions/_shared/transactional-email-templates/partner-portfolio-compounded.tsx",
+  "supabase/functions/create-portfolio-invite/index.ts",
+  "supabase/functions/create-investor-portfolio/index.ts",
+  "supabase/functions/agent-invest-for-partner/index.ts",
+  "supabase/functions/coo-invest-for-partner/index.ts",
+  "supabase/functions/coo-create-portfolio/index.ts",
+  "supabase/functions/import-partners/index.ts",
+  "supabase/functions/process-supporter-roi/index.ts",
+  "supabase/functions/fund-tenants/index.ts",
+  "supabase/functions/process-investment-interest/index.ts",
+  "supabase/functions/process-portfolio-redemption/index.ts",
+  "supabase/functions/notify-self-topup-approved/index.ts",
+  "supabase/functions/supporter-account-action/index.ts",
+  "supabase/functions/activate-promissory-note/index.ts",
+  "supabase/functions/activate-promissory-note/mapError.ts",
+  "supabase/functions/lookup-promissory-note/index.ts",
+  "supabase/functions/submit-partner-form/index.ts",
+  "supabase/functions/proxy-target-daily-nudge/index.ts",
+  "supabase/functions/approve-wallet-operation/index.ts",
+  "supabase/functions/cancel-proxy-withdrawal/index.ts",
+  "supabase/functions/notify-house-booking/index.ts",
+  "supabase/functions/notify-promissory-note-pledge/index.ts",
+  "supabase/functions/notify-funder-house-progress/index.ts",
+  "supabase/functions/welile-ai-chat/index.ts",
+  "supabase/functions/whatsapp-webhook/index.ts",
+  "supabase/functions/agent-assistant/index.ts",
+  "supabase/functions/agent-assistant/prompt.ts",
+  "supabase/functions/agent-assistant/tools.ts",
+  "supabase/functions/agent-assistant/knowledge.ts",
+  "supabase/functions/send-system-context/doc.ts",
+  "supabase/functions/mcp-public/index.ts",
+  "supabase/functions/og-plan/index.ts",
+  "supabase/functions/og-plan/preview.ts",
+  "supabase/functions/partner-ops-daily-report/index.ts",
+  "supabase/functions/partner-ops-daily-report/access.ts",
+  "supabase/functions/partner-ops-daily-report/returnsCheck.ts",
+  "src/lib/partnerReturnPolicy.ts",
+  "src/lib/publicPartnerRate.ts",
+  "src/lib/staffPortfolioRate.ts",
+  "src/lib/promissoryNoteActivation.ts",
+  "src/lib/funderEarnings.ts",
+  "src/lib/supportPlanExample.ts",
+  "src/lib/planShareLink.ts",
+  "src/lib/houseSupportShare.ts",
+  "src/lib/nexaSalesEngine.ts",
+  "src/lib/supabaseBatchUtils.ts",
+  "src/lib/agentPartnerPortfolios.ts",
+  "src/lib/mcp-public/partnerRate.ts",
+  "src/lib/mcp-public/tools/estimate-supporter-returns.ts",
+  "src/lib/mcp-public/tools/estimate-rent-access.ts",
+  "src/hooks/usePartnerReturnPolicy.ts",
+  "src/hooks/usePartnerQuoteRate.ts",
+  "src/hooks/useStaffPortfolioRate.ts",
+  "src/hooks/useWelileAI.ts",
+  "src/hooks/assistantPublicReply.ts",
+  "src/hooks/useRelatedHouses.ts",
+  "src/hooks/useTrustProfile.ts",
+  "src/hooks/wallet/usePartnerWalletHub.ts",
+  "supabase/functions/approve-pending-portfolio/index.ts",
+  "supabase/functions/resend-portfolio-invite/index.ts",
+  "supabase/functions/approve-portfolio-topup/index.ts",
+  "supabase/functions/coo-wallet-to-portfolio/index.ts",
+  "supabase/functions/manager-portfolio-topup/index.ts",
+  "src/lib/v360Captions.ts",
+  "src/lib/v360StaffAccess.ts",
+  "supabase/functions/_shared/phoneProof.ts"
+ ],
+ "fifteen": {
+  "supabase/functions/agent-assistant/knowledge.ts": [
+   {
+    "line": 26,
+    "text": "- A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.`;",
+    "reason": "D8 360 sentence: the plan's 15% partner leg (numbers stay)"
+   }
+  ],
+  "supabase/functions/agent-assistant/tools.ts": [
+   {
+    "line": 235,
+    "text": "p_limit: x.limit ?? 15,",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 273,
+    "text": "return { p_search: x.search ?? null, p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 299,
+    "text": "return { p_search: x.search ?? null, ...rangeToRpc(x, \"last_30_days\"), p_limit: x.limit ?? 15, p_email: x.email ?? \"any\" };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 362,
+    "text": "return { p_search: x.search, p_plan: x.plan ?? \"all\", p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 403,
+    "text": "return { p_search: x.search ?? null, p_status: x.status ?? \"all\", p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 430,
+    "text": "return { p_search: x.search ?? null, p_status: x.status ?? \"all\", p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 505,
+    "text": "return { p_status: x.status ?? \"all\", p_search: x.search ?? null, p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 558,
+    "text": "return { p_status: x.status ?? \"all\", ...range, p_limit: x.limit ?? 15 };",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 590,
+    "text": "toRpcArgs: (a) => ({ p_limit: (a as { limit?: number }).limit ?? 15 }),",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 600,
+    "text": "toRpcArgs: (a) => ({ p_limit: (a as { limit?: number }).limit ?? 15 }),",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/agent-growth-daily-report/index.ts": [
+   {
+    "line": 393,
+    "text": "const yMax = Math.max(1, Math.ceil(maxRaw * 1.15));",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/agent-ops-comprehensive-daily-report/_lib/pdf.ts": [
+   {
+    "line": 368,
+    "text": "doc.setLineWidth(0.15);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/agent-ops-comprehensive-daily-report/_lib/report.ts": [
+   {
+    "line": 150,
+    "text": "const x = pad.l + i * slot + slot * 0.15 + j * barW;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 412,
+    "text": "<div class=\"chart-header-sub\">Ranked by collection rate against each agent's own expected daily obligation, not by absolute money collected. Standing follows the daily gate: 50%+ is good standing (agent can post), under 15% needs attention.</div>",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/agent-ops-daily-report/index.ts": [
+   {
+    "line": 766,
+    "text": "{ label: \"This month\", data: r.monthDaysSeries, borderColor: PURPLE, backgroundColor: \"rgba(108,33,196,0.15)\", fill: true, lineTension: 0.25 },",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 911,
+    "text": "<th style=\"padding:8px 10px;width:15%;text-align:right;\">Deposited</th>",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/approve-pending-portfolio/index.ts": [
+   {
+    "line": 430,
+    "text": "payoutDay: portfolio.payout_day || 15,",
+    "reason": "payout day default (a day of the month, not a rate)"
+   }
+  ],
+  "supabase/functions/create-portfolio-invite/index.ts": [
+   {
+    "line": 404,
+    "text": "payoutDay: portfolio.payout_day || 15,",
+    "reason": "payout day default (a day of the month, not a rate)"
+   }
+  ],
+  "supabase/functions/daily-cto-report/boardMemo.ts": [
+   {
+    "line": 433,
+    "text": "const labelW = 52, valW = 120, barW = inner - labelW - valW, rowH = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/daily-cto-report/index.ts": [
+   {
+    "line": 1625,
+    "text": "weights: [0.52, 0.18, 0.15, 0.15],",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 2252,
+    "text": "y -= 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/daily-payout-projection-report/index.ts": [
+   {
+    "line": 336,
+    "text": "y -= 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 344,
+    "text": "y -= 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/email-verify-request/index.ts": [
+   {
+    "line": 21,
+    "text": "const CODE_TTL_MINUTES = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 23,
+    "text": "const SEND_WINDOW_MINUTES = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/fund-tenant-from-pool/index.ts": [
+   {
+    "line": 131,
+    "text": "const monthly15Obligation = Math.round(activeCapital * 0.15);",
+    "reason": "fund-tenant-from-pool liquidity reserve (tenant/treasury side)"
+   }
+  ],
+  "supabase/functions/generate-partner-agreement/index.ts": [
+   {
+    "line": 200,
+    "text": "let fallbackReturnLabel = '15%';",
+    "reason": "parked agreements: release blocker (section 8.5 #2, T1.11b)"
+   },
+   {
+    "line": 278,
+    "text": "let monthlyReturnLabel = '15%';",
+    "reason": "parked agreements: release blocker (section 8.5 #2, T1.11b)"
+   }
+  ],
+  "supabase/functions/mcp-public/index.ts": [
+   {
+    "line": 742,
+    "text": "note: \"Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.\"",
+    "reason": "D8 360 sentence: the plan's 15% partner leg (numbers stay)"
+   }
+  ],
+  "supabase/functions/notify-agent-collection-lapse/index.ts": [
+   {
+    "line": 27,
+    "text": "const WEEKLY_REASSIGN_AT_DAYS = 15; // strictly > 2 weeks idle",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/partner-ops-daily-report/index.ts": [
+   {
+    "line": 367,
+    "text": "bodyStyles: { lineWidth: { bottom: 0.15 }, lineColor: ROW_LINE },",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/register-proxy-funder/index.ts": [
+   {
+    "line": 17,
+    "text": "if (digits.length >= 9 && digits.length <= 15) return digits;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/resend-partner-agreement-email/index.ts": [
+   {
+    "line": 164,
+    "text": "let monthlyReturnLabel = '15%'",
+    "reason": "parked agreements: release blocker (section 8.5 #2, T1.11b)"
+   }
+  ],
+  "supabase/functions/self-update-phone/index.ts": [
+   {
+    "line": 39,
+    "text": "if (d.length >= 9 && d.length <= 15) return `+${d}`;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/send-agent-capacity-card/index.ts": [
+   {
+    "line": 99,
+    "text": "else if (tenants >= 15) badges.push({ icon: \"🏆\", label: \"Big Book\", tone: \"gold\" });",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/send-partner-agreement-with-pdf/index.ts": [
+   {
+    "line": 479,
+    "text": "let monthlyReturnLabel = '15%'",
+    "reason": "parked agreements: release blocker (section 8.5 #2, T1.11b)"
+   }
+  ],
+  "supabase/functions/send-system-context/doc.ts": [
+   {
+    "line": 47,
+    "text": "360-day Rent Plans (\\`pricing_version = v360\\`) use a separate cycle waterfall and only while \\`v360_settings.new_plans_enabled\\` is on for plans created after that. The switch stays off until CFO, COO or super admin turn it on. Legacy and non-v360 plans use the 8% commission above (6% sub-agent + 2% parent; 10% before 2026-11-04). On a v360 cycle the tenant agent commission is 8% of Gross (6% sub-agent + 2% general). Cover Pool, Proxy Agent fee and tithe have their own ledger categories in the unapplied proposal \\`docs/pending-migrations/20261102160100_v360_ledger_categories_and_partner_onboarding.sql\\`. Worked example, rent UGX 100,000: Gross 142,772, Daily 4,760, collected 142,800; sub-agent 8,566, general agent 2,855, rail 3,500, landlord 100,000, partner margin 15,000, Cover Pool 2,885 (cycle 1: proxy 2,000 and pool 885), Welile 7% 9,994 (tithe 999, Welile keeps 8,995). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. The pure function is \\`v360CycleWaterfall\\` in \\`src/lib/contractEngine360.ts\\`.",
+    "reason": "D8 360 sentence: the plan's 15% partner leg (numbers stay)"
+   },
+   {
+    "line": 190,
+    "text": "## 2.15 Notifications",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 249,
+    "text": "5. Agent commission on current Rent Plans: 8% of each collection (was 10% until the 2026-11-04 change; the tenant's price is unchanged). An agent with no parent keeps 8%; a sub-agent with a verified parent keeps 6% and the parent gets a 2% override; whitelisted / elite-ranked sub-agents keep the full 8%. Source of truth: \\`get_agent_commission_rate\\`. A 360-day Rent Plan uses 8% of Gross (6% sub-agent + 2% general). See section 1.2. A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.",
+    "reason": "D8 360 sentence: the plan's 15% partner leg (numbers stay)"
+   },
+   {
+    "line": 307,
+    "text": "## 3.15 Fraud investigation",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/staff-assistant/openai.ts": [
+   {
+    "line": 196,
+    "text": "let inputPer1M = 0.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/welile-ai-chat/index.ts": [
+   {
+    "line": 18,
+    "text": "old.count++; return old.count<=15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/_shared/partnership-emails.ts": [
+   {
+    "line": 142,
+    "text": "initialAmount: number;         // portfolio value before compounding",
+    "reason": "field name, no rate derived from amounts"
+   },
+   {
+    "line": 192,
+    "text": "initial_partnership_amount: input.initialAmount,",
+    "reason": "field name, no rate derived from amounts"
+   },
+   {
+    "line": 219,
+    "text": "initialAmount: number;         // portfolio principal at creation",
+    "reason": "field name, no rate derived from amounts"
+   },
+   {
+    "line": 238,
+    "text": "const returnAmount = Math.round(input.initialAmount * pct / 100);",
+    "reason": "field name, no rate derived from amounts"
+   },
+   {
+    "line": 243,
+    "text": "new_total_partnership_value: input.initialAmount + returnAmount,",
+    "reason": "field name, no rate derived from amounts"
+   },
+   {
+    "line": 255,
+    "text": "initial_partnership_amount: input.initialAmount,",
+    "reason": "field name, no rate derived from amounts"
+   }
+  ],
+  "supabase/functions/_shared/roiCycleDates.ts": [
+   {
+    "line": 26,
+    "text": "const day = Math.min((payoutDay || created.getUTCDate()) || 15, 28);",
+    "reason": "payout day default (a day of the month, not a rate)"
+   }
+  ],
+  "supabase/functions/_shared/transactional-email-templates/email-verification-code.tsx": [
+   {
+    "line": 30,
+    "text": "minutesValid = 15,",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "supabase/functions/_shared/transactional-email-templates/performance-assessment-report.tsx": [
+   {
+    "line": 167,
+    "text": "{ kpi: 'Existing Agent Retention', weight: '15%', achievement: '46 / 57 = 80.7%', score: '12.1%' },",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 168,
+    "text": "{ kpi: 'Product Delivery', weight: '15%', achievement: '87%', score: '13.0%' },",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "supabase/functions/_shared/transactional-email-templates/portfolio-redemption.tsx": [
+   {
+    "line": 369,
+    "text": "return_rate: '15%',",
+    "reason": "email template preview sample data"
+   }
+  ],
+  "supabase/functions/_shared/transactional-email-templates/tenant-partnership-agreement.tsx": [
+   {
+    "line": 135,
+    "text": "<Text style={docValStrong}>{monthly_return || '15%'}</Text>",
+    "reason": "parked agreements: release blocker (section 8.5 #2, T1.11b)"
+   },
+   {
+    "line": 474,
+    "text": "monthly_return: '15%',",
+    "reason": "email template preview sample data"
+   }
+  ],
+  "src/lib/agentBadges.ts": [
+   {
+    "line": 53,
+    "text": "} else if (tenants >= 15) {",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/agentOpsComprehensiveReport.ts": [
+   {
+    "line": 150,
+    "text": "const x = pad.l + i * slot + slot * 0.15 + j * barW;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 412,
+    "text": "<div class=\"chart-header-sub\">Ranked by collection rate against each agent's own expected daily obligation, not by absolute money collected. Standing follows the daily gate: 50%+ is good standing (agent can post), under 15% needs attention.</div>",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/agentOpsOverviewReportHtml.ts": [
+   {
+    "line": 544,
+    "text": "head: `<tr><th style=\"width:4%\">#</th><th style=\"width:20%\">Agent Name</th><th style=\"width:15%\">Agent Phone</th><th class=\"right\">Repaying Tenants</th><th class=\"right\">Expected (UGX)</th><th class=\"right\">Collected (UGX)</th><th class=\"right\">Rate</th><th class=\"right\">Paid</th><th>Status</th></tr>`,",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/cardEdgeDetection.ts": [
+   {
+    "line": 119,
+    "text": "const marginX = guide.width * 0.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 120,
+    "text": "const marginY = guide.height * 0.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/contractEngine360.ts": [
+   {
+    "line": 18,
+    "text": "export const PARTNER_MONTHLY_RATE = 0.15;",
+    "reason": "360 engine (tenant-side numbers; D8 copy)"
+   },
+   {
+    "line": 172,
+    "text": "return Math.ceil((principal * Math.pow(1.15, months) + railFee(principal, months)) / denom);",
+    "reason": "360 engine (tenant-side numbers; D8 copy)"
+   }
+  ],
+  "src/lib/ctoControlledPlansPdf.ts": [
+   {
+    "line": 142,
+    "text": "['Partner (15% of given, pro rata by days)', fmtUgx(summary.expectedPartner), fmtUgx(summary.partnerEarned)],",
+    "reason": "CTO controlled-plans staff PDF (plan engine label, staff-only)"
+   }
+  ],
+  "src/lib/dailyAllocationPdf.ts": [
+   {
+    "line": 120,
+    "text": "y = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 137,
+    "text": "if (y > 272) { doc.addPage(); y = 15; }",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/exportUtils.ts": [
+   {
+    "line": 104,
+    "text": "yPosition += 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/funderEarnings.ts": [
+   {
+    "line": 20,
+    "text": "export const FUNDER_MONTHLY_RATE = 0.15;",
+    "reason": "deprecated origin export, kept until release (no importer: T1.11b)"
+   }
+  ],
+  "src/lib/generateAgentCapacityPdf.ts": [
+   {
+    "line": 85,
+    "text": "let y = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 186,
+    "text": "if (y > 275) { doc.addPage(); y = 15; drawHeader(); }",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 233,
+    "text": "if (y > 250) { doc.addPage(); y = 15; }",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/generateAgentTenantPdf.ts": [
+   {
+    "line": 25,
+    "text": "let y = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 83,
+    "text": "y = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 133,
+    "text": "if (y > 280) { doc.addPage(); y = 15; }",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/generateDailyCollectionReportPdf.ts": [
+   {
+    "line": 326,
+    "text": "{ label: 'Status',        w: leftW * 0.15, align: 'left'  as const },",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 523,
+    "text": "doc.setLineWidth(0.15);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/generateLandlordFundedReportPdf.ts": [
+   {
+    "line": 202,
+    "text": "const tileH = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/generateLandlordOpsReportPdf.ts": [
+   {
+    "line": 180,
+    "text": "doc.setLineWidth(0.15);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/generateTenantOpsReportPdf.ts": [
+   {
+    "line": 195,
+    "text": "doc.setLineWidth(0.15);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/houseGeo.ts": [
+   {
+    "line": 184,
+    "text": "const WALKING_ROAD_FACTOR = 1.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/houseSupportShare.ts": [
+   {
+    "line": 12,
+    "text": "export const HOUSE_SHARE_ROI_RATE = 15;",
+    "reason": "deprecated origin export, kept until release (no importer: T1.11b)"
+   }
+  ],
+  "src/lib/merchantFloatCapacity.ts": [
+   {
+    "line": 51,
+    "text": "const scoreFactor = Math.min(1.25, Math.max(0.15, (r.allocationScore || 0) / 80));",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 54,
+    "text": "return Math.min(1.25, scoreFactor * 1.15);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/notificationSound.ts": [
+   {
+    "line": 61,
+    "text": "oscillator.stop(now + 0.15);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 68,
+    "text": "oscillator.frequency.setValueAtTime(659.25, now + 0.15); // E5",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 70,
+    "text": "gainNode.gain.setValueAtTime(0.25, now + 0.15);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 113,
+    "text": "gainNode.gain.linearRampToValueAtTime(0.15, now + delay);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 232,
+    "text": "gain.gain.setValueAtTime(0.15, now);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 240,
+    "text": "{ freq: 523.25, delay: 0.35, duration: 0.15 },  // C5",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 243,
+    "text": "{ freq: 783.99, delay: 0.65, duration: 0.15 },  // G5",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 339,
+    "text": "gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 341,
+    "text": "osc1.stop(now + 0.15);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/partnerStatement.ts": [
+   {
+    "line": 237,
+    "text": "const ENTRY_ROW_PX = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/partnerStatementStyles.ts": [
+   {
+    "line": 381,
+    "text": "line-height: 1.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   },
+   {
+    "line": 397,
+    "text": "line-height: 1.15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/pdfAuditReport.ts": [
+   {
+    "line": 134,
+    "text": "let vSize = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/phoneUtils.ts": [
+   {
+    "line": 194,
+    "text": "if (d.length >= 9 && d.length <= 15) return `+${d}`;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/planShareLink.ts": [
+   {
+    "line": 10,
+    "text": "export const SHARE_ROI_RATE = 15;",
+    "reason": "deprecated origin export, kept until release (no importer: T1.11b)"
+   }
+  ],
+  "src/lib/portfolioProjectionReport.ts": [
+   {
+    "line": 171,
+    "text": "<th style=\"width:15%;\">Return Date</th>",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/rentCalculations.ts": [
+   {
+    "line": 197,
+    "text": "return Math.round(rentAmount * 0.15);",
+    "reason": "tenant-side rentCalculations.ts (reverted to origin) - NOTE calculateSupporterReward is partner-facing (finding)"
+   }
+  ],
+  "src/lib/rentDisbursementPdf.ts": [
+   {
+    "line": 64,
+    "text": "y += 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/repaymentSchedulePdf.ts": [
+   {
+    "line": 166,
+    "text": "y = 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/roiDisbursementPdf.ts": [
+   {
+    "line": 72,
+    "text": "y += 15;",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/specialAdvances.ts": [
+   {
+    "line": 391,
+    "text": "export const PURPOSE_MIN = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/supabaseBatchUtils.ts": [
+   {
+    "line": 433,
+    "text": "const effectiveNextDate = getEffectiveNextPayoutDate(p.next_roi_date, p.created_at, p.payout_day ?? 15);",
+    "reason": "payout day default (a day of the month, not a rate)"
+   }
+  ],
+  "src/lib/supportPlanExample.ts": [
+   {
+    "line": 23,
+    "text": "export const EXAMPLE_MONTHLY_RATE = 0.15;",
+    "reason": "deprecated origin export, kept until release (no importer: T1.11b)"
+   }
+  ],
+  "src/lib/tenantCallsReportPdf.ts": [
+   {
+    "line": 227,
+    "text": "lineWidth: 0.15,",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 252,
+    "text": "lineWidth: 0.15,",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 341,
+    "text": "lineWidth: 0.15,",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/tenantOpsWeeklyPerformancePdf.ts": [
+   {
+    "line": 96,
+    "text": "doc.setFont('helvetica', 'bold'); let fs = 15; doc.setFontSize(fs);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 169,
+    "text": "const pad = (hi - lo) * 0.15 || Math.max(1, Math.abs(hi) * 0.15);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/tenantPaymentBehaviorPdf.ts": [
+   {
+    "line": 138,
+    "text": "doc.setFont('helvetica', 'bold'); let fs = 15; doc.setFontSize(fs);",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   },
+   {
+    "line": 301,
+    "text": "function dimTable(r: ReturnType<typeof createReport>, rows: DimensionRow[], label: string, limit = 15) {",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/lib/transactionsFeed.ts": [
+   {
+    "line": 33,
+    "text": "export const TX_PAGE_SIZE = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/v360Captions.ts": [
+   {
+    "line": 5,
+    "text": "'A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.';",
+    "reason": "D8 360 sentence (V360_PARTNER_RETURNS_SENTENCE, the same words as agent-assistant/knowledge.ts and send-system-context/doc.ts): the 360-day Rent Plan pricing leg (15% of the plan set aside for Partner Returns, tenant-side numbers), not a partner rate or a fallback; it says each partner earns their own rate."
+   }
+  ],
+  "src/lib/v360StaffAccess.ts": [
+   {
+    "line": 30,
+    "text": "'OFF = new Rent Plans use current pricing; ON = new Rent Plans get 360-day pricing. On a 360-day plan, tenant agent commission is 8% of Gross (6% sub-agent and 2% general agent) and the Cover Pool is segregated. A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. Existing plans are never repriced.';",
+    "reason": "D8 360 sentence (V360_PARTNER_RETURNS_SENTENCE, the same words as agent-assistant/knowledge.ts and send-system-context/doc.ts): the 360-day Rent Plan pricing leg (15% of the plan set aside for Partner Returns, tenant-side numbers), not a partner rate or a fallback; it says each partner earns their own rate. Staff-only pricing switch text (V360_STAFF_PRICING_MEANING)."
+   }
+  ],
+  "src/lib/assetRegister/qr.ts": [
+   {
+    "line": 88,
+    "text": "marginLeft: 7.2, marginTop: 15.15,",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/lib/mcp-public/tools/estimate-rent-access.ts": [
+   {
+    "line": 210,
+    "text": "note: \"Illustrative 360-day example for a new quote. Tenant agent commission on that plan is 8% of Gross (6% sub-agent and 2% general agent). A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed. It does not replace the Rent Plan figures above and does not turn new-plan pricing on.\",",
+    "reason": "D8 360 sentence: the plan's 15% partner leg (numbers stay)"
+   }
+  ],
+  "src/hooks/useAgentCapacityMap.ts": [
+   {
+    "line": 80,
+    "text": "fair:      0.15,",
+    "reason": "numeric non-rate (layout, chart, band or staff-report threshold)"
+   }
+  ],
+  "src/hooks/useEasyReadMode.ts": [
+   {
+    "line": 10,
+    "text": "const scaleFor = (s: A11ySize) => (s === 2 ? 1.3 : s === 1 ? 1.15 : 1);",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/hooks/useFinancialStatements.ts": [
+   {
+    "line": 1190,
+    "text": "const badDebtProvision = arDays31to60 * 0.05 + arDays61to90 * 0.15 + arOver90 * 0.50;",
+    "reason": "bad-debt provision band (finance statements)"
+   }
+  ],
+  "src/hooks/useLandlordOtp.ts": [
+   {
+    "line": 8,
+    "text": "const POLL_MAX_ATTEMPTS = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/hooks/useOtpVerification.ts": [
+   {
+    "line": 11,
+    "text": "const POLL_MAX_ATTEMPTS = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/hooks/useServiceCentreCandidates.ts": [
+   {
+    "line": 33,
+    "text": "export function useServiceCentreCandidates(minProgress = 50, limit = 15, offset = 0) {",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ],
+  "src/hooks/wallet/usePartnerWalletHub.ts": [
+   {
+    "line": 39,
+    "text": "const PAGE_SIZE = 15;",
+    "reason": "numeric non-rate (limit, size, timeout, phone length, UI scale or sound)"
+   }
+  ]
+ },
+ "words": {
+  "supabase/functions/_shared/nexaGuides.ts": [
+   {
+    "line": 193,
+    "text": "return /\\b(?:loans?|credit|collateral|micro[ -]?(?:payments?|investing|investment)|mobile money|digital wallets?|passive (?:returns|income)|savings?|supporter partnerships?|asset financ(?:e|ing)|buy[ -]now[ -]pay[ -]later|bnpl|smartphones?|solar(?: kits?)?|electric (?:motor)?bikes?|working capital|business advances?|agent advances?|insurance|school fees|medical access|financial (?:access|inclusion|products?|services?)|budgeting|interest rates?)\\b/i.test(raw);",
+    "reason": "pre-existing intent regex (matches what people type)"
+   }
+  ],
+  "supabase/functions/process-supporter-roi/index.ts": [
+   {
+    "line": 332,
+    "text": "transactionId: `ROI-${rr.id.slice(0, 8).toUpperCase()}-${paymentNumber}`,",
+    "reason": "pre-existing identifier ('ROI-' transaction prefix, kept per section 3.8)"
+   },
+   {
+    "line": 355,
+    "text": "transactionId: `ROI-${rr.id.slice(0, 8).toUpperCase()}-${paymentNumber}`,",
+    "reason": "pre-existing identifier ('ROI-' transaction prefix, kept per section 3.8)"
+   },
+   {
+    "line": 437,
+    "text": "`ROI date ${effectiveNextRoiDateOnly((portfolio as any).next_roi_date, (portfolio as any).created_at, (portfolio as any).payout_day)} ` +",
+    "reason": "pre-existing log/internal text in the disabled inline top-up merge path"
+   },
+   {
+    "line": 533,
+    "text": "description: `Auto-merged ${pendingOps.length} pending top-up(s) into ${accountLabel} at ROI cycle`,",
+    "reason": "pre-existing log/internal text in the disabled inline top-up merge path"
+   }
+  ],
+  "supabase/functions/agent-assistant/prompt.ts": [
+   {
+    "line": 105,
+    "text": "- Say \"Rent Plan\", never \"loan\". Say \"Supporter\", never \"lender\". Say \"Returns\", never \"ROI\" or \"interest\". Say \"no extra charges\" instead of \"no interest\". Refer to agent advances as \"advances\". Call the person a \"partner\" and their investments \"portfolios\"; top-ups, renewals and maturity are the right words for those events. If the user types a banned word, answer using the approved word instead.`;",
+    "reason": "pre-existing in origin/lovable: identifier, internal doc or terminology instruction"
+   }
+  ],
+  "supabase/functions/send-system-context/doc.ts": [
+   {
+    "line": 31,
+    "text": "Regulatory terminology is mandatory (BOU/CMA) in user-facing copy: *Rent Plan* (not loan), *Supporter* (not lender), *Returns* (not ROI).",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 160,
+    "text": "- **UI:** \\`/record-rent\\`, agent collection queue, \\`/payment-schedule\\`, \\`/my-loans\\`.",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 212,
+    "text": "\\`/cfo/dashboard\\` plus \\`/cfo/investor-report\\`, \\`/cfo/money-flow-trace\\`, \\`/cfo/ledger/:id\\`, \\`/cfo/phantom-drift/:userId\\`. Tools: CFO Direct Credit/Debit (\\`cfo-direct-credit\\`), advance payment recording, credit-draw approval (\\`cfo-approve-credit-draw\\`), and reconciliation panels (phantom drift, anchored cache drift, withdrawable drift alerts, ledger group imbalances, duplicate ROI monitor, SMS verification monitor).",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 433,
+    "text": "- \\`process-agent-advance-deductions\\` daily at 18:00 EAT applies the scheduled installment and interest. **Missing a day does not increase the outstanding**; it is recorded as arrears.",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 451,
+    "text": "3. The 15-min sweep adds no interest (that would double-count the daily cron).",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 456,
+    "text": "# 7. ROI (Returns) Engine",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 484,
+    "text": "- **Idempotency per cycle** — \\`mem/business-model/roi-cycle-idempotency.md\\`; duplicates are caught by the duplicate ROI credit monitor.",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 602,
+    "text": "| Weekly / monthly | \\`landlord-monthly-payout\\`, \\`apply-welile-homes-monthly-interest\\`, \\`apply-scheduled-portfolio-renewals\\`, backup runs, log pruning (7-day retention), SEO scans |",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 673,
+    "text": "- **Tenant** — \\`/dashboard\\`, \\`/my-loans\\`, \\`/payment-schedule\\`, \\`/wallet\\`, \\`/wishlist\\`, \\`/chat\\`.",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 741,
+    "text": "- **Financial monitors:** phantom drift, anchored cache drift, withdrawable drift alerts, ledger group imbalance alerts, duplicate ROI credit monitor, deposit match/bridge gap alerts, credit limit reconciliation alerts, CFO threshold alerts, bulk payout stuck alerts.",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 795,
+    "text": "| **Rent Plan** | The financing product (never call it a loan). |",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 796,
+    "text": "| **Supporter** | A retail funder/partner supplying capital (never \"lender\"). |",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 797,
+    "text": "| **Returns** | Payout to Supporters (never \"ROI\" in user-facing copy). |",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   },
+   {
+    "line": 820,
+    "text": "| **Vouch** | Welile guaranteeing a borrower up to their trust-score limit with a lender partner. |",
+    "reason": "pre-existing internal system-context doc (staff/AI context, not partner copy)"
+   }
+  ],
+  "supabase/functions/mcp-public/index.ts": [
+   {
+    "line": 276,
+    "text": "a: \"Become a Supporter: your funds help tenants access rent, and you earn periodic Returns. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)\",",
+    "reason": "pre-existing in origin/lovable: identifier, internal doc or terminology instruction"
+   },
+   {
+    "line": 379,
+    "text": "explanation: \"As a Supporter your funds help tenants access rent, and you earn periodic Returns in UGX. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)\",",
+    "reason": "pre-existing in origin/lovable: identifier, internal doc or terminology instruction"
+   },
+   {
+    "line": 844,
+    "text": "description: \"Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)\",",
+    "reason": "Phase 4: terminology instruction to the model ('Supporter, not lender; Returns, not interest')"
+   },
+   {
+    "line": 1480,
+    "text": "\"Terminology: Supporter, not lender; Returns, not interest.\"",
+    "reason": "pre-existing in origin/lovable: identifier, internal doc or terminology instruction"
+   },
+   {
+    "line": 1493,
+    "text": "supporter: [\"supporter\", \"support\", \"invest\", \"investor\", \"funder\", \"returns\", \"lender\"]",
+    "reason": "pre-existing in origin/lovable: identifier, internal doc or terminology instruction"
+   }
+  ],
+  "src/lib/mcp-public/tools/estimate-supporter-returns.ts": [
+   {
+    "line": 55,
+    "text": "\"Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)\",",
+    "reason": "Phase 4: terminology instruction to the model ('Supporter, not lender; Returns, not interest')"
+   }
+  ],
+  "supabase/functions/approve-portfolio-topup/index.ts": [
+   {
+    "line": 365,
+    "text": "description: `Verified deposit of UGX ${externalTotal.toLocaleString()} for \"${accountLabel}\" (${portfolio.portfolio_code}). Parked until next ROI cycle.`,",
+    "reason": "Unchanged origin/lovable text (Phase 4 fix round touched only the email recipient in this file). Platform-scope ledger description; reported as a follow-up rename (ROI cycle -> Returns cycle)."
+   },
+   {
+    "line": 408,
+    "text": "note: \"Funds parked — will merge into principal at next ROI payout cycle\",",
+    "reason": "Unchanged origin/lovable text (Phase 4 fix round touched only the email recipient in this file). Pending-operation metadata note for staff; reported as a follow-up rename."
+   },
+   {
+    "line": 501,
+    "text": "note: \"Funds verified & parked. Will merge into active capital at next ROI payout.\",",
+    "reason": "Unchanged origin/lovable text (Phase 4 fix round touched only the email recipient in this file). Response note to the approving staff member; reported as a follow-up rename."
+   }
+  ]
+ }
+}

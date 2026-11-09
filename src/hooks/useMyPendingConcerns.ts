@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 /**
  * Concerns forwarded to the signed-in person that they have not yet seen.
  *
@@ -46,7 +47,7 @@ export function useMyPendingConcerns(enabled = true) {
     retry: (failureCount, error) => failureCount < 1 && !isUnauthenticatedRpcError(error),
     queryFn: async (): Promise<PendingConcern[]> => {
       await requireUserSession();
-      const { data, error } = await anyDb.rpc('cc_my_pending_concerns');
+      const { data, error } = await withUserSession(() => anyDb.rpc('cc_my_pending_concerns'));
       if (isUnauthenticatedRpcError(error)) throw new AuthRequiredError(error.message);
       if (error) throw new Error(error.message);
       return (data ?? []) as PendingConcern[];

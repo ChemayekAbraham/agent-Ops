@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -266,10 +267,10 @@ export function FundedTenantsList() {
         ]),
       );
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone, country')
-          .in('id', ids);
+          .in('id', validIds));
         const map = new Map((profs ?? []).map((p) => [p.id, p]));
         list.forEach((r) => {
           r.agent_profile = (map.get(r.agent_id) as any) ?? null;

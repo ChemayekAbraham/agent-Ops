@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +48,7 @@ export function IdleTenantsPanel() {
       const rows = (data ?? []) as IdleRow[];
       const ids = Array.from(new Set(rows.flatMap((r) => [r.tenant_id, r.agent_id])));
       if (ids.length === 0) return rows;
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const nameById = new Map((profiles ?? []).map((p: any) => [p.id, p.full_name]));
       return rows.map((r) => ({
         ...r,

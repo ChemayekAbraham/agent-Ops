@@ -23,4 +23,4 @@ export const AGENT_KNOWLEDGE = `HOW AGENTS EARN (facts you may state)
 - Tenant agent commission is 8% of Gross: 6% sub-agent and 2% general agent. Worked example, rent UGX 100,000: Gross UGX 142,772, Daily UGX 4,760, sub-agent UGX 8,566, general agent UGX 2,855.
 - A Proxy Agent (Platform Sales Officer) who onboarded the partner is paid once, 2% of the rent amount, from the Cover Pool's first cycle, not from Welile's 7%. At UGX 100,000 that fee is UGX 2,000 and the Cover Pool keeps UGX 885 of its UGX 2,885 cycle contribution.
 - Welile's share stays 7% of Gross. Tithe is 10% of that 7%. At UGX 100,000 Welile's 7% is UGX 9,994, tithe UGX 999, Welile keeps UGX 8,995.
-- Partner Returns target 15%, not guaranteed.`;
+- A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.`;

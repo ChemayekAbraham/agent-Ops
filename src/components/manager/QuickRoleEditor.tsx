@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -78,7 +79,7 @@ export function QuickRoleEditor({ userId, userName, userAvatar, onRoleChange }: 
         // Plain client-side insert so the audit_logs IP-capture trigger
         // sees the real browser IP directly.
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: 'role_granted',
@@ -123,7 +124,7 @@ export function QuickRoleEditor({ userId, userName, userAvatar, onRoleChange }: 
         // change, not logged before this. Plain client-side insert so the
         // audit_logs IP-capture trigger sees the real browser IP directly.
         try {
-          const { data: { user: actor } } = await supabase.auth.getUser();
+          const { data: { user: actor } } = await getSessionCheckedUser();
           await supabase.from('audit_logs').insert({
             user_id: actor?.id ?? null,
             action_type: enabled ? 'role_enabled' : 'role_disabled',

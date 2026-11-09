@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -62,14 +64,16 @@ const StatusPill = ({
 );
 
 export function SupportedHouseReturnsSection() {
+  const authenticatedReady = useAuthenticatedAudience();
   const queryClient = useQueryClient();
 
 
 
   const { data, isLoading, error } = useQuery({
+    enabled: authenticatedReady,
     queryKey: ['partner-supported-house-returns'],
     queryFn: async (): Promise<SupportedHouseReturnsPayload> => {
-      const { data, error } = await supabase.rpc('partner_supported_house_returns');
+      const { data, error } = await withUserSession(() => supabase.rpc('partner_supported_house_returns'));
       if (error) throw error;
       return (data as unknown as SupportedHouseReturnsPayload) ?? {
         houses: [],

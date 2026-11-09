@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -1296,7 +1297,7 @@ function UndoBanner() {
   const q = useQuery({
     queryKey: ['undo-eligible-job'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) return null;
       const cutoff = new Date(Date.now() - UNDO_WINDOW_MIN * 60_000).toISOString();
       const res = await supabase

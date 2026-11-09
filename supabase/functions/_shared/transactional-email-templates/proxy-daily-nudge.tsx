@@ -12,6 +12,8 @@ interface ProxyDailyNudgeProps {
   notes_month?: number
   monthly_note_target?: number
   available_income?: number
+  /** The public new-partner Returns rate (get_partner_return_policy). No default: missing -> no bullet. */
+  partner_rate?: number | null
   app_url?: string
 }
 
@@ -25,9 +27,14 @@ export function ProxyDailyNudgeEmail({
   notes_month = 0,
   monthly_note_target = 1200,
   available_income = 2000000,
+  partner_rate = null,
   app_url = 'https://welileapp.com/agent/proxy-agents',
 }: ProxyDailyNudgeProps) {
   const remaining = Math.max(daily_min - notes_today, 0)
+  const rateNum = Number(partner_rate)
+  const rate = partner_rate !== null && partner_rate !== undefined && Number.isFinite(rateNum) && rateNum > 0
+    ? Math.round(rateNum * 100) / 100
+    : null
   return (
     <Html>
       <Head />
@@ -44,7 +51,9 @@ export function ProxyDailyNudgeEmail({
 
           <Section style={infoBox}>
             <Text style={infoLabel}>Why they will say yes</Text>
-            <Text style={bullet}>• They earn 15% of the rent they contribute, every month.</Text>
+            {rate !== null && (
+              <Text style={bullet}>• New partners earn {rate}% Returns a month on the rent they contribute.</Text>
+            )}
             <Text style={bullet}>• Their money supports a real tenant in a real house, not an idea.</Text>
             <Text style={bullet}>• A promissory note costs them nothing today — it is a commitment, not a payment.</Text>
           </Section>

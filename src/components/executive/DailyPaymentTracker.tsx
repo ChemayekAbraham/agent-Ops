@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { TenantOpsReportToolbar } from './TenantOpsReportToolbar';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
@@ -193,7 +194,7 @@ export function DailyPaymentTracker() {
       // Batched — a hard slice(0, 200) left most tenants nameless.
       const batches = await Promise.all(
         chunkIds(allUserIds).map(ids =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', ids),
+          withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         ),
       );
       return batches.flatMap(b => b.data || []);

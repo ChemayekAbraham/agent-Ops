@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,10 +43,10 @@ export function ManagerApprovalAudit() {
     queryKey: ['approval-audit-profiles', reviewerIds],
     enabled: reviewerIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await withUuidIds(reviewerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', reviewerIds);
+        .in('id', validIds));
       if (error) throw error;
       return data || [];
     },

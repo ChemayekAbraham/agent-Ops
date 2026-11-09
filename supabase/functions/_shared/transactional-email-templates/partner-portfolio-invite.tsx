@@ -9,7 +9,8 @@ interface PartnerPortfolioInviteProps {
   portfolio_code?: string
   amount?: string | number
   duration_months?: number
-  roi_percentage?: number
+  /** The stored rate. No default: missing -> no rate shown (it used to print "0% p.m."). */
+  roi_percentage?: number | null
   roi_mode?: string
   completion_url?: string
   currency?: string
@@ -35,7 +36,7 @@ export function PartnerPortfolioInvite({
   portfolio_code = '',
   amount = 0,
   duration_months = 12,
-  roi_percentage = 0,
+  roi_percentage = null,
   roi_mode = 'monthly_payout',
   completion_url = 'https://welileapp.com',
   currency = 'UGX',
@@ -121,7 +122,7 @@ export function PartnerPortfolioInvite({
                                 <tr>
                                   <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
                                     <Text style={fieldLabel}>Returns</Text>
-                                    <Text style={{ ...fieldValueSub, color: '#7b19d4', fontWeight: 700 }}>{roi_percentage}% p.m.</Text>
+                                    <Text style={{ ...fieldValueSub, color: '#7b19d4', fontWeight: 700 }}>{Number(roi_percentage) > 0 ? `${Math.round(Number(roi_percentage) * 100) / 100}% p.m.` : '—'}</Text>
                                   </td>
                                   <td width="50%" valign="top" className="td-block" style={{ paddingBottom: '20px' }}>
                                     <Text style={fieldLabel}>Payout Mode</Text>

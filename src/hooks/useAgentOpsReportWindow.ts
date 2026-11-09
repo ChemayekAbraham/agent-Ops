@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -275,7 +276,7 @@ export function useAgentOpsReportWindow(granularity: AgentOpsGranularity) {
       const staffUserIds = staffRows.map((row) => row.user_id).filter((value): value is string => Boolean(value));
       const nameIds = Array.from(new Set([...authorIds, ...staffUserIds]));
       const { data: nameRows } = nameIds.length
-        ? await supabase.from('profiles').select('id, full_name').in('id', nameIds)
+        ? await withUuidIds(nameIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
         : { data: [] as { id: string; full_name: string | null }[] };
       const names = new Map<string, string | null>(
         ((nameRows ?? []) as { id: string; full_name: string | null }[]).map((row) => [row.id, row.full_name]),

@@ -22,9 +22,12 @@ export interface PartnerWalletHubData {
   withdrawableAmount: number;
   floatAmount: number;
   advanceAmount: number;
-  roiAmount: number;
+  /** Returns bucket; null when the viewer may not see another person's Returns (migration 4b, D9). */
+  roiAmount: number | null;
   depositsAmount: number;
-  totalAvailable: number;
+  /** withdrawable + float + Returns earned; null with roiAmount (migration 4b, D9), because a
+   *  visible total would give the masked Returns back by subtraction. */
+  totalAvailable: number | null;
   pendingHolds: number;
   restrictedHeld: number;
   transactions: PartnerWalletHubRow[];
@@ -65,9 +68,11 @@ export async function fetchPartnerWalletHub(
     withdrawableAmount: Number(row.withdrawable_amount ?? 0),
     floatAmount: Number(row.float_amount ?? 0),
     advanceAmount: Number(row.advance_amount ?? 0),
-    roiAmount: Number(row.roi_amount ?? 0),
+    // A masked value stays null (never shown as 0 Returns).
+    roiAmount: row.roi_amount == null ? null : Number(row.roi_amount),
     depositsAmount: Number(row.deposits_amount ?? 0),
-    totalAvailable: Number(row.total_available ?? 0),
+    // Masked with roi_amount (4b): stays null, never shown as a 0 total.
+    totalAvailable: row.total_available == null ? null : Number(row.total_available),
     pendingHolds: Number(row.pending_holds ?? 0),
     restrictedHeld: Number(row.restricted_held ?? 0),
     transactions: (row.recent_transactions ?? []) as unknown as PartnerWalletHubRow[],

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,10 +73,10 @@ export function MismatchMetricsPanel() {
         new Set(rows.map((r) => r.user_id).filter((x): x is string => !!x))
       );
       if (userIds.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id,full_name')
-          .in('id', userIds);
+          .in('id', validIds));
         const map: Record<string, string | null> = {};
         (profs ?? []).forEach((p: { id: string; full_name: string | null }) => {
           map[p.id] = p.full_name;

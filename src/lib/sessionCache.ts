@@ -1,6 +1,7 @@
 // Persistent session cache for instant auth state on app load
 // Uses localStorage for persistence across browser restarts
 // Cache is refreshed in background without affecting user activity
+import { clearTrustProfileCaches } from './trustProfileCache';
 
 // supabase-js stores the session under `sb-<project-ref>-auth-token`; the ref comes from the configured URL so the key
 // follows the project (the previous project's key is cleared too, for browsers that still hold it).
@@ -99,6 +100,9 @@ export function clearSessionCache(): void {
   } catch {
     // Ignore
   }
+  // Every sign-out path calls this (button, SIGNED_OUT, ended or rejected session): the trust profiles
+  // this viewer fetched (their view, possibly with figures others may not see) leave the device too.
+  clearTrustProfileCaches();
 }
 
 /**

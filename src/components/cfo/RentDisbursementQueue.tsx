@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -207,10 +208,10 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       const profileMap = new Map<string, string>();
       const tenantLocMap = new Map<string, any>();
       if (allUserIds.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(allUserIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, town, city, sub_county, parish, village, region, district, tenant_house_category')
-          .in('id', allUserIds);
+          .in('id', validIds));
         for (const p of profiles || []) {
           profileMap.set(p.id, (p as any).full_name || 'Unknown');
           tenantLocMap.set(p.id, p);

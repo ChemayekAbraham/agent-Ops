@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -174,10 +175,10 @@ export function CTOKycLevelPanel() {
     queryKey: ['cto-id-exceptions-active-profiles', activeUserIds.join(',')],
     enabled: activeUserIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabase
+      const { data } = await withUuidIds(activeUserIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, email')
-        .in('id', activeUserIds);
+        .in('id', validIds));
       return (data || []) as ProfileRow[];
     },
   });

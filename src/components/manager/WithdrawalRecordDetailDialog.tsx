@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +83,7 @@ export default function WithdrawalRecordDetailDialog({ requestId, open, onOpenCh
 
         const [profRes, auditRes] = await Promise.all([
           ids.size
-            ? supabase.from('profiles').select('id, full_name, phone').in('id', Array.from(ids))
+            ? withUuidIds(Array.from(ids), (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
             : Promise.resolve({ data: [] as any[] }),
           supabase
             .from('audit_logs')

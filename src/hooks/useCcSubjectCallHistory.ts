@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Call history for ONE calling subject.
  *
@@ -106,7 +107,7 @@ export function useCcSubjectCallHistory(
       const officerIds = [...new Set(list.map((a) => a.caller_id).filter(Boolean))] as string[];
       const officerMap = new Map<string, string>();
       if (officerIds.length) {
-        const { data: people } = await client.from('profiles').select('id, full_name').in('id', officerIds);
+        const { data: people } = await withUuidIds(officerIds, (validIds) => client.from('profiles').select('id, full_name').in('id', validIds));
         ((people || []) as { id: string; full_name: string | null }[]).forEach((p) => {
           if (p.full_name) officerMap.set(p.id, p.full_name);
         });

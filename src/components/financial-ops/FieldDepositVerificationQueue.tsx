@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -156,10 +157,10 @@ export function FieldDepositVerificationQueue({
       );
       const profileMap = new Map<string, { full_name: string | null }>();
       if (profileIds.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(profileIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', profileIds);
+          .in('id', validIds));
         for (const p of (profs ?? []) as any[]) profileMap.set(p.id, p);
       }
 
@@ -282,10 +283,10 @@ export function FieldDepositVerificationQueue({
     const nameMap = new Map<string, string | null>();
     for (const [k, v] of inMemoryNameMap) nameMap.set(k, v);
     if (ids.length > 0) {
-      const { data: profs } = await supabase
+      const { data: profs } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', ids);
+        .in('id', validIds));
       for (const p of (profs ?? []) as any[]) nameMap.set(p.id, p.full_name);
     }
 

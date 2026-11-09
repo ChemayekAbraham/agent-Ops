@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -64,7 +65,7 @@ export default function ApplicantCommsLog({ applicationId, whatsappNumber, email
 
   const logComm = useCallback(async (channel: 'whatsapp' | 'email', message: string | null) => {
     const wasEmpty = (count ?? 0) === 0;
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     const { data, error } = await (supabase.from('job_application_communications' as any) as any)
       .insert({
         application_id: applicationId,

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,7 +35,7 @@ export function CancelledProxyWithdrawals() {
     queryKey: ['cancelled-proxy-profiles', userIds.join(',')],
     queryFn: async () => {
       if (userIds.length === 0) return [];
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', userIds);
+      const { data } = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       return data || [];
     },
     enabled: userIds.length > 0,

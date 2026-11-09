@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -79,10 +80,10 @@ export function CFOWelileHomesDisbursementDesk() {
       if (welileRows.length === 0) return [];
 
       const agentIds = Array.from(new Set(welileRows.map((r) => r.agent_id).filter(Boolean)));
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 

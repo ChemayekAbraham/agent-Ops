@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -184,7 +185,7 @@ export function ProxyDebitBreakdownDialog({ partner, proxy, children, onChanged 
 
       // 3. Persist a reversal marker so the row stays corrected across reloads.
       try {
-        const { data: me } = await supabase.auth.getUser();
+        const { data: me } = await getSessionCheckedUser();
         let routedByName: string | null = null;
         if (me?.user?.id) {
           const { data: rp } = await (supabase.from('profiles') as any)

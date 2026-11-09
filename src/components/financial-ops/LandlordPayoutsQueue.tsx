@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,10 +113,10 @@ export function LandlordPayoutsQueue() {
       const ids = Array.from(new Set([...agentIds, ...tenantIds]));
 
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
 
         const map = new Map((profs ?? []).map(p => [p.id, p]));
         rows.forEach(r => {
@@ -227,7 +229,7 @@ export function LandlordPayoutsQueue() {
     }
     setSubmitting(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('landlord_payouts')
         .update({
@@ -320,7 +322,7 @@ export function LandlordPayoutsQueue() {
       });
       if (refundErr) throw refundErr;
 
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       await supabase
         .from('landlord_payouts')
         .update({

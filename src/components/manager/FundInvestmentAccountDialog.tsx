@@ -119,7 +119,7 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
         if (proxyRes.data?.agent_id) {
           // Fetch agent profile + wallet
           const [profileRes, agentWalletRes] = await Promise.all([
-            supabase.from('profiles').select('full_name').eq('id', proxyRes.data.agent_id).single(),
+            supabase.from('profiles').select('full_name').eq('id', proxyRes.data.agent_id).maybeSingle(),
             supabase.from('wallets').select('withdrawable_balance, float_balance').eq('user_id', proxyRes.data.agent_id).maybeSingle(),
           ]);
           setProxyAgent({

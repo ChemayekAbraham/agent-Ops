@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { useNavigate } from 'react-router-dom';
@@ -52,7 +53,7 @@ export default function NewPartnerRequestsDetail() {
       const ids = monthRequests.map(r => r.user_id);
       let profileMap = new Map<string, { name: string; email: string; phone: string }>();
       if (ids.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name, email, phone').in('id', ids.slice(0, 50));
+        const { data: profiles } = await withUuidIds(ids.slice(0, 50), (validIds) => supabase.from('profiles').select('id, full_name, email, phone').in('id', validIds));
         profileMap = new Map((profiles || []).map(p => [p.id, { name: p.full_name, email: p.email, phone: p.phone }]));
       }
 

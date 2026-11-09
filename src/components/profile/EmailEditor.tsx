@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -97,7 +98,7 @@ export default function EmailEditor({ mode, userId, currentEmail, onSaved }: Pro
     setSaving(true);
     const { error } = await supabase.from('profiles').update({ email: parsed.data }).eq('id', userId);
     if (error) { toast.error('Failed: ' + error.message); setSaving(false); return; }
-    const { data: { user: actor } } = await supabase.auth.getUser();
+    const { data: { user: actor } } = await getSessionCheckedUser();
     if (actor) {
       await supabase.from('agent_managed_user_actions').insert({
         agent_id: actor.id, user_id: userId, action_type: 'email_updated',

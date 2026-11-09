@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -67,10 +68,10 @@ function useStaffOptions() {
       const userIds = rows.map((r) => r.user_id).filter((id): id is string => Boolean(id));
       const names = new Map<string, string>();
       if (userIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', userIds);
+          .in('id', validIds));
         (profiles ?? []).forEach((p) => {
           if (p.full_name) names.set(p.id, p.full_name);
         });

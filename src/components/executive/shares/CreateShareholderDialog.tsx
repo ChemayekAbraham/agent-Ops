@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,7 +37,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     queryFn: async () => {
       const [{ rows, error }, { data: authData }] = await Promise.all([
         searchProfilesTypeahead(debounced, { limit: 8, columns: 'id, full_name, phone, email' }),
-        supabase.auth.getUser(),
+        getSessionCheckedUser(),
       ]);
       if (error) throw new Error(error);
       const currentUserId = authData.user?.id;
@@ -66,7 +67,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     staleTime: 0,
     retry: 1,
     queryFn: async () => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       if (!auth.user) return 0;
       const { data, error } = await supabase.rpc('get_user_float_available_balance', { p_user_id: auth.user.id });
       if (error) throw error;

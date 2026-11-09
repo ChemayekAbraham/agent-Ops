@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
 
         result = { success: true, new_maturity: newMaturity.toISOString() };
         emailSubject = `🔄 Account Renewed: ${accountName}`;
-        emailBody = `Hi ${supporterName},\n\nYour support account "${accountName}" has been renewed for another 12 months.\n\n• New Maturity: ${newMaturity.toLocaleDateString("en-UG", { year: "numeric", month: "long", day: "numeric" })}\n• ROI Rate: ${portfolio.roi_percentage}%\n• Capital: UGX ${Number(portfolio.investment_amount).toLocaleString()}\n\nYour earned rewards counter has been reset for this new cycle. Thank you for your continued support!\n\n— Welile Technologies`;
+        emailBody = `Hi ${supporterName},\n\nYour support account "${accountName}" has been renewed for another 12 months.\n\n• New Maturity: ${newMaturity.toLocaleDateString("en-UG", { year: "numeric", month: "long", day: "numeric" })}\n• Returns rate: ${portfolio.roi_percentage}%\n• Capital: UGX ${Number(portfolio.investment_amount).toLocaleString()}\n\nYour earned rewards counter has been reset for this new cycle. Thank you for your continued support!\n\n— Welile Technologies`;
         break;
       }
 
@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
         emailBody = `Hi ${supporterName},\n\nYour support account "${accountName}" has been switched to ${modeLabel} mode.\n\n${newMode === "compound"
           ? "• Compounding: Your monthly rewards are automatically reinvested, growing your capital each month."
           : "• Simple: Your monthly rewards are paid out to your wallet each cycle without reinvestment."
-        }\n\n• ROI Rate: ${portfolio.roi_percentage}%\n• Current Capital: UGX ${Number(portfolio.investment_amount).toLocaleString()}\n\nThis change takes effect from your next payout cycle.\n\n— Welile Technologies`;
+        }\n\n• Returns rate: ${portfolio.roi_percentage}%\n• Current Capital: UGX ${Number(portfolio.investment_amount).toLocaleString()}\n\nThis change takes effect from your next payout cycle.\n\n— Welile Technologies`;
         break;
       }
 
