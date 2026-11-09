@@ -36835,6 +36835,13 @@ export type Database = {
           created_at: string
           desk_id: string
           excess_amount: number
+          excess_resolution: string | null
+          excess_resolution_group_id: string | null
+          excess_resolution_reason: string | null
+          excess_resolved_amount: number | null
+          excess_resolved_at: string | null
+          excess_resolved_bucket: string | null
+          excess_resolved_by: string | null
           float_after: number | null
           float_before: number | null
           gmail_transaction_id: string
@@ -36851,6 +36858,13 @@ export type Database = {
           created_at?: string
           desk_id: string
           excess_amount?: number
+          excess_resolution?: string | null
+          excess_resolution_group_id?: string | null
+          excess_resolution_reason?: string | null
+          excess_resolved_amount?: number | null
+          excess_resolved_at?: string | null
+          excess_resolved_bucket?: string | null
+          excess_resolved_by?: string | null
           float_after?: number | null
           float_before?: number | null
           gmail_transaction_id: string
@@ -36867,6 +36881,13 @@ export type Database = {
           created_at?: string
           desk_id?: string
           excess_amount?: number
+          excess_resolution?: string | null
+          excess_resolution_group_id?: string | null
+          excess_resolution_reason?: string | null
+          excess_resolved_amount?: number | null
+          excess_resolved_at?: string | null
+          excess_resolved_bucket?: string | null
+          excess_resolved_by?: string | null
           float_after?: number | null
           float_before?: number | null
           gmail_transaction_id?: string
