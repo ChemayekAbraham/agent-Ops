@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, canInstallSignage, hasDeviceSignageGps, hasInstalledSignagePhoto, SignagePhoto } from '@/lib/welileSignages';
+import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, hasDeviceSignageGps, SignagePhoto } from '@/lib/welileSignages';
 import { readStoredAuthSession, isSessionPastMaxAge } from '@/lib/sessionCache';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
@@ -286,47 +286,6 @@ export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
   });
 }
 
-export function useVerifyInstallation() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      signageId,
-      installerName,
-      installedAt,
-      verificationNotes,
-      installationPhotos,
-    }: {
-      signageId: string;
-      installerName: string;
-      installedAt: string;
-      verificationNotes?: string;
-      installationPhotos: SignagePhoto[];
-    }) => {
-      if (!hasInstalledSignagePhoto(installationPhotos)) throw new Error('Add a photo of the installed board before activating billing.');
-      const { data: current, error: readError } = await db().from('welile_signages').select('id,status').eq('id', signageId).maybeSingle();
-      if (readError) throw new Error(readError.message);
-      if (!current || !canInstallSignage(current.status)) throw new Error('This application is not awaiting installation verification.');
-      // verified_by / verified_at / activated_at are stamped by the server.
-      const { data: saved, error } = await db().from('welile_signages').update({
-        status: 'awaiting_cfo',
-        installed_at: installedAt,
-        installer_name: installerName,
-        verification_notes: verificationNotes || null,
-        installation_photos: installationPhotos,
-      }).eq('id', signageId).eq('status', current.status).select('id,status').maybeSingle();
-      if (error) throw new Error(error.message);
-      if (saved?.status !== 'awaiting_cfo') throw new Error('Installation could not be confirmed. Refresh the queue.');
-      return { signageId };
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Installation verified. Awaiting CFO payment of the agent reward and first owner rent.');
-    },
-    onError: (err: Error) => toast.error('Could not mark installed: ' + err.message),
-  });
-}
-
 export function useResubmitSignage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -399,8 +358,7 @@ export function useCfoDisburseSignage() {
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
       toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
-        : data.status === 'installation_in_progress' ? 'Payment credited. Installation in progress; the agent will be asked for installation photos.'
-          : data.status === 'active' ? 'Payment credited to Welile wallet.'
+        : data.status === 'active' ? 'Payment credited. The signage is now Active.'
           : 'Payment credited to Welile wallet. Awaiting the remaining CFO payment.');
     },
     onError: (err: any) => toast.error(err.message),
@@ -421,75 +379,5 @@ export function useDeleteSignage() {
       toast.success('Signage application cancelled.');
     },
     onError: (err: any) => toast.error('Could not cancel: ' + (err.message || 'Unknown error')),
-  });
-}
-
-export interface SignageInstallationDue {
-  id: string; reference_no: string; property_name: string;
-  installation_started_at: string; installation_decline_reason: string | null;
-}
-
-/** Signages the signed-in agent must photograph (24h after CFO payment, or immediately after a decline). */
-export function useMySignageInstallationsDue(enabled = true) {
-  const userId = useSignageQueryUser();
-  return useQuery({
-    queryKey: ['welile-signages', 'installations-due', userId], enabled: enabled && !!userId,
-    staleTime: 15_000, refetchInterval: 30_000,
-    queryFn: async (): Promise<SignageInstallationDue[]> => {
-      const { data, error } = await db().rpc('my_signage_installations_due');
-      if (error) throw new Error(error.message);
-      return data ?? [];
-    },
-  });
-}
-
-export function useMyProfileName() {
-  const userId = useSignageQueryUser();
-  return useQuery({
-    queryKey: ['welile-signages', 'profile-name', userId], enabled: !!userId, staleTime: 10 * 60_000,
-    queryFn: async (): Promise<string> => {
-      const { data } = await db().from('profiles').select('full_name').eq('id', userId).maybeSingle();
-      return (data?.full_name ?? '').trim();
-    },
-  });
-}
-
-export function useSubmitSignageInstallation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { signageId: string; installedAt: string; photoUrl: string; note?: string }) => {
-      const { data, error } = await withUserSession(() => db().rpc('agent_submit_signage_installation', {
-        p_signage_id: args.signageId, p_installed_at: args.installedAt, p_photo_url: args.photoUrl, p_note: args.note || null,
-      }));
-      if (error) throw new Error(error.message);
-      if (data?.status !== 'installation_verification') throw new Error('Submission could not be confirmed. Refresh.');
-      return data;
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Installation photos sent to Agent Ops for review.');
-    },
-    onError: (err: Error) => toast.error('Could not submit: ' + err.message),
-  });
-}
-
-export function useDecideInstallation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (args: { signageId: string; approve: boolean; reason?: string }) => {
-      if (!args.approve && (args.reason ?? '').trim().length < 10) throw new Error('Give a reason of at least 10 characters.');
-      const { data, error } = await withUserSession(() => db().rpc('ops_decide_signage_installation', {
-        p_signage_id: args.signageId, p_approve: args.approve, p_reason: args.reason?.trim() || null,
-      }));
-      if (error) throw new Error(error.message);
-      const expected = args.approve ? 'active' : 'installation_in_progress';
-      if (data?.status !== expected) throw new Error('The decision could not be confirmed. Refresh.');
-      return data;
-    },
-    onSuccess: async (_d, args) => {
-      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success(args.approve ? 'Installed Successfully. The signage is now active.' : 'Declined. The agent will be asked to submit new photos.');
-    },
-    onError: (err: Error) => toast.error(err.message),
   });
 }

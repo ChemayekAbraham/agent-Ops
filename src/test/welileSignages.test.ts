@@ -6,7 +6,6 @@ import {
   type SignagePropertyType,
   signageReviewTarget,
   canReviewSignage,
-  canInstallSignage,
   hasDeviceSignageGps,
   hasInstalledSignagePhoto,
   signagePipelineRecords,
@@ -31,10 +30,6 @@ describe('Welile Signages business rules & configuration', () => {
   });
   it('routes COO approval straight to the CFO', () => {
     expect(signageReviewTarget('approve', 'coo')).toBe('awaiting_cfo');
-  });
-  it('blocks installation while awaiting COO', () => {
-    expect(canInstallSignage('awaiting_coo')).toBe(false);
-    expect(canInstallSignage('installation_verification')).toBe(true);
   });
   it('only allows COO decisions on applications awaiting COO', () => {
     expect(canReviewSignage('awaiting_coo', 'coo')).toBe(true);
@@ -87,7 +82,12 @@ describe('Welile Signages business rules & configuration', () => {
   });
 });
 
-import { SIGNAGE_PROMPT_REPEAT_MS } from '@/lib/welileSignages';
-describe('Signage installation reminder', () => {
-  it('repeats every 30 seconds', () => { expect(SIGNAGE_PROMPT_REPEAT_MS).toBe(30_000); });
+import { canPaySignage } from '@/lib/welileSignages';
+describe('COO approval goes straight to CFO payment', () => {
+  it('lets the CFO pay a COO-approved signage without any installation verification', () => {
+    expect(canPaySignage({ status: 'awaiting_cfo', coo_approved_at: '2026-11-09T10:00:00Z' } as never)).toBe(true);
+  });
+  it('does not let the CFO pay before COO approval', () => {
+    expect(canPaySignage({ status: 'awaiting_coo', coo_approved_at: null } as never)).toBe(false);
+  });
 });

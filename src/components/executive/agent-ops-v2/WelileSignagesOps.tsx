@@ -14,11 +14,9 @@ import {
   Building2,
   Calendar,
   ExternalLink,
-  ShieldCheck,
   Clock,
   Eye,
   Loader2,
-  FileCheck,
   RefreshCw,
   Store,
   Home,
@@ -38,9 +36,8 @@ import {
   SignageStatus,
   formatSignageStatus,
   canReviewSignage,
-  canInstallSignage,
 } from '@/lib/welileSignages';
-import { useSignageOpsQueue, useReviewSignage, useDecideInstallation } from '@/hooks/useWelileSignages';
+import { useSignageOpsQueue, useReviewSignage } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
 
 interface WelileSignagesOpsProps {
@@ -51,7 +48,6 @@ interface WelileSignagesOpsProps {
 export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignagesOpsProps) {
   const { data: signages = [], isLoading, isError, error, refetch, isFetching } = useSignageOpsQueue();
   const reviewMutation = useReviewSignage(stage);
-  const decideMutation = useDecideInstallation();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>(stage === 'coo' ? 'awaiting_coo' : 'all');
@@ -59,14 +55,12 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   // Modal states
   const [selectedSignage, setSelectedSignage] = useState<SignageListRecord | null>(null);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [isVerifyOpen, setIsVerifyOpen] = useState(false);
 
   // Review decision form
   const [reviewNote, setReviewNote] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [reviewAction, setReviewAction] = useState<'approve' | 'return' | 'reject'>('approve');
 
-  const [verificationNotes, setVerificationNotes] = useState('');
 
   // Filtering
   const filtered = signages.filter((s) => {
@@ -82,7 +76,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
       return matchesSearch && canReviewSignage(s.status, 'agent_ops');
     }
     if (statusFilter === 'approved') {
-      return matchesSearch && ['installation_in_progress', 'installation_verification'].includes(s.status);
+      return matchesSearch && s.status === 'awaiting_cfo';
     }
     if (statusFilter === 'active') {
       return matchesSearch && s.status === 'active';
@@ -94,7 +88,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
   const totalActive = signages.filter((s) => s.status === 'active').length;
   const pendingReview = signages.filter((s) => canReviewSignage(s.status, stage)).length;
   const awaitingCoo = signages.filter((s) => s.status === 'awaiting_coo').length;
-  const awaitingInstallation = signages.filter((s) => ['installation_in_progress', 'installation_verification'].includes(s.status)).length;
+  const awaitingCfo = signages.filter((s) => s.status === 'awaiting_cfo').length;
   const monthlyCommitmentUgx = totalActive * SIGNAGE_RATES.OWNER_MONTHLY_UGX;
 
   // Review submission
@@ -124,21 +118,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
     setSelectedSignage(null);
     setReviewNote('');
     setRejectionReason('');
-  };
-
-  const handleDecideInstallation = async (approve: boolean) => {
-    if (!selectedSignage) return;
-    hapticTap();
-    if (!approve && verificationNotes.trim().length < 10) {
-      toast.error('Please give a reason of at least 10 characters to decline.');
-      return;
-    }
-    try {
-      await decideMutation.mutateAsync({ signageId: selectedSignage.id, approve, reason: verificationNotes.trim() || undefined });
-    } catch { return; }
-    setIsVerifyOpen(false);
-    setSelectedSignage(null);
-    setVerificationNotes('');
   };
 
   return (
@@ -175,8 +154,8 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
           <span className="text-lg font-bold text-amber-600">{pendingReview}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
-          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Awaiting Installation</span>
-          <span className="text-lg font-bold text-primary">{awaitingInstallation}</span>
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Awaiting CFO</span>
+          <span className="text-lg font-bold text-primary">{awaitingCfo}</span>
         </div>
         <div className="p-3.5 rounded-2xl bg-card border border-border/60 text-center">
           <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block">Active Signages</span>
@@ -204,8 +183,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
             { id: 'all', label: 'All' },
             ...(stage === 'agent_ops' ? [{ id: 'pending_review', label: `Pending (${pendingReview})` }] : []),
             { id: 'awaiting_coo', label: `Awaiting COO (${awaitingCoo})` },
-            { id: 'approved', label: `COO Approved (${awaitingInstallation})` },
-            { id: 'awaiting_cfo', label: 'Awaiting CFO' },
+            { id: 'awaiting_cfo', label: `Awaiting CFO (${awaitingCfo})` },
             { id: 'active', label: `Active (${totalActive})` },
           ].map((f) => (
             <Button
@@ -304,20 +282,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                         <span>{item.status === 'active' ? 'View (read-only)' : 'Inspect & Decide'}</span>
                       </Button>
 
-                      {stage === 'agent_ops' && canInstallSignage(item.status) && (
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSignage(item);
-                            setVerificationNotes('');
-                            setIsVerifyOpen(true);
-                          }}
-                          className="rounded-xl text-xs h-8 gap-1 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                          <FileCheck className="h-3.5 w-3.5" />
-                          <span>Review Installation</span>
-                        </Button>
-                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -434,7 +398,7 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
                   <div>
                     <Label className="text-xs font-medium">Ops Review Notes (Optional)</Label>
                     <Textarea
-                      placeholder="Add instructions for the installation team..."
+                      placeholder="Add a note for the CFO..."
                       value={reviewNote}
                       onChange={(e) => setReviewNote(e.target.value)}
                       className="mt-1 text-xs rounded-xl"
@@ -461,43 +425,6 @@ export function WelileSignagesOps({ onBack, stage = 'agent_ops' }: WelileSignage
         </DialogContent>
       </Dialog>
 
-      {/* ── MODAL 2: AGENT INSTALLATION PHOTOS REVIEW ── */}
-      <Dialog open={isVerifyOpen} onOpenChange={setIsVerifyOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl font-sans">
-          {selectedSignage && (
-            <div className="space-y-4">
-              <DialogHeader className="pr-8">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-emerald-600" />
-                  <DialogTitle className="text-base font-bold">Review Installation</DialogTitle>
-                </div>
-                <DialogDescription className="text-xs">
-                  {selectedSignage.agent_name || 'The agent'} submitted installation photos for {selectedSignage.property_name}. Approve to mark it Installed Successfully, or decline to ask for new photos.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="text-xs space-y-1">
-                <p><span className="text-muted-foreground">Installer:</span> <strong>{selectedSignage.installer_name || selectedSignage.agent_name}</strong></p>
-                {selectedSignage.installed_at && <p><span className="text-muted-foreground">Date installed:</span> {String(selectedSignage.installed_at).slice(0, 10)}</p>}
-              </div>
-              <SignageEvidence signageId={selectedSignage.id} />
-              <div>
-                <Label className="text-xs font-medium">Notes (required to decline, at least 10 characters)</Label>
-                <Textarea value={verificationNotes} onChange={(e) => setVerificationNotes(e.target.value)}
-                  placeholder="e.g. Board not visible from the road, please retake from the front"
-                  className="mt-1 text-xs rounded-xl" />
-              </div>
-              <DialogFooter className="gap-2">
-                <Button variant="outline" size="sm" disabled={decideMutation.isPending}
-                  onClick={() => handleDecideInstallation(false)}>Decline</Button>
-                <Button size="sm" disabled={decideMutation.isPending} onClick={() => handleDecideInstallation(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  {decideMutation.isPending ? 'Saving...' : 'Approve installation'}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
