@@ -1,6 +1,6 @@
 import { useEffect, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
-import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
@@ -320,9 +320,16 @@ export default function CFODashboardPage() {
                     Automated recurring payouts scheduled from "Send Money". Health monitoring flags orders with deleted/missing target accounts, cron failures, or stalled execution schedules so you can pause or resolve leaks immediately.
                   </p>
                 </div>
+                <Button
+                  onClick={() => setActiveTab('wallet-payout')}
+                  className="h-11 px-5 rounded-xl font-semibold gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shrink-0 self-start sm:self-center"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Standing Order
+                </Button>
               </div>
             </div>
-            <StandingOrdersPanel />
+            <StandingOrdersPanel onAddNew={() => setActiveTab('wallet-payout')} />
           </div>
         );
       case 'approved-rent-payouts':

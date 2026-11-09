@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Loader2, RefreshCw, Search,
   ShieldAlert, ShieldQuestion, UserX, Coins, Calendar,
   PauseCircle, AlertCircle, X,
-  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight,
+  MoreHorizontal, Pencil, FileText, Trash2, ChevronLeft, ChevronRight, Plus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -82,7 +82,7 @@ function describeFrequency(row: StandingOrderRow): string {
   }
 }
 
-export function StandingOrdersPanel() {
+export function StandingOrdersPanel({ onAddNew }: { onAddNew?: () => void } = {}) {
   const { data: orders, isLoading, isFetching, refetch } = useStandingOrders();
   const setEnabled = useSetStandingOrderEnabled();
   const { roles } = useAuth();
@@ -237,10 +237,18 @@ export function StandingOrdersPanel() {
               </button>
             );
           })}
-          <Button variant="outline" className="ml-auto h-10 gap-2 border-primary/40 text-primary" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Refresh
-          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="outline" className="h-10 gap-2 border-primary/40 text-primary" onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </Button>
+            {onAddNew && (
+              <Button className="h-10 gap-2 bg-primary text-primary-foreground font-semibold shadow-sm hover:bg-primary/90" onClick={onAddNew}>
+                <Plus className="h-4 w-4" />
+                Add Standing Order
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Search + selects */}
@@ -296,10 +304,23 @@ export function StandingOrdersPanel() {
               <p className="text-xs text-muted-foreground">Loading standing orders…</p>
             </div>
           ) : !visibleOrders.length ? (
-            <div className="p-12 text-center space-y-2">
-              <Coins className="h-8 w-8 mx-auto text-muted-foreground" />
-              <p className="font-semibold">No standing orders match these filters</p>
-              <Button variant="outline" size="sm" onClick={() => { setFilter('all'); setSearch(''); setStatusFilter('any'); setFreqFilter('any'); }}>Clear filters</Button>
+            <div className="p-12 text-center space-y-3">
+              <Coins className="h-10 w-10 mx-auto text-muted-foreground/60" />
+              <div>
+                <p className="font-semibold text-base text-foreground">No standing orders match these filters</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Standing orders automate recurring payouts directly to recipient wallets on a schedule.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={() => { setFilter('all'); setSearch(''); setStatusFilter('any'); setFreqFilter('any'); }}>Clear filters</Button>
+                {onAddNew && (
+                  <Button size="sm" className="gap-1.5 font-semibold" onClick={onAddNew}>
+                    <Plus className="h-4 w-4" />
+                    Add Standing Order
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">
