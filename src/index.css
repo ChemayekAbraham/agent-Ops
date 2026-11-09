@@ -9,6 +9,65 @@ section[aria-label*="Notifications" i]:empty {
   display: none !important;
 }
 
+/* Public wall display; token colors inherit the application's dark theme. */
+.board-display { min-height: 100dvh; padding: clamp(16px, 2vw, 40px); font-family: inherit; font-variant-numeric: tabular-nums; letter-spacing: 0; color-scheme: dark; }
+.board-topbar { display: flex; align-items: center; gap: 24px; padding-bottom: 20px; border-bottom: 1px solid hsl(var(--border)); }
+.board-brand { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+.board-brand img { width: 64px; height: 64px; object-fit: contain; border-radius: 8px; }
+.board-brand h1 { font-size: 28px; font-weight: 750; }
+.board-brand p, .board-live span { color: hsl(var(--muted-foreground)); font-size: 14px; }
+.board-live { display: flex; gap: 10px; align-items: center; }
+.board-live strong, .board-live span { display: block; }
+.board-live strong { font-size: 14px; }
+.board-live span { margin-top: 4px; }
+.board-fullscreen { transition: opacity 200ms; }
+.board-idle, .board-idle * { cursor: none !important; }
+.board-idle .board-fullscreen { opacity: 0; pointer-events: none; }
+.board-fullscreen:focus-visible { opacity: 1; }
+.board-section-heading { display: flex; justify-content: space-between; align-items: baseline; margin: 20px 0 10px; gap: 12px; }
+.board-section-heading h2 { font-size: 18px; font-weight: 700; }
+.board-section-heading span { font-size: 13px; color: hsl(var(--muted-foreground)); }
+.board-hero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.board-tile { border-radius: 8px; padding: 20px 24px; border-top-width: 3px; min-width: 0; }
+.board-posted { --board-tone: var(--info); }
+.board-sold { --board-tone: var(--success); }
+.board-waiting { --board-tone: var(--warning); }
+.board-tile { border-top-color: hsl(var(--board-tone)); }
+.board-tile h3 { font-size: 18px; font-weight: 600; }
+.board-hero-count { font-size: 80px; line-height: 1.15; font-weight: 800; margin: 8px 0; color: hsl(var(--board-tone)); overflow-wrap: anywhere; }
+.board-hero-money { font-size: 28px; font-weight: 700; }
+.board-tile p { font-size: 13px; line-height: 1.5; color: hsl(var(--muted-foreground)); margin-top: 10px; }
+.board-comparison { margin-top: 22px; }
+.board-comparison table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.board-comparison th, .board-comparison td { padding: 10px 16px; border-bottom: 1px solid hsl(var(--border)); text-align: left; }
+.board-comparison thead th { font-size: 13px; color: hsl(var(--muted-foreground)); font-weight: 500; }
+.board-comparison tbody th { color: hsl(var(--board-tone)); font-size: 16px; }
+.board-comparison td strong { font-size: 24px; font-weight: 700; }
+.board-comparison td small { display: block; color: hsl(var(--muted-foreground)); font-size: 13px; }
+.board-pipeline { display: flex; gap: 10px; }
+.board-stage { flex: 1 1 0; min-width: 0; border-radius: 8px; padding: 16px; }
+.board-stage-heading { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.board-stage-heading > span { font-size: 11px; color: hsl(var(--muted-foreground)); }
+.board-stage-heading h3 { font-size: 14px; font-weight: 650; flex: 1; overflow-wrap: anywhere; }
+.board-stage-heading svg { width: 14px; color: hsl(var(--muted-foreground)); flex-shrink: 0; }
+.board-stage-waiting { font-size: 36px; font-weight: 750; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.board-stage-waiting small { font-size: 11px; font-weight: 400; color: hsl(var(--muted-foreground)); }
+.board-stage-money { font-size: 14px; color: hsl(var(--muted-foreground)); min-height: 22px; }
+.board-stage footer { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid hsl(var(--border)); margin-top: 12px; padding-top: 10px; }
+.board-stage footer > span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; font-size: 11px; color: hsl(var(--muted-foreground)); }
+.board-stage footer strong { color: hsl(var(--foreground)); font-size: 13px; }
+.board-number { display: inline-block; border-radius: 4px; }
+.board-number-changed { animation: board-value-pulse 800ms ease-out; }
+.board-connection { min-height: 65vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 14px; }
+.board-connection h2 { font-size: 28px; font-weight: 650; }
+.board-connection p { color: hsl(var(--muted-foreground)); max-width: 620px; }
+.board-error { font-size: 14px; margin-top: 12px; }
+@keyframes board-value-pulse { 0%, 25% { background: hsl(var(--warning) / .3); } 100% { background: transparent; } }
+@media (min-width: 1800px) { .board-brand h1 { font-size: 32px; } .board-hero-count { font-size: 100px; } .board-tile { padding: 28px; } .board-stage { padding: 22px; } .board-stage-waiting { font-size: 44px; } }
+@media (max-width: 900px) { .board-topbar { flex-wrap: wrap; gap: 12px; } .board-brand h1 { font-size: 22px; } .board-hero-count { font-size: 56px; } .board-hero-money { font-size: 22px; } .board-tile { padding: 16px; } .board-pipeline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .board-brand { flex-basis: 100%; } .board-brand img { width: 48px; height: 48px; } .board-live { flex: 1; } .board-live strong { font-size: 12px; } .board-live span { font-size: 11px; } .board-hero { grid-template-columns: 1fr; gap: 10px; } .board-hero-count { font-size: 64px; } .board-tile h3 { font-size: 16px; } .board-comparison th, .board-comparison td { padding: 10px 3px; } .board-comparison thead th { font-size: 10px; } .board-comparison tbody th { font-size: 11px; } .board-comparison td strong { font-size: 16px; } .board-comparison td small { font-size: 9px; overflow-wrap: anywhere; } .board-pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); } .board-section-heading span { font-size: 11px; } }
+@media (prefers-reduced-motion: reduce) { .board-number-changed { animation: none; } }
+
 /* iOS PWA Safe Area Utilities & Inset Handling */
 @layer utilities {
   .pt-safe {

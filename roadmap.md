@@ -1,3 +1,10 @@
+# Boardroom display and reminder deployment
+- [x] Confirm pushed commit 24ae17b868 is included and reminder sources match it unchanged.
+- [x] Deploy partner/proxy promissory reminders from unchanged pushed sources; 7 helper tests passed. Deployment tool reports source hashes, not numeric versions.
+- [x] Add an isolated public totals-only boardroom display with polling and TV controls.
+- [x] Test display privacy, refresh/retry behavior and TV/mobile rendering; 8 display tests passed, no extra account requests or horizontal overflow.
+- [ ] Verify real board totals with an enabled display link; no valid display token was supplied. Real invalid-link message verified.
+
 # Signages CFO disbursement
 - [ ] Change verified installations to Awaiting CFO, with activation only after CFO disbursement.
 - [ ] Connect Pay Agent, Pay Owner and Batch Pay Agents to authorized, duplicate-safe payments.
