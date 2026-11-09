@@ -29,12 +29,12 @@ describe('Welile Signages business rules & configuration', () => {
   it('routes Agent Ops approval to COO instead of installation', () => {
     expect(signageReviewTarget('approve', 'agent_ops')).toBe('awaiting_coo');
   });
-  it('routes COO approval to installation', () => {
-    expect(signageReviewTarget('approve', 'coo')).toBe('approved_for_installation');
+  it('routes COO approval straight to the CFO', () => {
+    expect(signageReviewTarget('approve', 'coo')).toBe('awaiting_cfo');
   });
   it('blocks installation while awaiting COO', () => {
     expect(canInstallSignage('awaiting_coo')).toBe(false);
-    expect(canInstallSignage('approved_for_installation')).toBe(true);
+    expect(canInstallSignage('installation_verification')).toBe(true);
   });
   it('only allows COO decisions on applications awaiting COO', () => {
     expect(canReviewSignage('awaiting_coo', 'coo')).toBe(true);
@@ -71,7 +71,7 @@ describe('Welile Signages business rules & configuration', () => {
       expect(result.variant).toBeTruthy();
     }
 
-    expect(formatSignageStatus('active').label).toBe('Active (Billing)');
+    expect(formatSignageStatus('active').label).toBe('Installed Successfully');
     expect(formatSignageStatus('active').variant).toBe('success');
     expect(formatSignageStatus('approved_for_installation').label).toBe('Approved for Installation');
     expect(formatSignageStatus('submitted').label).toBe('Pending');
@@ -85,4 +85,9 @@ describe('Welile Signages business rules & configuration', () => {
     expect(validTypes).toContain('house');
     expect(validTypes).toContain('shop');
   });
+});
+
+import { SIGNAGE_PROMPT_REPEAT_MS } from '@/lib/welileSignages';
+describe('Signage installation reminder', () => {
+  it('repeats every 30 seconds', () => { expect(SIGNAGE_PROMPT_REPEAT_MS).toBe(30_000); });
 });

@@ -1,7 +1,7 @@
 import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 
-export type StandingOrderAction = 'create' | 'pause' | 'resume' | 'cancel';
+export type StandingOrderAction = 'create' | 'pause' | 'resume' | 'cancel' | 'update';
 
 interface LogParams {
   scheduledPayoutId?: string | null;
