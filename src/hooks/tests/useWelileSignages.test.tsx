@@ -48,7 +48,7 @@ describe('Signages approval requests', () => {
     });
   });
   it('uses the COO decision RPC before authorizing installation', async () => {
-    mocks.rpc.mockResolvedValue({ data: { id: 'signage', status: 'approved_for_installation' }, error: null });
+    mocks.rpc.mockResolvedValue({ data: { id: 'signage', status: 'awaiting_cfo' }, error: null });
     const { result } = renderHook(() => useReviewSignage('coo'), { wrapper });
     await act(async () => { await result.current.mutateAsync({ signageId: 'signage', decision: 'approve', notes: 'Location checked' }); });
     expect(mocks.rpc).toHaveBeenCalledWith('coo_decide_signage', { p_signage_id: 'signage', p_decision: 'approve', p_notes: 'Location checked' });

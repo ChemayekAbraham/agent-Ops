@@ -64,7 +64,7 @@ export function CFOSignagesDesk() {
 
   // COO-approved applications appear immediately; payment eligibility still requires installation verification.
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
 
   // Signages with pending rewards or rent obligations

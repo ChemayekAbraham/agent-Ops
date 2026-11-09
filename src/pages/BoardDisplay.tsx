@@ -1,42 +1,110 @@
 import { useEffect, useRef, useState } from 'react';
-import { Maximize, Radio, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Maximize, Radio } from 'lucide-react';
 import logo from '@/assets/welile-logo.png';
 import { loadBoardDisplay } from '@/lib/boardDisplayClient';
-import { BOARD_IDLE_MS, BOARD_POLL_MS, BOARD_PULSE_MS, BOARD_RETRY_MS, BoardFeed, BoardMetric, boardDisplayToken, boardIsStale, boardMoney, kampalaClock } from '@/lib/boardDisplay';
+import {
+  BOARD_IDLE_MS,
+  BOARD_POLL_MS,
+  BOARD_PULSE_MS,
+  BOARD_RETRY_MS,
+  type BoardFeed,
+  type BoardMetric,
+  type BoardStage,
+  boardDisplayToken,
+  boardIsStale,
+  boardMoney,
+  boardStageDoneOnly,
+  boardUpdatedText,
+  isBoardLinkError,
+  kampalaClock,
+} from '@/lib/boardDisplay';
 
-const metrics: { key: BoardMetric; title: string; caption: string }[] = [
-  { key: 'posted', title: 'Rent requests posted', caption: "From the COO to the funders' board" },
-  { key: 'sold', title: 'Rent requests sold', caption: 'Partner took it and money released to the landlord' },
-  { key: 'waiting', title: 'Waiting for funder', caption: 'Posted and not yet sold' },
+/**
+ * The boardroom screen (/b/:code, /board/:code): a 16:9 TV display of the
+ * funders' board totals, public behind a token. It boots on its own from
+ * main.tsx — no sign-in, no app shell, no pop-ups — and reads only totals:
+ * never names, phones or request ids (readBoardFeed whitelists the contract).
+ */
+
+const METRICS: { key: BoardMetric; title: string; row: string; caption: string }[] = [
+  { key: 'posted', title: 'Rent requests posted', row: 'Posted', caption: "From the COO to the funders' board" },
+  { key: 'sold', title: 'Rent requests sold', row: 'Sold', caption: 'Partner took it and money released to the landlord' },
+  { key: 'waiting', title: 'Waiting for funder', row: 'Waiting', caption: 'Posted and not yet sold' },
 ];
+const PERIODS = [
+  { key: '7d', label: '7 days' },
+  { key: '30d', label: '30 days' },
+  { key: '90d', label: '90 days' },
+  { key: 'all', label: 'All time' },
+] as const;
+
+/** A number that pulses for 0.8 s when it changes (not on its first appearance). */
 function ChangedNumber({ value, money = false }: { value: number | null; money?: boolean }) {
   const previous = useRef(value);
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
     if (previous.current === value) return;
-    previous.current = value; setPulse(true);
+    const had = previous.current != null;
+    previous.current = value;
+    if (!had) return;
+    setPulse(true);
     const timer = window.setTimeout(() => setPulse(false), BOARD_PULSE_MS);
     return () => window.clearTimeout(timer);
   }, [value]);
-  return <span className={pulse ? 'board-number board-number-changed' : 'board-number'}>{value == null ? '—' : money ? boardMoney(value) : value.toLocaleString('en-GB')}</span>;
+  const text = value == null ? '—' : money ? boardMoney(value) : value.toLocaleString('en-GB');
+  return <span className={pulse ? 'board-number board-number-changed' : 'board-number'} data-changed={pulse || undefined}>{text}</span>;
 }
+
+function StageCard({ stage }: { stage: BoardStage }) {
+  const doneOnly = boardStageDoneOnly(stage);
+  return (
+    <article className="board-stage" data-stage={stage.ord}>
+      <h3>{stage.stage}</h3>
+      {doneOnly ? (
+        <>
+          <div className="board-stage-big"><ChangedNumber value={stage.done_24h} /></div>
+          <p className="board-stage-sub">came in · last 24 h</p>
+        </>
+      ) : (
+        <>
+          <div className="board-stage-big"><ChangedNumber value={stage.waiting} /></div>
+          <p className="board-stage-sub">waiting · <ChangedNumber value={stage.waiting_ugx} money /></p>
+          <dl className="board-stage-facts">
+            <div><dt>Done 24 h</dt><dd><ChangedNumber value={stage.done_24h} /></dd></div>
+            <div><dt>Days to clear</dt><dd><ChangedNumber value={stage.days_to_clear} /></dd></div>
+          </dl>
+        </>
+      )}
+    </article>
+  );
+}
+
 export default function BoardDisplay() {
   const token = boardDisplayToken(window.location.pathname, window.location.search);
   const [feed, setFeed] = useState<BoardFeed | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<{ text: string; link: boolean } | null>(null);
   const [lastGood, setLastGood] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [idle, setIdle] = useState(false);
+
+  // Not for search engines.
   useEffect(() => {
     const existing = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     const oldContent = existing?.content;
     const robots = existing ?? document.createElement('meta');
-    robots.name = 'robots'; robots.content = 'noindex,nofollow';
+    robots.name = 'robots';
+    robots.content = 'noindex,nofollow';
     if (!existing) document.head.appendChild(robots);
-    const title = document.title; document.title = 'Welile — Ops Command Centre Display';
-    return () => { document.title = title; if (existing) existing.content = oldContent ?? ''; else robots.remove(); };
+    const title = document.title;
+    document.title = 'Welile — Ops Command Centre';
+    return () => {
+      document.title = title;
+      if (existing) existing.content = oldContent ?? '';
+      else robots.remove();
+    };
   }, []);
+
+  // Every 30 s; after an error, again in 60 s. The last totals stay up unless the link itself is refused.
   useEffect(() => {
     let cancelled = false;
     let timer: number;
@@ -45,24 +113,49 @@ export default function BoardDisplay() {
       let delay = BOARD_POLL_MS;
       try {
         const data = await loadBoardDisplay(token, controller.signal);
-        if (!cancelled) { setFeed(data); setLastGood(Date.now()); setError(''); }
+        if (!cancelled) {
+          setFeed(data);
+          setLastGood(Date.now());
+          setError(null);
+        }
       } catch (err) {
         delay = BOARD_RETRY_MS;
-        if (!cancelled) setError(err instanceof Error ? err.message : 'This display is temporarily unavailable.');
+        if (!cancelled) {
+          const link = isBoardLinkError(err);
+          setError({ text: err instanceof Error && err.message ? err.message : 'This display is temporarily unavailable.', link });
+          if (link) setFeed(null);
+        }
       }
       if (!cancelled) timer = window.setTimeout(refresh, delay);
     }
     void refresh();
-    return () => { cancelled = true; controller.abort(); window.clearTimeout(timer); };
+    return () => {
+      cancelled = true;
+      controller.abort();
+      window.clearTimeout(timer);
+    };
   }, [token]);
+
+  // The clock, and the cursor and buttons hide after 3 s without input.
   useEffect(() => {
     const clock = window.setInterval(() => setNow(Date.now()), 1_000);
     let timer: number;
-    const active = () => { setIdle(false); window.clearTimeout(timer); timer = window.setTimeout(() => setIdle(true), BOARD_IDLE_MS); };
+    const active = () => {
+      setIdle(false);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setIdle(true), BOARD_IDLE_MS);
+    };
     active();
-    window.addEventListener('pointermove', active); window.addEventListener('keydown', active); window.addEventListener('pointerdown', active);
-    return () => { window.clearInterval(clock); window.clearTimeout(timer); window.removeEventListener('pointermove', active); window.removeEventListener('keydown', active); window.removeEventListener('pointerdown', active); };
+    const events = ['pointermove', 'pointerdown', 'keydown'] as const;
+    events.forEach((e) => window.addEventListener(e, active));
+    return () => {
+      window.clearInterval(clock);
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, active));
+    };
   }, []);
+
+  // Keep the screen awake while the display is visible.
   useEffect(() => {
     let disposed = false;
     let lock: { release(): Promise<void>; released: boolean } | undefined;
@@ -71,28 +164,116 @@ export default function BoardDisplay() {
     async function acquire() {
       if (disposed || document.visibilityState !== 'visible' || !wake.wakeLock || acquiring || (lock && !lock.released)) return;
       acquiring = true;
-      try { const next = await wake.wakeLock.request('screen'); if (disposed) await next.release(); else lock = next; } catch { /* TV/browser may not support wake lock. */ }
-      finally { acquiring = false; }
+      try {
+        const next = await wake.wakeLock.request('screen');
+        if (disposed) await next.release();
+        else lock = next;
+      } catch {
+        /* Some TV browsers have no wake lock. */
+      } finally {
+        acquiring = false;
+      }
     }
-    void acquire(); document.addEventListener('visibilitychange', acquire);
-    return () => { disposed = true; document.removeEventListener('visibilitychange', acquire); void lock?.release().catch(() => {}); };
+    void acquire();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      disposed = true;
+      document.removeEventListener('visibilitychange', acquire);
+      void lock?.release().catch(() => {});
+    };
   }, []);
+
   const stale = boardIsStale(lastGood, now);
-  return <main className={`board-display dark bg-background text-foreground ${idle ? 'board-idle' : ''}`}>
-    <header className="board-topbar">
-      <div className="board-brand"><img src={logo} alt="Welile" /><div><h1>Ops Command Centre</h1><p>{feed?.display.label || 'Boardroom display'}</p></div></div>
-      <div className={`board-live ${stale ? 'text-warning' : 'text-success'}`}><Radio aria-hidden="true" /><div><strong>LIVE · {kampalaClock(now)} Kampala</strong><span>{feed ? `updated ${kampalaClock(feed.generated_at)} Kampala${stale ? ' · update delayed' : ''}` : 'Connecting'}</span></div></div>
-      <Button variant="outline" size="sm" className="board-fullscreen" onClick={() => { void document.documentElement.requestFullscreen?.().catch(() => {}); }}><Maximize />Full screen</Button>
-    </header>
-    {!feed ? <section className="board-connection"><Radio className="text-muted-foreground" /><h2>{error ? 'Display unavailable' : 'Connecting to the command centre'}</h2><p role={error ? 'alert' : undefined}>{error || 'Loading current totals…'}</p></section> : <>
-      {error && <p role="alert" className="board-error text-warning">{error}</p>}
-      <div className="board-section-heading"><h2>Today</h2><span>Rent requests · live position</span></div>
-      <section className="board-hero" aria-label="Today's rent requests">
-        {metrics.map(({ key, title, caption }) => <article key={key} className={`board-tile board-${key} bg-card border border-border`}><h3>{title}</h3><div className="board-hero-count"><ChangedNumber value={feed.headline.today[key].n} /></div><div className="board-hero-money"><ChangedNumber value={feed.headline.today[key].ugx} money /></div><p>{caption}</p></article>)}
-      </section>
-      <section className="board-comparison" aria-label="Period comparison"><table><thead><tr><th scope="col">Rent requests</th>{['7 days', '30 days', '90 days', 'All time'].map(p => <th key={p} scope="col">{p}</th>)}</tr></thead><tbody>{metrics.map(({ key }) => <tr key={key}><th scope="row" className={`board-${key}`}>{key === 'posted' ? 'Posted' : key === 'sold' ? 'Sold' : 'Waiting'}</th>{(['7d', '30d', '90d', 'all'] as const).map(period => <td key={period}><strong><ChangedNumber value={feed.headline[period][key].n} /></strong><small><ChangedNumber value={feed.headline[period][key].ugx} money /></small></td>)}</tr>)}</tbody></table></section>
-      <div className="board-section-heading"><h2>Pipeline</h2><span>Waiting · completed · pace</span></div>
-      <section className="board-pipeline" aria-label="Operations pipeline">{feed.stages.map((stage, index) => <article className="board-stage bg-card border border-border" key={`${stage.ord}-${stage.stage}`}><div className="board-stage-heading"><span>{String(stage.ord).padStart(2, '0')}</span><h3>{stage.stage}</h3>{index < feed.stages.length - 1 && <ArrowRight aria-hidden="true" />}</div>{stage.waiting == null ? <div className="board-stage-waiting"><ChangedNumber value={stage.done_24h} /><small>done 24 h</small></div> : <><div className="board-stage-waiting"><ChangedNumber value={stage.waiting} /><small>waiting</small></div><div className="board-stage-money"><ChangedNumber value={stage.waiting_ugx} money /></div></>}<footer><span>done 24 h <strong><ChangedNumber value={stage.done_24h} /></strong></span><span>days to clear <strong><ChangedNumber value={stage.days_to_clear} /></strong></span></footer></article>)}</section>
-    </>}
-  </main>;
+  const fatal = !!error && (error.link || !feed);
+
+  return (
+    <main className={`board-display dark ${idle ? 'board-idle' : ''}`} data-board-state={fatal ? 'error' : feed ? 'live' : 'connecting'}>
+      <header className="board-topbar">
+        <div className="board-brand">
+          <img src={logo} alt="Welile" />
+          <div>
+            <h1>Ops Command Centre</h1>
+            <p>{feed?.display.label || 'Boardroom display'}</p>
+          </div>
+        </div>
+        {feed && !fatal && (
+          <div className={`board-live ${stale ? 'text-warning' : 'text-success'}`} data-stale={stale || undefined}>
+            <Radio aria-hidden="true" />
+            <div>
+              <strong>{boardUpdatedText(feed.generated_at)}</strong>
+              {error && <span role="alert">{error.text} · trying again in 60 s</span>}
+            </div>
+          </div>
+        )}
+        <div className="board-clock" aria-label="Time in Kampala">
+          <strong>{kampalaClock(now)}</strong>
+          <span>Kampala</span>
+        </div>
+        <button
+          type="button"
+          className="board-fullscreen"
+          aria-label="Full screen"
+          title="Full screen"
+          onClick={() => {
+            void document.documentElement.requestFullscreen?.().catch(() => {});
+          }}
+        >
+          <Maximize aria-hidden="true" />
+        </button>
+      </header>
+
+      {fatal && error ? (
+        <section className="board-message" role="alert">
+          <h2>{error.text}</h2>
+          <p>Trying again every 60 seconds.</p>
+        </section>
+      ) : !feed ? (
+        <section className="board-message">
+          <h2>Connecting to the command centre…</h2>
+        </section>
+      ) : (
+        <>
+          <section className="board-hero" aria-label="Today">
+            {METRICS.map(({ key, title, caption }) => (
+              <article key={key} className={`board-tile board-${key}`} data-metric={key}>
+                <span className="board-tile-when">Today</span>
+                <h2>{title}</h2>
+                <div className="board-hero-count"><ChangedNumber value={feed.headline.today[key].n} /></div>
+                <div className="board-hero-money"><ChangedNumber value={feed.headline.today[key].ugx} money /></div>
+                <p>{caption}</p>
+              </article>
+            ))}
+          </section>
+
+          <section className="board-comparison" aria-label="Rent requests by period">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col"><span className="sr-only">Rent requests</span></th>
+                  {PERIODS.map((p) => <th key={p.key} scope="col">{p.label}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {METRICS.map(({ key, row }) => (
+                  <tr key={key} className={`board-${key}`}>
+                    <th scope="row">{row}</th>
+                    {PERIODS.map((p) => (
+                      <td key={p.key}>
+                        <strong><ChangedNumber value={feed.headline[p.key][key].n} /></strong>
+                        <small><ChangedNumber value={feed.headline[p.key][key].ugx} money /></small>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="board-pipeline" aria-label="Pipeline">
+            {feed.stages.map((stage) => <StageCard key={`${stage.ord}-${stage.stage}`} stage={stage} />)}
+          </section>
+        </>
+      )}
+    </main>
+  );
 }
