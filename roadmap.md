@@ -1,3 +1,9 @@
+# R&D monthly project planning
+- [x] Confirm requested d572009ed0 is already included; do not reapply its migration or publish.
+- [x] Add account-scoped device-saved monthly budgets and targets for each R&D project, separate from cash position and approved finance budgets.
+- [x] Test save/reopen, month/project separation, zero budgets and storage failures; 27 tests and all guards passed.
+- [ ] Verify recording through the signed-in /rd screen; external unmanaged authentication prevents an authenticated browser check.
+
 # Boardroom display and reminder deployment
 - [x] Confirm pushed commit 24ae17b868 is included and reminder sources match it unchanged.
 - [x] Deploy partner/proxy promissory reminders from unchanged pushed sources; 7 helper tests passed. Deployment tool reports source hashes, not numeric versions.
