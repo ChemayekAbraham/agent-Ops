@@ -76453,6 +76453,14 @@ export type Database = {
           verified_collected: number
         }[]
       }
+      _cfo_tracker_direct_receipt: {
+        Args: { p_receipt: string }
+        Returns: boolean
+      }
+      _cfo_tracker_payment_change: {
+        Args: { p_change: string }
+        Returns: boolean
+      }
       _claim_return_cycle: {
         Args: {
           p_actor: string
