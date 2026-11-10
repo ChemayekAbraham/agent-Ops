@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useEffect, useState } from 'react';
 import { Bookmark, Home, Loader2, RefreshCw, Trash2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +14,8 @@ import { loadFunderSavedItems, type SavedFunderEntry } from './loadFunderSavedIt
 import { FunderBookedHousesSection } from './FunderBookedHousesSection';
 
 export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const { user } = useAuth();
   const { saved, toggleSave, reconcile } = useFunderSavedItems();
   const client = useQueryClient();
@@ -62,7 +65,7 @@ export function FunderSavedItemsDialog({ open, onOpenChange }: { open: boolean; 
           : entries.length === 0 ? <div className="py-8 text-center"><Bookmark className="mx-auto h-9 w-9 text-primary/50" /><p className="mt-3 font-medium">No bookmarked items available</p></div>
           : <div className="divide-y divide-border">
             {entries.map((entry) => {
-              const info = toSelectionItem(entry.category, entry.item);
+              const info = toSelectionItem(entry.category, entry.item, partnerPay);
               return <article key={`${entry.category}:${info.id}`} className="flex items-center gap-3 py-4">
                 <Button variant="ghost" className="h-20 w-20 shrink-0 overflow-hidden rounded-lg p-0" onClick={() => { setDetail(entry); onOpenChange(false); }} aria-label={`View ${info.title}`}>
                   {info.imageUrl ? <img src={info.imageUrl} alt={info.title} className="h-full w-full object-cover" /> : <Home className="h-7 w-7 text-primary" />}

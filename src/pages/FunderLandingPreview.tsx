@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -75,6 +76,8 @@ type FeedEntry = FunderPreviewEntry;
  * shown on the landing; the balance is read only for the review step.
  */
 export default function FunderLandingPreview() {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const reduceMotion = useReducedMotion() ?? false;
   const navigate = useNavigate();
@@ -341,7 +344,7 @@ export default function FunderLandingPreview() {
   const detailHouse = detail?.category === 'empty' ? (detail.item as FunderNewEmptyHouse) : null;
 
   const toggleSelect = useCallback((nextCategory: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(nextCategory, item);
+    const next = toSelectionItem(nextCategory, item, partnerPay);
     setSelectedCategory((current) => (current && current !== nextCategory ? nextCategory : current ?? nextCategory));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === nextCategory);
@@ -350,7 +353,7 @@ export default function FunderLandingPreview() {
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -409,14 +412,14 @@ export default function FunderLandingPreview() {
     }
     if (!best) return null;
     const found = best.entry;
-    const view = toSelectionItem(found.category, found.item);
+    const view = toSelectionItem(found.category, found.item, partnerPay);
     return {
       title: view.title,
       distanceLabel: best.label,
       amount: view.amount,
       onAdd: () => toggleSelect(found.category, found.item),
     };
-  }, [selectedItems, entries, toggleSelect]);
+  }, [partnerPay, selectedItems, entries, toggleSelect]);
 
   // ── Support: balance, submit, top-up ────────────────────────────────────
   const queryClient = useQueryClient();

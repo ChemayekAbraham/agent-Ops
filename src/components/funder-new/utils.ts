@@ -152,10 +152,19 @@ export function itemId(category: FunderNewCategory, item: FunderNewEmptyHouse | 
     : (item as FunderNewReadyPlan).rent_request_id;
 }
 
-export function itemAmount(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): number {
-  return category === 'empty'
+/** Rent-to-partner-amount mapper: useSelfSupportFeePolicy().pay. Identity by default (sorting, filters, pins). */
+export type PartnerPay = (rent: number) => number;
+const IDENTITY_PAY: PartnerPay = (rent) => rent;
+
+export function itemAmount(
+  category: FunderNewCategory,
+  item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
+): number {
+  const rent = category === 'empty'
     ? toNumber((item as FunderNewEmptyHouse).monthly_rent)
     : toNumber((item as FunderNewReadyPlan).funding_amount);
+  return rent > 0 ? pay(rent) : rent;
 }
 
 /**
@@ -166,16 +175,18 @@ export function itemAmount(category: FunderNewCategory, item: FunderNewEmptyHous
 export function itemMonthlyReturn(
   category: FunderNewCategory,
   item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
 ): number | null {
   if (category === 'empty') {
     const house = item as FunderNewEmptyHouse;
-    const provided = toNumber(house.partner_monthly_return);
-    if (provided > 0) return provided;
     const rent = toNumber(house.monthly_rent);
-    return rent > 0 ? Math.round(rent * MONTHLY_RETURN_RATE) : null;
+    const provided = toNumber(house.partner_monthly_return);
+    // The listed figure is on the plain rent; once Agent Care applies, the partner earns on pay(rent).
+    if (provided > 0 && !(rent > 0 && pay(rent) !== rent)) return provided;
+    return rent > 0 ? Math.round(pay(rent) * MONTHLY_RETURN_RATE) : null;
   }
   const amount = toNumber((item as FunderNewReadyPlan).funding_amount);
-  return amount > 0 ? Math.round(amount * MONTHLY_RETURN_RATE) : null;
+  return amount > 0 ? Math.round(pay(amount) * MONTHLY_RETURN_RATE) : null;
 }
 
 export function firstPhoto(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): string | null {
@@ -198,6 +209,7 @@ export function isHouseVerified(category: FunderNewCategory, item: FunderNewEmpt
 export function toSelectionItem(
   category: FunderNewCategory,
   item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  pay: PartnerPay = IDENTITY_PAY,
 ): FunderNewSelectionItem {
   return {
     id: itemId(category, item),
@@ -206,8 +218,8 @@ export function toSelectionItem(
       category === 'empty' ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan),
     place:
       category === 'empty' ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan),
-    amount: itemAmount(category, item),
-    monthlyReturn: itemMonthlyReturn(category, item),
+    amount: itemAmount(category, item, pay),
+    monthlyReturn: itemMonthlyReturn(category, item, pay),
     termLabel: category === 'empty' ? '1 month house support' : readyPlanTerm(item as FunderNewReadyPlan),
     imageUrl: firstPhoto(category, item),
     ...contactFields(category, item),

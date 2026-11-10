@@ -3,6 +3,18 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 
+// Agent Care switch OFF (the default): amounts equal the rent, no query client needed.
+vi.mock('@/hooks/useSelfSupportFeePolicy', () => ({
+  useSelfSupportFeePolicy: () => ({
+    policy: { enabled: false, rate: 0, roundTo: 100 },
+    enabled: false,
+    ratePct: 0,
+    pay: (rent: number) => rent,
+    fee: () => 0,
+    isLoading: false,
+  }),
+}));
+
 function planItem(withGps: boolean) {
   return {
     rent_request_id: 'plan-1',

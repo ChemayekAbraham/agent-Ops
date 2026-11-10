@@ -5,6 +5,7 @@ import { formatDynamic } from '@/lib/currencyFormat';
 import { Home, MapPin, ShieldCheck, Wallet, X } from 'lucide-react';
 import { HighlightText, houseTitleLine, type SupportableHouse } from './SelfSupportHousesSection';
 import { FundHouseTooltip } from './FundHouseTooltip';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 
 const MONTHLY_ROI_RATE = 15;
 
@@ -21,8 +22,8 @@ interface HouseCompareDialogProps {
   searchQuery?: string;
 }
 
-const fundingStatus = (house: SupportableHouse, remaining: number) => {
-  const rent = Number(house.monthly_rent || 0);
+const fundingStatus = (house: SupportableHouse, remaining: number, pay: (rent: number) => number) => {
+  const rent = pay(Number(house.monthly_rent || 0));
   if (rent <= remaining) return { ready: true, label: 'Ready to fund now' };
   return {
     ready: false,
@@ -45,6 +46,8 @@ export function HouseCompareDialog({
   onRemove,
   searchQuery = '',
 }: HouseCompareDialogProps) {
+  // Field Care: the partner pays pay(rent) (= rent while the switch is off).
+  const { enabled: careOn, pay } = useSelfSupportFeePolicy();
   const rows: {
     label: string;
     render: (h: SupportableHouse) => React.ReactNode;
@@ -52,19 +55,19 @@ export function HouseCompareDialog({
   }[] = [
     {
       label: 'Monthly rent',
-      render: (h) => <span className="font-black">{formatDynamic(h.monthly_rent)}</span>,
+      render: (h) => <span className="font-black">{formatDynamic(pay(Number(h.monthly_rent || 0)))}</span>,
     },
     {
       label: `You earn / month (${MONTHLY_ROI_RATE}%)`,
       render: (h) => (
         <span className="font-black text-primary">
-          {formatDynamic(Number(h.partner_monthly_return ?? h.monthly_rent * (MONTHLY_ROI_RATE / 100)))}
+          {formatDynamic(Number((careOn ? null : h.partner_monthly_return) ?? pay(Number(h.monthly_rent || 0)) * (MONTHLY_ROI_RATE / 100)))}
         </span>
       ),
     },
     {
       label: 'You earn / year',
-      render: (h) => formatDynamic(Number(h.partner_annual_return ?? h.monthly_rent * (MONTHLY_ROI_RATE / 100) * 12)),
+      render: (h) => formatDynamic(Number((careOn ? null : h.partner_annual_return) ?? pay(Number(h.monthly_rent || 0)) * (MONTHLY_ROI_RATE / 100) * 12)),
     },
     {
       label: 'Location',
@@ -93,7 +96,7 @@ export function HouseCompareDialog({
     {
       label: 'Funding status',
       render: (h) => {
-        const status = fundingStatus(h, remaining);
+        const status = fundingStatus(h, remaining, pay);
         return (
           <Badge
             variant={status.ready ? 'default' : 'secondary'}
@@ -182,7 +185,7 @@ export function HouseCompareDialog({
               <tr>
                 <th className="border-t border-border py-2 pr-2" />
                 {houses.map((h) => {
-                  const status = fundingStatus(h, remaining);
+                  const status = fundingStatus(h, remaining, pay);
                   return (
                     <td key={h.house_id} className="border-t border-border py-3 pl-3">
                       <FundHouseTooltip>

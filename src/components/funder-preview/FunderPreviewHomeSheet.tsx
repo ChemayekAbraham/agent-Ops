@@ -27,7 +27,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { createHouseShareLink, houseShareMessageFor } from '@/lib/houseSupportShare';
 import { createPlanShareLink, planShareFallbackDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
-import { isHouseVerified, toSelectionItem } from '@/components/funder-new/utils';
+import { isHouseVerified, itemAmount, toSelectionItem } from '@/components/funder-new/utils';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from '@/components/partner/AgentCareNote';
 
 export interface FunderPreviewEntry {
   category: FunderNewCategory;
@@ -106,6 +108,8 @@ export function FunderPreviewHomeSheet({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
   const stripRef = useRef<HTMLDivElement | null>(null);
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const entryKey = entry ? toSelectionItem(entry.category, entry.item).id : null;
 
   useEffect(() => {
@@ -115,7 +119,7 @@ export function FunderPreviewHomeSheet({
   }, [entryKey]);
 
   if (!entry) return null;
-  const view = toSelectionItem(entry.category, entry.item);
+  const view = toSelectionItem(entry.category, entry.item, partnerPay);
   const photos = photosOf(entry);
   const verified = isHouseVerified(entry.category, entry.item);
   const rooms = entry.category === 'empty' ? (entry.item as FunderNewEmptyHouse).number_of_rooms : null;
@@ -342,6 +346,10 @@ export function FunderPreviewHomeSheet({
                 </dd>
               </div>
             </dl>
+            <AgentCareNote
+              kind={entry.category === 'empty' ? 'house' : 'tenant'}
+              rent={itemAmount(entry.category, entry.item)}
+            />
 
             <ul aria-label="Why you can trust this home" className="space-y-2.5">
               {trustRows(entry.item, entry.category).map(({ icon: Icon, text }) => (

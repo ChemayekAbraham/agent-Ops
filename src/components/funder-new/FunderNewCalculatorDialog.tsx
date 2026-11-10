@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useMemo, useState } from 'react';
 import { Calculator, Home, Info, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,8 @@ export function FunderNewCalculatorDialog({
   onSelectRecommended: (houses: FunderNewEmptyHouse[], replaceExisting: boolean) => void;
   hasExistingSelection: boolean;
 }) {
+  // Field Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const [mode, setMode] = useState<Mode>('per_house');
   const [amountText, setAmountText] = useState('');
   const [housesText, setHousesText] = useState('3');
@@ -55,15 +58,15 @@ export function FunderNewCalculatorDialog({
   const matches = recommendations.data?.items ?? [];
 
   const actual = useMemo(() => {
-    const total = matches.reduce((sum, house) => sum + itemAmount('empty', house), 0);
+    const total = matches.reduce((sum, house) => sum + itemAmount('empty', house, partnerPay), 0);
     // Priced at the partner's own rate, not the list's partner_monthly_return (quoted at the public
     // new-partner rate). A house without a rent adds nothing, as before; null when the rate is unknown.
     const monthly =
       ownRate === null
         ? null
-        : matches.reduce((sum, house) => sum + (monthlyReturnFor(itemAmount('empty', house), ownRate) ?? 0), 0);
+        : matches.reduce((sum, house) => sum + (monthlyReturnFor(itemAmount('empty', house, partnerPay), ownRate) ?? 0), 0);
     return { total, monthly };
-  }, [matches, ownRate]);
+  }, [matches, ownRate, partnerPay]);
 
   const searchScope = [
     `homes at or under ${formatDynamic(perHouse)} each`,
@@ -194,7 +197,7 @@ export function FunderNewCalculatorDialog({
                       <p className="truncate text-sm font-semibold">{emptyHouseTitle(house)}</p>
                       <p className="truncate text-xs text-muted-foreground">{emptyHousePlace(house)}</p>
                     </div>
-                    <p className="text-sm font-semibold">{formatDynamic(itemAmount('empty', house))}</p>
+                    <p className="text-sm font-semibold">{formatDynamic(itemAmount('empty', house, partnerPay))}</p>
                     <Button
                       variant="soft"
                       size="sm"

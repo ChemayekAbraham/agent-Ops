@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Bookmark, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -57,6 +58,8 @@ const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
 
 export default function FunderDashboardNew() {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const navigate = useNavigate();
   const { user, roles, signOut, switchRole } = useAuth();
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
@@ -202,7 +205,7 @@ export default function FunderDashboardNew() {
       : loadedItems.find((e) => itemId(e.category, e.item) === id);
     if (!found) return;
     setSelectedCategory(found.category);
-    setSelectedItems([toSelectionItem(found.category, found.item)]);
+    setSelectedItems([toSelectionItem(found.category, found.item, partnerPay)]);
     setReviewOpen(true);
   }, [feedLoading, loadedItems, searchParams]);
   const feedError = emptyQuery.error || readyQuery.error;
@@ -287,7 +290,7 @@ export default function FunderDashboardNew() {
 
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(category, item);
+    const next = toSelectionItem(category, item, partnerPay);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === category);
@@ -296,7 +299,7 @@ export default function FunderDashboardNew() {
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -335,7 +338,7 @@ export default function FunderDashboardNew() {
     setSelectedItems((current) => {
       const base = replaceExisting ? [] : current.filter((entry) => entry.category === 'empty');
       const merged = new Map(base.map((entry) => [entry.id, entry]));
-      houses.forEach((house) => merged.set(house.house_id, toSelectionItem('empty', house)));
+      houses.forEach((house) => merged.set(house.house_id, toSelectionItem('empty', house, partnerPay)));
       return [...merged.values()];
     });
   };

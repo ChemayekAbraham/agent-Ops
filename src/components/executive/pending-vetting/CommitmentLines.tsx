@@ -101,6 +101,17 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
             </div>
             <div className="text-right shrink-0">
               <p className="text-xs font-black text-foreground tabular-nums">{formatUGX(l.principal)}</p>
+              {l.proxyFee > 0 && (
+                <>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    {l.kind === 'house' ? 'Operational funding' : 'To landlord float'}: {formatUGX(l.rentAmount)}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                    Agent facilitation fee: {formatUGX(l.proxyFee)}
+                    {proxyFeeStatusLabel(l.proxyFeeStatus) ? `, ${proxyFeeStatusLabel(l.proxyFeeStatus)}` : ''}
+                  </p>
+                </>
+              )}
               {l.daily > 0 && (
                 <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(l.daily)} / day</p>
               )}
@@ -110,4 +121,14 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
       </div>
     </div>
   );
+}
+
+function proxyFeeStatusLabel(status: string | null): string | null {
+  switch (status) {
+    case 'pending': return 'paid on approval';
+    case 'paid': return 'paid to the proxy agent';
+    case 'kept': return 'no proxy agent, kept as partner capital';
+    case 'cancelled': return 'cancelled';
+    default: return null;
+  }
 }

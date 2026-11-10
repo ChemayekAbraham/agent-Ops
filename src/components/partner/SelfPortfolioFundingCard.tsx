@@ -38,6 +38,7 @@ import { HousePlacementTimeline } from './HousePlacementTimeline';
 import { AFRICA_COUNTRIES, countryByCode, pointInCountry } from '@/lib/africaCountries';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor, rateOrNull, readQuoteRate } from '@/lib/partnerReturnPolicy';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 
 const MIN_FUNDING = 50000;
 const PLANS_PER_PAGE = 4;
@@ -148,6 +149,8 @@ export function SelfPortfolioFundingCard({
   // portfolio (partner_quote_rate('me')). null while it loads or on error: no figure, no rate.
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const ownRatePct = rateOrNull(ownRate);
+  // Agent Care: the partner pays pay(rent) (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
   /** Sort key for "highest Returns first": the list's figure, else the rent at the partner's rate. */
   const houseReturnSortKey = useCallback(
     (h: { partner_monthly_return?: number | null; monthly_rent: number }) =>
@@ -507,16 +510,16 @@ export function SelfPortfolioFundingCard({
     () =>
       plans
         .filter((p) => selected.includes(p.rent_request_id))
-        .reduce((sum, p) => sum + Number(p.funding_amount || 0), 0),
-    [plans, selected],
+        .reduce((sum, p) => sum + pay(Number(p.funding_amount || 0)), 0),
+    [plans, selected, pay],
   );
 
   const houseTotal = useMemo(
     () =>
       houses
         .filter((h) => houseSelected.includes(h.house_id))
-        .reduce((sum, h) => sum + Number(h.monthly_rent || 0), 0),
-    [houses, houseSelected],
+        .reduce((sum, h) => sum + pay(Number(h.monthly_rent || 0)), 0),
+    [houses, houseSelected, pay],
   );
 
   // Both lists draw from the same operational float.
@@ -528,9 +531,9 @@ export function SelfPortfolioFundingCard({
   const savedForLater = useMemo(
     () =>
       houses.filter(
-        (h) => houseSelected.includes(h.house_id) && Number(h.monthly_rent || 0) > remaining,
+        (h) => houseSelected.includes(h.house_id) && pay(Number(h.monthly_rent || 0)) > remaining,
       ),
-    [houses, houseSelected, remaining],
+    [houses, houseSelected, remaining, pay],
   );
 
   // Picked houses whose highlight is still on: they became fundable and have
@@ -660,7 +663,7 @@ export function SelfPortfolioFundingCard({
         // email carries no rate and no earning figures.
         const rate = await readQuoteRate(supabase, 'me');
         const lines = ready.map((h) => {
-          const rent = Number(h.monthly_rent || 0);
+          const rent = pay(Number(h.monthly_rent || 0));
           return {
             title: houseTitleLine(h),
             district: h.district || '',
@@ -783,10 +786,11 @@ export function SelfPortfolioFundingCard({
       const rent = Number(h.monthly_rent || 0);
       if (houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) && rent < rentMinBound) return false;
       if (houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) && rent > rentMaxBound) return false;
-      if (houseFundingStatus === 'ready' && rent > remaining) return false;
-      if (houseFundingStatus === 'topup' && rent <= remaining) return false;
-      if (houseWithinFloat && rent > remaining) return false;
-      if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || rent > remaining)) return false;
+      const cost = pay(rent);
+      if (houseFundingStatus === 'ready' && cost > remaining) return false;
+      if (houseFundingStatus === 'topup' && cost <= remaining) return false;
+      if (houseWithinFloat && cost > remaining) return false;
+      if (showSavedReadyOnly && (!houseSelected.includes(h.house_id) || cost > remaining)) return false;
       if (selectedCountry && !pointInCountry(selectedCountry, h.latitude, h.longitude)) return false;
       if (listedAfter !== null) {
         const listedAt = h.created_at ? new Date(h.created_at).getTime() : NaN;
@@ -807,6 +811,7 @@ export function SelfPortfolioFundingCard({
       remaining,
       rentMinBound,
       rentMaxBound,
+      pay,
     ],
   );
 
@@ -1033,7 +1038,7 @@ export function SelfPortfolioFundingCard({
       return;
     }
     const plan = plans.find((p) => p.rent_request_id === id);
-    const cost = Number(plan?.funding_amount || 0);
+    const cost = pay(Number(plan?.funding_amount || 0));
     if (cost > remaining) {
       toast.info(
         `Not enough balance. Deposit ${formatDynamic(cost - remaining)} to fund this plan.`,
@@ -1054,7 +1059,7 @@ export function SelfPortfolioFundingCard({
       return;
     }
     const house = houses.find((h) => h.house_id === id);
-    const cost = Number(house?.monthly_rent || 0);
+    const cost = pay(Number(house?.monthly_rent || 0));
     setHouseSelected((prev) => [...prev, id]);
     if (cost > remaining) {
       // Keep the house picked — it stays selected until the partner tops up
@@ -1535,7 +1540,7 @@ export function SelfPortfolioFundingCard({
 
           <div className="mt-2 space-y-2">
             {savedForLater.map((h) => {
-              const topUpNeeded = Math.max(0, Number(h.monthly_rent || 0) - remaining);
+              const topUpNeeded = Math.max(0, pay(Number(h.monthly_rent || 0)) - remaining);
               const img = (h.image_urls ?? []).filter(Boolean)[0];
               return (
                 <div
@@ -1629,7 +1634,7 @@ export function SelfPortfolioFundingCard({
         const heldByOther = !!plan.held_by && plan.held_by !== partnerId;
         const isSelected = selected.includes(plan.rent_request_id);
         const images = (plan.house_image_urls ?? []).filter(Boolean);
-        const monthlyRoi = monthlyReturnFor(Number(plan.funding_amount || 0), ownRatePct);
+        const monthlyRoi = monthlyReturnFor(pay(Number(plan.funding_amount || 0)), ownRatePct);
         const prettyName = (raw?: string | null) =>
           (raw ?? '')
             .replace(/[_-]/g, ' ')
@@ -1703,7 +1708,7 @@ export function SelfPortfolioFundingCard({
                 </div>
 
                 <div className="pt-1">
-                  <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(plan.funding_amount)}</p>
+                  <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(pay(Number(plan.funding_amount || 0)))}</p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     Earn <span className="font-semibold text-primary">{monthlyRoi === null ? '—' : formatDynamic(monthlyRoi)}</span> monthly
                   </p>
@@ -1862,7 +1867,7 @@ export function SelfPortfolioFundingCard({
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
         onFund={(h) => {
-          const cost = Number(h.monthly_rent || 0);
+          const cost = pay(Number(h.monthly_rent || 0));
           if (remaining >= cost) {
             // Enough balance: pick the house and open the funding confirmation.
             if (!houseSelected.includes(h.house_id)) toggleHouse(h.house_id);
