@@ -1,4 +1,4 @@
--- Email Josh (CC the CEO, benjamin@welile.com) a plain-English summary of what
+-- Email the CEO (benjamin@welile.com, CC Josh) a plain-English summary of what
 -- the engineers shipped, every evening at 18:00 Africa/Kampala (15:00 UTC).
 -- Recipients are fixed inside the edge function. DO NOT APPLY until the test
 -- email (dry_run / to=[Josh]) has been read and approved, and the GITHUB_TOKEN
