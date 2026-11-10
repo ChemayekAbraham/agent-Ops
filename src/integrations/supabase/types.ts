@@ -65713,6 +65713,7 @@ export type Database = {
       v360_daily_allocations: {
         Row: {
           agent: number
+          buffer: number
           cash: number
           created_at: string
           created_by: string | null
@@ -65727,6 +65728,7 @@ export type Database = {
         }
         Insert: {
           agent: number
+          buffer?: number
           cash: number
           created_at?: string
           created_by?: string | null
@@ -65741,6 +65743,7 @@ export type Database = {
         }
         Update: {
           agent?: number
+          buffer?: number
           cash?: number
           created_at?: string
           created_by?: string | null
@@ -87954,6 +87957,7 @@ export type Database = {
       }
       get_phone_platform_reconciliation: { Args: never; Returns: Json }
       get_phone_platform_reconciliation__impl: { Args: never; Returns: Json }
+      get_platform_agent_commission_rate: { Args: never; Returns: number }
       get_platform_cash_breakdown: { Args: never; Returns: Json }
       get_platform_cash_summary: { Args: never; Returns: Json }
       get_platform_user_counts: {
