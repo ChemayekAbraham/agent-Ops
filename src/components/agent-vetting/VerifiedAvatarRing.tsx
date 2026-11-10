@@ -39,7 +39,7 @@ export function VerifiedAvatarRing({ state, size = 'md', children, className }: 
         )}
       >
         {verified ? (
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#8024D1" stroke="#8024D1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={badge} aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#16A34A" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={badge} aria-hidden="true">
             <path d={SCALLOP} />
             <path d="m9 12 2 2 4-4" stroke="white" />
           </svg>
