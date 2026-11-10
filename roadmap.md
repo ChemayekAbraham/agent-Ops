@@ -1,7 +1,9 @@
 # Tenant Repayment Tracker exception investigation
 - [x] Reproduce the displayed 243 exceptions across 208 tenants and compare plan-specific receipts, repayments, edits and Tenant Operations activity sources.
 - [x] Prepare the case register and evidence-backed reporting proposal without financial or production data changes.
-- [ ] Implement only approved reporting corrections; blocked on the user's approval of the proposal.
+- [x] Apply the approved reporting-only migration, full-register pagination and exact-plan investigation/activity links; financial records unchanged.
+- [x] Run reporting, pagination, permissions and preservation tests plus all project safeguards; revalidate the five live source-evidence matches.
+- [ ] Verify the five corrected warnings and complete register through an authorized CFO screen; external unmanaged authentication prevents signed-in checks.
 - [ ] Resolve remaining evidence gaps; requires case-specific payment/adjustment evidence and approved scope, never money movement or ledger edits.
 
 # R&D monthly project planning
