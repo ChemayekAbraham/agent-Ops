@@ -5,7 +5,8 @@ import { OverdueVettingBanner } from '@/components/service-center/OverdueVetting
 import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
 import { KIND_TAB, VET_FOCUS_EVENT, scrollAndHighlight, type VetFocus } from '@/components/service-center/vettingNav';
 import type { OverdueKind } from '@/lib/vettingOverdueCopy';
-import { ArrowLeft, ClipboardCheck, Package, Route, Search, ShoppingBag, Store, UserPlus, Users } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, Gauge, Package, Route, Search, ShoppingBag, Store, UserPlus, Users } from 'lucide-react';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import officeIllustration from '@/assets/At_the_office-bro-2.svg.asset.json';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,6 +46,8 @@ import { ServiceCenterAdvancesTracker } from '@/components/agent/service-center/
 
 export default function AgentServiceCenter() {
   const navigate = useNavigate();
+  // The Service Centre desk, as the COO dashboard links its desk; only for people the desk lets in.
+  const showDesk = useCanOpenDesk('service-centre');
   useRestoreBodyPointerEvents();
   const { data, isLoading, error } = useServiceCenterOverview();
   const { data: transfers = [] } = useServiceCenterTransfers();
@@ -164,6 +167,18 @@ export default function AgentServiceCenter() {
             <ArrowLeft className="h-4 w-4 shrink-0" />
             <span>Back to Agent Dashboard</span>
           </Button>
+          {showDesk && (
+            <Button
+              variant="outline"
+              size="sm"
+              data-desk-link="service-centre"
+              onClick={() => navigate(DESK_LINKS['service-centre'].route)}
+              className="h-8 gap-1.5 px-2 text-xs sm:text-sm font-medium"
+            >
+              <Gauge className="h-4 w-4 shrink-0" />
+              <span>{DESK_LINKS['service-centre'].label}</span>
+            </Button>
+          )}
         </div>
       </div>
 

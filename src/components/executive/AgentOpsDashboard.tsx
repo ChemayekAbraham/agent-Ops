@@ -3,6 +3,7 @@ import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButto
 import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import type { DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
 
@@ -226,6 +227,8 @@ export function AgentOpsDashboard() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingAdvanceCount = usePendingAdvanceCount(activeView === 'advance-requests' || bottomTab === 'more' || !!searchQuery.trim());
   const navigate = useNavigate();
+  // The Agent Ops desk, as the COO dashboard links its desk; only for people the desk lets in.
+  const showDesk = useCanOpenDesk('agent-ops');
 
   // Keyboard shortcut '/' or Cmd+K to focus search bar anywhere in Agent Ops dashboard
   useEffect(() => {
@@ -1092,6 +1095,17 @@ export function AgentOpsDashboard() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-[70vh] overflow-y-auto">
+              {showDesk && (
+                <>
+                  <DropdownMenuItem data-desk-link="agent-ops" onClick={() => navigate(DESK_LINKS['agent-ops'].route)} className="gap-2.5 cursor-pointer">
+                    <span className="p-1.5 rounded-md shrink-0 bg-primary">
+                      <Gauge className="h-3.5 w-3.5 text-white" />
+                    </span>
+                    <span className="text-sm font-medium">{DESK_LINKS['agent-ops'].label}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {ALL_SECTIONS.map((group, gi) => (
                 <div key={group.title}>
                   {gi > 0 && <DropdownMenuSeparator />}
@@ -1257,6 +1271,8 @@ function AgentOpsSideNav({
   style?: React.CSSProperties;
 }) {
   const [filterText, setFilterText] = useState('');
+  const navigate = useNavigate();
+  const showDesk = useCanOpenDesk('agent-ops');
 
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
@@ -1375,6 +1391,19 @@ function AgentOpsSideNav({
           </span>
           <span className="truncate">Overview</span>
         </Button>
+        {showDesk && (
+          <Button variant="ghost"
+            type="button"
+            data-desk-link="agent-ops"
+            onClick={() => navigate(DESK_LINKS['agent-ops'].route)}
+            className="w-full justify-start gap-2.5 px-2.5 py-2 text-sm font-semibold text-foreground hover:bg-muted"
+          >
+            <span className="h-6 w-6 rounded-md flex items-center justify-center shrink-0 bg-primary">
+              <Gauge className="h-3.5 w-3.5 text-white" />
+            </span>
+            <span className="truncate">{DESK_LINKS['agent-ops'].label}</span>
+          </Button>
+        )}
 
         {SIDE_GROUPS.map((group) => {
           const matchingKeys = q
