@@ -20,7 +20,9 @@
 -- 648 deposits, UGX 606,941,585 (excluded: 3 already booked to A1 and 1 without a linked receipt, 223,302; 3 since marked
 -- reversed, 1,600,000).
 -- Rollback: the same groups with directions swapped (see the end of this file).
-begin;
+-- Runs at REPEATABLE READ so the money-safety checks compare one snapshot plus this batch's own writes: under READ
+-- COMMITTED the first run (10 Nov 2026) stopped because live wallet activity by other users landed mid-batch.
+begin isolation level repeatable read;
 
 create temp table _s (deposit_id uuid primary key, amount numeric not null, orig_group uuid not null) on commit drop;
 insert into _s (deposit_id, amount, orig_group) values
