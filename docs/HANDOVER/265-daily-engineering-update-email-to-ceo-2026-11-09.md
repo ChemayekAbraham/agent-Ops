@@ -5,8 +5,9 @@ No "daily features report" existed in the repo, so this is new.
 
 ## What it does
 Every evening at 18:00 Africa/Kampala (cron `0 15 * * *` UTC,
-`daily-engineering-update-report-1800-eat`) **benjamin@welile.com** (CEO) gets one
-email, CC **joshwanda17@gmail.com**, listing what the engineers shipped in the last
+`daily-engineering-update-report-1800-eat`) **joshwanda17@gmail.com** gets one
+email, CC **benjamin@welile.com** (CEO), the same recipients pattern as the existing
+reports sent to Josh. Listing what the engineers shipped in the last
 24 hours in plain English: what now works differently, who it helps, a coloured tag
 (NEW / FIXED / SAFER / SMOOTHER / BEHIND THE SCENES), an "INVOLVES MONEY" tag, and a
 "Worth your attention" box. No file names, no code words. A day with no commits sends

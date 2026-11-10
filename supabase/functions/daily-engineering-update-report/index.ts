@@ -1,5 +1,5 @@
 // Daily Engineering Update (the "daily features report")
-// Every evening, emails the CEO (CC Josh) a plain-English summary of what the
+// Every evening, emails Josh (CC the CEO, benjamin@welile.com) a plain-English summary of what the
 // engineers shipped in the last 24 hours. Source of truth is the commit history
 // of the `lovable` branch on GitHub; an AI model rewrites the commit notes so a
 // non-engineer can read them: what changed, who it helps, no code words.
@@ -26,8 +26,8 @@ const corsHeaders = {
 const REPO = 'weliletenants-sys/welilereceipts-com-98bba33b';
 const BRANCH = 'lovable';
 const FROM = 'Welile Reports <reports@welile.com>';
-const DEFAULT_TO = ['benjamin@welile.com'];
-const DEFAULT_CC = ['joshwanda17@gmail.com'];
+const DEFAULT_TO = ['joshwanda17@gmail.com'];
+const DEFAULT_CC = ['benjamin@welile.com'];
 const EXEC_ROLES = ['ceo', 'cfo', 'coo', 'cto', 'manager', 'super_admin'];
 const MAX_COMMITS = 40;
 const AI_MODEL = 'google/gemini-3-flash-preview';
