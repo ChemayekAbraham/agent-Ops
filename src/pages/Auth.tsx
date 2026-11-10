@@ -183,7 +183,41 @@ export default function Auth() {
   const needsRoleSelection = isSignUp && !hasValidRole;
   const [pendingRole, setPendingRole] = useState<string>('tenant');
 
+  // Tenants and funders have their own onboarding pages. Choosing either role
+  // here sends them there through the short links, after the same 5-second
+  // "Redirecting you" notice as the welcome screen (WelcomeNew.tsx): /n/tenants
+  // -> /tenants-onboarding, /n/partner -> /funder-onboarding (lead_links). The
+  // 2026-10-13 redesign gave /auth its own role picker without this, so anyone
+  // who started sign-up here skipped those pages. Landlords and agents stay on
+  // this form, as before.
+  const ROLE_ONBOARDING_LINK: Record<string, { to: string; label: string }> = {
+    tenant: { to: '/n/tenants', label: 'Welile for Tenants' },
+    supporter: { to: '/n/partner', label: 'Welile for Partners' },
+  };
+  const [roleRedirect, setRoleRedirect] = useState<{ to: string; label: string } | null>(null);
+  const [roleRedirectCount, setRoleRedirectCount] = useState(5);
+
+  useEffect(() => {
+    if (!roleRedirect) return;
+    if (roleRedirectCount <= 0) { navigate(roleRedirect.to); return; }
+    const t = setTimeout(() => setRoleRedirectCount((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [roleRedirect, roleRedirectCount, navigate]);
+
+  useEffect(() => {
+    if (!roleRedirect) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setRoleRedirect(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [roleRedirect]);
+
   const handleSelectRole = (role: string) => {
+    const onboarding = ROLE_ONBOARDING_LINK[role];
+    if (onboarding) {
+      setRoleRedirectCount(5);
+      setRoleRedirect(onboarding);
+      return;
+    }
     const newParams = new URLSearchParams(searchParams);
     newParams.set('role', role);
     setSearchParams(newParams, { replace: true });
@@ -598,6 +632,31 @@ export default function Auth() {
               </button>
               <button type="button" className="btn-link-muted" onClick={() => setIsSignUp(false)}>Back</button>
             </div>
+            {/* Same notice as the welcome screen; styling is Gemini's to match WelcomeNew. */}
+            {roleRedirect && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                onClick={() => setRoleRedirect(null)}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="auth-role-redirect-h"
+                  className="w-full max-w-sm space-y-3 rounded-2xl bg-background p-6 text-center shadow-lg"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 id="auth-role-redirect-h" className="text-xl font-semibold" aria-live="polite">
+                    Redirecting you in {roleRedirectCount}s
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Taking you to {roleRedirect.label}.</p>
+                  <button type="button" className="btn btn-primary w-full" autoFocus onClick={() => navigate(roleRedirect.to)}>
+                    <span>Go now</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  <button type="button" className="btn-link-muted" onClick={() => setRoleRedirect(null)}>Back</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
