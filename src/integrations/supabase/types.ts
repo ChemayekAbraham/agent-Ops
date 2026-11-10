@@ -41353,6 +41353,7 @@ export type Database = {
           legacy_rate: number
           new_contract_rate: number
           note: string | null
+          note_due_by: string | null
           note_grace_days: number
           release_ready: boolean
           updated_at: string
@@ -41371,6 +41372,7 @@ export type Database = {
           legacy_rate?: number
           new_contract_rate?: number
           note?: string | null
+          note_due_by?: string | null
           note_grace_days?: number
           release_ready?: boolean
           updated_at?: string
@@ -41389,6 +41391,7 @@ export type Database = {
           legacy_rate?: number
           new_contract_rate?: number
           note?: string | null
+          note_due_by?: string | null
           note_grace_days?: number
           release_ready?: boolean
           updated_at?: string
