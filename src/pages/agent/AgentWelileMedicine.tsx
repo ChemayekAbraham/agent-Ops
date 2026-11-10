@@ -38,8 +38,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="space-y-1"><Label className="text-sm">{label}</Label>{children}</div>;
 }
 
-function Chips<T extends string>({ options, value, onChange }: { options: readonly { key: T; label: string }[] | readonly T[]; value: string; onChange: (v: T) => void }) {
-  const opts = (options as readonly (T | { key: T; label: string })[]).map((o) => (typeof o === 'string' ? { key: o, label: o } : o));
+/** The keys of a Chips options list: each `{ key }`, or each plain string. */
+type ChipKey<O> = O extends readonly (infer E)[] ? (E extends { key: infer K extends string } ? K : E extends string ? E : never) : never;
+
+// Typed from the whole options list, so every key is accepted, not only the first one's.
+function Chips<O extends readonly ({ key: string; label: string } | string)[]>({ options, value, onChange }: { options: O; value: string; onChange: (v: ChipKey<O>) => void }) {
+  type T = ChipKey<O>;
+  const opts = (options as unknown as readonly (T | { key: T; label: string })[]).map((o) => (typeof o === 'string' ? { key: o, label: o } : o));
   return (
     <div className="flex flex-wrap gap-2">
       {opts.map((o) => (
