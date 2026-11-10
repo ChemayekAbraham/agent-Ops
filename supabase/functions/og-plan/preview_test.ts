@@ -4,8 +4,8 @@ import type { PublicReturnPolicy } from "../_shared/partnerReturnPolicy.ts";
 
 const STORED = "Support this tenant for UGX 300,000 by paying their landlord on the platform and earn UGX 45,000 per month for the next 12 months Start here today.";
 const plan = { funding_amount: 300_000 };
-const off: PublicReturnPolicy = { enabled: false, newContractRate: 15, cutoffAt: null, enabledAt: null, updatedAt: "2026-11-08T10:00:00Z" };
-const on: PublicReturnPolicy = { enabled: true, newContractRate: 10, cutoffAt: "2026-12-01T00:00:00Z", enabledAt: "2026-12-01T00:00:00Z", updatedAt: "2026-12-01T00:00:00Z" };
+const off: PublicReturnPolicy = { enabled: false, newContractRate: 15, cutoffAt: null, enabledAt: null, updatedAt: "2026-11-08T10:00:00Z", noteDueBy: "2026-12-31" };
+const on: PublicReturnPolicy = { enabled: true, newContractRate: 10, cutoffAt: "2026-12-01T00:00:00Z", enabledAt: "2026-12-01T00:00:00Z", updatedAt: "2026-12-01T00:00:00Z", noteDueBy: null };
 
 Deno.test("no cut-off yet: the stored description wins byte for byte (switch-off parity)", () => {
   assertEquals(previewDescription({ og_description: STORED, og_updated_at: "2026-09-01T00:00:00Z" }, plan, off, null), STORED);
