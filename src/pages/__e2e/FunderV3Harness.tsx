@@ -13,6 +13,8 @@
  *   state=ready|loading|error|empty
  *   loc=granted|prompt|denied
  *   map=fake|real      real = the V3 Google map (live pin read; needs Maps to load)
+ *   tags=on|off        E59 funders board tags (off = switch off and no preview row)
+ *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit
  */
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -26,9 +28,10 @@ import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { launcherHidden, useOverlayState } from '@/components/FloatingToolbar';
 import { FIXTURE_SUMMARY, fixtureApi, fixtureLocation, makeFeed } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 import { formatDynamic } from '@/lib/currencyFormat';
+import type { FunderV3DemoteApi } from '@/components/funder-v3/FunderV3HousesScreen';
 import { getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 
-function FakeMap({ api, activeHouseId, onPinHouse, insets, interactive, onMapTap }: FunderV3MapRenderProps & { api: ReturnType<typeof fixtureApi> }) {
+function FakeMap({ api, activeHouseId, onPinHouse, insets, interactive, onMapTap, boardTagsOn }: FunderV3MapRenderProps & { api: ReturnType<typeof fixtureApi> }) {
   const pins = api.items.filter((entry) => entry.category === 'empty').slice(0, 40) as Array<{ category: 'empty'; item: FunderNewEmptyHouse }>;
   return (
     <div
@@ -53,11 +56,12 @@ function FakeMap({ api, activeHouseId, onPinHouse, insets, interactive, onMapTap
               data-testid="fv3-fake-pin"
               data-house-id={house.house_id}
               data-active={active ? 'true' : undefined}
+              data-tone={boardTagsOn ? 'empty' : 'plain'}
               onClick={(event) => {
                 event.stopPropagation();
                 onPinHouse(house);
               }}
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11.5px] font-bold shadow-[0_2px_6px_rgb(15_23_42/0.22)] ring-1 ${active ? 'z-10 scale-110 bg-[hsl(271_100%_40%)] text-white ring-white' : 'bg-white text-[#1f2328] ring-black/10'}`}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11.5px] font-bold shadow-[0_2px_6px_rgb(15_23_42/0.22)] ring-1 ${active ? `z-10 scale-110 text-white ring-white ${boardTagsOn ? 'bg-[#4b5563]' : 'bg-[hsl(271_100%_40%)]'}` : boardTagsOn ? 'bg-[#e5e7eb] text-[#374151] ring-black/15' : 'bg-white text-[#1f2328] ring-black/10'}`}
               style={{ left: `${x}%`, top: `${y}%` }}
             >
               {formatDynamic(Number(house.monthly_rent) || 100000)}
@@ -81,6 +85,20 @@ export default function FunderV3Harness() {
   const total = Number(params.get('total') ?? 2534);
   const state = params.get('state') ?? 'ready';
   const loc = (params.get('loc') ?? 'granted') as 'granted' | 'prompt' | 'denied';
+  const boardTagsOn = params.get('tags') === 'on';
+  const demote = useMemo<FunderV3DemoteApi | null>(
+    () =>
+      params.get('demote') === '1'
+        ? {
+            // Fake server: the first ticked item is skipped once two or more are sent.
+            submit: async (items) => ({
+              demoted_count: items.length >= 2 ? items.length - 1 : items.length,
+              skipped: items.length >= 2 ? [{ kind: items[0].kind, id: items[0].id, reason: 'ALREADY_FUNDED', message: 'Already funded, left on the board' }] : [],
+            }),
+          }
+        : null,
+    [params],
+  );
   const [loaded, setLoaded] = useState(() => Number(params.get('count') ?? 12));
   const [open, setOpen] = useState(view === 'houses');
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -90,6 +108,7 @@ export default function FunderV3Harness() {
 
   const items = useMemo(() => (state === 'empty' ? [] : makeFeed(Math.min(loaded, total))), [loaded, total, state]);
   const api = fixtureApi({
+    boardTagsOn,
     items,
     filteredTotal: state === 'empty' ? 0 : total,
     feedLoading: state === 'loading',
@@ -128,6 +147,7 @@ export default function FunderV3Harness() {
                 onSave={() => {}}
                 onSelect={() => {}}
                 onDetail={() => {}}
+                boardTagsOn={boardTagsOn}
               />
             ))}
           </div>
@@ -157,6 +177,7 @@ export default function FunderV3Harness() {
         <FunderV3HousesScreen
           api={api}
           onClose={() => setOpen(false)}
+          demote={demote}
           renderMap={(props) =>
             params.get('map') === 'real' ? (
               <FunderV3Map filters={api.filters} location={api.location} {...props} />

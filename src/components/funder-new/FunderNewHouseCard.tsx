@@ -14,6 +14,7 @@ import {
   readyPlanTitle,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
+import { FundersBoardTag, boardTagFor } from './FundersBoardTag';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -25,6 +26,7 @@ export function FunderNewHouseCard({
   onSave,
   onSelect,
   onDetail,
+  boardTagsOn = false,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
@@ -34,6 +36,8 @@ export function FunderNewHouseCard({
   onSave: () => void;
   onSelect: () => void;
   onDetail: () => void;
+  /** E59 board tags: the page passes the funders_board_tags switch (useFeaturePreview). */
+  boardTagsOn?: boolean;
 }) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -119,6 +123,7 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
+        {boardTagsOn ? <FundersBoardTag kind={boardTagFor(category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div
           role="button"

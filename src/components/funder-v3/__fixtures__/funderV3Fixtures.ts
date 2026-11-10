@@ -106,6 +106,7 @@ export function fixtureApi(overrides: Partial<FunderListingsViewApi> = {}): Fund
   const location = overrides.location ?? fixtureLocation('granted', true);
   const device = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
   return {
+    boardTagsOn: false,
     searchInput: '',
     setSearchInput: () => {},
     filters: DEFAULT_FILTERS,

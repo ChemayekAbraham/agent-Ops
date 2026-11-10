@@ -306,3 +306,92 @@ test('first card photo is eager + high priority, the rest lazy, all sized', asyn
   await expect(imgs.nth(1)).toHaveAttribute('loading', 'lazy');
   for (const attr of ['width', 'height', 'sizes', 'decoding']) await expect(imgs.nth(1)).toHaveAttribute(attr, /.+/);
 });
+
+// ---- E59: funders board tags and demote ----
+
+test('E59: a normal funder sees no demote controls', async ({ page }) => {
+  for (const size of [{ width: 390, height: 844 }, { width: 1280, height: 800 }]) {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24');
+    await expect(page.getByTestId('fv3-card').first()).toBeVisible();
+    await expect(page.getByTestId('fv3-demote-toggle')).toHaveCount(0);
+    await expect(page.getByTestId('fv3-demote-check')).toHaveCount(0);
+    await expect(page.getByTestId('fv3-demote-bar')).toHaveCount(0);
+  }
+});
+
+test('E59: the COO sees the toggle, ticks houses and demotes with a reason', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page, 'view=houses&count=24&demote=1');
+  await expect(page.getByTestId('fv3-demote-toggle')).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24&demote=1');
+  const toggle = page.getByTestId('fv3-demote-toggle');
+  await expect(toggle).toHaveText(/Select to demote/);
+  await expect(page.getByTestId('fv3-demote-check')).toHaveCount(0);
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  const checks = page.getByTestId('fv3-demote-check');
+  await expect(checks.first()).toBeVisible();
+
+  // The bar sits in the page, not in a dialog (Android strips sticky/transform inside dialogs).
+  const bar = page.getByTestId('fv3-demote-bar');
+  await expect(bar).toBeVisible();
+  expect(await bar.evaluate((el) => !!el.closest('[role="dialog"]'))).toBe(false);
+  await expect(page.getByTestId('fv3-demote-open')).toBeDisabled();
+
+  await checks.nth(0).locator('input').check();
+  await checks.nth(1).scrollIntoViewIfNeeded();
+  await checks.nth(1).locator('input').check();
+  await expect(page.getByTestId('fv3-demote-open')).toHaveText('Demote 2');
+  await page.getByTestId('fv3-demote-open').click();
+
+  const sheet = page.getByTestId('fv3-demote-sheet');
+  await expect(sheet).toBeVisible();
+  await expect(sheet.locator('[data-reason="FB_NOT_QUALIFIED"]')).toHaveAttribute('aria-checked', 'true');
+  const confirm = page.getByTestId('fv3-demote-confirm');
+  await expect(confirm).toBeEnabled();
+  // "Other" needs a 10+ character note.
+  await sheet.locator('[data-reason="OTHER"]').click();
+  await expect(confirm).toBeDisabled();
+  await page.getByTestId('fv3-demote-note').fill('too short');
+  await expect(confirm).toBeDisabled();
+  await page.getByTestId('fv3-demote-note').fill('Tenant moved out last week');
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+
+  await expect(page.getByText('1 demoted · 1 skipped')).toBeVisible();
+  await expect(page.getByText('Already funded, left on the board')).toBeVisible();
+  await expect(sheet).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('fv3-demote-check')).toHaveCount(0);
+});
+
+test('E59: tags are hidden when the switch is off and there is no preview row', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24');
+  await expect(page.getByTestId('fv3-card').first()).toBeVisible();
+  await expect(page.getByTestId('funders-board-tag')).toHaveCount(0);
+  await expect(page.locator('[data-testid="fv3-fake-pin"]').first()).toHaveAttribute('data-tone', 'plain');
+  await page.goto(`${HARNESS}?ui=old&count=12`);
+  await page.waitForSelector('[data-testid="fv3-harness-old"]', { timeout: 120_000 });
+  await expect(page.getByTestId('funders-board-tag')).toHaveCount(0);
+});
+
+test('E59: with the switch on, every card is tagged and pins take the tag colour', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24&tags=on');
+  const verified = page.locator('[data-card-id^="ready:"] [data-testid="funders-board-tag"]').first();
+  await expect(verified).toHaveText('Verified');
+  await expect(verified).toHaveAttribute('data-tag', 'verified');
+  const empty = page.locator('[data-card-id^="empty:"] [data-testid="funders-board-tag"]').first();
+  await empty.scrollIntoViewIfNeeded();
+  await expect(empty).toHaveText('Empty house');
+  await expect(page.locator('[data-testid="fv3-fake-pin"]').first()).toHaveAttribute('data-tone', 'empty');
+  await page.screenshot({ path: join(SHOTS, 'houses-tags-390x844.png') });
+  // Legacy cards too.
+  await page.goto(`${HARNESS}?ui=old&count=12&tags=on`);
+  await page.waitForSelector('[data-testid="fv3-harness-old"]', { timeout: 120_000 });
+  await expect(page.getByTestId('funders-board-tag')).toHaveCount(12);
+});
