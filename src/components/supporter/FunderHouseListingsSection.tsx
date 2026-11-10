@@ -167,7 +167,8 @@ export function FunderHouseListingsSection({
         lat: location.coords.lat,
         lng: location.coords.lng,
         source: 'device',
-        radiusKm: chosenRadius ?? 25,
+        // "All distances" means no cut-off: nearest-first ordering only.
+        radiusKm: chosenRadius,
         label: 'your location',
       };
     }
@@ -283,9 +284,32 @@ export function FunderHouseListingsSection({
     });
   }, [loadedItems, filters.withinFloat, availableBalance]);
 
+  // Report every house that matches, not just the page loaded so far. The
+  // within-balance filter only runs on loaded homes, so it reports those.
+  const matchingCount = filters.withinFloat && availableBalance !== null
+    ? items.length
+    : Math.max(filteredTotal, items.length);
   useEffect(() => {
-    onResultCountChange?.(items.length);
-  }, [items.length, onResultCountChange]);
+    onResultCountChange?.(matchingCount);
+  }, [matchingCount, onResultCountChange]);
+
+  // Keep loading the next page as the funder nears the end of the list, so the
+  // whole market is reachable by scrolling. The button stays as a fallback.
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const fetchNextFeedRef = useRef<() => void>(() => {});
+  fetchNextFeedRef.current = fetchNextFeed;
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) fetchNextFeedRef.current();
+      },
+      { rootMargin: '800px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  });
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
@@ -504,7 +528,7 @@ export function FunderHouseListingsSection({
         <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
         {effectiveSort === 'nearest' && origin ? (
           <span>
-            Within {origin.radiusKm} km of {origin.label}
+            {origin.radiusKm ? `Within ${origin.radiusKm} km of ${origin.label}` : `Closest to ${origin.label} first`}
           </span>
         ) : null}
         {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
@@ -532,7 +556,7 @@ export function FunderHouseListingsSection({
         <div className="rounded-2xl border bg-primary/5 p-8 text-center">
           <ListFilter className="mx-auto h-8 w-8 text-primary/60" aria-hidden />
           <p className="mt-3 text-sm font-semibold">
-            {effectiveSort === 'nearest' && origin
+            {effectiveSort === 'nearest' && origin && origin.radiusKm
               ? `No homes within ${origin.radiusKm} km of ${origin.label}`
               : 'No homes match yet'}
           </p>
@@ -579,7 +603,7 @@ export function FunderHouseListingsSection({
           </div>
 
           {feedHasNext ? (
-            <div className="flex justify-center">
+            <div ref={loadMoreRef} className="flex justify-center">
               <Button
                 variant="default"
                 className="h-11 rounded-md px-6"

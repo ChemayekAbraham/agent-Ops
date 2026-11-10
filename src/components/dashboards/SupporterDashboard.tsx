@@ -796,7 +796,7 @@ export default function SupporterDashboard({
                       Houses to fund
                     </p>
                     <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                      {shownFundingHomes} shown
+                      {shownFundingHomes.toLocaleString()} {shownFundingHomes === 1 ? 'house' : 'houses'}
                     </span>
                   </div>
                   {layout === 'sheet' && <button
