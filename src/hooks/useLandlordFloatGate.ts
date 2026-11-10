@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
- * Whether the signed-in agent's Landlord Float is locked: under the 50% collection minimum with no exception this week.
+ * Whether the signed-in agent's Landlord Float is locked: under the collection minimum with no exception this week.
  * Read from get_landlord_float_gate(), the same pattern as the money withdrawal lock (get_withdraw_context): the server says
  * locked + the reason, the card locks and shows it, and a database rule refuses the withdrawal anyway.
  *

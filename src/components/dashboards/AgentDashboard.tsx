@@ -1534,7 +1534,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                     bg: 'bg-[#9234EA]/10',
                     onClick: () => {
                       hapticTap();
-                      if (landlordFloatLocked) { toast.error(landlordFloatGate?.blockReason ?? 'Landlord float is locked: your collection rate is under 50%.'); return; }
+                      if (landlordFloatLocked) { toast.error(landlordFloatGate?.blockReason ?? 'Landlord float is locked: your collection rate is under the minimum.'); return; }
                       setFloatAllocationsOpen(true);
                     },
                   },
