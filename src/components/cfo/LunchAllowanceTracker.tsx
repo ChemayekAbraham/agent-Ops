@@ -40,6 +40,8 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { kampalaYmd } from '@/lib/kampalaDays';
+import { inLunchAllowanceRange, lunchAllowancePeriods, lunchAllowanceRange, type LunchAllowancePeriod } from './lunchAllowancePeriod';
 
 interface Row {
   id: string;
@@ -56,6 +58,7 @@ interface Row {
 /** Tracker of Lunch Allowance payments made through CFO Send Money. */
 export function LunchAllowanceTracker() {
   const [to, setTo] = useState('');
+  const [period, setPeriod] = useState<LunchAllowancePeriod>('all');
   const [search, setSearch] = useState('');
   const [reversing, setReversing] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
@@ -107,15 +110,20 @@ export function LunchAllowanceTracker() {
     },
   });
 
+  const periodRange = lunchAllowanceRange(period);
+  const rangeStart = periodRange?.start;
+  const rangeEnd = periodRange?.end;
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return (data?.list ?? []).filter((r) => {
-      const d = r.created_at.slice(0, 10);
-      if (to && d > to) return false;
+      const range = rangeStart && rangeEnd ? { start: rangeStart, end: rangeEnd } : null;
+      if (!inLunchAllowanceRange(r.created_at, range)) return false;
+      const d = kampalaYmd(r.created_at);
+      if (to && (!d || d > to)) return false;
       if (q && !(data?.names[r.target_user_id] ?? '').toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [data, to, search]);
+  }, [data, to, search, rangeStart, rangeEnd]);
 
   const reversedIds = useMemo(() => {
     const set = new Set<string>();
@@ -184,7 +192,7 @@ export function LunchAllowanceTracker() {
     doc.setFontSize(14);
     doc.text('Welile - Lunch Allowance', 14, 16);
     doc.setFontSize(9);
-    const range = to ? `Up to ${to}` : 'All time';
+    const range = periodRange ? `${periodRange.start} to ${periodRange.end}` : to ? `Up to ${to}` : 'All time';
     doc.text(`Period: ${range}${search ? ` | Staff: ${search}` : ''} | Generated ${fmtDate(new Date().toISOString())}`, 14, 22);
     doc.text(`Total: ${formatUGX(total)} | Staff paid: ${perStaff.length} | Payments: ${filtered.length}`, 14, 27);
     autoTable(doc, {
@@ -246,6 +254,23 @@ export function LunchAllowanceTracker() {
           </Button>
         </div>
       </header>
+
+      <section aria-label="Payment period" className="space-y-2">
+        <Tabs value={period} onValueChange={(value) => {
+          const selected = lunchAllowancePeriods.find((item) => item.value === value);
+          if (!selected) return;
+          setPeriod(selected.value); setTo(''); setPage(1);
+        }}>
+          <TabsList aria-label="Payment period" className="h-auto flex w-full flex-wrap justify-start gap-1 sm:w-fit">
+            {lunchAllowancePeriods.map((item) => (
+              <TabsTrigger key={item.value} value={item.value} className="text-xs px-3 py-2">
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {periodRange && <p className="text-xs text-muted-foreground">{periodRange.start} – {periodRange.end} · Kampala time</p>}
+      </section>
 
       {/* KPI Metric Strip */}
       <section aria-label="Lunch Allowance summary" className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
@@ -351,18 +376,18 @@ export function LunchAllowanceTracker() {
               <Input
                 type="date"
                 value={to}
-                onChange={(e) => { setTo(e.target.value); setPage(1); }}
+                onChange={(e) => { setTo(e.target.value); setPeriod('all'); setPage(1); }}
                 className="h-8 w-36 text-xs bg-background"
                 aria-label="Filter up to date"
               />
             </div>
 
-            {(to || search) && (
+            {(to || search || period !== 'all') && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => { setTo(''); setSearch(''); setPage(1); }}
+                onClick={() => { setTo(''); setSearch(''); setPeriod('all'); setPage(1); }}
               >
                 Clear
               </Button>
