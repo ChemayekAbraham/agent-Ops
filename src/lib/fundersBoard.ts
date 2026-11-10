@@ -487,6 +487,7 @@ export const fetchCounterListItems = async (kind: CounterListKind) => parseCount
 export function kampalaDay(iso: string | null | undefined): string {
   if (!iso || !Number.isFinite(Date.parse(iso))) return '—';
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
+}
 
 /* ───────────── E65 tag groups (funders_board_items, rule FB-TAG v2 / FB-ORDER) ───────────── */
 
