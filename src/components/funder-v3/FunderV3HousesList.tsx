@@ -62,7 +62,6 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
     effectiveSort,
     origin,
     filters,
-    changeSort,
     withinFloatApplied,
   } = api;
 
@@ -149,6 +148,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
         highlighted={highlightedId === cardId}
         onHoverChange={onHoverCard && entry.category === 'empty' ? (hovering) => onHoverCard(hovering ? cardId : null) : undefined}
         boardTagsOn={api.boardTagsOn}
+        boardTag={api.boardTagOf(entry)}
         demoteMode={demoteMode}
         demoteChecked={demoteChecked?.has(cardId) ?? false}
         onDemoteToggle={onDemoteToggle ? () => onDemoteToggle(entry) : undefined}
@@ -166,10 +166,12 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 fv3-t-xs text-muted-foreground">
         <span className="rounded-full bg-primary/10 px-3 py-1 font-semibold text-primary">{sortLabel(effectiveSort)}</span>
-        {effectiveSort === 'nearest' && origin ? (
-          <span>
+        {origin && origin.radiusKm !== null ? (
+          <span data-testid="fv3-radius-note">
             Within {origin.radiusKm} km of {origin.label}
           </span>
+        ) : effectiveSort === 'nearest' && origin ? (
+          <span>All houses, closest to {origin.label} first</span>
         ) : null}
         {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
       </div>
@@ -205,15 +207,15 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
           <div className="rounded-2xl border bg-primary/5 p-8 text-center">
             <ListFilter className="mx-auto h-8 w-8 text-primary/60" aria-hidden />
             <p className="mt-3 fv3-t-sm font-semibold">
-              {effectiveSort === 'nearest' && origin ? `No homes within ${origin.radiusKm} km of ${origin.label}` : 'No homes match yet'}
+              {origin && origin.radiusKm !== null ? `No homes within ${origin.radiusKm} km of ${origin.label}` : 'No homes match yet'}
             </p>
             <p className="mt-1 fv3-t-xs text-muted-foreground">
-              {effectiveSort === 'nearest' && origin ? 'Widen the search to look further out.' : 'Try a different district, amount, or clear your filters.'}
+              {origin && origin.radiusKm !== null ? 'Widen the search to look further out.' : 'Try a different district, amount, or clear your filters.'}
             </p>
-            {effectiveSort === 'nearest' && origin ? (
+            {origin && origin.radiusKm !== null ? (
               <button
                 type="button"
-                onClick={() => changeSort('recommended')}
+                onClick={api.clearRadius}
                 className="fv3-tap mt-4 h-11 rounded-xl bg-primary/10 px-4 fv3-t-sm font-semibold text-primary hover:bg-primary/15"
               >
                 Search the whole market

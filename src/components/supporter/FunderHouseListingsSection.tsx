@@ -41,6 +41,9 @@ import type {
 import { countActiveFunderFilters, itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { sortFunderFeedEntries } from '@/lib/funderHouseSort';
+import { useQuery } from '@tanstack/react-query';
+import { fetchBoardItemTags, type BoardTag } from '@/lib/fundersBoard';
+import { orderFeedByBoardTag, withinRadius } from '@/components/funder-new/feedOrder';
 import { useFunderSavedItems } from '@/hooks/useFunderSavedItems';
 
 export interface FeedEntry {
@@ -56,6 +59,13 @@ export interface FeedEntry {
 export interface FunderListingsViewApi {
   /** E59: funders board tags are on for this viewer (switch or preview row). */
   boardTagsOn: boolean;
+  /** E65: the card's tag (Verified, Booked, Funded, Pending verification, Empty house); null while tags are off. */
+  boardTagOf: (entry: FeedEntry) => BoardTag | null;
+  /** Totals for the header ("16 ready to fund · 783 houses"): Rent Plans ready to fund, and empty houses. */
+  readyTotal: number;
+  emptyTotal: number;
+  /** Drop a chosen distance limit (back to every house in Uganda). */
+  clearRadius: () => void;
   searchInput: string;
   setSearchInput: (value: string) => void;
   filters: FunderNewFilters;
@@ -238,14 +248,46 @@ export function FunderHouseListingsSection({
     onResultsFocus(points);
   }, [emptyItems, emptyQuery.isFetching, filters.search, onResultsFocus]);
 
-  /** Rent Plans first, empty houses below — one list, no tabs. */
-  const loadedItems = useMemo<FeedEntry[]>(
-    () => sortFunderFeedEntries([
+  // E65: each rent request's tag on the funders board (Verified, Booked, Funded,
+  // Pending verification). Under 'funder-new' so a demote refreshes it too.
+  const boardTagsQuery = useQuery({
+    queryKey: ['funder-new', 'board-tags'],
+    queryFn: fetchBoardItemTags,
+    enabled: boardTagsOn,
+    staleTime: 60_000,
+  });
+  const boardTagOf = useCallback(
+    (entry: FeedEntry): BoardTag | null => {
+      if (!boardTagsOn) return null;
+      if (entry.category === 'empty') return 'empty_house';
+      return boardTagsQuery.data?.get(itemId('ready', entry.item)) ?? 'verified';
+    },
+    [boardTagsOn, boardTagsQuery.data],
+  );
+  const kmOf = useCallback(
+    (entry: FeedEntry): number | null => {
+      const coords = itemCoordinates(entry.item, entry.category);
+      return coords ? straightLineDistance(deviceOrigin, coords)?.km ?? null : null;
+    },
+    // deviceOrigin is rebuilt each render; its numbers are what matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deviceOrigin?.lat, deviceOrigin?.lng],
+  );
+  const orderSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
+
+  /**
+   * Rent Plans first, empty houses below — one list, no tabs. With the E65 tags
+   * on: tag group first (Verified, Booked, Funded, Pending verification, Empty
+   * houses), then the chosen sort inside each group.
+   */
+  const loadedItems = useMemo<FeedEntry[]>(() => {
+    const base = sortFunderFeedEntries([
       ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
       ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
-    ]),
-    [readyItems, emptyItems],
-  );
+    ]);
+    if (!boardTagsOn) return base;
+    return orderFeedByBoardTag(base, (entry) => boardTagOf(entry) ?? 'empty_house', orderSort, kmOf);
+  }, [readyItems, emptyItems, boardTagsOn, boardTagOf, orderSort, kmOf]);
 
   const feedLoading = (includePending && emptyQuery.isLoading) || readyQuery.isLoading;
   const feedError = (includePending && emptyQuery.error) || readyQuery.error;
@@ -261,8 +303,9 @@ export function FunderHouseListingsSection({
     if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
   };
 
-  const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0)
-    + (includePending ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0);
+  const readyTotal = readyQuery.data?.pages?.[0]?.total ?? 0;
+  const emptyTotal = includePending ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0;
+  const filteredTotal = readyTotal + emptyTotal;
 
   // Support is funded from operational float only, never from withdrawable money.
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
@@ -293,13 +336,18 @@ export function FunderHouseListingsSection({
    * The within-balance chip is applied to the homes already loaded, because the
    * read service has no balance parameter. The chip row says so.
    */
+  const radiusKm = origin?.radiusKm ?? null;
   const items = useMemo(() => {
-    if (!filters.withinFloat || availableBalance === null) return loadedItems;
-    return loadedItems.filter((entry) => {
+    let list = loadedItems;
+    // A chosen distance limit: the empty-house read applies it on the server;
+    // the Rent Plan read has no radius, so loaded plans are measured here.
+    if (radiusKm !== null) list = list.filter((entry) => entry.category === 'empty' || withinRadius(kmOf(entry), radiusKm));
+    if (!filters.withinFloat || availableBalance === null) return list;
+    return list.filter((entry) => {
       const amount = itemAmount(entry.category, entry.item);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance]);
+  }, [loadedItems, filters.withinFloat, availableBalance, radiusKm, kmOf]);
 
   // Report every house that matches, not just the page loaded so far. The
   // within-balance filter only runs on loaded homes, so it reports those.
@@ -387,6 +435,10 @@ export function FunderHouseListingsSection({
   const viewApi: FunderListingsViewApi | null = view
     ? {
         boardTagsOn,
+        boardTagOf,
+        readyTotal,
+        emptyTotal,
+        clearRadius: () => setFilters((current) => ({ ...current, radiusKm: 'all' })),
         searchInput,
         setSearchInput,
         filters,
@@ -544,10 +596,10 @@ export function FunderHouseListingsSection({
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{sortLabel(effectiveSort)}</span>
-        {effectiveSort === 'nearest' && origin ? (
-          <span>
-            {origin.radiusKm ? `Within ${origin.radiusKm} km of ${origin.label}` : `Closest to ${origin.label} first`}
-          </span>
+        {origin && origin.radiusKm !== null ? (
+          <span>Within {origin.radiusKm} km of {origin.label}</span>
+        ) : effectiveSort === 'nearest' && origin ? (
+          <span>Closest to {origin.label} first</span>
         ) : null}
         {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
       </div>
@@ -574,17 +626,17 @@ export function FunderHouseListingsSection({
         <div className="rounded-2xl border bg-primary/5 p-8 text-center">
           <ListFilter className="mx-auto h-8 w-8 text-primary/60" aria-hidden />
           <p className="mt-3 text-sm font-semibold">
-            {effectiveSort === 'nearest' && origin && origin.radiusKm
+            {origin && origin.radiusKm !== null
               ? `No homes within ${origin.radiusKm} km of ${origin.label}`
               : 'No homes match yet'}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {effectiveSort === 'nearest' && origin
+            {origin && origin.radiusKm !== null
               ? 'Widen the search to look further out.'
               : 'Try a different district, amount, or clear your filters.'}
           </p>
-          {effectiveSort === 'nearest' && origin ? (
-            <Button variant="soft" className="mt-4 h-11 rounded-xl" onClick={() => changeSort('recommended')}>
+          {origin && origin.radiusKm !== null ? (
+            <Button variant="soft" className="mt-4 h-11 rounded-xl" onClick={() => setFilters((current) => ({ ...current, radiusKm: 'all' }))}>
               Search the whole market
             </Button>
           ) : null}
@@ -615,6 +667,7 @@ export function FunderHouseListingsSection({
                   onSelect={() => toggleSelect(entry.category, entry.item)}
                   onDetail={() => openDetail(entry.category, entry.item)}
                   boardTagsOn={boardTagsOn}
+                  boardTag={boardTagOf(entry)}
                 />
               );
             })}

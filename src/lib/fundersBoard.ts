@@ -487,4 +487,35 @@ export const fetchCounterListItems = async (kind: CounterListKind) => parseCount
 export function kampalaDay(iso: string | null | undefined): string {
   if (!iso || !Number.isFinite(Date.parse(iso))) return '—';
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
+
+/* ───────────── E65 tag groups (funders_board_items, rule FB-TAG v2 / FB-ORDER) ───────────── */
+
+/** The server's E65 tags. Empty houses (house_listings) are never in funders_board_items: they are 'empty_house'. */
+export type BoardTag = 'verified' | 'booked' | 'funded' | 'pending_verification' | 'empty_house';
+
+/** FB-ORDER: Verified, Booked, Funded, Pending verification, then Empty houses. */
+export const BOARD_TAG_ORDER: Record<BoardTag, number> = {
+  verified: 1,
+  booked: 2,
+  funded: 3,
+  pending_verification: 4,
+  empty_house: 5,
+};
+
+const BOARD_TAGS = new Set<BoardTag>(['verified', 'booked', 'funded', 'pending_verification']);
+
+/** Rent request id → its E65 tag, for every item on the funders board. Empty map when the call fails. */
+export async function fetchBoardItemTags(): Promise<Map<string, BoardTag>> {
+  const out = new Map<string, BoardTag>();
+  try {
+    const { data, error } = await rpc('funders_board_items', { p_tag: null, p_limit: 1000, p_offset: 0 });
+    if (error) return out;
+    for (const item of arr(rec(data).items)) {
+      const tag = String(item.tag ?? '') as BoardTag;
+      if (item.kind === 'rent_request' && item.id && BOARD_TAGS.has(tag)) out.set(String(item.id), tag);
+    }
+  } catch {
+    /* no tags: callers fall back to the category */
+  }
+  return out;
 }

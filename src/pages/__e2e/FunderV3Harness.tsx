@@ -13,7 +13,8 @@
  *   state=ready|loading|error|empty
  *   loc=granted|prompt|denied
  *   map=fake|real      real = the V3 Google map (live pin read; needs Maps to load)
- *   tags=on|off        E59 funders board tags (off = switch off and no preview row)
+ *   tags=on|off|e65    E59 funders board tags (off = switch off and no preview row);
+ *                      e65 = tags on, ready plans tagged Verified/Booked/Funded/Pending and ordered by FB-ORDER
  *   demote=1           E59 viewer may demote (funders_board_can_demote() true); fake submit
  */
 import { useMemo, useState } from 'react';
@@ -29,6 +30,9 @@ import { launcherHidden, useOverlayState } from '@/components/FloatingToolbar';
 import { FIXTURE_SUMMARY, fixtureApi, fixtureLocation, makeFeed } from '@/components/funder-v3/__fixtures__/funderV3Fixtures';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderV3DemoteApi } from '@/components/funder-v3/FunderV3HousesScreen';
+import type { FeedEntry } from '@/components/supporter/FunderHouseListingsSection';
+import { orderFeedByBoardTag } from '@/components/funder-new/feedOrder';
+import type { BoardTag } from '@/lib/fundersBoard';
 import { getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 
 function FakeMap({ api, activeHouseId, onPinHouse, insets, interactive, onMapTap, boardTagsOn }: FunderV3MapRenderProps & { api: ReturnType<typeof fixtureApi> }) {
@@ -85,7 +89,9 @@ export default function FunderV3Harness() {
   const total = Number(params.get('total') ?? 2534);
   const state = params.get('state') ?? 'ready';
   const loc = (params.get('loc') ?? 'granted') as 'granted' | 'prompt' | 'denied';
-  const boardTagsOn = params.get('tags') === 'on';
+  const tagsParam = params.get('tags');
+  const boardTagsOn = tagsParam === 'on' || tagsParam === 'e65';
+  const e65 = tagsParam === 'e65';
   const demote = useMemo<FunderV3DemoteApi | null>(
     () =>
       params.get('demote') === '1'
@@ -106,10 +112,21 @@ export default function FunderV3Harness() {
   const [detail, setDetail] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  const items = useMemo(() => (state === 'empty' ? [] : makeFeed(Math.min(loaded, total))), [loaded, total, state]);
+  const items = useMemo(() => (state === 'empty' ? [] : makeFeed(Math.min(loaded, total), e65 ? 8 : undefined)), [loaded, total, state, e65]);
+  // E65 demo: ready plans cycle through the four board tags; the real FB-ORDER helper orders the feed.
+  const e65Tags: BoardTag[] = ['funded', 'booked', 'pending_verification', 'verified'];
+  const tagOf = (entry: FeedEntry): BoardTag | null => {
+    if (!boardTagsOn) return null;
+    if (entry.category === 'empty') return 'empty_house';
+    if (!e65) return 'verified';
+    const n = Number(String(itemId('ready', entry.item)).replace(/\D/g, '')) || 0;
+    return e65Tags[n % e65Tags.length];
+  };
+  const shownItems = e65 ? orderFeedByBoardTag(items, (entry) => tagOf(entry) ?? 'empty_house', 'recommended', () => null) : items;
   const api = fixtureApi({
     boardTagsOn,
-    items,
+    boardTagOf: tagOf,
+    items: shownItems,
     filteredTotal: state === 'empty' ? 0 : total,
     feedLoading: state === 'loading',
     feedError: state === 'error',

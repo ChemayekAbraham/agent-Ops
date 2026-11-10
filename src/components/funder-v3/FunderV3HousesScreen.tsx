@@ -9,6 +9,7 @@ import type { FunderNewEmptyHouse } from '@/components/funder-new/types';
 import { locationNoticeState } from '@/components/funder-new/FunderNewLocationNotice';
 import { FunderV3HousesList, type FunderV3HousesListHandle } from './FunderV3HousesList';
 import { FunderV3MapControls } from './FunderV3MapControls';
+import { feedCountLabel } from '@/components/funder-new/feedOrder';
 import { FunderV3DemoteSheet } from './FunderV3DemoteSheet';
 import { cardIdOf } from './FunderV3HousesList';
 import type { FunderV3MapInsets } from './FunderV3Map';
@@ -49,6 +50,8 @@ export interface FunderV3MapRenderProps {
   centreOffsetY?: number;
   /** E59: colour pins by funders board tag. */
   boardTagsOn: boolean;
+  /** Bumped by "my location": the map recentres on the device. */
+  locateToken?: number;
 }
 
 /** E59 demote, given only to viewers for whom funders_board_can_demote() is true. */
@@ -140,6 +143,8 @@ export function FunderV3HousesScreen({
   const backRef = useRef<HTMLButtonElement | null>(null);
   const [topReserve, setTopReserve] = useState(76);
   const [centreOffset, setCentreOffset] = useState(0);
+  const [locateToken, setLocateToken] = useState(0);
+  const bumpLocate = useCallback(() => setLocateToken((n) => n + 1), []);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -338,14 +343,13 @@ export function FunderV3HousesScreen({
   const activeCard = hoveredId ?? highlightedId;
   const activeHouseId = activeCard?.startsWith('empty:') ? activeCard.slice('empty:'.length) : null;
 
-  const shown = api.items.length;
   const counting = api.feedLoading || listLoadingOverride;
 
   const titleRow = (
     <div className="flex min-w-0 items-center gap-2">
       <h2 className="fv3-t-base font-bold text-foreground">Houses to fund</h2>
       <span data-testid="fv3-count" className="rounded-full bg-primary/10 px-2 py-0.5 fv3-t-2xs font-semibold tabular-nums text-primary">
-        {counting ? '…' : countLabel(shown, api.filteredTotal)}
+        {counting ? '…' : feedCountLabel(api.readyTotal, api.emptyTotal)}
       </span>
     </div>
   );
@@ -538,9 +542,9 @@ export function FunderV3HousesScreen({
           {demoteBar ? <div className="pointer-events-none absolute inset-x-3 bottom-3 z-20">{demoteBar}</div> : null}
         </aside>
         <div className="relative min-h-0 min-w-0">
-          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true, boardTagsOn: api.boardTagsOn })}
+          {renderMap({ activeHouseId, onPinHouse, insets: { top: 0, right: 0, bottom: 0, left: 0 }, showLoadedNote: true, interactive: true, boardTagsOn: api.boardTagsOn, locateToken })}
           <div className="absolute bottom-4 right-4 z-20">
-            <FunderV3MapControls location={api.location} />
+            <FunderV3MapControls location={api.location} onLocate={bumpLocate} />
           </div>
         </div>
         {demoteSheet}
@@ -584,10 +588,11 @@ export function FunderV3HousesScreen({
               onMapTap: openMapFull,
               centreOffsetY: mapFull ? 0 : centreOffset,
               boardTagsOn: api.boardTagsOn,
+              locateToken,
             })}
           </div>
           <div className="pointer-events-none absolute bottom-3 right-3 z-10 pb-[env(safe-area-inset-bottom,0px)]">
-            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} />
+            <FunderV3MapControls location={api.location} fullscreen={mapFull} onToggleFullscreen={toggleMapFull} onLocate={bumpLocate} />
           </div>
         </div>
 
