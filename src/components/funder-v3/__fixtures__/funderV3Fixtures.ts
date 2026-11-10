@@ -105,8 +105,18 @@ export function fixtureApi(overrides: Partial<FunderListingsViewApi> = {}): Fund
   const filteredTotal = overrides.filteredTotal ?? 2534;
   const location = overrides.location ?? fixtureLocation('granted', true);
   const device = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
+  const readyCount = items.filter((entry) => entry.category === 'ready').length;
   return {
     boardTagsOn: false,
+    boardTagOf: () => null,
+    readyTotal: readyCount,
+    emptyTotal: Math.max(0, filteredTotal - readyCount),
+    clearRadius: () => {},
+    boardGroups: null,
+    boardCounts: null,
+    boardPins: [],
+    boardLoading: false,
+    boardError: false,
     searchInput: '',
     setSearchInput: () => {},
     filters: DEFAULT_FILTERS,

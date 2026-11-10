@@ -7,6 +7,7 @@ import { coarsenMapCells } from '@/components/funder-new/coarsenMapCells';
 import { loadGoogleMaps, viewportOf, type FunderNewMapCell, type FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
 import { viewportFromCenter } from '@/components/funder-new/viewportMath';
 import type { FunderNewEmptyHouse, FunderNewFilters } from '@/components/funder-new/types';
+import type { BoardPin } from '@/components/supporter/FunderHouseListingsSection';
 import type { FunderNewLocationController } from '@/components/funder-new/useFunderNewLocation';
 import { amountRange, emptyHouseTitle, itemAmount } from '@/components/funder-new/utils';
 import '@/components/funder-new/funderNewMap.css';
@@ -22,9 +23,9 @@ import {
 } from './funderV3MapLook';
 
 const LOCATED_ZOOM = 13;
-const KAMPALA_CENTRE = { lat: 0.3476, lng: 32.5825 };
-const KAMPALA_ZOOM = 12;
-const HOLD_FOR_LOCATION_MS = 4000;
+/** First view: all of Uganda, so the first pin read covers every house; then fit to the pins. */
+const UGANDA_CENTRE = { lat: 1.37, lng: 32.29 };
+const UGANDA_ZOOM = 7;
 
 export interface FunderV3MapInsets {
   top: number;
@@ -52,6 +53,12 @@ export interface FunderV3MapProps {
    * its logical centre in the middle of the visible part; changes pan smoothly.
    */
   centreOffsetY?: number;
+  /** Bumped by the screen's "my location" button: recentre on the device (now, or when the fix arrives). */
+  locateToken?: number;
+  /** E72b: rent requests on the funders board, pinned in their tag colour. */
+  boardPins?: BoardPin[];
+  /** A board pin was tapped: the screen scrolls to that card. */
+  onPinCard?: (cardId: string) => void;
   /** E59: pins take their funders board tag colour (grey Empty house, purple Verified). */
   boardTagsOn?: boolean;
 }
@@ -82,6 +89,9 @@ export function FunderV3Map({
   onMapTap,
   centreOffsetY = 0,
   boardTagsOn = false,
+  locateToken = 0,
+  boardPins,
+  onPinCard,
 }: FunderV3MapProps) {
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const device = location.coords;
@@ -160,18 +170,16 @@ export function FunderV3Map({
   const insetsRef = useRef(insets);
   insetsRef.current = insets;
 
-  // Hold the first pin request briefly while a granted location fix is on its way.
-  const [graceExpired, setGraceExpired] = useState(false);
-  const holding = awaitingDeviceFix && !device && !graceExpired;
-  const holdingRef = useRef(holding);
-  holdingRef.current = holding;
+  // The map opens on all of Uganda and fits to every pin; it no longer waits
+  // for, or zooms to, the device position (the list shows all houses too).
+  const holdingRef = useRef(false);
   const deviceRef = useRef(device);
   deviceRef.current = device;
-  useEffect(() => {
-    if (!holding) return;
-    const timer = window.setTimeout(() => setGraceExpired(true), HOLD_FOR_LOCATION_MS);
-    return () => window.clearTimeout(timer);
-  }, [holding]);
+  const fittedRef = useRef(false);
+  const boardFittedRef = useRef(false);
+  const boardMarkersRef = useRef<Map<string, { marker: AnyMarker; sig: string; pin: BoardPin }>>(new Map());
+  const onPinCardRef = useRef(onPinCard);
+  onPinCardRef.current = onPinCard;
 
   const reportViewport = useCallback((immediate = false) => {
     const map = mapRef.current;
@@ -192,10 +200,8 @@ export function FunderV3Map({
     // Google Maps has even loaded (same trick as the live map).
     if (!holdingRef.current) {
       const host = hostRef.current;
-      const start = deviceRef.current ?? KAMPALA_CENTRE;
-      const zoom = deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM;
       if (host && host.clientWidth > 0 && host.clientHeight > 0) {
-        setViewport(viewportFromCenter(start, zoom, host.clientWidth, host.clientHeight));
+        setViewport(viewportFromCenter(UGANDA_CENTRE, UGANDA_ZOOM, host.clientWidth, host.clientHeight));
       }
     }
     const listeners: google.maps.MapsEventListener[] = [];
@@ -214,8 +220,8 @@ export function FunderV3Map({
         const advanced = !!mapId && typeof google.maps.marker?.AdvancedMarkerElement === 'function';
         advancedRef.current = advanced;
         const map = new google.maps.Map(hostRef.current, {
-          center: deviceRef.current ?? KAMPALA_CENTRE,
-          zoom: deviceRef.current ? LOCATED_ZOOM : KAMPALA_ZOOM,
+          center: UGANDA_CENTRE,
+          zoom: UGANDA_ZOOM,
           clickableIcons: false,
           disableDefaultUI: true,
           gestureHandling: interactiveRef.current ? 'greedy' : 'none',
@@ -258,6 +264,8 @@ export function FunderV3Map({
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
       markerJobRef.current += 1;
       clustererRef.current?.clearMarkers(true);
+      boardMarkersRef.current.forEach((entry) => detach(entry.marker));
+      boardMarkersRef.current.clear();
       clustererRef.current?.setMap(null);
       clustererRef.current = null;
       markersRef.current.forEach((entry) => detach(entry.marker));
@@ -309,19 +317,82 @@ export function FunderV3Map({
     };
   }, []);
 
+  // First load: fit to every pin (zooms out towards all of Uganda when houses
+  // are far apart). Once only; after that the map is the funder's.
+  // With the board on, its rent request pins count too (one more fit when they arrive).
   useEffect(() => {
-    if (holding) return;
     const map = mapRef.current;
-    if (!map || device || !initialisedRef.current) return;
-    reportViewport(true);
-  }, [holding, device, reportViewport]);
+    if (!map || !window.google?.maps) return;
+    const pins = boardPins ?? [];
+    const needFirst = !fittedRef.current && (cells.length > 0 || pins.length > 0);
+    const needBoard = fittedRef.current && !boardFittedRef.current && pins.length > 0;
+    if (!needFirst && !needBoard) return;
+    fittedRef.current = true;
+    if (pins.length > 0) boardFittedRef.current = true;
+    const points = [...cells.map((c) => ({ lat: c.lat, lng: c.lng })), ...pins.map((p) => ({ lat: p.lat, lng: p.lng }))];
+    if (points.length === 1) {
+      map.setCenter(points[0]);
+      map.setZoom(14);
+      return;
+    }
+    const bounds = new google.maps.LatLngBounds();
+    points.forEach((point) => bounds.extend(point));
+    const pad = insetsRef.current;
+    map.fitBounds(bounds, { top: pad.top + 40, bottom: pad.bottom + 40, left: pad.left + 40, right: pad.right + 40 });
+  }, [cells, boardPins, mapReady]);
 
+  // E72b board pins: one per rent request, in its tag colour, clustered with the rest.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !device) return;
+    const clusterer = clustererRef.current;
+    if (!map || !clusterer || !window.google?.maps) return;
+    const advanced = advancedRef.current;
+    const store = boardMarkersRef.current;
+    const counts = countOfRef.current;
+    const seen = new Set<string>();
+    const added: AnyMarker[] = [];
+    const removed: AnyMarker[] = [];
+    for (const pin of boardPins ?? []) {
+      const tone = pinToneFor(true, pin.tag === 'empty_house' ? 'empty' : pin.tag);
+      const sig = `${pin.lat},${pin.lng}|${pin.amount}|${pin.tag}`;
+      seen.add(pin.cardId);
+      const title = `${pin.tag.replace('_', ' ')}: ${formatDynamic(pin.amount)}`;
+      const existing = store.get(pin.cardId);
+      if (existing) {
+        existing.pin = pin;
+        if (existing.sig === sig) continue;
+        existing.sig = sig;
+        paint(existing.marker, { lat: pin.lat, lng: pin.lng }, pin.amount, false, 0, title, tone);
+        continue;
+      }
+      const marker = create(advanced, { lat: pin.lat, lng: pin.lng }, pin.amount, false, 0, title, tone);
+      counts.set(marker, 1);
+      const entry = { marker, sig, pin };
+      marker.addListener('click', () => onPinCardRef.current?.(entry.pin.cardId));
+      store.set(pin.cardId, entry);
+      added.push(marker);
+    }
+    for (const [key, entry] of store) {
+      if (!seen.has(key)) {
+        removed.push(entry.marker);
+        google.maps.event.clearInstanceListeners(entry.marker);
+        store.delete(key);
+      }
+    }
+    if (removed.length) clusterer.removeMarkers(removed, true);
+    if (added.length) clusterer.addMarkers(added, true);
+    if (removed.length || added.length) clusterer.render();
+  }, [boardPins, mapReady]);
+
+  // "My location": recentre on the device when asked, now or when the fix arrives.
+  const lastLocateRef = useRef(0);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !device || !window.google?.maps || locateToken === 0 || locateToken === lastLocateRef.current) return;
+    lastLocateRef.current = locateToken;
     map.panTo(shiftDown(map, new google.maps.LatLng(device.lat, device.lng), -offsetRef.current));
     map.setZoom(LOCATED_ZOOM);
-  }, [device]);
+  }, [device, locateToken, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -377,7 +448,7 @@ export function FunderV3Map({
         if (current.house) onPinRef.current(current.house);
         else {
           map.panTo({ lat: current.lat, lng: current.lng });
-          map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
+          map.setZoom(Math.min((map.getZoom() ?? UGANDA_ZOOM) + 2, 17));
         }
       });
       store.set(cell.key, entry);

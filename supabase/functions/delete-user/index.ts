@@ -82,15 +82,19 @@ Deno.serve(async (req) => {
       if (restoreErr) {
         return new Response(JSON.stringify({ error: `Could not restore login: ${restoreErr.message}` }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
+      // Put back the Google/Apple sign-ins the delete released (skips any that
+      // have since been linked to another login).
+      const { data: ssoRestore, error: ssoRestoreErr } = await supabaseAdmin.rpc('admin_restore_sso_identities', { p_user_id: user_id });
+      if (ssoRestoreErr) console.error('SSO identity restore failed:', ssoRestoreErr);
       await supabaseAdmin.from('audit_logs').insert({
         user_id: caller.id,
         action_type: 'restore_auth_login',
         table_name: 'auth.users',
         record_id: user_id,
         reason: auditReason,
-        metadata: { restored_email: email, restored_phone: phoneBefore || null },
+        metadata: { restored_email: email, restored_phone: phoneBefore || null, sso_restore: ssoRestore ?? null, sso_restore_error: ssoRestoreErr?.message ?? null },
       });
-      return new Response(JSON.stringify({ success: true, restored_email: email }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return new Response(JSON.stringify({ success: true, restored_email: email, sso_restore: ssoRestore ?? null }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // Snapshot BEFORE values (email/phone) for the audit trail
@@ -211,11 +215,21 @@ Deno.serve(async (req) => {
         },
       }).eq('user_id', user_id).eq('status', 'soft_deleted');
 
+      // Free the Google/Apple sign-in too, or the email still reads as taken at
+      // sign-up. Runs after the metadata write above, which it appends to.
+      let ssoReleased: unknown = null;
+      if (authTombstoned) {
+        const { data, error: ssoErr } = await supabaseAdmin.rpc('admin_release_sso_identities', { p_user_id: user_id });
+        if (ssoErr) console.error('SSO identity release failed:', ssoErr);
+        ssoReleased = ssoErr ? { ok: false, reason: ssoErr.message } : data;
+      }
+
       return new Response(JSON.stringify({
         success: true,
         soft_deleted: true,
         auth_tombstoned: authTombstoned,
         auth_tombstone_error: authTombstoneError,
+        sso_released: ssoReleased,
         register: softResult ?? null,
         message: authTombstoned
           ? 'Account deleted. History preserved and the details are free to be reused.'
@@ -293,6 +307,13 @@ Deno.serve(async (req) => {
         });
         if (authScrubError) console.error('Auth scrub failed:', authScrubError);
 
+        let ssoReleased: unknown = null;
+        if (!authScrubError) {
+          const { data, error: ssoErr } = await supabaseAdmin.rpc('admin_release_sso_identities', { p_user_id: user_id });
+          if (ssoErr) console.error('SSO identity release failed:', ssoErr);
+          ssoReleased = ssoErr ? { ok: false, reason: ssoErr.message } : data;
+        }
+
         fetch(`${supabaseUrl}/functions/v1/notify-managers`, {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
@@ -306,6 +327,7 @@ Deno.serve(async (req) => {
           identity_files_removed: identityFilesRemoved,
           avatar_removed: avatarRemoved,
           auth_scrubbed: !authScrubError,
+          sso_released: ssoReleased,
           message: 'Account permanently removed. Money records were kept without the person\'s details.',
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }

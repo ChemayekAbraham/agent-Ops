@@ -801,7 +801,8 @@ function parsePublicPolicy(raw) {
     newContractRate: rate,
     cutoffAt: isoOrNull(o.cutoff_at),
     enabledAt: isoOrNull(o.enabled_at),
-    updatedAt: isoOrNull(o.updated_at)
+    updatedAt: isoOrNull(o.updated_at),
+    noteDueBy: typeof o.note_due_by === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.note_due_by) ? o.note_due_by : null
   };
 }
 

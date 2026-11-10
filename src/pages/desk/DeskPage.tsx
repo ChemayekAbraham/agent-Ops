@@ -19,8 +19,11 @@ import { ReviewStatusProvider } from './reviewStatus';
 import { ReviewDrawer } from './ReviewDrawer';
 import { FunderBoard } from './FunderBoard';
 import { PushQueueCards } from './PushQueueCards';
+import { SelfAppliedCard } from './SelfAppliedQueue';
 import { FundersDashboard } from './cfo/FundersDashboard';
 import { FundersHeadline } from './cfo/FundersHeadline';
+import { FundersBoardCounterCard } from './cfo/FundersBoardCounterCard';
+import { DemotedPanel } from './fundersBoard/DemotedPanel';
 import type { Period as FundersPeriod } from './cfo/cfoApi';
 import { useDeskLive } from './deskLive';
 import { PipelineStrip } from './PipelineStrip';
@@ -554,6 +557,8 @@ function DeskView({
 
       {/* The COO reads the push queue and the funders' board before opening the queue (budgets retired 5 Nov). */}
       {checklistOn && desk.id === 'coo' && <PushQueueCards board={board} enabled onCooDesk />}
+      {/* E73: tenants who applied alone and still need an agent — Agent Ops assigns them from the board. */}
+      {checklistOn && desk.id === 'agent-ops' && <SelfAppliedCard board={board} />}
     </>
   );
 
@@ -643,6 +648,9 @@ function DeskView({
       <div className={`space-y-5 ${board ? 'h-full overflow-auto' : ''}`}>
         <PipelineStrip deskId={desk.id} board={board} />
         {desk.id === 'cfo' && <FundersHeadline board={board} period={fundersPeriod} onPeriodChange={setFundersPeriod} />}
+        {desk.id === 'cfo' && <FundersBoardCounterCard board={board} />}
+        {/* E58: everything taken off the funders board waits here for its level. */}
+        {desk.id === 'coo' && <DemotedPanel board={board} />}
         {intro}
 
         <section className="space-y-3" aria-labelledby="desk-ready">

@@ -1,14 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { rpc } from '../reviewApi';
 
 /**
  * The Funders Dashboard's data layer (desk id `cfo`).
  *
  * `funders_dashboard` goes through the `rpc` cast from `reviewApi`, the same
- * pattern the review drawer uses. The only call here that moves money is
- * `fundOne`, which is the CFO's existing funding action, unchanged.
+ * pattern the review drawer uses. Nothing here moves money: the database
+ * refuses funding without a funder who selected the request (E59), so Welile
+ * funds through its own funder account on the funders' dashboard.
  */
 
 /**
@@ -140,23 +139,4 @@ export function useFundersDashboard(period: Period) {
     staleTime: 10_000,
     retry: 1,
   });
-}
-
-/**
- * Fund one request with Welile money: the CFO's existing action, the same edge
- * function, body and error handling as `singleDisburse` in
- * `src/components/cfo/RentDisbursementQueue.tsx`. The function checks the CFO
- * role and the request's status, refuses to fund a request twice, and the
- * database refuses a request a funder holds or has funded. The server's words
- * come back unchanged.
- */
-export type FundResult = { ok: boolean; reason?: string };
-
-export async function fundOne(id: string): Promise<FundResult> {
-  const { error, data } = await supabase.functions.invoke('fund-agent-landlord-float', {
-    body: { rent_request_id: id, notes: 'Funders Dashboard' },
-  });
-  if (error) return { ok: false, reason: await extractFromErrorObject(error, 'Funding failed') };
-  if ((data as { error?: string } | null)?.error) return { ok: false, reason: String((data as { error: string }).error) };
-  return { ok: true };
 }

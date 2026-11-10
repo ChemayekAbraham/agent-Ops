@@ -25,6 +25,9 @@ vi.mock('@/hooks/useCrmVoiceCall', () => ({
 import { CONCERN_BLOCK_LINE, CooBoard, cooLines, isPushable, type CooRow } from '../CooBoard';
 import { SendBackForm, deskReasons, noteNeeded, sendBackBlocked } from '../sendBack';
 import { AccountabilityTile, deskSlug, normalizeTile } from '../accountability/AccountabilityTile';
+import { isSendBackPush, pushRow, type BoardRow } from '../boardApi';
+import { ReadyBoard } from '../ReadyBoard';
+import { ReviewStatusProvider } from '../reviewStatus';
 
 const setWidth = (w: number) => Object.defineProperty(window, 'innerWidth', { value: w, configurable: true, writable: true });
 afterEach(() => setWidth(1024));
@@ -131,6 +134,7 @@ describe('COO "Send back…" sheet', () => {
     fireEvent.click(within(document.querySelector('[data-row="c1"]') as HTMLElement).getByRole('button', { name: 'More for Cara' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Send back…' }));
     const sheet = await screen.findByRole('dialog', { name: 'Send back — Cara' });
+    // E64: the field agent reads as the reject it is.
     await within(sheet).findByText('Field agent (to correct)');
     await within(sheet).findByText('Landlord or payout number not verified');
     return sheet;
@@ -249,5 +253,83 @@ describe('Accountability tile', () => {
     const sheet = await screen.findByRole('dialog', { name: 'Field agents — last 7 days' });
     await within(sheet).findAllByText('Ben Field');
     expect(rpcMock).toHaveBeenCalledWith('desk_accountability', { p_desk: 'agent-app', p_days: 7 });
+  });
+});
+
+/* ───────────── E63: the boards' suggested send-back ───────────── */
+
+const boardRow = (over: Partial<BoardRow> = {}): BoardRow => ({
+  id: 'r1', req: 'r1aaaaaa', tenant: 'Tina', tenant_id: 't1', tenant_phone: null, agent_id: 'a1', agent: 'Andy', agent_phone: null,
+  agent_grade: 'C', agent_grade_week_ago: null, agent_flags: [], landlord: 'Lucy', landlord_phone: null, rent: 500000, days_here: 3,
+  rating: null, flags: { passes: 4, total: 5, hard_fail: false, soft_fail: true, failing: ['id'], notes: [], flags: [] },
+  decision: 'send_back', rule_id: 'AO-2', why: 'AO-2: tenant ID missing', receiver: null, waiting: null, wait_suggest: null,
+  push: { decision: 'send_back', results: [], reason_code: 'TENANT_ID_MISSING', note: 'Tenant ID photo is missing from the request', target_agent_id: null },
+  call: null,
+  ...over,
+});
+
+describe('board push: send-back goes through pipeline_send_back_to', () => {
+  it('every desk from the Service Centre to the COO (E64 adds the Service Centre); never Partner Ops', () => {
+    const p = { decision: 'send_back' as const };
+    expect(['service_centre', 'agent_ops', 'tenant_ops', 'landlord_ops', 'coo'].every((s) => isSendBackPush(p, s as never))).toBe(true);
+    expect(isSendBackPush(p, 'partner_ops')).toBe(false);
+    expect(isSendBackPush({ decision: 'pass' }, 'agent_ops')).toBe(false);
+  });
+
+  it("one call to the field agent with the server's reason and note; no record_review, no return-for-correction", async () => {
+    rpcMock.mockResolvedValue({ data: { ok: true, to: 'agent', to_label: 'the field agent (to correct)' }, error: null });
+    const out = await pushRow(boardRow(), 'agent_ops', 'u1');
+    expect(out).toEqual({ kind: 'moved', message: 'Sent back to the agent' });
+    expect(rpcMock.mock.calls.map((c) => c[0])).toEqual(['pipeline_send_back_to']);
+    expect(rpcMock.mock.calls[0][1]).toEqual({
+      p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: 'Tenant ID photo is missing from the request',
+    });
+  });
+
+  it("a refusal comes back as the server's words and nothing else runs", async () => {
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'Choose a reason code' } });
+    expect(await pushRow(boardRow({ push: { ...boardRow().push!, reason_code: null } }), 'agent_ops', 'u1')).toEqual({ kind: 'review_failed', message: 'Choose a reason code' });
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("the row's button opens the send-back sheet prefilled with the suggestion; sending is one call", async () => {
+    setWidth(1280);
+    catalogue = [
+      { code: 'TENANT_ID_MISSING', desks: ['Agent Ops', 'SC'], meaning: 'Tenant ID not on file', requires_text: false },
+      { code: 'OTHER', desks: ['all'], meaning: 'Reviewed weekly to create new codes', requires_text: true },
+    ];
+    rpcMock.mockImplementation((fn: string) =>
+      Promise.resolve(
+        fn === 'pipeline_desk_board'
+          ? { data: { stage: 'agent_ops', can_act: true, staff_ref: 'E', sc_only: false, counts: { send_back: 1 }, rows: [boardRow()] }, error: null }
+          : fn === 'pipeline_send_back_options'
+            ? { data: OPTIONS.slice(0, 2), error: null }
+            : fn === 'pipeline_send_back_to'
+              ? { data: { ok: true, to: 'agent', to_label: 'the field agent (to correct)' }, error: null }
+              : { data: fn === 'pipeline_concerns_list' || fn === 'pipeline_waiting_list' ? [] : null, error: null },
+      ),
+    );
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <ReviewStatusProvider>
+          <ReadyBoard stage="agent_ops" board={false} onOpen={() => {}} />
+        </ReviewStatusProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText('Tina');
+    fireEvent.click(within(document.querySelector('[data-row="r1"]') as HTMLElement).getByRole('button', { name: 'Send back' }));
+    const sheet = await screen.findByRole('dialog', { name: 'Send back — Tina' });
+    await within(sheet).findByText('Tenant ID not on file');
+    expect(sheet.querySelector('[data-office="agent"]')?.getAttribute('aria-checked')).toBe('true');
+    expect(sheet.querySelector('[data-reason="TENANT_ID_MISSING"]')?.getAttribute('aria-checked')).toBe('true');
+    expect((within(sheet).getByRole('textbox') as HTMLTextAreaElement).value).toBe('Tenant ID photo is missing from the request');
+    expect(rpcMock).not.toHaveBeenCalledWith('pipeline_send_back_to', expect.anything());
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Field agent (to correct)' }));
+    await within(sheet).findByText('Sent back to the agent');
+    expect(rpcMock).toHaveBeenCalledWith('pipeline_send_back_to', {
+      p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: 'Tenant ID photo is missing from the request',
+    });
+    expect(rpcMock).not.toHaveBeenCalledWith('pipeline_record_review', expect.anything());
+    expect(rpcMock).not.toHaveBeenCalledWith('return_rent_request_for_correction', expect.anything());
   });
 });

@@ -71,15 +71,16 @@ beforeEach(() => {
 /* ───────────── Funders Dashboard ───────────── */
 
 describe('Funders Dashboard listing', () => {
-  it('md and up: a DataList table; day-7 rows marked; Fund only where an approver may fund', async () => {
+  it('md and up: a DataList table; day-7 rows marked; no funding action, the note instead', async () => {
     setWidth(1024);
     mount(<FundersDashboard board={false} />);
     await screen.findByText('Tenant a');
     expect(document.querySelector('[data-datalist="listings"] [data-layout="table"]')).not.toBeNull();
-    expect(document.querySelector('tr[data-row="b"]')?.hasAttribute('data-welile-due')).toBe(true);
-    expect(document.querySelector('tr[data-row="a"]')?.hasAttribute('data-welile-due')).toBe(false);
-    // Held rows cannot be funded with Welile money.
-    expect(screen.getAllByRole('button', { name: /^Fund with Welile money/ })).toHaveLength(2);
+    expect(document.querySelector('tr[data-row="b"]')?.hasAttribute('data-unsold-7d')).toBe(true);
+    expect(document.querySelector('tr[data-row="a"]')?.hasAttribute('data-unsold-7d')).toBe(false);
+    expect(screen.queryByRole('button', { name: /Fund/ })).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Action' })).toBeNull();
+    expect(screen.getByText("Welile funds through its own funder account, by selecting on the funders' dashboard.")).toBeTruthy();
     expect(screen.getByRole('searchbox', { name: 'Search listings' })).toBeTruthy();
   });
 
@@ -101,23 +102,23 @@ describe('Funders Dashboard listing', () => {
     expect(money.getAttribute('aria-label')).toBe('UGX 1,250,000');
     expect(within(a).getByText('2 d on board')).toBeTruthy();
     expect(within(a).getByText('B')).toBeTruthy();
-    const fund = within(a).getByRole('button', { name: 'Fund with Welile money' }) as HTMLButtonElement;
-    expect(fund.style.width).toBe('100%');
+    expect(within(a).queryByRole('button', { name: /Fund/ })).toBeNull();
 
     const b = document.querySelector('[data-funders-card="b"]') as HTMLElement;
-    expect(within(b).getByText('Welile to fund').getAttribute('data-tone')).toBe('bad');
+    expect(within(b).getByText('Unsold 7+ days · Partner Ops follow-up').getAttribute('data-tone')).toBe('idle');
 
     const c = document.querySelector('[data-funders-card="c"]') as HTMLElement;
     expect(within(c).getByRole('img', { name: 'No photo' })).toBeTruthy();
-    expect(within(c).queryByRole('button', { name: 'Fund with Welile money' })).toBeNull();
+    expect(screen.getByText("Welile funds through its own funder account, by selecting on the funders' dashboard.")).toBeTruthy();
   });
 
-  it('no Fund button for someone who is not an approver', async () => {
-    canFund = false;
+  it('no Fund button even where the server still says can_fund_welile', async () => {
+    canFund = true;
     setWidth(390);
     mount(<FundersDashboard board={false} />);
     await screen.findByText('Tenant a');
-    expect(screen.queryByRole('button', { name: 'Fund with Welile money' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Fund/ })).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('the tiles are a TileRow and the period toggle never wraps', async () => {
@@ -202,6 +203,6 @@ describe('Partner Ops portfolios and listings on a phone', () => {
     expect(within(follow).getByText('Nobody held it.').getAttribute('title')).toBe('Rule PO-3');
     fireEvent.click(within(follow).getByRole('button', { name: 'Note follow-up' }));
     expect(within(follow).getByRole('textbox')).toBeTruthy();
-    expect(within(document.querySelector('li[data-decision="welile_due"]') as HTMLElement).getByText('Welile to fund')).toBeTruthy();
+    expect(within(document.querySelector('li[data-decision="welile_due"]') as HTMLElement).getByText('Unsold 7+ days · Partner Ops follow-up')).toBeTruthy();
   });
 });

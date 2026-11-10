@@ -7,6 +7,11 @@ import { AgentOpsDashboard } from './AgentOpsDashboard';
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), from: vi.fn(), signage: vi.fn() }));
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: mocks.rpc, from: mocks.from } }));
 vi.mock('@/hooks/usePendingAdvanceCount', () => ({ usePendingAdvanceCount: () => 0 }));
+// The desk entry (deskLink) reads roles and desk access; it has its own tests (src/pages/desk/__tests__/deskLinks.test.tsx).
+vi.mock('@/pages/desk/deskLink', () => ({
+  DESK_LINKS: new Proxy({}, { get: (_t, k) => ({ label: `${String(k)} desk`, route: `/desk/${String(k)}` }) }),
+  useCanOpenDesk: () => false,
+}));
 vi.mock('@/ops-tutorials/components/TutorialVideosButton', () => ({ default: () => null }));
 vi.mock('./AgentDailyOverviewReportButton', () => ({ AgentDailyOverviewReportButton: () => null }));
 vi.mock('@/components/supporter/UserProfileDialog', () => ({ UserProfileDialog: () => null }));

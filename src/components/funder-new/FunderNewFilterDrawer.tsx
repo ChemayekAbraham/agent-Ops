@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ListFilter } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,8 @@ interface Props {
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
   onReset: () => void;
+  /** Page-specific filters shown under the standard ones. */
+  extraFilters?: ReactNode;
 }
 
 /** Route-local filter drawer for /dashboard/funder-new, sliding up from the bottom. */
@@ -38,6 +41,7 @@ export function FunderNewFilterDrawer({
   onChange,
   onSortChange,
   onReset,
+  extraFilters,
 }: Props) {
 
   return (
@@ -76,6 +80,8 @@ export function FunderNewFilterDrawer({
             onChange={onChange}
             onSortChange={onSortChange}
           />
+
+          {extraFilters}
 
           <div className="flex gap-2 pb-2">
             <Button

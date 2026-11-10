@@ -13,6 +13,9 @@ import { concernsChip, useConcernsSummary, type ConcernSummary } from './concern
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
+import { KindChip, type RequestKind } from './KindChip';
+import { awaitingRentRequestIds } from '@/lib/fundersBoard';
+import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -35,6 +38,8 @@ export type CooRatings = {
 
 export type CooRow = {
   id: string;
+  /** E73: New, Renewal or Self-applied. */
+  kind?: RequestKind | null;
   req: string;
   tenant: string | null;
   agent: string | null;
@@ -56,6 +61,8 @@ export type CooRow = {
   frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
   /** E62: a serious concern is open on this request; the server will not push it. */
   concern_block?: boolean | null;
+  /** E58: demoted from the funders board and waiting for the COO to choose its level; never pushed from here. */
+  demoted_awaiting?: boolean;
 };
 
 export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number; pushable?: number; frozen?: number };
@@ -136,9 +143,14 @@ export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
 }
 
-/** True when the server would push this row: not frozen, not blocked by a serious concern, not on hold, not marked unpushable. */
+/** E58: the hold the server sets on a request it took off the funders board. */
+export const DEMOTED_HOLD = 'FUNDERS_BOARD_DEMOTED';
+/** Waiting for a level on the "Demoted from the funders board" panel above. */
+export const isDemotedAwaiting = (r: CooRow): boolean => r.demoted_awaiting === true || r.waiting?.reason_code === DEMOTED_HOLD;
+
+/** True when the server would push this row: not frozen, not blocked by a serious concern, not on hold, not marked unpushable, not waiting for a level. */
 export function isPushable(r: CooRow): boolean {
-  return !r.waiting && !r.frozen && r.concern_block !== true && r.pushable !== false;
+  return !r.waiting && !r.frozen && r.concern_block !== true && r.pushable !== false && !isDemotedAwaiting(r);
 }
 
 /** E62: the line under a row with an open serious concern. */
@@ -198,9 +210,11 @@ export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
   const out: ChipModel[] = [];
   const c = concernsChip(concerns);
   if (c) out.push({ key: 'concerns', text: c.text, tone: c.tone, title: c.title, strong: c.tone === 'bad' });
+  if (isDemotedAwaiting(row)) out.push({ key: 'demoted', text: 'Demoted: choose level above', tone: 'warn', strong: true, title: row.waiting?.note ?? undefined });
   if (row.frozen) out.push({ key: 'frozen', text: 'Frozen', tone: 'idle', title: frozenText(row.frozen) });
   const w = row.waiting;
-  if (w) {
+  // The demotion hold already has its own chip.
+  if (w && w.reason_code !== DEMOTED_HOLD) {
     const up = w.expired || (hoursUntil(w.until_at) ?? 1) <= 0;
     out.push({ key: 'hold', text: up ? 'On hold · time up' : 'On hold', tone: up ? 'bad' : 'idle', title: w.note ?? undefined });
   }
@@ -258,7 +272,8 @@ function CooRowLine({
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const chips = cooChips(row, concerns).map((c) =>
+  const kindChip = row.kind ? [<KindChip key="kind" kind={row.kind} />] : [];
+  const chips = [...kindChip, ...cooChips(row, concerns).map((c) =>
     c.key === 'frozen' ? (
       <button
         key={c.key}
@@ -278,7 +293,7 @@ function CooRowLine({
         {c.text}
       </Chip>
     ),
-  );
+  )];
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
@@ -562,7 +577,12 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const closeAgent = useCallback(() => setAgentRow(null), []);
   const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
   const closeSendBack = useCallback(() => setSendBackRow(null), []);
-  const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
+  // Requests demoted from the funders board wait for a level on the panel above; mark them so they are never pushed.
+  const demoted = useCooDemoted();
+  const rows = useMemo(() => {
+    const awaiting = awaitingRentRequestIds(demoted.data ?? undefined);
+    return byRank(q.data?.rows ?? []).map((r) => (awaiting.has(r.id) ? { ...r, demoted_awaiting: true } : r));
+  }, [q.data, demoted.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
   // One batch call per board load: the concerns logged on every row.
   const concerns = useConcernsSummary(rows.map((r) => r.id));

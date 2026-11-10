@@ -130,21 +130,15 @@ describe('Funders board table', () => {
     expect(headers()).toEqual(['Request', 'Tenant', 'Agent', 'Grade', 'Days', 'Rent (UGX)', 'Status', 'Landlord', 'GPS · photos', 'Ratings · Agent / Tenant / Landlord']);
   });
 
-  it('an approver at ~950 px: "Fund" in the table, Agent / Grade / Days still visible, Request in the details', async () => {
+  it('an approver at ~950 px sees the same seven columns as everyone: no Fund column (E59), the note instead', async () => {
     canFund = true;
     setWidth(841);
     mount();
     await screen.findByText('Tenant a');
-    expect(headers()).toEqual(['Details', 'Tenant', 'Agent', 'Grade', 'Days', 'Rent (UGX)', 'Status', 'Action']);
-    expect(document.querySelector('table')?.getAttribute('data-hidden')).toBe('req landlord gps ratings');
-    const fund = screen.getByRole('button', { name: 'Fund with Welile money: Tenant a' });
-    expect(fund.textContent).toBe('Fund');
-    expect(fund.getAttribute('title')).toBe('Fund with Welile money');
-    // Held rows cannot be funded with Welile money.
-    expect(screen.getAllByRole('button', { name: /^Fund with Welile money/ })).toHaveLength(1);
-    // The confirm sheet still says the whole action.
-    fireEvent.click(fund);
-    expect(screen.getByRole('dialog', { name: 'Fund with Welile money' })).toBeTruthy();
+    expect(headers()).toEqual(['Details', 'Request', 'Tenant', 'Agent', 'Grade', 'Days', 'Rent (UGX)', 'Status']);
+    expect(document.querySelector('table')?.getAttribute('data-hidden')).toBe('landlord gps ratings');
+    expect(screen.queryByRole('button', { name: /Fund/ })).toBeNull();
+    expect(screen.getByText("Welile funds through its own funder account, by selecting on the funders' dashboard.").hasAttribute('data-welile-funds-note')).toBe(true);
   });
 
   it('the lead comes from funders_dashboard and matches the Fund today tile', async () => {

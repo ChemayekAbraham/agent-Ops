@@ -70,7 +70,8 @@ describe('Agent Ops board decisions', () => {
     expect(primaryLabel(boardRow({ decision: 'review_photos' }), 'agent_ops')).toBe('Review photos');
     expect(primaryLabel(boardRow({ decision: 'pass' }), 'agent_ops')).toBe('Pass');
     expect(primaryLabel(boardRow({ decision: 'send_back' }), 'agent_ops')).toBe('Send back');
-    expect(primaryLabel(boardRow({ decision: 'reject' }), 'agent_ops')).toBe('Reject');
+    // E64: the system's reject opens "Send back" (agent in the field picked).
+    expect(primaryLabel(boardRow({ decision: 'reject' }), 'agent_ops')).toBe('Send back');
     expect(
       primaryLabel(boardRow({ decision: 'transfer', receiver: { agent_id: 'b', name: 'Bena', grade: 'B', km: 2.4, score: 70, pct: 81.6 } }), 'agent_ops'),
     ).toBe('Transfer → Bena (82%, 2.4 km)');

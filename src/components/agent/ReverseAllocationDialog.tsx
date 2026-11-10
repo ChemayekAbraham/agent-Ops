@@ -23,7 +23,7 @@ export function ReverseAllocationDialog({
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const commission = Math.round(amount * 0.10);
+  const commission = Math.round(amount * 0.08);
   const isValid = reason.trim().length >= 5;
 
   const handleReverse = async () => {
@@ -93,7 +93,7 @@ export function ReverseAllocationDialog({
               rows={3}
               disabled={loading}
             />
-            <p className="text-[10px] text-muted-foreground mt-1">{reason.length}/300 — minimum 5 characters</p>
+            <p className="text-[10px] text-muted-foreground mt-1">{reason.length}/300. Minimum 5 characters</p>
           </div>
 
           <div className="flex gap-2">

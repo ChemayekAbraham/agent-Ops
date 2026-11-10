@@ -135,7 +135,11 @@ export function useFunderNewEmptyHouses(
   // 'nearest' needs coordinates; the RPC silently falls back otherwise, so the
   // route resolves the effective sort itself and shows the truth.
   const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
-  const nearby = effectiveSort === 'nearest' && origin ? origin : null;
+  // The position goes with every read when known (distances, nearest-first);
+  // only a radius the funder chose limits the list. Nearest-first orders, it
+  // never hides anything, so houses without a pin stay (sorted last).
+  const nearby = origin;
+  const radiusKm = origin?.radiusKm ?? null;
 
   const allowed = useFunderEmptyHousesAllowed();
   const signedIn = useSignedInEnabled(enabled && allowed);
@@ -165,13 +169,13 @@ export function useFunderNewEmptyHouses(
         p_offset: offset,
         p_district: normalizeTextFilter(filters.location),
         p_verified_only: true,
-        // A strictly nearby result must exclude houses without a usable pin.
-        p_gps_only: !!nearby,
+        // A distance limit must exclude houses without a usable pin.
+        p_gps_only: radiusKm !== null,
         p_min_rent: range.min,
         p_max_rent: range.max,
         p_near_lat: nearby ? nearby.lat : null,
         p_near_lng: nearby ? nearby.lng : null,
-        p_radius_km: nearby ? nearby.radiusKm : null,
+        p_radius_km: radiusKm,
         p_sort: effectiveSort,
       });
       if (error) throw error;

@@ -22,7 +22,6 @@ import { RentPipelineTracker } from './RentPipelineTracker';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 import { Badge } from '@/components/ui/badge';
 import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabel';
 import { Button } from '@/components/ui/button';
@@ -189,12 +188,14 @@ const STAGE_CONFIG: Record<PipelineStage, PipelineConfig> = {
     stage: 'coo_approved',
     title: 'CFO Payout Authorization',
     icon: Banknote,
+    // E60: Welile does not fund tenants directly. The CFO stage reviews and can
+    // return to the COO; it has no fund action (see isCfoStage below).
     approveLabel: 'Authorize & Fund Agent Float',
     nextStatus: 'funded',
     reviewerColumn: 'cfo_reviewed_by',
     reviewerAtColumn: 'cfo_reviewed_at',
     commentColumn: 'approval_comment',
-    showPayoutFields: true,
+    showPayoutFields: false,
     previousCommentColumns: [
       { column: 'agent_ops_comment', label: 'Agent Ops note' },
       { column: 'tenant_ops_comment', label: 'Tenant Ops note' },
@@ -282,6 +283,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   // fitsLandlordFloatBudget(landlordFloatBudget.data, req.rent_amount) is the per-card check, presentation only.
   const isCooStage = stage === 'partner_ops_approved';
   const isCfoStage = stage === 'coo_approved';
+  /** A funder's pick: what the database requires before a request can be funded (E60_FUNDERS_ONLY). */
+  const funderPicked = (req: { supporter_id?: string | null; self_funding_partner_id?: string | null } | null | undefined) =>
+    !!(req?.supporter_id || req?.self_funding_partner_id);
+  const cfoNote = (req: { supporter_id?: string | null; self_funding_partner_id?: string | null } | null | undefined) =>
+    funderPicked(req) ? 'A funder picked this — Partner Ops approval pays it' : "Needs a funder's pick on the funders' dashboard";
   const landlordFloatBudget = useLandlordFloatBudgetStatus({ enabled: isCooStage || isCfoStage });
   const landlordFloatActions = useLandlordFloatBudgetActions();
   const requestFitsLandlordFloatBudget = (req: { rent_amount?: number | null }) =>
@@ -738,6 +744,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const handleQuickApprove = async (req: any, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!user || quickProcessingId) return;
+    // E60: no Welile-money funding from the CFO stage.
+    if (isCfoStage) return;
     if (stage === 'tenant_ops_approved') {
       const gate = landlordRejectedGate(req);
       if (gate.blocked) {
@@ -842,7 +850,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url, pricing_version')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, supporter_id, self_funding_partner_id, agent_verified, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url, pricing_version')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -1153,6 +1161,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
+    // E60: Welile does not fund tenants directly; a funder's pick on the funders' dashboard does.
+    if (isCfoStage) {
+      toast({ title: cfoNote(selectedRequest), variant: 'destructive' });
+      return;
+    }
     if (stage === 'pending' && isRequestExpired(selectedRequest.created_at, selectedRequest.status, selectedRequest.agent_verified, (selectedRequest as any).pending_window_reset_at)) {
       toast({ title: 'Request expired', description: 'Cannot approve a request that has exceeded 30 days without verification.', variant: 'destructive' });
       return;
@@ -1184,28 +1197,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
     }
 
 
-    // TID is mandatory for CFO approval (audit compliance)
-    if (stage === 'coo_approved' && !payoutRef.trim()) {
-      toast({ title: 'Transaction ID is required for audit compliance', variant: 'destructive' });
-      return;
-    }
-
     setProcessing(true);
     try {
       const statusChangedAt = new Date().toISOString();
-      // For CFO stage: let the edge function handle status + float atomically
-      if (stage === 'coo_approved') {
-        const { data: floatRes, error: floatErr } = await supabase.functions.invoke('fund-agent-landlord-float', {
-          body: {
-            rent_request_id: selectedRequest.id,
-            notes: comment || null,
-            transaction_reference: payoutRef.trim(),
-            payout_method: payoutMethod || 'mobile_money',
-          },
-        });
-        if (floatErr) throw new Error(await extractFromErrorObject(floatErr, 'Failed to fund agent float'));
-        if (floatRes?.error) throw new Error(floatRes.error);
-      } else if (isCooStage) {
+      if (isCooStage) {
         // COO step: inside the landlord float budget only. Held or refused -> keep the sheet open, toast says why.
         const res = await approveAtCooStage([selectedRequest.id], comment);
         if (res.approved.length === 0) {
@@ -1428,6 +1423,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
 
   const handleBulkApprove = async () => {
     if (!user || selectedIds.size === 0) return;
+    // E60: the CFO stage has no bulk fund; selected rows can still be returned to the COO.
+    if (isCfoStage) return;
     setProcessing(true);
     // COO step: only the requests that fit inside the budget are sent, oldest first. The over-cap ones
     // stay selected and at the COO step, where the operator can ask the CFO for a miscellaneous approval.
@@ -1670,7 +1667,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <XCircle className="h-3 w-3" />
                   Return selected ({selectedIds.size})
                 </Button>
-                <Button
+                {!isCfoStage && <Button
                   size="sm"
                   className="h-7 text-xs gap-1"
                   disabled={processing || (isCooStage && cooBulkSplit.fits.length === 0)}
@@ -1681,7 +1678,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   {isCooStage
                     ? `Approve ${cooBulkSplit.fits.length} that fit (${formatUGX(cooBulkSplit.fitsTotal)})`
                     : `Approve selected (${selectedIds.size})`}
-                </Button>
+                </Button>}
                 {isCooStage && cooBulkSplit.overCap.length > 0 && (
                   <span className="text-xs text-muted-foreground">{cooBulkSplit.overCap.length} over budget stay at the COO step</span>
                 )}
@@ -2400,7 +2397,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <span>Details</span>
                   </Button>
 
-                  <Button
+                  {isCfoStage ? (
+                    <span className="text-[11px] font-medium text-muted-foreground text-right max-w-[13rem]" data-needs-pick={funderPicked(req) ? undefined : req.id}>
+                      {cfoNote(req)}
+                    </span>
+                  ) : <Button
                     type="button"
                     size="sm"
                     onClick={(e) => handleQuickApprove(req, e)}
@@ -2421,7 +2422,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     )}
                     <span>Approve</span>
-                  </Button>
+                  </Button>}
                 </div>
                 {isCooStage && landlordFloatBudget.data && (landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id) || (!landlordFloatBudget.data.blocked && !requestFitsLandlordFloatBudget(req))) && <div className="pt-2"><LandlordFloatMiscAction requestId={req.id} tenantName={req.tenant_name} pending={landlordFloatBudget.data.pending_misc.some(item => item.rent_request_id === req.id)} requestMisc={requestLandlordFloatMisc} /></div>}
               </div>
@@ -2937,7 +2938,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   <XCircle className="h-4 w-4 mr-1" />
                   {isCfoStage ? 'Return to COO' : 'Reject'}
                 </Button>
-                <Button
+                {isCfoStage ? (
+                  <p className="self-center text-xs font-medium text-foreground" data-needs-pick-review>
+                    {cfoNote(selectedRequest)}
+                  </p>
+                ) : <Button
                   size="sm"
                   onClick={() => void handleApprove()}
                   disabled={processing || (isCooStage && !requestFitsLandlordFloatBudget(selectedRequest)) || (stage === 'tenant_ops_approved' && landlordRejectedGate(selectedRequest).blocked)}
@@ -2956,7 +2961,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           ? 'Confirm & Record Outstanding'
                           : config.approveLabel)
                     : config.approveLabel}
-                </Button>
+                </Button>}
               </div>
             </div>
           )}

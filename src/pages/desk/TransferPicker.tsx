@@ -60,14 +60,17 @@ export function TransferPicker({
   defaultNote,
   onClose,
   onConfirm,
+  mode = 'transfer',
 }: {
   requestId: string;
   tenant: string | null;
+  /** 'assign' (E73): the tenant has no real agent yet; the same list, worded as assigning one. */
+  mode?: 'transfer' | 'assign';
   /** Pre-filled from the row's reason. */
   defaultNote: string;
   onClose: () => void;
   /** Runs the same review + transfer as the suggested push, with this target and note. */
-  onConfirm: (agentId: string, note: string) => Promise<string | null>;
+  onConfirm: (agentId: string, note: string, agentName: string | null) => Promise<string | null>;
 }) {
   // A bottom sheet on phones, a centred card from md.
   const sheetCentred = atLeast(useBreakpoint(), 'md');
@@ -83,7 +86,7 @@ export function TransferPicker({
     if (!picked || !noteOk) return;
     setBusy(true);
     setError(null);
-    const err = await onConfirm(picked, note.trim());
+    const err = await onConfirm(picked, note.trim(), rows.find((r) => r.agent_id === picked)?.agent ?? null);
     setBusy(false);
     if (err) setError(err);
     else onClose();
@@ -95,7 +98,7 @@ export function TransferPicker({
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', justifyContent: 'center', alignItems: sheetCentred ? 'center' : 'flex-end' }}
       role="dialog"
       aria-modal="true"
-      aria-label="Pick an agent to transfer to"
+      aria-label={mode === 'assign' ? 'Pick an agent to assign' : 'Pick an agent to transfer to'}
     >
       <button type="button" aria-label="Close" onClick={busy ? undefined : onClose} className="absolute inset-0 bg-black/60" />
       <div
@@ -166,7 +169,17 @@ export function TransferPicker({
           </label>
           {error && <ErrorLine>{error}</ErrorLine>}
           <DecisionButton size="md" variant={picked && noteOk && !busy ? 'ok' : 'quiet'} disabled={!picked || !noteOk || busy} onClick={confirm}>
-            {busy ? 'Transferring…' : picked ? `Transfer to ${rows.find((r) => r.agent_id === picked)?.agent ?? 'this agent'}` : 'Choose an agent'}
+            {mode === 'assign'
+              ? busy
+                ? 'Assigning…'
+                : picked
+                  ? `Assign ${rows.find((r) => r.agent_id === picked)?.agent ?? 'this agent'}`
+                  : 'Choose an agent'
+              : busy
+                ? 'Transferring…'
+                : picked
+                  ? `Transfer to ${rows.find((r) => r.agent_id === picked)?.agent ?? 'this agent'}`
+                  : 'Choose an agent'}
           </DecisionButton>
         </footer>
       </div>

@@ -269,6 +269,14 @@ export interface PlanDetail {
   money_in: MoneyInRow[];
   adjustments: AdjustmentRow[];
   ledger: LedgerRow[];
+  tenant_context?: {
+    tenant_id: string | null;
+    rent_request_id: string;
+    tenant_status: string | null;
+    last_active_at: string | null;
+    plan_activity: { state: string; days_idle: number; last_collection_at: string | null; updated_at: string | null } | null;
+    other_plans: Array<{ rent_request_id: string; status: string; created_at: string }>;
+  };
 }
 
 /** One readable line for an adjustment: what changed from what to what. */
