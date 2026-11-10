@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { FinOpsScope } from './FinOpsScope';
 import { Component, useEffect, useState, Suspense, type ComponentType, type ReactNode } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
+import { useCanViewActualFloat } from '@/hooks/useCanViewActualFloat';
 // Eagerly imported: only what's needed on the Home view.
 import { WalletOverviewCard } from './WalletOverviewCard';
 import { MomoFeedSilenceAlert } from './MomoFeedSilenceAlert';
@@ -1199,6 +1200,8 @@ function FinOpsHome({
   const onFinopsRoute = isOnFinopsRoute(useLocation().pathname);
   const qc = useQueryClient();
   const autoRefresh = useFinOpsAutoRefresh();
+  // Some people are restricted from seeing the actual float (CTO platform > Dashboard Permissions).
+  const { canView: canViewFloat } = useCanViewActualFloat();
   const [exploreQuery, setExploreQuery] = useState('');
 
   const { data: totals, isLoading: totalsLoading } = useQuery({
@@ -1298,7 +1301,7 @@ function FinOpsHome({
       />
 
       {/* Wallet split, money in all wallets, and the money we actually hold */}
-      <div className="grid grid-cols-1 gap-4 items-stretch lg:grid-cols-[1.15fr_1fr_1fr]">
+      <div className={`grid grid-cols-1 gap-4 items-stretch ${canViewFloat ? 'lg:grid-cols-[1.15fr_1fr_1fr]' : 'lg:grid-cols-2'}`}>
         <div className="min-w-0 h-full">
           <WalletBreakdownDonut
             withdrawable={totals?.totalWithdrawable}
@@ -1314,9 +1317,11 @@ function FinOpsHome({
             onDrillBucket={() => onOpenTool('wallet_breakdown')}
           />
         </div>
-        <div className="min-w-0 h-full">
-          <PhoneMoneyCard />
-        </div>
+        {canViewFloat && (
+          <div className="min-w-0 h-full">
+            <PhoneMoneyCard />
+          </div>
+        )}
       </div>
 
       {/* Company money sitting with merchant agents */}
