@@ -8,7 +8,7 @@ import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
 import { isRecordOnly, needsNote, passMovesOnServer, runMove } from './deskActions';
 import { afterServerPass } from './boardApi';
-import { SEND_BACK_STAGES, SendBackForm } from './sendBack';
+import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackForm, parseSendBackNote } from './sendBack';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
@@ -244,8 +244,10 @@ export function ReviewDrawer({
   const reasons = useReasonCodes();
 
   const [entries, setEntries] = useState<Record<string, CheckEntry>>({});
+  // E64: Reject is now "Send back" to the agent in the field; a reject start opens it with that office picked.
+  const fromReject = initial === 'reject' && SEND_BACK_STAGES.has(stage);
   const [decision, setDecision] = useState<Decision | null>(() =>
-    initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
+    fromReject ? 'send_back' : initial && visibleDecisions(stage).includes(initial as Decision) ? (initial as Decision) : null,
   );
   const [reasonCode, setReasonCode] = useState<string>('');
   const cooReason = useCooReasonPicker();
@@ -783,6 +785,7 @@ export function ReviewDrawer({
                     key={`${requestId}:send-back`}
                     requestId={requestId}
                     stage={stage}
+                    initial={fromReject ? { to: SUGGESTED_OFFICE } : undefined}
                     onDone={(message) => {
                       clear(requestId);
                       mark(requestId, { kind: 'moved', message });
@@ -907,16 +910,29 @@ export function ReviewDrawer({
                 <section className={`${PANEL} space-y-2 p-4`}>
                   <h3 className="text-sm font-semibold text-foreground">What the desks before this one decided</h3>
                   <ul className="space-y-1.5">
-                    {(sheet.data?.history ?? []).map((h, i) => (
-                      <li key={`${h.stage}-${h.at}-${i}`} className={LABEL}>
-                        <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
-                        {h.followed === false ? ' (went against the system)' : ''}
-                        {h.reason_code ? ` · ${h.reason_code}` : ''}
-                        {h.by ? ` · ${h.by}` : ''}
-                        {h.staff_ref ? ` (${h.staff_ref})` : ''}
-                        {h.note ? ` — ${h.note}` : ''}
-                      </li>
-                    ))}
+                    {(sheet.data?.history ?? []).map((h, i) => {
+                      // E64: a send-back names the office it went to and the reason in words.
+                      const sent = h.decision === 'send_back' ? parseSendBackNote(h.note) : null;
+                      const meaning = h.reason_code ? (reasons.data ?? []).find((r) => r.code === h.reason_code)?.meaning ?? null : null;
+                      return (
+                        <li key={`${h.stage}-${h.at}-${i}`} className={LABEL} data-history={h.decision}>
+                          <span className="text-foreground">{STAGE_NAME[h.stage] ?? h.stage}</span>: {DECISION_LABEL[h.decision] ?? h.decision}
+                          {sent && (
+                            <>
+                              {' → '}
+                              <span className="font-medium text-foreground" data-sent-to>
+                                {sent.office}
+                              </span>
+                            </>
+                          )}
+                          {h.followed === false ? ' (went against the system)' : ''}
+                          {h.reason_code ? ` · ${meaning ?? h.reason_code}` : ''}
+                          {h.by ? ` · ${h.by}` : ''}
+                          {h.staff_ref ? ` (${h.staff_ref})` : ''}
+                          {sent ? (sent.why && sent.why !== meaning ? ` — ${sent.why}` : '') : h.note ? ` — ${h.note}` : ''}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </section>
               )}

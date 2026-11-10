@@ -134,7 +134,8 @@ describe('COO "Send back…" sheet', () => {
     fireEvent.click(within(document.querySelector('[data-row="c1"]') as HTMLElement).getByRole('button', { name: 'More for Cara' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Send back…' }));
     const sheet = await screen.findByRole('dialog', { name: 'Send back — Cara' });
-    await within(sheet).findByText('Field agent (to correct)');
+    // E64: the field agent reads as the reject it is.
+    await within(sheet).findByText('Agent in the field (rejected)');
     await within(sheet).findByText('Landlord or payout number not verified');
     return sheet;
   };
@@ -171,7 +172,7 @@ describe('COO "Send back…" sheet', () => {
     const sheet = await openSheet();
     fireEvent.click(sheet.querySelector('[data-office="agent"]') as HTMLElement);
     fireEvent.click(sheet.querySelector('[data-reason="LANDLORD_UNVERIFIED"]') as HTMLElement);
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Field agent (to correct)' }));
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Agent in the field (rejected)' }));
     expect((await within(sheet).findByRole('alert')).textContent).toBe('Only the COO can send back from the COO desk');
   });
 });
@@ -268,17 +269,17 @@ const boardRow = (over: Partial<BoardRow> = {}): BoardRow => ({
 });
 
 describe('board push: send-back goes through pipeline_send_back_to', () => {
-  it('Agent / Tenant / Landlord Ops and COO only; never the Service Centre', () => {
+  it('every desk from the Service Centre to the COO (E64 adds the Service Centre); never Partner Ops', () => {
     const p = { decision: 'send_back' as const };
-    expect(['agent_ops', 'tenant_ops', 'landlord_ops', 'coo'].every((s) => isSendBackPush(p, s as never))).toBe(true);
-    expect(isSendBackPush(p, 'service_centre')).toBe(false);
+    expect(['service_centre', 'agent_ops', 'tenant_ops', 'landlord_ops', 'coo'].every((s) => isSendBackPush(p, s as never))).toBe(true);
+    expect(isSendBackPush(p, 'partner_ops')).toBe(false);
     expect(isSendBackPush({ decision: 'pass' }, 'agent_ops')).toBe(false);
   });
 
   it("one call to the field agent with the server's reason and note; no record_review, no return-for-correction", async () => {
     rpcMock.mockResolvedValue({ data: { ok: true, to: 'agent', to_label: 'the field agent (to correct)' }, error: null });
     const out = await pushRow(boardRow(), 'agent_ops', 'u1');
-    expect(out).toEqual({ kind: 'moved', message: 'Sent back to the field agent (to correct).' });
+    expect(out).toEqual({ kind: 'moved', message: 'Sent back to the agent in the field: rejected.' });
     expect(rpcMock.mock.calls.map((c) => c[0])).toEqual(['pipeline_send_back_to']);
     expect(rpcMock.mock.calls[0][1]).toEqual({
       p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: 'Tenant ID photo is missing from the request',
@@ -323,8 +324,8 @@ describe('board push: send-back goes through pipeline_send_back_to', () => {
     expect(sheet.querySelector('[data-reason="TENANT_ID_MISSING"]')?.getAttribute('aria-checked')).toBe('true');
     expect((within(sheet).getByRole('textbox') as HTMLTextAreaElement).value).toBe('Tenant ID photo is missing from the request');
     expect(rpcMock).not.toHaveBeenCalledWith('pipeline_send_back_to', expect.anything());
-    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Field agent (to correct)' }));
-    await within(sheet).findByText('Sent back to the field agent (to correct).');
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Send back to Agent in the field (rejected)' }));
+    await within(sheet).findByText('Sent back to the agent in the field: rejected.');
     expect(rpcMock).toHaveBeenCalledWith('pipeline_send_back_to', {
       p_request_id: 'r1', p_from_stage: 'agent_ops', p_to: 'agent', p_reason_code: 'TENANT_ID_MISSING', p_note: 'Tenant ID photo is missing from the request',
     });

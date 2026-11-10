@@ -237,9 +237,13 @@ export function moveFor(row: BoardRow, stage: Stage, userId: string, override?: 
   });
 }
 
-/** True when this push is a send-back that goes through `pipeline_send_back_to` (E63). */
+/**
+ * True when this push is a send-back that goes through `pipeline_send_back_to`
+ * (E63) — the system's reject too (E64): it goes to the agent in the field,
+ * which the server records as rejected, with the server's reason and note.
+ */
 export function isSendBackPush(p: Pick<BoardPush, 'decision'> | null | undefined, stage: Stage): boolean {
-  return p?.decision === 'send_back' && SEND_BACK_STAGES.has(stage);
+  return (p?.decision === 'send_back' || p?.decision === 'reject') && SEND_BACK_STAGES.has(stage);
 }
 
 /**
@@ -350,7 +354,7 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   pass: 'Pass',
   transfer: 'Transfer',
   send_back: 'Send back',
-  reject: 'Reject',
+  reject: 'Send back to agent',
   wait: 'Wait',
   waiting: 'Waiting',
   complete: 'Complete',
@@ -435,7 +439,8 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
     case 'send_back':
       return 'Send back';
     case 'reject':
-      return 'Reject';
+      // E64: the system's reject opens "Send back", the agent in the field picked.
+      return 'Send back';
     case 'call_again':
       return 'Call again';
     case 'call':
