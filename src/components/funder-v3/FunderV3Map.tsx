@@ -15,8 +15,10 @@ import {
   countBubbleElement,
   countBubbleIcon,
   funderV3MapId,
+  pinToneFor,
   pricePillElement,
   pricePillIcon,
+  type PinTone,
 } from './funderV3MapLook';
 
 const LOCATED_ZOOM = 13;
@@ -50,6 +52,8 @@ export interface FunderV3MapProps {
    * its logical centre in the middle of the visible part; changes pan smoothly.
    */
   centreOffsetY?: number;
+  /** E59: pins take their funders board tag colour (grey Empty house, purple Verified). */
+  boardTagsOn?: boolean;
 }
 
 type AnyMarker = google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
@@ -77,6 +81,7 @@ export function FunderV3Map({
   interactive = true,
   onMapTap,
   centreOffsetY = 0,
+  boardTagsOn = false,
 }: FunderV3MapProps) {
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const device = location.coords;
@@ -143,6 +148,8 @@ export function FunderV3Map({
   onMapTapRef.current = onMapTap;
   const interactiveRef = useRef(interactive);
   interactiveRef.current = interactive;
+  const tagsOnRef = useRef(boardTagsOn);
+  tagsOnRef.current = boardTagsOn;
   const deviceMarkerRef = useRef<google.maps.Marker | null>(null);
   const accuracyRef = useRef<google.maps.Circle | null>(null);
   const initialisedRef = useRef(false);
@@ -226,7 +233,7 @@ export function FunderV3Map({
           map,
           markers: [],
           algorithm: new SuperClusterAlgorithm({ radius: 64, maxZoom: 16 }),
-          renderer: clusterRenderer(advanced, (marker) => countOfRef.current.get(marker) ?? 1),
+          renderer: clusterRenderer(advanced, (marker) => countOfRef.current.get(marker) ?? 1, () => tagsOnRef.current),
         });
         setMapReady(true);
         listeners.push(
@@ -349,18 +356,20 @@ export function FunderV3Map({
       const active = !!id && activeHouseId === id;
       const amount = cell.amount || (cell.house ? itemAmount('empty', cell.house) : 0);
       const bubble = !cell.house && cell.count > 1 ? cell.count : 0;
-      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${cell.count}|${id ?? ''}`;
+      // Map cells are house_listings, i.e. "Empty house".
+      const tone = pinToneFor(boardTagsOn, 'empty');
+      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${cell.count}|${id ?? ''}|${tone}`;
       seen.add(cell.key);
       const existing = store.get(cell.key);
       if (existing) {
         existing.cell = cell;
         if (existing.sig === sig) continue;
         existing.sig = sig;
-        paint(existing.marker, { lat: cell.lat, lng: cell.lng }, amount, active, bubble, title(cell, amount));
+        paint(existing.marker, { lat: cell.lat, lng: cell.lng }, amount, active, bubble, title(cell, amount), tone);
         counts.set(existing.marker, bubble || 1);
         continue;
       }
-      const marker = create(advanced, { lat: cell.lat, lng: cell.lng }, amount, active, bubble, title(cell, amount));
+      const marker = create(advanced, { lat: cell.lat, lng: cell.lng }, amount, active, bubble, title(cell, amount), tone);
       counts.set(marker, bubble || 1);
       const entry = { marker, sig, cell };
       marker.addListener('click', () => {
@@ -385,7 +394,7 @@ export function FunderV3Map({
     if (added.length) clusterer.addMarkers(added, true);
     // Re-cluster once per change (new pins, or a selection that changed a pill).
     clusterer.render();
-  }, [cells, activeHouseId, mapReady]);
+  }, [cells, activeHouseId, mapReady, boardTagsOn]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -450,29 +459,32 @@ function create(
   active: boolean,
   count: number,
   title: string,
+  tone: PinTone,
 ): AnyMarker {
+  const neutral = tone !== 'plain';
   if (advanced) {
     return new google.maps.marker.AdvancedMarkerElement({
       position,
       title,
       gmpClickable: true,
       zIndex: active ? 30 : 10,
-      content: count > 0 ? countBubbleElement(count) : pricePillElement(amount, active),
+      content: count > 0 ? countBubbleElement(count, neutral) : pricePillElement(amount, active, tone),
     });
   }
   return new google.maps.Marker({
     position,
     title,
-    icon: count > 0 ? countBubbleIcon(count) : pricePillIcon(amount, active),
+    icon: count > 0 ? countBubbleIcon(count, neutral) : pricePillIcon(amount, active, tone),
     zIndex: active ? 30 : 10,
     optimized: true,
   });
 }
 
-function paint(marker: AnyMarker, position: google.maps.LatLngLiteral, amount: number, active: boolean, count: number, title: string) {
+function paint(marker: AnyMarker, position: google.maps.LatLngLiteral, amount: number, active: boolean, count: number, title: string, tone: PinTone) {
+  const neutral = tone !== 'plain';
   if (marker instanceof google.maps.Marker) {
     marker.setPosition(position);
-    marker.setIcon(count > 0 ? countBubbleIcon(count) : pricePillIcon(amount, active));
+    marker.setIcon(count > 0 ? countBubbleIcon(count, neutral) : pricePillIcon(amount, active, tone));
     marker.setTitle(title);
     marker.setZIndex(active ? 30 : 10);
     return;
@@ -480,7 +492,7 @@ function paint(marker: AnyMarker, position: google.maps.LatLngLiteral, amount: n
   marker.position = position;
   marker.title = title;
   marker.zIndex = active ? 30 : 10;
-  marker.content = count > 0 ? countBubbleElement(count) : pricePillElement(amount, active);
+  marker.content = count > 0 ? countBubbleElement(count, neutral) : pricePillElement(amount, active, tone);
 }
 
 function detach(marker: AnyMarker) {
@@ -489,15 +501,15 @@ function detach(marker: AnyMarker) {
 }
 
 /** Clusters: a purple bubble with the number of homes inside (house pills count 1, area bubbles their count). */
-function clusterRenderer(advanced: boolean, homesOf: (marker: AnyMarker) => number): Renderer {
+function clusterRenderer(advanced: boolean, homesOf: (marker: AnyMarker) => number, neutral: () => boolean): Renderer {
   return {
     render: ({ markers, position }) => {
       const homes = markers.reduce((sum, marker) => sum + homesOf(marker as AnyMarker), 0);
       const title = `${homes.toLocaleString()} homes here. Tap to zoom in.`;
       if (advanced) {
-        return new google.maps.marker.AdvancedMarkerElement({ position, title, zIndex: 1000 + homes, content: countBubbleElement(homes) });
+        return new google.maps.marker.AdvancedMarkerElement({ position, title, zIndex: 1000 + homes, content: countBubbleElement(homes, neutral()) });
       }
-      return new google.maps.Marker({ position, title, zIndex: 1000 + homes, icon: countBubbleIcon(homes) });
+      return new google.maps.Marker({ position, title, zIndex: 1000 + homes, icon: countBubbleIcon(homes, neutral()) });
     },
   };
 }

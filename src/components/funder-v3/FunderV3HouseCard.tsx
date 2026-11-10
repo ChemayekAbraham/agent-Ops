@@ -14,6 +14,7 @@ import {
   readyPlanTitle,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
+import { FundersBoardTag, boardTagFor } from '@/components/funder-new/FundersBoardTag';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
 const PHOTO_W = 640;
@@ -38,6 +39,12 @@ export interface FunderV3HouseCardProps {
   onHoverChange?: (hovering: boolean) => void;
   /** Stable id for scroll-to-card and pin matching. */
   cardId: string;
+  /** E59: show the funders board tag (Empty house / Verified). */
+  boardTagsOn?: boolean;
+  /** E59 select-to-demote mode (staff who may demote only). */
+  demoteMode?: boolean;
+  demoteChecked?: boolean;
+  onDemoteToggle?: () => void;
 }
 
 /**
@@ -58,6 +65,10 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   highlighted = false,
   onHoverChange,
   cardId,
+  boardTagsOn = false,
+  demoteMode = false,
+  demoteChecked = false,
+  onDemoteToggle,
 }: FunderV3HouseCardProps) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -72,11 +83,13 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
       data-card-id={cardId}
       data-testid="fv3-card"
       data-highlighted={highlighted ? 'true' : undefined}
+      data-demote-checked={demoteMode && demoteChecked ? 'true' : undefined}
       onPointerEnter={onHoverChange ? () => onHoverChange(true) : undefined}
       onPointerLeave={onHoverChange ? () => onHoverChange(false) : undefined}
       className={cn(
         'fv3-card @container relative min-w-0 scroll-mt-24 overflow-hidden rounded-2xl border border-border/70 bg-card text-card-foreground',
         selected && 'border-primary ring-1 ring-primary',
+        demoteMode && demoteChecked && 'border-destructive ring-2 ring-destructive/50',
       )}
     >
       <div className="fv3-photo relative w-full overflow-hidden bg-muted">
@@ -145,6 +158,25 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
       </div>
 
       <div className="flex flex-col gap-3 p-3.5 @[420px]:p-4">
+        {demoteMode ? (
+          <label
+            data-testid="fv3-demote-check"
+            className={cn(
+              'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-3 fv3-t-sm font-semibold ring-1 transition-colors',
+              demoteChecked ? 'bg-destructive/10 text-destructive ring-destructive/40' : 'bg-muted/50 text-foreground ring-border',
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={demoteChecked}
+              onChange={onDemoteToggle}
+              aria-label={`Select ${title} in ${place} to demote`}
+              className="h-5 w-5 flex-none accent-[hsl(var(--destructive))]"
+            />
+            {demoteChecked ? 'Selected to demote' : 'Select to demote'}
+          </label>
+        ) : null}
+        {boardTagsOn ? <FundersBoardTag kind={boardTagFor(category)} /> : null}
         <button
           type="button"
           onClick={onDetail}

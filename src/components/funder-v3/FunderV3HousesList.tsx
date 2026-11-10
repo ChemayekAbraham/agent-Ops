@@ -33,6 +33,10 @@ interface Props {
   scrollPaddingTop?: number;
   onHoverCard?: (cardId: string | null) => void;
   reducedMotion?: boolean;
+  /** E59 select-to-demote: card ids currently ticked, and the toggle. */
+  demoteMode?: boolean;
+  demoteChecked?: ReadonlySet<string>;
+  onDemoteToggle?: (entry: FeedEntry) => void;
 }
 
 /**
@@ -42,7 +46,7 @@ interface Props {
  * rows are windowed so a long scroll stays light on phones.
  */
 export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(function FunderV3HousesList(
-  { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false },
+  { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false, demoteMode = false, demoteChecked, onDemoteToggle },
   ref,
 ) {
   const {
@@ -144,6 +148,10 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
         priority={index === 0}
         highlighted={highlightedId === cardId}
         onHoverChange={onHoverCard && entry.category === 'empty' ? (hovering) => onHoverCard(hovering ? cardId : null) : undefined}
+        boardTagsOn={api.boardTagsOn}
+        demoteMode={demoteMode}
+        demoteChecked={demoteChecked?.has(cardId) ?? false}
+        onDemoteToggle={onDemoteToggle ? () => onDemoteToggle(entry) : undefined}
       />
     );
   };

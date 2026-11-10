@@ -12,6 +12,7 @@ import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { concernsChip, useConcernsSummary, type ConcernSummary } from './concerns';
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
+import { SendBackSheet } from './sendBack';
 
 /**
  * The COO's "Ready for your push": approved requests graded A–D from the three
@@ -53,6 +54,8 @@ export type CooRow = {
   pushable?: boolean | null;
   /** Frozen rows go back to Agent Ops on the given date; they are never pushed. */
   frozen?: { reason: string | null; since: string | null; returns_to_agent_ops_at: string | null } | null;
+  /** E62: a serious concern is open on this request; the server will not push it. */
+  concern_block?: boolean | null;
 };
 
 export type CooCounts = { A?: number; B?: number; C?: number; D?: number; unrated?: number; waiting?: number; pushable?: number; frozen?: number };
@@ -133,10 +136,13 @@ export function byRank(rows: CooRow[]): CooRow[] {
   return [...rows].sort((a, b) => (a.rank ?? Number.POSITIVE_INFINITY) - (b.rank ?? Number.POSITIVE_INFINITY));
 }
 
-/** True when the server would push this row: not frozen, not on hold, not marked unpushable. */
+/** True when the server would push this row: not frozen, not blocked by a serious concern, not on hold, not marked unpushable. */
 export function isPushable(r: CooRow): boolean {
-  return !r.waiting && !r.frozen && r.pushable !== false;
+  return !r.waiting && !r.frozen && r.concern_block !== true && r.pushable !== false;
 }
+
+/** E62: the line under a row with an open serious concern. */
+export const CONCERN_BLOCK_LINE = 'Blocked: a serious concern is open — resolve it in the review, or hold';
 
 /** What "Push top N" would send, as the confirm sheet lists it: the best N pushable rows, and their total rent. */
 export function pushPlan(rows: CooRow[], n: number): { rows: CooRow[]; totalUgx: number } {
@@ -202,6 +208,15 @@ export function cooChips(row: CooRow, concerns?: ConcernSummary): ChipModel[] {
   return out;
 }
 
+/** The sentences under a row, most important first: serious concern, then frozen or held. */
+export function cooLines(row: CooRow): string[] {
+  const out: string[] = [];
+  if (row.concern_block === true) out.push(CONCERN_BLOCK_LINE);
+  const l = cooLine(row);
+  if (l) out.push(l);
+  return out;
+}
+
 /** The sentence under a frozen or held row, in plain words; null otherwise. */
 export function cooLine(row: CooRow): string | null {
   if (row.frozen) return frozenText(row.frozen);
@@ -226,6 +241,7 @@ function CooRowLine({
   onOpen,
   onPush,
   onAgent,
+  onSendBack,
   concerns,
 }: {
   row: CooRow;
@@ -236,6 +252,8 @@ function CooRowLine({
   onPush: (row: CooRow) => void;
   /** Opens the agent's sheet (the Agents desk's): from the agent name or the Frozen chip. */
   onAgent: (row: CooRow) => void;
+  /** Opens "Send back…" to a chosen office (E63). */
+  onSendBack: (row: CooRow) => void;
   /** Concerns any desk logged on this request. */
   concerns?: ConcernSummary;
 }) {
@@ -265,7 +283,7 @@ function CooRowLine({
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>
       <MenuItem onClick={() => { close(); onOpen(row.id, 'wait'); }}>Hold (Wait on…)</MenuItem>
-      <MenuItem onClick={() => { close(); onOpen(row.id, 'send_back'); }}>Send back…</MenuItem>
+      <MenuItem onClick={() => { close(); onSendBack(row); }}>Send back…</MenuItem>
     </>
   );
   const title = (
@@ -298,7 +316,7 @@ function CooRowLine({
     </span>
   );
 
-  const line = cooLine(row);
+  const lines = cooLines(row);
 
   if (layout === 'card') {
     return (
@@ -308,7 +326,17 @@ function CooRowLine({
           title={title}
           subtitle={agent}
           chips={chips}
-          why={line ?? undefined}
+          why={
+            lines.length ? (
+              <>
+                {lines.map((l) => (
+                  <span key={l} style={{ display: 'block' }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
+                    {l}
+                  </span>
+                ))}
+              </>
+            ) : undefined
+          }
           meta={
             <>
               <span title={moneyFull(row.rent)}>{moneyCard(row.rent)}</span>
@@ -361,11 +389,11 @@ function CooRowLine({
         <MoreMenu label={`More for ${row.tenant ?? 'this request'}`}>{menu}</MoreMenu>
       </span>
       {layout === 'md' && chips.length > 0 && <div style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', gap: 6 }}>{chips}</div>}
-      {line && (
-        <div className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }}>
-          {line}
+      {lines.map((l) => (
+        <div key={l} className={LABEL} style={{ gridColumn: '1 / -1', minWidth: 0 }} data-row-line={l === CONCERN_BLOCK_LINE ? 'concern' : undefined}>
+          {l}
         </div>
-      )}
+      ))}
     </li>
   );
 }
@@ -532,6 +560,8 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
   const [pushRow, setPushRow] = useState<CooRow | null>(null);
   const [agentRow, setAgentRow] = useState<CooRow | null>(null);
   const closeAgent = useCallback(() => setAgentRow(null), []);
+  const [sendBackRow, setSendBackRow] = useState<CooRow | null>(null);
+  const closeSendBack = useCallback(() => setSendBackRow(null), []);
   const rows = useMemo(() => byRank(q.data?.rows ?? []), [q.data]);
   const plan = useMemo(() => pushPlan(rows, n), [rows, n]);
   // One batch call per board load: the concerns logged on every row.
@@ -600,13 +630,14 @@ export function CooBoard({ board, onOpen }: { board: boolean; onOpen: OpenDrawer
       ) : (
         <ol style={{ display: 'flex', flexDirection: 'column', gap: card ? 12 : 0, margin: 0, padding: 0 }}>
           {rows.map((r) => (
-            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} concerns={concerns.data?.[r.id]} />
+            <CooRowLine key={r.id} row={r} board={board} layout={layout} onOpen={onOpen} onPush={setPushRow} onAgent={setAgentRow} onSendBack={setSendBackRow} concerns={concerns.data?.[r.id]} />
           ))}
         </ol>
       )}
 
       {confirm && valid && <PushSheet plan={plan} n={n} onClose={() => setConfirm(false)} />}
       {pushRow && <RowPushConfirm row={pushRow} onClose={() => setPushRow(null)} />}
+      {sendBackRow && <SendBackSheet requestId={sendBackRow.id} stage="coo" tenant={sendBackRow.tenant} onClose={closeSendBack} />}
       {agentRow && (
         <AgentSheet target={{ kind: 'request', requestId: agentRow.id, name: agentRow.agent, grade: agentRow.agent_grade }} onClose={closeAgent} />
       )}

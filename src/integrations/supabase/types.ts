@@ -19482,6 +19482,42 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_bank_anchors: {
+        Row: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at: string
+          confirmed_by: string | null
+          evidence: string | null
+          id: string
+          source: string
+        }
+        Insert: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source: string
+        }
+        Update: {
+          account_key?: string
+          account_label?: string
+          anchor_at?: string
+          balance?: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       fin_cash_accounts: {
         Row: {
           code: string
@@ -77463,6 +77499,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      admin_release_sso_identities: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_reseed_wallet_cache: {
         Args: { p_balance: number; p_user_id: string; p_withdrawable: number }
         Returns: undefined
@@ -77474,6 +77514,10 @@ export type Database = {
       admin_restore_auth_user: { Args: { p_user_id: string }; Returns: Json }
       admin_restore_soft_deleted_account: {
         Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_restore_sso_identities: {
+        Args: { p_user_id: string }
         Returns: Json
       }
       admin_set_kyc_level: {
@@ -83376,6 +83420,7 @@ export type Database = {
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
       feature_preview_on: { Args: { p_feature: string }; Returns: boolean }
       fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
+      fin_bank_anchor: { Args: { p_account_key?: string }; Returns: Json }
       fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
       fin_controls: { Args: { p_as_at?: string }; Returns: Json }
       fin_correction_review_flags: {
@@ -84293,6 +84338,10 @@ export type Database = {
         Returns: Json
       }
       funders_board_headline: { Args: never; Returns: Json }
+      funders_board_items: {
+        Args: { p_limit?: number; p_offset?: number; p_tag?: string }
+        Returns: Json
+      }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funders_headline_list: {
         Args: { p_kind?: string; p_period?: string }

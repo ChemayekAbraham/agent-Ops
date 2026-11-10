@@ -36,6 +36,8 @@ const DASHBOARDS = [
   { key: 'hr', label: 'HR Dashboard' },
   { key: 'rd', label: 'R&D Dashboard' },
   { key: 'kyc', label: 'KYC Console' },
+  // A restriction, not an access: ticking it HIDES the Actual Money figures from this person.
+  { key: 'financial-ops-float-hidden', label: 'Financial Ops: hide actual float (restriction)' },
 ];
 
 interface DashboardPermissionsTabProps {

@@ -33,6 +33,7 @@ import { preloadWhenIdle } from '@/lib/idlePreload';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { FunderV3Home } from './FunderV3Home';
 import { useFunderV3PortfolioActivity } from './useFunderV3PortfolioActivity';
+import { useFunderV3Demote } from './useFunderV3Demote';
 import './funderV3.css';
 
 // Everything behind a tap loads on demand, as on the live dashboard.
@@ -97,6 +98,7 @@ export default function FunderDashboardV3({ user, signOut, currentRole, availabl
   const marketSummary = useFunderNewMarketSummary();
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const portfolio = useFunderV3PortfolioActivity(user);
+  const demote = useFunderV3Demote(user?.id);
 
   const [housesOpen, setHousesOpen] = useState(false);
   const [mapFocus, setMapFocus] = useState<{ points: { lat: number; lng: number }[]; token: number } | null>(null);
@@ -309,6 +311,7 @@ export default function FunderDashboardV3({ user, signOut, currentRole, availabl
                     <FunderV3HousesScreen
                       api={api}
                       onClose={closeHouses}
+                      demote={demote}
                       listLoadingOverride={portfolio.loading && portfolio.virtualHouses.length === 0}
                       listTop={<FunderApprovalBanner />}
                       listOverlay={!effectiveHasAccepted ? <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} /> : null}

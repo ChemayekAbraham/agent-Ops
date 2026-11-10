@@ -68,6 +68,14 @@
   box-shadow: 0 0 0 1px rgb(17 24 39 / 0.1), 0 2px 6px rgb(15 23 42 / 0.22);
   transition: transform 150ms ease, background-color 150ms ease;
 }
+.fv3-pin--empty { background: #e5e7eb; color: #374151; }
+.fv3-pin--verified { background: hsl(271 100% 40%); color: #fff; }
+.fv3-pin--empty.fv3-pin--selected { background: #4b5563; }
+.fv3-pin--verified.fv3-pin--selected { background: #4c0099; }
+.fv3-bubble--neutral {
+  background: #4b5563;
+  box-shadow: 0 0 0 4px rgb(75 85 99 / 0.18), 0 2px 6px rgb(15 23 42 / 0.25);
+}
 .fv3-pin--selected {
   background: hsl(271 100% 40%);
   color: #fff;
