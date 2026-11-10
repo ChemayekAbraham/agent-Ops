@@ -153,7 +153,7 @@ export function FunderNewHouseCard({
           {coords ? (
             <Button
               variant="outline"
-              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
+              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-0 p-0 text-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
               }}
