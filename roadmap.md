@@ -1,3 +1,9 @@
+# Tenant Repayment Tracker exception investigation
+- [x] Reproduce the displayed 243 exceptions across 208 tenants and compare plan-specific receipts, repayments, edits and Tenant Operations activity sources.
+- [x] Prepare the case register and evidence-backed reporting proposal without financial or production data changes.
+- [ ] Implement only approved reporting corrections; blocked on the user's approval of the proposal.
+- [ ] Resolve remaining evidence gaps; requires case-specific payment/adjustment evidence and approved scope, never money movement or ledger edits.
+
 # R&D monthly project planning
 - [x] Confirm requested d572009ed0 is already included; do not reapply its migration or publish.
 - [x] Add account-scoped device-saved monthly budgets and targets for each R&D project, separate from cash position and approved finance budgets.
