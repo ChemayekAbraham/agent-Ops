@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +30,7 @@ import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
+import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackSheet } from './sendBack';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { useTenantHealthMany, type TenantHealth } from './paymentHealth';
 import { useConcernsSummary, type ConcernSummary } from './concerns';
@@ -502,6 +503,9 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
   const [picker, setPicker] = useState<BoardRow | null>(null);
+  // E63: a suggested send-back opens the send-back sheet, prefilled with the server's suggestion.
+  const [sendBack, setSendBack] = useState<BoardRow | null>(null);
+  const closeSendBack = useCallback(() => setSendBack(null), []);
 
   const data = q.data;
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
@@ -539,6 +543,11 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
       onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
+      return;
+    }
+    // Send back (E63): choose or confirm the office, reason and note, then one server call.
+    if (row.decision === 'send_back' && SEND_BACK_STAGES.has(stage)) {
+      setSendBack(row);
       return;
     }
     // No push values: the drawer asks for what is missing.
@@ -699,6 +708,21 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
           defaultNote={picker.push?.note ?? picker.why ?? ''}
           onClose={() => setPicker(null)}
           onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+        />
+      )}
+
+      {sendBack && (
+        <SendBackSheet
+          requestId={sendBack.id}
+          stage={stage}
+          tenant={sendBack.tenant}
+          initial={{ to: SUGGESTED_OFFICE, reasonCode: sendBack.push?.reason_code ?? null, note: sendBack.push?.note ?? sendBack.why ?? null }}
+          onDone={(message) => {
+            clear(sendBack.id);
+            mark(sendBack.id, { kind: 'moved', message });
+            setNote(sendBack.id, { kind: 'ok', text: message });
+          }}
+          onClose={closeSendBack}
         />
       )}
 

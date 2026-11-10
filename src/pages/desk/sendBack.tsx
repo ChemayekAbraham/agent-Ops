@@ -6,6 +6,9 @@ import { rpc, useReasonCodes } from './reviewApi';
 import { DecisionButton, ErrorLine, LoadingRows, Sheet } from './ui';
 import { Skeleton } from './Skeleton';
 import type { Stage } from './reviewTypes';
+import { sendBackTo, serverMessage, type SendBackStart } from './sendBackApi';
+
+export { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
 
 /**
  * "Send back…" to a chosen office (E63).
@@ -18,14 +21,10 @@ import type { Stage } from './reviewTypes';
  * reason-code catalogue for their desk (the list their drawer already shows).
  */
 
-/** The desks that send back with `pipeline_send_back_to`. */
-export const SEND_BACK_STAGES: ReadonlySet<Stage> = new Set<Stage>(['agent_ops', 'tenant_ops', 'landlord_ops', 'coo']);
-
 export const SEND_BACK_NOTE_MIN = 10;
 
 export type SendBackOption = { code: string; label: string; hint: string | null };
 export type SendBackReason = { code: string; meaning: string | null; requires_text: boolean };
-export type SendBackResult = { ok?: boolean; to?: string; to_label?: string | null; status?: string | null };
 
 /** The reason-code catalogue's tag for each desk. */
 const DESK_TAG: Partial<Record<Stage, string>> = {
@@ -97,25 +96,26 @@ const pick = (on: boolean) =>
     ? statusGlass.ok
     : 'border-[var(--desk-line-color)] bg-[var(--desk-surface)] text-muted-foreground hover:bg-[var(--desk-surface-hover)] hover:text-foreground';
 
-/** The server's own words for a failed send-back, unchanged. */
-const serverMessage = (e: unknown) => String((e as { message?: string } | null)?.message ?? e ?? 'The send-back did not go through.');
 
 export function SendBackForm({
   requestId,
   stage,
   onDone,
+  initial,
 }: {
   requestId: string;
   stage: Stage;
   /** Called with the confirmation once the request has moved. */
   onDone: (message: string) => void;
+  /** Prefill: the board's suggestion. The reviewer can change any of it. */
+  initial?: SendBackStart;
 }) {
   const queryClient = useQueryClient();
   const options = useSendBackOptions(stage);
   const reasons = useSendBackReasons(stage);
-  const [to, setTo] = useState('');
-  const [reasonCode, setReasonCode] = useState('');
-  const [note, setNote] = useState('');
+  const [to, setTo] = useState(initial?.to ?? '');
+  const [reasonCode, setReasonCode] = useState(initial?.reasonCode ?? '');
+  const [note, setNote] = useState(initial?.note ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -129,20 +129,13 @@ export function SendBackForm({
     if (blocked || busy) return;
     setBusy(true);
     setError(null);
-    const { data, error: e } = await rpc('pipeline_send_back_to', {
-      p_request_id: requestId,
-      p_from_stage: stage,
-      p_to: to,
-      p_reason_code: reasonCode,
-      p_note: note.trim() || null,
-    });
+    const out = await sendBackTo({ requestId, stage, to, reasonCode, note });
     setBusy(false);
-    if (e) {
-      setError(serverMessage(e));
+    if (!out.ok) {
+      setError(out.message);
       return;
     }
-    const r = (data ?? {}) as SendBackResult;
-    const message = `Sent back to ${r.to_label ?? office?.label ?? 'the chosen office'}.`;
+    const message = out.message;
     setDone(message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     onDone(message);
@@ -245,10 +238,34 @@ export function SendBackForm({
 }
 
 /** The same form in a sheet: the COO board's "Send back…". */
-export function SendBackSheet({ requestId, stage, tenant, onClose }: { requestId: string; stage: Stage; tenant?: string | null; onClose: () => void }) {
+/** The same form in a sheet: the COO board's "Send back…" and the stage boards' suggested send-back. */
+export function SendBackSheet({
+  requestId,
+  stage,
+  tenant,
+  initial,
+  onDone,
+  onClose,
+}: {
+  requestId: string;
+  stage: Stage;
+  tenant?: string | null;
+  initial?: SendBackStart;
+  /** Called with the confirmation once the request has moved, before the sheet closes. */
+  onDone?: (message: string) => void;
+  onClose: () => void;
+}) {
   return (
     <Sheet title={tenant ? `Send back — ${tenant}` : 'Send back'} onClose={onClose}>
-      <SendBackForm requestId={requestId} stage={stage} onDone={() => window.setTimeout(onClose, 1200)} />
+      <SendBackForm
+        requestId={requestId}
+        stage={stage}
+        initial={initial}
+        onDone={(message) => {
+          onDone?.(message);
+          window.setTimeout(onClose, 1200);
+        }}
+      />
     </Sheet>
   );
 }
