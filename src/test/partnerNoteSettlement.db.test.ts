@@ -21,6 +21,7 @@ const MIG = read('supabase/migrations/20261111100000_partner_note_settlement.sql
 const RB = read('supabase/rollbacks/20261111100000_partner_note_settlement.rollback.sql');
 const BATCH = read('docs/finance/corrections/2026-11-10_partner_note_settlement.sql');
 const BATCH_RB = read('docs/finance/corrections/2026-11-10_partner_note_settlement_rollback.sql');
+const N2 = read('docs/finance/corrections/2026-11-10_partner_note_settlement_n2.sql');
 const RECOGNISE_LIVE = RB.slice(RB.indexOf('CREATE OR REPLACE FUNCTION public.recognise_partner_receivable'),
   RB.indexOf('-- fin_balance_sheet: the 20261111090000 version'));
 
@@ -233,12 +234,36 @@ describe('promissory notes: Supporter capital counted once', () => {
     await db.exec('rollback'); // the refused run leaves its transaction open, as psql would
   });
 
+  it('N2 releases exactly the approved fund-in-linked notes, skips unlisted ones, and refuses to run twice', async () => {
+    // backlog: fund-ins recorded while settlement could not post (as for notes funded before the mechanism existed)
+    await note(20, 900_000); await note(21, 300_000); await note(22, 400_000);
+    await db.exec(`insert into public._fail values (1)`);
+    await db.exec(`insert into public.commission_fund_ins (note_id, amount, status) values ('${NOTE(20)}', 500000, 'paid'), ('${NOTE(21)}', 300000, 'paid'), ('${NOTE(22)}', 400000, 'paid')`);
+    await db.exec(`delete from public._fail`);
+    expect(await a7(NOTE(20))).toBe(900_000);
+    const start = N2.indexOf('insert into _n2 (note_id, release) values');
+    const end = N2.indexOf(';', start);
+    const n2 = (N2.slice(0, start) + `insert into _n2 (note_id, release) values ('${NOTE(20)}', 500000), ('${NOTE(21)}', 300000)` + N2.slice(end))
+      .replace('insert into _expected values (121, 134550000)', 'insert into _expected values (2, 800000)');
+    expect(n2).not.toBe(N2);
+    await db.exec(n2);
+    expect(await a7(NOTE(20))).toBe(400_000); // only the funded part
+    expect(await a7(NOTE(21))).toBe(0);
+    expect(await a7(NOTE(22))).toBe(400_000); // not on the approved list: untouched
+    const reg = await q(`select count(*)::int n, sum(amount)::numeric s from public.accounting_correction_register where batch='acct_corr_202611_notes' and correction_item='N2'`);
+    expect([reg[0].n, Number(reg[0].s)]).toEqual([2, 800000]);
+    await expect(db.exec(n2)).rejects.toThrow(/already posted/);
+    await db.exec('rollback');
+  });
+
   it('the batch rollback restores the notes with counter-entries and revokes the confirmations', async () => {
     const before = await legs();
     await db.exec(BATCH_RB);
     expect(await a7(NOTE(10))).toBe(600_000);
     expect(await a7(NOTE(11))).toBe(150_000);
-    expect(await legs()).toBe(before + 4);
+    expect(await a7(NOTE(20))).toBe(900_000);
+    expect(await a7(NOTE(21))).toBe(300_000);
+    expect(await legs()).toBe(before + 8);
     expect((await q(`select count(*)::int n from public.partner_note_settlements where revoked_at is not null`))[0].n).toBe(2);
   });
 
