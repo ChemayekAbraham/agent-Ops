@@ -1,4 +1,8 @@
+import { Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DESK_LINKS, useCanOpenDesk } from '@/pages/desk/deskLink';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   PARTNER_OPS_NAV,
@@ -13,6 +17,9 @@ interface Props {
 }
 
 export function PartnerOpsSidebar({ active, onSelect, badges = {}, className }: Props) {
+  const navigate = useNavigate();
+  // The Partner Ops desk, as the COO dashboard links its desk; only for people the desk lets in.
+  const showDesk = useCanOpenDesk('partner-ops');
   const Badge = ({ n }: { n?: number }) =>
     n && n > 0 ? (
       <span className="ml-auto rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-bold leading-none text-destructive">
@@ -30,7 +37,8 @@ export function PartnerOpsSidebar({ active, onSelect, badges = {}, className }: 
             const isLast = index === PARTNER_OPS_NAV.length - 1;
 
             return (
-              <li key={key} className="pb-2">
+              <Fragment key={key}>
+              <li className="pb-2">
                 {!item.children?.length ? (
                   <button
                     type="button"
@@ -82,6 +90,21 @@ export function PartnerOpsSidebar({ active, onSelect, badges = {}, className }: 
                 )}
                 {!isLast && <div className="mt-2 h-px bg-border/60" />}
               </li>
+              {index === 0 && showDesk && (
+                <li className="pb-2">
+                  <button
+                    type="button"
+                    data-desk-link="partner-ops"
+                    onClick={() => navigate(DESK_LINKS['partner-ops'].route)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                  >
+                    <Gauge className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{DESK_LINKS['partner-ops'].label}</span>
+                  </button>
+                  <div className="mt-2 h-px bg-border/60" />
+                </li>
+              )}
+              </Fragment>
             );
           })}
         </ul>

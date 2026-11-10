@@ -76,7 +76,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { Info, UsersRound } from 'lucide-react';
+import { Info, UsersRound, LayoutGrid } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Wallet, Landmark, LayoutDashboard, ChevronRight, Loader2 } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
@@ -1839,6 +1839,7 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                 ...(parentAgentInfo?.parent_agent_id
                   ? [{ icon: UsersRound, label: 'My Parent Agent', onClick: () => setParentAgentOpen(true) }]
                   : []),
+                { icon: LayoutGrid, label: 'More', onClick: () => setMenuOpen(true) },
               ].map((a) => (
                 <button
                   key={a.label}

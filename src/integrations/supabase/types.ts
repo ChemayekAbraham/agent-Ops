@@ -39436,6 +39436,32 @@ export type Database = {
           },
         ]
       }
+      operations_authority_positions: {
+        Row: {
+          created_at: string
+          note: string | null
+          position_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          position_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          position_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operations_authority_positions_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: true
+            referencedRelation: "hr_positions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operations_departments: {
         Row: {
           assigned_by: string | null
@@ -77461,6 +77487,7 @@ export type Database = {
         Returns: Json
       }
       activate_promissory_note: { Args: { p_token: string }; Returns: Json }
+      actual_float_hidden_for: { Args: { _user_id: string }; Returns: boolean }
       add_rent_request_review_note: {
         Args: {
           p_note: string
@@ -80554,6 +80581,7 @@ export type Database = {
         }
         Returns: Json
       }
+      can_view_actual_float: { Args: never; Returns: boolean }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
         Returns: boolean
@@ -89403,6 +89431,7 @@ export type Database = {
         Returns: boolean
       }
       holds_finance_office: { Args: { _user_id: string }; Returns: boolean }
+      holds_operations_office: { Args: { _user_id: string }; Returns: boolean }
       house_has_live_claim: { Args: { p_house_id: string }; Returns: boolean }
       house_listing_protected_unchanged: {
         Args: {
