@@ -41225,6 +41225,48 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_note_settlements: {
+        Row: {
+          amount: number
+          basis: string
+          confirmed_at: string
+          confirmed_by: string
+          evidence: string
+          id: string
+          note_id: string
+          portfolio_id: string | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          amount: number
+          basis: string
+          confirmed_at?: string
+          confirmed_by: string
+          evidence: string
+          id?: string
+          note_id: string
+          portfolio_id?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          amount?: number
+          basis?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          evidence?: string
+          id?: string
+          note_id?: string
+          portfolio_id?: string | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: []
+      }
       partner_ops_targets: {
         Row: {
           amber_lag_points: number
@@ -46713,6 +46755,13 @@ export type Database = {
             foreignKeyName: "promissory_house_booking_notices_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_house_booking_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
             referencedRelation: "v_promissory_self_support_tracker"
             referencedColumns: ["note_id"]
           },
@@ -46870,6 +46919,13 @@ export type Database = {
             foreignKeyName: "promissory_note_fulfilment_notices_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_fulfilment_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
             referencedRelation: "v_promissory_self_support_tracker"
             referencedColumns: ["note_id"]
           },
@@ -46967,6 +47023,13 @@ export type Database = {
             foreignKeyName: "promissory_note_house_intents_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_house_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
             referencedRelation: "v_promissory_self_support_tracker"
             referencedColumns: ["note_id"]
           },
@@ -47026,6 +47089,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
@@ -47096,6 +47166,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
@@ -47263,6 +47340,13 @@ export type Database = {
             foreignKeyName: "promissory_note_pledge_notices_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: true
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_pledge_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
             referencedRelation: "v_promissory_self_support_tracker"
             referencedColumns: ["note_id"]
           },
@@ -47340,6 +47424,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_release_notices_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "promissory_note_release_notices_note_id_fkey"
@@ -48845,6 +48936,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pso_note_reversals_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "pso_note_reversals_note_id_fkey"
@@ -57504,6 +57602,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "promissory_notes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
+            columns: ["promissory_note_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
           },
           {
             foreignKeyName: "staff_facilitation_notes_promissory_note_id_fkey"
@@ -72984,6 +73089,13 @@ export type Database = {
             foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
             columns: ["note_id"]
             isOneToOne: false
+            referencedRelation: "v_partner_note_settlement"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_plan_intents_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
             referencedRelation: "v_promissory_self_support_tracker"
             referencedColumns: ["note_id"]
           },
@@ -74432,6 +74544,20 @@ export type Database = {
             referencedColumns: ["commitment_id"]
           },
         ]
+      }
+      v_partner_note_settlement: {
+        Row: {
+          amount: number | null
+          cfo_confirmed: number | null
+          fund_ins: number | null
+          note_id: string | null
+          outstanding: number | null
+          pending_portfolios: number | null
+          settled: number | null
+          status: string | null
+          total_collected: number | null
+        }
+        Relationships: []
       }
       v_partner_self_fundable_plans: {
         Row: {
@@ -93120,6 +93246,7 @@ export type Database = {
       }
       partner_live_portfolio_statuses: { Args: never; Returns: string[] }
       partner_new_contract_rate: { Args: never; Returns: number }
+      partner_note_outstanding: { Args: { p_note_id: string }; Returns: number }
       partner_note_rate: {
         Args: { p_at: string; p_role: string }
         Returns: number
@@ -97017,6 +97144,14 @@ export type Database = {
       }
       settle_merchant_out_of_pocket: {
         Args: { p_advance_ids: string[]; p_note?: string }
+        Returns: Json
+      }
+      settle_partner_receivable: {
+        Args: { p_note_id: string; p_reason?: string }
+        Returns: Json
+      }
+      settle_partner_receivables: {
+        Args: { p_note_ids?: string[] }
         Returns: Json
       }
       settle_tenant_rent_from_deposit: {
