@@ -38,6 +38,7 @@ function writeCached(p: PublicReturnPolicy) {
       cutoff_at: p.cutoffAt,
       enabled_at: p.enabledAt,
       updated_at: p.updatedAt,
+      note_due_by: p.noteDueBy,
     }));
   } catch {
     /* private mode / storage blocked: the live value still applies */
@@ -70,6 +71,8 @@ export interface PartnerReturnPolicyState {
   /** Whether the switch is on, or null when unknown. */
   enabled: boolean | null;
   cutoffAt: string | null;
+  /** Latest fulfilment date (YYYY-MM-DD) for promissory notes, or null = no limit / unknown. */
+  noteDueBy: string | null;
   isLoading: boolean;
   /** True only when this mount fetched the policy from the network (never from localStorage). */
   fromNetwork: boolean;
@@ -102,6 +105,7 @@ export function usePartnerReturnPolicy(opts: UsePartnerReturnPolicyOptions = {})
     newContractRate: policy?.newContractRate ?? null,
     enabled: policy ? policy.enabled : null,
     cutoffAt: policy?.cutoffAt ?? null,
+    noteDueBy: policy?.noteDueBy ?? null,
     isLoading,
     fromNetwork,
   };

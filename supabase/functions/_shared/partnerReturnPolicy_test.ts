@@ -146,7 +146,9 @@ Deno.test("T1.5 formatRatePct, singleRate and the row-basis helpers", () => {
 
 // ---- T1.6 parsePublicPolicy / readPublicPolicy -----------------------------------------------------------
 Deno.test("T1.6 parsePublicPolicy: malformed -> null; readPublicPolicy makes exactly one RPC", async () => {
-  assertEquals(parsePublicPolicy(ON), { enabled: true, newContractRate: 10, cutoffAt: ON.cutoff_at, enabledAt: ON.enabled_at, updatedAt: ON.updated_at });
+  assertEquals(parsePublicPolicy(ON), { enabled: true, newContractRate: 10, cutoffAt: ON.cutoff_at, enabledAt: ON.enabled_at, updatedAt: ON.updated_at, noteDueBy: null });
+  assertEquals(parsePublicPolicy({ ...OFF, note_due_by: "2026-12-31" })?.noteDueBy, "2026-12-31");
+  assertEquals(parsePublicPolicy({ ...OFF, note_due_by: "31 Dec" })?.noteDueBy, null);
   assertEquals(parsePublicPolicy({ ...OFF, new_contract_rate: "15.00" })?.newContractRate, 15);
   for (const bad of [null, undefined, "x", [], {}, { enabled: "true", new_contract_rate: 10 }, { enabled: true }, { enabled: true, new_contract_rate: 0 }]) {
     assertEquals(parsePublicPolicy(bad), null);
