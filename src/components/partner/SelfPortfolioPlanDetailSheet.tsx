@@ -367,6 +367,36 @@ export function SelfPortfolioPlanDetailSheet({
             </div>
           </div>
 
+          {/* Opens the house in Google Maps: pinned coordinates when the request
+              has them, otherwise a search for the written address. */}
+          <Button
+            variant="outline"
+            className="mt-3 h-11 w-full gap-2 rounded-xl border-primary text-primary hover:bg-primary/5 hover:text-primary"
+            onClick={() => {
+              const lat = Number(plan.request_latitude);
+              const lng = Number(plan.request_longitude);
+              const hasCoords = plan.request_latitude != null && plan.request_longitude != null
+                && Number.isFinite(lat) && Number.isFinite(lng);
+              const query = hasCoords ? `${lat},${lng}` : fullAddress;
+              window.open(
+                `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`,
+                '_blank',
+                'noopener,noreferrer',
+              );
+            }}
+          >
+            <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
+              <path
+                d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
+                fill="#EA4335"
+                stroke="#B3261E"
+                strokeWidth="1"
+              />
+              <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+            </svg>
+            House location
+          </Button>
+
           {/* Tenant row (list tile) */}
           <div className="mt-5 flex items-center gap-3">
             {/* Privacy: the tenant photo is never sent to the client for this

@@ -1,4 +1,4 @@
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -19,19 +19,18 @@ import { STRAIGHT_LINE_EXPLANATION } from './distance';
 export function FunderNewHouseCard({
   category,
   item,
-  saved,
   selected,
   distance,
-  onSave,
   onSelect,
   onDetail,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
-  saved: boolean;
+  /** No longer shown on the card (the save button was removed); kept so callers still compile. */
+  saved?: boolean;
   selected: boolean;
   distance: FunderNewDistance | null;
-  onSave: () => void;
+  onSave?: () => void;
   onSelect: () => void;
   onDetail: () => void;
 }) {
@@ -100,21 +99,6 @@ export function FunderNewHouseCard({
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={onSave}
-          aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
-          aria-pressed={saved}
-          className={cn(
-            'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            saved && 'ring-yellow-400',
-          )}
-        >
-          <Bookmark
-            className={cn('h-4 w-4', saved && 'fill-yellow-400 text-yellow-500')}
-            aria-hidden
-          />
-        </button>
       </div>
 
         <div className="space-y-3 p-4">
