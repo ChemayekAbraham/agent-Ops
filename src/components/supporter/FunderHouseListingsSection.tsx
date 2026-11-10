@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { AlertTriangle, Clock, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
@@ -187,12 +189,26 @@ export function FunderHouseListingsSection({
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  const emptyQuery = useFunderNewEmptyHouses(filters, origin, true);
+  // By default the list shows only Rent Plans with a verified tenant. Houses
+  // still pending verification are opt-in from the Filters drawer.
+  const [includePending, setIncludePending] = useState(false);
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, includePending);
   const readyQuery = useFunderNewReadyPlans(filters, true);
 
+  // Verified Rent Plans are a short list (tens, not thousands), so load all of
+  // them up front instead of making the funder scroll for the next page.
+  useEffect(() => {
+    if (includePending) return;
+    if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage && !readyQuery.isError) {
+      void readyQuery.fetchNextPage();
+    }
+  }, [includePending, readyQuery.hasNextPage, readyQuery.isFetchingNextPage, readyQuery.isError, readyQuery.fetchNextPage]);
+
+  // A switched-off query keeps its last results cached, so ignore them unless
+  // pending houses are switched on.
   const emptyItems = useMemo(
-    () => (emptyQuery.data?.pages ?? []).flatMap((page) => page.items),
-    [emptyQuery.data],
+    () => (includePending ? (emptyQuery.data?.pages ?? []).flatMap((page) => page.items) : []),
+    [emptyQuery.data, includePending],
   );
   const readyItems = useMemo(
     () => (readyQuery.data?.pages ?? []).flatMap((page) => page.items),
@@ -231,21 +247,22 @@ export function FunderHouseListingsSection({
     [readyItems, emptyItems],
   );
 
-  const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
-  const feedError = emptyQuery.error || readyQuery.error;
-  const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
-  const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
-  const feedHasNext = !!emptyQuery.hasNextPage || !!readyQuery.hasNextPage;
+  const feedLoading = (includePending && emptyQuery.isLoading) || readyQuery.isLoading;
+  const feedError = (includePending && emptyQuery.error) || readyQuery.error;
+  const feedFetching = (includePending && emptyQuery.isFetching) || readyQuery.isFetching;
+  const feedFetchingNext = (includePending && emptyQuery.isFetchingNextPage) || readyQuery.isFetchingNextPage;
+  const feedHasNext = (includePending && !!emptyQuery.hasNextPage) || !!readyQuery.hasNextPage;
   const refetchFeed = () => {
-    emptyQuery.refetch();
+    if (includePending) emptyQuery.refetch();
     readyQuery.refetch();
   };
   const fetchNextFeed = () => {
-    if (emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (includePending && emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
     if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
   };
 
-  const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0) + (emptyQuery.data?.pages?.[0]?.total ?? 0);
+  const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0)
+    + (includePending ? (emptyQuery.data?.pages?.[0]?.total ?? 0) : 0);
 
   // Support is funded from operational float only, never from withdrawable money.
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
@@ -315,10 +332,11 @@ export function FunderHouseListingsSection({
 
   // How many filters the funder has actually switched on. The Filters button
   // badges this number and turns purple while it is above zero.
-  const activeFilterCount = countActiveFunderFilters(filters);
+  const activeFilterCount = countActiveFunderFilters(filters) + (includePending ? 1 : 0);
   const filtersActive = activeFilterCount > 0;
 
   const resetFilters = () => {
+    setIncludePending(false);
     setFilters((current) => ({
       search: '',
       location: '',
@@ -642,6 +660,25 @@ export function FunderHouseListingsSection({
         onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
         onSortChange={changeSort}
         onReset={resetFilters}
+        extraFilters={
+          <label
+            className={cn(
+              'flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors',
+              includePending ? 'border-primary bg-primary/10' : 'border-border bg-card',
+            )}
+          >
+            <span className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-primary/15 text-primary">
+              <Clock className="h-5 w-5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold">Include houses pending verification</span>
+              <span className="block text-xs text-muted-foreground">
+                By default only Rent Plans with a verified tenant are shown.
+              </span>
+            </span>
+            <Switch checked={includePending} onCheckedChange={setIncludePending} />
+          </label>
+        }
       />
 
       <EmptyHouseDetailSheet
