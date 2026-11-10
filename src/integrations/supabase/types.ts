@@ -76121,11 +76121,16 @@ export type Database = {
           in_window_collected: number
           in_window_due: number
           in_window_pct: number
+          judged_collected: number
+          judged_due: number
+          judged_ok: boolean
+          judged_week_start: string
           passes: boolean
           rate_pct: number
           reason: string
           required_pct: number
           shortfall: number
+          this_week_ok: boolean
           week_end: string
           week_start: string
         }[]
@@ -76806,6 +76811,7 @@ export type Database = {
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
       _is_active_employee: { Args: { p_uid: string }; Returns: boolean }
       _is_all_desk: { Args: { p_uid: string }; Returns: boolean }
+      _is_bot_agent: { Args: { p_uid: string }; Returns: boolean }
       _is_landlord_payout_owner: { Args: never; Returns: boolean }
       _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
       _landlord_cc_events_in_window: {
@@ -76945,6 +76951,11 @@ export type Database = {
       _merch_unrecorded_sale_check: {
         Args: { p_origin: string; p_sale: string }
         Returns: string
+      }
+      _needs_real_agent: { Args: { p_request_id: string }; Returns: boolean }
+      _needs_real_agent_row: {
+        Args: { p_agent: string; p_assigned: string }
+        Returns: boolean
       }
       _note_contact_proven: {
         Args: { p_note_id: string; p_user: string }
@@ -77185,6 +77196,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _request_kind_json: { Args: { p_request_id: string }; Returns: Json }
       _return_cycle_can_request: {
         Args: { _user_id: string }
         Returns: boolean
@@ -94433,6 +94445,7 @@ export type Database = {
       }
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_self_applied_queue: { Args: { p_limit?: number }; Returns: Json }
       pipeline_send_back_options: {
         Args: { p_from_stage: string }
         Returns: Json
@@ -98586,6 +98599,18 @@ export type Database = {
         Returns: Json
       }
       tenant_rent_plan_detail: { Args: never; Returns: Json }
+      tenant_save_intake_details: {
+        Args: {
+          p_family_size: number
+          p_lc_letter_bucket?: string
+          p_lc_letter_path?: string
+          p_lc1_contact?: string
+          p_request_id: string
+          p_work_business: string
+          p_work_location?: string
+        }
+        Returns: Json
+      }
       tenant_self_repayment_plan: {
         Args: { p_tenant_id: string }
         Returns: {
