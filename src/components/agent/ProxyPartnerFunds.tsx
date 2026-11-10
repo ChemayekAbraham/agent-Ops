@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ProxyRecentPayouts } from '@/components/agent/ProxyRecentPayouts';
+import { kampalaYmd, kampalaTodayYmd } from '@/lib/kampalaDays';
 
 interface PartnerBalance {
   partnerId: string;
