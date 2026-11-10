@@ -12,6 +12,12 @@ type Line = {
   location: string | null;
   daily: number;
   counterparty: string | null;
+  /** To landlord float (tenant) or operational funding (house). principal = rentAmount + proxyFee. */
+  rentAmount: number;
+  /** Agent facilitation fee: paid once to the proxy agent at approval (0 when none). */
+  proxyFee: number;
+  /** null = no fee; pending | paid | kept (no proxy agent) | cancelled. */
+  proxyFeeStatus: string | null;
 };
 
 /**
@@ -39,6 +45,9 @@ export function CommitmentLines({ portfolioId }: { portfolioId: string }) {
         location: r.location || null,
         daily: Number(r.daily_repayment) || 0,
         counterparty: r.counterparty_name || null,
+        rentAmount: Number(r.rent_amount ?? r.principal) || 0,
+        proxyFee: Number(r.proxy_fee) || 0,
+        proxyFeeStatus: r.proxy_fee_status ?? null,
       }));
     },
   });
