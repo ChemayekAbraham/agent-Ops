@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,9 +55,21 @@ export default function TenantRepaymentTracker() {
   const [filters, setFilters] = useState<TrackerFilters>(DEFAULT_FILTERS);
   const [sort, setSort] = useState<SortKey>('calc_outstanding');
   const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<RepaymentPlanRow | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => new URL(window.location.href).searchParams.get('repayment_plan'));
+  useEffect(() => {
+    const sync = () => setSelectedId(new URL(window.location.href).searchParams.get('repayment_plan'));
+    window.addEventListener('popstate', sync);
+    return () => window.removeEventListener('popstate', sync);
+  }, []);
+  const openPlan = (id: string | null) => {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('repayment_plan', id); else url.searchParams.delete('repayment_plan');
+    window.history.replaceState(window.history.state, '', url);
+    setSelectedId(id);
+  };
 
   const rows = data?.rows ?? [];
+  const selected = rows.find((r) => r.rent_request_id === selectedId) ?? null;
   const kpis = useMemo(() => computeKpis(rows), [rows]);
   const filtered = useMemo(() => sortRows(filterRows(rows, filters), sort), [rows, filters, sort]);
   const exceptionCounts = useMemo(() => {
@@ -157,6 +169,7 @@ export default function TenantRepaymentTracker() {
           </div>
         </div>
       )}
+      {data && selectedId && !selected && <p role="alert" className="text-sm text-destructive">The linked Rent Plan is not in the authorized register.</p>}
 
       {!data && !error && (
         <div className="py-16 text-center rounded-2xl border border-slate-200/80 dark:border-border/70 bg-card p-8 flex flex-col items-center justify-center gap-3 shadow-xs">
@@ -455,7 +468,7 @@ export default function TenantRepaymentTracker() {
                         <TableRow
                           key={r.rent_request_id}
                           className="cursor-pointer hover:bg-slate-50/70 dark:hover:bg-muted/40 transition-colors"
-                          onClick={() => setSelected(r)}
+                          onClick={() => openPlan(r.rent_request_id)}
                           data-testid="tracker-row"
                         >
                           <TableCell className="py-3.5 px-4 align-middle">
@@ -542,7 +555,7 @@ export default function TenantRepaymentTracker() {
                               size="icon"
                               variant="ghost"
                               className="h-8 w-8 rounded-full border border-slate-200 dark:border-border/70 bg-white dark:bg-card hover:bg-slate-50 text-slate-500 shadow-2xs"
-                              onClick={() => setSelected(r)}
+                              onClick={() => openPlan(r.rent_request_id)}
                               aria-label={`View details for ${r.tenant_name}`}
                             >
                               <Eye className="h-4 w-4" />
@@ -616,7 +629,7 @@ export default function TenantRepaymentTracker() {
         </>
       )}
 
-      <TenantRepaymentDetailSheet row={selected} onClose={() => setSelected(null)} />
+      <TenantRepaymentDetailSheet row={selected} onClose={() => openPlan(null)} onOpenPlan={openPlan} />
     </div>
   );
 }

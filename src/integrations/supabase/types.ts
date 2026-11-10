@@ -76453,6 +76453,14 @@ export type Database = {
           verified_collected: number
         }[]
       }
+      _cfo_tracker_direct_receipt: {
+        Args: { p_receipt: string }
+        Returns: boolean
+      }
+      _cfo_tracker_payment_change: {
+        Args: { p_change: string }
+        Returns: boolean
+      }
       _claim_return_cycle: {
         Args: {
           p_actor: string
@@ -77499,6 +77507,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      admin_release_sso_identities: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_reseed_wallet_cache: {
         Args: { p_balance: number; p_user_id: string; p_withdrawable: number }
         Returns: undefined
@@ -77510,6 +77522,10 @@ export type Database = {
       admin_restore_auth_user: { Args: { p_user_id: string }; Returns: Json }
       admin_restore_soft_deleted_account: {
         Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_restore_sso_identities: {
+        Args: { p_user_id: string }
         Returns: Json
       }
       admin_set_kyc_level: {
@@ -84330,6 +84346,10 @@ export type Database = {
         Returns: Json
       }
       funders_board_headline: { Args: never; Returns: Json }
+      funders_board_items: {
+        Args: { p_limit?: number; p_offset?: number; p_tag?: string }
+        Returns: Json
+      }
       funders_dashboard: { Args: { p_period?: string }; Returns: Json }
       funders_headline_list: {
         Args: { p_kind?: string; p_period?: string }

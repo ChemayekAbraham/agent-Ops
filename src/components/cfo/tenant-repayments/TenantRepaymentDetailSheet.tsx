@@ -3,7 +3,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, ExternalLink, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { EXCEPTIONS, adjustmentChange, type ExceptionCode, type RepaymentPlanRow } from '@/lib/tenantRepaymentTracker';
 import { useTenantRepaymentDetail } from '@/hooks/useTenantRepaymentTracker';
@@ -21,9 +23,21 @@ function Figure({ label, value, tone }: { label: string; value: string; tone?: '
 }
 
 /** Read-only detail of one Rent Plan. Nothing here changes a balance, a repayment or a ledger entry. */
-export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPlanRow | null; onClose: () => void }) {
+export function TenantRepaymentDetailSheet({ row, onClose, onOpenPlan }: { row: RepaymentPlanRow | null; onClose: () => void; onOpenPlan?: (id: string) => void }) {
   const { data, isLoading, error } = useTenantRepaymentDetail(row?.rent_request_id ?? null);
   const p = data?.plan ?? row;
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState(false);
+  const copyLink = async () => {
+    if (!p) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('repayment_plan', p.rent_request_id);
+      await navigator.clipboard.writeText(url.toString());
+      setCopiedId(p.rent_request_id);
+      setCopyError(false);
+    } catch { setCopyError(true); }
+  };
 
   return (
     <Sheet open={!!row} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -38,6 +52,38 @@ export function TenantRepaymentDetailSheet({ row, onClose }: { row: RepaymentPla
             </SheetHeader>
 
             <div className="mt-4 space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={copyLink}>
+                  {copiedId === p.rent_request_id ? <Check className="h-4 w-4 mr-2" /> : <Copy className="h-4 w-4 mr-2" />}
+                  {copiedId === p.rent_request_id ? 'Link copied' : 'Copy investigation link'}
+                </Button>
+                <span className="text-xs text-muted-foreground break-all">Rent Plan: {p.rent_request_id}</span>
+                {copyError && <p role="alert" className="text-xs text-destructive">Could not copy the link.</p>}
+              </div>
+              {data?.tenant_context && (
+                <section className="space-y-2 border-b border-border pb-4">
+                  <h3 className="text-sm font-semibold">Tenant Operations activity</h3>
+                  <p className="text-xs text-muted-foreground break-all">Tenant: {data.tenant_context.tenant_id ?? '—'}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Figure label="Tenant status" value={data.tenant_context.tenant_status ?? 'Not recorded'} />
+                    <Figure label="Last account activity" value={fmtDate(data.tenant_context.last_active_at)} />
+                    <Figure label="This plan's activity" value={data.tenant_context.plan_activity?.state.replace(/_/g, ' ') ?? 'Not recorded'} />
+                    <Figure label="Last collection on this plan" value={fmtDate(data.tenant_context.plan_activity?.last_collection_at)} />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Activity is not payment evidence. Collections below belong only to this Rent Plan.</p>
+                  {data.tenant_context.other_plans.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium">Other Rent Plans for this tenant</p>
+                      {data.tenant_context.other_plans.map((other) => (
+                        <Button key={other.rent_request_id} variant="ghost" size="sm" className="h-auto w-full justify-start whitespace-normal text-left" onClick={() => onOpenPlan?.(other.rent_request_id)}>
+                          <ExternalLink className="h-3.5 w-3.5 mr-2 shrink-0" />
+                          <span className="break-all">{other.rent_request_id} · {other.status} · {fmtDay(other.created_at)}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
               {p.exceptions.length > 0 && (
                 <div className="space-y-1.5" role="alert">
                   {p.exceptions.map((code) => {

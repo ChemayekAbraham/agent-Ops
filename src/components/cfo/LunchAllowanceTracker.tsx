@@ -265,10 +265,12 @@ export function LunchAllowanceTracker() {
           const selected = lunchAllowancePeriods.find((item) => item.value === value);
           if (!selected) return;
           setPeriod(selected.value); setTo(''); setPage(1);
+          setCalendarOpen(selected.value === 'custom');
         }}>
           <TabsList aria-label="Payment period" className="h-auto flex w-full flex-wrap justify-start gap-1 sm:w-fit">
             {lunchAllowancePeriods.map((item) => (
-              <TabsTrigger key={item.value} value={item.value} className="text-xs px-3 py-2">
+              <TabsTrigger key={item.value} value={item.value} className="text-xs px-3 py-2"
+                onClick={() => { if (item.value === 'custom') setCalendarOpen(true); }}>
                 {item.label}
               </TabsTrigger>
             ))}
