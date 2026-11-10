@@ -19482,6 +19482,42 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_bank_anchors: {
+        Row: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at: string
+          confirmed_by: string | null
+          evidence: string | null
+          id: string
+          source: string
+        }
+        Insert: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source: string
+        }
+        Update: {
+          account_key?: string
+          account_label?: string
+          anchor_at?: string
+          balance?: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       fin_cash_accounts: {
         Row: {
           code: string
@@ -83376,6 +83412,7 @@ export type Database = {
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
       feature_preview_on: { Args: { p_feature: string }; Returns: boolean }
       fin_balance_sheet: { Args: { p_as_at?: string }; Returns: Json }
+      fin_bank_anchor: { Args: { p_account_key?: string }; Returns: Json }
       fin_cash_flow: { Args: { p_from: string; p_to: string }; Returns: Json }
       fin_controls: { Args: { p_as_at?: string }; Returns: Json }
       fin_correction_review_flags: {
