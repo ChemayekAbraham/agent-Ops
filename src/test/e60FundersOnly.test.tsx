@@ -67,6 +67,19 @@ describe('no Welile-money funding on the CFO screens', () => {
     expect(rdq).toContain('Return to COO');
   });
 
+  it('the CFO stage of the rent pipeline and the Manager funding widget no longer fund', () => {
+    const rpq = readFileSync(resolve(__dirname, '../components/executive/RentPipelineQueue.tsx'), 'utf8');
+    expect(rpq).not.toContain('fund-agent-landlord-float');
+    expect(rpq).toContain(NEEDS_FUNDER_PICK);
+    // Every CFO-stage approve path returns early; Return to COO stays.
+    expect(rpq.match(/if \(isCfoStage\) (return|\{)/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(rpq).toContain("isCfoStage ? 'Return to COO' : 'Reject'");
+    const widget = readFileSync(resolve(__dirname, '../components/manager/ApprovedRequestsFundingWidget.tsx'), 'utf8');
+    expect(widget).not.toContain('fund-agent-landlord-float');
+    expect(widget).not.toContain('Fund this Tenant');
+    expect(widget).toContain(NEEDS_FUNDER_PICK);
+  });
+
   it('Batch Payout lists unpicked requests read-only, each with "Needs a funder\'s pick"', async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={qc}><BatchPayoutProcessor /></QueryClientProvider>);
