@@ -94,7 +94,7 @@ const COMPLETED_PROXY_WITHDRAWAL_STATUSES = [
 // available; the partner simply needs the agent to re-request a payout.
 const TERMINAL_UNPAID_STATUSES = ['rejected', 'expired', 'cancelled'] as const;
 
-type FilterMode = 'all' | 'inflight' | 'reattempt' | 'fresh';
+type FilterMode = 'all' | 'inflight' | 'reattempt' | 'fresh' | 'earlier';
 
 // Stable card key — one card per PORTFOLIO (a partner can hold several
 // portfolios with different payout methods that each carry their own ROI
@@ -1497,8 +1497,23 @@ export function ProxyPartnerFunds() {
     toast.success(`Downloaded ${rows.length} partner${rows.length === 1 ? '' : 's'}`);
   };
 
+  // Main list shows only payouts approved today (Kampala). Older unsettled
+  // payouts move to the "Earlier days" pill so they stay reachable.
+  const todayYmd = kampalaTodayYmd();
+  const isToday = (p: PartnerBalance) => !!p.latestAt && kampalaYmd(p.latestAt) === todayYmd;
+  const earlierCount = partnerBalances.filter((p) => {
+    const k = classify(p).kind;
+    return !isToday(p) && k !== 'inflight' && k !== 'active';
+  }).length;
+  const todayCount = partnerBalances.filter((p) => {
+    const k = classify(p).kind;
+    return isToday(p) && k !== 'inflight' && k !== 'active';
+  }).length;
+
   const visibleBalances = partnerBalances.filter((p) => {
     const c = classify(p);
+    if (filterMode === 'earlier') return !isToday(p) && c.kind !== 'inflight' && c.kind !== 'active';
+    if (filterMode === 'all' && !isToday(p)) return false;
     // Optimistic removal: the instant Caro submits a withdrawal for THIS
     // portfolio card (before realtime / settlement catches up) drop it from the
     // default All view. Scoped to the card so a sibling portfolio stays.
@@ -1542,7 +1557,16 @@ export function ProxyPartnerFunds() {
           className="h-7 text-xs gap-1"
           onClick={() => setFilterMode('all')}
         >
-          All ({partnerBalances.length - inFlightCount})
+          Today ({todayCount})
+        </Button>
+        <Button
+          size="sm"
+          variant={filterMode === 'earlier' ? 'default' : 'outline'}
+          className="h-7 text-xs gap-1"
+          onClick={() => setFilterMode('earlier')}
+          disabled={earlierCount === 0}
+        >
+          Earlier days ({earlierCount})
         </Button>
         <Button
           size="sm"
