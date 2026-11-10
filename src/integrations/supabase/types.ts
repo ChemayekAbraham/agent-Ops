@@ -97189,6 +97189,21 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      sofp_ledger_legs_window: {
+        Args: { p_as_at: string; p_from: string }
+        Returns: {
+          account_code: string
+          category: string
+          cr: number
+          dr: number
+          group_one_sided: boolean
+          is_legacy_counterpart: boolean
+          ledger_scope: string
+          source_table: string
+          transaction_date: string
+          transaction_group_id: string
+        }[]
+      }
       special_advance_approve: {
         Args: { p_expected_updated_at: string; p_id: string; p_reason?: string }
         Returns: Json
