@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Search, Loader2, Users, ArrowUpRight, Clock, CheckCircle2, XCircle, AlertCircle, Info, Hourglass, Download, X, CheckSquare, Eye, RotateCcw, Trash2, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchAgentOnboardedPortfolios, fetchAgentPayoutRoutes, fetchAgentPayoutDestination, fetchAgentProxyWithdrawals } from '@/lib/agentPartnerPortfolios';
 import { useAuth } from '@/hooks/useAuth';
@@ -203,6 +204,8 @@ export function ProxyPartnerFunds() {
   const [cancelReason, setCancelReason] = useState('');
   // Dismissal state
   const [dismissals, setDismissals] = useState<Dismissal[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hiddenSearch, setHiddenSearch] = useState('');
   const [selectMode, setSelectMode] = useState(false);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -1367,10 +1370,25 @@ export function ProxyPartnerFunds() {
             {dismissals.length === 0 && (
               <p className="text-sm text-muted-foreground py-6 text-center">No hidden cards.</p>
             )}
+            {dismissals.length > 0 && (
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={hiddenSearch}
+                  onChange={(e) => setHiddenSearch(e.target.value)}
+                  placeholder="Search hidden cards"
+                  className="h-9 pl-8 text-sm"
+                  aria-label="Search hidden cards"
+                />
+              </div>
+            )}
             {dismissals.map(d => {
               const restoreKey = `${d.partner_id}-${d.portfolio_id || 'none'}`;
               const profile = profiles[d.partner_id];
               const portfolio = d.portfolio_id ? portfolioMap[d.portfolio_id] : null;
+              const hq = hiddenSearch.trim().toLowerCase();
+              if (hq && ![profile?.full_name, profile?.phone, dismissalNames[d.partner_id], portfolio?.account_name, portfolio?.portfolio_code, d.reason, String(d.snapshot_amount)]
+                .some((v) => (v || '').toString().toLowerCase().includes(hq))) return null;
               return (
                 <div key={restoreKey} className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2">
                   <div className="min-w-0">
@@ -1492,6 +1510,11 @@ export function ProxyPartnerFunds() {
     if (filterMode === 'reattempt') return c.kind === 'reattempt';
     if (filterMode === 'fresh') return c.kind === 'fresh';
     return true;
+  }).filter((p) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return [p.partnerName, p.partnerPhone, p.portfolioCode, p.accountName, String(p.totalReturns)]
+      .some((v) => (v || '').toString().toLowerCase().includes(q));
   });
 
   return (
@@ -1500,6 +1523,17 @@ export function ProxyPartnerFunds() {
         Shows every unsettled return the CFO has signed off for delivery to your proxy partner. Balances shown are
         <span className="font-medium text-foreground"> withdrawable now</span>.
       </p>
+
+      <div className="relative px-1">
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search partner name, phone, portfolio or amount"
+          className="h-9 pl-9 text-sm"
+          aria-label="Search proxy partners"
+        />
+      </div>
 
       <div className="flex flex-wrap gap-1.5 px-1">
         <Button
