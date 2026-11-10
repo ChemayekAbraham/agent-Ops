@@ -55,7 +55,7 @@ const roleConfig: Record<UserRole, { label: string; icon: React.ElementType; des
   supporter: {
     label: 'Tenant Supporter',
     icon: Building2,
-    description: 'Partner / Funder who supports the rent pool for Returns',
+    description: 'Partner / Funder who supports the rent pool for Rent profit share',
     color: 'text-purple-500',
     bgColor: 'bg-purple-500/10 border-purple-500/30',
     emoji: '💰',
@@ -331,7 +331,7 @@ You've been invited to join as a ${config.label}!
 📊 Portfolio: ${createdInvite.portfolioCode}
 💰 Funding: UGX ${createdInvite.investmentAmount?.toLocaleString()}
 📅 Duration: ${createdInvite.durationMonths} months
-📈 Returns: ${createdInvite.roiPercentage}%`;
+📈 Rent profit share: ${createdInvite.roiPercentage}%`;
     }
 
     message += `
@@ -494,13 +494,13 @@ Just click the link and enter your password to get started!`;
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Returns %</Label>
+              <Label className="text-xs font-medium">Rent profit share %</Label>
               <Input type="number" min={1} max={100} value={investmentData.roiPercentage} onChange={(e) => setInvestmentData(prev => ({ ...prev, roiPercentage: e.target.value }))} className="h-12 text-base rounded-xl" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Returns Mode</Label>
+              <Label className="text-xs font-medium">Rent profit share Mode</Label>
               <Select value={investmentData.roiMode} onValueChange={(v) => setInvestmentData(prev => ({ ...prev, roiMode: v }))}>
                 <SelectTrigger className="h-12 text-base rounded-xl"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -668,7 +668,7 @@ Just click the link and enter your password to get started!`;
                   <p className="font-medium">{createdInvite.durationMonths} months</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Returns</p>
+                  <p className="text-xs text-muted-foreground">Rent profit share</p>
                   <p className="font-medium">{createdInvite.roiPercentage}%</p>
                 </div>
               </div>

@@ -42,7 +42,7 @@ export function SupporterROILeaderboard({ limit = 10, compact = false }: Support
       // supporter_roi_payments and landlord_payment_proofs tables removed - stub
       setLeaders([]);
     } catch (error) {
-      console.error('Error fetching ROI leaderboard:', error);
+      console.error('Error fetching Rent profit share leaderboard:', error);
     } finally {
       setLoading(false);
     }

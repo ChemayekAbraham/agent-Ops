@@ -110,7 +110,7 @@ export default function TryCalculator() {
   const handleShare = async () => {
     hapticTap();
     const shareLink = `${window.location.origin}/try-calculator${referrerId ? `?ref=${referrerId}` : ''}`;
-    const shareMessage = `💰 Want to earn ${ratePctLabel ? `${ratePctLabel} monthly Returns` : 'monthly Returns'}?
+    const shareMessage = `💰 Want to earn ${ratePctLabel ? `${ratePctLabel} monthly Rent profit share` : 'monthly Rent profit share'}?
 
 📊 Try this FREE Support Calculator - no signup needed!
 📈 See exactly how much you can earn
@@ -175,7 +175,7 @@ export default function TryCalculator() {
       doc.text(`Principal: ${formatUGX(amount)}`, 20, summaryY);
       doc.text(`Duration: ${months} months`, 80, summaryY);
       doc.text(`Compounding: ${isCompounding ? 'Yes' : 'No'}`, 140, summaryY);
-      if (ratePctLabel) doc.text(`Monthly Returns: ${ratePctLabel}`, 20, summaryY + 8);
+      if (ratePctLabel) doc.text(`Monthly Rent profit share: ${ratePctLabel}`, 20, summaryY + 8);
       doc.text(`Total Earnings: ${formatUGX(finalProjection?.totalEarnings || 0)}`, 80, summaryY + 8);
       doc.setTextColor(34, 197, 94);
       doc.text(`Final Balance: ${formatUGX(finalProjection?.balance || 0)}`, 140, summaryY + 8);
@@ -394,7 +394,7 @@ export default function TryCalculator() {
         <div className="text-center mb-5">
           <div className="inline-flex items-center gap-2 bg-success/10 text-success px-4 py-2.5 rounded-full text-sm font-semibold mb-3">
             <TrendingUp className="h-4 w-4" />
-            {ratePctLabel ? `Partner Returns target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Returns are not guaranteed'}
+            {ratePctLabel ? `Partner Rent profit share target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Rent profit share is not guaranteed'}
           </div>
           <h1 className="text-xl font-bold mb-1">
             Support Calculator

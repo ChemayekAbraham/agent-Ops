@@ -35,7 +35,7 @@ export function ProxyInviteSection({ agentId }: { agentId?: string }) {
   };
   useEffect(() => { if (agentId && !started.current) { started.current = true; void build(); } }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const message = url ? `Join me in supporting tenants on Welile and earn monthly returns: ${url}` : '';
+  const message = url ? `Join me in supporting tenants on Welile and earn monthly Rent profit share: ${url}` : '';
   const copy = async () => { if (!url) return; await navigator.clipboard.writeText(url); setCopied(true); toast.success('Copied'); setTimeout(() => setCopied(false), 2000); };
   const share = async () => {
     if (!url) return;

@@ -58,7 +58,7 @@ export interface HouseShareSummary {
 export function houseShareMessageFor(house: HouseShareSummary, url: string, description: string | null) {
   const lead = typeof description === 'string' && description.trim()
     ? description.trim()
-    : 'Support this available house through Welile and earn monthly Returns.';
+    : 'Support this available house through Welile and earn monthly Rent profit share.';
   return [
     lead,
     '',

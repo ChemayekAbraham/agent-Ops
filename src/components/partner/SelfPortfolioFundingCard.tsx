@@ -1791,7 +1791,7 @@ export function SelfPortfolioFundingCard({
           <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
               <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>{formatRatePct(ownRatePct) ? `Projected Returns · ${formatRatePct(ownRatePct)} monthly` : 'Projected Returns'}</span>
+              <span>{formatRatePct(ownRatePct) ? `Projected Rent profit share · ${formatRatePct(ownRatePct)} monthly` : 'Projected Rent profit share'}</span>
             </div>
             {monthlyReturnFor(total, ownRatePct) === null ? (
               <span className="text-sm sm:text-base font-black leading-none text-primary">—</span>

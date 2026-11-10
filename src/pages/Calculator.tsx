@@ -79,7 +79,7 @@ export default function CalculatorPage() {
     if (calculations.requiredInvestment === null || !ratePctLabel) return;
     const message = `💰 *Welile Support Projection*\n\n` +
       `📊 Support: ${formatAmount(calculations.requiredInvestment)}\n` +
-      `📈 Monthly Returns: ${ratePctLabel}\n` +
+      `📈 Monthly Rent profit share: ${ratePctLabel}\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Compounding: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
@@ -115,7 +115,7 @@ export default function CalculatorPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold truncate flex items-center gap-2">
               <Calculator className="h-5 w-5 text-primary" />
-              Returns Calculator
+              Rent profit share Calculator
             </h1>
           </div>
           <CurrencySwitcher />
@@ -131,7 +131,7 @@ export default function CalculatorPage() {
         >
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/30">
             <Sparkles className="h-3.5 w-3.5 text-success" />
-            <span className="text-xs font-bold text-success">{ratePctLabel ? `Partner Returns target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Returns are not guaranteed'}</span>
+            <span className="text-xs font-bold text-success">{ratePctLabel ? `Partner Rent profit share target ${ratePctLabel} for new partners, not guaranteed` : 'Partner Rent profit share is not guaranteed'}</span>
           </div>
         </motion.div>
 
@@ -316,7 +316,7 @@ export default function CalculatorPage() {
                       <p className="text-xs font-bold text-primary">{calculations.requiredInvestment === null ? '—' : formatAmount(calculations.requiredInvestment)}</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-success/10">
-                      <p className="text-[9px] text-muted-foreground">Returns</p>
+                      <p className="text-[9px] text-muted-foreground">Rent profit share</p>
                       <p className="text-xs font-bold text-success">{ratePctLabel ? `${ratePctLabel}/mo` : '—'}</p>
                     </div>
                     <div className="text-center p-2 rounded-lg bg-muted">
@@ -374,7 +374,7 @@ export default function CalculatorPage() {
             <CardContent className="p-4 text-center space-y-3">
               <h3 className="font-bold text-sm">Start Earning Today</h3>
               <p className="text-xs text-muted-foreground">
-                {ratePctLabel ? `Support with Welile and earn ${ratePctLabel} monthly Returns by supporting tenants` : 'Support with Welile and earn monthly Returns by supporting tenants'}
+                {ratePctLabel ? `Support with Welile and earn ${ratePctLabel} monthly Rent profit share by supporting tenants` : 'Support with Welile and earn monthly Rent profit share by supporting tenants'}
               </p>
               <Button 
                 onClick={() => navigate('/become-supporter')} 

@@ -131,7 +131,7 @@ export function OpportunitySummaryCard() {
           </div>
 
           <p className="text-[9px] text-muted-foreground/60 text-center leading-relaxed">
-            Returns are projected based on historical performance. Capital is deployed into verified rent facilitation agreements managed by Welile with reserve protection.
+            Rent profit share is projected based on historical performance. Capital is deployed into verified rent facilitation agreements managed by Welile with reserve protection.
           </p>
         </div>
 

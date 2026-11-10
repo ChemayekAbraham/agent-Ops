@@ -102,8 +102,8 @@ export default function InvestorPortfolioPublic() {
             <div className="space-y-3">
               <DetailRow label="Support Amount" value={formatUGX(portfolio.investment_amount)} />
               <DetailRow label="Duration" value={`${portfolio.duration_months} months`} />
-              {ratePct && <DetailRow label="Monthly Returns" value={ratePct} highlight />}
-              <DetailRow label="Returns Mode" value={roiModeLabel} />
+              {ratePct && <DetailRow label="Monthly Rent profit share" value={ratePct} highlight />}
+              <DetailRow label="Rent profit share Mode" value={roiModeLabel} />
               {monthlyRoi != null && <DetailRow label="Expected Monthly Return" value={formatUGX(monthlyRoi)} highlight />}
             </div>
           </CardContent>
@@ -119,12 +119,12 @@ export default function InvestorPortfolioPublic() {
             <div className="space-y-3">
               <DetailRow label="Start Date" value={format(new Date(portfolio.created_at), 'dd MMM yyyy')} />
               {portfolio.next_roi_date && (
-                <DetailRow label="Next Returns Payment" value={format(new Date(portfolio.next_roi_date), 'dd MMM yyyy')} />
+                <DetailRow label="Next Rent profit share Payment" value={format(new Date(portfolio.next_roi_date), 'dd MMM yyyy')} />
               )}
               {portfolio.maturity_date && (
                 <DetailRow label="Maturity Date" value={format(new Date(portfolio.maturity_date), 'dd MMM yyyy')} />
               )}
-              <DetailRow label="Total Returns Earned" value={formatUGX(portfolio.total_roi_earned)} highlight />
+              <DetailRow label="Total Rent profit share Earned" value={formatUGX(portfolio.total_roi_earned)} highlight />
             </div>
           </CardContent>
         </Card>

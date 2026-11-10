@@ -2017,8 +2017,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             const { formatRatePct } = await import('@/lib/partnerReturnPolicy');
             const newRatePct = formatRatePct(await getPublicPartnerRate());
             const shareText = newRatePct
-              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Returns! Register here: ${partnerFormLink}`
-              : `🤝 Partner with Welile and earn monthly Returns! Register here: ${partnerFormLink}`;
+              ? `🤝 Partner with Welile and earn ${newRatePct} monthly Rent profit share! Register here: ${partnerFormLink}`
+              : `🤝 Partner with Welile and earn monthly Rent profit share! Register here: ${partnerFormLink}`;
             if (navigator.share) {
               navigator.share({ title: 'Partner Registration', text: shareText, url: partnerFormLink }).catch(() => {});
             } else {

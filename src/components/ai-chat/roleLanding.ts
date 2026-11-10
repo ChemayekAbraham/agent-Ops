@@ -32,7 +32,7 @@ export interface RoleLanding {
  */
 export function roleLandingsAt(newContractRate: number | null): Record<AiRole, RoleLanding> {
   const pct = formatRatePct(newContractRate);
-  const returnsFor = pct ? `${pct} monthly Returns for new partners` : 'monthly Returns';
+  const returnsFor = pct ? `${pct} monthly Rent profit share for new partners` : 'monthly Rent profit share';
   return {
   tenant: {
     role: "tenant",
@@ -77,10 +77,10 @@ export function roleLandingsAt(newContractRate: number | null): Record<AiRole, R
     role: "supporter",
     emoji: "💰",
     cta: "Become a Supporter — free account",
-    headline: "Support tenants, earn Returns 💰",
+    headline: "Support tenants, earn Rent profit share 💰",
     subtitle: `Tenant Support projects ${returnsFor}. Daily payments grow Rent Access up to UGX 30,000,000.`,
     suggestions: [
-      { icon: "📈", text: "Estimate my Supporter Returns" },
+      { icon: "📈", text: "Estimate my Supporter Rent profit share" },
       { icon: "❓", text: "What is the Supporter programme?" },
       { icon: "🔐", text: "Is my money safe?" },
       { icon: "🪙", text: "What is the minimum to start?" },

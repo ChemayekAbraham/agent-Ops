@@ -175,7 +175,7 @@ export default function SupporterEarnings() {
           <div>
             <h1 className="font-bold flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-success" />
-              ROI Earnings
+              Rent profit share Earnings
             </h1>
             <p className="text-xs text-muted-foreground">Track your support returns</p>
           </div>
@@ -193,7 +193,7 @@ export default function SupporterEarnings() {
             <PiggyBank className="h-32 w-32 -mt-4 -mr-4" />
           </div>
           
-          <p className="text-success-foreground/80 text-sm font-medium">Total ROI Earned</p>
+          <p className="text-success-foreground/80 text-sm font-medium">Total Rent profit share Earned</p>
           <p className="text-4xl font-black mt-1">{formatUGX(totalEarned)}</p>
           
           <div className="flex items-center gap-2 mt-3">
@@ -240,7 +240,7 @@ export default function SupporterEarnings() {
                       <Clock className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-semibold">Next ROI Payment</p>
+                      <p className="font-semibold">Next Rent profit share Payment</p>
                       <p className="text-sm text-muted-foreground">
                         {format(new Date(nextPayment.next_roi_due_date!), 'MMMM d, yyyy')}
                       </p>
@@ -333,7 +333,7 @@ export default function SupporterEarnings() {
                       <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                       <p className="text-muted-foreground">No earnings history yet</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Your first ROI payment will arrive 30 days after verification
+                        Your first Rent profit share payment will arrive 30 days after verification
                       </p>
                     </div>
                   </div>
@@ -427,7 +427,7 @@ export default function SupporterEarnings() {
                         </div>
                         <div className="text-center p-3 rounded-lg bg-background">
                           <p className="text-2xl font-bold">180%</p>
-                          <p className="text-xs text-muted-foreground">Annual ROI rate</p>
+                          <p className="text-xs text-muted-foreground">Annual Rent profit share rate</p>
                         </div>
                       </div>
                     </div>
@@ -438,7 +438,7 @@ export default function SupporterEarnings() {
                       <Target className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
                       <p className="text-muted-foreground">No active funding packages</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Fund tenant rent to start earning 15% monthly ROI
+                        Fund tenant rent to start earning 15% monthly Rent profit share
                       </p>
                       <Button 
                         size="sm" 
@@ -470,7 +470,7 @@ export default function SupporterEarnings() {
             {roiPayments.length === 0 ? (
               <div className="text-center py-8">
                 <Sparkles className="h-12 w-12 mx-auto text-muted-foreground/30 mb-2" />
-                <p className="text-muted-foreground">No ROI payments yet</p>
+                <p className="text-muted-foreground">No Rent profit share payments yet</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Your first payment arrives 30 days after verification
                 </p>

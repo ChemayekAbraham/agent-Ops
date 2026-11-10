@@ -168,7 +168,7 @@ function portfolioEntry(p: StatementPortfolio, hasAccountPayouts: boolean): stri
 
   const foot = [
     returnsAdded > 0
-      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Compounded Returns:</td><td class="text-right num font-bold text-primary">${ugx(returnsAdded)}</td></tr>`
+      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Compounded Rent profit share:</td><td class="text-right num font-bold text-primary">${ugx(returnsAdded)}</td></tr>`
       : '',
     paidOut > 0
       ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Payouts:</td><td class="text-right num font-bold">${ugx(paidOut)}</td></tr>`
@@ -308,7 +308,7 @@ export function buildPartnerStatementHtml(d: StatementData): string {
     branch: '<Welile Partner Portfolio Division>',
     summary: [
       { label: 'Opening / Capital Supported:', valueHtml: esc(ugx(totalPrincipal)) },
-      { label: 'Total Credit (Compounded Returns):', valueHtml: esc(ugx(totalCompounded)) },
+      { label: 'Total Credit (Compounded Rent profit share):', valueHtml: esc(ugx(totalCompounded)) },
       { label: 'Total Debit (Payouts to Date):', valueHtml: esc(ugx(d.payouts_total.amount)) },
       { label: 'Closing / Total Portfolio Value:', valueHtml: esc(ugx(totalValue)), closing: true },
       {

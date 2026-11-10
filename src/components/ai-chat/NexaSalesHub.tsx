@@ -32,7 +32,7 @@ export function NexaSalesHub({onAsk}:{onAsk:(question:string)=>void}) {
       <TabsContent value="supporter" className="space-y-3">
         <Label htmlFor="nexa-support-amount">Support amount (UGX)</Label>
         <Input id="nexa-support-amount" inputMode="numeric" type="number" min="1" value={amount} onChange={e=>setAmount(e.target.value)} />
-        {valid && <dl className="grid grid-cols-2 gap-3"><div><dt className="text-muted-foreground">Monthly Returns{newRatePct ? ` · ${newRatePct} for new partners` : ''}</dt><dd className="text-base font-semibold text-success">{supporter.monthly === null ? '—' : formatFixedUGX(supporter.monthly)}</dd></div><div><dt className="text-muted-foreground">12-month Returns</dt><dd className="text-base font-semibold">{supporter.annual === null ? '—' : formatFixedUGX(supporter.annual)}</dd></div></dl>}
+        {valid && <dl className="grid grid-cols-2 gap-3"><div><dt className="text-muted-foreground">Monthly Rent profit share{newRatePct ? ` · ${newRatePct} for new partners` : ''}</dt><dd className="text-base font-semibold text-success">{supporter.monthly === null ? '—' : formatFixedUGX(supporter.monthly)}</dd></div><div><dt className="text-muted-foreground">12-month Rent profit share</dt><dd className="text-base font-semibold">{supporter.annual === null ? '—' : formatFixedUGX(supporter.annual)}</dd></div></dl>}
         <p className="text-xs text-muted-foreground">Illustrative projection. Approved plan terms apply.</p>
         {valid && <ol className="list-decimal space-y-2 pl-5">{supporter.workedExample.map(step=><li key={step}>{step}</li>)}</ol>}
         <p>{supporter.operationalGuarantee}</p>

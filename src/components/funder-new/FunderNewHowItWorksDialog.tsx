@@ -42,7 +42,7 @@ export function FunderNewHowItWorksDialog({
 
         <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
           Selecting and reviewing homes here is just planning. Nothing is funded until you confirm and the existing
-          approval step is completed. Returns shown are estimates based on the current 15% rate.
+          approval step is completed. Rent profit share shown are estimates based on the current 15% rate.
         </p>
       </DialogContent>
     </Dialog>

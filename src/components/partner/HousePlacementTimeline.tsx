@@ -231,7 +231,7 @@ export function HousePlacementTimeline({
                   {overdue && (
                     <p className="border-t border-destructive/20 bg-destructive/5 px-3 py-2 text-[10px] leading-snug text-destructive">
                       This placement is running late. Welile is following up with the agent — your
-                      Returns begin as soon as the tenant starts paying rent.
+                      Rent profit share begin as soon as the tenant starts paying rent.
                     </p>
                   )}
 
@@ -282,7 +282,7 @@ export function HousePlacementTimeline({
                                   }`
                                 : ''
                             }`
-                          : 'Your Returns start once the tenant begins paying rent'
+                          : 'Your Rent profit share start once the tenant begins paying rent'
                       }
                     />
                   </ol>
@@ -290,7 +290,7 @@ export function HousePlacementTimeline({
                   {placed && (
                     <p className="flex items-center gap-1.5 border-t border-success/20 bg-success/5 px-3 py-2 text-[11px] font-semibold text-success">
                       <UserCheck className="h-3.5 w-3.5 flex-none" aria-hidden />
-                      Rent collection is running — your Returns are paid monthly.
+                      Rent collection is running — your Rent profit share is paid monthly.
                     </p>
                   )}
                 </Card>

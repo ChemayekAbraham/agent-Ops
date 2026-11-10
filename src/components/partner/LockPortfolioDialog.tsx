@@ -71,7 +71,7 @@ export function LockPortfolioDialog({ open, onOpenChange, portfolio, onSuccess }
         {
           description: res.mode === 'partial'
             ? `${formatUGX(Number(res.remaining_amount) || 0)} remains active and keeps earning. Books balanced.`
-            : 'Returns accrual has stopped for this portfolio.',
+            : 'Rent profit share accrual has stopped for this portfolio.',
         },
       );
       onOpenChange(false);

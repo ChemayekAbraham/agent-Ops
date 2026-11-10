@@ -411,8 +411,8 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
       void 0;
     }
     const shareText = newRatePct
-      ? `Hi ${partnerName}, activate your Welile funding account and start earning ${newRatePct} Returns! ${activationLink}`
-      : `Hi ${partnerName}, activate your Welile funding account and start earning monthly Returns! ${activationLink}`;
+      ? `Hi ${partnerName}, activate your Welile funding account and start earning ${newRatePct} Rent profit share! ${activationLink}`
+      : `Hi ${partnerName}, activate your Welile funding account and start earning monthly Rent profit share! ${activationLink}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile Funding', text: shareText, url: activationLink }).catch(() => {});
     } else {
@@ -700,7 +700,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
               Earnings preview
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">{newRatePct ? `Your Partner earns ${newRatePct} per month` : 'Your Partner earns monthly Returns'}</span>
+              <span className="text-muted-foreground">{newRatePct ? `Your Partner earns ${newRatePct} per month` : 'Your Partner earns monthly Rent profit share'}</span>
               <span className="font-medium">{formatUGXOrDash(previewMonthlyReturn)}</span>
             </div>
           </div>

@@ -342,8 +342,8 @@ const services = [
       },
       {
         icon: TrendingUp,
-        title: "Supporter Returns - Earn Monthly",
-        description: "Be a Supporter! Fund verified rent requests and earn steady Returns. Your money works for you 24/7.",
+        title: "Supporter Rent profit share - Earn Monthly",
+        description: "Be a Supporter! Fund verified rent requests and earn steady Rent profit share. Your money works for you 24/7.",
         color: "bg-indigo-500/10 text-indigo-500",
         tag: "SUPPORTERS"
       },

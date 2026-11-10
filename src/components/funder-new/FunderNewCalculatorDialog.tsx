@@ -137,7 +137,7 @@ export function FunderNewCalculatorDialog({
               ) : null}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Projected Returns each month{ownRatePct ? ` (${ownRatePct})` : ''}</p>
+              <p className="text-xs text-muted-foreground">Projected Rent profit share each month{ownRatePct ? ` (${ownRatePct})` : ''}</p>
               <p className="break-words text-xl font-bold text-success">{hypotheticalMonthly === null ? '—' : formatDynamic(hypotheticalMonthly)}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Hypothetical scenario, returns only — your support amount is not included.
@@ -212,7 +212,7 @@ export function FunderNewCalculatorDialog({
 
         <p className="flex items-start gap-2 rounded-2xl border bg-muted/40 p-4 text-xs text-muted-foreground">
           <Info className="mt-0.5 h-4 w-4 flex-none" aria-hidden />
-          Returns are projections{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}, not a guarantee. Selecting homes here is planning only.
+          Rent profit share figures are projections{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}, not a guarantee. Selecting homes here is planning only.
         </p>
 
         {matches.length > 0 ? (

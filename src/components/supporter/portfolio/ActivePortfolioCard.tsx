@@ -45,7 +45,7 @@ export function ActivePortfolioCard({ portfolio, onView }: { portfolio: Portfoli
   const progressPct = Math.round(a.cycleProgress * 100);
   const isNearComplete = progressPct >= 95;
   const progressBarColor = isNearComplete ? 'bg-success' : 'bg-primary';
-  const roiPeriodLabel = a.isMonthlyCycle ? 'Monthly ROI' : `${a.cycleDays}-day ROI`;
+  const roiPeriodLabel = a.isMonthlyCycle ? 'Monthly Rent profit share' : `${a.cycleDays}-day Rent profit share`;
 
   const pendingTopup = usePendingTopup(portfolio.id);
   const isCompounding =

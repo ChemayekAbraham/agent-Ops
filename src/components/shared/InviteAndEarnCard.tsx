@@ -79,7 +79,7 @@ export function InviteAndEarnCard({ variant = 'default', compact = false }: Invi
   const messages: Record<string, string> = {
     tenant: `🏠 Struggling with rent? I use Welile to get my rent paid upfront!\n\n💰 Get your full rent today\n📅 Pay back in small daily amounts\n✅ Quick signup - just 2 minutes\n🎁 We BOTH get 100 UGX bonus!\n\nJoin now: ${shareLink}`,
     landlord: `🏡 Tired of chasing rent? Welile guarantees your monthly rent!\n\n✅ Get rent on time, every month\n🛡️ Zero risk to you\n📲 Free to join\n\nRegister now: ${shareLink}`,
-    supporter: `💰 Want to earn passive income? I'm earning returns with Welile!\n\n📈 Competitive monthly returns\n🛡️ Backed by real rent payments\n📲 Easy to start\n🎁 Join through my link!\n\nStart now: ${shareLink}`,
+    supporter: `💰 Want to earn passive income? I'm earning returns with Welile!\n\n📈 Competitive monthly Rent profit share\n🛡️ Backed by real rent payments\n📲 Easy to start\n🎁 Join through my link!\n\nStart now: ${shareLink}`,
     default: `📲 Join Welile - the smartest way to manage rent!\n\n🎁 We BOTH get 100 UGX bonus!\n\nJoin now: ${shareLink}`,
   };
 

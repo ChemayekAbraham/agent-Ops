@@ -53,7 +53,7 @@ export function SupporterCapitalLedger() {
         </Card>
         <Card>
           <CardContent className="p-3">
-            <p className="text-[10px] text-muted-foreground">Returns Paid</p>
+            <p className="text-[10px] text-muted-foreground">Rent profit share Paid</p>
             <p className="text-lg font-black">{formatUGX(totals.returns)}</p>
           </CardContent>
         </Card>

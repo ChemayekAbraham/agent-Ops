@@ -514,7 +514,7 @@ export function SelfPortfolioPlanDetailSheet({
             return (
               <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Your projected returns</p>
+                  <p className="text-sm font-semibold">Your projected Rent profit share</p>
                   {formatRatePct(ownRatePct) && (
                     <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
                       {formatRatePct(ownRatePct)} per month

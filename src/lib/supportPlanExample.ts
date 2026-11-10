@@ -94,7 +94,7 @@ export function supportExampleStepsAt(rate: number | null): string[] {
     return [
       `You support a tenant with ${amount}.`,
       `The system pays the ${amount} straight to the landlord.`,
-      `You earn monthly Returns for ${EXAMPLE_TERM_MONTHS} months at the rate shown in the app.`,
+      `You earn monthly Rent profit share for ${EXAMPLE_TERM_MONTHS} months at the rate shown in the app.`,
       `The tenant pays back the ${amount} under their Rent Plan.`,
       `After ${EXAMPLE_TERM_MONTHS} months: renew your support, or withdraw your ${amount}.`,
     ];

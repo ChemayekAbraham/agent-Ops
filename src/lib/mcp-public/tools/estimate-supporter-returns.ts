@@ -50,9 +50,9 @@ function project(amount: number, months: number, rate: number) {
 
 export default defineTool({
   name: "estimate_supporter_returns",
-  title: "Estimate Supporter Returns (illustrative)",
+  title: "Estimate Supporter Rent profit share (illustrative)",
   description:
-    "Give a prospective Supporter an ILLUSTRATIVE Returns range in UGX for a chosen support amount over time. Partner Returns target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Returns, not interest.)",
+    "Give a prospective Supporter an ILLUSTRATIVE Rent profit share range in UGX for a chosen support amount over time. Partner Rent profit share target the monthly rate a new Supporter gets (returned in the result), not guaranteed. Then return the free Supporter signup link. No sign-in required. The range spans simple (rewards paid out) to compounding (rewards reinvested). Actual rates and terms are shown in the app after signup. Provide `amount` (UGX to support). Optionally provide `duration_months` (1-36) for one horizon, otherwise 3/6/12-month options are returned. Optional `referral_code` adds a referral signup link. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
   inputSchema: {
     amount: z
       .number()
@@ -120,21 +120,21 @@ export default defineTool({
       return publicToolResult({
         tool: "estimate_supporter_returns",
         kind: "info",
-        summary: "The current monthly Returns rate for new Supporters is not available right now. Sign up free to see it in the app.",
+        summary: "The current monthly Rent profit share rate for new Supporters is not available right now. Sign up free to see it in the app.",
         estimates: {
-          basis: "No figure: the current monthly Returns rate for new Supporters could not be read right now.",
+          basis: "No figure: the current monthly Rent profit share rate for new Supporters could not be read right now.",
           confidence: "illustrative",
           currency: "UGX",
           ranges: [],
         },
         data: { amount: roundedAmount, monthly_reward_rate_pct: null, projections: [] },
         disclaimers: [
-          "Partner Returns are not guaranteed. This is an illustration only.",
+          "Partner Rent profit share is not guaranteed. This is an illustration only.",
           "Actual rates and terms are shown in the app after you create a free account.",
           "Supporter withdrawals require a 90-day notice period.",
         ],
         next_steps: [
-          "Create a free Supporter account to view current Returns and start supporting tenants.",
+          "Create a free Supporter account to view current Rent profit share and start supporting tenants.",
         ],
         links,
       });
@@ -144,7 +144,7 @@ export default defineTool({
     const lines = projections
       .map(
         (p) =>
-          `• ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}: Returns of ${ugx(p.simpleEarnings)} (paid out) to ${ugx(p.compoundEarnings)} (reinvested)`,
+          `• ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}: Rent profit share of ${ugx(p.simpleEarnings)} (paid out) to ${ugx(p.compoundEarnings)} (reinvested)`,
       )
       .join("\n");
 
@@ -154,7 +154,7 @@ export default defineTool({
     for (const p of projections) {
       const period = { unit: "months" as const, value: p.durationMonths };
       ranges.push(
-        spanRange(`Returns over ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}`, "returns", p.simpleEarnings, p.compoundEarnings, "UGX", period, {
+        spanRange(`Rent profit share over ${p.durationMonths} month${p.durationMonths === 1 ? "" : "s"}`, "returns", p.simpleEarnings, p.compoundEarnings, "UGX", period, {
           paid_out: p.simpleEarnings,
           reinvested: p.compoundEarnings,
         }),
@@ -163,7 +163,7 @@ export default defineTool({
           paid_out_total: p.simpleTotal,
           reinvested_total: p.compoundTotal,
         }),
-        pointRange("Monthly reward (first month)", "monthly_reward", p.monthlyReward, "UGX_per_month", period),
+        pointRange("Monthly Rent profit share (first month)", "monthly_reward", p.monthlyReward, "UGX_per_month", period),
       );
     }
 
@@ -172,13 +172,13 @@ export default defineTool({
     return publicToolResult({
       tool: "estimate_supporter_returns",
       kind: "estimate",
-      summary: `Illustrative Returns for supporting ${ugx(roundedAmount)}: ${ugx(Math.min(...allReturns))}–${ugx(
+      summary: `Illustrative Rent profit share for supporting ${ugx(roundedAmount)}: ${ugx(Math.min(...allReturns))}–${ugx(
         Math.max(...allReturns),
-      )} depending on horizon and whether Returns are paid out or reinvested.`,
+      )} depending on horizon and whether Rent profit share is paid out or reinvested.`,
       body: [lines],
       assumptions: [
-        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
-        "Low end of each range = Returns paid out monthly; high end = Returns reinvested (compounding).",
+        `Partner Rent profit share target ${ratePct}% a month for a new Supporter, not guaranteed. This illustration uses ${ratePct}% a month on the supported amount.`,
+        "Low end of each range = Rent profit share paid out monthly; high end = Rent profit share reinvested (compounding).",
         projections.length > 1
           ? `No horizon was given, so ${DEFAULT_DURATIONS.join("/")}-month options are compared.`
           : `Horizon of ${projections[0].durationMonths} month${projections[0].durationMonths === 1 ? "" : "s"} as requested.`,
@@ -203,12 +203,12 @@ export default defineTool({
         })),
       },
       disclaimers: [
-        `Partner Returns target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
+        `Partner Rent profit share target ${ratePct}% a month for a new Supporter, not guaranteed. This is an illustration only.`,
         "Actual rates and terms are shown in the app after you create a free account.",
         "Supporter withdrawals require a 90-day notice period.",
       ],
       next_steps: [
-        "Create a free Supporter account to view current Returns and start supporting tenants.",
+        "Create a free Supporter account to view current Rent profit share and start supporting tenants.",
       ],
       links,
     });

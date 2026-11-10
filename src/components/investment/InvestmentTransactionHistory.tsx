@@ -61,7 +61,7 @@ const transactionConfig: Record<TransactionType, {
   },
   roi_payout: {
     icon: TrendingUp,
-    label: 'Returns Payout',
+    label: 'Rent profit share Payout',
     color: 'text-emerald-500',
     bgColor: 'bg-emerald-500/10',
     isPositive: true

@@ -110,7 +110,7 @@ function PlanCard({
           <MapPin className="h-3 w-3 shrink-0" /> {place}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Monthly Returns{' '}
+          Monthly Rent profit share{' '}
           <span className="font-semibold text-emerald-600 dark:text-emerald-400">{monthlyReturn === null ? '—' : money(monthlyReturn)}</span>
         </p>
 
@@ -487,7 +487,7 @@ export function ProxySupportOpportunities({ className }: { className?: string })
                   <span className="font-bold tabular-nums">{money(cartTotal)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Monthly Returns</span>
+                  <span className="text-muted-foreground">Monthly Rent profit share</span>
                   <span className="font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
                     {cartMonthlyReturn === null ? '—' : money(cartMonthlyReturn)}/mo
                   </span>

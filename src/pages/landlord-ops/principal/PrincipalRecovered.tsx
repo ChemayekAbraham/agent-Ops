@@ -175,11 +175,11 @@ export default function PrincipalRecovered() {
           </div>
           <dl className="divide-y divide-border">
             {[
-              ['Returns', totals.returns], ['Commission', totals.commission], ['Platform fee', totals.platformFee],
+              ['Rent profit share', totals.returns], ['Commission', totals.commission], ['Platform fee', totals.platformFee],
               ['Access fee', totals.accessFee], ['Registration Fee', totals.registrationFee],
             ].map(([label, value]) => <div key={String(label)} className="flex justify-between gap-4 py-3 text-sm"><dt>{label}</dt><dd className="text-right font-medium tabular-nums">{formatUGX(Number(value))}</dd></div>)}
           </dl>
-          <p className="text-xs text-muted-foreground">Access Fee + Registration Fee make up the total collected fees. Returns, Commission and Platform Fee show how those fees are allocated; they are not added again. Older repayments may have no recorded allocation breakdown.</p>
+          <p className="text-xs text-muted-foreground">Access Fee + Registration Fee make up the total collected fees. Rent profit share, Commission and Platform Fee show how those fees are allocated; they are not added again. Older repayments may have no recorded allocation breakdown.</p>
         </DialogContent>
       </Dialog>
 
@@ -221,7 +221,7 @@ export default function PrincipalRecovered() {
                   <td className="px-3 py-2 text-right tabular-nums">{formatUGX(Number(r.total_repayment))}</td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatUGX(Number(r.principal))}</td>
                   <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
-                    Returns {formatUGX(Number(r.returns))} · Commission {formatUGX(Number(r.agent_commission))} · Platform fee {formatUGX(Number(r.platform_fee))} · Access fee {formatUGX(Number(r.access_fee))} · Registration {formatUGX(Number(r.registration_fee))}
+                    Rent profit share {formatUGX(Number(r.returns))} · Commission {formatUGX(Number(r.agent_commission))} · Platform fee {formatUGX(Number(r.platform_fee))} · Access fee {formatUGX(Number(r.access_fee))} · Registration {formatUGX(Number(r.registration_fee))}
                   </td>
                   <td className="px-3 py-2"><Badge variant="outline" className="text-[10px]">{(r.plan_status ?? '—').replace(/_/g, ' ')}</Badge></td>
                 </tr>

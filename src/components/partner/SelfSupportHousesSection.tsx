@@ -257,7 +257,7 @@ export function HouseSupportCard({
 
       {/* ── Returns line ── */}
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Earn <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDynamic(monthlyRoi)}</span> monthly returns
+        Earn <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDynamic(monthlyRoi)}</span> monthly Rent profit share
         <span className="ml-1.5 text-[10px]">({HOUSE_MONTHLY_ROI_RATE}%)</span>
       </p>
 
@@ -527,7 +527,7 @@ export function HouseSupportBar({
         <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
             <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span>Projected returns · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
+            <span>Projected Rent profit share · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
           </div>
           <p className="text-sm sm:text-base font-black leading-none text-primary">
             {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE) / 100))}

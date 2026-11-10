@@ -11,16 +11,16 @@ export default function ShareWelileAIBanner() {
   const { newContractRate } = usePartnerReturnPolicy();
   const newRatePct = formatRatePct(newContractRate);
   const handleShare = async () => {
-    const text = `💰 Earn monthly Returns by helping tenants pay rent in Africa!
+    const text = `💰 Earn monthly Rent profit share by helping tenants pay rent in Africa!
 
 🏠 How it works:
 • You support a tenant's rent cycle (30-90 days)
 • Welile manages collection & tenant placement
-${newRatePct ? `• New partners earn ${newRatePct} monthly Returns` : '• You earn monthly Returns'}
+${newRatePct ? `• New partners earn ${newRatePct} monthly Rent profit share` : '• You earn monthly Rent profit share'}
 
 🔒 Your capital is secured by Welile's Operational Assurance — if a tenant defaults, Welile replaces them.
 
-📈 Start with as little as UGX 50,000 and auto-compound your Returns!
+📈 Start with as little as UGX 50,000 and auto-compound your Rent profit share!
 
 🤖 Chat with Welile AI to learn more: ${SHARE_URL}`;
     

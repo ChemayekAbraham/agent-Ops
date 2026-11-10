@@ -40,13 +40,13 @@ const FEATURES: Feature[] = [
   },
   {
     intent: "supporter_returns",
-    prompt: "See supporter Returns",
+    prompt: "See supporter Rent profit share",
     role: "supporter",
-    headline: "Support tenants and earn Returns",
+    headline: "Support tenants and earn Rent profit share",
     explanation:
-      "As a Supporter your funds help tenants access rent, and you earn periodic Returns in UGX. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Returns, not interest.)",
+      "As a Supporter your funds help tenants access rent, and you earn periodic Rent profit share in UGX. Rates and terms are shown in the app when you sign up. (Terminology: Supporter, not lender; Rent profit share, not interest.)",
     next_step:
-      "Create a free Supporter account to view current Returns and start supporting tenants.",
+      "Create a free Supporter account to view current Rent profit share and start supporting tenants.",
   },
   {
     intent: "landlord_payouts",
@@ -88,7 +88,7 @@ export default defineTool({
   name: "explore_welile",
   title: "Explore Welile (guided prompts)",
   description:
-    "Answer a prospective user's read-only question about what Welile can do for them (e.g. 'check my rent access', 'see agent commissions', 'supporter Returns', 'landlord payouts', 'Trust Score') and return a role-targeted free signup link so they can act. No sign-in required. Amounts in UGX. If no intent is given, returns the full list of guided prompts to suggest.",
+    "Answer a prospective user's read-only question about what Welile can do for them (e.g. 'check my rent access', 'see agent commissions', 'supporter Rent profit share', 'landlord payouts', 'Trust Score') and return a role-targeted free signup link so they can act. No sign-in required. Amounts in UGX. If no intent is given, returns the full list of guided prompts to suggest.",
   inputSchema: {
     intent: z
       .string()

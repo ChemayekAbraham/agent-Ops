@@ -135,7 +135,7 @@ export const TX_SERVICE_OPTIONS: { value: TxServiceFilter; label: string }[] = [
   { value: "requisition", label: "Requisition" },
   { value: "transfer", label: "Transfer" },
   { value: "rent", label: "Rent" },
-  { value: "returns", label: "Returns" },
+  { value: "returns", label: "Rent profit share" },
 ];
 
 export const TX_METHOD_OPTIONS: { value: TxMethodFilter; label: string }[] = [
@@ -204,8 +204,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   agent_float_used_for_rent: "Float Used For Rent",
   access_fee_collected: "Access Fee",
   registration_fee_collected: "Registration Fee",
-  roi_wallet_credit: "Returns Payout",
-  roi_reinvestment: "Returns Reinvested",
+  roi_wallet_credit: "Rent profit share Payout",
+  roi_reinvestment: "Rent profit share Reinvested",
   interest_expense: "Interest",
 };
 
