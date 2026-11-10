@@ -40,7 +40,10 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
-import { kampalaYmd } from '@/lib/kampalaDays';
+import { kampalaTodayYmd, kampalaYmd } from '@/lib/kampalaDays';
+import { Calendar as DateCalendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, parseISO } from 'date-fns';
 import { inLunchAllowanceRange, lunchAllowancePeriods, lunchAllowanceRange, type LunchAllowancePeriod } from './lunchAllowancePeriod';
 
 interface Row {
@@ -59,6 +62,8 @@ interface Row {
 export function LunchAllowanceTracker() {
   const [to, setTo] = useState('');
   const [period, setPeriod] = useState<LunchAllowancePeriod>('all');
+  const [customDate, setCustomDate] = useState(kampalaTodayYmd);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [reversing, setReversing] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
@@ -110,7 +115,7 @@ export function LunchAllowanceTracker() {
     },
   });
 
-  const periodRange = lunchAllowanceRange(period);
+  const periodRange = lunchAllowanceRange(period, kampalaTodayYmd(), customDate);
   const rangeStart = periodRange?.start;
   const rangeEnd = periodRange?.end;
   const filtered = useMemo(() => {
@@ -164,8 +169,8 @@ export function LunchAllowanceTracker() {
 
   const signed = (r: Row) => (r.operation === 'debit' ? -1 : 1) * Number(r.amount);
   const total = filtered.reduce((s, r) => s + signed(r), 0);
-  const monthKey = new Date().toISOString().slice(0, 7);
-  const thisMonth = (data?.list ?? []).filter((r) => r.created_at.startsWith(monthKey)).reduce((s, r) => s + signed(r), 0);
+  const periodLabel = period === 'custom' ? format(parseISO(customDate), 'dd MMM yyyy')
+    : to ? `Up to ${to}` : lunchAllowancePeriods.find((item) => item.value === period)?.label ?? 'All time';
 
   const perStaff = useMemo(() => {
     const m = new Map<string, { total: number; count: number; last: string }>();
@@ -269,6 +274,23 @@ export function LunchAllowanceTracker() {
             ))}
           </TabsList>
         </Tabs>
+        {period === 'custom' && (
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2" aria-label="Select payment date">
+                <Calendar className="h-4 w-4" />
+                {format(parseISO(customDate), 'dd MMM yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+              <DateCalendar mode="single" selected={parseISO(customDate)} defaultMonth={parseISO(customDate)}
+                onSelect={(date) => {
+                  if (!date) return;
+                  setCustomDate(format(date, 'yyyy-MM-dd')); setTo(''); setPage(1); setCalendarOpen(false);
+                }} initialFocus className="p-3 pointer-events-auto" />
+            </PopoverContent>
+          </Popover>
+        )}
         {periodRange && <p className="text-xs text-muted-foreground">{periodRange.start} – {periodRange.end} · Kampala time</p>}
       </section>
 
@@ -300,17 +322,17 @@ export function LunchAllowanceTracker() {
               <Calendar className="h-4 w-4" />
             </div>
             <span className="rounded-md px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              Active Month
+              Selected Period
             </span>
           </div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
-            This Month
+            {periodLabel}
           </p>
-          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(thisMonth)}>
-            {formatUGX(thisMonth)}
+          <p className="mt-1 text-base lg:text-lg font-bold tabular-nums tracking-tight text-foreground truncate" title={formatUGX(total)}>
+            {formatUGX(total)}
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground/85 truncate">
-            Disbursed in {new Date().toLocaleString('en-GB', { month: 'long', year: 'numeric' })}
+            {periodRange ? `${periodRange.start} – ${periodRange.end}` : to ? `Through ${to}` : 'All recorded payments'}
           </p>
         </div>
 

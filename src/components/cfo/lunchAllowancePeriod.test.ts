@@ -3,6 +3,13 @@ import { inLunchAllowanceRange, lunchAllowanceRange } from './lunchAllowancePeri
 
 describe('Lunch Allowance payment periods', () => {
   const today = '2026-11-10';
+  it('Custom includes only the selected Kampala date', () => {
+    const range = lunchAllowanceRange('custom', today, '2026-10-15');
+    expect(range).toEqual({ start: '2026-10-15', end: '2026-10-15' });
+    expect(inLunchAllowanceRange('2026-10-14T21:00:00Z', range)).toBe(true);
+    expect(inLunchAllowanceRange('2026-10-14T20:59:59Z', range)).toBe(false);
+    expect(inLunchAllowanceRange('2026-10-15T21:00:00Z', range)).toBe(false);
+  });
   it('Today includes only the Kampala day, including its UTC boundary', () => {
     const range = lunchAllowanceRange('today', today);
     expect(range).toEqual({ start: today, end: today });
