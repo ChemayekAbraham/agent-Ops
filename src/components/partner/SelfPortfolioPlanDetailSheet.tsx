@@ -352,7 +352,7 @@ export function SelfPortfolioPlanDetailSheet({
             {regionLabel}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground flex items-start gap-1.5">
-            <MapPin className="h-4 w-4 flex-none mt-0.5" />
+            <MapPin className="h-4 w-4 flex-none mt-0.5 text-red-600" />
             <span>{fullAddress}</span>
           </p>
 

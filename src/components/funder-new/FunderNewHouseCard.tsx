@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Check, ChevronRight, Clock, Home, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -179,11 +179,7 @@ export function FunderNewHouseCard({
             onClick={onSelect}
             aria-pressed={selected}
           >
-            {selected ? (
-              <Check className="h-4 w-4 text-white" aria-hidden />
-            ) : (
-              <Sprout className="h-4 w-4" aria-hidden />
-            )}
+            {selected ? <Check className="h-4 w-4 text-white" aria-hidden /> : null}
             {selected ? 'Selected' : isEmpty ? 'Pending verification' : 'Fund this House'}
           </Button>
 
