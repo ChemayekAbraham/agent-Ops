@@ -341,13 +341,13 @@ function SupportGraph({
   const breakdown = mode === 'tenant'
     ? [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Monthly Returns', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
-        { label: 'Returns · 12 mo', value: showFigures ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
+        { label: 'Monthly Rent profit share', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Rent profit share · 12 mo', value: showFigures ? `+${formatCurrencyCompact(monthlyReward * MONTHS, currency)}` : dash },
         { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(enteredAmount + monthlyReward * MONTHS, currency) : dash, accent: true },
       ]
     : [
         { label: 'Your support', value: hasAmount ? formatCurrencyCompact(enteredAmount, currency) : dash },
-        { label: 'Month 1 Returns', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
+        { label: 'Month 1 Rent profit share', value: showFigures ? `+${formatCurrencyCompact(monthlyReward, currency)}` : dash },
         { label: 'Total growth', value: showFigures ? `+${formatCurrencyCompact(totalEarned, currency)}` : dash },
         { label: 'Total after 12 mo', value: showFigures ? formatCurrencyCompact(totalValue, currency) : dash, accent: true },
       ];
@@ -364,7 +364,7 @@ function SupportGraph({
       <div className="flex items-start justify-between mb-3 gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            {mode === 'tenant' ? 'Monthly Returns · 12 months' : 'Compounding growth · 12 months'}
+            {mode === 'tenant' ? 'Monthly Rent profit share · 12 months' : 'Compounding growth · 12 months'}
           </p>
           <div
             className={`flex items-center gap-1.5 mt-1.5 border rounded-xl px-3 py-1.5 transition-colors ${
@@ -477,7 +477,7 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       title: newRatePct ? `${newRatePct} Monthly Pay Outs` : 'Monthly Pay Outs',
       body: newRatePct
         ? `You earn ${newRatePct} of your active contribution each month, credited to your wallet automatically on a strict 30-day cycle.`
-        : 'You earn monthly Returns on your active contribution, credited to your wallet automatically on a strict 30-day cycle.',
+        : 'You earn monthly Rent profit share on your active contribution, credited to your wallet automatically on a strict 30-day cycle.',
       highlight: true,
     },
     {
@@ -541,7 +541,7 @@ function Step1({ form, setForm }: { form: FormState; setForm: React.Dispatch<Rea
       <motion.div variants={fadeUp} className="grid grid-cols-3 gap-3">
         {[
           { icon: Home,     to: 3000, suffix: '+', label: 'Homes Supported' },
-          { icon: Banknote, to: ratePct, suffix: '%', label: 'Monthly Returns (new partners)' },
+          { icon: Banknote, to: ratePct, suffix: '%', label: 'Monthly Rent profit share (new partners)' },
           { icon: Shield,   to: 30,   suffix: 'd', label: 'Payout Cycle'    },
         ].map(({ icon: Icon, to, suffix, label }) => (
           <div key={label} className="flex flex-col items-center gap-1.5 bg-card border border-border rounded-2xl py-3 px-2 shadow-sm">
@@ -595,15 +595,15 @@ function Step2({ form, setForm, showError }: { form: FormState; setForm: React.D
           onClick={() => setForm(p => ({ ...p, investPath: 'tenant' }))}
           icon={Home}
           title="Support a Tenant"
-          body="Your contribution is matched to a specific rent need. A real family gets housed, and you earn monthly Returns on what you put in."
-          badge={newRatePct ? `${newRatePct} Monthly` : 'Monthly Returns'}
+          body="Your contribution is matched to a specific rent need. A real family gets housed, and you earn monthly Rent profit share on what you put in."
+          badge={newRatePct ? `${newRatePct} Monthly` : 'Monthly Rent profit share'}
         />
         <ChoiceCard
           selected={form.investPath === 'pool'}
           onClick={() => setForm(p => ({ ...p, investPath: 'pool' }))}
           icon={TrendingUp}
           title="Grow Your Contribution"
-          body="Add to the housing pool. Your monthly Returns build on themselves — each cycle your base grows and so do the next Returns."
+          body="Add to the housing pool. Your monthly Rent profit share build on themselves — each cycle your base grows and so do the next Rent profit share."
           badge="Compounding"
         />
       </motion.div>
@@ -1510,10 +1510,10 @@ export default function FunderOnboarding() {
       <Toaster position="top-center" />
       <Helmet>
         <title>Become a Welile Funder — Fund the Future of Housing</title>
-        <meta name="description" content="Empower verified tenants and grow your active capital with steady, managed Returns. Start funding from as little as UGX 50,000." />
+        <meta name="description" content="Empower verified tenants and grow your active capital with steady, managed Rent profit share. Start funding from as little as UGX 50,000." />
         <link rel="canonical" href="https://welileapp.com/funder-onboarding" />
         <meta property="og:title" content="Become a Welile Funder — Fund the Future of Housing" />
-        <meta property="og:description" content="Empower verified tenants and grow your active capital with steady, managed Returns. Start funding from as little as UGX 50,000." />
+        <meta property="og:description" content="Empower verified tenants and grow your active capital with steady, managed Rent profit share. Start funding from as little as UGX 50,000." />
         <meta property="og:url" content="https://welileapp.com/funder-onboarding" />
       </Helmet>
 
@@ -1528,7 +1528,7 @@ export default function FunderOnboarding() {
         <div className="relative z-20 p-12 flex flex-col items-center justify-center h-full text-center text-white">
           <img src="/welile-colored.png" alt="Welile Logo" className="h-20 w-auto mb-8 drop-shadow-md" />
           <h2 className="text-4xl lg:text-5xl font-black mb-4 tracking-tight drop-shadow-xl leading-tight">Fund The Future<br />Of Housing</h2>
-          <p className="text-lg text-white/90 font-medium max-w-md drop-shadow-md">Empower verified tenants and grow your active capital with steady, managed Returns.</p>
+          <p className="text-lg text-white/90 font-medium max-w-md drop-shadow-md">Empower verified tenants and grow your active capital with steady, managed Rent profit share.</p>
         </div>
       </div>
 

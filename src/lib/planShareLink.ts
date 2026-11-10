@@ -58,8 +58,8 @@ export function planShareDescription(plan: SharePlanInput): string {
 export function planShareFallbackDescription(plan: SharePlanInput): string {
   const rent = Number(plan.funding_amount || 0);
   return rent > 0
-    ? `Support this tenant for ${formatDynamic(rent)} by paying their landlord on the platform and earn monthly Returns. Start here today.`
-    : "Support a tenant's rent on Welile and earn monthly Returns. Support today.";
+    ? `Support this tenant for ${formatDynamic(rent)} by paying their landlord on the platform and earn monthly Rent profit share. Start here today.`
+    : "Support a tenant's rent on Welile and earn monthly Rent profit share. Support today.";
 }
 
 /**

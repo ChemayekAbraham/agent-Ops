@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { Home, Navigation } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,8 @@ export function FunderBoardItemCard({
   onDemoteToggle?: () => void;
   className?: string;
 }) {
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const title = item.houseCategory ?? 'House';
   const place = item.city ?? 'Uganda';
   const canDemote = demoteMode && item.tag === 'verified' && !!onDemoteToggle;
@@ -87,7 +90,7 @@ export function FunderBoardItemCard({
           </span>
         ) : null}
         <span className="text-lg font-extrabold leading-none text-foreground" data-testid="board-item-amount">
-          {formatDynamic(item.rentAmount)}
+          {formatDynamic(item.rentAmount > 0 ? partnerPay(item.rentAmount) : item.rentAmount)}
         </span>
         <p className="text-xs text-muted-foreground" style={{ margin: 0 }} data-testid="board-item-note">
           {item.tag === 'verified' && item.held

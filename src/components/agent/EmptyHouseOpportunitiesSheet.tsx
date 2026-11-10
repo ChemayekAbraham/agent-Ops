@@ -513,7 +513,7 @@ export function EmptyHouseOpportunitiesSheet({
     // No rate known: the text states no rate and no figure.
     const text = quoteRatePct && monthlyReturn !== null
       ? `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn ${quoteRatePct} of that rent every month for 12 months — ${formatUGXOrDash(monthlyReturn)} per month. Activate here: ${link}`
-      : `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn monthly Returns on that rent for 12 months. Activate here: ${link}`;
+      : `Hi ${partnerName}, you are supporting ${homes} on Welile. You contribute one month of rent (${formatUGX(rentTotal)}) and earn monthly Rent profit share on that rent for 12 months. Activate here: ${link}`;
     if (navigator.share) {
       navigator.share({ title: 'Welile funding opportunity', text, url: link }).catch(() => {});
     } else {
@@ -536,13 +536,13 @@ export function EmptyHouseOpportunitiesSheet({
                 <>
                   Pick the empty houses you want to fund. You pay one month of rent, the agent who listed
                   the house moves a tenant in once your note is fulfilled, and you earn
-                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Rent profit share on that rent'} for 12 months</span>.
                 </>
               ) : (
                 <>
                   Pick the empty houses this partner will fund. They pay one month of rent, the agent who
                   listed the house moves a tenant in once the note is fulfilled, and the partner earns
-                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Returns on that rent'} for 12 months</span>.
+                  <span className="font-semibold text-emerald-600"> {quoteRatePct ? `${quoteRatePct} of that rent every month` : 'monthly Rent profit share on that rent'} for 12 months</span>.
                 </>
               )}
             </SheetDescription>
@@ -575,7 +575,7 @@ export function EmptyHouseOpportunitiesSheet({
               <span className="font-bold">{formatUGX(rentTotal)}</span>
             </div>
             <div className="flex items-center justify-between rounded-xl bg-emerald-500/10 px-3 py-2">
-              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} {quoteRatePct ? `${quoteRatePct} per month` : 'monthly Returns'}</span>
+              <span className="text-[11px] font-semibold text-emerald-700">{isPartner ? 'You earn' : 'Partner earns'} {quoteRatePct ? `${quoteRatePct} per month` : 'monthly Rent profit share'}</span>
               <span className="text-sm font-bold text-emerald-600">{formatUGXOrDash(monthlyReturn)}</span>
             </div>
             <p className="text-[10px] text-muted-foreground text-center">
@@ -667,7 +667,7 @@ export function EmptyHouseOpportunitiesSheet({
                   </div>
                   <div className="grid grid-cols-2 gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[10px]">
                     <div>
-                      <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                      <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                       <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                     </div>
                     <div>
@@ -713,7 +713,7 @@ export function EmptyHouseOpportunitiesSheet({
                           <p className="font-semibold">{formatUGX(rent)}</p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                          <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                           <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                         </div>
                         <div>
@@ -1201,7 +1201,7 @@ export function EmptyHouseOpportunitiesSheet({
                             <p className="font-semibold">{formatUGX(rent)}</p>
                           </div>
                           <div>
-                            <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Returns'}</p>
+                            <p className="text-muted-foreground">{quoteRatePct ? `${quoteRatePct} monthly` : 'Monthly Rent profit share'}</p>
                             <p className="font-semibold text-emerald-600">{formatUGXOrDash(m)}</p>
                           </div>
                           <div>

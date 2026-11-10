@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { selfSupportFeeErrorMessage } from '@/lib/selfSupportFeeMessages';
 import type { FunderNewSelectionItem } from '@/components/funder-new/types';
 
 /** Server floor for house support (partner_support_houses raises below it). */
@@ -41,6 +42,8 @@ export class SupportSubmitError extends Error {
 }
 
 function describeSupportError(raw: string): string {
+  const careMsg = selfSupportFeeErrorMessage(raw);
+  if (careMsg) return careMsg;
   if (raw.includes('AGREEMENT_REQUIRED')) return 'Sign your partnership agreement first, then try again.';
   if (raw.includes('HOUSES_UNAVAILABLE') || raw.includes('BOOKING_NOT_FOUND'))
     return 'Some homes in your plan are no longer available. Remove them and try again.';

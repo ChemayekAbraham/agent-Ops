@@ -236,14 +236,14 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
               <Input type="number" min={0} value={form.investment_amount} onChange={e => set('investment_amount', e.target.value)} className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Returns %</Label>
+              <Label className="text-xs">Rent profit share %</Label>
               <Input type="number" step="0.01" min={0} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-9" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Returns Mode</Label>
+              <Label className="text-xs">Rent profit share Mode</Label>
               <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
                 <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -264,7 +264,7 @@ export function EditInvestmentAccountDialog({ open, onOpenChange, account, onSuc
               <Input type="date" value={form.maturity_date ? String(form.maturity_date).slice(0, 10) : ''} onChange={e => set('maturity_date', e.target.value)} className="h-9" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Next Returns Date</Label>
+              <Label className="text-xs">Next Rent profit share Date</Label>
               <Input type="date" value={form.next_roi_date ? String(form.next_roi_date).slice(0, 10) : ''} onChange={e => set('next_roi_date', e.target.value)} className="h-9" />
             </div>
           </div>

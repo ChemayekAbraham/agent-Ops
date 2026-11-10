@@ -21,6 +21,8 @@ import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
 import { sortFunderHousesByCompleteness } from '@/lib/funderHouseSort';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { selfSupportFeeErrorMessage } from '@/lib/selfSupportFeeMessages';
 
 export const HOUSE_MONTHLY_ROI_RATE = 15;
 export const HOUSE_MIN_FUNDING = 50000;
@@ -165,10 +167,13 @@ export function HouseSupportCard({
   origin?: { lat: number; lng: number } | null;
 }) {
   const images = (house.image_urls ?? []).filter(Boolean);
-  const monthlyRoi = Math.round((Number(house.monthly_rent || 0) * HOUSE_MONTHLY_ROI_RATE) / 100);
+  // Field Care: the partner pays pay(rent) (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
+  const partnerCost = pay(Number(house.monthly_rent || 0));
+  const monthlyRoi = Math.round((partnerCost * HOUSE_MONTHLY_ROI_RATE) / 100);
   const titleLine = houseTitleLine(house);
   const addressLine = houseAddressLine(house);
-  const shortfall = Number(house.monthly_rent || 0) - remaining;
+  const shortfall = partnerCost - remaining;
   const unaffordable = shortfall > 0;
   const route = origin ? estimateRoute(house, origin.lat, origin.lng) : null;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -239,7 +244,7 @@ export function HouseSupportCard({
               {/* Price overlay on last visible image */}
               {idx === Math.min(images.length, 3) - 1 && (
                 <span className="absolute bottom-1.5 right-1.5 rounded-md bg-foreground/85 px-2 py-1 text-[12px] font-bold text-background shadow-lg backdrop-blur-sm">
-                  {formatDynamic(house.monthly_rent)}
+                  {formatDynamic(partnerCost)}
                 </span>
               )}
             </button>
@@ -257,7 +262,7 @@ export function HouseSupportCard({
 
       {/* ── Returns line ── */}
       <p className="mt-1.5 text-[11px] text-muted-foreground">
-        Earn <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDynamic(monthlyRoi)}</span> monthly returns
+        Earn <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDynamic(monthlyRoi)}</span> monthly Rent profit share
         <span className="ml-1.5 text-[10px]">({HOUSE_MONTHLY_ROI_RATE}%)</span>
       </p>
 
@@ -380,6 +385,7 @@ export function HouseSupportBar({
    */
   refreshAvailable?: () => Promise<number>;
 }) {
+  const { pay } = useSelfSupportFeePolicy();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [target, setTarget] = useState<'existing' | 'new'>('existing');
   // Fresh server figure once re-read; falls back to the cached prop.
@@ -434,6 +440,8 @@ export function HouseSupportBar({
   };
 
   const describeError = (raw: string): string => {
+    const careMsg = selfSupportFeeErrorMessage(raw);
+    if (careMsg) return careMsg;
     if (raw.includes('AGREEMENT_REQUIRED')) {
       return 'Sign your partner agreement first. A signed partnership agreement is required before you can create a portfolio.';
     }
@@ -527,7 +535,7 @@ export function HouseSupportBar({
         <div className="mt-3 flex flex-col gap-1.5 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2 text-[11px] font-semibold text-muted-foreground">
             <TrendingUp className="h-3.5 w-3.5 text-primary shrink-0" />
-            <span>Projected returns · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
+            <span>Projected Rent profit share · {HOUSE_MONTHLY_ROI_RATE}% monthly</span>
           </div>
           <p className="text-sm sm:text-base font-black leading-none text-primary">
             {formatDynamic(Math.round((total * HOUSE_MONTHLY_ROI_RATE) / 100))}
@@ -577,7 +585,7 @@ export function HouseSupportBar({
                   </p>
                 ) : (
                   selectedHouses!.map((house) => {
-                    const rent = Number(house.monthly_rent || 0);
+                    const rent = pay(Number(house.monthly_rent || 0));
                     const image = (house.image_urls ?? []).filter(Boolean)[0] ?? house.image_url;
                     return (
                       <div

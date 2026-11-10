@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { memo } from 'react';
 import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
 import { formatDynamic } from '@/lib/currencyFormat';
@@ -77,8 +78,10 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
   const place = isEmpty ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan);
-  const amount = itemAmount(category, item);
-  const monthlyReturn = itemMonthlyReturn(category, item);
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
+  const amount = itemAmount(category, item, partnerPay);
+  const monthlyReturn = itemMonthlyReturn(category, item, partnerPay);
   const photo = firstPhoto(category, item);
   const coords = itemCoordinates(item, category);
 

@@ -503,7 +503,7 @@ export default function FundTenantsFlow({
                 className="mt-0.5"
               />
               <span className="text-sm text-muted-foreground">
-                I confirm this funding and agree that the amount will be deducted from my wallet and transferred to the landlords. I understand the 15% monthly reward terms.
+                I confirm this funding and agree that the amount will be deducted from my wallet and transferred to the landlords. I understand the 15% monthly Rent profit share terms.
               </span>
             </label>
           </div>

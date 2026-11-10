@@ -86,7 +86,7 @@ export default function ProxyPerformanceDashboard() {
   const shareInvite = async () => {
     const url = inviteUrl || (await buildInvite());
     if (!url) return;
-    const message = `Join me in supporting tenants on Welile and earn monthly returns: ${url}`;
+    const message = `Join me in supporting tenants on Welile and earn monthly Rent profit share: ${url}`;
     try {
       if (navigator.share) await navigator.share({ title: 'Join Welile', text: message, url });
       else { await navigator.clipboard.writeText(url); toast.success('Invite link copied'); }

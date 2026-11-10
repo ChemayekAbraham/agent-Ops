@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { HandHeart, Sparkles, ChevronRight } from 'lucide-react';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { formatRatePct } from '@/lib/partnerReturnPolicy';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 
 export type SupportMode = 'self' | 'auto';
 
@@ -23,6 +24,8 @@ export function SupportModeChooserDialog({
   // null while unknown -> the sentence states no rate. Wiring it into the copy is Gemini item 3.
   const { newContractRate } = usePartnerReturnPolicy();
   const newRatePct = formatRatePct(newContractRate);
+  // While Agent Care is on, promissory notes are self-support only (the server refuses company-managed).
+  const { enabled: selfSupportOnly } = useSelfSupportFeePolicy();
   const options: {
     mode: SupportMode;
     title: string;
@@ -37,7 +40,7 @@ export function SupportModeChooserDialog({
       sub: 'Partner funds a specific empty house',
       body: newRatePct
         ? `Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the ${newRatePct} of rent they earn every month for 12 months.`
-        : 'Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the monthly Returns they earn for 12 months.',
+        : 'Opens the empty house opportunities list. Pick the houses, tag the partner, and show them the monthly Rent profit share they earn for 12 months.',
 
       icon: HandHeart,
       tone: 'border-primary/30 bg-primary/5',
@@ -63,7 +66,7 @@ export function SupportModeChooserDialog({
         </DialogHeader>
 
         <div className="space-y-2.5">
-          {options.map((o) => (
+          {options.filter((o) => !(selfSupportOnly && o.mode === 'auto')).map((o) => (
             <button
               key={o.mode}
               type="button"

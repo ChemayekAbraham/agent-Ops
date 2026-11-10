@@ -118,7 +118,7 @@ export function CompoundRequestsPanel() {
               {candidates.isLoading && <p className="text-sm text-muted-foreground">Loading reinvestments…</p>}
               {candidates.error && <p className="text-sm text-destructive">{(candidates.error as Error).message}</p>}
               {candidates.data?.length === 0 && (
-                <p className="text-sm text-muted-foreground">No reinvested Returns in the last 120 days.</p>
+                <p className="text-sm text-muted-foreground">No reinvested Rent profit share in the last 120 days.</p>
               )}
               <div className="space-y-2">
                 {candidates.data?.map((c) => (

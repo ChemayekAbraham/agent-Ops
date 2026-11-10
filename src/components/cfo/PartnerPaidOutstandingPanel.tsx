@@ -307,7 +307,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
           tone="success"
         />
         <MetricTile
-          label="Partner Returns Due Now"
+          label="Partner Rent profit share Due Now"
           value={`${o.returns.by_status.overdue.count.toLocaleString()} accounts`}
           extra={formatUGX(o.returns.by_status.overdue.amount)}
           note="Past due date"
@@ -315,7 +315,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
           tone={o.returns.by_status.overdue.amount > 0 ? "destructive" : "muted"}
         />
         <MetricTile
-          label={`Returns Due by ${d.period.outstanding_due_to}`}
+          label={`Rent profit share Due by ${d.period.outstanding_due_to}`}
           value={`${o.returns.by_status.due_in_period.count.toLocaleString()} records`}
           extra={formatUGX(o.returns.by_status.due_in_period.amount)}
           note="Current period schedule"
@@ -350,10 +350,10 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
                 <Row
                   icon={Repeat2}
                   tone="success"
-                  label="Partner Returns paid in cash"
+                  label="Partner Rent profit share paid in cash"
                   count={p.returns_cash.count}
                   amount={p.returns_cash.amount}
-                  onView={() => onDrill({ component: 'returns_cash', status: 'all', title: 'Partner Returns paid in cash' })}
+                  onView={() => onDrill({ component: 'returns_cash', status: 'all', title: 'Partner Rent profit share paid in cash' })}
                 />
                 {mainComm.map((c) => (
                   <Row
@@ -370,10 +370,10 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
                 <Row
                   icon={Layers}
                   tone="info"
-                  label="Partner Returns reinvested (compounding, not cash)"
+                  label="Partner Rent profit share reinvested (compounding, not cash)"
                   count={p.returns_reinvested.count}
                   amount={p.returns_reinvested.amount}
-                  onView={() => onDrill({ component: 'returns_reinvested', status: 'all', title: 'Partner Returns reinvested' })}
+                  onView={() => onDrill({ component: 'returns_reinvested', status: 'all', title: 'Partner Rent profit share reinvested' })}
                 />
                 {lead && (
                   <Row
@@ -421,26 +421,26 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
                   <Row
                     icon={AlertCircle}
                     tone="destructive"
-                    label="Partner Returns — overdue"
+                    label="Partner Rent profit share — overdue"
                     count={o.returns.by_status.overdue.count}
                     amount={o.returns.by_status.overdue.amount}
-                    onView={() => onDrill({ component: 'returns_outstanding', status: 'overdue', title: 'Partner Returns overdue' })}
+                    onView={() => onDrill({ component: 'returns_outstanding', status: 'overdue', title: 'Partner Rent profit share overdue' })}
                   />
                   <Row
                     icon={CalendarDays}
                     tone="warning"
-                    label={`Partner Returns — due by ${d.period.outstanding_due_to}`}
+                    label={`Partner Rent profit share — due by ${d.period.outstanding_due_to}`}
                     count={o.returns.by_status.due_in_period.count}
                     amount={o.returns.by_status.due_in_period.amount}
-                    onView={() => onDrill({ component: 'returns_outstanding', status: 'due_in_period', title: 'Partner Returns due in period' })}
+                    onView={() => onDrill({ component: 'returns_outstanding', status: 'due_in_period', title: 'Partner Rent profit share due in period' })}
                   />
                   <Row
                     icon={CalendarDays}
                     tone="info"
-                    label="Partner Returns — due later"
+                    label="Partner Rent profit share — due later"
                     count={o.returns.by_status.later.count}
                     amount={o.returns.by_status.later.amount}
-                    onView={() => onDrill({ component: 'returns_outstanding', status: 'later', title: 'Partner Returns due later' })}
+                    onView={() => onDrill({ component: 'returns_outstanding', status: 'later', title: 'Partner Rent profit share due later' })}
                   />
                   <Row
                     icon={Minus}
@@ -465,7 +465,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-lg border border-border/70 bg-muted/20 p-3 flex flex-col justify-between">
                 <div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Returns paid as cash</span>
+                  <span className="text-[11px] text-muted-foreground font-medium">Rent profit share paid as cash</span>
                   <div className="mt-1 text-sm font-bold tabular-nums text-foreground">
                     {formatUGX(o.returns.by_mode.cash_payout.amount)}
                   </div>
@@ -477,7 +477,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
                   <Button
                     variant="link"
                     className="h-auto min-h-0 p-0 text-xs text-primary"
-                    onClick={() => onDrill({ component: 'returns_outstanding', status: 'cash_payout', title: 'Outstanding Returns paid as cash' })}
+                    onClick={() => onDrill({ component: 'returns_outstanding', status: 'cash_payout', title: 'Outstanding Rent profit share paid as cash' })}
                   >
                     View records →
                   </Button>
@@ -486,7 +486,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
 
               <div className="rounded-lg border border-border/70 bg-muted/20 p-3 flex flex-col justify-between">
                 <div>
-                  <span className="text-[11px] text-muted-foreground font-medium">Returns reinvested (compounding)</span>
+                  <span className="text-[11px] text-muted-foreground font-medium">Rent profit share reinvested (compounding)</span>
                   <div className="mt-1 text-sm font-bold tabular-nums text-foreground">
                     {formatUGX(o.returns.by_mode.compounding.amount)}
                   </div>
@@ -498,7 +498,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
                   <Button
                     variant="link"
                     className="h-auto min-h-0 p-0 text-xs text-primary"
-                    onClick={() => onDrill({ component: 'returns_outstanding', status: 'compounding', title: 'Outstanding compounding Returns' })}
+                    onClick={() => onDrill({ component: 'returns_outstanding', status: 'compounding', title: 'Outstanding compounding Rent profit share' })}
                   >
                     View records →
                   </Button>
@@ -541,7 +541,7 @@ function Summary({ d, onDrill }: { d: PartnerPaidOutstanding; onDrill: (x: Drill
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-foreground">
                   {r.ties_out && r.commission_unpaid_matches_report
-                    ? `Reconciled: outstanding Returns + unpaid commissions = Partner payables total ${formatUGX(r.partner_payables_total)}.`
+                    ? `Reconciled: outstanding Rent profit share + unpaid commissions = Partner payables total ${formatUGX(r.partner_payables_total)}.`
                     : `Does not reconcile: Partner payables total ${formatUGX(r.partner_payables_total)} vs components ${formatUGX(r.returns_plus_unpaid_commissions)}. No figure has been adjusted.`}
                 </p>
                 {r.possible_double_return_credits.pairs > 0 && (

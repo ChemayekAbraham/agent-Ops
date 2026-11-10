@@ -130,7 +130,7 @@ export function SetGoalDialog({ open, onOpenChange, goal, onSave, onDelete }: Se
               <p className="text-lg font-bold text-primary mt-1">
                 {formatUGX(requiredInvestment)}
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">at 15% monthly Returns</p>
+              <p className="text-xs text-muted-foreground mt-0.5">at 15% monthly Rent profit share</p>
             </div>
           )}
 

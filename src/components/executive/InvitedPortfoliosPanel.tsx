@@ -571,7 +571,7 @@ export function InvitedPortfoliosPanel() {
                       <p className="font-bold">{formatUGX(row.investment_amount)}</p>
                     </div>
                     <div>
-                      <p className="text-muted-foreground">ROI</p>
+                      <p className="text-muted-foreground">Rent profit share</p>
                       <p className="font-semibold">{row.roi_percentage}%{row.roi_mode ? ` · ${row.roi_mode.replace(/_/g, ' ')}` : ''}</p>
                     </div>
                     <div>
@@ -741,7 +741,7 @@ export function InvitedPortfoliosPanel() {
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
             The partner never completed the invite form, so no NIN, mobile-money name or
-            signature will be on file. The portfolio goes live immediately and ROI starts
+            signature will be on file. The portfolio goes live immediately and Rent profit share starts
             accruing. Only do this when funding has been verified offline.
           </p>
           {approvalError && (
@@ -1146,7 +1146,7 @@ function ReviewSubmissionDialog({
                   <ReadRow label="Code" value={row.portfolio_code} />
                   <ReadRow label="Amount" value={formatUGX(row.investment_amount)} />
                   <ReadRow
-                    label="ROI"
+                    label="Rent profit share"
                     value={`${row.roi_percentage}%${row.roi_mode ? ` · ${row.roi_mode.replace(/_/g, ' ')}` : ''}`}
                   />
                   <ReadRow label="Tenor" value={`${row.duration_months ?? '—'} mo`} />

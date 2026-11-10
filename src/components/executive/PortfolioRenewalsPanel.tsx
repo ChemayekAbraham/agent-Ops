@@ -208,7 +208,7 @@ export function PortfolioRenewalsPanel() {
               <p><span className="text-muted-foreground">Portfolio:</span> {target.portfolio?.account_name} {target.portfolio?.portfolio_code}</p>
               <p><span className="text-muted-foreground">Maturity will return to:</span> {target.old_maturity_date || '—'}</p>
               <p><span className="text-muted-foreground">Status will return to:</span> {target.old_status || 'matured'}</p>
-              <p><span className="text-muted-foreground">Returns earned restored to:</span> {fmtUGX(target.old_total_roi_earned)}</p>
+              <p><span className="text-muted-foreground">Rent profit share earned restored to:</span> {fmtUGX(target.old_total_roi_earned)}</p>
             </div>
           )}
           <Textarea

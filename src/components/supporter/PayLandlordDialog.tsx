@@ -175,7 +175,7 @@ export function PayLandlordDialog({
               <p className="text-3xl font-black text-primary">{formatUGX(Number(request.rent_amount))}</p>
               {reward !== null && (
                 <Badge variant="outline" className="mt-2 bg-success/10 text-success border-success/30">
-                  You'll earn {formatUGX(reward)}/month{ownRatePct ? ` (${ownRatePct} Returns)` : ''}
+                  You'll earn {formatUGX(reward)}/month{ownRatePct ? ` (${ownRatePct} Rent profit share)` : ''}
                 </Badge>
               )}
             </div>
@@ -340,7 +340,7 @@ export function PayLandlordDialog({
             </div>
             <h3 className="text-xl font-bold mb-2">Support Submitted!</h3>
             <p className="text-muted-foreground text-sm mb-4">
-              Your payment is being verified by our team. Once confirmed, you'll start earning {ownRatePct ? `${ownRatePct} monthly Returns` : 'monthly Returns'} on the {formatUGX(Number(request.rent_amount))} you supported.
+              Your payment is being verified by our team. Once confirmed, you'll start earning {ownRatePct ? `${ownRatePct} monthly Rent profit share` : 'monthly Rent profit share'} on the {formatUGX(Number(request.rent_amount))} you supported.
             </p>
             
             {/* Support portfolio info */}
@@ -359,7 +359,7 @@ export function PayLandlordDialog({
             
             <Card className="border-0 bg-success/10">
               <CardContent className="p-3">
-                <p className="text-sm font-medium text-success">Expected Monthly Reward</p>
+                <p className="text-sm font-medium text-success">Expected Monthly Rent profit share</p>
                 <p className="text-2xl font-black text-success">{formatUGXOrDash(reward)}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   First reward: 30 days from payment verification

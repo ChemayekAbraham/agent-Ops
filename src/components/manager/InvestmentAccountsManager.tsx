@@ -282,7 +282,7 @@ export function InvestmentAccountsManager() {
                         </div>
                       )}
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
-                        {p.investor_name || p.agent_name} · {formatUGX(p.investment_amount)} · {p.roi_percentage}% ROI
+                        {p.investor_name || p.agent_name} · {formatUGX(p.investment_amount)} · {p.roi_percentage}% Rent profit share
                       </p>
                     </div>
                     <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColor(p.status)}`}>
@@ -428,7 +428,7 @@ export function InvestmentAccountsManager() {
           <DialogHeader>
             <DialogTitle className="text-sm">Cancel Pending Principal</DialogTitle>
             <DialogDescription className="text-xs">
-              Cancel approved top-ups waiting to merge at next ROI. Funds will be refunded to the partner's wallet immediately.
+              Cancel approved top-ups waiting to merge at next Rent profit share. Funds will be refunded to the partner's wallet immediately.
             </DialogDescription>
           </DialogHeader>
           {cancelDialogPortfolioId && approvedTopUps[cancelDialogPortfolioId] && (

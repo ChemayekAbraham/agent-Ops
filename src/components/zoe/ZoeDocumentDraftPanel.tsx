@@ -200,7 +200,7 @@ export const ZoeDocumentDraftPanel: React.FC<ZoeDocumentDraftPanelProps> = ({
             size="sm"
             onClick={() => {
               onAskZoeToRefine(
-                `Please polish this ${kind.toUpperCase()} draft titled "${title}" using Welile regulatory terminology (Rent Plan, Supporter, Returns):\n\n${draftBody.slice(0, 1400)}`,
+                `Please polish this ${kind.toUpperCase()} draft titled "${title}" using Welile regulatory terminology (Rent Plan, Supporter, Rent profit share):\n\n${draftBody.slice(0, 1400)}`,
               );
               onClose();
             }}

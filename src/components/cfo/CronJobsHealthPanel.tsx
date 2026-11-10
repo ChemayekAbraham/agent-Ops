@@ -74,7 +74,7 @@ export function CronJobsHealthPanel() {
               <AlertTriangle className="h-3 w-3" /> Action required
             </div>
             These jobs are inactive or haven't run in &gt; 24h. Agent commission, debt
-            recovery, ROI accrual and other automations may be silently frozen.
+            recovery, Rent profit share accrual and other automations may be silently frozen.
           </div>
         )}
         <div className="space-y-1.5">

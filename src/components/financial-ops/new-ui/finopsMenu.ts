@@ -30,7 +30,7 @@ export const FINOPS_MENU_GROUPS: FinOpsMenuGroup[] = [
       { id: 'ops', kind: 'tool', label: 'Ops Center', desc: 'Automation and monitoring of the money feeds.', icon: Gauge },
       { id: 'wallet_buckets', kind: 'tool', label: 'Wallet Buckets', desc: 'Withdrawable, float, landlord and merchant buckets, who holds them and the money we actually hold.', icon: Wallet },
       { id: 'wallet_breakdown', kind: 'tool', label: 'Wallet Breakdown', desc: 'Every wallet by name, phone or balance, with its withdrawable, float, advance and locked amounts.', icon: Wallet },
-      { id: 'liquidity_forecast', kind: 'tool', label: 'Liquidity Forecast', desc: 'What is withdrawable now, and the ROI due each coming day, so you can pre-fund payouts.', icon: CalendarClock },
+      { id: 'liquidity_forecast', kind: 'tool', label: 'Liquidity Forecast', desc: 'What is withdrawable now, and the Rent profit share due each coming day, so you can pre-fund payouts.', icon: CalendarClock },
       { id: 'reports', kind: 'tool', label: 'Reports', desc: 'Daily wallet financial summary: money in and paid out by source, with the PDF and Excel files.', icon: FileText },
       { id: 'float_to_withdrawable', kind: 'tool', label: 'Float to Withdrawable', desc: "Reclassify a user's Operational Float into their Withdrawable balance.", icon: ArrowRightLeft },
       { id: 'bridge_health', kind: 'tool', label: 'Deposit Bridge Health', desc: 'Reliability of the queue between Financial Ops and the wallet ledger: pending, retries, dead letters, gap alerts.', icon: Activity },

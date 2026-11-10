@@ -215,7 +215,7 @@ export default function RegisterPartnerPublic() {
               <p className="text-xs text-muted-foreground">Support Summary</p>
               <p className="font-semibold">{formatUGX(amount)} in support</p>
               {monthlyROI !== null && (
-                <p className="text-sm text-primary font-medium">Monthly Returns: {formatUGXOrDash(monthlyROI)}</p>
+                <p className="text-sm text-primary font-medium">Monthly Rent profit share: {formatUGXOrDash(monthlyROI)}</p>
               )}
             </div>
           )}
@@ -235,7 +235,7 @@ export default function RegisterPartnerPublic() {
             <TrendingUp className="h-7 w-7 text-primary" />
           </div>
           <h1 className="text-xl font-bold">Partner Registration</h1>
-          <p className="text-sm text-muted-foreground">Join Welile as a support partner and start earning monthly returns.</p>
+          <p className="text-sm text-muted-foreground">Join Welile as a support partner and start earning monthly Rent profit share.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -314,7 +314,7 @@ export default function RegisterPartnerPublic() {
             {amount >= 100000 && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Monthly Returns{formatRatePct(newContractRate) ? ` (${formatRatePct(newContractRate)} for new partners)` : ''}</span>
+                  <span className="text-xs text-muted-foreground">Monthly Rent profit share{formatRatePct(newContractRate) ? ` (${formatRatePct(newContractRate)} for new partners)` : ''}</span>
                   <span className="font-bold text-primary">{formatUGXOrDash(monthlyROI)}</span>
                 </div>
                 <p className="text-xs text-muted-foreground">You will earn this amount every 30 days.</p>
@@ -329,7 +329,7 @@ export default function RegisterPartnerPublic() {
           {/* C. Payment Preferences */}
           <div className="space-y-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-primary" /> Returns Payment Preferences
+              <Wallet className="h-4 w-4 text-primary" /> Rent profit share Payment Preferences
             </h3>
 
             <div className="space-y-1.5">

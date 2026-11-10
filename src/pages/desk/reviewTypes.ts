@@ -78,7 +78,7 @@ export const DECISION_LABEL: Record<Decision, string> = {
 };
 
 export const DECISION_HELP: Partial<Record<Decision, string>> = {
-  send_back: 'Returns the request to the agent to correct and resend.',
+  send_back: 'Returnsthe request to the agent to correct and resend.',
   call_again: 'Keeps the request here. Log the attempt first.',
   to_coo_bucket: 'Forwards to the COO without a proxy partner — not published to the Funder dashboard.',
   hold: 'Leaves the request in the COO queue for a later decision.',

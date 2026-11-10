@@ -222,7 +222,7 @@ export function FunderBookedHousesSection({ onOpenHouse }: { onOpenHouse: (house
             <div className="space-y-2">
               <p className="text-sm">
                 Fund {held.length} {held.length === 1 ? 'house' : 'houses'} for {formatUGX(heldTotal)} from your support balance?
-                Est. monthly Returns {formatUGX(Math.round(heldTotal * RETURN_RATE))}.
+                Est. monthly Rent profit share {formatUGX(Math.round(heldTotal * RETURN_RATE))}.
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" disabled={funding} onClick={() => setConfirming(false)}>

@@ -373,9 +373,9 @@ export const ROLE_GUIDES: Record<RoleKey, RoleGuide> = {
   supporter: {
     role: "supporter",
     signup_role: "supporter",
-    headline: "Support tenants and earn Returns",
+    headline: "Support tenants and earn Rent profit share",
     who_it_is_for:
-      "Someone with funds they can commit for a period, who wants those funds to help Ugandan tenants access rent and to earn periodic Returns in UGX.",
+      "Someone with funds they can commit for a period, who wants those funds to help Ugandan tenants access rent and to earn periodic Rent profit share in UGX.",
     requirements: [
       ...BASE_REQUIREMENTS,
       {
@@ -396,7 +396,7 @@ export const ROLE_GUIDES: Record<RoleKey, RoleGuide> = {
         key: "understand_notice",
         label: "Comfort with the notice period",
         detail:
-          "Exiting requires a notice period, during which Returns stop accruing. The exact notice and terms are shown in the app before you commit.",
+          "Exiting requires a notice period, during which Rent profit share stop accruing. The exact notice and terms are shown in the app before you commit.",
         verified_in_app: false,
       },
     ],
@@ -420,7 +420,7 @@ export const ROLE_GUIDES: Record<RoleKey, RoleGuide> = {
         step: 3,
         title: "Review the current terms",
         what_you_do:
-          "Read the Supporter terms in the app: the current reward rate, the cycle on which Returns are paid, and the notice period for exiting.",
+          "Read the Supporter terms in the app: the current reward rate, the cycle on which Rent profit share is paid, and the notice period for exiting.",
         what_to_bring: [],
         typical_duration: "About 10 minutes",
       },
@@ -437,16 +437,16 @@ export const ROLE_GUIDES: Record<RoleKey, RoleGuide> = {
       },
       {
         step: 5,
-        title: "Track your portfolio and Returns",
+        title: "Track your portfolio and Rent profit share",
         what_you_do:
-          "Watch your portfolio in the app: Returns accrue on the stated cycle, and you choose to take them out or reinvest them.",
+          "Watch your portfolio in the app: Rent profit share accrue on the stated cycle, and you choose to take them out or reinvest them.",
         what_to_bring: [],
-        typical_duration: "Returns accrue on the stated cycle",
+        typical_duration: "Rent profit share accrue on the stated cycle",
       },
     ],
     disclaimers: [
-      "Returns are not a guarantee — rates and terms are shown in the app and can change.",
-      "Terminology: Supporter, not lender; Returns, not interest.",
+      "Rent profit share is not a guarantee — rates and terms are shown in the app and can change.",
+      "Terminology: Supporter, not lender; Rent profit share, not interest.",
     ],
   },
 };

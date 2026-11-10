@@ -1148,7 +1148,7 @@ export function ProxyPartnerFunds() {
 
       const restored = Number(data?.amount || 0);
       toast.success('Withdrawal cancelled', {
-        description: `The ROI withdrawal for ${cancelTarget.partnerName} has been cancelled${restored ? ` and ${formatAmount(restored)} restored` : ''}. COO & Partner Ops have been notified.`,
+        description: `The Rent profit share withdrawal for ${cancelTarget.partnerName} has been cancelled${restored ? ` and ${formatAmount(restored)} restored` : ''}. COO & Partner Ops have been notified.`,
       });
       loadProxyFunds();
     } catch (err: any) {
@@ -1289,7 +1289,7 @@ export function ProxyPartnerFunds() {
         .map((op) => op.id);
 
       if (approvalIds.length === 0) {
-        throw new Error('No reversible ROI approvals found for this partner.');
+        throw new Error('No reversible Rent profit share approvals found for this partner.');
       }
 
       const { data, error } = await supabase.functions.invoke('reverse-proxy-roi-approval', {
@@ -1305,7 +1305,7 @@ export function ProxyPartnerFunds() {
       }
 
       toast.success('Sent back to nearing payout', {
-        description: `${revertTarget.partnerName}'s ROI approval was reversed and the partner returned to the COO Nearing Payout list. Reason recorded for audit.`,
+        description: `${revertTarget.partnerName}'s Rent profit share approval was reversed and the partner returned to the COO Nearing Payout list. Reason recorded for audit.`,
       });
       setRevertOpen(false);
       setRevertTarget(null);
@@ -1435,7 +1435,7 @@ export function ProxyPartnerFunds() {
           <CardContent className="py-10 text-center text-muted-foreground">
             <Users className="h-10 w-10 mx-auto mb-2 opacity-30" />
             <p className="text-sm font-medium">No proxy partner payouts ready</p>
-            <p className="text-xs mt-1">CFO-approved ROI returns for your proxy partners will appear here</p>
+            <p className="text-xs mt-1">CFO-approved Rent profit share returns for your proxy partners will appear here</p>
           </CardContent>
         </Card>
         {hiddenCardsControls}
@@ -1471,7 +1471,7 @@ export function ProxyPartnerFunds() {
   const freshCount = partnerBalances.filter((p) => classify(p).kind === 'fresh').length;
 
   const downloadCsv = (rows: PartnerBalance[]) => {
-    const headers = ['Partner Name', 'Phone', 'Account Name', 'Portfolio Code', 'Returns Due', 'Delivered', 'To Withdraw'];
+    const headers = ['Partner Name', 'Phone', 'Account Name', 'Portfolio Code', 'Rent profit share Due', 'Delivered', 'To Withdraw'];
     const escape = (v: any) => {
       const s = v == null ? '' : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -1597,7 +1597,7 @@ export function ProxyPartnerFunds() {
           disabled={freshCount === 0}
         >
           <Hourglass className="h-3 w-3" />
-          New ROI ({freshCount})
+          New Rent profit share ({freshCount})
         </Button>
         <Button
           size="sm"
@@ -1749,7 +1749,7 @@ export function ProxyPartnerFunds() {
 
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-lg bg-success/10 p-2">
-                  <p className="text-[10px] text-muted-foreground">Returns Due</p>
+                  <p className="text-[10px] text-muted-foreground">Rent profit share Due</p>
                   <p className="text-xs font-bold text-success tabular-nums">{formatAmount(partner.totalReturns)}</p>
                 </div>
                 <div className="rounded-lg bg-muted/50 p-2">
@@ -1787,7 +1787,7 @@ export function ProxyPartnerFunds() {
                 <div className="flex items-start gap-1.5 rounded-md bg-primary/5 border border-primary/20 px-2 py-1.5">
                   <Info className="h-3 w-3 text-primary shrink-0 mt-0.5" />
                   <p className="text-[11px] leading-snug text-primary">
-                    Returns accrued and ready. No withdrawal has been requested yet.
+                    Rent profit share accrued and ready. No withdrawal has been requested yet.
                   </p>
                 </div>
               )}
@@ -1907,7 +1907,7 @@ export function ProxyPartnerFunds() {
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
-                  This will cancel the pending withdrawal for <strong>{cancelTarget?.partnerName}</strong> and restore the ROI funds to the available balance. COO &amp; Operations will be notified.
+                  This will cancel the pending withdrawal for <strong>{cancelTarget?.partnerName}</strong> and restore the Rent profit share funds to the available balance. COO &amp; Operations will be notified.
                 </p>
                 <div>
                   <Label className="text-xs font-medium">Cancellation Reason (min 10 chars) *</Label>
@@ -2002,7 +2002,7 @@ export function ProxyPartnerFunds() {
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>
-                  This <strong>reverses the CFO-approved ROI</strong> for{' '}
+                  This <strong>reverses the CFO-approved Rent profit share</strong> for{' '}
                   <strong>{revertTarget?.partnerName}</strong>: the credited funds are
                   pulled back with a balanced ledger reversal, the card leaves your
                   ready-to-withdraw queue, and the partner returns to the COO

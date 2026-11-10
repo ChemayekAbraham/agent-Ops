@@ -22,7 +22,7 @@ import { toast } from 'sonner';
 
 /** The first point quotes the public new-partner rate; with no rate known it states no figure. */
 const pointsFor = (newRatePct: string | null) => [
-  { icon: HandCoins, text: newRatePct ? `You support a tenant — you earn ${newRatePct} of their rent.` : 'You support a tenant — you earn monthly Returns on their rent.' },
+  { icon: HandCoins, text: newRatePct ? `You support a tenant — you earn ${newRatePct} of their rent.` : 'You support a tenant — you earn monthly Rent profit share on their rent.' },
   { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
   { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
 ];
@@ -37,7 +37,7 @@ const HOW_STEPS = [
  *  the text states no rate. */
 function buildShareMessage(plan: PublicSupportPlan, link: string, ratePct: string | null): string {
   const who = plan.tenantFirstName || 'a tenant';
-  const earn = ratePct ? `earn ${ratePct} of the rent monthly for 12 months` : 'earn monthly Returns for 12 months';
+  const earn = ratePct ? `earn ${ratePct} of the rent monthly for 12 months` : 'earn monthly Rent profit share for 12 months';
   return `Help ${who} keep their home. Support their rent on Welile and ${earn}, with Welile's operational guarantee. See the plan: ${link}`;
 }
 
@@ -113,7 +113,7 @@ export default function SupportPlanPublic() {
   const title = `Support ${plan.tenantFirstName ?? 'a tenant'}'s rent — Welile`;
   const description = newRatePct
     ? `Turn rent into an asset. Support this tenant's rent once and earn ${newRatePct} of their rent every month for 12 months.`
-    : `Turn rent into an asset. Support this tenant's rent once and earn monthly Returns for 12 months.`;
+    : `Turn rent into an asset. Support this tenant's rent once and earn monthly Rent profit share for 12 months.`;
 
   return (
     <div className="min-h-screen bg-background">
@@ -144,7 +144,7 @@ export default function SupportPlanPublic() {
           <h1 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h1>
           <p className="text-base leading-relaxed text-muted-foreground">
             Support {plan.tenantFirstName ?? 'this tenant'}'s rent once.{' '}
-            {newRatePct ? `Earn ${newRatePct} of their rent every month for the next 12 months.` : 'Earn monthly Returns for the next 12 months.'}
+            {newRatePct ? `Earn ${newRatePct} of their rent every month for the next 12 months.` : 'Earn monthly Rent profit share for the next 12 months.'}
           </p>
           {plan.city ? (
             <p className="text-sm text-muted-foreground">
@@ -160,7 +160,7 @@ export default function SupportPlanPublic() {
             <p className="text-sm font-bold sm:text-base">{formatUGX(plan.fundingAmount)}</p>
           </div>
           <div className="rounded-2xl bg-muted/40 p-3 text-center">
-            <p className="text-xs text-muted-foreground">{newRatePct ? `Monthly at ${newRatePct}` : 'Monthly Returns'}</p>
+            <p className="text-xs text-muted-foreground">{newRatePct ? `Monthly at ${newRatePct}` : 'Monthly Rent profit share'}</p>
             <p className="text-sm font-bold sm:text-base">{formatUGX(plan.monthlyReturn)}</p>
           </div>
           <div className="rounded-2xl bg-muted/40 p-3 text-center">

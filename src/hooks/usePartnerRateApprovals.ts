@@ -76,7 +76,7 @@ export function partnerRateErrorText(err: unknown): string {
   if (/mfa_required/i.test(msg)) {
     return 'Two-step verification needed: confirm with your authenticator app (Settings → Authenticator app), then try again.';
   }
-  if (/Only the CFO/i.test(msg)) return 'Only the CFO can approve or reject partner Returns rates.';
+  if (/Only the CFO/i.test(msg)) return 'Only the CFO can approve or reject partner Rent profit share rates.';
   if (/Not authorised|permission denied|42501/i.test(msg)) return 'Your role cannot do this.';
   if (/reason is required/i.test(msg)) return 'A reason is required to reject.';
   return msg || 'Something went wrong. Try again.';

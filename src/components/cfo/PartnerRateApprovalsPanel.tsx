@@ -107,7 +107,7 @@ export function PartnerRateApprovalsPanel() {
     <section className="space-y-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <ShieldCheck className="h-5 w-5 text-primary" /> Partner Returns rate approvals
+          <ShieldCheck className="h-5 w-5 text-primary" /> Partner Rent profit share rate approvals
         </h2>
         <p className="text-sm text-muted-foreground">
           Rates staff typed that differ from the standard rate. Until you approve, a new portfolio earns the standard rate

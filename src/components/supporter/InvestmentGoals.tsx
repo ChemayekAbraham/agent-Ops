@@ -121,7 +121,7 @@ export function InvestmentGoals({
                 </div>
                 <Badge className="text-[10px] px-2.5 py-1 bg-success/20 text-success border-success/30 font-bold">
                   <Sparkles className="h-3 w-3 mr-1" />
-                  15% ROI
+                  15% Rent profit share
                 </Badge>
               </div>
               <p className="text-3xl font-black text-success tracking-tight">{formatUGX(monthlyEarnings)}</p>

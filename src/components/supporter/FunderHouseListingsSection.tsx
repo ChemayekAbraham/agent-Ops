@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { createPortal } from 'react-dom';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Clock, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
@@ -133,6 +134,8 @@ export function FunderHouseListingsSection({
   onResultsFocus?: (points: { lat: number; lng: number }[]) => void;
   onResultCountChange?: (count: number) => void;
 } = {}) {
+  // Agent Care: partner amounts use pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const { user } = useAuth();
   const boardTagsOn = useFeaturePreview(FEATURE_FUNDERS_BOARD_TAGS);
   const { profile } = useProfile();
@@ -355,10 +358,10 @@ export function FunderHouseListingsSection({
     if (radiusKm !== null) list = list.filter((entry) => entry.category === 'empty' || withinRadius(kmOf(entry), radiusKm));
     if (!filters.withinFloat || availableBalance === null) return list;
     return list.filter((entry) => {
-      const amount = itemAmount(entry.category, entry.item);
+      const amount = itemAmount(entry.category, entry.item, partnerPay);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance, radiusKm, kmOf]);
+  }, [loadedItems, filters.withinFloat, availableBalance, radiusKm, kmOf, partnerPay]);
 
   // Report every house that matches, not just the page loaded so far. The
   // within-balance filter only runs on loaded homes, so it reports those.
@@ -456,7 +459,7 @@ export function FunderHouseListingsSection({
   };
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
-    const next = toSelectionItem(category, item);
+    const next = toSelectionItem(category, item, partnerPay);
     setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
     setSelectedItems((current) => {
       const sameCategory = current.filter((entry) => entry.category === category);
@@ -465,7 +468,7 @@ export function FunderHouseListingsSection({
       if (nextList.length === 0) setSelectedCategory(null);
       return nextList;
     });
-  }, []);
+  }, [partnerPay]);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
@@ -856,7 +859,7 @@ export function FunderHouseListingsSection({
         onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
         onFund={(house) => {
-          const cost = Number(house.monthly_rent || 0);
+          const cost = partnerPay(Number(house.monthly_rent || 0));
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the house and open the funding review.
@@ -881,7 +884,7 @@ export function FunderHouseListingsSection({
         }}
         isFunded={false}
         onFund={(plan) => {
-          const cost = Number(plan.funding_amount || 0);
+          const cost = partnerPay(Number(plan.funding_amount || 0));
           const avail = availableBalance ?? 0;
           if (avail >= cost) {
             // Enough balance: select the plan and open the funding review.

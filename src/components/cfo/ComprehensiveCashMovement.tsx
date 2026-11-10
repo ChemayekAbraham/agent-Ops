@@ -165,8 +165,8 @@ const WALLET_FLOW_LABEL_IN: Record<string, string> = {
   partner_commission: 'Partner commissions credited',
   agent_commission: 'Agent commissions credited',
   business_advance_commission: 'Advance commissions credited',
-  roi_payout: 'Returns paid to supporters',
-  roi_wallet_credit: 'Returns paid to supporters',
+  roi_payout: 'Rent profit share paid to supporters',
+  roi_wallet_credit: 'Rent profit share paid to supporters',
   payroll: 'Payroll credited',
   payroll_growth: 'Payroll growth credited',
   tenant_placement_bonus: 'Tenant placement bonuses',
@@ -203,7 +203,7 @@ const WALLET_FLOW_LABEL_OUT: Record<string, string> = {
   tenant_repayment_collected: 'Rent collected by agent (→ company)',
   rent_payment_for_tenant: 'Rent payment for tenants (wallet → company)',
   // ROI reinvestment
-  roi_reinvestment: 'ROI reinvestment (wallet → company)',
+  roi_reinvestment: 'Rent profit share reinvestment (wallet → company)',
   // Commission used / adjusted
   agent_commission_used_for_rent: 'Commission used for rent (→ company)',
   agent_commission_earned: 'Agent commission adjustment (→ company)',
@@ -320,7 +320,7 @@ const SOURCE_TABLE_CATEGORY: Record<string, string> = {
   agent_advances: 'agent_advance_credit',
 };
 const COMPANY_TO_WALLETS_GROUPS: { label: string; categories: Set<string>; color: string }[] = [
-  { label: 'Returns paid to Supporters (and their proxy-agent wallets)', categories: COMPANY_TO_WALLETS_GROUP_1, color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  { label: 'Rent profit share paid to Supporters (and their proxy-agent wallets)', categories: COMPANY_TO_WALLETS_GROUP_1, color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
   { label: 'Rent disbursed to landlords via agent landlord-float wallets', categories: COMPANY_TO_WALLETS_GROUP_2, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   { label: 'Advances disbursed to user wallets (especially agents)', categories: COMPANY_TO_WALLETS_GROUP_3, color: 'bg-rose-500/10 text-rose-600 border-rose-500/20' },
   { label: 'Agent commissions & all other agent earnings (auto + manual)', categories: COMPANY_TO_WALLETS_GROUP_4, color: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
@@ -399,7 +399,7 @@ const WALLET_IMPACT: Record<string, WalletImpact> = {
   pending_portfolio_topup: {
     summary: 'Supporter top-up parked on platform until CFO/COO clicks "Apply Top-up". No wallet bucket moves yet.',
     moves: [
-      { bucket: 'portfolio_principal', party: 'Supporter (on merge)', direction: '↑', note: 'Only after Apply Top-up; ROI accrues from merge date' },
+      { bucket: 'portfolio_principal', party: 'Supporter (on merge)', direction: '↑', note: 'Only after Apply Top-up; Rent profit share accrues from merge date' },
     ],
     unchanged: ['withdrawable_balance', 'float_balance', 'advance_balance'],
   },
@@ -427,7 +427,7 @@ const WALLET_IMPACT: Record<string, WalletImpact> = {
     unchanged: ['advance_balance'],
   },
   roi_payout: {
-    summary: 'Returns paid to supporter — credited as withdrawable cash on the supporter wallet.',
+    summary: 'Rent profit share paid to supporter — credited as withdrawable cash on the supporter wallet.',
     moves: [
       { bucket: 'withdrawable_balance', party: 'Supporter', direction: '↑' },
     ],
@@ -1508,7 +1508,7 @@ function TreasuryWalletFlowSummary({
           tone="in"
           icon={<WalletIcon className="h-5 w-5" />}
           title="Company → Wallets"
-          subtitle="Every move of company money into user & agent wallets — CFO transfers, auto payouts (ROI, commissions) and Financial Ops disbursements"
+          subtitle="Every move of company money into user & agent wallets — CFO transfers, auto payouts (Rent profit share, commissions) and Financial Ops disbursements"
           summary={inSummary}
           partyHeading="Top recipients"
           direction="cash_in"
@@ -1944,7 +1944,7 @@ function CompanyToWalletBreakdownChart({
   const PRESETS: Preset[] = [
     { label: 'All', categories: [] }, // sentinel — means "no restriction"
     { label: 'Commissions', categories: ['agent_commission', 'partner_commission', 'business_advance_commission'] },
-    { label: 'Returns & Payroll', categories: ['roi_payout', 'roi_wallet_credit', 'payroll', 'payroll_growth'] },
+    { label: 'Rent profit share & Payroll', categories: ['roi_payout', 'roi_wallet_credit', 'payroll', 'payroll_growth'] },
     { label: 'Deposits', categories: ['deposit', 'agent_float_deposit', 'landlord_float_deposit'] },
     { label: 'Partner flows', categories: ['partner_funding', 'coo_proxy_investment', 'proxy_investment_commission', 'pending_portfolio_topup'] },
     { label: 'Bonuses', categories: ['tenant_placement_bonus'] },
@@ -7570,8 +7570,8 @@ function WalletMovementSummary({
             key: 'withdrawable',
             label: 'Withdrawable balances',
             sub: 'User-spendable cash — what users can withdraw or spend.',
-            definition: 'The wallet bucket users can actually withdraw to MoMo or bank. Routed by Wallet Routing v2 when recipient_type = "user". Includes commissions, Returns paid to supporters, partner commissions, and direct user deposits.',
-            inExamples: 'User deposits routed to user, commissions earned, Returns paid to supporters, partner commissions, bonuses, payroll credits.',
+            definition: 'The wallet bucket users can actually withdraw to MoMo or bank. Routed by Wallet Routing v2 when recipient_type = "user". Includes commissions, Rent profit share paid to supporters, partner commissions, and direct user deposits.',
+            inExamples: 'User deposits routed to user, commissions earned, Rent profit share paid to supporters, partner commissions, bonuses, payroll credits.',
             outExamples: 'User withdrawals, wallet-funded rent payments, wallet → platform debits (CFO Direct Debit).',
             in: bucketBreakdown.withdrawable.in,
             out: bucketBreakdown.withdrawable.out,

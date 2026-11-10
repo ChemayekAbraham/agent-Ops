@@ -35,7 +35,7 @@ export type FunderFundResult = { submitted: boolean; reference?: string | null }
 const NEXT_STEPS = [
   { title: 'Operational review', text: 'The team verifies your booking and completes the normal approval step.' },
   { title: 'Support becomes active', text: 'Once approved, the homes you funded go live through the existing process.' },
-  { title: 'Track it in your portfolio', text: 'Follow your supported homes and Returns from your portfolio.' },
+  { title: 'Track it in your portfolio', text: 'Follow your supported homes and Rent profit share from your portfolio.' },
 ];
 
 /** Snapshot taken at submit time: the parent may clear the selection as soon
@@ -95,7 +95,7 @@ export function FunderNewSelectionBar({
             <span className="font-semibold">{formatDynamic(total)}</span>
           </p>
           <p className="text-sm">
-            <span className="text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''} </span>
+            <span className="text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''} </span>
             <span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span>
           </p>
         </div>
@@ -242,7 +242,7 @@ export function FunderNewReviewDialog({
                 <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight">{formatDynamic(total)}</p>
               </div>
               <div className="rounded-2xl border border-border/70 bg-primary/5 p-3.5 shadow-2xs">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''}</p>
                 <p className="mt-1 break-words text-lg sm:text-xl font-bold tracking-tight text-success">
                   {monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}
                 </p>
@@ -286,7 +286,7 @@ export function FunderNewReviewDialog({
           <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-3 text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
             <p className="min-w-0 flex-1 text-sm leading-relaxed">
-              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
+              Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Rent profit share shown are estimates{ownRatePct ? ` at your current ${ownRatePct} rate` : ''}.
             </p>
           </div>
         </div>
@@ -338,7 +338,7 @@ export function FunderNewReviewDialog({
 
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(receipt.total)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Returns</span><span className="font-semibold text-success">{monthlyAt15(receipt.total) === null ? '—' : formatDynamic(monthlyAt15(receipt.total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Rent profit share</span><span className="font-semibold text-success">{monthlyAt15(receipt.total) === null ? '—' : formatDynamic(monthlyAt15(receipt.total))}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
                 {receipt.reference ? (
                   <div className="flex justify-between gap-3"><span className="text-muted-foreground">Booking reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
@@ -386,7 +386,7 @@ export function FunderNewReviewDialog({
               <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
-                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Returns{ownRatePct ? ` (${ownRatePct})` : ''}</span><span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly Rent profit share{ownRatePct ? ` (${ownRatePct})` : ''}</span><span className="font-semibold text-success">{monthlyAt15(total) === null ? '—' : formatDynamic(monthlyAt15(total))}</span></div>
                 <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
               </div>
               <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
@@ -528,7 +528,7 @@ export function buildPlanShareLink(item: Pick<FunderNewSelectionItem, 'id' | 'ca
 export function buildPlanShareMessage(item: Pick<FunderNewSelectionItem, 'tenantName'>, link: string): string {
   const first = (item.tenantName || '').trim().split(/\s+/)[0];
   const who = first || 'a tenant';
-  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn monthly Returns on the rent for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
+  return `Help ${who} keep their home 🏠 Support their rent on Welile and earn monthly Rent profit share on the rent for 12 months, with Welile's operational guarantee. See the plan: ${link}`;
 }
 
 export function buildWhatsAppShareUrl(message: string): string {
@@ -536,7 +536,7 @@ export function buildWhatsAppShareUrl(message: string): string {
 }
 
 const POINTS = [
-  { icon: HandCoins, text: 'You support a tenant — you earn monthly Returns on their rent.' },
+  { icon: HandCoins, text: 'You support a tenant — you earn monthly Rent profit share on their rent.' },
   { icon: CalendarCheck, text: 'Support once, earn for 12 months.' },
   { icon: ShieldCheck, text: 'Welile provides an operational guarantee for every tenant you support.' },
 ];
@@ -587,7 +587,7 @@ function SalesSheet({ item }: { item: FunderNewSelectionItem }) {
       <div className="space-y-2">
         <h2 className="text-2xl font-bold tracking-tight">Turn rent into an asset</h2>
         <p className="text-base text-muted-foreground leading-relaxed">
-          Support this tenant's rent once. Earn {formatRatePct(ownRate) ? `${formatRatePct(ownRate)} of their rent` : 'Returns on their rent'} every month for the next 12 months.
+          Support this tenant's rent once. Earn {formatRatePct(ownRate) ? `${formatRatePct(ownRate)} of their rent` : 'Rent profit share on their rent'} every month for the next 12 months.
         </p>
       </div>
 

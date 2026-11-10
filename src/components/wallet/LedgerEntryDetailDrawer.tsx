@@ -60,7 +60,7 @@ const SOURCE_TABLE_LABELS: Record<string, string> = {
   referrals: 'Referral Bonus',
   agent_earnings: 'Agent Earning',
   agent_commission_payouts: 'Commission Payout',
-  supporter_roi_payments: 'Supporter ROI',
+  supporter_roi_payments: 'Supporter Rent profit share',
   tenant_merchant_payments: 'Field Payment',
   manual: 'Manual Entry',
   system: 'System',

@@ -68,9 +68,9 @@ const HEADER_ALIASES: Record<string, string[]> = {
   'Email': ['Email', 'EMAIL', 'Email Address', 'E-mail'],
   'Investment Amount': ['Investment Amount', 'Principal (UGX)', 'Principal', 'Amount', 'Amount (UGX)', 'PRINCIPAL (UGX)'],
   // Canonical key stays 'ROI %' internally; 'Returns %' is the template header (Partner Returns).
-  'ROI %': ['Returns %', 'Returns', 'Monthly Returns (%)', 'Returns Rate', 'ROI %', 'Rate', 'RATE', 'ROI', 'Interest Rate', 'ROI Percentage', 'Interest'],
+  'ROI %': ['Rent profit share %', 'Rent profit share', 'Monthly Rent profit share (%)', 'Rent profit share Rate', 'Rent profit share %', 'Rate', 'RATE', 'Rent profit share', 'Interest Rate', 'Rent profit share Percentage', 'Interest'],
   'Duration (Months)': ['Duration (Months)', 'Duration', 'Months', 'Term', 'Period'],
-  'ROI Mode': ['Returns mode', 'ROI Mode', 'Mode', 'Payout Mode', 'ROI Type'],
+  'ROI Mode': ['Rent profit share mode', 'Rent profit share Mode', 'Mode', 'Payout Mode', 'Rent profit share Type'],
   'Contribution Date': ['Contribution Date', 'Date', 'Investment Date', 'Start Date', 'CONTRIBUTION DATE'],
 };
 
@@ -95,7 +95,7 @@ const VALID_ROI_MODES = ['monthly_payout', 'monthly_compounding'];
 
 async function downloadTemplate() {
   const XLSX = await loadXLSX();
-  const headers = ['Partner Name', 'Phone', 'Email', 'Investment Amount', 'Contribution Date', 'Returns %', 'Duration (Months)', 'Returns mode'];
+  const headers = ['Partner Name', 'Phone', 'Email', 'Investment Amount', 'Contribution Date', 'Rent profit share %', 'Duration (Months)', 'Rent profit share mode'];
   // The Returns % column is optional: a blank cell sends no typed rate (the database decides).
   const samples = [
     ['Ssenkaali Pius', '0700123456', 'pius@example.com', 500000, '2025-03-09', 15, 12, 'monthly_compounding'],
@@ -151,9 +151,9 @@ function validateRow(row: any, rowNum: number): ParsedRow {
     if (isNaN(amount) || amount < min) errors.push(`Amount must be ≥ ${min.toLocaleString('en-US')}`);
     else errors.push(`Amount must be ≤ ${max.toLocaleString('en-US')}`);
   }
-  if (roi !== null && (isNaN(roi) || roi < 1 || roi > 30)) errors.push('Returns rate must be 1-30%');
+  if (roi !== null && (isNaN(roi) || roi < 1 || roi > 30)) errors.push('Rent profit share rate must be 1-30%');
   if (isNaN(duration) || duration < 1 || duration > 36) errors.push('Duration must be 1-36 months');
-  if (!VALID_ROI_MODES.includes(roiMode)) errors.push(`Returns mode must be: ${VALID_ROI_MODES.join(' or ')}`);
+  if (!VALID_ROI_MODES.includes(roiMode)) errors.push(`Rent profit share mode must be: ${VALID_ROI_MODES.join(' or ')}`);
 
   return { rowNum, partnerName: name, phone, email, investmentAmount: amount, roiPercentage: roi, durationMonths: duration, roiMode, contributionDate, errors };
 }
@@ -482,7 +482,7 @@ export default function PartnerImportDialog({ open, onOpenChange, onSuccess }: P
                       {g.portfolios.map((p, j) => (
                         <div key={j} className="flex gap-3">
                           <span>{formatUGX(p.amount)}</span>
-                          <span>{p.roiPercentage != null ? `${p.roiPercentage}% Returns` : "Partner's rate"}</span>
+                          <span>{p.roiPercentage != null ? `${p.roiPercentage}% Rent profit share` : "Partner's rate"}</span>
                           <span>{p.durationMonths}mo</span>
                           <span className="capitalize">{p.roiMode.replace('_', ' ')}</span>
                           {p.contributionDate && <span className="text-xs text-muted-foreground/70">📅 {p.contributionDate}</span>}

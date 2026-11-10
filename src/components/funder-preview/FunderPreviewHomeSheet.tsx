@@ -27,7 +27,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { createHouseShareLink, houseShareMessageFor } from '@/lib/houseSupportShare';
 import { createPlanShareLink, planShareFallbackDescription, planShareTitle } from '@/lib/planShareLink';
 import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from '@/components/funder-new/types';
-import { isHouseVerified, toSelectionItem } from '@/components/funder-new/utils';
+import { isHouseVerified, itemAmount, toSelectionItem } from '@/components/funder-new/utils';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from '@/components/partner/AgentCareNote';
 
 export interface FunderPreviewEntry {
   category: FunderNewCategory;
@@ -68,7 +70,7 @@ function trustRows(entry: FunderNewEmptyHouse | FunderNewReadyPlan, category: Fu
 const TIMELINE = [
   { when: 'Today', text: 'You support the Rent Plan', icon: Sprout, tone: 'filled' },
   { when: 'After approval', text: 'The family keeps the home', icon: Home, tone: 'soft' },
-  { when: 'Every month', text: 'You earn Returns', icon: TrendingUp, tone: 'success' },
+  { when: 'Every month', text: 'You earn Rent profit share', icon: TrendingUp, tone: 'success' },
 ] as const;
 
 /** Which brand colour each step's dot carries, so the connector knows what it joins. */
@@ -106,6 +108,8 @@ export function FunderPreviewHomeSheet({
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
   const stripRef = useRef<HTMLDivElement | null>(null);
+  // Agent Care: the partner amount is pay(rent) (= rent while the switch is off).
+  const { pay: partnerPay } = useSelfSupportFeePolicy();
   const entryKey = entry ? toSelectionItem(entry.category, entry.item).id : null;
 
   useEffect(() => {
@@ -115,7 +119,7 @@ export function FunderPreviewHomeSheet({
   }, [entryKey]);
 
   if (!entry) return null;
-  const view = toSelectionItem(entry.category, entry.item);
+  const view = toSelectionItem(entry.category, entry.item, partnerPay);
   const photos = photosOf(entry);
   const verified = isHouseVerified(entry.category, entry.item);
   const rooms = entry.category === 'empty' ? (entry.item as FunderNewEmptyHouse).number_of_rooms : null;
@@ -336,12 +340,16 @@ export function FunderPreviewHomeSheet({
                 <dd className="mt-1 text-lg font-bold tabular-nums">{formatDynamic(view.amount)}</dd>
               </div>
               <div className="rounded-[18px] border bg-card p-3.5">
-                <dt className="text-xs font-medium text-muted-foreground">Est. monthly Returns</dt>
+                <dt className="text-xs font-medium text-muted-foreground">Est. monthly Rent profit share</dt>
                 <dd className="mt-1 text-lg font-bold tabular-nums text-success">
                   {view.monthlyReturn !== null ? formatDynamic(view.monthlyReturn) : 'Not available'}
                 </dd>
               </div>
             </dl>
+            <AgentCareNote
+              kind={entry.category === 'empty' ? 'house' : 'tenant'}
+              rent={itemAmount(entry.category, entry.item)}
+            />
 
             <ul aria-label="Why you can trust this home" className="space-y-2.5">
               {trustRows(entry.item, entry.category).map(({ icon: Icon, text }) => (

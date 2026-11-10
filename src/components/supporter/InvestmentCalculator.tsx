@@ -63,8 +63,8 @@ export function InvestmentCalculator() {
   const rateUnavailable = () => {
     if (rewardRate !== null) return false;
     toast({
-      title: "Returns rate not available",
-      description: "Your Returns rate has not loaded yet. Try again in a moment.",
+      title: "Rent profit share rate not available",
+      description: "Your Rent profit share rate has not loaded yet. Try again in a moment.",
       variant: "destructive",
     });
     return true;
@@ -376,7 +376,7 @@ export function InvestmentCalculator() {
     message += `💵 Highest Earnings: ${formatUGX(bestScenario.earnings)}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `✅ *WHY SUPPORT WITH WELILE?*\n`;
-    message += `• Partner Returns target ${ratePctLabel}, not guaranteed\n`;
+    message += `• Partner Rent profit share target ${ratePctLabel}, not guaranteed\n`;
     message += `• Help tenants access rent facilitation\n`;
     message += `• Trusted agent collection network\n`;
     message += `• 90-day notice for capital withdrawal\n\n`;
@@ -418,7 +418,7 @@ export function InvestmentCalculator() {
     
     const message = `💰 *Welile Earnings Projection*\n\n` +
       `📊 Contribution: ${formatUGX(calculations.requiredContribution)}\n` +
-      `📈 Partner Returns target ${ratePctLabel}, not guaranteed\n` +
+      `📈 Partner Rent profit share target ${ratePctLabel}, not guaranteed\n` +
       `⏱️ Duration: ${duration} months\n` +
       `${isCompounding ? '🔄 Reinvesting Rewards: Yes\n' : ''}\n` +
       `✨ *Results:*\n` +
@@ -439,7 +439,7 @@ export function InvestmentCalculator() {
       let breakdownText = `📊 *WELILE EARNINGS PROJECTION*\n`;
       breakdownText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
       breakdownText += `💰 Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-      breakdownText += `📈 Partner Returns target ${ratePctLabel}, not guaranteed\n`;
+      breakdownText += `📈 Partner Rent profit share target ${ratePctLabel}, not guaranteed\n`;
       breakdownText += `⏱️ Duration: ${duration} months\n`;
       breakdownText += `🔄 Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
       breakdownText += `📋 *MONTHLY BREAKDOWN*\n`;
@@ -462,7 +462,7 @@ export function InvestmentCalculator() {
       breakdownText += `• Earn by helping tenants access rent facilitation\n`;
       breakdownText += `• Welile coordinates rent collection through our Agent Network\n`;
       breakdownText += `• Withdraw capital with 90-day notice\n\n`;
-      breakdownText += `🚀 Partner Returns target ${ratePctLabel}, not guaranteed.\n`;
+      breakdownText += `🚀 Partner Rent profit share target ${ratePctLabel}, not guaranteed.\n`;
       breakdownText += `📱 Visit Welile to become a Supporter`;
       
       const encodedMessage = encodeURIComponent(breakdownText);
@@ -487,7 +487,7 @@ export function InvestmentCalculator() {
     if (rateUnavailable()) return;
     let body = `WELILE EARNINGS PROJECTION\n\n`;
     body += `Initial Contribution: ${formatUGX(calculations.requiredContribution)}\n`;
-    body += `Partner Returns target ${ratePctLabel}, not guaranteed\n`;
+    body += `Partner Rent profit share target ${ratePctLabel}, not guaranteed\n`;
     body += `Duration: ${duration} months\n`;
     body += `Reinvesting Rewards: ${isCompounding ? 'Yes' : 'No'}\n\n`;
     body += `MONTHLY BREAKDOWN\n`;
@@ -505,7 +505,7 @@ export function InvestmentCalculator() {
     body += `FINAL RESULTS\n`;
     body += `Total Earnings: ${formatUGX(projections[projections.length - 1]?.totalEarnings || 0)}\n`;
     body += `Final Balance: ${formatUGX(projections[projections.length - 1]?.balance || 0)}\n\n`;
-    body += `Partner Returns target ${ratePctLabel}, not guaranteed.`;
+    body += `Partner Rent profit share target ${ratePctLabel}, not guaranteed.`;
 
     const subject = `Welile Earnings Projection – ${formatUGX(calculations.requiredContribution)} over ${duration} months`;
     window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_self');
@@ -971,7 +971,7 @@ export function InvestmentCalculator() {
               <p className="font-bold text-primary text-xs sm:text-sm">{formatUGX(calculations.requiredContribution)}</p>
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-success/10">
-              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Returns</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mb-0.5">Rent profit share</p>
               <p className="font-bold text-success text-xs sm:text-sm">{ratePctLabel ? `target ${ratePctLabel}, not guaranteed` : '—'}</p>
             </div>
             <div className="text-center p-2 sm:p-3 rounded-lg bg-muted">
@@ -1210,7 +1210,7 @@ export function InvestmentCalculator() {
                   </Button>
                 </Link>
                 <p className="text-[9px] text-muted-foreground mt-1.5">
-                  Start earning monthly rewards by supporting tenants
+                  Start earning monthly Rent profit share by supporting tenants
                 </p>
               </div>
             </div>

@@ -38,7 +38,7 @@ const SUB_CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   rent: { label: 'Rent', color: 'bg-blue-100 text-blue-700 border-blue-300' },
   commission: { label: 'Commission', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
   investment: { label: 'Investment', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-  roi: { label: 'ROI', color: 'bg-rose-100 text-rose-700 border-rose-300' },
+  roi: { label: 'Rent profit share', color: 'bg-rose-100 text-rose-700 border-rose-300' },
 };
 
 import { formatDynamic } from '@/lib/currencyFormat';
@@ -233,7 +233,7 @@ export function CFOPartnerPayoutProcessing() {
                 )}
                 {roiCount > 0 && (
                   <Badge variant="outline" className="text-xs gap-1 bg-rose-50 text-rose-700 border-rose-200">
-                    📊 ROI: <span className="font-bold">{roiCount}</span>
+                    📊 Rent profit share: <span className="font-bold">{roiCount}</span>
                   </Badge>
                 )}
               </div>

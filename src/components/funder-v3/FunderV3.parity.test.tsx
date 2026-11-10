@@ -18,6 +18,18 @@ import { FIXTURE_DEVICE, FIXTURE_SUMMARY, makeFeed } from './__fixtures__/funder
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 
+// Agent Care switch OFF (the default): amounts equal the rent, no query client needed.
+vi.mock('@/hooks/useSelfSupportFeePolicy', () => ({
+  useSelfSupportFeePolicy: () => ({
+    policy: { enabled: false, rate: 0, roundTo: 100 },
+    enabled: false,
+    ratePct: 0,
+    pay: (rent: number) => rent,
+    fee: () => 0,
+    isLoading: false,
+  }),
+}));
+
 /**
  * Every number in a rendered block, in reading order: money, counts, distances,
  * percentages. Separators are kept, so "UGX 1,234,567" and "1.2M" stay distinct.

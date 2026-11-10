@@ -402,7 +402,7 @@ function PartnerTab({ d }: { d: CalleeDossier }) {
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border p-6 text-center">
         <Lock className="h-5 w-5 text-muted-foreground" />
         <p className="text-sm font-medium">Partner details are restricted</p>
-        <p className="text-xs text-muted-foreground">Only Partner Operations, Super Admin and HR can see portfolios and Returns.</p>
+        <p className="text-xs text-muted-foreground">Only Partner Operations, Super Admin and HR can see portfolios and Rent profit share.</p>
       </div>
     );
   }
@@ -412,7 +412,7 @@ function PartnerTab({ d }: { d: CalleeDossier }) {
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-2">
         <Stat k="Active support" v={ugx(active.reduce((s, x) => s + Number(x.investment_amount), 0))} tone="primary" />
-        <Stat k="Returns earned" v={ugx((p.portfolios ?? []).reduce((s, x) => s + Number(x.total_roi_earned ?? 0), 0))} />
+        <Stat k="Rent profit share earned" v={ugx((p.portfolios ?? []).reduce((s, x) => s + Number(x.total_roi_earned ?? 0), 0))} />
       </div>
       <Section title={`Portfolios (${p.portfolios?.length ?? 0})`}>
         <SearchBox value={q} onChange={setQ} placeholder="Search portfolio code or status" />
@@ -424,15 +424,15 @@ function PartnerTab({ d }: { d: CalleeDossier }) {
               <button type="button" onClick={() => setSel(isOpen ? null : x.id)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-muted/40">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{x.portfolio_code ?? 'Portfolio'} · {ugx(x.investment_amount)}</p>
-                  <p className="text-[11px] text-muted-foreground">{x.roi_percentage ?? '—'}% Returns · {x.duration_months ?? '—'} months · matures {fdate(x.maturity_date)}</p>
+                  <p className="text-[11px] text-muted-foreground">{x.roi_percentage ?? '—'}% Rent profit share · {x.duration_months ?? '—'} months · matures {fdate(x.maturity_date)}</p>
                 </div>
                 <Badge variant={x.status === 'active' ? 'default' : 'outline'} className="shrink-0 text-[9px]">{label(x.status)}</Badge>
               </button>
               {isOpen && (
                 <div className="space-y-1 border-t border-border p-2.5 text-[11px] text-muted-foreground">
-                  <p>Started {fdate(x.created_at)} · next Returns {fdate(x.next_roi_date)} · payout day {x.payout_day ?? '—'}</p>
+                  <p>Started {fdate(x.created_at)} · next Rent profit share {fdate(x.next_roi_date)} · payout day {x.payout_day ?? '—'}</p>
                   <p>Mode {label(x.roi_mode)} · {x.auto_reinvest ? 'Compounding (auto-reinvest on)' : 'Paid out monthly'} · via {label(x.payment_method)}</p>
-                  <p>Returns earned so far <b className="text-foreground">{ugx(x.total_roi_earned)}</b></p>
+                  <p>Rent profit share earned so far <b className="text-foreground">{ugx(x.total_roi_earned)}</b></p>
                   {changes.length > 0 && <div className="pt-1">{changes.map((c) => (
                     <p key={c.id}>• {fdate(c.changed_at, 'd MMM yyyy')} — {label(c.action)}{c.changed_fields?.length ? ` (${c.changed_fields.map(label).join(', ')})` : ''}</p>
                   ))}</div>}
@@ -447,10 +447,10 @@ function PartnerTab({ d }: { d: CalleeDossier }) {
           <Row key={t.id} left={ugx(t.amount)} sub={`${fdate(t.created_at)} · effective ${fdate(t.effective_at)}`} right={<Badge variant="outline" className="text-[9px]">{label(t.status)}</Badge>} />
         ))}
       </Section>
-      <Section title="Returns movements">
-        {(p.returns ?? []).length === 0 ? <Empty>No Returns movements.</Empty> : (
+      <Section title="Rent profit share movements">
+        {(p.returns ?? []).length === 0 ? <Empty>No Rent profit share movements.</Empty> : (
           <div className="max-h-60 overflow-y-auto">{p.returns!.map((r) => (
-            <Row key={r.id} left={r.description || label(r.category).replace(/roi/gi, 'Returns')} sub={fdate(r.created_at, 'd MMM yyyy, HH:mm')}
+            <Row key={r.id} left={r.description || label(r.category).replace(/roi/gi, 'Rent profit share')} sub={fdate(r.created_at, 'd MMM yyyy, HH:mm')}
               right={<span className={r.direction === 'cash_in' ? 'text-primary' : 'text-destructive'}>{r.direction === 'cash_in' ? '+' : '−'}{ugx(r.amount)}</span>} />
           ))}</div>
         )}

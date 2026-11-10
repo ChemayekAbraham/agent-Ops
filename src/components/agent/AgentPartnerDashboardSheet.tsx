@@ -186,7 +186,7 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
 
   const whatsAppMessage = `Hi, I'm onboarding partners into a passive income opportunity with Welile Technologies.
 
-Earn monthly returns based on your funding.
+Earn monthly Rent profit share based on your funding.
 
 Sign up here: ${referralLink}
 
@@ -423,7 +423,7 @@ I'll personally guide you.`;
                               <p className="text-xs font-bold">{formatUGX(p.investedAmount)}</p>
                             </div>
                             <div>
-                              <p className="text-[10px] text-muted-foreground">Monthly ROI</p>
+                              <p className="text-[10px] text-muted-foreground">Monthly Rent profit share</p>
                               <p className="text-xs font-bold text-success">{formatRatePct(p.roiPercentage) ?? '—'}</p>
                             </div>
                             <div>

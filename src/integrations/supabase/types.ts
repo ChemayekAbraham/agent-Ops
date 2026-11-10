@@ -38329,6 +38329,111 @@ export type Database = {
         }
         Relationships: []
       }
+      nexa_human_escalations: {
+        Row: {
+          assigned_to: string | null
+          conversation_context: Json
+          created_at: string
+          id: string
+          provider_message_id: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          user_id: string | null
+          user_phone: string | null
+          user_question: string
+          user_role: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          conversation_context?: Json
+          created_at?: string
+          id?: string
+          provider_message_id?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id?: string | null
+          user_phone?: string | null
+          user_question: string
+          user_role?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          conversation_context?: Json
+          created_at?: string
+          id?: string
+          provider_message_id?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id?: string | null
+          user_phone?: string | null
+          user_question?: string
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "nexa_human_escalations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       nexa_portfolio_access_audit: {
         Row: {
           challenge_id: string | null
@@ -41639,6 +41744,11 @@ export type Database = {
           partner_id: string
           plan_closed_at: string | null
           principal: number
+          proxy_agent_id: string | null
+          proxy_fee: number
+          proxy_fee_ledger_group_id: string | null
+          proxy_fee_status: string | null
+          rent_amount: number | null
           rent_request_id: string
           status: string
           term_end_at: string | null
@@ -41658,6 +41768,11 @@ export type Database = {
           partner_id: string
           plan_closed_at?: string | null
           principal: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           rent_request_id: string
           status?: string
           term_end_at?: string | null
@@ -41677,6 +41792,11 @@ export type Database = {
           partner_id?: string
           plan_closed_at?: string | null
           principal?: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           rent_request_id?: string
           status?: string
           term_end_at?: string | null
@@ -41915,6 +42035,11 @@ export type Database = {
           partner_id: string
           portfolio_id: string | null
           principal: number
+          proxy_agent_id: string | null
+          proxy_fee: number
+          proxy_fee_ledger_group_id: string | null
+          proxy_fee_status: string | null
+          rent_amount: number | null
           status: string
           supported_at: string
           term_months: number
@@ -41935,6 +42060,11 @@ export type Database = {
           partner_id: string
           portfolio_id?: string | null
           principal: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           status?: string
           supported_at?: string
           term_months?: number
@@ -41955,6 +42085,11 @@ export type Database = {
           partner_id?: string
           portfolio_id?: string | null
           principal?: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           status?: string
           supported_at?: string
           term_months?: number
@@ -53518,6 +53653,75 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      self_support_fee_policy: {
+        Row: {
+          enabled: boolean
+          enabled_at: string | null
+          id: boolean
+          note: string | null
+          rate: number
+          round_to: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: boolean
+          note?: string | null
+          rate?: number
+          round_to?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: boolean
+          note?: string | null
+          rate?: number
+          round_to?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      self_support_fee_reserve_movements: {
+        Row: {
+          amount: number
+          commitment_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string | null
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          amount: number
+          commitment_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          amount?: number
+          commitment_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
         }
         Relationships: []
       }
@@ -70867,6 +71071,425 @@ export type Database = {
           },
         ]
       }
+      zoe_auto_portfolio_inbox: {
+        Row: {
+          deposit_request_id: string
+          done_at: string | null
+          enqueued_at: string
+          last_error: string | null
+          picked_at: string | null
+        }
+        Insert: {
+          deposit_request_id: string
+          done_at?: string | null
+          enqueued_at?: string
+          last_error?: string | null
+          picked_at?: string | null
+        }
+        Update: {
+          deposit_request_id?: string
+          done_at?: string | null
+          enqueued_at?: string
+          last_error?: string | null
+          picked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoe_auto_portfolio_inbox_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_inbox_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_inbox_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
+        ]
+      }
+      zoe_auto_portfolio_log: {
+        Row: {
+          agreement_channel: string | null
+          agreement_id: string | null
+          agreement_sent_at: string | null
+          amount: number
+          created_at: string
+          decision: string
+          deposit_at: string | null
+          deposit_request_id: string
+          first_returns_date: string | null
+          gmail_transaction_id: string | null
+          id: string
+          ledger_group_id: string | null
+          match_basis: Json | null
+          mode: string
+          normalized_tid: string | null
+          partner_id: string | null
+          partner_notified_at: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          reason: string | null
+          roi_percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          agreement_channel?: string | null
+          agreement_id?: string | null
+          agreement_sent_at?: string | null
+          amount: number
+          created_at?: string
+          decision: string
+          deposit_at?: string | null
+          deposit_request_id: string
+          first_returns_date?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          match_basis?: Json | null
+          mode: string
+          normalized_tid?: string | null
+          partner_id?: string | null
+          partner_notified_at?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+          reason?: string | null
+          roi_percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          agreement_channel?: string | null
+          agreement_id?: string | null
+          agreement_sent_at?: string | null
+          amount?: number
+          created_at?: string
+          decision?: string
+          deposit_at?: string | null
+          deposit_request_id?: string
+          first_returns_date?: string | null
+          gmail_transaction_id?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          match_basis?: Json | null
+          mode?: string
+          normalized_tid?: string | null
+          partner_id?: string | null
+          partner_notified_at?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+          reason?: string | null
+          roi_percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_agreement_id_fkey"
+            columns: ["agreement_id"]
+            isOneToOne: false
+            referencedRelation: "partner_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_gmail_transaction_id_fkey"
+            columns: ["gmail_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "zoe_auto_portfolio_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      zoe_auto_portfolio_settings: {
+        Row: {
+          daily_cap_ugx: number
+          enabled: boolean
+          id: boolean
+          max_auto_amount: number
+          mode: string
+          note: string | null
+          require_name_match_when_present: boolean
+          updated_at: string
+          updated_by: string | null
+          window_start: string
+        }
+        Insert: {
+          daily_cap_ugx?: number
+          enabled?: boolean
+          id?: boolean
+          max_auto_amount?: number
+          mode?: string
+          note?: string | null
+          require_name_match_when_present?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          window_start?: string
+        }
+        Update: {
+          daily_cap_ugx?: number
+          enabled?: boolean
+          id?: boolean
+          max_auto_amount?: number
+          mode?: string
+          note?: string | null
+          require_name_match_when_present?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          window_start?: string
+        }
+        Relationships: []
+      }
+      zoe_claim_audit: {
+        Row: {
+          action: string | null
+          backed: boolean
+          claim: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          neexa_message_id: string | null
+        }
+        Insert: {
+          action?: string | null
+          backed: boolean
+          claim?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          neexa_message_id?: string | null
+        }
+        Update: {
+          action?: string | null
+          backed?: boolean
+          claim?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          neexa_message_id?: string | null
+        }
+        Relationships: []
+      }
+      zoe_human_followups: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          customer_phone: string
+          id: string
+          neexa_conversation_id: string | null
+          neexa_message_id: string | null
+          note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          zoe_said: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          customer_phone: string
+          id?: string
+          neexa_conversation_id?: string | null
+          neexa_message_id?: string | null
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          zoe_said?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          customer_phone?: string
+          id?: string
+          neexa_conversation_id?: string | null
+          neexa_message_id?: string | null
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          zoe_said?: string | null
+        }
+        Relationships: []
+      }
+      zoe_portfolio_review_queue: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          deposit_request_id: string
+          details: Json | null
+          id: string
+          log_id: string
+          mode: string
+          reason: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          deposit_request_id: string
+          details?: Json | null
+          id?: string
+          log_id: string
+          mode?: string
+          reason: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          deposit_request_id?: string
+          details?: Json | null
+          id?: string
+          log_id?: string
+          mode?: string
+          reason?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zoe_portfolio_review_queue_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "agent_misrouted_deposits_preview"
+            referencedColumns: ["deposit_id"]
+          },
+          {
+            foreignKeyName: "zoe_portfolio_review_queue_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "deposit_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "zoe_portfolio_review_queue_deposit_request_id_fkey"
+            columns: ["deposit_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_verified_bank_declarations"
+            referencedColumns: ["deposit_request_id"]
+          },
+          {
+            foreignKeyName: "zoe_portfolio_review_queue_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "zoe_auto_portfolio_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       agent_advance_requests_privileged: {
@@ -76121,11 +76744,16 @@ export type Database = {
           in_window_collected: number
           in_window_due: number
           in_window_pct: number
+          judged_collected: number
+          judged_due: number
+          judged_ok: boolean
+          judged_week_start: string
           passes: boolean
           rate_pct: number
           reason: string
           required_pct: number
           shortfall: number
+          this_week_ok: boolean
           week_end: string
           week_start: string
         }[]
@@ -76806,6 +77434,7 @@ export type Database = {
       _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
       _is_active_employee: { Args: { p_uid: string }; Returns: boolean }
       _is_all_desk: { Args: { p_uid: string }; Returns: boolean }
+      _is_bot_agent: { Args: { p_uid: string }; Returns: boolean }
       _is_landlord_payout_owner: { Args: never; Returns: boolean }
       _landlord_cc_can_view_unmasked_phone: { Args: never; Returns: boolean }
       _landlord_cc_events_in_window: {
@@ -76945,6 +77574,11 @@ export type Database = {
       _merch_unrecorded_sale_check: {
         Args: { p_origin: string; p_sale: string }
         Returns: string
+      }
+      _needs_real_agent: { Args: { p_request_id: string }; Returns: boolean }
+      _needs_real_agent_row: {
+        Args: { p_agent: string; p_assigned: string }
+        Returns: boolean
       }
       _note_contact_proven: {
         Args: { p_note_id: string; p_user: string }
@@ -77185,6 +77819,7 @@ export type Database = {
         }
         Returns: Json
       }
+      _request_kind_json: { Args: { p_request_id: string }; Returns: Json }
       _return_cycle_can_request: {
         Args: { _user_id: string }
         Returns: boolean
@@ -77617,6 +78252,7 @@ export type Database = {
       }
       _wh_sub_archived: { Args: { p_sub: string }; Returns: boolean }
       _wh_tenant_id_staff_ok: { Args: never; Returns: boolean }
+      _zoe_name_overlap: { Args: { a: string; b: string }; Returns: boolean }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -88194,6 +88830,8 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_self_support_fee_policy: { Args: never; Returns: Json }
+      get_self_support_fee_reserve: { Args: never; Returns: Json }
       get_service_center_active_advances: { Args: never; Returns: Json }
       get_service_center_listing_queue: {
         Args: { p_manager_id?: string }
@@ -93418,6 +94056,9 @@ export type Database = {
           line_kind: string
           location: string
           principal: number
+          proxy_fee: number
+          proxy_fee_status: string
+          rent_amount: number
           subject_id: string
           subject_name: string
           subject_phone: string
@@ -94433,6 +95074,7 @@ export type Database = {
       }
       pipeline_resolve_request: { Args: { p_short: string }; Returns: Json }
       pipeline_review_sheet: { Args: { p_request_id: string }; Returns: Json }
+      pipeline_self_applied_queue: { Args: { p_limit?: number }; Returns: Json }
       pipeline_send_back_options: {
         Args: { p_from_stage: string }
         Returns: Json
@@ -96926,6 +97568,28 @@ export type Database = {
           withdrawable_balance: number
         }[]
       }
+      self_support_fee_covers_fund_in: {
+        Args: { p_fund_in_key: string; p_portfolio: string }
+        Returns: boolean
+      }
+      self_support_fee_reserve_fund: {
+        Args: {
+          p_available: number
+          p_idempotency_key: string
+          p_ledger_group_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: number
+      }
+      self_support_fee_reserve_position: { Args: never; Returns: Json }
+      self_support_gross: { Args: { p_rent: number }; Returns: number }
+      self_support_pay_proxy_fee: {
+        Args: { p_commitment_id: string }
+        Returns: Json
+      }
+      self_support_proxy_fee: { Args: { p_rent: number }; Returns: number }
+      self_support_topups_closed: { Args: never; Returns: boolean }
       send_daily_advance_deduction_summary: { Args: never; Returns: Json }
       service_center_review_house_listing: {
         Args: { p_comment?: string; p_decision: string; p_listing_id: string }
@@ -97097,6 +97761,10 @@ export type Database = {
       }
       set_requisition_budget_line_required_from: {
         Args: { p_from: string }
+        Returns: Json
+      }
+      set_self_support_fee_policy: {
+        Args: { p_enabled: boolean; p_note?: string }
         Returns: Json
       }
       set_service_center_vetting_policy: {
@@ -98586,6 +99254,18 @@ export type Database = {
         Returns: Json
       }
       tenant_rent_plan_detail: { Args: never; Returns: Json }
+      tenant_save_intake_details: {
+        Args: {
+          p_family_size: number
+          p_lc_letter_bucket?: string
+          p_lc_letter_path?: string
+          p_lc1_contact?: string
+          p_request_id: string
+          p_work_business: string
+          p_work_location?: string
+        }
+        Returns: Json
+      }
       tenant_self_repayment_plan: {
         Args: { p_tenant_id: string }
         Returns: {
@@ -101445,6 +102125,15 @@ export type Database = {
         Args: { p_amount: number; p_reason: string; p_review_id: string }
         Returns: string
       }
+      zoe_create_portfolio_from_deposit: {
+        Args: {
+          p_agreement_channel: string
+          p_agreement_sent_at: string
+          p_deposit_id: string
+        }
+        Returns: Json
+      }
+      zoe_evaluate_deposit: { Args: { p_deposit_id: string }; Returns: Json }
       zoe_glossary_can_manage: {
         Args: { p_user_id?: string }
         Returns: boolean
@@ -101461,6 +102150,10 @@ export type Database = {
           p_slug: string
           p_term: string
         }
+        Returns: Json
+      }
+      zoe_record_decision: {
+        Args: { p_deposit_id: string; p_mode: string }
         Returns: Json
       }
       zoe_ro_area_allowed: { Args: { p_area: string }; Returns: boolean }

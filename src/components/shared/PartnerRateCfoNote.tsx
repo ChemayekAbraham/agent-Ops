@@ -43,7 +43,7 @@ export function partnerRateNeedsCfoNote(
 export function rateAwaitsCfoMessage(requested: number | null | undefined, inForce: number | null | undefined): string {
   const requestedPct = formatRatePct(requested ?? null);
   const inForcePct = formatRatePct(inForce ?? null);
-  const head = requestedPct ? `The ${requestedPct} Returns rate` : 'The typed Returns rate';
+  const head = requestedPct ? `The ${requestedPct} Rent profit share rate` : 'The typed Rent profit share rate';
   const tail = inForcePct ? `${inForcePct} applies until then.` : "the partner's own rate applies until then.";
   return `${head} waits for CFO approval; ${tail}`;
 }
@@ -80,7 +80,7 @@ export function PartnerRateCfoNote({ policyEnabled, personRate, typedRate, curre
   // A new portfolio (owner decision D10): an approval before its first Returns sets the rate from the start.
   const whenApproved = currentRate != null
     ? 'An approved rate applies from the next cycle.'
-    : 'An approved rate applies from its first monthly Returns.';
+    : 'An approved rate applies from its first monthly Rent profit share.';
   return (
     <p role="note" className={cn('text-[11px] leading-snug text-amber-700 dark:text-amber-400', className)}>
       Needs CFO approval. The portfolio {meanwhile} until the CFO approves. {whenApproved}

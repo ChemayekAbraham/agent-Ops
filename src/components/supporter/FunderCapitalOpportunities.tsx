@@ -59,8 +59,8 @@ const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
     icon: HandCoins,
   },
   {
-    title: 'Monthly returns to your wallet',
-    description: 'Returns are paid into your wallet every month, with full tracking.',
+    title: 'Monthly Rent profit share to your wallet',
+    description: 'Rent profit share is paid into your wallet every month, with full tracking.',
     icon: Wallet,
   },
 ];
@@ -768,7 +768,7 @@ export function FunderCapitalOpportunities({
           <InvestmentWithdrawButton />
 
           <p className="text-[10px] text-muted-foreground/70 text-center leading-relaxed">
-            Returns are projected from historical performance. Capital is deployed into verified rent
+            Rent profit share is projected from historical performance. Capital is deployed into verified rent
             facilitation agreements managed by Welile with reserve protection.
           </p>
         </DetailShell>

@@ -41,7 +41,7 @@ interface Receipt {
 const NEXT_STEPS = [
   { title: 'Operational review', text: 'The team checks your booking.' },
   { title: 'Homes go live', text: 'After approval, through the usual process.' },
-  { title: 'Track your Returns', text: 'In your portfolio, any time.' },
+  { title: 'Track your Rent profit share', text: 'In your portfolio, any time.' },
 ];
 
 const primaryButton =
@@ -256,7 +256,7 @@ export function FunderPreviewPlanFlow({
                     <dd className="mt-0.5 text-[19px] font-bold tabular-nums">{formatDynamic(total)}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs font-medium text-primary-foreground/85">Est. monthly Returns</dt>
+                    <dt className="text-xs font-medium text-primary-foreground/85">Est. monthly Rent profit share</dt>
                     <dd className="mt-0.5 text-[19px] font-bold tabular-nums">{formatDynamic(monthly)}</dd>
                   </div>
                 </dl>
@@ -419,7 +419,7 @@ export function FunderPreviewPlanFlow({
                     <dd className="font-bold tabular-nums">{formatDynamic(receipt.total)}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Est. monthly Returns</dt>
+                    <dt className="text-muted-foreground">Est. monthly Rent profit share</dt>
                     <dd className="font-bold tabular-nums text-success">{formatDynamic(receipt.monthly)}</dd>
                   </div>
                 </dl>
@@ -564,7 +564,7 @@ export function FunderPreviewPlanFlow({
                   <dd className="font-semibold">Support balance</dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-muted-foreground">Est. monthly Returns</dt>
+                  <dt className="text-muted-foreground">Est. monthly Rent profit share</dt>
                   <dd className="font-bold tabular-nums text-success">{formatDynamic(monthly)}</dd>
                 </div>
               </dl>
@@ -580,7 +580,7 @@ export function FunderPreviewPlanFlow({
                   className="mt-0.5 h-[22px] w-[22px] rounded-md"
                 />
                 <span className="text-sm leading-5">
-                  I understand Returns are estimates and support starts after the usual approval.
+                  I understand Rent profit share figures are estimates and support starts after the usual approval.
                 </span>
               </label>
               <div className="space-y-2">

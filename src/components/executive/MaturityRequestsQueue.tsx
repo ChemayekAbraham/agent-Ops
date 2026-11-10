@@ -200,8 +200,8 @@ export function MaturityRequestsQueue() {
       const mode = (data as any)?.mode;
       if (mode === 'awaiting_final_payout') {
         toast({
-          title: 'Renewal waiting for final Returns',
-          description: `${req.portfolio_code} — will renew automatically once the final Returns payout${
+          title: 'Renewal waiting for final Rent profit share',
+          description: `${req.portfolio_code} — will renew automatically once the final Rent profit share payout${
             (data as any)?.cycle_date ? ` (${format(new Date((data as any).cycle_date), 'd MMM yyyy')})` : ''
           } is approved.`,
         });

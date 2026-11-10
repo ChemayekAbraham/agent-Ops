@@ -156,7 +156,7 @@ export function ProjectedReturnsChart({ months = 6, horizon, onHorizonChange }: 
       <>
       <div className="grid grid-cols-3 gap-2">
         <button type="button" onClick={() => setStream('roi')} className="text-left rounded-lg bg-blue-500/10 p-2.5 hover:bg-blue-500/20 transition-colors">
-          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" />Projected ROI / month<ChevronRight className="h-3 w-3 ml-auto" /></p>
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><TrendingUp className="h-3 w-3" />Projected Rent profit share / month<ChevronRight className="h-3 w-3 ml-auto" /></p>
           <p className="text-base font-bold text-blue-600">UGX {fmt(Number(t.projected_monthly_payout || 0))}</p>
           <p className="text-[9px] text-muted-foreground">Horizon total: UGX {fmt(Number(t.projected_horizon_payout || 0))}</p>
         </button>
@@ -187,7 +187,7 @@ export function ProjectedReturnsChart({ months = 6, horizon, onHorizonChange }: 
           </BarChart>
         </ResponsiveContainer>
         <p className="text-[9px] text-muted-foreground mt-1">
-          ROI payout = flat monthly rate on payout-mode capital. Compounding = month-on-month growth on reinvesting capital. Receivables bucket unscheduled notes into the current month.
+          Rent profit share payout = flat monthly rate on payout-mode capital. Compounding = month-on-month growth on reinvesting capital. Receivables bucket unscheduled notes into the current month.
         </p>
       </div>
       </>
@@ -225,7 +225,7 @@ export function PartnerPortfolioTable({ months = 6, horizon }: { months?: number
               <th className="p-2 font-medium">Partner</th>
               <th className="p-2 font-medium text-right">Plans</th>
               <th className="p-2 font-medium text-right">Deployed</th>
-              <th className="p-2 font-medium text-right">ROI / month</th>
+              <th className="p-2 font-medium text-right">Rent profit share / month</th>
               <th className="p-2 font-medium text-right">Compounding ({active.label || `${active.days}d`})</th>
               <th className="p-2 font-medium text-right">Next payout</th>
             </tr>

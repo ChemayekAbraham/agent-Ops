@@ -2980,7 +2980,7 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           </p>
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px]">Monthly Returns (%)</Label>
+          <Label className="text-[10px]">Monthly Rent profit share (%)</Label>
           <Input type="number" min={0} max={100} value={form.roi_percentage} onChange={e => set('roi_percentage', e.target.value)} className="h-8 text-xs" />
           <PartnerRateCfoNote policyEnabled={rate.policyEnabled} personRate={rate.personRate} typedRate={rate.value} />
         </div>
@@ -2996,7 +2996,7 @@ function InlineCreatePortfolioForm({ partner, actingUserId, onCreated, onCancel 
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px]">Returns Mode</Label>
+          <Label className="text-[10px]">Rent profit share Mode</Label>
           <Select value={form.roi_mode} onValueChange={v => set('roi_mode', v)}>
             <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>

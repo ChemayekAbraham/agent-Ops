@@ -549,7 +549,7 @@ export function ReceiptArchivePanel() {
                   const typeLabel = reasonType.includes('landlord')
                     ? 'Landlord Payout'
                     : reasonType.includes('portfolio') || reasonType.includes('roi') || reasonType.includes('return')
-                    ? 'ROI / Returns'
+                    ? 'Rent profit share / Rent profit share'
                     : reasonType.includes('advance')
                     ? 'Credit Draw'
                     : 'Wallet Cash-Out';

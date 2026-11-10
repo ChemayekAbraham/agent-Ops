@@ -1,3 +1,4 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,6 +148,8 @@ export function PromissoryPlanMatcher({
     return list;
   }, [housesData, preselectedHouse, selectedHouseIds]);
 
+  // Agent Care: a self-support partner pays pay(rent) per Rent Plan (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const selectedHouseSet = useMemo(() => new Set(selectedHouseIds), [selectedHouseIds]);
 
@@ -154,8 +157,8 @@ export function PromissoryPlanMatcher({
     () =>
       plans
         .filter((p) => selectedSet.has(p.rent_request_id))
-        .reduce((s, p) => s + Number(p.funding_amount || 0), 0),
-    [plans, selectedSet],
+        .reduce((s, p) => s + pay(Number(p.funding_amount || 0)), 0),
+    [plans, selectedSet, pay],
   );
   const housesTotal = useMemo(
     () =>
@@ -183,11 +186,11 @@ export function PromissoryPlanMatcher({
         onChange(selectedIds.filter((x) => x !== id));
         return;
       }
-      if (targetAmount > 0 && plansTotal + Number(plan.funding_amount || 0) > targetAmount) return;
+      if (targetAmount > 0 && plansTotal + pay(Number(plan.funding_amount || 0)) > targetAmount) return;
       if (selectedHouseIds.length > 0) onHousesChange([]);
       onChange([...selectedIds, id]);
     },
-    [disabled, onChange, onHousesChange, selectedIds, selectedSet, selectedHouseIds, plansTotal, targetAmount],
+    [disabled, onChange, onHousesChange, selectedIds, selectedSet, selectedHouseIds, plansTotal, targetAmount, pay],
   );
 
   const toggleHouse = useCallback(
@@ -222,7 +225,7 @@ export function PromissoryPlanMatcher({
         });
       return { picked, total: targetAmount - budget };
     };
-    const fromPlans = greedy(plans.map((p) => ({ id: p.rent_request_id, amt: Number(p.funding_amount || 0) })));
+    const fromPlans = greedy(plans.map((p) => ({ id: p.rent_request_id, amt: pay(Number(p.funding_amount || 0)) })));
     const fromHouses = greedy(houses.map((h) => ({ id: h.house_id, amt: Number(h.monthly_rent || 0) })));
     if (fromHouses.total >= fromPlans.total) {
       onChange([]);
@@ -231,14 +234,14 @@ export function PromissoryPlanMatcher({
       onHousesChange([]);
       onChange(fromPlans.picked);
     }
-  }, [disabled, onChange, onHousesChange, plans, houses, targetAmount]);
+  }, [disabled, onChange, onHousesChange, plans, houses, targetAmount, pay]);
 
   const anythingLoading = isLoading || housesLoading;
   const nothingFound = !anythingLoading && plans.length === 0 && houses.length === 0;
 
   const renderPlan = (p: FundablePlanRow) => {
     const checked = selectedSet.has(p.rent_request_id);
-    const amt = Number(p.funding_amount || 0);
+    const amt = pay(Number(p.funding_amount || 0));
     const blocked = !checked && targetAmount > 0 && selectedTotal + amt > targetAmount;
     return (
       <button

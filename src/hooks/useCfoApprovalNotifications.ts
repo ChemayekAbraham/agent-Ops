@@ -64,7 +64,7 @@ interface CategoryDef {
 const DEFINITIONS: CategoryDef[] = [
   {
     key: 'roi',
-    title: 'ROI Requests Awaiting Approval',
+    title: 'Rent profit share Requests Awaiting Approval',
     tabId: 'roi-requests',
     table: 'pending_wallet_operations',
     fetchCount: () =>
@@ -110,7 +110,7 @@ const DEFINITIONS: CategoryDef[] = [
   },
   {
     key: 'allocationReturns',
-    title: 'Allocation Returns Awaiting Approval',
+    title: 'Allocation Rent profit share Awaiting Approval',
     tabId: 'unfunding-approvals',
     table: 'agent_allocation_return_requests',
     fetchCount: () =>

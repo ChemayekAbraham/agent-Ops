@@ -137,7 +137,7 @@ export function ForwardBreakdownSheet({
   const title =
     stream === 'notes' ? 'Notes receivable — who owes what' :
     stream === 'compounding' ? 'Projected compounding — by partner' :
-    'Projected ROI payout — by partner';
+    'Projected Rent profit share payout — by partner';
 
   const total = stream === 'notes'
     ? noteRows.reduce((s, n) => s + n.outstanding, 0)

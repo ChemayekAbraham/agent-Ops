@@ -241,7 +241,7 @@ export default function AgentPartners() {
     } catch {
       // fall back to long link
     }
-    const message = `🤝 Join me on Welile as a partner supporter!\n\nEarn monthly returns on your support.\n\n${url}`;
+    const message = `🤝 Join me on Welile as a partner supporter!\n\nEarn monthly Rent profit share on your support.\n\n${url}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 

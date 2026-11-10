@@ -110,7 +110,7 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
             <div className="px-4 py-4 rounded-xl bg-green-500/10 border border-green-500/30 space-y-2">
               <p className="text-sm font-bold text-green-700 dark:text-green-400">✅ Support Confirmed!</p>
               <p className="text-xs text-muted-foreground">
-                You will receive <span className="font-black text-foreground">{ownRatePct ? `${ownRatePct} monthly` : 'monthly Returns'}</span> ({formatUGXOrDash(successInfo.monthlyReward)}) 
+                You will receive <span className="font-black text-foreground">{ownRatePct ? `${ownRatePct} monthly` : 'monthly Rent profit share'}</span> ({formatUGXOrDash(successInfo.monthlyReward)}) 
                 every <span className="font-bold">30 days</span> for <span className="font-bold">12 months</span>.
               </p>
               <p className="text-xs text-muted-foreground">
@@ -165,7 +165,7 @@ export function FundRentDialog({ open, onOpenChange, summary }: FundRentDialogPr
             {/* Monthly reward info (own rate) */}
             {amountNum > 0 && (
               <div className="px-4 py-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
-                <p className="text-xs font-bold text-primary">💰 {ownRatePct ? `${ownRatePct} Monthly Reward` : 'Monthly Reward'}</p>
+                <p className="text-xs font-bold text-primary">💰 {ownRatePct ? `${ownRatePct} Monthly Rent profit share` : 'Monthly Rent profit share'}</p>
                 <p className="text-xs text-muted-foreground">
                   ⏳ Funds work for at least <span className="font-bold">30 days</span> before the first payout.
                 </p>

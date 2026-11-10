@@ -1,3 +1,5 @@
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from './AgentCareNote';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTRACT_TERM_MONTHS } from '@/lib/contractTerm';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -248,6 +250,8 @@ export function SelfPortfolioPlanDetailSheet({
   // null while it loads or on error: the projection is null (no figure).
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const ownRatePct = rateOrNull(ownRate);
+  // Agent Care: the partner pays pay(rent) (= rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
   const planId = plan?.rent_request_id ?? null;
   useEffect(() => {
     setHeroIndex(0);
@@ -430,9 +434,10 @@ export function SelfPortfolioPlanDetailSheet({
               </span>
               <span className="min-w-0 flex-1 text-sm text-muted-foreground">Rent amount</span>
               <span className="text-base font-bold text-primary truncate">
-                {formatDynamic(plan.funding_amount)}
+                {formatDynamic(pay(Number(plan.funding_amount || 0)))}
               </span>
             </li>
+            <li className="py-3 empty:hidden"><AgentCareNote kind="tenant" rent={Number(plan.funding_amount || 0)} /></li>
             <li className="flex items-center gap-3 py-3">
               <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-primary/10 text-primary">
                 <User className="h-5 w-5" />
@@ -506,7 +511,7 @@ export function SelfPortfolioPlanDetailSheet({
 
           {/* Earnings projection */}
           {(() => {
-            const monthly = ownRatePct === null ? null : (plan.funding_amount * ownRatePct) / 100;
+            const monthly = ownRatePct === null ? null : (pay(Number(plan.funding_amount || 0)) * ownRatePct) / 100;
             const daily = monthly === null ? null : monthly / 30;
             // The partner earns across the whole contract, not for the plan's length.
             const months = CONTRACT_TERM_MONTHS;
@@ -514,7 +519,7 @@ export function SelfPortfolioPlanDetailSheet({
             return (
               <div className="mt-5 rounded-3xl bg-primary/10 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold">Your projected returns</p>
+                  <p className="text-sm font-semibold">Your projected Rent profit share</p>
                   {formatRatePct(ownRatePct) && (
                     <span className="rounded-full bg-background px-2.5 py-1 text-[11px] font-bold text-primary">
                       {formatRatePct(ownRatePct)} per month
@@ -522,7 +527,7 @@ export function SelfPortfolioPlanDetailSheet({
                   )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Based on a rent amount of {formatDynamic(plan.funding_amount)}.
+                  Based on {formatDynamic(pay(Number(plan.funding_amount || 0)))}.
                 </p>
                 <ul className="mt-3 divide-y divide-primary/20">
                   {[
@@ -571,7 +576,7 @@ export function SelfPortfolioPlanDetailSheet({
                 onClick={() => onFund(plan)}
               >
                 <Wallet className="h-5 w-5" />
-                Fund this tenant — {formatDynamic(plan.funding_amount)}
+                Fund this tenant — {formatDynamic(pay(Number(plan.funding_amount || 0)))}
               </Button>
             </div>
           )}

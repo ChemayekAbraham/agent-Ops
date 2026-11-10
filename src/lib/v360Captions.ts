@@ -2,7 +2,7 @@ import { V360_MODEL_A_EXAMPLE } from '@/lib/contractEngine360';
 
 /** The 360 partner sentence (owner decision D8; same words as the assistant and system context). */
 export const V360_PARTNER_RETURNS_SENTENCE =
-  'A 360-day plan sets aside 15% for Partner Returns; each partner earns their own Returns rate (new partners: the current new-partner rate), not guaranteed.';
+  'A 360-day plan sets aside 15% for Partner Rent profit share; each partner earns their own Rent profit share rate (new partners: the current new-partner rate), not guaranteed.';
 
 /** Server figures from v360_plan_summary. The client only labels them. */
 export interface V360CaptionSource {

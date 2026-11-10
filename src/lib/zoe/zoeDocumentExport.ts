@@ -18,7 +18,7 @@ export function sanitizeDraftTerminology(text: string): string {
     .replace(/\bloan\b/gi, "Rent Plan")
     .replace(/\blenders\b/gi, "Supporters")
     .replace(/\blender\b/gi, "Supporter")
-    .replace(/\bROI\b/g, "Returns")
+    .replace(/\bROI\b/g, "Rent profit share")
     .replace(/\binterest\s+rate\b/gi, "Access Fee rate");
 }
 
@@ -42,7 +42,7 @@ export function generateDraftTemplate(
       cleanNotes || "Summarize the operational objective and context for the team.",
       "",
       "## 2. Key Points & Evidence",
-      "- Review verified Rent Plan, Supporter, or Returns figures from the official workspace screen.",
+      "- Review verified Rent Plan, Supporter, or Rent profit share figures from the official workspace screen.",
       "- Confirm ownership and next steps with the department lead.",
       "",
       "## 3. Action Items",
@@ -68,7 +68,7 @@ export function generateDraftTemplate(
       "3. Record the outcome and escalate any exceptions to the department lead.",
       "",
       "## 4. Quality & Audit Checks",
-      "- Confirm all figures use Rent Plan, Supporter, and Returns terminology and UGX formatting.",
+      "- Confirm all figures use Rent Plan, Supporter, and Returnsterminology and UGX formatting.",
     ].join("\n");
   }
 

@@ -191,7 +191,7 @@ export function InvestmentWithdrawButton() {
         <div className="px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/20">
           <p className="text-xs text-destructive font-semibold flex items-center gap-1.5">
             <PauseCircle className="h-3.5 w-3.5 shrink-0" />
-            Monthly rewards are PAUSED until payout is processed
+            Monthly Rent profit share are PAUSED until payout is processed
           </p>
         </div>
 
@@ -274,7 +274,7 @@ export function InvestmentWithdrawButton() {
                       <p className="text-sm font-bold text-destructive">Rewards Will Be Paused</p>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Your <span className="font-bold">monthly rewards stop immediately</span> on the withdrawn portion 
+                      Your <span className="font-bold">monthly Rent profit share stop immediately</span> on the withdrawn portion 
                       once this request is submitted.
                     </p>
                   </div>

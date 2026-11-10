@@ -23,6 +23,8 @@ import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { usePartnerReturnPolicy } from '@/hooks/usePartnerReturnPolicy';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { formatRatePct, monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { useSelfSupportFeePolicy } from '@/hooks/useSelfSupportFeePolicy';
+import { AgentCareNote } from '@/components/partner/AgentCareNote';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { useRelatedHouses } from '@/hooks/useRelatedHouses';
 import { useQuery } from '@tanstack/react-query';
@@ -111,6 +113,8 @@ export function EmptyHouseDetailSheet({
   const { rate: ownRate } = useOwnNewPortfolioRate();
   const returnsRate = isPartner ? ownRate : newContractRate;
   const returnsRatePct = formatRatePct(returnsRate);
+  // A partner supporting the house pays pay(rent) (Field Care included; = rent while the switch is off).
+  const { pay } = useSelfSupportFeePolicy();
 
   const {
     data: related,
@@ -167,7 +171,7 @@ export function EmptyHouseDetailSheet({
   // rate). null when the rate is unknown: show no figure.
   {
     const rent = Number(house.monthly_rent || 0);
-    const atRate = monthlyReturnFor(rent, returnsRate);
+    const atRate = monthlyReturnFor(isPartner ? pay(rent) : rent, returnsRate);
     const monthly = isPartner ? atRate : Number(house.partner_monthly_return) || atRate;
     const annual = isPartner
       ? (monthly === null ? null : monthly * 12)
@@ -181,7 +185,7 @@ export function EmptyHouseDetailSheet({
   const gps = houseHasGps(house);
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
   const topUpNeeded = isPartner && typeof remaining === 'number'
-    ? Math.max(0, Number(house.monthly_rent || 0) - remaining)
+    ? Math.max(0, pay(Number(house.monthly_rent || 0)) - remaining)
     : 0;
 
   return (
@@ -288,7 +292,7 @@ export function EmptyHouseDetailSheet({
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Potential earnings</p>
               <div className="grid grid-cols-2 gap-3 text-[12px]">
                 <div>
-                  <p className="text-[10px] text-muted-foreground">{returnsRatePct ? `Monthly Returns (${returnsRatePct})` : 'Monthly Returns'}</p>
+                  <p className="text-[10px] text-muted-foreground">{returnsRatePct ? `Monthly Rent profit share (${returnsRatePct})` : 'Monthly Rent profit share'}</p>
                   <p className="text-base font-black text-primary">{formatUGXOrDash(house.partner_monthly_return)}</p>
                 </div>
                 <div>
@@ -319,7 +323,7 @@ export function EmptyHouseDetailSheet({
               </div>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Monthly rent</p>
-                <p className="text-base font-black text-primary">{formatUGX(house.monthly_rent)}</p>
+                <p className="text-base font-black text-primary">{formatUGX(isPartner ? pay(Number(house.monthly_rent || 0)) : house.monthly_rent)}</p>
               </div>
             </div>
 
@@ -354,10 +358,11 @@ export function EmptyHouseDetailSheet({
             <div className="space-y-2 text-[12px]">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Rent amount funded</span>
-                <span className="font-bold text-primary">{formatUGX(house.monthly_rent)}</span>
+                <span className="font-bold text-primary">{formatUGX(isPartner ? pay(Number(house.monthly_rent || 0)) : house.monthly_rent)}</span>
               </div>
+              {isPartner && <AgentCareNote kind="house" rent={Number(house.monthly_rent || 0)} />}
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Monthly Returns</span>
+                <span className="text-muted-foreground">Monthly Rent profit share</span>
                 <span className="font-bold text-primary">{returnsRatePct ?? '—'}</span>
               </div>
               <div className="flex items-center justify-between">

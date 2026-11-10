@@ -158,7 +158,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
       <PageHeader
         icon={CalendarClock}
         title="Liquidity Forecast"
-        description={<>What the pool owes on each upcoming day, and how much is sitting withdrawable right now. Use this to pre-fund before ROI crons run.</>}
+        description={<>What the pool owes on each upcoming day, and how much is sitting withdrawable right now. Use this to pre-fund before Rent profit share crons run.</>}
       />
 
       {/* Top strip — three numbers that matter today. */}
@@ -188,7 +188,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <CalendarClock className="h-3.5 w-3.5" /> ROI due ({windowLabel})
+            <CalendarClock className="h-3.5 w-3.5" /> Rent profit share due ({windowLabel})
           </div>
           <p className="mt-2 text-xl font-bold">{formatUGX(totals.cashout)}</p>
           <p className="text-[11px] text-muted-foreground">
@@ -240,7 +240,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
       {/* Per-day list with bar */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="border-b border-border px-4 py-3 flex items-center justify-between">
-          <h3 className="text-sm font-bold">ROI obligations by day</h3>
+          <h3 className="text-sm font-bold">Rent profit share obligations by day</h3>
           <span className="text-[11px] text-muted-foreground">Cash-out only counts toward pool drain</span>
         </div>
         {roiLoading ? (
@@ -249,7 +249,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
           </div>
         ) : byDate.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
-            No ROI payouts scheduled in the next {horizon} days.
+            No Rent profit share payouts scheduled in the next {horizon} days.
           </div>
         ) : (
           <ul className="divide-y divide-border">
@@ -297,7 +297,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
                     </div>
                     {b.weekend > 0 && (
                       <p className="mt-1.5 text-[10px] text-muted-foreground">
-                        Includes {formatUGX(b.weekend)} due Saturday and Sunday: partner ROI is not paid over the weekend.
+                        Includes {formatUGX(b.weekend)} due Saturday and Sunday: partner Rent profit share is not paid over the weekend.
                       </p>
                     )}
                   </button>
@@ -309,7 +309,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
                             <th className="text-left py-1 font-semibold">Portfolio</th>
                             <th className="text-left py-1 font-semibold">Account</th>
                             <th className="text-right py-1 font-semibold">Principal</th>
-                            <th className="text-right py-1 font-semibold">ROI</th>
+                            <th className="text-right py-1 font-semibold">Rent profit share</th>
                             <th className="text-left py-1 pl-3 font-semibold">Mode</th>
                           </tr>
                         </thead>

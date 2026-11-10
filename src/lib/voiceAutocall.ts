@@ -122,8 +122,8 @@ export function sampleVariables(): Record<string, string> {
 const BANNED_TERMS: { re: RegExp; use: string }[] = [
   { re: /\bloans?\b/i, use: 'Rent Plan' },
   { re: /\blenders?\b/i, use: 'Supporter' },
-  { re: /\bROI\b/, use: 'Returns' },
-  { re: /\binterest\b/i, use: 'Returns' },
+  { re: /\bROI\b/, use: 'Rent profit share' },
+  { re: /\binterest\b/i, use: 'Rent profit share' },
 ];
 
 export interface ScriptIssue {
