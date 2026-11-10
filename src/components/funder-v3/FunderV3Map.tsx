@@ -7,6 +7,7 @@ import { coarsenMapCells } from '@/components/funder-new/coarsenMapCells';
 import { loadGoogleMaps, viewportOf, type FunderNewMapCell, type FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
 import { viewportFromCenter } from '@/components/funder-new/viewportMath';
 import type { FunderNewEmptyHouse, FunderNewFilters } from '@/components/funder-new/types';
+import type { BoardPin } from '@/components/supporter/FunderHouseListingsSection';
 import type { FunderNewLocationController } from '@/components/funder-new/useFunderNewLocation';
 import { amountRange, emptyHouseTitle, itemAmount } from '@/components/funder-new/utils';
 import '@/components/funder-new/funderNewMap.css';
@@ -54,6 +55,10 @@ export interface FunderV3MapProps {
   centreOffsetY?: number;
   /** Bumped by the screen's "my location" button: recentre on the device (now, or when the fix arrives). */
   locateToken?: number;
+  /** E72b: rent requests on the funders board, pinned in their tag colour. */
+  boardPins?: BoardPin[];
+  /** A board pin was tapped: the screen scrolls to that card. */
+  onPinCard?: (cardId: string) => void;
   /** E59: pins take their funders board tag colour (grey Empty house, purple Verified). */
   boardTagsOn?: boolean;
 }
@@ -85,6 +90,8 @@ export function FunderV3Map({
   centreOffsetY = 0,
   boardTagsOn = false,
   locateToken = 0,
+  boardPins,
+  onPinCard,
 }: FunderV3MapProps) {
   const emptyHousesAllowed = useFunderEmptyHousesAllowed();
   const device = location.coords;
@@ -169,6 +176,10 @@ export function FunderV3Map({
   const deviceRef = useRef(device);
   deviceRef.current = device;
   const fittedRef = useRef(false);
+  const boardFittedRef = useRef(false);
+  const boardMarkersRef = useRef<Map<string, { marker: AnyMarker; sig: string; pin: BoardPin }>>(new Map());
+  const onPinCardRef = useRef(onPinCard);
+  onPinCardRef.current = onPinCard;
 
   const reportViewport = useCallback((immediate = false) => {
     const map = mapRef.current;
@@ -253,6 +264,8 @@ export function FunderV3Map({
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
       markerJobRef.current += 1;
       clustererRef.current?.clearMarkers(true);
+      boardMarkersRef.current.forEach((entry) => detach(entry.marker));
+      boardMarkersRef.current.clear();
       clustererRef.current?.setMap(null);
       clustererRef.current = null;
       markersRef.current.forEach((entry) => detach(entry.marker));
@@ -306,20 +319,70 @@ export function FunderV3Map({
 
   // First load: fit to every pin (zooms out towards all of Uganda when houses
   // are far apart). Once only; after that the map is the funder's.
+  // With the board on, its rent request pins count too (one more fit when they arrive).
   useEffect(() => {
     const map = mapRef.current;
-    if (fittedRef.current || !map || !window.google?.maps || cells.length === 0) return;
+    if (!map || !window.google?.maps) return;
+    const pins = boardPins ?? [];
+    const needFirst = !fittedRef.current && (cells.length > 0 || pins.length > 0);
+    const needBoard = fittedRef.current && !boardFittedRef.current && pins.length > 0;
+    if (!needFirst && !needBoard) return;
     fittedRef.current = true;
-    if (cells.length === 1) {
-      map.setCenter({ lat: cells[0].lat, lng: cells[0].lng });
+    if (pins.length > 0) boardFittedRef.current = true;
+    const points = [...cells.map((c) => ({ lat: c.lat, lng: c.lng })), ...pins.map((p) => ({ lat: p.lat, lng: p.lng }))];
+    if (points.length === 1) {
+      map.setCenter(points[0]);
       map.setZoom(14);
       return;
     }
     const bounds = new google.maps.LatLngBounds();
-    cells.forEach((cell) => bounds.extend({ lat: cell.lat, lng: cell.lng }));
+    points.forEach((point) => bounds.extend(point));
     const pad = insetsRef.current;
     map.fitBounds(bounds, { top: pad.top + 40, bottom: pad.bottom + 40, left: pad.left + 40, right: pad.right + 40 });
-  }, [cells, mapReady]);
+  }, [cells, boardPins, mapReady]);
+
+  // E72b board pins: one per rent request, in its tag colour, clustered with the rest.
+  useEffect(() => {
+    const map = mapRef.current;
+    const clusterer = clustererRef.current;
+    if (!map || !clusterer || !window.google?.maps) return;
+    const advanced = advancedRef.current;
+    const store = boardMarkersRef.current;
+    const counts = countOfRef.current;
+    const seen = new Set<string>();
+    const added: AnyMarker[] = [];
+    const removed: AnyMarker[] = [];
+    for (const pin of boardPins ?? []) {
+      const tone = pinToneFor(true, pin.tag === 'empty_house' ? 'empty' : pin.tag);
+      const sig = `${pin.lat},${pin.lng}|${pin.amount}|${pin.tag}`;
+      seen.add(pin.cardId);
+      const title = `${pin.tag.replace('_', ' ')}: ${formatDynamic(pin.amount)}`;
+      const existing = store.get(pin.cardId);
+      if (existing) {
+        existing.pin = pin;
+        if (existing.sig === sig) continue;
+        existing.sig = sig;
+        paint(existing.marker, { lat: pin.lat, lng: pin.lng }, pin.amount, false, 0, title, tone);
+        continue;
+      }
+      const marker = create(advanced, { lat: pin.lat, lng: pin.lng }, pin.amount, false, 0, title, tone);
+      counts.set(marker, 1);
+      const entry = { marker, sig, pin };
+      marker.addListener('click', () => onPinCardRef.current?.(entry.pin.cardId));
+      store.set(pin.cardId, entry);
+      added.push(marker);
+    }
+    for (const [key, entry] of store) {
+      if (!seen.has(key)) {
+        removed.push(entry.marker);
+        google.maps.event.clearInstanceListeners(entry.marker);
+        store.delete(key);
+      }
+    }
+    if (removed.length) clusterer.removeMarkers(removed, true);
+    if (added.length) clusterer.addMarkers(added, true);
+    if (removed.length || added.length) clusterer.render();
+  }, [boardPins, mapReady]);
 
   // "My location": recentre on the device when asked, now or when the fix arrives.
   const lastLocateRef = useRef(0);

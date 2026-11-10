@@ -4,6 +4,9 @@ import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
 import type { FunderListingsViewApi, FeedEntry } from '@/components/supporter/FunderHouseListingsSection';
 import { itemId, sortLabel } from '@/components/funder-new/utils';
 import { FunderV3HouseCard } from './FunderV3HouseCard';
+import { FunderBoardItemCard } from '@/components/funder-new/FunderBoardItemCard';
+import { straightLineDistance } from '@/components/funder-new/distance';
+import type { BoardItem } from '@/lib/fundersBoard';
 
 /** Above this many loaded cards the list renders only the rows near the screen. */
 export const VIRTUALIZE_ABOVE = 60;
@@ -37,6 +40,8 @@ interface Props {
   demoteMode?: boolean;
   demoteChecked?: ReadonlySet<string>;
   onDemoteToggle?: (entry: FeedEntry) => void;
+  /** E72b: a Verified board item that cannot be funded here can still be demoted. */
+  onDemoteToggleBoard?: (item: BoardItem) => void;
 }
 
 /**
@@ -46,7 +51,7 @@ interface Props {
  * rows are windowed so a long scroll stays light on phones.
  */
 export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(function FunderV3HousesList(
-  { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false, demoteMode = false, demoteChecked, onDemoteToggle },
+  { api, scrollRef, highlightedId, scrollPaddingTop = 0, onHoverCard, reducedMotion = false, demoteMode = false, demoteChecked, onDemoteToggle, onDemoteToggleBoard },
   ref,
 ) {
   const {
@@ -68,7 +73,9 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
   const listRef = useRef<HTMLDivElement | null>(null);
   const [columns, setColumns] = useState(1);
   const [scrollMargin, setScrollMargin] = useState(0);
-  const virtual = items.length > VIRTUALIZE_ABOVE;
+  const groups = api.boardGroups;
+  // The grouped (tags) list is short per group and rendered whole; the plain list windows past 60.
+  const virtual = !groups && items.length > VIRTUALIZE_ABOVE;
 
   // Column count and the list's offset inside its scroller, kept live.
   useLayoutEffect(() => {
@@ -108,9 +115,15 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
 
   const scrollToCard = useCallback(
     (cardId: string) => {
+      const behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth';
+      if (groups) {
+        const card = listRef.current?.querySelector<HTMLElement>(`[data-card-id="${CSS.escape(cardId)}"]`);
+        if (!card) return false;
+        card.scrollIntoView({ block: 'center', behavior });
+        return true;
+      }
       const index = items.findIndex((entry) => cardIdOf(entry) === cardId);
       if (index < 0) return false;
-      const behavior: ScrollBehavior = reducedMotion ? 'auto' : 'smooth';
       if (virtual) {
         virtualizer.scrollToIndex(Math.floor(index / columns), { align: 'center' });
         return true;
@@ -119,7 +132,7 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
       node?.scrollIntoView({ block: 'center', behavior });
       return true;
     },
-    [items, virtual, virtualizer, columns, reducedMotion],
+    [items, virtual, virtualizer, columns, reducedMotion, groups],
   );
 
   useImperativeHandle(ref, () => ({ scrollToCard }), [scrollToCard]);
@@ -202,6 +215,37 @@ export const FunderV3HousesList = forwardRef<FunderV3HousesListHandle, Props>(fu
                 </button>
               </p>
             </div>
+          </div>
+        ) : groups && groups.length > 0 ? (
+          <div className="flex flex-col gap-5" data-testid="board-groups">
+            {groups.map((group) => (
+              <section key={group.tag} aria-label={`${group.label}, ${group.count}`} data-board-group={group.tag} className="flex flex-col gap-2">
+                <h3 className="flex items-center gap-2 px-1 fv3-t-sm font-semibold text-foreground" data-testid="board-group-head">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} aria-hidden />
+                  {group.label}
+                  <span className="tabular-nums text-muted-foreground">{group.count.toLocaleString('en')}</span>
+                </h3>
+                <div className="grid grid-cols-1 gap-3 @[560px]:grid-cols-2 @[1100px]:grid-cols-3">
+                  {group.rows.map((row, index) => {
+                    if (row.kind === 'feed') return renderCard(row.entry, group.tag === 'verified' ? index : index + 1);
+                    const item = row.item;
+                    const distance = item.lat !== null && item.lng !== null ? straightLineDistance(api.location.coords ? { lat: api.location.coords.lat, lng: api.location.coords.lng } : null, { lat: item.lat, lng: item.lng }) : null;
+                    return (
+                      <FunderBoardItemCard
+                        key={row.cardId}
+                        item={item}
+                        cardId={row.cardId}
+                        distance={distance}
+                        highlighted={highlightedId === row.cardId}
+                        demoteMode={demoteMode}
+                        demoteChecked={demoteChecked?.has(row.cardId) ?? false}
+                        onDemoteToggle={onDemoteToggleBoard ? () => onDemoteToggleBoard(item) : undefined}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-2xl border bg-primary/5 p-8 text-center">

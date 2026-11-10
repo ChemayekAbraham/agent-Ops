@@ -59,7 +59,8 @@ export function FunderNewHouseCard({
       )}
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
-        {isEmpty ? (
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn ? null : isEmpty ? (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             Pending verification

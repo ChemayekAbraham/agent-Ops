@@ -93,7 +93,7 @@ for (const [width, height] of VIEWPORTS) {
     const screen = page.getByTestId('fv3-houses');
     await expect(screen).toBeVisible();
     await expect(page.getByTestId('fv3-card').first()).toBeVisible();
-    await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
+    await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
     await noHorizontalScroll(page);
     // The houses screen owns the page: the launcher is hidden, so it can cover no Fund button.
     await expect(page.getByTestId('assistant-launcher')).toHaveCount(0);
@@ -249,7 +249,7 @@ test('live resize 1280 → 390 → 1280 keeps the right layout and scrolling', a
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(screen).toHaveAttribute('data-layout', 'compact');
   await expect(page.getByTestId('fv3-map-window')).toBeVisible();
-  await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
+  await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
   await noHorizontalScroll(page);
 
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -262,23 +262,21 @@ test('live resize 1280 → 390 → 1280 keeps the right layout and scrolling', a
   await noHorizontalScroll(page);
 });
 
-test('"Show more" keeps paging; the header counts every house, not the loaded ones', async ({ page }) => {
+test('"Show more" keeps paging; count reads "N of total"', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await open(page, 'view=houses&count=12');
-  await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
-  await expect(page.getByTestId('fv3-card')).toHaveCount(12);
+  await expect(page.getByTestId('fv3-count')).toHaveText('12 of 2,534');
   const more = page.getByTestId('fv3-show-more');
   await more.scrollIntoViewIfNeeded();
   await expect(more).toHaveText('Show more homes (2,522 left)');
   await more.click();
-  await expect(page.getByTestId('fv3-card')).toHaveCount(24);
-  await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
+  await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
 });
 
 test('past 60 cards the list is windowed', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   await open(page, 'view=houses&count=120');
-  await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
+  await expect(page.getByTestId('fv3-count')).toHaveText('120 of 2,534');
   const rendered = await page.getByTestId('fv3-card').count();
   expect(rendered).toBeGreaterThan(0);
   expect(rendered).toBeLessThan(40);
@@ -399,32 +397,80 @@ test('E59: with the switch on, every card is tagged and pins take the tag colour
 });
 
 
-// ---- All houses by default (no 25 km limit), distances, E65 order ----
+// ---- No distance limit by default; distances on cards (both with the switch off) ----
 
 for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
-  test(`${size.width}x${size.height}: every house by default, distance on cards, header counts all`, async ({ page }) => {
+  test(`${size.width}x${size.height}: no distance limit by default and distance on cards`, async ({ page }) => {
     await page.setViewportSize(size);
     await open(page, 'view=houses&count=24');
-    await expect(page.getByTestId('fv3-count')).toHaveText('2 ready to fund · 2,532 houses');
-    // No default distance limit anywhere on the screen.
+    await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
     await expect(page.getByTestId('fv3-radius-note')).toHaveCount(0);
     await expect(page.getByText(/Within \d+ km/)).toHaveCount(0);
-    // Location is known in the fixtures: each pinned card says how far it is.
     const distances = page.locator('[data-testid="fv3-card"]').getByText(/^About [\d.,]+ (km|m) away/);
     await expect(distances.first()).toBeVisible();
     expect(await distances.count()).toBeGreaterThan(3);
     await noHorizontalScroll(page);
   });
+}
 
-  test(`${size.width}x${size.height}: with the E65 tags on, cards run Verified, Booked, Funded, Pending verification, then Empty houses`, async ({ page }) => {
+// ---- E72b grouped list (funders_board_tags on) ----
+
+const GROUP_ORDER = ['verified', 'booked', 'funded', 'pending_verification', 'empty_house'];
+
+for (const size of [{ width: 360, height: 800 }, { width: 412, height: 915 }]) {
+  test(`${size.width}x${size.height}: groups in order, header totals, view-only cards, one chip per card`, async ({ page }) => {
     await page.setViewportSize(size);
-    await open(page, 'view=houses&count=24&tags=e65');
-    const order = ['verified', 'booked', 'funded', 'pending_verification', 'empty'];
-    const tags = await page.locator('[data-testid="fv3-card"] [data-testid="funders-board-tag"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tag')));
-    expect(tags.length).toBeGreaterThan(4);
-    const ranks = tags.map((t) => order.indexOf(String(t)));
-    expect(ranks.every((r) => r >= 0)).toBe(true);
-    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
-    await page.screenshot({ path: join(SHOTS, `houses-e65-${size.width}x${size.height}.png`) });
+    await open(page, 'view=houses&count=24&tags=board');
+    const groups = await page.locator('[data-board-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-board-group')));
+    expect(groups).toEqual(GROUP_ORDER);
+    await expect(page.getByTestId('fv3-count')).toHaveText('5 ready to fund · UGX 1,950,000');
+    await expect(page.getByTestId('fv3-count-sub')).toHaveText('3 verified · 2 pending verification');
+    // Every card in a group carries that group's tag only (never mixed), and exactly one chip.
+    for (const tag of GROUP_ORDER) {
+      const chips = await page.locator(`[data-board-group="${tag}"] [data-testid="funders-board-tag"]`).evaluateAll((els) => els.map((e) => e.getAttribute('data-tag')));
+      expect(chips.length).toBeGreaterThan(0);
+      expect(new Set(chips)).toEqual(new Set([tag === 'empty_house' ? 'empty' : tag]));
+    }
+    const perCard = await page.locator('[data-board-group] article').evaluateAll((els) => els.map((e) => e.querySelectorAll('[data-testid="funders-board-tag"]').length));
+    expect(perCard.every((n) => n === 1)).toBe(true);
+    await expect(page.getByText('Verified tenant')).toHaveCount(0);
+    // Booked, Funded, Pending verification (and a held Verified) are view only: no fund button.
+    for (const tag of ['booked', 'funded', 'pending_verification']) {
+      await expect(page.locator(`[data-board-group="${tag}"] [data-testid="fv3-fund-button"]`)).toHaveCount(0);
+    }
+    await expect(page.locator('[data-board-group="verified"] [data-testid="fv3-fund-button"]').first()).toBeVisible();
+    await expect(page.locator('article[data-card-id="board:rq-held"] [data-testid="fv3-fund-button"]')).toHaveCount(0);
+    await noHorizontalScroll(page);
+    await page.screenshot({ path: join(SHOTS, `houses-board-${size.width}x${size.height}.png`) });
+  });
+
+  test(`${size.width}x${size.height}: pins take their tag colour and a pin scrolls to its card`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await open(page, 'view=houses&count=24&tags=board');
+    const tones = await page.locator('[data-testid="fv3-fake-board-pin"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-tone')));
+    expect(new Set(tones)).toEqual(new Set(['verified', 'booked', 'funded', 'pending_verification']));
+    await page.locator('[data-testid="fv3-fake-board-pin"][data-card-id="board:rq-f1"]').click();
+    const card = page.locator('article[data-card-id="board:rq-f1"]');
+    await expect(card).toHaveAttribute('data-highlighted', 'true');
+    await expect(card).toBeInViewport();
   });
 }
+
+test('E72b: demote stays on Verified and Empty house cards only', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24&tags=board&demote=1');
+  await page.getByTestId('fv3-demote-toggle').click();
+  await expect(page.locator('[data-board-group="verified"] [data-testid="fv3-demote-check"]').first()).toBeVisible();
+  await expect(page.locator('article[data-card-id="board:rq-held"] [data-testid="fv3-demote-check"]')).toHaveCount(1);
+  await expect(page.locator('[data-board-group="empty_house"] [data-testid="fv3-demote-check"]').first()).toBeAttached();
+  for (const tag of ['booked', 'funded', 'pending_verification']) {
+    await expect(page.locator(`[data-board-group="${tag}"] [data-testid="fv3-demote-check"]`)).toHaveCount(0);
+  }
+});
+
+test("E72b: with the switch off the list is today's (no groups)", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page, 'view=houses&count=24');
+  await expect(page.locator('[data-board-group]')).toHaveCount(0);
+  await expect(page.getByTestId('fv3-count')).toHaveText('24 of 2,534');
+});

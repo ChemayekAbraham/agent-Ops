@@ -489,34 +489,96 @@ export function kampalaDay(iso: string | null | undefined): string {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
 }
 
-/* ───────────── E65 tag groups (funders_board_items, rule FB-TAG v2 / FB-ORDER) ───────────── */
+/* ───────────── E72b funders board groups (funders_board_items, FB-STAY / FB-ORDER) ───────────── */
 
-/** The server's E65 tags. Empty houses (house_listings) are never in funders_board_items: they are 'empty_house'. */
-export type BoardTag = 'verified' | 'booked' | 'funded' | 'pending_verification' | 'empty_house';
+export {
+  BOARD_GROUPS,
+  BOARD_TAG_COLOR,
+  BOARD_TAG_LABEL,
+  BOARD_TAG_ORDER,
+  type BoardRequestTag,
+  type BoardTag,
+} from './fundersBoardTags';
+import type { BoardRequestTag } from './fundersBoardTags';
 
-/** FB-ORDER: Verified, Booked, Funded, Pending verification, then Empty houses. */
-export const BOARD_TAG_ORDER: Record<BoardTag, number> = {
-  verified: 1,
-  booked: 2,
-  funded: 3,
-  pending_verification: 4,
-  empty_house: 5,
-};
+const REQUEST_TAGS = new Set<BoardRequestTag>(['verified', 'booked', 'funded', 'pending_verification']);
 
-const BOARD_TAGS = new Set<BoardTag>(['verified', 'booked', 'funded', 'pending_verification']);
+/** One rent request on the funders board. Only Verified (and not held) can be funded; the rest are view only. */
+export interface BoardItem {
+  id: string;
+  tag: BoardRequestTag;
+  selectable: boolean;
+  held: boolean;
+  tenantFirstName: string | null;
+  houseCategory: string | null;
+  city: string | null;
+  mainPhoto: string | null;
+  rentAmount: number;
+  durationDays: number | null;
+  lat: number | null;
+  lng: number | null;
+  /** When it went on the board (or was booked/funded): the server's order inside a group. */
+  sortAt: string | null;
+}
 
-/** Rent request id → its E65 tag, for every item on the funders board. Empty map when the call fails. */
-export async function fetchBoardItemTags(): Promise<Map<string, BoardTag>> {
-  const out = new Map<string, BoardTag>();
-  try {
-    const { data, error } = await rpc('funders_board_items', { p_tag: null, p_limit: 1000, p_offset: 0 });
-    if (error) return out;
-    for (const item of arr(rec(data).items)) {
-      const tag = String(item.tag ?? '') as BoardTag;
-      if (item.kind === 'rent_request' && item.id && BOARD_TAGS.has(tag)) out.set(String(item.id), tag);
-    }
-  } catch {
-    /* no tags: callers fall back to the category */
+export interface BoardItemsCounts {
+  verified: number;
+  verified_ugx: number;
+  booked: number;
+  funded: number;
+  pending_verification: number;
+  pending_verification_ugx: number;
+  ready_total: number;
+  ready_total_ugx: number;
+}
+
+export interface BoardItems {
+  items: BoardItem[];
+  counts: BoardItemsCounts;
+}
+
+const optNum = (v: unknown) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+const optStr = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
+
+export function parseBoardItems(data: unknown): BoardItems {
+  const r = rec(data);
+  const c = rec(r.counts);
+  const items: BoardItem[] = [];
+  for (const x of arr(r.items)) {
+    const tag = String(x.tag ?? '') as BoardRequestTag;
+    if (x.kind !== 'rent_request' || !x.id || !REQUEST_TAGS.has(tag)) continue;
+    items.push({
+      id: String(x.id),
+      tag,
+      selectable: x.selectable === true,
+      held: x.held === true,
+      tenantFirstName: optStr(x.tenant_first_name),
+      houseCategory: optStr(x.house_category),
+      city: optStr(x.city),
+      mainPhoto: optStr(x.main_photo),
+      rentAmount: num(x.rent_amount),
+      durationDays: optNum(x.duration_days),
+      lat: optNum(x.lat),
+      lng: optNum(x.lng),
+      sortAt: optStr(x.sort_at),
+    });
   }
-  return out;
+  const counts: BoardItemsCounts = {
+    verified: num(c.verified),
+    verified_ugx: num(c.verified_ugx),
+    booked: num(c.booked),
+    funded: num(c.funded),
+    pending_verification: num(c.pending_verification),
+    pending_verification_ugx: num(c.pending_verification_ugx),
+    ready_total: num(c.ready_total),
+    ready_total_ugx: num(c.ready_total_ugx),
+  };
+  return { items, counts };
+}
+
+/** Every rent request on the funders board, all four tags, sorted by group (no p_tag). */
+export async function fetchBoardItems(): Promise<BoardItems> {
+  const { data, error } = await rpc('funders_board_items', { p_limit: 1000 });
+  if (error) throw new Error(error.message || 'The funders board could not be loaded.');
+  return parseBoardItems(data);
 }

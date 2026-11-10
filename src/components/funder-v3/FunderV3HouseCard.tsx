@@ -124,6 +124,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           )}
         </button>
 
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
           {isEmpty ? (
             <>
@@ -140,6 +142,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             </>
           )}
         </span>
+        )}
 
         <button
           type="button"

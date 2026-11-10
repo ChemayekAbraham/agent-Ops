@@ -48,18 +48,22 @@ export const FUNDER_V3_MAP_STYLES: google.maps.MapTypeStyle[] = [
  * Pin tone. `plain` = white pill (tags off). With E59 board tags on, pins take
  * their tag colour: `empty` (Empty house) grey, `verified` (Verified) purple.
  */
-export type PinTone = 'plain' | 'empty' | 'verified';
+export type PinTone = 'plain' | 'empty' | 'verified' | 'booked' | 'funded' | 'pending_verification';
 
 /** Map pins are cells of house_listings (empty houses); a cell that carries a verified tenant would be purple. */
-export function pinToneFor(tagsOn: boolean, kind: 'empty' | 'verified'): PinTone {
+export function pinToneFor(tagsOn: boolean, kind: Exclude<PinTone, 'plain'>): PinTone {
   return tagsOn ? kind : 'plain';
 }
 
 const SLATE = '#4b5563';
 const TONES: Record<PinTone, { fill: string; ink: string; stroke: string; selFill: string }> = {
   plain: { fill: '#ffffff', ink: '#1f2328', stroke: 'rgba(17,24,39,0.10)', selFill: WELILE_PURPLE },
-  empty: { fill: '#e5e7eb', ink: '#374151', stroke: 'rgba(17,24,39,0.14)', selFill: SLATE },
-  verified: { fill: WELILE_PURPLE, ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#4c0099' },
+  // E72b colours (funders_board_items.tags): Empty grey, Verified green, Booked blue, Funded purple, Pending amber.
+  empty: { fill: '#6B7280', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#374151' },
+  verified: { fill: '#16A34A', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#15803D' },
+  booked: { fill: '#2563EB', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#1D4ED8' },
+  funded: { fill: WELILE_PURPLE, ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#4c0099' },
+  pending_verification: { fill: '#D97706', ink: '#ffffff', stroke: 'rgba(255,255,255,0.9)', selFill: '#B45309' },
 };
 
 /** Pill label: the live pin's own text (unknown amounts fall back as live does). */

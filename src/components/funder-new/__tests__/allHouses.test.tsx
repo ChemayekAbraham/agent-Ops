@@ -9,10 +9,8 @@ vi.mock('@/hooks/useAuthenticatedPoll', () => ({ requireUserSession: async () =>
 vi.mock('@/hooks/useFunderEmptyHousesSwitch', () => ({ useFunderEmptyHousesAllowed: () => true }));
 
 import { useFunderNewEmptyHouses } from '../useFunderNewOpportunities';
-import { feedCountLabel, orderFeedByBoardTag, withinRadius } from '../feedOrder';
-import { tagKindFor } from '../FundersBoardTag';
-import { BOARD_TAG_ORDER, fetchBoardItemTags, type BoardTag } from '@/lib/fundersBoard';
-import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin, FunderNewReadyPlan } from '../types';
+import { withinRadius } from '../feedOrder';
+import type { FunderNewFilters, FunderNewOrigin } from '../types';
 
 const FILTERS: FunderNewFilters = { search: '', location: '', amount: 'all', sort: 'nearest', rentMin: null, rentMax: null, radiusKm: 'all', withinFloat: false };
 const ORIGIN: FunderNewOrigin = { lat: 0.3476, lng: 32.5825, source: 'device', radiusKm: null, label: 'your location' };
@@ -59,76 +57,5 @@ describe('all houses by default', () => {
     expect(withinRadius(3.2, 5)).toBe(true);
     expect(withinRadius(12, 5)).toBe(false);
     expect(withinRadius(null, 5)).toBe(false);
-  });
-});
-
-type E = { category: 'ready' | 'empty'; item: FunderNewEmptyHouse | FunderNewReadyPlan; tag: BoardTag; km: number | null; rent: number };
-const plan = (id: string, tag: BoardTag, km: number | null, rent = 500000): E => ({
-  category: 'ready',
-  item: { rent_request_id: id, rent_amount: rent, funding_amount: rent } as unknown as FunderNewReadyPlan,
-  tag,
-  km,
-  rent,
-});
-const house = (id: string, km: number | null, rent = 300000): E => ({
-  category: 'empty',
-  item: { house_id: id, monthly_rent: rent } as unknown as FunderNewEmptyHouse,
-  tag: 'empty_house',
-  km,
-  rent,
-});
-const ids = (list: E[]) => list.map((e) => ((e.item as { rent_request_id?: string }).rent_request_id ?? (e.item as { house_id?: string }).house_id));
-
-describe('E65 order: tag group first, then the chosen sort', () => {
-  const feed: E[] = [
-    house('h-far', 197),
-    plan('p-pending', 'pending_verification', 2),
-    plan('p-verified-far', 'verified', 50),
-    house('h-near', 3.2),
-    plan('p-funded', 'funded', 1),
-    plan('p-booked', 'booked', 9),
-    plan('p-verified-near', 'verified', 4),
-    house('h-nopin', null),
-  ];
-
-  it('Verified, Booked, Funded, Pending verification, Empty houses; nearest inside each group, no pin last', () => {
-    const out = orderFeedByBoardTag(feed, (e) => e.tag, 'nearest', (e) => e.km);
-    expect(ids(out)).toEqual(['p-verified-near', 'p-verified-far', 'p-booked', 'p-funded', 'p-pending', 'h-near', 'h-far', 'h-nopin']);
-  });
-
-  it('recommended keeps the order the reads returned inside each group', () => {
-    const out = orderFeedByBoardTag(feed, (e) => e.tag, 'recommended', (e) => e.km);
-    expect(ids(out)).toEqual(['p-verified-far', 'p-verified-near', 'p-booked', 'p-funded', 'p-pending', 'h-far', 'h-near', 'h-nopin']);
-  });
-
-  it('the group order is the server\'s (FB-ORDER)', () => {
-    expect(Object.entries(BOARD_TAG_ORDER).sort((a, b) => a[1] - b[1]).map(([k]) => k)).toEqual([
-      'verified', 'booked', 'funded', 'pending_verification', 'empty_house',
-    ]);
-  });
-
-  it('the card tag follows the server tag, falling back to the category', () => {
-    expect(tagKindFor('booked', 'ready')).toBe('booked');
-    expect(tagKindFor('empty_house', 'empty')).toBe('empty');
-    expect(tagKindFor(null, 'ready')).toBe('verified');
-    expect(tagKindFor(undefined, 'empty')).toBe('empty');
-  });
-
-  it('reads the tags from funders_board_items', async () => {
-    rpcMock.mockResolvedValueOnce({
-      data: { items: [{ kind: 'rent_request', id: 'r1', tag: 'booked' }, { kind: 'rent_request', id: 'r2', tag: 'verified' }, { kind: 'rent_request', id: 'r3', tag: 'nonsense' }] },
-      error: null,
-    });
-    const tags = await fetchBoardItemTags();
-    expect(rpcMock).toHaveBeenCalledWith('funders_board_items', { p_tag: null, p_limit: 1000, p_offset: 0 });
-    expect([...tags.entries()]).toEqual([['r1', 'booked'], ['r2', 'verified']]);
-  });
-});
-
-describe('header count', () => {
-  it('"16 ready to fund · 783 houses"', () => {
-    expect(feedCountLabel(16, 783)).toBe('16 ready to fund · 783 houses');
-    expect(feedCountLabel(2, 2532)).toBe('2 ready to fund · 2,532 houses');
-    expect(feedCountLabel(0, 1)).toBe('0 ready to fund · 1 house');
   });
 });
