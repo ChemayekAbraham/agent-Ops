@@ -41744,6 +41744,11 @@ export type Database = {
           partner_id: string
           plan_closed_at: string | null
           principal: number
+          proxy_agent_id: string | null
+          proxy_fee: number
+          proxy_fee_ledger_group_id: string | null
+          proxy_fee_status: string | null
+          rent_amount: number | null
           rent_request_id: string
           status: string
           term_end_at: string | null
@@ -41763,6 +41768,11 @@ export type Database = {
           partner_id: string
           plan_closed_at?: string | null
           principal: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           rent_request_id: string
           status?: string
           term_end_at?: string | null
@@ -41782,6 +41792,11 @@ export type Database = {
           partner_id?: string
           plan_closed_at?: string | null
           principal?: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           rent_request_id?: string
           status?: string
           term_end_at?: string | null
@@ -42020,6 +42035,11 @@ export type Database = {
           partner_id: string
           portfolio_id: string | null
           principal: number
+          proxy_agent_id: string | null
+          proxy_fee: number
+          proxy_fee_ledger_group_id: string | null
+          proxy_fee_status: string | null
+          rent_amount: number | null
           status: string
           supported_at: string
           term_months: number
@@ -42040,6 +42060,11 @@ export type Database = {
           partner_id: string
           portfolio_id?: string | null
           principal: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           status?: string
           supported_at?: string
           term_months?: number
@@ -42060,6 +42085,11 @@ export type Database = {
           partner_id?: string
           portfolio_id?: string | null
           principal?: number
+          proxy_agent_id?: string | null
+          proxy_fee?: number
+          proxy_fee_ledger_group_id?: string | null
+          proxy_fee_status?: string | null
+          rent_amount?: number | null
           status?: string
           supported_at?: string
           term_months?: number
@@ -53623,6 +53653,75 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           value?: string
+        }
+        Relationships: []
+      }
+      self_support_fee_policy: {
+        Row: {
+          enabled: boolean
+          enabled_at: string | null
+          id: boolean
+          note: string | null
+          rate: number
+          round_to: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: boolean
+          note?: string | null
+          rate?: number
+          round_to?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          enabled_at?: string | null
+          id?: boolean
+          note?: string | null
+          rate?: number
+          round_to?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      self_support_fee_reserve_movements: {
+        Row: {
+          amount: number
+          commitment_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id: string | null
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          amount: number
+          commitment_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          kind: string
+          ledger_group_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          amount?: number
+          commitment_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          kind?: string
+          ledger_group_id?: string | null
+          source_id?: string | null
+          source_table?: string | null
         }
         Relationships: []
       }
@@ -88731,6 +88830,8 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_self_support_fee_policy: { Args: never; Returns: Json }
+      get_self_support_fee_reserve: { Args: never; Returns: Json }
       get_service_center_active_advances: { Args: never; Returns: Json }
       get_service_center_listing_queue: {
         Args: { p_manager_id?: string }
@@ -93955,6 +94056,9 @@ export type Database = {
           line_kind: string
           location: string
           principal: number
+          proxy_fee: number
+          proxy_fee_status: string
+          rent_amount: number
           subject_id: string
           subject_name: string
           subject_phone: string
@@ -97464,6 +97568,28 @@ export type Database = {
           withdrawable_balance: number
         }[]
       }
+      self_support_fee_covers_fund_in: {
+        Args: { p_fund_in_key: string; p_portfolio: string }
+        Returns: boolean
+      }
+      self_support_fee_reserve_fund: {
+        Args: {
+          p_available: number
+          p_idempotency_key: string
+          p_ledger_group_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: number
+      }
+      self_support_fee_reserve_position: { Args: never; Returns: Json }
+      self_support_gross: { Args: { p_rent: number }; Returns: number }
+      self_support_pay_proxy_fee: {
+        Args: { p_commitment_id: string }
+        Returns: Json
+      }
+      self_support_proxy_fee: { Args: { p_rent: number }; Returns: number }
+      self_support_topups_closed: { Args: never; Returns: boolean }
       send_daily_advance_deduction_summary: { Args: never; Returns: Json }
       service_center_review_house_listing: {
         Args: { p_comment?: string; p_decision: string; p_listing_id: string }
@@ -97635,6 +97761,10 @@ export type Database = {
       }
       set_requisition_budget_line_required_from: {
         Args: { p_from: string }
+        Returns: Json
+      }
+      set_self_support_fee_policy: {
+        Args: { p_enabled: boolean; p_note?: string }
         Returns: Json
       }
       set_service_center_vetting_policy: {
