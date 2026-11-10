@@ -7,8 +7,17 @@ import type { Stage } from './reviewTypes';
  * board's push (boardApi) can use it without importing a component.
  */
 
-/** The desks that send back with `pipeline_send_back_to`. */
-export const SEND_BACK_STAGES: ReadonlySet<Stage> = new Set<Stage>(['agent_ops', 'tenant_ops', 'landlord_ops', 'coo']);
+/**
+ * The desks that send back with `pipeline_send_back_to`. Since E64 Reject is
+ * gone from these desks: "Send back" to the field agent is the reject (the
+ * server sets the request to rejected); any earlier office takes it back.
+ */
+export const SEND_BACK_STAGES: ReadonlySet<Stage> = new Set<Stage>(['service_centre', 'agent_ops', 'tenant_ops', 'landlord_ops', 'coo']);
+
+/** A board row whose button is "Send back": a send-back, or the system's reject (E64), on a send-back desk. */
+export function isSendBackRow(decision: string | null | undefined, stage: Stage): boolean {
+  return (decision === 'send_back' || decision === 'reject') && SEND_BACK_STAGES.has(stage);
+}
 
 /** The server's own words for a failed send-back, unchanged. */
 export function serverMessage(e: unknown): string {
@@ -43,6 +52,7 @@ export async function sendBackTo(input: {
   });
   if (error) return { ok: false, message: serverMessage(error) };
   const r = (data ?? {}) as SendBackResult;
+  if (input.to === SUGGESTED_OFFICE) return { ok: true, message: 'Sent back to the agent in the field: rejected.' };
   return { ok: true, message: `Sent back to ${r.to_label ?? input.to}.` };
 }
 

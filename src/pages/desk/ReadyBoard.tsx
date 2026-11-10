@@ -31,7 +31,7 @@ import { passMovesOnServer } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
-import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackSheet } from './sendBack';
+import { SUGGESTED_OFFICE, SendBackSheet, isSendBackRow } from './sendBack';
 import { LandlordOpsCard } from './LandlordOpsCard';
 import { NOT_ASSIGNED, isNotAssigned } from './deskAccess';
 import { useTenantHealthMany, type TenantHealth } from './paymentHealth';
@@ -573,8 +573,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
       return;
     }
-    // Send back (E63): choose or confirm the office, reason and note, then one server call.
-    if (row.decision === 'send_back' && SEND_BACK_STAGES.has(stage)) {
+    // Send back (E63), and the system's reject (E64): choose or confirm the office, reason and note, then one server call.
+    if (isSendBackRow(row.decision, stage)) {
       setSendBack(row);
       return;
     }

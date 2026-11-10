@@ -8,7 +8,7 @@ import { Skeleton } from './Skeleton';
 import type { Stage } from './reviewTypes';
 import { sendBackTo, serverMessage, type SendBackStart } from './sendBackApi';
 
-export { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
+export { SEND_BACK_STAGES, SUGGESTED_OFFICE, isSendBackRow, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
 
 /**
  * "Send back…" to a chosen office (E63).
@@ -24,10 +24,28 @@ export { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo, type SendBackResult, ty
 export const SEND_BACK_NOTE_MIN = 10;
 
 export type SendBackOption = { code: string; label: string; hint: string | null };
+
+/** What an office is called on the desks: the field agent says plainly that it is the reject (E64). */
+export function officeLabel(o: Pick<SendBackOption, 'code' | 'label'>): string {
+  return o.code === 'agent' ? 'Agent in the field (rejected)' : o.label;
+}
+
+/**
+ * A send-back in the request's history, from the review the server records:
+ * its note reads "To <office>: <why>". Returns the office and the why, or null
+ * for an older review written another way.
+ */
+export function parseSendBackNote(note: string | null | undefined): { office: string; why: string } | null {
+  const m = /^To (.+?): ([\s\S]*)$/.exec((note ?? '').trim());
+  if (!m) return null;
+  const office = m[1] === 'the field agent (to correct)' ? 'Agent in the field (rejected)' : m[1];
+  return { office, why: m[2].trim() };
+}
 export type SendBackReason = { code: string; meaning: string | null; requires_text: boolean };
 
 /** The reason-code catalogue's tag for each desk. */
 const DESK_TAG: Partial<Record<Stage, string>> = {
+  service_centre: 'Service Centre',
   agent_ops: 'Agent Ops',
   tenant_ops: 'Tenant Ops',
   landlord_ops: 'Landlord Ops',
@@ -165,7 +183,7 @@ export function SendBackForm({
                 className={`rounded-xl border px-3 py-2 text-left ${CALM} ${FOCUS} ${pick(on)}`}
                 style={{ display: 'flex', flexDirection: 'column', gap: 2, borderWidth: 1, borderStyle: 'solid' }}
               >
-                <span className="text-sm font-medium text-foreground">{o.label}</span>
+                <span className="text-sm font-medium text-foreground">{officeLabel(o)}</span>
                 {o.hint && <span className={LABEL}>{o.hint}</span>}
               </button>
             );
@@ -229,7 +247,7 @@ export function SendBackForm({
       {!done && (
         <div>
           <DecisionButton size="md" variant="primary" disabled={!!blocked || busy} onClick={send}>
-            {busy ? 'Sending back…' : `Send back to ${office?.label ?? '…'}`}
+            {busy ? 'Sending back…' : `Send back to ${office ? officeLabel(office) : '…'}`}
           </DecisionButton>
         </div>
       )}
