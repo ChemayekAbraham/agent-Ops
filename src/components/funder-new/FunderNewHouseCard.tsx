@@ -1,4 +1,4 @@
-import { Bookmark, Check, ChevronRight, Clock, Home, MapPin, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -107,14 +107,13 @@ export function FunderNewHouseCard({
           aria-pressed={saved}
           className={cn(
             'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            saved && 'border border-emerald-600 bg-emerald-500 text-white ring-emerald-600',
+            saved && 'ring-yellow-400',
           )}
         >
-          {saved ? (
-            <Check className="h-4 w-4 text-white" aria-hidden />
-          ) : (
-            <Bookmark className="h-4 w-4" aria-hidden />
-          )}
+          <Bookmark
+            className={cn('h-4 w-4', saved && 'fill-yellow-400 text-yellow-500')}
+            aria-hidden
+          />
         </button>
       </div>
 
@@ -165,15 +164,23 @@ export function FunderNewHouseCard({
           {coords ? (
             <Button
               variant="outline"
-              className="h-11 w-[20%] min-w-[44px] flex-none rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
+              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
               }}
               aria-label={`Open Google Maps location for ${title}`}
               title="Open in Google Maps"
             >
-              <MapPin className="!h-5 !w-5 text-red-600" aria-hidden />
-              <span className="sr-only">Open in Google Maps</span>
+              <svg viewBox="0 0 24 24" className="!h-5 !w-5" aria-hidden>
+                <path
+                  d="M12 1.5a8 8 0 0 0-8 8c0 5.6 6.6 11.8 7.3 12.5a1 1 0 0 0 1.4 0c.7-.7 7.3-6.9 7.3-12.5a8 8 0 0 0-8-8Z"
+                  fill="#EA4335"
+                  stroke="#B3261E"
+                  strokeWidth="1"
+                />
+                <circle cx="12" cy="9.5" r="3" fill="#8C1D18" />
+              </svg>
+              <span className="text-[10px] font-semibold leading-none">Location</span>
             </Button>
           ) : null}
           <Button
