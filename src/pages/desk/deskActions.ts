@@ -30,12 +30,23 @@ const STAMP: Partial<Record<Stage, { by: string; at: string; comment: string }>>
   partner_ops: { by: 'partner_ops_reviewed_by', at: 'partner_ops_reviewed_at', comment: 'partner_ops_comment' },
 };
 
-/** The status a desk sets when it passes the request on. Partner Ops has no plain pass. */
-const NEXT_STATUS: Partial<Record<Stage, string>> = {
-  agent_ops: 'agent_ops_approved',
-  tenant_ops: 'tenant_ops_approved',
-  landlord_ops: 'landlord_ops_approved',
-};
+/**
+ * E64: at these desks `pipeline_record_review(..., 'pass')` moves the request
+ * itself (Agent Ops to Tenant Ops, Tenant Ops to Landlord Ops, Landlord Ops to
+ * partner_ops_approved, the COO queue). The client must not update
+ * rent_requests: row security silently refuses it.
+ */
+export const PASS_SENT_TO = {
+  agent_ops: 'Sent to Tenant Ops',
+  tenant_ops: 'Sent to Landlord Ops',
+  landlord_ops: 'Sent to the COO',
+} as const;
+export type ServerPassStage = keyof typeof PASS_SENT_TO;
+
+/** True when the review call alone moves the request on a pass. */
+export function passMovesOnServer(stage: Stage, decision: Decision): stage is ServerPassStage {
+  return decision === 'pass' && stage in PASS_SENT_TO;
+}
 
 async function patchRequest(requestId: string, patch: Record<string, unknown>): Promise<MoveResult> {
   const { error } = await supabase.from('rent_requests').update(patch as never).eq('id', requestId);
@@ -152,20 +163,10 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
     }
   }
 
-  // ── The middle desks: pass forwards, send back and reject both return the
-  //    request for correction (the existing behaviour of those screens). ──
-  if (decision === 'pass') {
-    const next = NEXT_STATUS[stage];
-    const stamp = STAMP[stage];
-    if (!next || !stamp) return fail(`No forward step is defined for ${stage}.`);
-    return patchRequest(requestId, {
-      status: next,
-      [stamp.by]: userId,
-      [stamp.at]: now,
-      [stamp.comment]: note || null,
-      updated_at: now,
-    });
-  }
+  // ── The middle desks: the review already moved the request on a pass (E64);
+  //    send back and reject return it for correction. ──
+  if (passMovesOnServer(stage, decision)) return done(PASS_SENT_TO[stage]);
+  if (decision === 'pass') return fail(`No forward step is defined for ${stage}.`);
 
   if (decision === 'send_back' || decision === 'reject') {
     const { error } = await rpc('return_rent_request_for_correction', {

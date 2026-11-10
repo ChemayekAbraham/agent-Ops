@@ -2354,6 +2354,22 @@ html.reduce-motion *::after {
 }
 .desk-panel { border-radius: var(--desk-radius-card); }
 .desk-tile { border-radius: var(--desk-radius-tile); }
+/* Sticky group headings on the desk boards: a solid surface (the panel's own
+   colour, never see-through) and a soft bottom shadow, so a card scrolling under
+   one is always hidden behind it, never overlapped by it. Not in a dialog: the
+   Android compositor rules strip sticky inside [role="dialog"]. */
+.desk-root .desk-sticky-head {
+  background: #15111f;
+  box-shadow: 0 8px 10px -8px rgba(0, 0, 0, 0.75);
+  /* Low-density screens drop every shadow (index.css "Reduce paint"); the line stays. */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px 6px 0 0;
+}
+.desk-root[data-desk-theme='light'] .desk-sticky-head {
+  background: #ffffff;
+  box-shadow: 0 8px 10px -8px rgba(23, 20, 43, 0.28);
+  border-bottom-color: #e7e4f0;
+}
 .desk-panel.desk-capsule { border-radius: var(--desk-radius-capsule); }
 /* A panel inside an open Fold card is part of that card: no second glass layer. */
 .desk-fold .desk-panel:not(.desk-capsule) {
