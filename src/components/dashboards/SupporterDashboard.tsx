@@ -9,7 +9,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bookmark, Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -156,6 +156,7 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapExpandRequest, setMapExpandRequest] = useState(0);
+  const [mapCollapseRequest, setMapCollapseRequest] = useState(0);
   // The houses map and its "Houses to fund" sheet are no longer repeated on the
   // page: the hero card opens them full screen, and they unmount again on close.
   const [mapRequested, setMapRequested] = useState(false);
@@ -766,6 +767,7 @@ export default function SupporterDashboard({
               onAreaSearchChange={handleMapSearchChange}
               onExpandedChange={handleMapExpandedChange}
               expandRequest={mapExpandRequest}
+              collapseRequest={mapCollapseRequest}
               reserveTopForSearch
               focus={mapFocus}
             />
@@ -778,6 +780,16 @@ export default function SupporterDashboard({
             <MapBottomSheet
               defaultSnap="half"
               header={({ snap, setSnap, layout }) => (
+                <>
+                <button
+                  type="button"
+                  onClick={() => setMapCollapseRequest((n) => n + 1)}
+                  className="mb-2 flex items-center gap-1 rounded-full bg-muted py-1.5 pl-2 pr-3 text-xs font-semibold text-foreground touch-manipulation transition active:scale-95 hover:bg-muted/70"
+                  aria-label="Back to the dashboard"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden />
+                  <span>Back</span>
+                </button>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <p className="text-[15px] font-bold text-foreground">
@@ -796,6 +808,7 @@ export default function SupporterDashboard({
                     {snap === 'collapsed' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>}
                 </div>
+                </>
               )}
             >
               <div id="opportunities" className="relative space-y-2.5 pb-8">

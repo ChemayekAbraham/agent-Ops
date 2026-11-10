@@ -43,6 +43,7 @@ export function FunderNewMapSection({
   onAreaSearchChange,
   onExpandedChange,
   expandRequest,
+  collapseRequest,
   reserveTopForSearch,
   focus,
 }: {
@@ -59,6 +60,7 @@ export function FunderNewMapSection({
   onAreaSearchChange: (value: string) => void;
   onExpandedChange?: (expanded: boolean) => void;
   expandRequest?: number;
+  collapseRequest?: number;
   reserveTopForSearch?: boolean;
   focus?: { points: { lat: number; lng: number }[]; token: number } | null;
 }) {
@@ -216,6 +218,7 @@ export function FunderNewMapSection({
           loadedNote={loadedNote}
           onExpandedChange={onExpandedChange}
           expandRequest={expandRequest}
+          collapseRequest={collapseRequest}
           reserveTopForSearch={reserveTopForSearch}
           focus={focus}
           notice={
