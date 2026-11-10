@@ -13,6 +13,7 @@ import { concernsChip, useConcernsSummary, type ConcernSummary } from './concern
 import type { ChipModel } from './boardRowModel';
 import { AgentSheet } from './agents/AgentSheet';
 import { SendBackSheet } from './sendBack';
+import { KindChip, type RequestKind } from './KindChip';
 import { awaitingRentRequestIds } from '@/lib/fundersBoard';
 import { useCooDemoted } from './fundersBoard/DemotedPanel';
 
@@ -37,6 +38,8 @@ export type CooRatings = {
 
 export type CooRow = {
   id: string;
+  /** E73: New, Renewal or Self-applied. */
+  kind?: RequestKind | null;
   req: string;
   tenant: string | null;
   agent: string | null;
@@ -269,7 +272,8 @@ function CooRowLine({
   concerns?: ConcernSummary;
 }) {
   const frozen = row.frozen;
-  const chips = cooChips(row, concerns).map((c) =>
+  const kindChip = row.kind ? [<KindChip key="kind" kind={row.kind} />] : [];
+  const chips = [...kindChip, ...cooChips(row, concerns).map((c) =>
     c.key === 'frozen' ? (
       <button
         key={c.key}
@@ -289,7 +293,7 @@ function CooRowLine({
         {c.text}
       </Chip>
     ),
-  );
+  )];
   const menu = (close: () => void) => (
     <>
       <MenuItem onClick={() => { close(); onOpen(row.id); }}>Open the review</MenuItem>

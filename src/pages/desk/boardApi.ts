@@ -4,6 +4,7 @@ import { rpc } from './reviewApi';
 import { asIs, recordTransferPass, runMove, transferThenPass, type MoveResult } from './deskActions';
 import { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo } from './sendBackApi';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
+import type { RequestKind } from './KindChip';
 
 /**
  * `pipeline_desk_board(p_stage, p_limit)` — the "Ready for your push" board.
@@ -27,7 +28,9 @@ export type BoardDecision =
   | 'call'
   | 'call_again'
   /** Agent Ops: the house photos need a reviewer before the request can move. */
-  | 'review_photos';
+  | 'review_photos'
+  /** Agent Ops (E73): the tenant applied without a real agent; assign one before anything else. */
+  | 'assign_agent';
 
 /** Agent Ops: whether the agent may collect on a new plan (collected 50%+ of what was due, or a new agent under the limit). */
 export type Eligibility = {
@@ -100,6 +103,8 @@ export type BoardRow = {
   items_missing?: string[] | null;
   /** Agent Ops: the house photos have been reviewed and pass. */
   photos_ok?: boolean | null;
+  /** E73: New, Renewal or Self-applied, with the server's colour and detail. */
+  kind?: RequestKind | null;
 };
 
 /** Service Centre only: which requests the board shows. Other stages ignore it. */
@@ -339,7 +344,7 @@ export const PUSHABLE: BoardDecision[] = ['pass', 'transfer', 'send_back', 'reje
 /** The decision groups each board shows, in the order the desk works them. */
 export const STAGE_GROUPS: Partial<Record<Stage, BoardDecision[]>> = {
   service_centre: ['pass', 'send_back', 'complete', 'waiting'],
-  agent_ops: ['pass', 'transfer', 'complete', 'review_photos', 'send_back', 'reject', 'wait', 'waiting'],
+  agent_ops: ['assign_agent', 'pass', 'transfer', 'complete', 'review_photos', 'send_back', 'reject', 'wait', 'waiting'],
   tenant_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
   landlord_ops: ['call', 'complete', 'pass', 'call_again', 'reject', 'waiting'],
 };
@@ -396,6 +401,7 @@ export const GROUP_LABEL: Record<BoardDecision, string> = {
   review_photos: 'Review photos',
   call: 'Call',
   call_again: 'Call again',
+  assign_agent: 'Assign agent',
 };
 
 /** "5/5 ✓", or "4/5 — <first failing label>". */
@@ -484,6 +490,8 @@ export function primaryLabel(row: BoardRow, stage: Stage): string | null {
       return stage === 'service_centre' || stage === 'agent_ops' ? 'Call and fill' : 'Finish checks';
     case 'review_photos':
       return 'Review photos';
+    case 'assign_agent':
+      return 'Assign agent';
     case 'transfer': {
       const r = row.receiver;
       if (!r) return 'Transfer';

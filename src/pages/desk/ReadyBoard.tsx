@@ -25,10 +25,12 @@ import {
 import { PHONE_PAGE, groupHeading, groupRows, rowChips, rowMeta, rowReason, shortPrimary, type ChipModel } from './boardRowModel';
 import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
-import { readableError } from './reviewApi';
+import { readableError, rpc } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { SENT_BACK_TO_AGENT, passMovesOnServer, passSentTo, rejectMovesOnServer } from './deskActions';
 import { toast } from 'sonner';
+import { KindChip } from './KindChip';
+import { asIs } from './deskActions';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
@@ -93,6 +95,8 @@ export type DrawerContext = {
 export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
 
 const NEEDS_ROLE = 'Needs the employee role and a staff ID';
+/** E73: the picker's note for assigning an agent (the server wants 10+ characters); the reviewer can change it. */
+export const ASSIGN_NOTE = 'Applied without an agent: assigned the nearest eligible agent';
 
 /** Chip colour per decision group. */
 function rowTone(d: BoardDecision): 'ok' | 'warn' | 'bad' | 'idle' {
@@ -214,12 +218,14 @@ function BoardRowLine({
       {note.kind === 'retry' ? `${RETRY_LABEL}. ${note.text}` : note.text}
     </p>
   );
-  const chipEls = (list: ChipModel[]) =>
-    list.map((c) => (
+  const chipEls = (list: ChipModel[]) => [
+    ...(row.kind ? [<KindChip key="kind" kind={row.kind} />] : []),
+    ...list.map((c) => (
       <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
         {c.text}
       </Chip>
-    ));
+    )),
+  ];
 
   const tenant = (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
@@ -540,7 +546,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const [busy, setBusy] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, RowNote>>({});
   const [pushAll, setPushAll] = useState<BoardDecision | null>(null);
-  const [picker, setPicker] = useState<BoardRow | null>(null);
+  // The transfer picker: a suggested transfer's "Pick another agent…", or E73's "Assign agent".
+  const [picker, setPicker] = useState<{ row: BoardRow; mode: 'transfer' | 'assign' } | null>(null);
   // E63: a suggested send-back opens the send-back sheet, prefilled with the server's suggestion.
   const [sendBack, setSendBack] = useState<BoardRow | null>(null);
   const closeSendBack = useCallback(() => setSendBack(null), []);
@@ -587,6 +594,11 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
       open(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
+      return;
+    }
+    // E73: a tenant who applied alone: pick the agent from the nearby list, one transfer call.
+    if (row.decision === 'assign_agent') {
+      setPicker({ row, mode: 'assign' });
       return;
     }
     // Send back (E63), and the system's reject (E64): choose or confirm the office, reason and note, then one server call.
@@ -647,6 +659,20 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       return null;
     }
     return out.message;
+  };
+
+  /**
+   * E73: give a self-applied tenant an agent. One call, ops_transfer_pipeline_request_agent;
+   * the row then comes back as an ordinary Agent Ops row. The server's refusal is shown as-is.
+   */
+  const assignAgent = async (row: BoardRow, agentId: string, note: string, name: string | null): Promise<string | null> => {
+    const { error } = await rpc('ops_transfer_pipeline_request_agent', { p_request_id: row.id, p_to_agent_id: agentId, p_reason: note });
+    if (error) return asIs(error);
+    const message = `Agent assigned${name ? `: ${name}` : ''}`;
+    setNote(row.id, { kind: 'ok', text: message });
+    toast.success(message);
+    void queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    return null;
   };
 
   const retry = async (row: BoardRow) => {
@@ -722,7 +748,9 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
                 className="desk-sticky-head text-sm font-semibold text-foreground"
                 style={{ position: 'sticky', top: card ? 56 : 0, zIndex: 5, margin: card ? '0 -6px 8px' : '0 0 4px', padding: card ? '8px 6px' : '6px 0' }}
               >
-                {groupHeading(g.decision, stage)} · {fmt('int', rows.filter((r) => r.decision === g.decision).length)}
+                {g.decision === 'assign_agent'
+                  ? `${groupHeading(g.decision, stage)} (${fmt('int', rows.filter((r) => r.decision === g.decision).length)})`
+                  : `${groupHeading(g.decision, stage)} · ${fmt('int', rows.filter((r) => r.decision === g.decision).length)}`}
               </h3>
               <ul style={{ ...stackLayout(card ? 12 : 0), margin: 0, padding: 0 }}>
                 {g.rows.map((r) => (
@@ -738,7 +766,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
                     onPrimary={() => void primary(r)}
                     onRetry={() => void retry(r)}
                     onOpen={open}
-                    onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
+                    onPick={stage === 'agent_ops' ? () => setPicker({ row: r, mode: 'transfer' }) : undefined}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
                     concerns={concerns.data?.[r.id]}
                   />
@@ -761,11 +789,14 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
 
       {picker && (
         <TransferPicker
-          requestId={picker.id}
-          tenant={picker.tenant}
-          defaultNote={picker.push?.note ?? picker.why ?? ''}
+          requestId={picker.row.id}
+          tenant={picker.row.tenant}
+          mode={picker.mode}
+          defaultNote={picker.mode === 'assign' ? ASSIGN_NOTE : picker.row.push?.note ?? picker.row.why ?? ''}
           onClose={() => setPicker(null)}
-          onConfirm={(agentId, note) => pickTransfer(picker, agentId, note)}
+          onConfirm={(agentId, note, name) =>
+            picker.mode === 'assign' ? assignAgent(picker.row, agentId, note, name) : pickTransfer(picker.row, agentId, note)
+          }
         />
       )}
 

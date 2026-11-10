@@ -84,6 +84,8 @@ export function groupHeading(d: BoardDecision, stage: Stage): string {
       return stage === 'service_centre' || stage === 'agent_ops' ? 'Call and fill' : 'Finish checks';
     case 'call':
       return stage === 'landlord_ops' ? 'Call landlord' : 'Call tenant';
+    case 'assign_agent':
+      return 'Assign an agent';
     default:
       return GROUP_LABEL[d];
   }
