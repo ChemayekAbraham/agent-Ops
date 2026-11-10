@@ -1,4 +1,4 @@
-import { Bookmark, Check, ChevronRight, Clock, Home, Navigation, Sprout } from 'lucide-react';
+import { Bookmark, Check, ChevronRight, Clock, Home, MapPin, Navigation, Sprout } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -64,8 +64,8 @@ export function FunderNewHouseCard({
               width="14"
               height="14"
               viewBox="0 0 24 24"
-              fill="#8024D1"
-              stroke="#8024D1"
+              fill="#16A34A"
+              stroke="#16A34A"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -172,7 +172,7 @@ export function FunderNewHouseCard({
               aria-label={`Open Google Maps location for ${title}`}
               title="Open in Google Maps"
             >
-              <Navigation className="h-4 w-4 text-primary" aria-hidden />
+              <MapPin className="!h-5 !w-5 text-red-600" aria-hidden />
               <span className="sr-only">Open in Google Maps</span>
             </Button>
           ) : null}
