@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, FileText, MapPin, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
@@ -6,7 +6,8 @@ import { fmt } from './format';
 import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText, type Status } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
-import { isRecordOnly, needsNote, runMove } from './deskActions';
+import { isRecordOnly, needsNote, passMovesOnServer, runMove } from './deskActions';
+import { afterServerPass } from './boardApi';
 import { SEND_BACK_STAGES, SendBackForm } from './sendBack';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
@@ -259,6 +260,13 @@ export function ReviewDrawer({
   const [waitMode, setWaitMode] = useState(initial === 'wait');
   // Agent Ops has a second tab for the house photos.
   const [tab, setTab] = useState<'review' | 'photos'>(initial === 'photos' ? 'photos' : 'review');
+  // Opened from a card's "Log a concern…": bring the concerns section into view.
+  const concernRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (initial !== 'concern') return;
+    const t = window.setTimeout(() => concernRef.current?.scrollIntoView({ block: 'start' }), 120);
+    return () => window.clearTimeout(t);
+  }, [initial]);
   const photosTab = stage === 'agent_ops';
   const showIntake = stage === 'agent_ops' && (initial === 'complete' || (ctx?.itemsMissing?.length ?? 0) > 0);
   // A company call to the tenant/landlord that ended answered pre-selects "Answered" in the call log.
@@ -370,11 +378,18 @@ export function ReviewDrawer({
 
       clear(requestId);
       mark(requestId, { kind: 'moved', message: moved.message });
+      if (passMovesOnServer(stage, decision)) {
+        // E64: the review moved it. The card leaves the board; the toast says where.
+        afterServerPass(queryClient, stage, requestId, moved.message);
+        onClose();
+        return;
+      }
       setOutcome(moved.message);
       queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
       if (!isRecordOnly(stage, decision)) window.setTimeout(onClose, 900);
     } catch (e) {
-      setError(readableError(e));
+      // A pass shows the server's message as-is.
+      setError(passMovesOnServer(stage, decision) ? String((e as { message?: string })?.message ?? e) : readableError(e));
     } finally {
       setBusy(false);
     }
@@ -643,7 +658,11 @@ export function ReviewDrawer({
 
               <RequestCallHistory requestId={requestId} />
 
-              {concernDesk && <ConcernsSection requestId={requestId} desk={concernDesk} />}
+              {concernDesk && (
+                <div ref={concernRef}>
+                  <ConcernsSection requestId={requestId} desk={concernDesk} />
+                </div>
+              )}
 
               {/* ── The checklist ── */}
               <section className={`${PANEL} space-y-1 p-4`}>
