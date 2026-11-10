@@ -8,11 +8,12 @@ import { supabase } from '@/integrations/supabase/client';
  * decides whether the screen draws the figures. The real lock is in the database: get_cash_at_hand_total and
  * get_phone_platform_reconciliation refuse a restricted caller (migration 20261109140000).
  *
- * While the answer is loading the figures stay hidden, so a restricted person never sees a flash of them. If the database
- * update is not applied yet (the function does not exist) nobody is restricted, so the figures show as before.
+ * FAIL OPEN: the figures are hidden only when the server explicitly says this person is restricted (answer === false).
+ * Any other outcome (still loading, the function missing because migration 20261109140000 is not applied, a network or
+ * permission error) shows the figures as before. Hiding on every error hid the figures from everyone.
  */
 export function useCanViewActualFloat(): { canView: boolean; loading: boolean } {
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['finops-can-view-actual-float'],
     retry: false,
     staleTime: 5 * 60_000,
@@ -23,7 +24,5 @@ export function useCanViewActualFloat(): { canView: boolean; loading: boolean } 
       return res.data === true;
     },
   });
-  const missing =
-    isError && /could not find the function|does not exist|schema cache/i.test((error as { message?: string } | null)?.message ?? '');
-  return { canView: data === true || missing, loading: isLoading };
+  return { canView: data !== false, loading: isLoading };
 }
