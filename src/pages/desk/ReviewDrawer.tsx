@@ -7,6 +7,7 @@ import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText, type Status
 import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
 import { isRecordOnly, needsNote, runMove } from './deskActions';
+import { SEND_BACK_STAGES, SendBackForm } from './sendBack';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
 import { WaitOnForm, useWaitingList, waitDeskForStage } from './waitOn';
@@ -279,6 +280,8 @@ export function ReviewDrawer({
   const req = sheet.data?.request;
   const recommended = sheet.data?.recommendation?.recommended ?? null;
   const against = !!decision && !!recommended && decision !== recommended;
+  // E63: these desks send back to a chosen office in one server call (pipeline_send_back_to).
+  const sendBackTo = decision === 'send_back' && SEND_BACK_STAGES.has(stage);
 
   // A request whose LC1 letter is missing must carry a written phone confirmation instead.
   const lc1NeedsText = !req?.lc_letter;
@@ -437,7 +440,7 @@ export function ReviewDrawer({
       Retry the move only
     </button>
   );
-  const showActionBar = phone && !!req && !waitMode && (!photosTab || tab === 'review');
+  const showActionBar = phone && !!req && !waitMode && !sendBackTo && (!photosTab || tab === 'review');
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Review this request">
@@ -756,7 +759,19 @@ export function ReviewDrawer({
                     {outcome && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
                   </>
                 )}
-                {!waitMode && (
+                {!waitMode && sendBackTo && (
+                  <SendBackForm
+                    key={`${requestId}:send-back`}
+                    requestId={requestId}
+                    stage={stage}
+                    onDone={(message) => {
+                      clear(requestId);
+                      mark(requestId, { kind: 'moved', message });
+                      window.setTimeout(onClose, 1200);
+                    }}
+                  />
+                )}
+                {!waitMode && !sendBackTo && (
                 <>
                 {decision && DECISION_HELP[decision] && (
                   <p className="text-xs text-muted-foreground">{DECISION_HELP[decision]}</p>

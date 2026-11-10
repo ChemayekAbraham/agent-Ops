@@ -23,6 +23,8 @@ export const DASHBOARD_ACCESS_KEYS = [
   { key: 'rd', label: 'R&D Dashboard' },
   { key: 'kyc', label: 'KYC Console' },
   { key: 'agents-space', label: "Agents' Space" },
+  // A restriction, not an access: ticking it HIDES the Actual Money figures from this person (migration 20261109140000).
+  { key: 'financial-ops-float-hidden', label: 'Financial Ops: hide actual float (restriction)' },
 ] as const;
 
 export type DashboardAccessKey = (typeof DASHBOARD_ACCESS_KEYS)[number]['key'];
