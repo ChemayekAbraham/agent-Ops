@@ -239,6 +239,7 @@ export function FunderNewRouteMap({
   loadedNote,
   onExpandedChange,
   expandRequest,
+  collapseRequest,
   reserveTopForSearch = false,
   focus,
   notice,
@@ -262,6 +263,8 @@ export function FunderNewRouteMap({
   onExpandedChange?: (expanded: boolean) => void;
   /** Bumped by the page to open the full screen map (e.g. from the hero card). */
   expandRequest?: number;
+  /** Bumped by the page to close the full screen map (e.g. a back button). */
+  collapseRequest?: number;
   /** Full screen only: leave room under a search bar floated at the top by the page. */
   reserveTopForSearch?: boolean;
   /** Bumped by the page (new token) to move the map to a set of points, e.g. search results. */
@@ -298,6 +301,9 @@ export function FunderNewRouteMap({
   useEffect(() => {
     if (expandRequest) setFullscreen(true);
   }, [expandRequest]);
+  useEffect(() => {
+    if (collapseRequest) setFullscreen(false);
+  }, [collapseRequest]);
   const [moved, setMoved] = useState<FunderNewViewport | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const expandRef = useRef<HTMLButtonElement | null>(null);

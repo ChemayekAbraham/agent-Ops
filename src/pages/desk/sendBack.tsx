@@ -6,6 +6,7 @@ import { rpc, useReasonCodes } from './reviewApi';
 import { DecisionButton, ErrorLine, LoadingRows, Sheet } from './ui';
 import { Skeleton } from './Skeleton';
 import type { Stage } from './reviewTypes';
+import { toast } from 'sonner';
 import { sendBackTo, serverMessage, type SendBackStart } from './sendBackApi';
 
 export { SEND_BACK_STAGES, SUGGESTED_OFFICE, isSendBackRow, sendBackTo, type SendBackResult, type SendBackStart } from './sendBackApi';
@@ -25,9 +26,9 @@ export const SEND_BACK_NOTE_MIN = 10;
 
 export type SendBackOption = { code: string; label: string; hint: string | null };
 
-/** What an office is called on the desks: the field agent says plainly that it is the reject (E64). */
+/** What an office is called on the desks: the server's own label ("Field agent (to correct)", "Agent Ops", …). */
 export function officeLabel(o: Pick<SendBackOption, 'code' | 'label'>): string {
-  return o.code === 'agent' ? 'Agent in the field (rejected)' : o.label;
+  return o.label;
 }
 
 /**
@@ -38,7 +39,7 @@ export function officeLabel(o: Pick<SendBackOption, 'code' | 'label'>): string {
 export function parseSendBackNote(note: string | null | undefined): { office: string; why: string } | null {
   const m = /^To (.+?): ([\s\S]*)$/.exec((note ?? '').trim());
   if (!m) return null;
-  const office = m[1] === 'the field agent (to correct)' ? 'Agent in the field (rejected)' : m[1];
+  const office = m[1] === 'the field agent (to correct)' ? 'Field agent (to correct)' : m[1];
   return { office, why: m[2].trim() };
 }
 export type SendBackReason = { code: string; meaning: string | null; requires_text: boolean };
@@ -155,6 +156,7 @@ export function SendBackForm({
     }
     const message = out.message;
     setDone(message);
+    toast.success(message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     onDone(message);
   };

@@ -6,6 +6,7 @@ import { daysHere, landlordOpsChips, phoneLast4, type ChipModel } from './boardR
 import { DeskCallButton, type CallSubjectKind } from './deskCall';
 import { Chip, DecisionButton, MenuItem, MoreMenu, moneyCard, moneyFull, splitDecisionLabel, stackLayout, type ButtonVariant } from './ui';
 import type { OpenDrawer } from './ReadyBoard';
+import { KindChip } from './KindChip';
 
 export type LandlordCardPrimary = {
   label: string;
@@ -129,6 +130,7 @@ export function LandlordOpsCard({
 
         {/* One chip row: it scrolls sideways rather than wrapping onto more lines. */}
         <div className="desk-scroll-row [&>*]:shrink-0" style={{ display: 'flex', flexWrap: 'nowrap', overflowX: 'auto', gap: 6, minWidth: 0 }} data-line="chips">
+          <KindChip kind={row.kind} />
           {chips.map((c) => (
             <Chip key={c.key} tone={c.tone} title={c.title} strong={c.strong}>
               {c.text}

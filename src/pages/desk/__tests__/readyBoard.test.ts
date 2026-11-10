@@ -8,7 +8,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, roles: [] }) }));
 vi.mock('@/lib/cooDecide', () => ({ cooDecide: vi.fn(), cooDecisionSummary: vi.fn(), mergeApproveResults: vi.fn() }));
 
-import { flagsChip, gradeTrend, hoursUntil, ownerLabel, ownerWords, primaryLabel, pushRow, setSuggestedWait, type BoardRow } from '../boardApi';
+import { flagsChip, gradeTrend, hoursUntil, moveFor, ownerLabel, ownerWords, primaryLabel, pushRow, setSuggestedWait, type BoardRow } from '../boardApi';
 import { progressText } from '../ReadyBoard';
 import { badgeFor } from '../agentGrade';
 
@@ -123,33 +123,41 @@ describe('board row reading', () => {
 });
 
 describe('one push = the drawer’s two calls', () => {
-  it('records the review with the push values, then transfers to the target agent', async () => {
+  it('a transfer is the transfer call, then the pass that moves it (server); never a table write', async () => {
     rpcMock.mockResolvedValue({ data: null, error: null });
     const out = await pushRow(row(), 'agent_ops', 'staff-1');
     expect(out.kind).toBe('moved');
-    expect(rpcMock.mock.calls.map((c) => c[0])).toEqual(['pipeline_record_review', 'ops_transfer_pipeline_request_agent']);
-    expect(rpcMock.mock.calls[0][1]).toMatchObject({
+    expect(rpcMock.mock.calls.map((c) => c[0])).toEqual(['ops_transfer_pipeline_request_agent', 'pipeline_record_review']);
+    expect(rpcMock.mock.calls[0][1]).toMatchObject({ p_request_id: 'req-uuid-1', p_to_agent_id: 'r1', p_reason: row().push!.note });
+    expect(rpcMock.mock.calls[1][1]).toMatchObject({
       p_request_id: 'req-uuid-1',
       p_stage: 'agent_ops',
-      p_decision: 'transfer',
-      p_target_agent_id: 'r1',
+      p_decision: 'pass',
+      p_target_agent_id: null,
       p_note: row().push!.note,
     });
-    expect(rpcMock.mock.calls[0][1].p_results).toHaveLength(2);
-    expect(rpcMock.mock.calls[1][1]).toMatchObject({ p_request_id: 'req-uuid-1', p_to_agent_id: 'r1' });
+    expect(rpcMock.mock.calls[1][1].p_reason_code).toBeTruthy();
+    expect(rpcMock.mock.calls[1][1].p_results).toHaveLength(2);
+    if (out.kind === 'moved') expect(out.message).toMatch(/^Transferred.*Sent to Tenant Ops$/);
   });
 
-  it('never moves when the review fails', async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'no staff id' } });
+  it('nothing is recorded when the transfer is refused; the server says why, as-is', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: { message: 'That agent already received 5 transfers in 7 days (cap 5): choose another agent' } });
     const out = await pushRow(row(), 'agent_ops', 'staff-1');
-    expect(out).toEqual({ kind: 'review_failed', message: 'no staff id' });
+    expect(out).toEqual({ kind: 'review_failed', message: 'That agent already received 5 transfers in 7 days (cap 5): choose another agent' });
     expect(rpcMock).toHaveBeenCalledTimes(1);
   });
 
-  it('a failed move leaves the review in and reports move_failed', async () => {
-    rpcMock.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({ data: null, error: { message: 'agent full' } });
+  it('transferred but the pass refused: move_failed, and the retry is the pass only', async () => {
+    rpcMock.mockResolvedValueOnce({ data: null, error: null }).mockResolvedValueOnce({ data: null, error: { message: 'Tick every item first; missing: {ao_photos}' } });
     const out = await pushRow(row(), 'agent_ops', 'staff-1');
-    expect(out).toEqual({ kind: 'move_failed', message: 'agent full' });
+    expect(out).toEqual({ kind: 'move_failed', message: 'Tick every item first; missing: {ao_photos}' });
+    rpcMock.mockClear();
+    rpcMock.mockResolvedValue({ data: null, error: null });
+    const retried = await moveFor(row(), 'agent_ops', 'staff-1');
+    expect(retried.ok).toBe(true);
+    expect(rpcMock.mock.calls.map((c) => c[0])).toEqual(['pipeline_record_review']);
+    expect(rpcMock.mock.calls[0][1]).toMatchObject({ p_decision: 'pass' });
   });
 
   it('a suggested wait is one pipeline_set_waiting call, never a move', async () => {

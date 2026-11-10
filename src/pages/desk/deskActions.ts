@@ -1,15 +1,17 @@
-import { supabase } from '@/integrations/supabase/client';
 import { rpc } from './reviewApi';
-import { STAGE_STATUS, type Decision, type Stage } from './reviewTypes';
+import { STAGE_STATUS, type CheckEntry, type Decision, type Stage } from './reviewTypes';
 import { cooDecide, cooDecisionSummary, mergeApproveResults, type AskReason } from '@/lib/cooDecide';
 
 /**
  * The second call.
  *
- * `pipeline_record_review` only records the review — it never moves a request.
- * Everything below is the move the desks already make today, called exactly as
- * the existing screens call it, so a request reviewed here lands in the same
- * state as one reviewed on the old screen.
+ * `pipeline_record_review` records the review. At Agent / Tenant / Landlord Ops
+ * it also moves the request on a pass (E64) and on a reject (E69, back to the
+ * agent); everywhere else the move below is the desk's own server call.
+ *
+ * Nothing here writes `rent_requests`: row security refuses any direct update
+ * from desk staff, and it does so silently (no error, no row changed), so a
+ * client write would only look like it worked.
  *
  * Nothing here invents a money path: the COO's `fund` is the existing
  * `coo_approve_rent_requests`, the server's own COO approval.
@@ -21,14 +23,6 @@ export type MoveResult = Ok | Failed;
 
 const fail = (message: string): Failed => ({ ok: false, message });
 const done = (message: string): Ok => ({ ok: true, message });
-
-/** The columns each desk stamps when it acts, as the existing pipeline screen stamps them. */
-const STAMP: Partial<Record<Stage, { by: string; at: string; comment: string }>> = {
-  agent_ops: { by: 'agent_ops_reviewed_by', at: 'agent_ops_reviewed_at', comment: 'agent_ops_comment' },
-  tenant_ops: { by: 'tenant_ops_reviewed_by', at: 'tenant_ops_reviewed_at', comment: 'tenant_ops_comment' },
-  landlord_ops: { by: 'landlord_ops_reviewed_by', at: 'landlord_ops_reviewed_at', comment: 'landlord_ops_comment' },
-  partner_ops: { by: 'partner_ops_reviewed_by', at: 'partner_ops_reviewed_at', comment: 'partner_ops_comment' },
-};
 
 /**
  * E64: at these desks `pipeline_record_review(..., 'pass')` moves the request
@@ -48,10 +42,83 @@ export function passMovesOnServer(stage: Stage, decision: Decision): stage is Se
   return decision === 'pass' && stage in PASS_SENT_TO;
 }
 
-async function patchRequest(requestId: string, patch: Record<string, unknown>): Promise<MoveResult> {
-  const { error } = await supabase.from('rent_requests').update(patch as never).eq('id', requestId);
-  if (error) return fail(error.message);
-  return done('Moved on.');
+/** E69: at the same desks a recorded reject goes back to the agent, on the server. */
+export function rejectMovesOnServer(stage: Stage, decision: Decision): stage is ServerPassStage {
+  return decision === 'reject' && stage in PASS_SENT_TO;
+}
+
+/** What the desks say once a request has gone back to the agent in the field. */
+export const SENT_BACK_TO_AGENT = 'Sent back to the agent';
+
+/** Where each desk's pass sends the request: the toast after any pass. */
+export function passSentTo(stage: Stage): string {
+  if (stage in PASS_SENT_TO) return PASS_SENT_TO[stage as ServerPassStage];
+  if (stage === 'service_centre') return 'Sent to Agent Ops';
+  return 'Moved on';
+}
+
+/** The server's own words for a failed call, unchanged. */
+export function asIs(e: unknown): string {
+  return String((e as { message?: string } | null)?.message ?? e ?? 'Something went wrong.');
+}
+
+/* ───────────────────────── transfer, then pass ─────────────────────────
+ * `pipeline_record_review` names the transfer's next step itself: "call
+ * ops_transfer_pipeline_request_agent, then pass". So a transfer is the
+ * transfer call first (nothing is recorded if it is refused), then the pass,
+ * which moves the request on to Tenant Ops on the server (E64).
+ *
+ * The pass carries the reviewer's ticks, where "Agent performance" failed for
+ * the old agent, so the server reads it as going against its "transfer"; the
+ * reason on record is the transfer's own, AGENT_PERFORMANCE ("Transfer or
+ * hold for agent recovery"), unless the reviewer chose one.
+ */
+export const TRANSFER_PASS_REASON = 'AGENT_PERFORMANCE';
+
+export type TransferInput = {
+  requestId: string;
+  results: CheckEntry[];
+  targetAgentId: string | null | undefined;
+  /** At least 10 characters: the transfer's reason, and the pass's note. */
+  note: string;
+  reasonCode?: string | null;
+  /** The receiving agent's name, for the confirmation. */
+  targetName?: string | null;
+};
+
+export type TransferOutcome =
+  | { kind: 'moved'; message: string }
+  /** Nothing happened: the transfer was refused. */
+  | { kind: 'transfer_failed'; message: string }
+  /** The tenant is with the new agent; only the pass is left. Retry the pass, never the transfer. */
+  | { kind: 'pass_failed'; message: string };
+
+const transferredWords = (name?: string | null) => `Transferred${name ? ` to ${name}` : ''}. ${PASS_SENT_TO.agent_ops}`;
+
+/** The pass half of a transfer: the review that moves the request on. Also the retry. */
+export async function recordTransferPass(input: TransferInput): Promise<MoveResult> {
+  const { error } = await rpc('pipeline_record_review', {
+    p_request_id: input.requestId,
+    p_stage: 'agent_ops',
+    p_results: input.results,
+    p_decision: 'pass',
+    p_reason_code: input.reasonCode || TRANSFER_PASS_REASON,
+    p_note: input.note.trim() || null,
+    p_target_agent_id: null,
+  });
+  return error ? fail(asIs(error)) : done(transferredWords(input.targetName));
+}
+
+export async function transferThenPass(input: TransferInput): Promise<TransferOutcome> {
+  if (!input.targetAgentId) return { kind: 'transfer_failed', message: 'Choose the agent to transfer the tenant to.' };
+  const { error } = await rpc('ops_transfer_pipeline_request_agent', {
+    p_request_id: input.requestId,
+    p_to_agent_id: input.targetAgentId,
+    p_reason: input.note.trim(),
+  });
+  if (error) return { kind: 'transfer_failed', message: asIs(error) };
+  const passed = await recordTransferPass(input);
+  return passed.ok ? { kind: 'moved', message: passed.message } : { kind: 'pass_failed', message: passed.message };
 }
 
 export type MoveInput = {
@@ -69,6 +136,10 @@ export type MoveInput = {
   askReason?: AskReason;
   /** COO only: turns a reason code into its meaning for the summary line. */
   reasonMeaning?: (code: string | null) => string | null;
+  /** Transfer only: the ticks the pass after the transfer carries. */
+  results?: CheckEntry[];
+  /** Transfer only: the receiving agent's name, for the confirmation. */
+  targetName?: string | null;
 };
 
 /** True when this decision only records a review — nothing moves. */
@@ -79,9 +150,8 @@ export function isRecordOnly(stage: Stage, decision: Decision): boolean {
 }
 
 export async function runMove(input: MoveInput): Promise<MoveResult> {
-  const { requestId, stage, decision, userId } = input;
+  const { requestId, stage, decision } = input;
   const note = input.note.trim();
-  const now = new Date().toISOString();
 
   if (isRecordOnly(stage, decision)) return done('Review recorded. The request stays at this desk.');
 
@@ -92,18 +162,20 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
       p_decision: decision === 'pass' ? 'verify' : 'reject',
       p_comment: note,
     });
-    return error ? fail(error.message) : done(decision === 'pass' ? 'Verified and sent to Agent Ops.' : 'Rejected.');
+    return error ? fail(asIs(error)) : done(decision === 'pass' ? passSentTo(stage) : SENT_BACK_TO_AGENT);
   }
 
-  // ── Agent Ops: move the tenant to a stronger agent. ──
+  // ── Agent Ops transfer: the transfer call has already run (transferThenPass);
+  //    the move left is the pass, which the server makes. ──
   if (decision === 'transfer') {
-    if (!input.targetAgentId) return fail('Choose the agent to transfer the tenant to.');
-    const { error } = await rpc('ops_transfer_pipeline_request_agent', {
-      p_request_id: requestId,
-      p_to_agent_id: input.targetAgentId,
-      p_reason: note,
+    return recordTransferPass({
+      requestId,
+      results: input.results ?? [],
+      targetAgentId: input.targetAgentId,
+      note,
+      reasonCode: input.reasonCode,
+      targetName: input.targetName,
     });
-    return error ? fail(error.message) : done('Tenant transferred to the chosen agent.');
   }
 
   // ── Partner Ops: attach the funder side, then forward. ──
@@ -114,23 +186,14 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
       p_proxy_agent_id: input.proxyAgentId,
       p_comment: note,
     });
-    if (error) return fail(error.message);
+    if (error) return fail(asIs(error));
     const updated = Number((data as { updated?: number } | null)?.updated ?? 0);
     return updated > 0 ? done('Proxy partner attached and forwarded to the COO.') : fail('Nothing was forwarded.');
   }
 
-  // ── Partner Ops: the hidden-from-funders route, the same forward Landlord Ops
-  //    already makes for a request the funders never see. ──
-  if (decision === 'to_coo_bucket') {
-    return patchRequest(requestId, {
-      status: 'partner_ops_approved',
-      partner_ops_reviewed_by: userId,
-      partner_ops_reviewed_at: now,
-      partner_ops_comment:
-        `No proxy attached — not published to the Funder dashboard.` + (note ? ` Partner Ops note: ${note}` : ''),
-      updated_at: now,
-    });
-  }
+  // ── Partner Ops' old hidden-from-funders route set the status from the
+  //    browser, which row security now refuses. Not offered on any desk. ──
+  if (decision === 'to_coo_bucket') return fail('This forward is no longer offered on the desks.');
 
   // ── COO. ──
   if (stage === 'coo' && decision === 'fund') {
@@ -145,7 +208,7 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
       if (res.approved.length > 0) return done(`Approved and sent to the CFO for funding. ${summary}.`);
       return fail(res.skipped[0]?.message || 'The COO approval did not go through — check the reason on the request and try again.');
     } catch (e) {
-      return fail((e as Error).message);
+      return fail(asIs(e));
     }
   }
   if (stage === 'coo' && decision === 'send_back') {
@@ -159,31 +222,25 @@ export async function runMove(input: MoveInput): Promise<MoveResult> {
       if (item && !item.ok) return fail(item.error || 'Not returned.');
       return done(`Returned for correction. ${cooDecisionSummary(o.response, input.reasonMeaning?.(o.reasonCode) ?? o.reasonCode)}.`);
     } catch (e) {
-      return fail((e as Error).message);
+      return fail(asIs(e));
     }
   }
 
-  // ── The middle desks: the review already moved the request on a pass (E64);
-  //    send back and reject return it for correction. ──
+  // ── The middle desks: the review already moved the request — on a pass
+  //    (E64) and on a reject (E69, back to the agent). ──
   if (passMovesOnServer(stage, decision)) return done(PASS_SENT_TO[stage]);
+  if (rejectMovesOnServer(stage, decision)) return done(SENT_BACK_TO_AGENT);
   if (decision === 'pass') return fail(`No forward step is defined for ${stage}.`);
 
+  // Send-backs go through pipeline_send_back_to (sendBackApi) on every desk but
+  // Partner Ops; there the server's own return is the move.
   if (decision === 'send_back' || decision === 'reject') {
     const { error } = await rpc('return_rent_request_for_correction', {
       p_request_id: requestId,
       p_stage: STAGE_STATUS[stage],
       p_reason: note,
     });
-    if (error) return fail(error.message);
-    const stamp = STAMP[stage];
-    if (stamp) {
-      // Stamp the reviewer and this desk's comment, as the existing screen does.
-      await supabase
-        .from('rent_requests')
-        .update({ [stamp.by]: userId, [stamp.at]: now, [stamp.comment]: note } as never)
-        .eq('id', requestId);
-    }
-    return done('Returned to the agent for correction.');
+    return error ? fail(asIs(error)) : done(SENT_BACK_TO_AGENT);
   }
 
   return fail(`Nothing to run for "${decision}" at ${stage}.`);

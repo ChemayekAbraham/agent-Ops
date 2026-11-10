@@ -6271,6 +6271,7 @@ export type Database = {
           expired_required_pct: number
           id: boolean
           in_window_required_pct: number
+          landlord_float_required_pct: number
           updated_at: string
           week_start_isodow: number
         }
@@ -6280,6 +6281,7 @@ export type Database = {
           expired_required_pct?: number
           id?: boolean
           in_window_required_pct?: number
+          landlord_float_required_pct?: number
           updated_at?: string
           week_start_isodow?: number
         }
@@ -6289,6 +6291,7 @@ export type Database = {
           expired_required_pct?: number
           id?: boolean
           in_window_required_pct?: number
+          landlord_float_required_pct?: number
           updated_at?: string
           week_start_isodow?: number
         }
@@ -65710,6 +65713,7 @@ export type Database = {
       v360_daily_allocations: {
         Row: {
           agent: number
+          buffer: number
           cash: number
           created_at: string
           created_by: string | null
@@ -65724,6 +65728,7 @@ export type Database = {
         }
         Insert: {
           agent: number
+          buffer?: number
           cash: number
           created_at?: string
           created_by?: string | null
@@ -65738,6 +65743,7 @@ export type Database = {
         }
         Update: {
           agent?: number
+          buffer?: number
           cash?: number
           created_at?: string
           created_by?: string | null
@@ -76102,6 +76108,28 @@ export type Database = {
           subject_id: string
         }[]
       }
+      _agent_landlord_float_check: {
+        Args: { p_agent_id: string }
+        Returns: {
+          basis: string
+          book: string
+          collected: number
+          expected: number
+          expired_collected: number
+          expired_due: number
+          expired_pct: number
+          in_window_collected: number
+          in_window_due: number
+          in_window_pct: number
+          passes: boolean
+          rate_pct: number
+          reason: string
+          required_pct: number
+          shortfall: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       _agent_nudge_stats: {
         Args: { p_agent_id: string; p_day: string }
         Returns: Json
@@ -83130,6 +83158,10 @@ export type Database = {
         Returns: Json
       }
       desk_scripts_reader_ok: { Args: never; Returns: boolean }
+      desk_search: {
+        Args: { p_desk?: string; p_limit?: number; p_query: string }
+        Returns: Json
+      }
       desk_stage_flow: { Args: never; Returns: Json }
       desk_stage_trend: {
         Args: never
@@ -84514,6 +84546,10 @@ export type Database = {
       }
       funders_home_counts: { Args: never; Returns: Json }
       funders_map_points: { Args: never; Returns: Json }
+      funders_selected_awaiting_release: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       funding_commission_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -87921,6 +87957,7 @@ export type Database = {
       }
       get_phone_platform_reconciliation: { Args: never; Returns: Json }
       get_phone_platform_reconciliation__impl: { Args: never; Returns: Json }
+      get_platform_agent_commission_rate: { Args: never; Returns: number }
       get_platform_cash_breakdown: { Args: never; Returns: Json }
       get_platform_cash_summary: { Args: never; Returns: Json }
       get_platform_user_counts: {

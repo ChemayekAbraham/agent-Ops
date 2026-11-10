@@ -64,6 +64,9 @@ const FunderV3Harness = lazyWithRetry(
 const DeskLandlordHarness = lazyWithRetry(
   () => import("@/pages/__e2e/DeskLandlordHarness"),
 );
+const DeskReviewHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/DeskReviewHarness"),
+);
 
 // Language provider is imported statically: as a lazy chunk its module namespace
 // could resolve undefined under manual chunking, blanking the whole app.
@@ -718,6 +721,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <DeskLandlordHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/desk-review"
+              element={
+                <Suspense fallback={null}>
+                  <DeskReviewHarness />
                 </Suspense>
               }
             />

@@ -14,7 +14,8 @@ import {
   readyPlanTitle,
 } from './utils';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
-import { FundersBoardTag, boardTagFor } from './FundersBoardTag';
+import { FundersBoardTag, tagKindFor } from './FundersBoardTag';
+import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Photo-led listing for /dashboard/funder-new. */
 export function FunderNewHouseCard({
@@ -25,6 +26,7 @@ export function FunderNewHouseCard({
   onSelect,
   onDetail,
   boardTagsOn = false,
+  boardTag = null,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
@@ -37,6 +39,8 @@ export function FunderNewHouseCard({
   onDetail: () => void;
   /** E59 board tags: the page passes the funders_board_tags switch (useFeaturePreview). */
   boardTagsOn?: boolean;
+  /** E65: the server's tag for this card, when known. */
+  boardTag?: BoardTag | null;
 }) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -55,7 +59,8 @@ export function FunderNewHouseCard({
       )}
     >
       <div className="relative aspect-[16/10] w-full bg-muted">
-        {isEmpty ? (
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn ? null : isEmpty ? (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
             <Clock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
             Pending verification
@@ -106,7 +111,7 @@ export function FunderNewHouseCard({
       </div>
 
         <div className="space-y-3 p-4">
-        {boardTagsOn ? <FundersBoardTag kind={boardTagFor(category)} /> : null}
+        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         {/* Tapping the text block opens the full house details, like the photo does. */}
         <div
           role="button"
@@ -153,7 +158,7 @@ export function FunderNewHouseCard({
           {coords ? (
             <Button
               variant="outline"
-              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-primary p-0 text-primary hover:border-primary hover:bg-primary/5 hover:text-primary"
+              className="h-11 w-[24%] min-w-[56px] flex-none flex-col gap-0.5 rounded-lg border-0 p-0 text-primary hover:bg-primary/5 hover:text-primary"
               onClick={() => {
                 window.open(`https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`, '_blank', 'noopener,noreferrer');
               }}

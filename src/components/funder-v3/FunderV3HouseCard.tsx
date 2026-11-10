@@ -14,7 +14,8 @@ import {
   readyPlanTitle,
 } from '@/components/funder-new/utils';
 import { STRAIGHT_LINE_EXPLANATION } from '@/components/funder-new/distance';
-import { FundersBoardTag, boardTagFor } from '@/components/funder-new/FundersBoardTag';
+import { FundersBoardTag, tagKindFor } from '@/components/funder-new/FundersBoardTag';
+import type { BoardTag } from '@/lib/fundersBoard';
 
 /** Rendered photo box is 16:10; these are the intrinsic hints for the browser. */
 const PHOTO_W = 640;
@@ -41,6 +42,8 @@ export interface FunderV3HouseCardProps {
   cardId: string;
   /** E59: show the funders board tag (Empty house / Verified). */
   boardTagsOn?: boolean;
+  /** E65: the server's tag (Verified, Booked, Funded, Pending verification, Empty house), when known. */
+  boardTag?: BoardTag | null;
   /** E59 select-to-demote mode (staff who may demote only). */
   demoteMode?: boolean;
   demoteChecked?: boolean;
@@ -66,6 +69,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
   onHoverChange,
   cardId,
   boardTagsOn = false,
+  boardTag = null,
   demoteMode = false,
   demoteChecked = false,
   onDemoteToggle,
@@ -120,6 +124,8 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
           )}
         </button>
 
+        {/* E72b: with board tags on, the tag chip below is the card's only badge. */}
+        {boardTagsOn ? null : (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 fv3-t-2xs font-semibold text-foreground shadow-sm ring-1 ring-border">
           {isEmpty ? (
             <>
@@ -136,6 +142,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             </>
           )}
         </span>
+        )}
 
         <button
           type="button"
@@ -176,7 +183,7 @@ export const FunderV3HouseCard = memo(function FunderV3HouseCard({
             {demoteChecked ? 'Selected to demote' : 'Select to demote'}
           </label>
         ) : null}
-        {boardTagsOn ? <FundersBoardTag kind={boardTagFor(category)} /> : null}
+        {boardTagsOn ? <FundersBoardTag kind={tagKindFor(boardTag, category)} /> : null}
         <button
           type="button"
           onClick={onDetail}

@@ -6,7 +6,10 @@ import { fmt } from './format';
 import { CALM, FIGURE, FOCUS, LABEL, PANEL, statusGlass, statusText, type Status } from './deskTheme';
 import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
-import { isRecordOnly, needsNote, passMovesOnServer, runMove } from './deskActions';
+import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
+import { passBlock } from './passBlock';
+import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
+import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
 import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackForm, parseSendBackNote } from './sendBack';
 import { useCooReasonPicker } from '@/components/coo/CooReasonPicker';
@@ -313,10 +316,30 @@ export function ReviewDrawer({
     (!!decision && needsNote(decision)) ||
     (against && (reasonCode === 'OTHER' || reasonCode === 'RISK_JUDGEMENT' || !!chosenReason?.requires_text));
 
-  const canPass = !callDesk || callAnswered;
+  // An answered call already on file counts, as it does on the server: the board's word when opened
+  // from the board, the request's own call history otherwise; a call logged here counts too.
+  const awareness = useAwarenessCalls(requestId, !!callDesk);
+  const onFile = useMemo(
+    () => (callDesk ? answeredCallOnFile(awareness.data ?? [], callDesk, stageSince(sheet.data, stage)) : null),
+    [awareness.data, callDesk, sheet.data, stage],
+  );
+  const canPass = !callDesk || callAnswered || ctx?.callAnswered === true || !!onFile;
+  // Why Pass cannot go yet, in the desk's short words ("Answer 5 more checks").
+  const passAgainst = !!recommended && recommended !== 'pass';
+  const passWhy = passBlock({
+    callDesk,
+    callAnswered: canPass,
+    items,
+    entries,
+    against: passAgainst,
+    reasonCode,
+    noteRequired: passAgainst && (reasonCode === 'OTHER' || reasonCode === 'RISK_JUDGEMENT' || !!chosenReason?.requires_text),
+    note,
+    lc1NeedsText,
+  });
   const blockedReason =
-    decision === 'pass' && !canPass
-      ? `Log an answered ${callDesk} call before passing.`
+    decision === 'pass'
+      ? passWhy
       : missingRequired.length > 0
         ? `Tick every item first — still open: ${missingRequired.join(', ')}.`
         : against && !reasonCode
@@ -344,6 +367,35 @@ export function ReviewDrawer({
       .filter((e) => !!e.result)
       .map((e) => (e.value === undefined || e.value === null || e.value === '' ? { code: e.code, result: e.result } : e));
 
+    // Transfer (Agent Ops): the transfer call, then the pass that moves the request (server).
+    if (decision === 'transfer') {
+      const target = suggested.data?.find((a) => a.agent_id === targetAgentId) ?? null;
+      const out = await transferThenPass({
+        requestId,
+        results,
+        targetAgentId,
+        note: note.trim(),
+        reasonCode: against ? reasonCode : reasonCode || null,
+        targetName: target?.agent_name ?? null,
+      });
+      setBusy(false);
+      if (out.kind === 'transfer_failed') {
+        setError(out.message);
+        return;
+      }
+      if (out.kind === 'pass_failed') {
+        // The tenant is with the new agent; only the pass is left to retry.
+        mark(requestId, { kind: 'move_failed', message: out.message, decision });
+        setError(`${RETRY_LABEL}. ${out.message}`);
+        return;
+      }
+      clear(requestId);
+      mark(requestId, { kind: 'moved', message: out.message });
+      afterServerPass(queryClient, stage, requestId, out.message);
+      onClose();
+      return;
+    }
+
     try {
       // 1. Record the review. This is the step that must never be repeated.
       const { error: recErr } = await rpc('pipeline_record_review', {
@@ -353,7 +405,7 @@ export function ReviewDrawer({
         p_decision: decision,
         p_reason_code: against ? reasonCode : reasonCode || null,
         p_note: note.trim() || null,
-        p_target_agent_id: decision === 'transfer' ? targetAgentId : null,
+        p_target_agent_id: null, // a transfer went through transferThenPass above
       });
       if (recErr) throw recErr;
 
@@ -380,18 +432,21 @@ export function ReviewDrawer({
 
       clear(requestId);
       mark(requestId, { kind: 'moved', message: moved.message });
-      if (passMovesOnServer(stage, decision)) {
-        // E64: the review moved it. The card leaves the board; the toast says where.
+      if (passMovesOnServer(stage, decision) || rejectMovesOnServer(stage, decision)) {
+        // E64 / E69: the review moved it. The card leaves the board; the toast says where.
         afterServerPass(queryClient, stage, requestId, moved.message);
         onClose();
         return;
       }
       setOutcome(moved.message);
       queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
-      if (!isRecordOnly(stage, decision)) window.setTimeout(onClose, 900);
+      if (!isRecordOnly(stage, decision)) {
+        toast.success(moved.message);
+        window.setTimeout(onClose, 900);
+      }
     } catch (e) {
-      // A pass shows the server's message as-is.
-      setError(passMovesOnServer(stage, decision) ? String((e as { message?: string })?.message ?? e) : readableError(e));
+      // The server's message, as-is.
+      setError(asIs(e));
     } finally {
       setBusy(false);
     }
@@ -413,6 +468,10 @@ export function ReviewDrawer({
       reasonCode: against ? reasonCode : reasonCode || null,
       askReason: cooReason.askReason,
       reasonMeaning: cooReason.meaningOf,
+      results: Object.values(entries)
+        .filter((e) => !!e.result)
+        .map((e) => (e.value === undefined || e.value === null || e.value === '' ? { code: e.code, result: e.result } : e)),
+      targetName: suggested.data?.find((a) => a.agent_id === targetAgentId)?.agent_name ?? null,
     });
     setBusy(false);
     if (!moved.ok) {
@@ -421,7 +480,13 @@ export function ReviewDrawer({
     }
     clear(requestId);
     mark(requestId, { kind: 'moved', message: moved.message });
+    if (decision === 'transfer' || passMovesOnServer(stage, decision) || rejectMovesOnServer(stage, decision)) {
+      afterServerPass(queryClient, stage, requestId, moved.message);
+      onClose();
+      return;
+    }
     setOutcome(moved.message);
+    toast.success(moved.message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     window.setTimeout(onClose, 900);
   };
@@ -445,6 +510,12 @@ export function ReviewDrawer({
     >
       {busy ? 'Saving…' : 'Record the review and act'}
     </button>
+  );
+  // Right under the button it disables: why it cannot go yet.
+  const whyLine = decision && blockedReason && !recordedButStuck && (
+    <p data-blocked-why className={`text-sm ${statusText.warn}`} role="status" style={{ margin: 0 }}>
+      {blockedReason}
+    </p>
   );
   const retryButton = recordedButStuck && (
     <button
@@ -653,7 +724,10 @@ export function ReviewDrawer({
                   subject={callDesk}
                   subjectUserId={callDesk === 'tenant' ? req.tenant?.id : null}
                   defaultPhone={callDesk === 'tenant' ? (req.tenant?.phone ?? null) : (req.landlord?.phone ?? null)}
-                  onLogged={(answered) => setCallAnswered((prev) => prev || answered)}
+                  onLogged={(answered) => {
+                    setCallAnswered((prev) => prev || answered);
+                    void queryClient.invalidateQueries({ queryKey: awarenessCallsKey(requestId) });
+                  }}
                   answeredHint={liveAnswered}
                 />
               )}
@@ -720,6 +794,15 @@ export function ReviewDrawer({
               {/* ── The decision ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
+                {callDesk && canPass && (
+                  <p data-call-on-file className={`text-sm ${statusText.ok}`} style={{ margin: 0 }}>
+                    {onFile
+                      ? `Answered call on file — ${callTime(onFile.at)}${onFile.by ? `, ${onFile.by}` : ''}`
+                      : callAnswered
+                        ? 'Answered call logged just now'
+                        : 'Answered call on file'}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {visibleDecisions(stage).map((d) => {
                     const on = decision === d;
@@ -766,6 +849,12 @@ export function ReviewDrawer({
                     </button>
                   )}
                 </div>
+                {/* Why Pass cannot go yet, right under the buttons: the call, open checks, a reason code. */}
+                {visibleDecisions(stage).includes('pass') && !!passWhy && (!canPass || decision === 'pass') && (
+                  <p data-pass-why className={`text-sm ${statusText.warn}`} style={{ margin: 0 }}>
+                    Pass: {passWhy}
+                  </p>
+                )}
                 {waitMode && waitDesk && (
                   <>
                     <WaitOnForm
@@ -774,6 +863,7 @@ export function ReviewDrawer({
                       deskTag={DESK_TAG[stage]}
                       onDone={(message) => {
                         setOutcome(message);
+                        toast.success(message);
                         window.setTimeout(onClose, 1200);
                       }}
                     />
@@ -885,9 +975,6 @@ export function ReviewDrawer({
                   />
                 </label>
 
-                {decision && blockedReason && !recordedButStuck && (
-                  <p className={`text-sm ${statusText.warn}`}>{blockedReason}</p>
-                )}
                 {error && (
                   <p className={`text-sm ${statusText.bad}`} role="alert">
                     {error}
@@ -896,9 +983,12 @@ export function ReviewDrawer({
                 {outcome && !error && <p className={`text-sm ${statusText.ok}`}>{outcome}</p>}
 
                 {!phone && (
-                  <div className="flex flex-wrap gap-2">
-                    {submitButton}
-                    {retryButton}
+                  <div style={stackLayout(6)}>
+                    <div className="flex flex-wrap gap-2">
+                      {submitButton}
+                      {retryButton}
+                    </div>
+                    {whyLine}
                   </div>
                 )}
                 </>
@@ -944,14 +1034,17 @@ export function ReviewDrawer({
           <div
             data-action-bar
             className="shrink-0 border-t border-[var(--desk-line-color)] bg-[hsl(var(--background))]"
-            style={{ display: 'flex', gap: 8, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 12, paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' }}
           >
-            {submitButton}
-            {retryButton || (
-              <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
-                Close
-              </DecisionButton>
-            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              {submitButton}
+              {retryButton || (
+                <DecisionButton variant="quiet" size="md" onClick={onClose} style={{ minHeight: 44 }}>
+                  Close
+                </DecisionButton>
+              )}
+            </div>
+            {whyLine}
           </div>
         )}
       </div>
