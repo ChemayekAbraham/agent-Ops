@@ -9,6 +9,7 @@ import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { learnDepositNumber, toLast9, learnDepositName } from "../_shared/depositNumberLearning.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { isPartnerReturnCredit } from "../_shared/returnCycleGuard.ts";
+import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit, reverseCustomerMoneyLegs } from "../_shared/depositBooking.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -817,8 +818,40 @@ Deno.serve(async (req) => {
 
     if (op === "credit") {
       console.log("[cfo-direct-credit] Creating CREDIT ledger entries for", walletUserId, "amount:", amount, "partner:", target_user_id, "managedProxy:", !!managedProxy);
-      const { error: rpcErr } = await adminClient.rpc('create_ledger_transaction', {
-        entries: [
+
+      // ── Inbound payment routed to a non-agent's float (CFO, 10 Nov 2026) ──
+      // When this credit routes an INCOMING email/SMS receipt into the float of
+      // a payer who is not an agent, it is the payer's own money received on the
+      // company's line: book DR A1 / CR L1 (held for them) instead of agent
+      // float issued from the float cycle (CR A8). Company float issued to agents
+      // ("Agent Float Allocation", manual credits) and agents' own payments keep
+      // the existing booking. The wallet leg is unchanged. See
+      // ../_shared/depositBooking.ts (same rule as approve-deposit).
+      let customerMoneyLegs: Record<string, unknown>[] | null = null;
+      if (walletBucket === 'float' && !isManualCredit && gmailTxId && !managedProxy) {
+        const [{ data: inbound }, { data: ownerAgent, error: roleErr }] = await Promise.all([
+          adminClient.from("gmail_transactions").select("id, amount, direction, channel, transaction_id").eq("id", gmailTxId).maybeSingle(),
+          adminClient.from("user_roles").select("role").eq("user_id", target_user_id).eq("role", "agent").maybeSingle(),
+        ]);
+        if (roleErr) {
+          console.warn("[cfo-direct-credit] role lookup failed; keeping agent-float booking:", roleErr.message);
+        } else if (
+          inbound && inbound.direction === "in" && Math.abs(Number(inbound.amount) - amount) <= 1 &&
+          isCustomerMoneyFloatDeposit({ isFloatDeposit: true, isPhysicalCashChannel: false, isAgent: !!ownerAgent, purpose: '' })
+        ) {
+          customerMoneyLegs = customerMoneyFloatPlatformLegs({
+            sourceTable: 'cfo_direct_credit',
+            amount,
+            provider: inbound.channel ?? null,
+            transactionId: inbound.transaction_id ?? null,
+            referenceId: refId,
+            transactionDate: new Date().toISOString(),
+            extra: { user_id: userId },
+          });
+        }
+      }
+
+      const creditEntries: Record<string, unknown>[] = [
           {
             user_id: walletUserId,
             amount,
@@ -852,7 +885,12 @@ Deno.serve(async (req) => {
               ? { solvency_bypass_reason: solvencyBypassReason }
               : {}),
           },
-        ],
+        ];
+      // Inbound payment of a non-agent: replace the single platform leg (agent float
+      // from the float cycle) with the payer's-money-received legs.
+      if (customerMoneyLegs) creditEntries.splice(1, 1, ...customerMoneyLegs);
+      const { error: rpcErr } = await adminClient.rpc('create_ledger_transaction', {
+        entries: creditEntries,
         skip_balance_check: true,
       });
       if (rpcErr) {
@@ -921,6 +959,39 @@ Deno.serve(async (req) => {
           transaction_date: nowIso,
         },
       ];
+
+      // Reversal of an inbound payment that was booked as the payer's money received
+      // (DR A1 / CR L1, see the credit branch): mirror those legs, never the
+      // agent-float leg, so the reversal undoes exactly what the routing posted.
+      if (reversalOk && walletBucket === 'float' && gmailTxId) {
+        const { data: origCredits } = await adminClient
+          .from("email_credit_idempotency")
+          .select("reference_id")
+          .eq("gmail_transaction_id", gmailTxId)
+          .eq("target_user_id", target_user_id)
+          .eq("operation", "credit");
+        const origRefs = (origCredits ?? []).map((r: { reference_id: string | null }) => r.reference_id).filter(Boolean) as string[];
+        if (origRefs.length > 0) {
+          const { count: custodyLegs } = await adminClient
+            .from("general_ledger")
+            .select("id", { count: "exact", head: true })
+            .in("reference_id", origRefs)
+            .eq("ledger_scope", "platform")
+            .eq("category", "verified_bank_cash_recognised");
+          if ((custodyLegs ?? 0) > 0) {
+            const mirrored = reverseCustomerMoneyLegs(customerMoneyFloatPlatformLegs({
+              sourceTable: 'cfo_direct_credit',
+              amount,
+              provider: null,
+              transactionId: reversalTid,
+              referenceId: refId,
+              transactionDate: nowIso,
+              extra: { user_id: userId },
+            }), reversalTid);
+            entries.splice(1, 1, ...mirrored);
+          }
+        }
+      }
 
       const { error: rpcErr } = await adminClient.rpc('create_ledger_transaction', {
         entries,

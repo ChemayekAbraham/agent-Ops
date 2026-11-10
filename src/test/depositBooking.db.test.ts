@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit } from '../../supabase/functions/_shared/depositBooking';
+import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit, reverseCustomerMoneyLegs } from '../../supabase/functions/_shared/depositBooking';
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 300_000 });
 
@@ -33,7 +33,7 @@ describe('booking rule', () => {
     expect(isCustomerMoneyFloatDeposit({ ...base, isFloatDeposit: false })).toBe(false);
   });
   it('legs: three platform legs, raw-balanced with the wallet leg, carrying the receipt reference', () => {
-    const legs = customerMoneyFloatPlatformLegs({ depositId: 'd1', amount: 250000, provider: 'mtn', transactionId: 'TID123', transactionDate: '2026-11-10T10:00:00Z' });
+    const legs = customerMoneyFloatPlatformLegs({ sourceId: 'd1', amount: 250000, provider: 'mtn', transactionId: 'TID123', transactionDate: '2026-11-10T10:00:00Z' });
     expect(legs.map((l: any) => [l.ledger_scope, l.category, l.direction])).toEqual([
       ['platform', 'agent_float_cash_offset', 'cash_out'],
       ['platform', 'verified_bank_cash_recognised', 'cash_in'],
@@ -42,6 +42,20 @@ describe('booking rule', () => {
     const net = 250000 /* wallet cash_in */ + legs.reduce((s: number, l: any) => s + (l.direction === 'cash_in' ? l.amount : -l.amount), 0);
     expect(net).toBe(0);
     expect(legs.every((l: any) => l.reference_id === 'TID123' && l.source_id === 'd1' && l.amount === 250000)).toBe(true);
+  });
+  it('cfo-direct-credit legs: no deposit id, the credit\'s own reference, the operator on every leg', () => {
+    const legs = customerMoneyFloatPlatformLegs({ sourceTable: 'cfo_direct_credit', amount: 90000, provider: 'mtn_momo', transactionId: '44042692598',
+      referenceId: 'PAY-ABC', transactionDate: '2026-11-10T10:00:00Z', extra: { user_id: 'op1' } });
+    expect(legs.every((l: any) => l.source_table === 'cfo_direct_credit' && !('source_id' in l) && l.reference_id === 'PAY-ABC' && l.user_id === 'op1')).toBe(true);
+    expect(String((legs[1] as any).description)).toContain('44042692598');
+  });
+  it('a reversal mirrors the legs exactly (directions swapped, amounts and categories kept)', () => {
+    const legs = customerMoneyFloatPlatformLegs({ sourceTable: 'cfo_direct_credit', amount: 90000, provider: null, transactionId: null, referenceId: 'PAY-R', transactionDate: 'x' });
+    const rev = reverseCustomerMoneyLegs(legs, 'REV-1');
+    expect(rev.map((l: any) => [l.category, l.direction, l.amount])).toEqual([
+      ['agent_float_cash_offset', 'cash_in', 90000], ['verified_bank_cash_recognised', 'cash_out', 90000], ['cash_custody_payable', 'cash_in', 90000],
+    ]);
+    expect(String((rev[0] as any).description)).toMatch(/^Reversal \(REV-1\)/);
   });
 });
 
@@ -92,7 +106,7 @@ describe('ledger effect on the production resolver', () => {
   });
 
   it('a Supporter\'s mobile-money float deposit books DR A1 / CR L1 (no agent float, no float cycle)', async () => {
-    const legs = customerMoneyFloatPlatformLegs({ depositId: 'd1', amount: 400000, provider: 'mtn', transactionId: 'TID1', transactionDate: '2026-11-10T07:00:00Z' });
+    const legs = customerMoneyFloatPlatformLegs({ sourceId: 'd1', amount: 400000, provider: 'mtn', transactionId: 'TID1', transactionDate: '2026-11-10T07:00:00Z' });
     await post('00000000-0000-0000-0001-000000000001', [walletLeg(400000), ...legs]);
     expect([await acct('A1'), await acct('L1'), await acct('A2'), await acct('A8')]).toEqual([400000, 400000, 0, 0]);
   });
@@ -110,6 +124,18 @@ describe('ledger effect on the production resolver', () => {
       walletLeg(150000), { ledger_scope: 'platform', category: 'agent_float_deposit', direction: 'cash_out', amount: 150000 },
     ]);
     expect([await acct('A2'), await acct('A8')]).toEqual([150000, -150000]);
+  });
+
+  it('cfo-direct-credit: a routed inbound payment to a non-agent\'s float books DR A1 / CR L1, and its reversal undoes it exactly', async () => {
+    const [a1, l1, a2, a8] = [await acct('A1'), await acct('L1'), await acct('A2'), await acct('A8')];
+    const legs = customerMoneyFloatPlatformLegs({ sourceTable: 'cfo_direct_credit', amount: 90000, provider: 'mtn_momo', transactionId: '44042692598', referenceId: 'PAY-C', transactionDate: 'x' });
+    await post('00000000-0000-0000-0001-000000000004', [walletLeg(90000), ...legs]);
+    expect([await acct('A1') - a1, await acct('L1') - l1, await acct('A2') - a2, await acct('A8') - a8]).toEqual([90000, 90000, 0, 0]);
+    await post('00000000-0000-0000-0001-000000000005', [
+      { ledger_scope: 'wallet', category: 'agent_float_deposit', direction: 'cash_out', amount: 90000, wallet_bucket: 'float' },
+      ...reverseCustomerMoneyLegs(legs, 'REV-1'),
+    ]);
+    expect([await acct('A1') - a1, await acct('L1') - l1, await acct('A2') - a2, await acct('A8') - a8]).toEqual([0, 0, 0, 0]);
   });
 
   it('every group balances through the resolver', async () => {

@@ -776,7 +776,7 @@ Deno.serve(async (req) => {
               console.warn(`[approve-deposit] role lookup failed for ${depositRequest.id}; keeping agent-float booking:`, roleErr.message);
             } else if (isCustomerMoneyFloatDeposit({ isFloatDeposit, isPhysicalCashChannel, isAgent: !!agentRole, purpose: rawPurpose })) {
               depositEntries.splice(1, depositEntries.length - 1, ...customerMoneyFloatPlatformLegs({
-                depositId: depositRequest.id,
+                sourceId: depositRequest.id,
                 amount: Number(depositRequest.amount),
                 provider: depositRequest.provider ?? null,
                 transactionId: depositRequest.transaction_id ?? null,
