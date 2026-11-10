@@ -963,7 +963,9 @@ export function ProxyPartnerFunds() {
         if (partner.available <= 50 && partner.inFlightAmount <= 50) return false;
         const dKey = `${partner.partnerId}-${partner.portfolioId || 'none'}`;
         const d = dismissalMap[dKey];
-        if (d) return false;
+        // A hide applies only to the payout it was made on: a CFO approval
+        // that arrives AFTER the hide is a new payout and must show again.
+        if (d && !(partner.latestAt && d.dismissed_at && partner.latestAt > d.dismissed_at)) return false;
         return true;
       })
       .sort((a, b) => {
