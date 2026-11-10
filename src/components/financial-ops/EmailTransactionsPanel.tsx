@@ -79,6 +79,7 @@ import {
   type RoutingHistoryEntry,
 } from '@/hooks/useEmailTransactionsPanel';
 import { useTelecomBalances } from '@/hooks/useTelecomBalances';
+import { useCanViewActualFloat } from '@/hooks/useCanViewActualFloat';
 
 /**
  * Live MTN / Airtel float balances as reported on the most recent
@@ -86,6 +87,8 @@ import { useTelecomBalances } from '@/hooks/useTelecomBalances';
  */
 function TelecomBalanceStrip({ refreshKey }: { refreshKey: string | null }) {
   const bal = useTelecomBalances(refreshKey);
+  const { canView } = useCanViewActualFloat();
+  if (!canView) return null; // restricted people do not see the float figures
 
   const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
   const time = (iso: string) => {

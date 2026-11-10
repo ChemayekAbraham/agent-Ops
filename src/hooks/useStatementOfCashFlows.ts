@@ -1,13 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
  * Statement of Cash Flows — corporate presentation (Operating / Investing / Financing).
  *
- * Read-only. Every figure comes from `public.get_statement_of_cash_flows(p_from, p_to)`,
- * which derives cash from the General Ledger cash accounts (A1 Cash & Bank + A2 Float
- * with Agents) using `ledger_account_map` and `cash_flow_line_map`. No wallet cache,
- * no operational table and no hard-coded figure feeds any total here.
+ * Read-only. Every figure comes from `public.fin_cash_flow(p_from, p_to)`: direct method on the cash accounts
+ * listed in `fin_cash_accounts` (cash and bank, cash collected not yet banked, and the restricted Landlord Float
+ * Pool). Internal moves between those accounts are eliminated. There is no balancing line: any movement the
+ * counterpart entries do not explain is reported as `unexplained_difference` with its ledger groups.
  */
 export interface CashFlowLine {
   label: string;
@@ -56,6 +56,11 @@ export interface StatementOfCashFlows {
   ties_to_balance_sheet: boolean;
   unreconciled_residual: number;
   reconciles: boolean;
+  /** fin_cash_flow only: movement not explained by counterpart entries (never added to a line). */
+  unexplained_difference?: number;
+  unexplained_groups_count?: number;
+  unexplained_groups?: { group: string; cash_effect: number; counterparts: number; gap: number }[];
+  explained_net_change?: number;
 }
 
 const ALL_TIME_START = new Date('2000-01-01T00:00:00Z');
@@ -65,13 +70,18 @@ export function useStatementOfCashFlows(start: Date | null, end: Date | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fromIso = (start ?? ALL_TIME_START).toISOString();
-  const toIso = (end ?? new Date()).toISOString();
+  // Freeze "now" once per period choice: a fresh new Date() on every render recreated `load` and re-ran the
+  // query in a loop for open-ended periods (All Time).
+  const startMs = start ? start.getTime() : null;
+  const endMs = end ? end.getTime() : null;
+  const fromIso = useMemo(() => (startMs === null ? ALL_TIME_START : new Date(startMs)).toISOString(), [startMs]);
+  const toIso = useMemo(() => (endMs === null ? new Date() : new Date(endMs)).toISOString(), [endMs]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const { data: rpc, error: rpcError } = await supabase.rpc('get_statement_of_cash_flows', {
+    setData(null); // never show or export the previous period's figures while the new period loads
+    const { data: rpc, error: rpcError } = await supabase.rpc('fin_cash_flow', {
       p_from: fromIso,
       p_to: toIso,
     });
