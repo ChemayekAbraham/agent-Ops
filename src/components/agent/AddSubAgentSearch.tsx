@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,10 +88,10 @@ export function AddSubAgentSearch({ onAdded }: AddSubAgentSearchProps) {
       const parentIds = Array.from(new Set(rows.map((r) => r.parent_agent_id)));
       let names: Record<string, string | null> = {};
       if (parentIds.length > 0) {
-        const { data: parents } = await supabase
+        const { data: parents } = await withUuidIds(parentIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', parentIds);
+          .in('id', validIds));
         names = Object.fromEntries((parents || []).map((p) => [p.id, p.full_name]));
       }
       const map: Record<string, ExistingLink> = {};

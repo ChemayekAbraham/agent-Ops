@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -195,10 +196,10 @@ export function AgentOpsApprovedRequestsPanel() {
         if (!profileIds.length) return [];
         const res: any[] = [];
         for (let i = 0; i < profileIds.length; i += BATCH) {
-          const { data: chunk } = await supabase
+          const { data: chunk } = await withUuidIds(profileIds.slice(i, i + BATCH), (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone, district, village')
-            .in('id', profileIds.slice(i, i + BATCH));
+            .in('id', validIds));
           if (chunk) res.push(...chunk);
         }
         return res;

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -104,10 +105,10 @@ export function ManagerLedgerSummary() {
         const profiles: any[] = [];
         for (let i = 0; i < userIds.length; i += 50) {
           const chunk = userIds.slice(i, i + 50);
-          const { data } = await supabase
+          const { data } = await withUuidIds(chunk, (validIds) => supabase
             .from('profiles')
             .select('id, full_name, phone')
-            .in('id', chunk);
+            .in('id', validIds));
           if (data) profiles.push(...data);
         }
 

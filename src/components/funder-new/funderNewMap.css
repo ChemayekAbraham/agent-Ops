@@ -135,6 +135,24 @@
   box-shadow: 0 0 0 100vmax hsl(var(--background));
 }
 
+/* ---- Desktop: houses list docked on the left (MapBottomSheet side layout) ---- */
+:root {
+  --fn-side-panel-w: clamp(380px, 34vw, 480px);
+}
+
+@media (min-width: 1024px) {
+  body[data-map-side-panel='true'] .fn-map-fullscreen {
+    left: var(--fn-side-panel-w);
+    width: auto;
+    margin-inline: 0;
+    box-shadow: none;
+  }
+
+  body[data-map-side-panel='true'] .fn-map-search-float {
+    left: var(--fn-side-panel-w);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fn-map * {
     transition: none !important;

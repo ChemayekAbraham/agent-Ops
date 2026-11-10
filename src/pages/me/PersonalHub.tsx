@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
@@ -82,7 +83,7 @@ const PersonalHub = () => {
     staleTime: 60_000,
     queryFn: async () => {
       const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData.session?.user?.id ?? (await supabase.auth.getUser()).data.user?.id;
+      const uid = sessionData.session?.user?.id ?? (await getSessionCheckedUser()).data.user?.id;
       if (!uid) return { pending: 0, approved: 0 };
       const { data, error } = await supabase.from('staff_requisitions').select('stage').eq('requester_id', uid);
       if (error) { console.error('staff_requisitions counts', error); return { pending: 0, approved: 0 }; }

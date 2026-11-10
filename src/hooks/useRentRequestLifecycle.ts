@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -77,10 +78,10 @@ export function useRentRequestLifecycle(requestId: string | null) {
 
       let actorMap = new Map<string, string>();
       if (actorIds.length) {
-        const { data: people } = await supabase
+        const { data: people } = await withUuidIds(actorIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, email')
-          .in('id', actorIds);
+          .in('id', validIds));
         actorMap = new Map((people ?? []).map((p: any) => [p.id, p.full_name || p.email || 'User']));
       }
 

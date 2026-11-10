@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -225,7 +226,7 @@ function usePipelineRequests(
       const landlordIds = [...new Set(rows.map((r) => r.landlord_id).filter(Boolean))];
       const [{ data: profiles }, { data: landlords }, { data: allocations }] = await Promise.all([
         tenantIds.length
-          ? supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+          ? withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : Promise.resolve({ data: [] as any[] }),
         landlordIds.length
           ? supabase.from('landlords').select('id, name, property_address').in('id', landlordIds)

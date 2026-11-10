@@ -14,6 +14,7 @@ import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub'
 import { ValuationModelPanel } from '@/components/executive/ValuationModelPanel';
 import { ApprovalsInbox } from '@/hr/pay/Approvals';
 import { AdvancesPanel } from '@/hr/pay/Advances';
+import { PartnerReturnPolicyCard } from '@/components/cfo/PartnerReturnPolicyCard';
 
 export default function CEODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('ceo');
@@ -49,6 +50,8 @@ export default function CEODashboardPage() {
         return <ApprovalsInbox />;
       case 'role-management':
         return <RoleManagementPanel />;
+      case 'partner-returns':
+        return <PartnerReturnPolicyCard />;
       default:
         return <CEODashboard />;
     }

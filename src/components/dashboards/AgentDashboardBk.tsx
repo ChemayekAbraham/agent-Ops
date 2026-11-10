@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import AgentVettingBanner from '@/components/agent-vetting/AgentVettingBanner';
 // BACKUP SNAPSHOT - served at /dashboard/agent-bk.
 //
@@ -103,7 +105,7 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
-import { useAgentVerifiedState } from '@/hooks/useAgentVetting';
+import { useAgentSignupVerifyRedirect, useAgentVerifiedState } from '@/hooks/useAgentVetting';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
@@ -315,8 +317,11 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboardBk({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  const authenticatedReady = useAuthenticatedAudience();
   // Agent Ops approval (agent vetting), never profiles.verified.
   const agentVerifiedState = useAgentVerifiedState();
+  // New agent signups are sent to verification until they have started it.
+  useAgentSignupVerifyRedirect();
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
   const { data: myEliteRank } = useMyEliteRank();
@@ -384,11 +389,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
   // landing period.
   const { data: mySubagentRank } = useQuery({
     queryKey: ['agent-dashboard-my-subagent-rank', user?.id],
-    enabled: !!user?.id,
+    enabled: authenticatedReady && (!!user?.id),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_my_subagent_rank', {
+      const { data, error } = await withUserSession(() => supabase.rpc('get_my_subagent_rank', {
         p_period: 'weekly',
-      });
+      }));
       if (error) throw error;
       return (data?.[0] as { rank: number; active_count: number; total_subagents: number; active_rate: number } | null) ?? null;
     },
@@ -769,6 +774,11 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
     const params = new URLSearchParams(window.location.search);
     if (params.get('section') === 'cash-payouts') {
       setCashPayoutsOpen(true);
+    }
+    // Deep-link: /dashboard/agent?section=wallet opens the wallet sheet
+    // (used by the Proxy earnings "Withdraw" button).
+    if (params.get('section') === 'wallet') {
+      setShowWallet(true);
     }
   }, []);
 

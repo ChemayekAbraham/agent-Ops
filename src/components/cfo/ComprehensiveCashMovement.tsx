@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, subDays, subYears, addDays, addWeeks, addMonths, differenceInCalendarDays } from 'date-fns';
@@ -596,7 +597,7 @@ function OtherWalletOriginDrilldown({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -773,7 +774,7 @@ function GroupPeriodDrilldown({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -1147,7 +1148,7 @@ function TreasuryWalletFlowSummary({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -1666,7 +1667,7 @@ function AgentAllocationBreakdownChart({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -2017,7 +2018,7 @@ function CompanyToWalletBreakdownChart({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -2160,7 +2161,7 @@ function CompanyToWalletBreakdownChart({
     if (!ids.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -2874,7 +2875,7 @@ function MovementTimeline({
     if (!list.length) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', list);
+      const { data } = await withUuidIds(list, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as { id: string; full_name: string | null }[]) {
@@ -3743,7 +3744,7 @@ export function ComprehensiveCashMovement() {
     if (ids.length === 0) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids.slice(0, 200));
+      const { data } = await withUuidIds(ids.slice(0, 200), (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as any[]) {
@@ -3850,7 +3851,7 @@ export function ComprehensiveCashMovement() {
     if (ids.length === 0) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+      const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
       if (cancelled || !data) return;
       const next: Record<string, string> = {};
       for (const p of data as any[]) {

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Read-only tenant snapshot for the Call Centre reveal panel.
  *
@@ -102,7 +103,7 @@ export function useCcSubjectSnapshot(subjectType: CcSubjectType, subjectId: stri
       const planId = String(r.rent_request_id);
 
       const [{ data: profiles }, { data: wallets }, { data: planRow }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', ids),
+        withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         supabase.from('wallets').select('user_id, balance').in('user_id', ids),
         supabase
           .from('rent_requests')

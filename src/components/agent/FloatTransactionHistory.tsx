@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,10 +84,10 @@ export function FloatTransactionHistory({ open, onOpenChange }: Props) {
       ])) as string[];
       const tenantMap: Record<string, string> = {};
       if (tenantIds.length > 0) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(tenantIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', tenantIds);
+          .in('id', validIds));
         for (const p of profiles || []) tenantMap[p.id] = p.full_name || 'Tenant';
       }
 

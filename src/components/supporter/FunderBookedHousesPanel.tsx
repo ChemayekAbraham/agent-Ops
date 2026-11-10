@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CalendarClock, CheckCircle2, Clock, Home, Loader2, RotateCcw, Wallet } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX, formatUGXOrDash } from '@/lib/rentCalculations';
 import { useOwnNewPortfolioRate } from '@/hooks/usePartnerQuoteRate';
 import { monthlyReturnFor } from '@/lib/partnerReturnPolicy';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 interface Booking {
   intent_id: string;
@@ -42,6 +44,7 @@ const dateLabel = (iso: string | null) => {
  * run through server-side RPCs — nothing moves money in the client.
  */
 export function FunderBookedHousesPanel() {
+  const ready = useAuthenticatedAudience();
   const [rows, setRows] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyHouse, setBusyHouse] = useState<string | null>(null);
@@ -50,7 +53,8 @@ export function FunderBookedHousesPanel() {
   const { rate: ownRate } = useOwnNewPortfolioRate();
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase.rpc('funder_booked_houses');
+    if (!ready) { setRows([]); setLoading(false); return; }
+    const { data, error } = await withUserSession(() => supabase.rpc('funder_booked_houses'));
     if (error) {
       console.error('[FunderBookedHousesPanel]', error.message);
       setRows([]);
@@ -59,7 +63,7 @@ export function FunderBookedHousesPanel() {
       setRows(Array.isArray(payload.bookings) ? payload.bookings : []);
     }
     setLoading(false);
-  }, []);
+  }, [ready]);
 
   useEffect(() => { void load(); }, [load]);
 

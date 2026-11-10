@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -86,7 +87,7 @@ async function loadPeople(ids: string[]): Promise<Record<string, AssistantPerson
   const out: Record<string, AssistantPerson> = {};
   for (const id of unique) out[id] = { id, full_name: null, phone: null };
   if (!unique.length) return out;
-  const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', unique);
+  const { data } = await withUuidIds(unique, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
   for (const p of data ?? []) out[p.id] = { id: p.id, full_name: p.full_name ?? null, phone: p.phone ?? null };
   return out;
 }

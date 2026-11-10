@@ -1,7 +1,7 @@
 import { Suspense, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FilePlus2, Share2, Loader2 } from 'lucide-react';
+import { NotebookPen, Share2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -113,23 +113,23 @@ export default function ProxyPerformanceDashboard() {
         <div className="flex w-full flex-row items-center gap-2">
           <Button
             variant="outline"
-            className="h-11 w-11 shrink-0 rounded-full px-0"
+            className="h-11 w-[calc(40%-4px)] shrink-0 rounded-md px-0"
             onClick={shareInvite}
             disabled={inviteLoading}
             aria-label="Share invite link"
           >
-            {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            {inviteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4 text-success" />}
           </Button>
           <Button
-            className="h-11 flex-1 rounded-full text-sm font-semibold"
+            className="h-11 w-[calc(60%-4px)] shrink-0 rounded-md text-sm font-semibold"
             onClick={startNote}
             onPointerEnter={() => {
               void import('@/components/agent/SupportModeChooserDialog').catch(() => {});
               void import('@/components/agent/PromissoryNoteDialog').catch(() => {});
             }}
           >
-            <FilePlus2 className="mr-2 h-4 w-4" />
-            Create Promissory Note
+            <NotebookPen className="mr-2 h-4 w-4" />
+            New Promissory Note
           </Button>
         </div>
       </div>

@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { SignageRecord, SignageStatus, SIGNAGE_RATES } from '@/lib/welileSignages';
+import { SignageRecord, SignageListRecord, SIGNAGE_RATES, signageReviewTarget, canReviewSignage, hasDeviceSignageGps, SignagePhoto } from '@/lib/welileSignages';
+import { readStoredAuthSession, isSessionPastMaxAge } from '@/lib/sessionCache';
 import { safeUUID } from '@/lib/safeUUID';
 import { toast } from 'sonner';
+import { withUserSession } from '@/lib/authenticatedRequests';
 
 // Legacy device-only cache. Read only for the one-time upload to the server; never written.
 const STORAGE_KEY = 'welile:signages:local_cache';
@@ -15,13 +17,54 @@ const INSERT_COLUMNS = [
   'property_name', 'property_type', 'business_category',
   'owner_full_name', 'owner_phone', 'owner_alt_phone', 'consenting_relation', 'permission_confirmed',
   'owner_payment_method', 'owner_payment_number', 'owner_payment_name',
-  'gps_latitude', 'gps_longitude', 'gps_accuracy_meters', 'gps_captured_at',
+  'gps_latitude', 'gps_longitude', 'gps_accuracy_meters', 'gps_captured_at', 'gps_source',
   'district_name', 'county_name', 'sub_county_name', 'parish_name', 'village_name', 'plot_or_landmark',
   'foot_traffic', 'road_visibility', 'operating_hours', 'nearby_landmarks',
   'proposed_surface', 'proposed_dimensions', 'accessibility_notes', 'photos',
 ] as const;
 
 const db = () => supabase as any;
+
+// Explicit projection: never download base64 application/installation photos with a queue.
+export const SIGNAGE_QUEUE_COLUMNS = 'id,reference_no,agent_id,agent_name,agent_phone,property_name,property_type,business_category,owner_full_name,owner_phone,owner_alt_phone,consenting_relation,permission_confirmed,owner_payment_method,owner_payment_number,owner_payment_name,gps_latitude,gps_longitude,gps_accuracy_meters,gps_captured_at,gps_source,repeat_owner_phone,district_name,county_name,sub_county_name,parish_name,village_name,plot_or_landmark,foot_traffic,road_visibility,operating_hours,nearby_landmarks,proposed_surface,proposed_dimensions,accessibility_notes,status,rejection_reason,review_notes,reviewed_by,reviewed_at,coo_approved_by,coo_approved_at,coo_review_notes,installed_at,installer_name,verified_by,verified_at,verification_notes,activated_at,removal_effective_at,agent_reward_status,agent_reward_disbursed_at,agent_reward_disbursed_by,agent_reward_tx_ref,owner_rent_status,owner_rent_disbursed_at,owner_rent_disbursed_by,owner_rent_tx_ref,created_at,updated_at';
+
+function useSignageQueryUser() {
+  const { user, session, loading } = useAuth();
+  // A role/profile lookup need not hold up RLS-protected reads. Supabase still checks the JWT.
+  const stored = loading && !session ? readStoredAuthSession() : null;
+  const current = session ?? stored;
+  if (!current?.access_token || isSessionPastMaxAge(current)
+    || (current.expires_at ?? 0) <= Date.now() / 1000) return undefined;
+  if (user && user.id !== current.user?.id) return undefined;
+  return current.user?.id as string | undefined;
+}
+
+export function signageDetailQuery(userId: string | undefined, signageId: string | undefined) {
+  return {
+    queryKey: ['welile-signages', 'detail', userId, signageId],
+    enabled: !!userId && !!signageId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }: { signal: AbortSignal }): Promise<SignageRecord> => {
+      if (!userId || !signageId) throw new Error('Sign in and select an application.');
+      const { data, error } = await db().from('welile_signages').select('*')
+        .eq('id', signageId).abortSignal(signal).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) throw new Error('This signage is unavailable or you cannot inspect it.');
+      return data as SignageRecord;
+    },
+  };
+}
+
+export function useSignageDetail(signageId?: string) {
+  return useQuery(signageDetailQuery(useSignageQueryUser(), signageId));
+}
+
+export function useLoadSignageDetail() {
+  const userId = useSignageQueryUser();
+  const queryClient = useQueryClient();
+  return (signageId: string) => queryClient.fetchQuery(signageDetailQuery(userId, signageId));
+}
 
 function pickInsert(rec: Partial<SignageRecord>): Record<string, unknown> {
   const out: Record<string, unknown> = { status: 'submitted' };
@@ -35,7 +78,10 @@ function pickInsert(rec: Partial<SignageRecord>): Record<string, unknown> {
 /** Insert by client id; a duplicate id means it was already saved, which counts as success. */
 async function insertSignage(rec: Partial<SignageRecord>) {
   const { error } = await db().from('welile_signages').insert([pickInsert(rec)]);
-  if (error && error.code !== '23505') throw new Error(error.message);
+  if (error && !(error.code === '23505' && error.message?.includes('welile_signages_pkey'))) {
+    throw new Error(error.message?.includes('welile_signages_unique_gps')
+      ? 'A signage application already exists at these GPS coordinates. Choose a different spot.' : error.message);
+  }
 }
 
 function readLegacy(): SignageRecord[] {
@@ -94,34 +140,43 @@ function useLegacySignageSync(userId?: string) {
 }
 
 export function useMySignages() {
-  const { user } = useAuth();
-  useLegacySignageSync(user?.id);
+  const userId = useSignageQueryUser();
+  useLegacySignageSync(userId);
 
   return useQuery({
-    queryKey: ['welile-signages', 'my', user?.id],
-    enabled: !!user?.id,
-    queryFn: async (): Promise<SignageRecord[]> => {
+    queryKey: ['welile-signages', 'my', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
+      if (!userId) return [];
       const { data, error } = await db()
         .from('welile_signages')
-        .select('*')
-        .eq('agent_id', user!.id)
+        .select(SIGNAGE_QUEUE_COLUMNS)
+        .eq('agent_id', userId)
+        .abortSignal(signal)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []) as SignageRecord[];
+      return (data ?? []) as SignageListRecord[];
     },
   });
 }
 
 export function useSignageOpsQueue() {
+  const userId = useSignageQueryUser();
   return useQuery({
-    queryKey: ['welile-signages', 'ops-queue'],
-    queryFn: async (): Promise<SignageRecord[]> => {
+    queryKey: ['welile-signages', 'ops-queue', userId],
+    enabled: !!userId,
+    staleTime: 60_000,
+    gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
       const { data, error } = await db()
         .from('welile_signages')
-        .select('*')
+        .select(SIGNAGE_QUEUE_COLUMNS)
+        .abortSignal(signal)
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
-      return (data ?? []) as SignageRecord[];
+      return (data ?? []) as SignageListRecord[];
     },
   });
 }
@@ -133,7 +188,7 @@ export function useSubmitSignage() {
   return useMutation({
     mutationFn: async (payload: Omit<SignageRecord, 'id' | 'reference_no' | 'agent_id' | 'created_at' | 'updated_at' | 'status'>) => {
       if (!user?.id) throw new Error('You must be signed in to submit a signage.');
-      if (!payload.gps_latitude || !payload.gps_longitude) {
+      if (!hasDeviceSignageGps(payload)) {
         throw new Error('Mandatory Live GPS capture required. Coordinates cannot be blank.');
       }
       if (!payload.permission_confirmed) {
@@ -175,7 +230,7 @@ async function updateSignage(signageId: string, updates: Record<string, unknown>
   if (!data || data.length === 0) throw new Error('You are not allowed to change this application, or it no longer exists.');
 }
 
-export function useReviewSignage() {
+export function useReviewSignage(stage: 'agent_ops' | 'coo' = 'agent_ops') {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -190,73 +245,121 @@ export function useReviewSignage() {
       notes?: string;
       rejectionReason?: string;
     }) => {
-      let targetStatus: SignageStatus = 'under_review';
-      if (decision === 'approve') targetStatus = 'approved_for_installation';
-      if (decision === 'return') targetStatus = 'changes_required';
-      if (decision === 'reject') targetStatus = 'rejected';
-      // reviewed_by / reviewed_at are stamped by the server.
-      await updateSignage(signageId, {
+      const targetStatus = signageReviewTarget(decision, stage);
+      if (stage === 'coo') {
+        const { data, error } = await db().rpc('coo_decide_signage', {
+          p_signage_id: signageId, p_decision: decision,
+          p_notes: (decision === 'reject' ? rejectionReason : notes) || null,
+        });
+        if (error) throw new Error(error.message);
+        if (data?.status !== targetStatus) throw new Error('The decision could not be confirmed. Refresh the queue.');
+        return { signageId, targetStatus };
+      }
+      // Read fresh state, then condition the write on it so a stale review cannot overwrite another decision.
+      const { data: current, error: readError } = await db().from('welile_signages')
+        .select('id,status').eq('id', signageId).maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (!current || !canReviewSignage(current.status, stage)) {
+        throw new Error('This application is no longer pending Agent Ops review. Refresh the queue.');
+      }
+      // reviewed_by / reviewed_at are stamped by the server. Confirm the actual stored status.
+      const { data: saved, error: saveError } = await db().from('welile_signages').update({
         status: targetStatus,
         review_notes: notes || null,
         rejection_reason: rejectionReason || null,
-      });
+      }).eq('id', signageId).eq('status', current.status).select('id,status').maybeSingle();
+      if (saveError) throw new Error(saveError.message);
+      if (saved?.status !== targetStatus) throw new Error('The decision could not be confirmed. Refresh the queue.');
       return { signageId, targetStatus };
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success('Signage review decision recorded.');
+    onSuccess: async ({ signageId, targetStatus }) => {
+      queryClient.setQueriesData<SignageRecord[]>({ queryKey: ['welile-signages'] }, (records) =>
+        Array.isArray(records) ? records.map((record) => record.id === signageId ? { ...record, status: targetStatus } : record) : records);
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success(targetStatus === 'awaiting_coo'
+        ? 'Awaiting COO. Sent to the COO for approval.'
+        : stage === 'coo' && targetStatus === 'awaiting_cfo'
+          ? 'COO approved. Sent to the CFO for disbursement.'
+          : 'Signage review decision recorded.');
     },
     onError: (err: Error) => toast.error('Could not save the decision: ' + err.message),
   });
 }
 
-export function useVerifyInstallation() {
+export function useResubmitSignage() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: async ({
-      signageId,
-      installerName,
-      installedAt,
-      verificationNotes,
-    }: {
-      signageId: string;
-      installerName: string;
-      installedAt: string;
-      verificationNotes?: string;
-      photoUrl?: string;
-    }) => {
-      // verified_by / verified_at / activated_at are stamped by the server.
-      await updateSignage(signageId, {
-        status: 'active',
-        installed_at: installedAt,
-        installer_name: installerName,
-        verification_notes: verificationNotes || null,
-      });
-      return { signageId };
+    mutationFn: async ({ signageId, payload }: { signageId: string; payload: Partial<SignageRecord> }) => {
+      if (!user?.id) throw new Error('Sign in to resubmit this application.');
+      if (!hasDeviceSignageGps(payload as SignageRecord)) throw new Error('Capture real device GPS again before resubmitting.');
+      const { data: current, error: readError } = await db().from('welile_signages').select('id,status')
+        .eq('id', signageId).eq('agent_id', user.id).maybeSingle();
+      if (readError) throw new Error(readError.message);
+      if (current?.status !== 'changes_required') throw new Error('Only your Changes Required applications can be edited and resubmitted.');
+      const updates = pickInsert(payload);
+      delete updates.id;
+      delete updates.agent_id;
+      delete updates.agent_name;
+      delete updates.agent_phone;
+      const { data, error } = await db().from('welile_signages').update(updates).eq('id', signageId)
+        .eq('agent_id', user.id).eq('status', 'changes_required').select('*').maybeSingle();
+      if (error) throw new Error(error.message?.includes('welile_signages_unique_gps')
+        ? 'A signage application already exists at these GPS coordinates.' : error.message);
+      if (data?.status !== 'submitted') throw new Error('Resubmission could not be confirmed. Refresh the queue.');
+      return data as SignageRecord;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
-      toast.success(`Installation verified. Signage is now active (owner UGX ${SIGNAGE_RATES.OWNER_MONTHLY_UGX.toLocaleString()}/month).`);
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success('Changes submitted to Agent Ops for review.');
     },
-    onError: (err: Error) => toast.error('Could not mark installed: ' + err.message),
+    onError: (error: Error) => toast.error(error.message),
   });
 }
 
-/** Signage payouts are not connected to the payment process yet; nothing is ever marked paid here. */
-export const SIGNAGE_PAYOUTS_AVAILABLE = false;
+export const SIGNAGE_PAYOUTS_AVAILABLE = true;
+
+export function useSignageCfoQueue() {
+  const userId = useSignageQueryUser();
+  return useQuery({
+    queryKey: ['welile-signages', 'cfo-queue', userId], enabled: !!userId,
+    staleTime: 60_000, gcTime: 5 * 60_000,
+    queryFn: async ({ signal }): Promise<SignageListRecord[]> => {
+      const { data, error } = await db().rpc('cfo_signages_queue').abortSignal(signal);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+}
 
 export function useCfoDisburseSignage() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (_args: {
+    mutationFn: async (args: {
       signageId: string;
       payoutType: 'agent_reward' | 'owner_rent';
       transactionRef?: string;
       recipientPhone?: string;
       recipientName?: string;
       amountUgx: number;
-    }): Promise<never> => {
-      throw new Error('Signage payouts are coming soon. No payment was made.');
+      periodIndex: number;
+    }) => {
+      const expected = args.payoutType === 'agent_reward' ? SIGNAGE_RATES.AGENT_REWARD_UGX : SIGNAGE_RATES.OWNER_MONTHLY_UGX;
+      if (args.amountUgx !== expected) throw new Error('Incorrect signage payment amount.');
+      const { data, error } = await withUserSession(() => db().rpc('cfo_disburse_signage', {
+        p_signage_id: args.signageId, p_payout_type: args.payoutType, p_period_index: args.periodIndex,
+      }));
+      if (error) throw new Error(error.message);
+      if (!data?.ledger_group_id || data.signage_id !== args.signageId || Number(data.amount_ugx) !== expected) {
+        throw new Error('Payment could not be confirmed. Refresh before trying again.');
+      }
+      return data;
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['welile-signages'] });
+      toast.success(data.already_paid ? 'This payment was already credited; no duplicate payment made.'
+        : data.status === 'active' ? 'Payment credited. The signage is now Active.'
+          : 'Payment credited to Welile wallet. Awaiting the remaining CFO payment.');
     },
     onError: (err: any) => toast.error(err.message),
   });

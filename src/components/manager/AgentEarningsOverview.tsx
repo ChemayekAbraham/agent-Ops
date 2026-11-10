@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -108,7 +109,7 @@ export function AgentEarningsOverview() {
 
       // Fetch profiles and wallets in parallel
       const [profilesRes, walletsRes, payoutsRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', agentIds),
+        withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         supabase.from('wallets').select('user_id, balance').in('user_id', agentIds),
         supabase.from('agent_commission_payouts').select('agent_id, amount, status')
           .in('agent_id', agentIds)
@@ -171,7 +172,7 @@ export function AgentEarningsOverview() {
       const sourceIds = [...new Set((data || []).filter(e => e.source_user_id).map(e => e.source_user_id!))];
       let sourceMap = new Map<string, string>();
       if (sourceIds.length > 0) {
-        const { data: sources } = await supabase.from('profiles').select('id, full_name').in('id', sourceIds);
+        const { data: sources } = await withUuidIds(sourceIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         sourceMap = new Map((sources || []).map(s => [s.id, s.full_name]));
       }
 

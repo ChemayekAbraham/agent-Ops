@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { useState, useEffect, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
@@ -71,7 +72,7 @@ export function TenantOpsHub() {
   }, [params.get('mode'), canShowWorkspace]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
+    getSessionCheckedUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
   }, []);
 
   const setAndSave = (m: Mode) => {

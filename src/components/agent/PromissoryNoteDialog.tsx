@@ -399,7 +399,7 @@ export function PromissoryNoteDialog({ open, onOpenChange, supportMode = 'self',
     let activationLink = `${getPublicOrigin()}/activate?token=${token}`;
     try {
       const { createShortLink } = await import('@/lib/createShortLink');
-      const { data: { user: u } } = await (await import('@/integrations/supabase/client')).supabase.auth.getUser();
+      const { data: { user: u } } = await (await import('@/lib/authenticatedRequests')).getSessionCheckedUser();
       if (u && token) {
         activationLink = await createShortLink(u.id, '/activate', { token });
       }

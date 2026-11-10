@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useEffect, useMemo, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -124,6 +125,7 @@ export function EmptyHouseOpportunitiesSheet({
   /** Projected return from the funder calculator, shown on the first picker screen. */
   projection?: { houses: number; funding: number; monthly: number } | null;
 }) {
+  const authenticatedReady = useAuthenticatedAudience();
   const isPartner = mode === 'partner';
 
   const [search, setSearch] = useState('');
@@ -275,9 +277,9 @@ export function EmptyHouseOpportunitiesSheet({
   // Live funding / tenant / payout progress for houses this user already supports.
   const { data: progressRows } = useQuery({
     queryKey: ['empty-house-progress'],
-    enabled: open,
+    enabled: authenticatedReady && (open),
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('partner_supported_house_returns');
+      const { data, error } = await withUserSession(() => supabase.rpc('partner_supported_house_returns'));
       if (error) throw error;
       const payload = (data ?? {}) as { houses?: HouseProgress[] };
       return payload.houses ?? [];

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { useNavigate } from 'react-router-dom';
@@ -83,7 +84,7 @@ export default function NewRentRequestsDetail() {
       const allIds = [...new Set(items.flatMap(r => [r.tenant_id, r.agent_id].filter(Boolean)))] as string[];
       let nameMap = new Map<string, string>();
       if (allIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', allIds.slice(0, 50));
+        const { data: profiles } = await withUuidIds(allIds.slice(0, 50), (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         nameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
       }
 

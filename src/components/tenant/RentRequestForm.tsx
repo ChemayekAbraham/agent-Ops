@@ -374,7 +374,9 @@ export default function RentRequestForm({ userId, onSuccess, onCancel }: RentReq
       if (lc1Error) {
         toast({
           title: lc1Error.code === '23505' ? 'LC1 chairperson already exists' : 'Error',
-          description: lc1Error.code === '23505'
+          description: lc1Error.message?.includes('LC1_DUPLICATE')
+            ? lc1Error.message.replace(/^LC1_DUPLICATE:\s*/, '')
+            : lc1Error.code === '23505'
             ? 'An LC1 chairperson with this phone number is already registered.'
             : lc1Error.message,
           variant: 'destructive',

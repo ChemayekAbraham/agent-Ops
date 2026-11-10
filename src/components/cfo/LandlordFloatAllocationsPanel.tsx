@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -116,10 +117,10 @@ export function LandlordFloatAllocationsPanel() {
       const allIds = [...new Set([...agentIds, ...tenantIds])];
       const nameMap = new Map<string, string>();
       if (allIds.length) {
-        const { data: profiles } = await supabase
+        const { data: profiles } = await withUuidIds(allIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', allIds);
+          .in('id', validIds));
         for (const p of profiles || []) nameMap.set(p.id, p.full_name || 'Unknown');
       }
       return list.map((r) => ({

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
@@ -66,10 +67,10 @@ export function CreditRequestsFeed({ onFundRequest, isLocked, onLockedClick }: C
     let profileMap: Record<string, { full_name: string; phone: string }> = {};
 
     if (borrowerIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(borrowerIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', borrowerIds);
+        .in('id', validIds));
 
       if (profiles) {
         profiles.forEach(p => {

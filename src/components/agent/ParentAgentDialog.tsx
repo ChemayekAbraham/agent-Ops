@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -11,6 +12,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Building2, Clock, MapPin, Phone, UsersRound } from 'lucide-react';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 export interface ParentAgentInfo {
   parent_agent_id: string;
@@ -27,16 +29,17 @@ export interface ParentAgentInfo {
 }
 
 export async function fetchMyParentAgent(): Promise<ParentAgentInfo | null> {
-  const { data, error } = await supabase.rpc('get_my_parent_agent');
+  const { data, error } = await withUserSession(() => supabase.rpc('get_my_parent_agent'));
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return (row as ParentAgentInfo) || null;
 }
 
 export function useMyParentAgent(agentId?: string) {
+  const ready = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['my-parent-agent-details', agentId],
-    enabled: !!agentId,
+    enabled: ready && !!agentId,
     queryFn: fetchMyParentAgent,
   });
 }
@@ -79,9 +82,10 @@ interface ParentAgentDialogProps {
 }
 
 export function ParentAgentDialog({ open, onOpenChange, agentId }: ParentAgentDialogProps) {
+  const ready = useAuthenticatedAudience();
   const { data, isLoading } = useQuery({
     queryKey: ['my-parent-agent-details', agentId],
-    enabled: !!agentId && open,
+    enabled: ready && !!agentId && open,
     queryFn: fetchMyParentAgent,
   });
 

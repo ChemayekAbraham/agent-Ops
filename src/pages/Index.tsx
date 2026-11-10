@@ -1,9 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { clearPostAuthRedirect, peekPostAuthRedirect } from '@/lib/returnPath';
 import ScreenLoader from '@/components/common/ScreenLoader';
+import { getPreferredDefaultRole } from '@/hooks/useAppPreferences';
+import {
+  PROXY_DASHBOARD_ROUTE, isPersonaLanding, readCachedProxyLanding, resolveProxyLanding,
+} from '@/lib/proxyLanding';
+
+/**
+ * Persona landing for a signed-in user: the proxy agent dashboard for a proxy agent who has never collected rent,
+ * otherwise `fallback`. A fresh cached answer redirects at once; otherwise the loader shows while it is looked up.
+ */
+function PersonaLanding({ userId, fallback }: { userId: string; fallback: string }) {
+  const [destination, setDestination] = useState<string | null>(() => {
+    const cached = readCachedProxyLanding(userId);
+    return cached === null ? null : cached ? PROXY_DASHBOARD_ROUTE : fallback;
+  });
+  useEffect(() => {
+    if (destination) return;
+    let live = true;
+    resolveProxyLanding(userId).then((toProxy) => {
+      if (live) setDestination(toProxy ? PROXY_DASHBOARD_ROUTE : fallback);
+    });
+    return () => { live = false; };
+  }, [destination, userId, fallback]);
+  if (!destination) return <ScreenLoader />;
+  return <Navigate to={destination} replace />;
+}
 
 export default function Index() {
   const { user, loading, role: authRole } = useAuth();
@@ -32,6 +57,11 @@ export default function Index() {
     if (postAuthPath) return <Navigate to={postAuthPath} replace />;
     // Already logged in — send them to their persona dashboard.
     // authRole may not be set yet on cold load; helper falls back to /tenant.
+    // A persona landing goes to the proxy dashboard for a proxy agent with no collections, unless the user picked
+    // a home screen in Settings. Staff roles keep their own dashboards.
+    if (isPersonaLanding(authRole) && getPreferredDefaultRole() === 'auto') {
+      return <PersonaLanding userId={user.id} fallback={roleToSlug(authRole)} />;
+    }
     return <Navigate to={roleToSlug(authRole)} replace />;
   }
 

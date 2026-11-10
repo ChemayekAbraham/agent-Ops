@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -73,7 +74,7 @@ export function SmsExceptionsManager() {
       if (!cleanPhone || cleanPhone.replace(/\D/g, '').length < 9) {
         throw new Error('Enter a valid phone number');
       }
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await getSessionCheckedUser();
       const { error } = await supabase.from('sms_message_exceptions').insert({
         phone: cleanPhone,
         message_type: messageType,

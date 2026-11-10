@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -82,7 +84,7 @@ export function AngelPoolManagementPanel({ userRole }: Props) {
       // fetch names
       const ids = Array.from(map.keys());
       if (!ids.length) return [];
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+      const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
       const nameMap = new Map((profiles ?? []).map(p => [p.id, p.full_name || 'Unknown']));
 
       return ids.map(id => {
@@ -143,7 +145,7 @@ export function AngelPoolManagementPanel({ userRole }: Props) {
         setProfileData(prof ? { ...prof, role: roleNames || '—' } : { id: inv.investor_id, full_name: inv.name, role: roleNames || '—' });
         setProfileTxns(txns ?? []);
         // Audit profile view
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         if (user) {
           await supabase.from('audit_logs').insert({
             user_id: user.id,
@@ -168,7 +170,7 @@ export function AngelPoolManagementPanel({ userRole }: Props) {
     if (actionReason.trim().length < 10) { toast.error('Reason must be at least 10 characters'); return; }
     setActionLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       if (actionType === 'edit' && (parseFloat(editShares) || 0) === selectedInvestor.total_shares) {

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -67,7 +68,7 @@ export function AgentTenantRentRequestsList({ onOpenRequests }: AgentTenantRentR
     if (!error && data) {
       const tenantIds = [...new Set(data.map(r => r.tenant_id))];
       const { data: profiles } = tenantIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+        ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] };
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));

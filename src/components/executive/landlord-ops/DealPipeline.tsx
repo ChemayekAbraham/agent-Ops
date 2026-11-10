@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,8 +77,8 @@ export function DealPipeline() {
       const houseIds = [...new Set(data.map(v => v.house_listing_id))];
 
       const [tenantsRes, agentsRes, housesRes] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds),
-        supabase.from('profiles').select('id, full_name, phone').in('id', agentIds),
+        withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
+        withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         supabase.from('house_listings').select('id, title, address').in('id', houseIds),
       ]);
 

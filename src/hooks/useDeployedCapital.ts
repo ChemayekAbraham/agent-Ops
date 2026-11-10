@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -16,11 +17,11 @@ export function useDeployedCapital(userId: string | undefined) {
 
     const fetch = async () => {
       try {
-        const { data } = await supabase
+        const { data } = await withUserSession(() => supabase
           .from('investor_portfolios')
           .select('investment_amount')
           .eq('investor_id', userId)
-          .in('status', ['active', 'pending', 'pending_approval']);
+          .in('status', ['active', 'pending', 'pending_approval']));
 
         const total = (data || []).reduce((sum, p) => sum + (p.investment_amount || 0), 0);
         setDeployedCapital(total);

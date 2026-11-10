@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * HR data access — Tasks (hr_tasks, hr_task_events)
  *
@@ -250,7 +251,7 @@ export async function getTaskEventActorNames(userIds: string[]): Promise<Record<
   const ids = Array.from(new Set(userIds.filter(Boolean)));
   if (ids.length === 0) return {};
   const rows = unwrap(
-    await supabase.from('profiles').select('id, full_name, email').in('id', ids),
+    await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, email').in('id', validIds)),
   ) as { id: string; full_name: string | null; email: string | null }[];
   return Object.fromEntries(rows.map((r) => [r.id, r.full_name || r.email || 'Unknown']));
 }

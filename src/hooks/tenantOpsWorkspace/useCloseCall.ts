@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Closing a call REQUIRES an outcome. This always does two things:
  *  1. Closes the underlying cc_call_attempts row via the SAME existing RPC
@@ -48,7 +49,7 @@ export function useCloseCall() {
 
   return useMutation({
     mutationFn: async (input: ClosCallInput) => {
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData } = await getSessionCheckedUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error('Not signed in');
 

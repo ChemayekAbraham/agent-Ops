@@ -1,3 +1,4 @@
+import { getSessionCheckedUser, withUserSession } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,9 +35,9 @@ export function ChangeMaturityDateDialog({ open, onOpenChange, portfolio, onSucc
     setSaving(true);
     const newMaturity = format(date, 'yyyy-MM-dd');
 
-    const { error } = await supabase.from('investor_portfolios')
+    const { error } = await withUserSession(() => supabase.from('investor_portfolios')
       .update({ maturity_date: newMaturity })
-      .eq('id', portfolio.id);
+      .eq('id', portfolio.id));
 
     if (error) {
       toast({ title: 'Failed to update maturity date', variant: 'destructive' });
@@ -45,7 +46,7 @@ export function ChangeMaturityDateDialog({ open, onOpenChange, portfolio, onSucc
     }
 
     // Log in portfolio_renewals as audit
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     await supabase.from('portfolio_renewals').insert({
       portfolio_id: portfolio.id,
       renewed_by: user?.id || 'system',

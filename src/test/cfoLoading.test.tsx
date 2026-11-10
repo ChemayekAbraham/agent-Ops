@@ -67,7 +67,8 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toEqual({
       mtn: 1000, airtel: 2000, cashAtHand: 800, custodyNotConfirmedBanked: 800,
-      bankedCash: 350, bankReconciliation: 700, total: 3350,
+      // Money We Have = MTN + Airtel + email-derived bank balance (700), not the cumulative banked deposits (350).
+      bankedCash: 350, bankReconciliation: 700, bankBalance: 700, total: 3700,
       bankedCashCount: 2, bankedComputedAt: '2026-10-23T07:05:00Z', bankedLastMovementAt: '2026-10-23T07:00:00Z',
       finOpsBankedCash: 350, finOpsBankedCount: 2, bankedDifference: 0, bankedInSync: true,
       agentFloatHeld: 6789, outsideBankHeld: 3800,
@@ -81,7 +82,7 @@ describe('CFO independent loading and unchanged reconciliation', () => {
     const { result, unmount, client } = setup(() => useActualMoneyHeld());
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(mocks.ranges.mock.calls).toEqual([[0, 999], [1000, 1999]]);
-    expect(result.current.data).toMatchObject({ total: 3350, finOpsBankedCash: 400, finOpsBankedCount: 3, bankedDifference: 50, bankedInSync: false });
+    expect(result.current.data).toMatchObject({ total: 3700, finOpsBankedCash: 400, finOpsBankedCount: 3, bankedDifference: 50, bankedInSync: false });
     unmount(); client.clear();
   });
 

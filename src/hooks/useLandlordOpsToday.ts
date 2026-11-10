@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -213,7 +214,7 @@ export function useLandlordOpsRecentDecisions(limit = 6) {
           ? supabase.from('house_listings').select('id, title, district, image_urls').in('id', listingIds)
           : Promise.resolve({ data: [] as ListingLite[] }),
         operatorIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', operatorIds)
+          ? withUuidIds(operatorIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : Promise.resolve({ data: [] as OperatorLite[] }),
       ]);
 

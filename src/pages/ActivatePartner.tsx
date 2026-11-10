@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -76,7 +77,7 @@ export default function ActivatePartner() {
     setNameParts(splitPersonName(data.note.partner_name || ''));
 
     // Check if user is already logged in
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     if (user) {
       setIsLoggedIn(true);
     }

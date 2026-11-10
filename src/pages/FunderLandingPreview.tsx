@@ -50,6 +50,7 @@ import { amountRange, itemCoordinates, itemId, toSelectionItem } from '@/compone
 import { straightLineDistance } from '@/components/funder-new/distance';
 import { FunderPreviewMap } from '@/components/funder-preview/FunderPreviewMap';
 import { useFunderEmptyHousesAllowed } from '@/hooks/useFunderEmptyHousesSwitch';
+import { useSignedUrl } from '@/hooks/useSignedUrl';
 
 const DEFAULT_RADIUS_KM = 25;
 const SEARCH_DEBOUNCE_MS = 350;
@@ -119,27 +120,7 @@ export default function FunderLandingPreview() {
 
   // The avatars bucket is private, so the stored public-style URL returns
   // 404. Swap it for a short-lived signed URL that works in an <img> tag.
-  const [signedAvatarUrl, setSignedAvatarUrl] = useState<string | null>(null);
-  useEffect(() => {
-    setSignedAvatarUrl(null);
-    if (!avatarUrl) return;
-    const match = avatarUrl.match(/\/object\/public\/avatars\/([^?]+)/);
-    if (!match) {
-      setSignedAvatarUrl(avatarUrl);
-      return;
-    }
-    let cancelled = false;
-    supabase.storage
-      .from('avatars')
-      .createSignedUrl(match[1], 60 * 60)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        setSignedAvatarUrl(error || !data ? avatarUrl : data.signedUrl);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [avatarUrl]);
+  const signedAvatarUrl = useSignedUrl(avatarUrl);
 
   // The app top bar is sticky, so the map and the floating search bar have to
   // sit below it. Measure its real height (safe-area + content) once mounted.

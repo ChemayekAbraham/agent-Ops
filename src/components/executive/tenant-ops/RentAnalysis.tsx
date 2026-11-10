@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Tenant Ops → Agent Monitoring → Rent Analysis.
  *
@@ -187,10 +188,10 @@ export function RentAnalysis() {
       );
       const profiles: ProfileRow[] = [];
       for (let index = 0; index < ids.length; index += 300) {
-        const { data: batch, error: profileError } = await supabase
+        const { data: batch, error: profileError } = await withUuidIds(ids.slice(index, index + 300), (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids.slice(index, index + 300));
+          .in('id', validIds));
         if (profileError) throw profileError;
         profiles.push(...((batch ?? []) as ProfileRow[]));
       }

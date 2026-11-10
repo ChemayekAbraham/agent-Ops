@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Building2, ChevronDown, ChevronRight, FileBarChart, MapPin, Minus, Plus, RefreshCw, Search } from 'lucide-react';
@@ -371,7 +372,7 @@ function NarrativeSection({
     mutationFn: async () => {
       const value = addendumDraft.trim();
       if (value.length < 1) throw new Error('Write an addendum before saving it.');
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await getSessionCheckedUser();
       if (userError) throw userError;
       if (!userData.user) throw new Error('Your session has expired. Sign in again to add a dated addendum.');
       const { error } = await supabase.from('agent_ops_report_addenda').insert({
@@ -546,7 +547,7 @@ function PriorPeriodCloseout({ data, granularity, canEdit }: { data: AgentOpsRep
       return;
     }
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data: userData, error: userError } = await getSessionCheckedUser();
       if (userError) throw userError;
       if (!userData.user) throw new Error('Your session has expired. Sign in again to close out actions.');
       const { error: updateError } = await supabase

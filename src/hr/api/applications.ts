@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 /**
  * Professional careers applications — read and triage (`job_applications`).
  *
@@ -123,7 +124,7 @@ export async function listJobApplications(): Promise<JobApplicationRow[]> {
 }
 
 async function actingUserId(): Promise<string> {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await getSessionCheckedUser();
   if (error) throw new Error(error.message);
   const id = data?.user?.id;
   if (!id) throw new Error('You are signed out. Sign in again to record this.');

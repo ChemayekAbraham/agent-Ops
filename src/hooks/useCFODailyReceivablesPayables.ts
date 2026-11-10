@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -113,7 +114,7 @@ export function useCFODailyReceivablesPayables(range: DailyRange) {
       const nameMap = new Map<string, string>();
       for (let i = 0; i < ids.length; i += 300) {
         const chunk = ids.slice(i, i + 300);
-        const { data } = await supabase.from('profiles').select('id, full_name').in('id', chunk);
+        const { data } = await withUuidIds(chunk, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (data || []).forEach((p: any) => nameMap.set(p.id, p.full_name || 'Unknown'));
       }
 

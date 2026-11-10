@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,7 @@ import {
 } from '@/lib/planShareLink';
 
 async function buildLink(plan: SharePlanInput) {
-  const { data } = await supabase.auth.getUser();
+  const { data } = await getSessionCheckedUser();
   const userId = data.user?.id;
   if (!userId) throw new Error('Sign in to share this plan');
   return createPlanShareLink(userId, plan.rent_request_id);

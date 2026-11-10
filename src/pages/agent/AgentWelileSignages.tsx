@@ -1,3 +1,5 @@
+import { SignageEvidence } from '@/components/signages/SignageEvidence';
+import { useLoadSignageDetail } from '@/hooks/useWelileSignages';
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,11 +56,14 @@ import {
   SignagePropertyType,
   SignageFootTraffic,
   SignageRecord,
+  SignageListRecord,
   SignagePhoto,
   formatSignageStatus,
+  signagePipelineRecords,
 } from '@/lib/welileSignages';
-import { useMySignages, useSubmitSignage, useDeleteSignage } from '@/hooks/useWelileSignages';
+import { useMySignages, useSubmitSignage, useDeleteSignage, useResubmitSignage } from '@/hooks/useWelileSignages';
 import { toast } from 'sonner';
+import { prepareSignagePhoto } from '@/lib/signagePhoto';
 
 export default function AgentWelileSignages() {
   const navigate = useNavigate();
@@ -69,25 +74,26 @@ export default function AgentWelileSignages() {
   const { data: signages = [], isLoading: loadingSignages } = useMySignages();
   const submitMutation = useSubmitSignage();
   const deleteMutation = useDeleteSignage();
-  const [signageToDelete, setSignageToDelete] = useState<SignageRecord | null>(null);
+  const resubmitMutation = useResubmitSignage();
+  const [editingSignage, setEditingSignage] = useState<SignageRecord | null>(null);
+  const [signageToDelete, setSignageToDelete] = useState<SignageListRecord | null>(null);
+  const [inspectingId, setInspectingId] = useState<string>();
+  const loadDetail = useLoadSignageDetail();
+  const [loadingEditId, setLoadingEditId] = useState<string>();
   const [pendingFilter, setPendingFilter] = useState<'all' | 'pipeline' | 'declined'>('all');
 
   // Metrics & Filters
   // Approved by Ops: signages that have passed Ops review
   const approvedSignages = signages.filter((s) =>
-    ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(s.status)
+    ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'active'].includes(s.status)
   );
   const activeSignages = signages.filter((s) => s.status === 'active');
   const installingSignages = approvedSignages.filter((s) => s.status !== 'active');
 
   // Submissions still in pipeline or declined by Ops
-  const pendingSignages = signages.filter((s) =>
-    ['draft', 'submitted', 'pending', 'under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'changes_required', 'rejected', 'cancelled'].includes(s.status)
-  );
-  const declinedSignages = signages.filter((s) => s.status === 'rejected' || s.status === 'cancelled');
-  const inPipelineSignages = signages.filter((s) =>
-    ['draft', 'submitted', 'pending', 'under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'changes_required'].includes(s.status)
-  );
+  const pendingSignages = signagePipelineRecords(signages);
+  const declinedSignages = pendingSignages.filter((s) => s.status === 'rejected');
+  const inPipelineSignages = pendingSignages.filter((s) => s.status !== 'rejected');
 
   const approvedCount = approvedSignages.length;
   const activeCount = activeSignages.length;
@@ -114,7 +120,6 @@ export default function AgentWelileSignages() {
   const [gpsLng, setGpsLng] = useState<number | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   const [gpsCapturedAt, setGpsCapturedAt] = useState<string | null>(null);
-  const [capturedIp, setCapturedIp] = useState<string | null>(null);
   const [isCapturingGps, setIsCapturingGps] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
 
@@ -142,29 +147,14 @@ export default function AgentWelileSignages() {
     setIsCapturingGps(true);
     setGpsError(null);
 
-    if (!('geolocation' in navigator)) {
-      // Fallback: Fetch client public IP address
-      fetch('https://api.ipify.org?format=json')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.ip) {
-            setGpsLat(0.3476);
-            setGpsLng(32.5825);
-            setGpsAccuracy(120);
-            setGpsCapturedAt(new Date().toISOString());
-            setCapturedIp(data.ip);
-            setIsCapturingGps(false);
-            hapticSuccess();
-            toast.success(`Location captured via IP (${data.ip})`);
-          } else {
-            throw new Error('IP unavailable');
-          }
-        })
-        .catch(() => {
-          setGpsError('Geolocation is not supported by your device browser.');
-          setIsCapturingGps(false);
-          hapticError();
-        });
+    setGpsLat(null);
+    setGpsLng(null);
+    setGpsAccuracy(null);
+    setGpsCapturedAt(null);
+    if (!navigator.geolocation) {
+      setGpsError('Device GPS is unavailable. Use a GPS-enabled device and allow location access.');
+      setIsCapturingGps(false);
+      hapticError();
       return;
     }
 
@@ -179,28 +169,7 @@ export default function AgentWelileSignages() {
         hapticSuccess();
         toast.success(`Live GPS captured: accuracy ±${Math.round(accuracy)}m`);
       },
-      async (error) => {
-        // Fallback: Fetch client public IP address when GPS is denied or unavailable
-        try {
-          const ipRes = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(6000) });
-          if (ipRes.ok) {
-            const ipData = await ipRes.json();
-            if (ipData?.ip) {
-              setGpsLat(0.3476);
-              setGpsLng(32.5825);
-              setGpsAccuracy(120);
-              setGpsCapturedAt(new Date().toISOString());
-              setCapturedIp(ipData.ip);
-              setIsCapturingGps(false);
-              hapticSuccess();
-              toast.success(`Location verified via IP address (${ipData.ip})`);
-              return;
-            }
-          }
-        } catch {
-          // IP fallback failed
-        }
-
+      (error) => {
         setIsCapturingGps(false);
         hapticError();
         let message = 'Could not access device GPS.';
@@ -225,28 +194,55 @@ export default function AgentWelileSignages() {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploadingPhoto(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const newPhoto: SignagePhoto = {
-        id: safeUUID(),
-        url: dataUrl,
-        category: currentPhotoCategory,
-        caption: currentPhotoCategory.replace('_', ' ').toUpperCase(),
-        taken_at: new Date().toISOString(),
-      };
-      setPhotos((prev) => [...prev.filter((p) => p.category !== currentPhotoCategory), newPhoto]);
-      setIsUploadingPhoto(false);
-      hapticSuccess();
-      toast.success(`${currentPhotoCategory.replace('_', ' ')} photo added!`);
-    };
-    reader.readAsDataURL(file);
     e.target.value = '';
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    try {
+      const photo = await prepareSignagePhoto(file, currentPhotoCategory);
+      setPhotos((prev) => [...prev.filter((p) => p.category !== currentPhotoCategory), photo]);
+      hapticSuccess();
+      toast.success('Photo added.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not add photo.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleEditReturned = async (summary: SignageListRecord) => {
+    setLoadingEditId(summary.id);
+    let record: SignageRecord;
+    try { record = await loadDetail(summary.id); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not load the application.'); return; }
+    finally { setLoadingEditId(undefined); }
+    if (record.status !== 'changes_required') { toast.error('This application is no longer awaiting changes.'); return; }
+    setEditingSignage(record);
+    setPropertyName(record.property_name);
+    setPropertyType(record.property_type);
+    setBusinessCategory(record.business_category || '');
+    setOwnerFullName(record.owner_full_name);
+    setOwnerPhone(record.owner_phone);
+    setOwnerAltPhone(record.owner_alt_phone || '');
+    setConsentingRelation(record.consenting_relation);
+    setPermissionConfirmed(record.permission_confirmed);
+    setPaymentMethod(record.owner_payment_method);
+    setPaymentNumber(record.owner_payment_number);
+    setPaymentName(record.owner_payment_name);
+    setGpsLat(null); setGpsLng(null); setGpsAccuracy(null); setGpsCapturedAt(null);
+    // Location must be re-picked from the official list so its IDs are real.
+    setAdminLocation(null);
+    toast.info('Capture live GPS again and re-select the District and Village before resubmitting.');
+    setPlotOrLandmark(record.plot_or_landmark || '');
+    setFootTraffic(record.foot_traffic);
+    setRoadVisibility(record.road_visibility || '');
+    setOperatingHours(record.operating_hours || '');
+    setProposedSurface(record.proposed_surface || '');
+    setProposedDimensions(record.proposed_dimensions || '');
+    setNearbyLandmarks(record.nearby_landmarks || '');
+    setPhotos(record.photos || []);
+    setActiveTab('new_spot');
   };
 
   // ── Form Submission ──
@@ -269,7 +265,7 @@ export default function AgentWelileSignages() {
       document.getElementById('permission-check')?.scrollIntoView({ behavior: 'smooth' });
       return;
     }
-    if (!gpsLat || !gpsLng) {
+    if (gpsLat === null || gpsLng === null || gpsAccuracy === null || !gpsCapturedAt) {
       toast.error('Mandatory Live Location capture required. Tap "Capture Live Location" in Section 2.');
       document.getElementById('section-gps')?.scrollIntoView({ behavior: 'smooth' });
       return;
@@ -286,7 +282,7 @@ export default function AgentWelileSignages() {
     }
 
     try {
-      await submitMutation.mutateAsync({
+      const payload = {
         property_name: propertyName.trim(),
         property_type: propertyType,
         business_category: businessCategory.trim() || undefined,
@@ -301,8 +297,9 @@ export default function AgentWelileSignages() {
 
         gps_latitude: gpsLat,
         gps_longitude: gpsLng,
-        gps_accuracy_meters: gpsAccuracy ?? 10,
-        gps_captured_at: gpsCapturedAt ?? new Date().toISOString(),
+        gps_accuracy_meters: gpsAccuracy,
+        gps_captured_at: gpsCapturedAt,
+        gps_source: 'device' as const,
 
         district_name: adminLocation.district,
         county_name: adminLocation.county,
@@ -319,7 +316,10 @@ export default function AgentWelileSignages() {
         nearby_landmarks: nearbyLandmarks.trim() || undefined,
 
         photos,
-      });
+      };
+      if (editingSignage) await resubmitMutation.mutateAsync({ signageId: editingSignage.id, payload });
+      else await submitMutation.mutateAsync(payload);
+      setEditingSignage(null);
 
       // Reset form
       setPropertyName('');
@@ -332,7 +332,7 @@ export default function AgentWelileSignages() {
       setGpsLat(null);
       setGpsLng(null);
       setGpsAccuracy(null);
-      setCapturedIp(null);
+      setGpsCapturedAt(null);
       setPlotOrLandmark('');
       setPhotos([]);
       setActiveTab('pipeline');
@@ -573,7 +573,7 @@ export default function AgentWelileSignages() {
 
                     return itemsToRender.map((signage) => {
                       const statusMeta = formatSignageStatus(signage.status);
-                      const isRejected = signage.status === 'rejected' || signage.status === 'cancelled';
+                      const isRejected = signage.status === 'rejected';
 
                       return (
                         <Card
@@ -609,7 +609,7 @@ export default function AgentWelileSignages() {
                               {!isRejected && (
                                 <Badge
                                   variant={
-                                    signage.status === 'approved_for_installation' || signage.status === 'installation_verification'
+                                    signage.status === 'installation_in_progress' || signage.status === 'installation_verification'
                                       ? 'default'
                                       : signage.status === 'changes_required'
                                         ? 'destructive'
@@ -663,7 +663,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['under_review', 'approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['under_review', 'awaiting_coo', 'approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : signage.status === 'changes_required'
                                             ? 'bg-amber-500'
@@ -677,7 +677,7 @@ export default function AgentWelileSignages() {
                                     <div
                                       className={cn(
                                         "h-1.5 w-full rounded-full mb-1",
-                                        ['approved_for_installation', 'pending_installation', 'installation_verification', 'active'].includes(signage.status)
+                                        ['approved_for_installation', 'pending_installation', 'installation_in_progress', 'installation_verification', 'active'].includes(signage.status)
                                           ? 'bg-emerald-500'
                                           : 'bg-muted-foreground/25'
                                       )}
@@ -748,27 +748,10 @@ export default function AgentWelileSignages() {
                             )}
 
                             {/* Photos preview if present */}
-                            {signage.photos && signage.photos.length > 0 && (
-                              <div className="pt-1">
-                                <span className="text-[10px] text-muted-foreground block mb-1.5">
-                                  Submitted Photos ({signage.photos.length}):
-                                </span>
-                                <div className="flex gap-2 overflow-x-auto pb-1">
-                                  {signage.photos.map((p, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="relative w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted/40"
-                                    >
-                                      <img
-                                        src={p.url}
-                                        alt={p.caption || 'Signage photo'}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                            <Button type="button" variant="outline" size="sm" onClick={() => setInspectingId(inspectingId === signage.id ? undefined : signage.id)}>
+                              {inspectingId === signage.id ? 'Hide photographs' : 'Inspect photographs'}
+                            </Button>
+                            {inspectingId === signage.id && <SignageEvidence signageId={signage.id} />}
 
                             {/* Bottom Action: Delete Declined or Pending Application */}
                             <div className="pt-2 border-t border-border/40 flex items-center justify-between">
@@ -791,7 +774,7 @@ export default function AgentWelileSignages() {
                               ) : ['draft', 'submitted', 'changes_required'].includes(signage.status) ? (
                                 <>
                                   <span className="text-[10px] text-muted-foreground">
-                                    {signage.status === 'changes_required' ? 'Ops requested revisions' : 'Awaiting review'}
+                                    {signage.status === 'changes_required' ? <Button type="button" size="sm" disabled={loadingEditId === signage.id} onClick={() => void handleEditReturned(signage)}>Edit & Resubmit</Button> : 'Awaiting review'}
                                   </span>
                                   <Button
                                     type="button"
@@ -822,7 +805,7 @@ export default function AgentWelileSignages() {
               <div>
                 <div className="flex items-center gap-2">
                   <Megaphone className="h-4 w-4 text-primary" />
-                  <h2 className="text-sm font-bold text-foreground">Register New Signage Spot</h2>
+                  <h2 className="text-sm font-bold text-foreground">{editingSignage ? `Edit ${editingSignage.reference_no}` : 'Register New Signage Spot'}</h2>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Identify busy houses or shops with high foot traffic and road visibility.
@@ -1002,10 +985,10 @@ export default function AgentWelileSignages() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Navigation className="h-4 w-4 text-primary" />
-                      <CardTitle className="text-sm font-semibold">2. Mandatory Live Location (GPS / IP)</CardTitle>
+                      <CardTitle className="text-sm font-semibold">2. Mandatory Live GPS</CardTitle>
                     </div>
                     <Badge variant={gpsLat ? 'default' : 'destructive'} className="text-[10px]">
-                      {gpsLat ? (capturedIp ? 'IP Verified' : 'GPS Captured') : 'Required'}
+                      {gpsLat !== null ? 'GPS Captured' : 'Required'}
                     </Badge>
                   </div>
                   <CardDescription className="text-xs">
@@ -1014,17 +997,17 @@ export default function AgentWelileSignages() {
                 </CardHeader>
                 <CardContent className="space-y-3 pt-0">
                   <div className="p-3.5 rounded-xl border border-dashed border-border bg-muted/20 text-center space-y-2">
-                    {gpsLat && gpsLng ? (
+                    {gpsLat !== null && gpsLng !== null ? (
                       <div className="space-y-2">
                         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-semibold">
                           <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>Coordinates Verified {capturedIp ? `(via IP ${capturedIp})` : `(±${Math.round(gpsAccuracy ?? 0)}m)`}</span>
+                          <span>GPS Captured (±{Math.round(gpsAccuracy ?? 0)}m)</span>
                         </div>
                         <div className="text-xs font-mono font-bold text-foreground">
                           {gpsLat.toFixed(6)}, {gpsLng.toFixed(6)}
                         </div>
                         <p className="text-[11px] text-muted-foreground">
-                          Captured at {new Date(gpsCapturedAt!).toLocaleTimeString()}
+                          Captured at {gpsCapturedAt ? new Date(gpsCapturedAt).toLocaleTimeString() : '—'}
                         </p>
                         <Button
                           type="button"
@@ -1238,10 +1221,10 @@ export default function AgentWelileSignages() {
               <div className="pt-2">
                 <Button
                   type="submit"
-                  disabled={submitMutation.isPending}
+                  disabled={submitMutation.isPending || resubmitMutation.isPending || isUploadingPhoto || isCapturingGps}
                   className="w-full h-12 rounded-2xl text-sm font-bold shadow-lg"
                 >
-                  {submitMutation.isPending ? (
+                  {submitMutation.isPending || resubmitMutation.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       <span>Submitting to Agent Operations...</span>
@@ -1249,7 +1232,7 @@ export default function AgentWelileSignages() {
                   ) : (
                     <>
                       <ShieldCheck className="h-4 w-4 mr-2" />
-                      <span>Submit Signage for Ops Review</span>
+                      <span>{editingSignage ? 'Resubmit Changes for Ops Review' : 'Submit Signage for Ops Review'}</span>
                     </>
                   )}
                 </Button>
@@ -1349,7 +1332,7 @@ export default function AgentWelileSignages() {
                     onClick={() => setSubmissionsFilter('installing')}
                     className="h-7 text-xs rounded-lg px-2.5"
                   >
-                    Awaiting Install ({installingCount})
+                    Awaiting Install / CFO ({installingCount})
                   </Button>
                 )}
               </div>
@@ -1425,11 +1408,11 @@ export default function AgentWelileSignages() {
                           </div>
                         )}
 
-                        {signage.status === 'approved_for_installation' && (
+                        {signage.status === 'installation_in_progress' && (
                           <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center justify-between">
                             <span className="flex items-center gap-1.5 font-medium">
                               <CheckCircle2 className="h-4 w-4 shrink-0 text-blue-600" />
-                              Approved by Ops • Queued for Installation
+                              Paid by CFO • Install the board and submit photos
                             </span>
                           </div>
                         )}
@@ -1543,9 +1526,9 @@ export default function AgentWelileSignages() {
               {signageToDelete?.status === 'rejected' ? 'Delete Declined Signage Spot?' : 'Delete Signage Application?'}
             </DialogTitle>
             <DialogDescription className="text-center text-xs text-muted-foreground">
-              Are you sure you want to permanently delete{' '}
+              Are you sure you want to cancel{' '}
               <strong className="text-foreground font-semibold">"{signageToDelete?.property_name}"</strong>
-              {signageToDelete?.reference_no ? ` (${signageToDelete.reference_no})` : ''}? This application will be permanently removed.
+              {signageToDelete?.reference_no ? ` (${signageToDelete.reference_no})` : ''}? It will be removed from your pipeline; its review history is retained.
             </DialogDescription>
           </DialogHeader>
 

@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -327,7 +328,7 @@ export function CFOActionsLog() {
     // the actual download.
     (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('audit_logs').insert({
           user_id: user?.id ?? null,
           action_type: 'cfo_actions_trail_exported',

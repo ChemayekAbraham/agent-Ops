@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,9 +84,9 @@ export function WelileHomesSubscriptionsManager() {
       const landlordIds = data.filter((s) => s.landlord_id).map((s) => s.landlord_id);
 
       const [tenantProfiles, landlordProfiles] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds),
+        withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         landlordIds.length > 0
-          ? supabase.from('profiles').select('id, full_name').in('id', landlordIds)
+          ? withUuidIds(landlordIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
           : { data: [] },
       ]);
 

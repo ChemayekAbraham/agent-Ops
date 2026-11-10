@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -46,7 +47,7 @@ export function useRentRequestReviewNotes(requestId: string | null, enabled = tr
       const ids = [...new Set(rows.map((r) => r.author))];
       const names = new Map<string, string | null>();
       if (ids.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (profiles ?? []).forEach((p) => names.set(p.id, p.full_name));
       }
       setNotes(rows.map((r) => ({ ...r, author_name: names.get(r.author) ?? null })));

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -94,10 +95,10 @@ export function CommissionList({ range }: { range: DateRange }) {
       const ids = Array.from(new Set(ledgerRows.map((e) => e.user_id).filter(Boolean))) as string[];
       const nameMap = new Map<string, string>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         ((profs ?? []) as ProfileNameRow[]).forEach((p) => nameMap.set(p.id, p.full_name ?? 'Unknown agent'));
       }
       const rows: EarningRow[] = ledgerRows.map((e) => ({

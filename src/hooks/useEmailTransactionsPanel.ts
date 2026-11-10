@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
@@ -987,7 +989,7 @@ export function useEmailTransactionsPanel() {
       );
       const fresh = pairs.filter((p) => !seen.has(`${p.gmail_transaction_id}|${p.deposit_request_id}`));
       if (!fresh.length) return;
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const actorId = auth?.user?.id ?? null;
       const actorEmail = auth?.user?.email ?? null;
       const insertRows = fresh.map((p) => ({
@@ -1140,9 +1142,9 @@ export function useEmailTransactionsPanel() {
         }
         let profById = new Map<string, any>();
         if (userIds.size) {
-          const { data: profs } = await (supabase.from('profiles') as any)
+          const { data: profs } = await withUuidIds(Array.from(userIds), (validIds) => (supabase.from('profiles') as any)
             .select('id, full_name, phone')
-            .in('id', Array.from(userIds));
+            .in('id', validIds));
           profById = new Map(((profs ?? []) as Array<any>).map((p) => [p.id, p]));
         }
         const next: Record<string, CreditedDeposit[]> = {};
@@ -1290,9 +1292,9 @@ export function useEmailTransactionsPanel() {
         const operatorIds = Array.from(new Set(arr.map((m) => m.marked_by)));
         let nameById = new Map<string, string>();
         if (operatorIds.length) {
-          const { data: profs } = await (supabase.from('profiles') as any)
+          const { data: profs } = await withUuidIds(operatorIds, (validIds) => (supabase.from('profiles') as any)
             .select('id, full_name')
-            .in('id', operatorIds);
+            .in('id', validIds));
           nameById = new Map(((profs ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => [p.id, p.full_name ?? '']));
         }
         const next: Record<string, ManualMark> = {};
@@ -1339,7 +1341,7 @@ export function useEmailTransactionsPanel() {
     if (reason === null) return;
     setBulkBusy(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth?.user?.id;
       if (!uid) throw new Error('Not signed in');
       const byId = new Map(rows.map((r) => [r.id, r]));
@@ -1400,7 +1402,7 @@ export function useEmailTransactionsPanel() {
    */
   const markRowResolved = async (r: GmailTx, mark: 'credited' | 'uncredited' = 'credited') => {
     try {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const uid = auth?.user?.id;
       if (!uid) throw new Error('Not signed in');
       const prevMark = manualMarks[r.id] ?? null;
@@ -1545,9 +1547,9 @@ export function useEmailTransactionsPanel() {
       const agentIds = Array.from(new Set(assigns.map((a: any) => a.agent_id).filter(Boolean)));
       const nameById: Record<string, string | null> = {};
       if (agentIds.length) {
-        const { data: profs } = await (supabase.from('profiles') as any)
+        const { data: profs } = await withUuidIds(agentIds, (validIds) => (supabase.from('profiles') as any)
           .select('id, full_name')
-          .in('id', agentIds);
+          .in('id', validIds));
         for (const p of (profs ?? []) as Array<{ id: string; full_name: string | null }>) {
           nameById[p.id] = p.full_name ?? null;
         }
@@ -1608,7 +1610,7 @@ export function useEmailTransactionsPanel() {
 
       // Best-effort history insert so the UI shows the reversal immediately.
       try {
-        const { data: me } = await supabase.auth.getUser();
+        const { data: me } = await getSessionCheckedUser();
         if (me?.user?.id) {
           let routedByName: string | null = null;
           try {
@@ -1749,9 +1751,9 @@ export function useEmailTransactionsPanel() {
       const userIds = Array.from(new Set(wrs.map((w) => w.user_id)));
       let names: Record<string, string> = {};
       if (userIds.length) {
-        const { data: profs } = await (supabase.from('profiles') as any)
+        const { data: profs } = await withUuidIds(userIds, (validIds) => (supabase.from('profiles') as any)
           .select('id, full_name')
-          .in('id', userIds);
+          .in('id', validIds));
         for (const p of (profs ?? []) as Array<{ id: string; full_name: string | null }>) {
           names[p.id] = p.full_name ?? '';
         }
@@ -1960,9 +1962,9 @@ export function useEmailTransactionsPanel() {
       const userIds = Array.from(new Set(depRows.map((d) => d.user_id).filter(Boolean)));
       let refProfiles: Record<string, P> = {};
       if (userIds.length) {
-        const { data: pps } = await (supabase.from('profiles') as any)
+        const { data: pps } = await withUuidIds(userIds, (validIds) => (supabase.from('profiles') as any)
           .select('id, full_name, phone, mobile_money_number')
-          .in('id', userIds);
+          .in('id', validIds));
         for (const p of (pps ?? []) as P[]) refProfiles[p.id] = p;
       }
       const byRef = new Map<string, P>();

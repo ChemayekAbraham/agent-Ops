@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +29,7 @@ export function useSupporterAgreement() {
     }
 
     try {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await withUserSession(() => supabase
         .from('supporter_agreement_acceptance')
         .select('*')
         .eq('supporter_id', user.id)
@@ -36,7 +37,7 @@ export function useSupporterAgreement() {
         .eq('status', 'accepted')
         .order('accepted_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle());
 
       if (fetchError) throw fetchError;
 
@@ -77,7 +78,7 @@ export function useSupporterAgreement() {
         // IP fetch failed, continue without it
       }
 
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await withUserSession(() => supabase
         .from('supporter_agreement_acceptance')
         .insert({
           supporter_id: user.id,
@@ -87,7 +88,7 @@ export function useSupporterAgreement() {
           status: 'accepted'
         })
         .select()
-        .single();
+        .single());
 
       if (insertError) throw insertError;
 

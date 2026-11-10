@@ -1,6 +1,7 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 
-export type StandingOrderAction = 'create' | 'pause' | 'resume' | 'cancel';
+export type StandingOrderAction = 'create' | 'pause' | 'resume' | 'cancel' | 'update';
 
 interface LogParams {
   scheduledPayoutId?: string | null;
@@ -20,7 +21,7 @@ interface LogParams {
  */
 export async function logStandingOrderAction(params: LogParams): Promise<void> {
   try {
-    const { data: userData } = await supabase.auth.getUser();
+    const { data: userData } = await getSessionCheckedUser();
     const user = userData.user;
     if (!user) return;
 

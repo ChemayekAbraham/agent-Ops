@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,7 +34,7 @@ export default function BudgetDeclinesList({ cycleId }: { cycleId: string | null
       const [calls, depts, profs] = await Promise.all([
         supabase.from('budget_calls').select('id,title').in('id', uniq('call_id')),
         supabase.from('hr_departments').select('id,name').in('id', uniq('department_id')),
-        supabase.from('profiles').select('id,full_name').in('id', uniq('declined_by')),
+        withUuidIds(uniq('declined_by'), (validIds) => supabase.from('profiles').select('id,full_name').in('id', validIds)),
       ]);
       if (off) return;
       const m = (r: { data: unknown }, f: string) =>

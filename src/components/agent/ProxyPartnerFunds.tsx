@@ -215,6 +215,7 @@ export function ProxyPartnerFunds() {
   const [revertReason, setRevertReason] = useState('');
   const [reverting, setReverting] = useState(false);
   const [hiddenSheetOpen, setHiddenSheetOpen] = useState(false);
+  const [dismissalNames, setDismissalNames] = useState<Record<string, string>>({});
   const [restoringKey, setRestoringKey] = useState<string | null>(null);
   // Custody V2: partner UUIDs we currently render. Used to scope a second
   // realtime channel (withdrawal_requests rows now belong to the partner,
@@ -341,6 +342,28 @@ export function ProxyPartnerFunds() {
     if (!user?.id) return;
     if (showSpinner) setLoading(true);
     try {
+      // Load hidden cards first so "Show hidden cards" works even when the
+      // visible list is empty (earlier early-returns skipped this).
+      {
+        const { data: dismissalRows } = await supabase
+          .from('agent_proxy_card_dismissals')
+          .select('partner_id, portfolio_id, snapshot_amount, dismissed_at, reason')
+          .eq('agent_id', user.id);
+        const rows = (dismissalRows || []) as Dismissal[];
+        setDismissals(rows);
+        const ids = Array.from(new Set(rows.map(r => r.partner_id).filter(Boolean)));
+        if (ids.length > 0) {
+          const { data: names } = await supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', ids.slice(0, 100));
+          const map: Record<string, string> = {};
+          (names || []).forEach((n: any) => { if (n.full_name) map[n.id] = n.full_name; });
+          setDismissalNames(map);
+        } else {
+          setDismissalNames({});
+        }
+      }
       // Step 1: Get ROI payouts approved through the Partner Ops → COO → CFO flow.
       // Two sources of CFO-approved ROI payouts the agent should see:
       //
@@ -738,12 +761,6 @@ export function ProxyPartnerFunds() {
 
       setLastTerminalByPartner(terminalMap);
 
-      // Load this agent's dismissals (cards she has manually cleared)
-      const { data: dismissalRows } = await supabase
-        .from('agent_proxy_card_dismissals')
-        .select('partner_id, portfolio_id, snapshot_amount, dismissed_at, reason')
-        .eq('agent_id', user.id);
-      setDismissals((dismissalRows || []) as Dismissal[]);
     } catch (err) {
       console.error('Error loading proxy funds:', err);
     } finally {
@@ -1319,6 +1336,69 @@ export function ProxyPartnerFunds() {
     return null;
   };
 
+  const hiddenCardsControls = (
+    <>
+      {/* Hidden cards footer */}
+      {dismissals.length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          type="button"
+          onClick={() => setHiddenSheetOpen(true)}
+          className="w-full gap-1"
+        >
+          <Eye className="h-4 w-4" />
+          Show {dismissals.length} hidden card{dismissals.length === 1 ? '' : 's'}
+        </Button>
+      )}
+
+      {/* Hidden cards sheet */}
+      <Sheet open={hiddenSheetOpen} onOpenChange={setHiddenSheetOpen}>
+        <SheetContent side="bottom" className="h-[70dvh] rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Hidden Partner Cards</SheetTitle>
+          </SheetHeader>
+          <div className="mt-3 space-y-2 overflow-y-auto pr-1">
+            <p className="text-xs text-muted-foreground">
+              These cards are hidden from your main list. They will reappear automatically if new returns accrue above the snapshot amount.
+            </p>
+            {dismissals.length === 0 && (
+              <p className="text-sm text-muted-foreground py-6 text-center">No hidden cards.</p>
+            )}
+            {dismissals.map(d => {
+              const restoreKey = `${d.partner_id}-${d.portfolio_id || 'none'}`;
+              const profile = profiles[d.partner_id];
+              const portfolio = d.portfolio_id ? portfolioMap[d.portfolio_id] : null;
+              return (
+                <div key={restoreKey} className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{profile?.full_name || dismissalNames[d.partner_id] || portfolio?.account_name || portfolio?.bank_account_name || 'Unknown partner'}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {portfolio?.account_name || portfolio?.portfolio_code || '—'} · Snapshot {formatAmount(Number(d.snapshot_amount))}
+                    </p>
+                    {d.reason && (
+                      <p className="text-[10px] text-muted-foreground/80 italic truncate">"{d.reason}"</p>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1 shrink-0"
+                    disabled={restoringKey === restoreKey}
+                    onClick={() => restoreDismissal(d.partner_id, d.portfolio_id)}
+                  >
+                    {restoringKey === restoreKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+                    Restore
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+
   if (loading && !withdrawOpen) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1337,6 +1417,7 @@ export function ProxyPartnerFunds() {
             <p className="text-xs mt-1">CFO-approved ROI returns for your proxy partners will appear here</p>
           </CardContent>
         </Card>
+        {hiddenCardsControls}
         <ProxyRecentPayouts />
       </div>
     );
@@ -1795,62 +1876,7 @@ export function ProxyPartnerFunds() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Hidden cards footer */}
-      {dismissals.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setHiddenSheetOpen(true)}
-          className="w-full text-center text-xs text-muted-foreground hover:text-foreground py-2 underline-offset-2 hover:underline"
-        >
-          <Eye className="inline h-3 w-3 mr-1" />
-          Show {dismissals.length} hidden card{dismissals.length === 1 ? '' : 's'}
-        </button>
-      )}
-
-      {/* Hidden cards sheet */}
-      <Sheet open={hiddenSheetOpen} onOpenChange={setHiddenSheetOpen}>
-        <SheetContent side="bottom" className="h-[70dvh] rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>Hidden Partner Cards</SheetTitle>
-          </SheetHeader>
-          <div className="mt-3 space-y-2 overflow-y-auto pr-1">
-            <p className="text-xs text-muted-foreground">
-              These cards are hidden from your main list. They will reappear automatically if new returns accrue above the snapshot amount.
-            </p>
-            {dismissals.length === 0 && (
-              <p className="text-sm text-muted-foreground py-6 text-center">No hidden cards.</p>
-            )}
-            {dismissals.map(d => {
-              const restoreKey = `${d.partner_id}-${d.portfolio_id || 'none'}`;
-              const profile = profiles[d.partner_id];
-              const portfolio = d.portfolio_id ? portfolioMap[d.portfolio_id] : null;
-              return (
-                <div key={restoreKey} className="flex items-center justify-between rounded-md border border-border/50 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{profile?.full_name || portfolio?.account_name || portfolio?.bank_account_name || 'Unknown partner'}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {portfolio?.account_name || portfolio?.portfolio_code || '—'} · Snapshot {formatAmount(Number(d.snapshot_amount))}
-                    </p>
-                    {d.reason && (
-                      <p className="text-[10px] text-muted-foreground/80 italic truncate">"{d.reason}"</p>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1 shrink-0"
-                    disabled={restoringKey === restoreKey}
-                    onClick={() => restoreDismissal(d.partner_id, d.portfolio_id)}
-                  >
-                    {restoringKey === restoreKey ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
-                    Restore
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        </SheetContent>
-      </Sheet>
+      {hiddenCardsControls}
 
       {/* Clear confirmation dialog */}
       <AlertDialog open={clearConfirmOpen} onOpenChange={(open) => {

@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -113,7 +114,7 @@ export default function ArrearsPanel({
       const userIds = staffRows.map((s) => s.user_id).filter(Boolean) as string[];
       const nameByUser: Record<string, string> = {};
       if (userIds.length > 0) {
-        const profRes = await supabase.from('profiles').select('id, full_name').in('id', userIds);
+        const profRes = await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         for (const p of (profRes.data ?? []) as Array<{ id: string; full_name: string | null }>) {
           if (p.full_name) nameByUser[p.id] = p.full_name;
         }

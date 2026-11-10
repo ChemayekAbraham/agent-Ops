@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,7 +106,7 @@ export function MissedDaysTracker() {
       if (!allUserIds.length) return [];
       const batches = await Promise.all(
         chunk(allUserIds).map(ids =>
-          supabase.from('profiles').select('id, full_name, phone').in('id', ids),
+          withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds)),
         ),
       );
       return batches.flatMap(b => b.data || []);

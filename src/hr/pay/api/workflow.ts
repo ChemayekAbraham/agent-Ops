@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Payroll run workflow (approval chain) and the payroll register document.
  *
@@ -49,7 +51,7 @@ export interface RegisterDoc {
 }
 
 async function recordEvent(runId: string, eventType: string, note: string | null): Promise<void> {
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   const res = await supabase
     .from('hr_pay_run_events')
     .insert({
@@ -183,7 +185,7 @@ export async function getRegister(runId: string): Promise<RegisterDoc> {
   const nameById = new Map<string, string | null>();
   if (userIds.length > 0) {
     const profiles = (unwrap(
-      await supabase.from('profiles').select('id, full_name').in('id', userIds),
+      await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     ) ?? []) as Array<{ id: string; full_name: string | null }>;
     profiles.forEach((p) => nameById.set(p.id, p.full_name ?? null));
   }

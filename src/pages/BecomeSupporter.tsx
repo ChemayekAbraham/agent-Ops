@@ -89,7 +89,7 @@ export default function BecomeSupporter() {
         .from('profiles')
         .select('full_name')
         .eq('id', referrerId)
-        .single()
+        .maybeSingle()
         .then(({ data }) => {
           if (data) {
             setReferrerName(data.full_name);

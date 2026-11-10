@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -182,7 +183,7 @@ export function EmailNeedsReviewPanel() {
           .limit(500);
         const userIds = Array.from(new Set((p2 ?? []).map((x: any) => x.user_id)));
         const { data: profs } = userIds.length
-          ? await supabase.from('profiles').select('id,full_name,phone').in('id', userIds)
+          ? await withUuidIds(userIds, (validIds) => supabase.from('profiles').select('id,full_name,phone').in('id', validIds))
           : { data: [] as any[] };
         const pmap = new Map<string, any>();
         (profs ?? []).forEach((x: any) => pmap.set(x.id, x));

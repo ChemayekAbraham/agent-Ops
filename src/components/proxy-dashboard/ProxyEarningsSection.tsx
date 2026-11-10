@@ -1,4 +1,6 @@
-import { Wallet } from 'lucide-react';
+import { Banknote, Wallet } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ProxyPerformanceDashboard } from '@/hooks/useProxyPerformanceDashboard';
@@ -9,7 +11,12 @@ const KIND_LABEL: Record<EarningKind, string> = {
   note: 'Promissory Note', initial: 'Initial Support', topup: 'Partner Top-up', other: 'Commission',
 };
 
+/** Recorded descriptions say "investment"; agents see "support" instead. */
+const supportWording = (s: string) =>
+  s.replace(/investment/gi, (m) => (m[0] === 'I' ? 'Support' : 'support'));
+
 export function ProxyEarningsSection({ userId, summary }: { userId?: string; summary?: ProxyPerformanceDashboard }) {
+  const navigate = useNavigate();
   const hist = useProxyEarningsHistory(userId);
   const c = summary?.commission;
   const total = c?.earned ?? 0;
@@ -28,6 +35,10 @@ export function ProxyEarningsSection({ userId, summary }: { userId?: string; sum
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Total earned</p>
             <p className="mt-1 text-3xl font-bold tabular-nums text-success">{ugx(total)}</p>
             <p className="mt-1 text-xs text-muted-foreground">Paid into your wallet. Today: {ugx(c.today)}</p>
+            <Button className="mt-3 w-full rounded-md" onClick={() => navigate('/dashboard/agent?section=wallet')}>
+              <Banknote className="mr-2 h-4 w-4" />
+              Withdraw
+            </Button>
             <div className="mt-3 rounded-lg border border-warning/25 bg-warning/5 p-2.5">
               <p className="text-xs text-muted-foreground">Pending</p>
               <p className="text-lg font-bold tabular-nums text-warning">{ugx(c.pending)}</p>
@@ -64,7 +75,7 @@ export function ProxyEarningsSection({ userId, summary }: { userId?: string; sum
               <div key={r.id} className="flex items-start justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{KIND_LABEL[earningKind(r)]}</p>
-                  {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{r.description}</p>}
+                  {r.description && <p className="line-clamp-2 text-xs text-muted-foreground">{supportWording(r.description)}</p>}
                   <p className="text-[11px] text-muted-foreground">{shortDate(r.transaction_date)}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">

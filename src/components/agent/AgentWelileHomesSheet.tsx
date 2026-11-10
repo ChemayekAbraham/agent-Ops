@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -383,8 +384,8 @@ export function AgentWelileHomesSheet({ open = false, onOpenChange, isPage = fal
       const list = (subRows ?? []) as WHSubscription[];
       const tenantIds = list.map((s) => s.tenant_id);
       if (tenantIds.length) {
-        const { data: profs } = await supabase
-          .from('profiles').select('id, full_name, phone, verified, last_active_at, created_at').in('id', tenantIds);
+        const { data: profs } = await withUuidIds(tenantIds, (validIds) => supabase
+          .from('profiles').select('id, full_name, phone, verified, last_active_at, created_at').in('id', validIds));
         const map = new Map((profs ?? []).map((p: any) => [p.id, p]));
         list.forEach((s) => {
           const p = map.get(s.tenant_id);
@@ -4118,8 +4119,8 @@ function EditDialog({ sub, agentId, onClose, onDone, identity, onEditId }: {
       const rows = (data ?? []) as EnrollmentAuditRow[];
       const editorIds = Array.from(new Set(rows.map((r) => r.edited_by)));
       if (editorIds.length) {
-        const { data: profs } = await supabase
-          .from('profiles').select('id, full_name').in('id', editorIds);
+        const { data: profs } = await withUuidIds(editorIds, (validIds) => supabase
+          .from('profiles').select('id, full_name').in('id', validIds));
         const nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.full_name]));
         rows.forEach((r) => { r.editor_name = nameMap.get(r.edited_by) ?? 'Someone'; });
       }

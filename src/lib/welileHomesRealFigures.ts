@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Welile Homes — real figures behind the Agent Ops Overview money cards.
  *
@@ -256,7 +257,7 @@ export async function fetchWhRealFigures(): Promise<WhRealFigures> {
   const agentIds = Array.from(new Set(requests.map((r) => r.agent_id).filter(Boolean)));
   const agentNames = new Map<string, string>();
   if (agentIds.length) {
-    const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', agentIds);
+    const { data: profs } = await withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
     for (const p of (profs ?? []) as { id: string; full_name: string | null }[]) {
       agentNames.set(p.id, p.full_name ?? 'Agent');
     }

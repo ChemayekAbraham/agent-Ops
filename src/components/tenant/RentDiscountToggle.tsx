@@ -27,7 +27,7 @@ export default function RentDiscountToggle() {
       .from('profiles')
       .select('rent_discount_active')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setActive(data.rent_discount_active || false);

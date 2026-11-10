@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * HR data access — People (hr_departments, hr_staff, hr_assignments)
  */
@@ -138,10 +140,10 @@ async function hydrateStaff(staff: StaffRow[]): Promise<Employee[]> {
   const staffIds = staff.map((s) => s.id);
 
   const profiles = unwrap(
-    await supabase
+    await withUuidIds(userIds, (validIds) => supabase
       .from('profiles')
       .select('id, full_name, email, phone, avatar_url')
-      .in('id', userIds),
+      .in('id', validIds)),
   ) as { id: string; full_name: string | null; email: string | null; phone: string | null; avatar_url: string | null }[];
   const profileById = Object.fromEntries(profiles.map((p) => [p.id, p]));
 
@@ -462,7 +464,7 @@ export async function endAssignment(input: {
     );
   }
 
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   await supabase.from('audit_logs').insert({
     action_type: 'hr_assignment_ended',
     table_name: 'hr_assignments',
@@ -507,7 +509,7 @@ export async function exitStaff(input: {
     );
   }
 
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   await supabase.from('audit_logs').insert({
     action_type: 'hr_staff_exited',
     table_name: 'hr_staff',
@@ -545,7 +547,7 @@ export async function reinstateStaff(input: {
     );
   }
 
-  const { data: auth } = await supabase.auth.getUser();
+  const { data: auth } = await getSessionCheckedUser();
   await supabase.from('audit_logs').insert({
     action_type: 'hr_staff_reinstated',
     table_name: 'hr_staff',

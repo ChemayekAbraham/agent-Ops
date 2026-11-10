@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -112,10 +113,10 @@ export function PayByLocationRecipientPicker({
         if (rErr) throw rErr;
         const tenantIds = [...new Set((reqs ?? []).map(r => r.tenant_id).filter(Boolean))] as string[];
         if (!tenantIds.length) return [];
-        const { data: profs, error: pErr } = await supabase
+        const { data: profs, error: pErr } = await withUuidIds(tenantIds, (validIds) => supabase
           .from('profiles')
           .select(LOCATION_COLUMNS)
-          .in('id', tenantIds);
+          .in('id', validIds));
         if (pErr) throw pErr;
         const pMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
         return (reqs ?? [])

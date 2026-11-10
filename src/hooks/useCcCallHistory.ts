@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Shared call history for the `cc_*` calling spine.
  *
@@ -233,7 +234,7 @@ export function useCcCallHistory(subjectType: CcSubjectType, days = 30, window?:
       const names = new Map<string, string>();
       const phones = new Map<string, string>();
       for (const slice of chunk(profileIds, 300)) {
-        const { data } = await (supabase as any).from('profiles').select('id, full_name, phone').in('id', slice);
+        const { data } = await withUuidIds(slice, (validIds) => (supabase as any).from('profiles').select('id, full_name, phone').in('id', validIds));
         ((data || []) as { id: string; full_name: string | null; phone: string | null }[]).forEach((p) => {
           if (p.full_name) names.set(p.id, p.full_name);
           if (p.phone) phones.set(p.id, p.phone);

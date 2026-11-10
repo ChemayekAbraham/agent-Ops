@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -291,7 +292,7 @@ export function EditTenantDialog({ open, onOpenChange, tenant, onSaved }: EditTe
     reason: string,
   ) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) return;
       await supabase.from('audit_logs').insert({
         user_id: user.id,

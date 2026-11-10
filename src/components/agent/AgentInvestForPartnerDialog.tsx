@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -106,7 +107,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
   };
 
   const fetchAgentBalance = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getSessionCheckedUser();
     if (!user) return;
     const { data } = await supabase
       .from('wallets')
@@ -177,7 +178,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
     setShowConfirm(false);
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       if (!user) throw new Error('Not authenticated');
 
       // Upload receipt first
@@ -282,7 +283,7 @@ export function AgentInvestForPartnerDialog({ open, onOpenChange, onSuccess }: A
     if (!success?.activation_token) return;
     (async () => {
       try {
-        const { data: { user: u } } = await supabase.auth.getUser();
+        const { data: { user: u } } = await getSessionCheckedUser();
         if (u) {
           const short = await createShortLink(u.id, '/join', { t: success.activation_token! });
           setShortActivationLink(short);

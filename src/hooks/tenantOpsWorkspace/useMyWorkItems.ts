@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Items assigned to the signed-in user, for "My work" on Today. Reads
  * tops_work_items directly (RLS already restricts this to the six tops_
@@ -56,10 +57,10 @@ async function fetchMyWorkItems(userId: string): Promise<MyWorkItem[]> {
 
   let nameByTenant = new Map<string, string>();
   if (tenantIds.length > 0) {
-    const { data: profiles, error: profileError } = await anyDb
+    const { data: profiles, error: profileError } = await withUuidIds(tenantIds, (validIds) => anyDb
       .from('profiles')
       .select('id, full_name')
-      .in('id', tenantIds);
+      .in('id', validIds));
     if (profileError) throw profileError;
     nameByTenant = new Map((profiles ?? []).map((p: any) => [String(p.id), p.full_name as string]));
   }

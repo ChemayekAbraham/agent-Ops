@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { supabase } from '@/integrations/supabase/client';
 import { setCachedRoles } from '@/lib/sessionCache';
 import type { AppRole } from './types';
@@ -94,7 +95,7 @@ async function fetchUserRolesOnce(
 ): Promise<RoleFetchStatus> {
   try {
     // First verify the user still exists (prevents re-provisioning deleted accounts)
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: authUser }, error: authError } = await getSessionCheckedUser();
     if (authError || !authUser) {
       // Dead session OR a token refresh still in flight right after sign-in.
       // Unknown, not empty — leave the existing roles alone.

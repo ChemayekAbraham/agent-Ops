@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -211,7 +212,7 @@ export function VerificationTimelinePanel() {
 
       const [listingsRes, agentsRes, auditRes] = await Promise.all([
         supabase.from('house_listings').select('id, title').in('id', listingIds),
-        supabase.from('profiles').select('id, full_name').in('id', agentIds),
+        withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
         missingLedger.length
           ? supabase
               .from('audit_logs')

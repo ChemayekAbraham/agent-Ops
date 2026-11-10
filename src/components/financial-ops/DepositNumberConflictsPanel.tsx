@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Check, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,10 +45,10 @@ export function DepositNumberConflictsPanel() {
       );
       const names = new Map<string, string>();
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of profs ?? []) {
           names.set(p.id, `${p.full_name ?? 'Unnamed'}${p.phone ? ` (${p.phone})` : ''}`);
         }
@@ -58,7 +60,7 @@ export function DepositNumberConflictsPanel() {
 
   const resolve = useMutation({
     mutationFn: async (id: string) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('user_deposit_number_conflicts')
         .update({ resolved_at: new Date().toISOString(), resolved_by: auth.user?.id ?? null })

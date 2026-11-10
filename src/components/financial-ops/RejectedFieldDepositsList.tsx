@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,10 +103,10 @@ export function RejectedFieldDepositsList() {
       );
       const nameMap = new Map<string, string | null>();
       if (ids.length > 0) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name')
-          .in('id', ids);
+          .in('id', validIds));
         for (const p of (profs ?? []) as any[]) nameMap.set(p.id, p.full_name ?? null);
       }
       const fieldRows: RejectedRow[] = batchList.map((r) => ({

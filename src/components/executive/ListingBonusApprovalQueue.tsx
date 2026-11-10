@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -312,10 +313,10 @@ async function enrich(visibleRaw: any[], hiddenRaw: any[]): Promise<Classified> 
   ];
 
   const [agentsRes, listingsRes, actorsRes] = await Promise.all([
-    supabase.from('profiles').select('id, full_name').in('id', agentIds),
+    withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds)),
     supabase.from('house_listings').select('id, title').in('id', listingIds),
     actorIds.length
-      ? supabase.from('profiles').select('id, full_name').in('id', actorIds)
+      ? withUuidIds(actorIds, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds))
       : Promise.resolve({ data: [] as any[] }),
   ]);
 

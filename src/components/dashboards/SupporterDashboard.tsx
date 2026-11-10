@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
@@ -449,19 +450,19 @@ export default function SupporterDashboard({
           .eq('category', 'supporter_rent_fund')
           .eq('direction', 'cash_out')
           .limit(500),
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage')
           .eq('investor_id', user.id)
           .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
-        supabase
+          .limit(100)),
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, investment_amount, total_roi_earned, roi_percentage')
           .eq('agent_id', user.id)
           .is('investor_id', null)
           .in('status', ['active', 'pending', 'pending_approval'])
-          .limit(100),
+          .limit(100)),
       ]);
 
       // Merge portfolios (investor_id matches + agent_id with null investor_id)
@@ -770,7 +771,7 @@ export default function SupporterDashboard({
             <Suspense fallback={null}>
             <MapBottomSheet
               defaultSnap="half"
-              header={({ snap, setSnap }) => (
+              header={({ snap, setSnap, layout }) => (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <p className="text-[15px] font-bold text-foreground">
@@ -780,14 +781,14 @@ export default function SupporterDashboard({
                       {shownFundingHomes} shown
                     </span>
                   </div>
-                  <button
+                  {layout === 'sheet' && <button
                     type="button"
                     onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
                     className="flex items-center gap-1 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-foreground touch-manipulation transition active:scale-95 hover:bg-muted/70"
                   >
                     <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
                     {snap === 'collapsed' ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  </button>
+                  </button>}
                 </div>
               )}
             >

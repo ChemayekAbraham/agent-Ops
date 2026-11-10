@@ -66,6 +66,13 @@ export type AgentVetting = {
    * collected, or has verified sub-agents). The agent role itself is held by nearly everyone.
    */
   in_scope: boolean;
+  /** Chose "Agent" at signup since verification went live (server: signed_up_as_agent). */
+  signed_up_as_agent: boolean;
+  /**
+   * Whether verification shows at all (server: applies): agent work, verification started, or a
+   * new agent signup, and never a partner with no agent work. The agent role alone is not enough.
+   */
+  applies: boolean;
   review_note: string | null;
   submitted_at: string | null;
   verified_at: string | null;
@@ -123,6 +130,11 @@ export function parseAgentVetting(raw: unknown): AgentVetting {
   return {
     status: STATUSES.includes(r.status) ? r.status : 'unverified',
     in_scope: r.in_scope === true,
+    signed_up_as_agent: r.signed_up_as_agent === true,
+    // Older servers did not send applies: fall back to agent work or verification started.
+    applies: typeof r.applies === 'boolean'
+      ? r.applies
+      : r.in_scope === true || (STATUSES.includes(r.status) && r.status !== 'unverified'),
     review_note: str(r.review_note),
     submitted_at: str(r.submitted_at),
     verified_at: str(r.verified_at),
@@ -229,12 +241,12 @@ export function vettingProgress(steps: VettingStep[]) {
 }
 
 /**
- * Whether verification concerns this account at all: it works as an agent, or it has
- * already started verification (submitted, verified or sent back). Role holders who are
- * neither see no verification ring or banner; posting a first rent request still asks them.
+ * Whether verification concerns this account at all (decided by the server, see applies).
+ * Role holders it does not apply to see no verification ring or banner; posting a first rent
+ * request still asks them to verify.
  */
-export function vettingApplies(v: Pick<AgentVetting, 'in_scope' | 'status'>): boolean {
-  return v.in_scope || v.status !== 'unverified';
+export function vettingApplies(v: Pick<AgentVetting, 'applies'>): boolean {
+  return v.applies;
 }
 
 /** Agents can edit while unverified or rejected; editing a verified record sends it back for review. */

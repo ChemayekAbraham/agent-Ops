@@ -1,3 +1,4 @@
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -174,10 +175,10 @@ export function CreateInvestmentAccountDialog({ open, onOpenChange, onSuccess, o
       }
       // Existing-portfolio count — used to gate direct_confirmation mode.
       setPortfolioCheckLoading(true);
-      const { count: pfCount } = await supabase
+      const { count: pfCount } = await withUserSession(() => supabase
         .from('investor_portfolios')
         .select('id', { count: 'exact', head: true })
-        .eq('investor_id', selectedUser.id);
+        .eq('investor_id', selectedUser.id));
       if (!cancelled) {
         setExistingPortfolioCount(pfCount ?? 0);
         setPortfolioCheckLoading(false);

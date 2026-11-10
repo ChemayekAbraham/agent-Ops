@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -111,7 +112,7 @@ export function DailyRentReport({ mode }: Props) {
       const map: Record<string, { full_name: string | null; phone: string | null }> = {};
       const BATCH = 100;
       for (let i = 0; i < ids.length; i += BATCH) {
-        const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids.slice(i, i + BATCH));
+        const { data } = await withUuidIds(ids.slice(i, i + BATCH), (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
         (data ?? []).forEach((p: any) => { map[p.id] = { full_name: p.full_name, phone: p.phone }; });
       }
       return map;

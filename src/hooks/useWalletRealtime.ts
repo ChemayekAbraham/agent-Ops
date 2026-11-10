@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
 
 /**
  * Subscribes to wallet-affecting tables (wallets_physical, wallet_deductions, general_ledger)
@@ -122,11 +123,13 @@ function releaseRealtimeChannel(channelKey: string, instanceId: number) {
 }
 
 export function useWalletRealtime(userId?: string, extraQueryKeys: string[][] = []) {
+  const ready = useAuthenticatedAudience();
   const queryClient = useQueryClient();
   const instanceIdRef = useRef<number | null>(null);
   if (instanceIdRef.current === null) instanceIdRef.current = ++instanceCounter;
 
   useEffect(() => {
+    if (!ready) return;
     const channelKey = userId ?? 'global';
     const instanceId = instanceIdRef.current as number;
     acquireRealtimeChannel(channelKey, userId, queryClient, instanceId, extraQueryKeys);
@@ -137,5 +140,5 @@ export function useWalletRealtime(userId?: string, extraQueryKeys: string[][] = 
     // set once on acquire and read live by flushInvalidate on every event,
     // which is enough for the current fixed-per-mount usage.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, queryClient]);
+  }, [ready, userId, queryClient]);
 }

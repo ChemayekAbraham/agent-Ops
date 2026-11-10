@@ -1,90 +1,92 @@
+import { withUuidIds } from '@/lib/isUuid';
 import TutorialVideosButton from '@/ops-tutorials/components/TutorialVideosButton';
 import { useEffect, useRef, useState, Suspense, useMemo } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
+import type { DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
 
 const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
-import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
-import { AdvanceRequestsReviewed } from '@/components/ops/AdvanceRequestsReviewed';
-import { AdvanceRepaymentsPanel } from '@/components/ops/AdvanceRepaymentsPanel';
-import { ActiveAdvancesPanel } from '@/components/ops/ActiveAdvancesPanel';
-import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
-import { RentHistoryVerificationQueue } from '@/components/ops/RentHistoryVerificationQueue';
+const AdvanceRequestsQueue = lazy(() => import('@/components/ops/AdvanceRequestsQueue').then((m) => ({ default: m.AdvanceRequestsQueue })));
+const AdvanceRequestsReviewed = lazy(() => import('@/components/ops/AdvanceRequestsReviewed').then((m) => ({ default: m.AdvanceRequestsReviewed })));
+const AdvanceRepaymentsPanel = lazy(() => import('@/components/ops/AdvanceRepaymentsPanel').then((m) => ({ default: m.AdvanceRepaymentsPanel })));
+const ActiveAdvancesPanel = lazy(() => import('@/components/ops/ActiveAdvancesPanel').then((m) => ({ default: m.ActiveAdvancesPanel })));
+const BusinessAdvanceQueue = lazy(() => import('@/components/ops/BusinessAdvanceQueue').then((m) => ({ default: m.BusinessAdvanceQueue })));
+const RentHistoryVerificationQueue = lazy(() => import('@/components/ops/RentHistoryVerificationQueue').then((m) => ({ default: m.RentHistoryVerificationQueue })));
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from './KPICard';
 import { ExecutiveDataTable, Column } from './ExecutiveDataTable';
-import { TenantTransferPanel } from './TenantTransferPanel';
-import { IdleTenantsPanel } from './IdleTenantsPanel';
-import { AgentTenantConnector } from './AgentTenantConnector';
-import { AgentOpsPipelineHub } from './AgentOpsPipelineHub';
-import { AgentDirectory } from './AgentDirectory';
+const TenantTransferPanel = lazy(() => import('./TenantTransferPanel').then((m) => ({ default: m.TenantTransferPanel })));
+const IdleTenantsPanel = lazy(() => import('./IdleTenantsPanel').then((m) => ({ default: m.IdleTenantsPanel })));
+const AgentTenantConnector = lazy(() => import('./AgentTenantConnector').then((m) => ({ default: m.AgentTenantConnector })));
+const AgentOpsPipelineHub = lazy(() => import('./AgentOpsPipelineHub').then((m) => ({ default: m.AgentOpsPipelineHub })));
+const AgentDirectory = lazy(() => import('./AgentDirectory').then((m) => ({ default: m.AgentDirectory })));
 import { AgentPerformanceTiers } from './AgentPerformanceTiers';
-import { AgentCollectionsCommandCenter } from './agent-ops-v2/AgentCollectionsCommandCenter';
-import { AgentLifecyclePipeline } from './AgentLifecyclePipeline';
-import { AgentTaskManager } from './AgentTaskManager';
-import { AgentEscalationQueue } from './AgentEscalationQueue';
-import { ServiceCentreVerificationQueue } from './ServiceCentreVerificationQueue';
-import { ServiceCenterRequestsQueue } from './ServiceCenterRequestsQueue';
-import { ServiceCentreOverview } from './service-centres/ServiceCentreOverview';
-import { ServiceCentreDirectory } from './service-centres/ServiceCentreDirectory';
-import { ServiceCentrePayouts } from './service-centres/ServiceCentrePayouts';
-import { ServiceCentreOperatingModel } from './service-centres/ServiceCentreOperatingModel';
-import { AgentProductsPanel } from './agent-ops/AgentProductsPanel';
-import { ShoppingAdvanceEligibleCount } from './agent-ops/ShoppingAdvanceEligibleCount';
+const AgentCollectionsCommandCenter = lazy(() => import('./agent-ops-v2/AgentCollectionsCommandCenter').then((m) => ({ default: m.AgentCollectionsCommandCenter })));
+const AgentLifecyclePipeline = lazy(() => import('./AgentLifecyclePipeline').then((m) => ({ default: m.AgentLifecyclePipeline })));
+const AgentTaskManager = lazy(() => import('./AgentTaskManager').then((m) => ({ default: m.AgentTaskManager })));
+const AgentEscalationQueue = lazy(() => import('./AgentEscalationQueue').then((m) => ({ default: m.AgentEscalationQueue })));
+const ServiceCentreVerificationQueue = lazy(() => import('./ServiceCentreVerificationQueue').then((m) => ({ default: m.ServiceCentreVerificationQueue })));
+const ServiceCenterRequestsQueue = lazy(() => import('./ServiceCenterRequestsQueue').then((m) => ({ default: m.ServiceCenterRequestsQueue })));
+const ServiceCentreOverview = lazy(() => import('./service-centres/ServiceCentreOverview').then((m) => ({ default: m.ServiceCentreOverview })));
+const ServiceCentreDirectory = lazy(() => import('./service-centres/ServiceCentreDirectory').then((m) => ({ default: m.ServiceCentreDirectory })));
+const ServiceCentrePayouts = lazy(() => import('./service-centres/ServiceCentrePayouts').then((m) => ({ default: m.ServiceCentrePayouts })));
+const ServiceCentreOperatingModel = lazy(() => import('./service-centres/ServiceCentreOperatingModel').then((m) => ({ default: m.ServiceCentreOperatingModel })));
+const AgentProductsPanel = lazy(() => import('./agent-ops/AgentProductsPanel').then((m) => ({ default: m.AgentProductsPanel })));
+const ShoppingAdvanceEligibleCount = lazy(() => import('./agent-ops/ShoppingAdvanceEligibleCount').then((m) => ({ default: m.ShoppingAdvanceEligibleCount })));
 import { AGENT_PRODUCT_PAGES } from '@/pages/AgentProductCategoryPage';
-import { SubAgentVerificationQueue } from './SubAgentVerificationQueue';
-import { TenantToSubAgentPanel } from './TenantToSubAgentPanel';
-import { AgentOpsFloatPayoutReview } from '@/components/agent/AgentOpsFloatPayoutReview';
-import { AgentBalancesPanel } from './AgentBalancesPanel';
-import { LendingAgentsPanel } from './LendingAgentsPanel';
-import { UserProfileDialog } from '@/components/supporter/UserProfileDialog';
-import { TrustCaptureTab } from './TrustCaptureTab';
-import { AgentProductsServicesReport } from './agent-ops/AgentProductsServicesReport';
-import { AgentGuarantorFloatPanel } from './agent-ops/AgentGuarantorFloatPanel';
-import { AgentRentBehaviourPanel } from './agent-ops/AgentRentBehaviourPanel';
-import { PartialCollectionsPanel } from './agent-ops/PartialCollectionsPanel';
-import { AgentProductsOnlyReportSection } from './agent-ops/AgentProductsOnlyReportSection';
-import { SubAgentCommissionWhitelistPanel } from './agent-ops/SubAgentCommissionWhitelistPanel';
-import { AgentFeatureFlagsPanel } from './AgentFeatureFlagsPanel';
-import { AgentBulkOpsConsole } from './AgentBulkOpsConsole';
+const SubAgentVerificationQueue = lazy(() => import('./SubAgentVerificationQueue').then((m) => ({ default: m.SubAgentVerificationQueue })));
+const TenantToSubAgentPanel = lazy(() => import('./TenantToSubAgentPanel').then((m) => ({ default: m.TenantToSubAgentPanel })));
+const AgentOpsFloatPayoutReview = lazy(() => import('@/components/agent/AgentOpsFloatPayoutReview').then((m) => ({ default: m.AgentOpsFloatPayoutReview })));
+const AgentBalancesPanel = lazy(() => import('./AgentBalancesPanel').then((m) => ({ default: m.AgentBalancesPanel })));
+const LendingAgentsPanel = lazy(() => import('./LendingAgentsPanel').then((m) => ({ default: m.LendingAgentsPanel })));
+const UserProfileDialog = lazy(() => import('@/components/supporter/UserProfileDialog').then((m) => ({ default: m.UserProfileDialog })));
+const TrustCaptureTab = lazy(() => import('./TrustCaptureTab').then((m) => ({ default: m.TrustCaptureTab })));
+const AgentProductsServicesReport = lazy(() => import('./agent-ops/AgentProductsServicesReport').then((m) => ({ default: m.AgentProductsServicesReport })));
+const AgentGuarantorFloatPanel = lazy(() => import('./agent-ops/AgentGuarantorFloatPanel').then((m) => ({ default: m.AgentGuarantorFloatPanel })));
+const AgentRentBehaviourPanel = lazy(() => import('./agent-ops/AgentRentBehaviourPanel').then((m) => ({ default: m.AgentRentBehaviourPanel })));
+const PartialCollectionsPanel = lazy(() => import('./agent-ops/PartialCollectionsPanel').then((m) => ({ default: m.PartialCollectionsPanel })));
+const AgentProductsOnlyReportSection = lazy(() => import('./agent-ops/AgentProductsOnlyReportSection').then((m) => ({ default: m.AgentProductsOnlyReportSection })));
+const SubAgentCommissionWhitelistPanel = lazy(() => import('./agent-ops/SubAgentCommissionWhitelistPanel').then((m) => ({ default: m.SubAgentCommissionWhitelistPanel })));
+const AgentFeatureFlagsPanel = lazy(() => import('./AgentFeatureFlagsPanel').then((m) => ({ default: m.AgentFeatureFlagsPanel })));
+const AgentBulkOpsConsole = lazy(() => import('./AgentBulkOpsConsole').then((m) => ({ default: m.AgentBulkOpsConsole })));
 import { AgentDailyOverviewReportButton } from './AgentDailyOverviewReportButton';
-import { AgentRentCapacityPanel } from './AgentRentCapacityPanel';
-import { AgentAdvanceRepaymentMonitor } from './agent-ops-v2/AgentAdvanceRepaymentMonitor';
-import { AgentMonthlyKpis } from './agent-ops-v2/AgentMonthlyKpis';
-import { AgentAdvancePotential } from './agent-ops-v2/AgentAdvancePotential';
-import { AgentAdvanceLimits } from './agent-ops-v2/AgentAdvanceLimits';
-import { AdvanceAnalyticsPanel } from './agent-ops-v2/AdvanceAnalyticsPanel';
-import { AdvanceActivityCorrelation } from './agent-ops-v2/AdvanceActivityCorrelation';
-import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
-import { AgentLeaderboardPanel } from './AgentLeaderboardPanel';
-import { AgentListingCampaignPanel } from './AgentListingCampaignPanel';
-import { DailyRentReport } from '@/components/reports/DailyRentReport';
-import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
-import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
-import { First7DaysTab } from '@/components/executive/agent-ops/First7DaysTab';
+const AgentRentCapacityPanel = lazy(() => import('./AgentRentCapacityPanel').then((m) => ({ default: m.AgentRentCapacityPanel })));
+const AgentAdvanceRepaymentMonitor = lazy(() => import('./agent-ops-v2/AgentAdvanceRepaymentMonitor').then((m) => ({ default: m.AgentAdvanceRepaymentMonitor })));
+const AgentMonthlyKpis = lazy(() => import('./agent-ops-v2/AgentMonthlyKpis').then((m) => ({ default: m.AgentMonthlyKpis })));
+const AgentAdvancePotential = lazy(() => import('./agent-ops-v2/AgentAdvancePotential').then((m) => ({ default: m.AgentAdvancePotential })));
+const AgentAdvanceLimits = lazy(() => import('./agent-ops-v2/AgentAdvanceLimits').then((m) => ({ default: m.AgentAdvanceLimits })));
+const AdvanceAnalyticsPanel = lazy(() => import('./agent-ops-v2/AdvanceAnalyticsPanel').then((m) => ({ default: m.AdvanceAnalyticsPanel })));
+const AdvanceActivityCorrelation = lazy(() => import('./agent-ops-v2/AdvanceActivityCorrelation').then((m) => ({ default: m.AdvanceActivityCorrelation })));
+const AdvancesAnalyticsView = lazy(() => import('@/components/advances/AdvancesAnalyticsView').then((m) => ({ default: m.AdvancesAnalyticsView })));
+const AgentLeaderboardPanel = lazy(() => import('./AgentLeaderboardPanel').then((m) => ({ default: m.AgentLeaderboardPanel })));
+const AgentListingCampaignPanel = lazy(() => import('./AgentListingCampaignPanel').then((m) => ({ default: m.AgentListingCampaignPanel })));
+const DailyRentReport = lazy(() => import('@/components/reports/DailyRentReport').then((m) => ({ default: m.DailyRentReport })));
+const TenantSelfRepaymentsPanel = lazy(() => import('@/components/reporting/TenantSelfRepaymentsPanel').then((m) => ({ default: m.TenantSelfRepaymentsPanel })));
+const AgentDailyCollectionsView = lazy(() => import('@/components/executive/agent-ops/AgentDailyCollectionsView').then((m) => ({ default: m.AgentDailyCollectionsView })));
+const First7DaysTab = lazy(() => import('@/components/executive/agent-ops/First7DaysTab').then((m) => ({ default: m.First7DaysTab })));
 import { hasFirst7Params } from '@/lib/newTenantFirst7';
-import { AgentNetworkStandalone } from '@/components/executive/agent-ops-v2/AgentNetworkTab';
+const AgentNetworkStandalone = lazy(() => import('@/components/executive/agent-ops-v2/AgentNetworkTab').then((m) => ({ default: m.AgentNetworkStandalone })));
 import { hasNetworkParams } from '@/lib/agentNetwork';
-import { AgentMetricsStandalone } from '@/components/executive/agent-ops-v2/metrics/AgentMetricsTab';
+const AgentMetricsStandalone = lazy(() => import('@/components/executive/agent-ops-v2/metrics/AgentMetricsTab').then((m) => ({ default: m.AgentMetricsStandalone })));
 import { hasMetricsParams } from '@/lib/agentMetrics';
-import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
-import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
-import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
+const AgentOpsComprehensiveReport = lazy(() => import('@/components/executive/agent-ops/AgentOpsComprehensiveReport').then((m) => ({ default: m.AgentOpsComprehensiveReport })));
+const AgentOpsReportWindow = lazy(() => import('@/components/executive/agent-ops/AgentOpsReportWindow').then((m) => ({ default: m.AgentOpsReportWindow })));
+const ReportsOverview = lazy(() => import('@/components/executive/agent-ops-v2/ReportsOverview').then((m) => ({ default: m.ReportsOverview })));
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
-import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
-import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
-import { WelileSchoolsOps } from './agent-ops-v2/WelileSchoolsOps';
-import { WelileMedicineOps } from './agent-ops-v2/WelileMedicineOps';
-import { WelileSignagesOps } from './agent-ops-v2/WelileSignagesOps';
-import { CallingHub } from '@/components/ops/calling';
-import { ApprovalHistoryLog } from './ApprovalHistoryLog';
-import { TenantRentCollector } from './TenantRentCollector';
-import { AgentAllocationReport } from './AgentAllocationReport';
-import { AdvanceHealthCard } from './agent-ops-v2/AdvanceHealthCard';
-import { AgentsSpacePanel } from './AgentsSpacePanel';
+const AgentOpsOverview = lazy(() => import('./agent-ops-v2/AgentOpsOverview').then((m) => ({ default: m.AgentOpsOverview })));
+const AtRiskAgentsPreview = lazy(() => import('./agent-ops-v2/AgentOpsOverview').then((m) => ({ default: m.AtRiskAgentsPreview })));
+const WelileHomesAdminPanel = lazy(() => import('@/components/ops/WelileHomesAdminPanel').then((m) => ({ default: m.WelileHomesAdminPanel })));
+const WelileSchoolsOps = lazy(() => import('./agent-ops-v2/WelileSchoolsOps').then((m) => ({ default: m.WelileSchoolsOps })));
+const WelileMedicineOps = lazy(() => import('./agent-ops-v2/WelileMedicineOps').then((m) => ({ default: m.WelileMedicineOps })));
+const WelileSignagesOps = lazy(() => import('./agent-ops-v2/WelileSignagesOps').then((m) => ({ default: m.WelileSignagesOps })));
+const CallingHub = lazy(() => import('@/components/ops/calling').then((m) => ({ default: m.CallingHub })));
+const ApprovalHistoryLog = lazy(() => import('./ApprovalHistoryLog').then((m) => ({ default: m.ApprovalHistoryLog })));
+const TenantRentCollector = lazy(() => import('./TenantRentCollector').then((m) => ({ default: m.TenantRentCollector })));
+const AgentAllocationReport = lazy(() => import('./AgentAllocationReport').then((m) => ({ default: m.AgentAllocationReport })));
+const AdvanceHealthCard = lazy(() => import('./agent-ops-v2/AdvanceHealthCard').then((m) => ({ default: m.AdvanceHealthCard })));
+const AgentsSpacePanel = lazy(() => import('./AgentsSpacePanel').then((m) => ({ default: m.AgentsSpacePanel })));
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -211,6 +213,7 @@ export function AgentOpsDashboard() {
     const requested = s === 'products' ? 'sc-products' : s;
     return NAV_ITEMS.some((item) => item.key === requested) ? (requested as ActiveView) : null;
   });
+  const [dailyReportOpen, setDailyReportOpen] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [bottomTab, setBottomTab] = useState<BottomTab>('home');
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
@@ -221,7 +224,7 @@ export function AgentOpsDashboard() {
   // A shared First 7 Days link (?f7from=... and so on) opens straight on that tab.
   const [activeCategory, setActiveCategory] = useState<CategoryId>(() => (hasFirst7Params(searchParams) ? 'first7' : hasNetworkParams(searchParams) ? 'network' : hasMetricsParams(searchParams) ? 'metrics' : 'all'));
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const pendingAdvanceCount = usePendingAdvanceCount();
+  const pendingAdvanceCount = usePendingAdvanceCount(activeView === 'advance-requests' || bottomTab === 'more' || !!searchQuery.trim());
   const navigate = useNavigate();
 
   // Keyboard shortcut '/' or Cmd+K to focus search bar anywhere in Agent Ops dashboard
@@ -283,6 +286,7 @@ export function AgentOpsDashboard() {
 
   const { data: kpis, isLoading: kpisLoading } = useQuery({
     queryKey: ['agent-ops-kpis'],
+    enabled: activeView === 'earnings',
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_agent_ops_kpis');
       if (error) throw error;
@@ -299,6 +303,7 @@ export function AgentOpsDashboard() {
 
   const { data: earnings, isLoading } = useQuery({
     queryKey: ['exec-agent-earnings'],
+    enabled: activeView === 'earnings',
     queryFn: async () => {
       const { data } = await supabase.from('agent_earnings').select('agent_id, amount, earning_type, created_at')
         .order('created_at', { ascending: false }).limit(200);
@@ -309,6 +314,7 @@ export function AgentOpsDashboard() {
 
   const { data: commissions } = useQuery({
     queryKey: ['exec-agent-commissions'],
+    enabled: activeView === 'earnings',
     queryFn: async () => {
       const { data } = await supabase.from('agent_commission_payouts').select('agent_id, amount, status, created_at')
         .order('created_at', { ascending: false }).limit(100);
@@ -325,16 +331,16 @@ export function AgentOpsDashboard() {
       const BATCH = 50;
       const allProfiles: any[] = [];
       for (let i = 0; i < agentIds.length; i += BATCH) {
-        const { data } = await supabase.from('profiles')
+        const { data } = await withUuidIds(agentIds.slice(i, i + BATCH), (validIds) => supabase.from('profiles')
           .select('id, full_name, phone, email, avatar_url, verified, created_at, territory')
-          .in('id', agentIds.slice(i, i + BATCH));
+          .in('id', validIds));
         if (data) allProfiles.push(...data);
       }
       const map: Record<string, any> = {};
       allProfiles.forEach(p => { map[p.id] = p; });
       return map;
     },
-    enabled: agentIds.length > 0,
+    enabled: activeView === 'earnings' && agentIds.length > 0,
     staleTime: 600000,
   });
 
@@ -396,12 +402,12 @@ export function AgentOpsDashboard() {
       case 'daily-collections-report': return (
         <div className="space-y-4">
           <AgentDailyCollectionsView />
-          <details className="rounded-xl border border-border bg-card p-3">
+          <details onToggle={(e) => setDailyReportOpen(e.currentTarget.open)} className="rounded-xl border border-border bg-card p-3">
             <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Detailed report &amp; exports
             </summary>
             <div className="mt-3">
-              <DailyRentReport mode="agent" />
+              {dailyReportOpen && <DailyRentReport mode="agent" />}
             </div>
           </details>
         </div>
@@ -1141,6 +1147,7 @@ export function AgentOpsDashboard() {
           </div>
           {sidebarOpen && (
             <AgentOpsSideNav
+              pendingAdvanceCount={pendingAdvanceCount}
               activeView={activeView}
               onSelect={(k) => selectView(k)}
               onHome={() => {
@@ -1152,7 +1159,7 @@ export function AgentOpsDashboard() {
           )}
         </div>
         {sidebarOpen && <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} min={200} />}
-        <div className="flex-1 min-w-0">{contentRegion}</div>
+        <div className="flex-1 min-w-0"><Suspense fallback={<p role="status" className="py-12 text-center text-sm text-muted-foreground">Loading section…</p>}>{contentRegion}</Suspense></div>
       </div>
 
       {/* Mobile bottom nav */}
@@ -1160,7 +1167,7 @@ export function AgentOpsDashboard() {
         <AgentOpsBottomNav active={bottomTab} onChange={handleBottomNav} />
       )}
 
-      <UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} />
+      {selectedAgent && <Suspense fallback={null}><UserProfileDialog open={!!selectedAgent} onOpenChange={(open) => !open && setSelectedAgent(null)} user={selectedAgent} /></Suspense>}
     </div>
   );
 }
@@ -1238,16 +1245,17 @@ function SidebarResizer({
  * =================================================================== */
 function AgentOpsSideNav({
   activeView,
+  pendingAdvanceCount,
   onSelect,
   onHome,
   style,
 }: {
   activeView: ActiveView;
+  pendingAdvanceCount: number;
   onSelect: (k: ActiveView) => void;
   onHome: () => void;
   style?: React.CSSProperties;
 }) {
-  const pendingAdvanceCount = usePendingAdvanceCount();
   const [filterText, setFilterText] = useState('');
 
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [

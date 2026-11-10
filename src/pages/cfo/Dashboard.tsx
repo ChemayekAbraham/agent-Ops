@@ -1,130 +1,131 @@
-import { useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { lazyWithRetry as lazy } from '@/lib/lazyWithRetry';
-import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ClipboardCheck, ShieldCheck, Sparkles, CalendarClock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 const SpecialAdvancesPanel = lazy(() => import('@/components/cfo/special-advances/SpecialAdvancesPanel'));
 const PaidByCategory = lazy(() => import('@/components/cfo/PaidByCategory'));
 const ReceivedByCategory = lazy(() => import('@/components/cfo/ReceivedByCategory'));
 const TenantRepaymentTracker = lazy(() => import('@/components/cfo/tenant-repayments/TenantRepaymentTracker'));
-import walletSecurityIllustration from '@/assets/undraw_wallet_diag.svg.asset.json';
 
 import { toast } from 'sonner';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useHorizontalSwipe } from '@/hooks/useHorizontalSwipe';
 import { executiveSidebarConfig } from '@/components/layout/executiveSidebarConfig';
-import { TenantOpsLandlordFloatTimeline } from '@/components/executive/TenantOpsLandlordFloatTimeline';
+const TenantOpsLandlordFloatTimeline = lazy(() => import('@/components/executive/TenantOpsLandlordFloatTimeline').then((m) => ({ default: m.TenantOpsLandlordFloatTimeline })));
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
-import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
-import { RedemptionApprovalsPanel } from '@/components/cfo/RedemptionApprovalsPanel';
-import { CompoundRequestApprovalsPanel } from '@/components/cfo/CompoundRequestApprovalsPanel';
-import { PartnerReturnPolicyCard } from '@/components/cfo/PartnerReturnPolicyCard';
-import { PartnerRateApprovalsPanel } from '@/components/cfo/PartnerRateApprovalsPanel';
-import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
+const ErrorCorrectionAuditPanel = lazy(() => import('@/components/cfo/ErrorCorrectionAuditPanel').then((m) => ({ default: m.ErrorCorrectionAuditPanel })));
+const RedemptionApprovalsPanel = lazy(() => import('@/components/cfo/RedemptionApprovalsPanel').then((m) => ({ default: m.RedemptionApprovalsPanel })));
+const CompoundRequestApprovalsPanel = lazy(() => import('@/components/cfo/CompoundRequestApprovalsPanel').then((m) => ({ default: m.CompoundRequestApprovalsPanel })));
+const PartnerReturnPolicyCard = lazy(() => import('@/components/cfo/PartnerReturnPolicyCard').then((m) => ({ default: m.PartnerReturnPolicyCard })));
+const PartnerRateApprovalsPanel = lazy(() => import('@/components/cfo/PartnerRateApprovalsPanel').then((m) => ({ default: m.PartnerRateApprovalsPanel })));
+const CorrectionCenterPanel = lazy(() => import('@/components/cfo/CorrectionCenterPanel').then((m) => ({ default: m.CorrectionCenterPanel })));
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
-import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
-import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
-import { DirectCreditTool } from '@/components/cfo/DirectCreditTool';
-import { LunchAllowanceTracker } from '@/components/cfo/LunchAllowanceTracker';
-import { StandingOrdersPanel } from '@/components/cfo/StandingOrdersPanel';
-import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
-import CFOServiceCentreSpendApproval from '@/components/cfo/CFOServiceCentreSpendApproval';
-import { MerchantFloatRequestsPanel } from '@/components/cfo/MerchantFloatRequestsPanel';
-import { MerchantFloatRequisitionPanel } from '@/components/financial-ops/MerchantFloatRequisitionPanel';
-import { CFOWelileHomesDisbursementDesk } from '@/components/cfo/CFOWelileHomesDisbursementDesk';
-import { WhHistoricalDisbursementsPanel } from '@/components/welile-homes/historical/WhHistoricalDisbursementsPanel';
-import { CFOSignagesDesk } from '@/components/cfo/CFOSignagesDesk';
-import { CFOPayoutsShareButton } from '@/components/cfo/CFOPayoutsShareButton';
-import { RevenueExpenseDashboard } from '@/components/cfo/RevenueExpenseDashboard';
-import RoiDisbursementReportPanel from '@/components/cfo/RoiDisbursementReportPanel';
-import RentDisbursementReportPanel from '@/components/cfo/RentDisbursementReportPanel';
-import MerchantFloatRequisitionReportPanel from '@/components/cfo/MerchantFloatRequisitionReportPanel';
-import EmployeeRequisitionReportPanel from '@/components/cfo/EmployeeRequisitionReportPanel';
-import ApprovedRequisitionsPayoutPanel from '@/components/cfo/ApprovedRequisitionsPayoutPanel';
-import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
-import SmsOtpCostsPanel from '@/components/cfo/SmsOtpCostsPanel';
-import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
-import { CashflowForecastGraphs } from '@/components/cfo/CashflowForecastGraphs';
-import { PartnerReceiptsPanel } from '@/components/shared/PartnerReceiptsPanel';
-import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
+const CFOROIRequests = lazy(() => import('@/components/cfo/CFOROIRequests').then((m) => ({ default: m.CFOROIRequests })));
+const CFOOverviewDashboard = lazy(() => import('@/components/cfo/CFOOverviewDashboard').then((m) => ({ default: m.CFOOverviewDashboard })));
+const DirectCreditTool = lazy(() => import('@/components/cfo/DirectCreditTool').then((m) => ({ default: m.DirectCreditTool })));
+const LunchAllowanceTracker = lazy(() => import('@/components/cfo/LunchAllowanceTracker').then((m) => ({ default: m.LunchAllowanceTracker })));
+const StandingOrdersPanel = lazy(() => import('@/components/cfo/StandingOrdersPanel').then((m) => ({ default: m.StandingOrdersPanel })));
+const AddStandingOrderDialog = lazy(() => import('@/components/cfo/AddStandingOrderDialog').then((m) => ({ default: m.AddStandingOrderDialog })));
+const BudgetApprovalPanel = lazy(() => import('@/components/cfo/BudgetApprovalPanel'));
+const CFOServiceCentreSpendApproval = lazy(() => import('@/components/cfo/CFOServiceCentreSpendApproval'));
+const MerchantFloatRequestsPanel = lazy(() => import('@/components/cfo/MerchantFloatRequestsPanel').then((m) => ({ default: m.MerchantFloatRequestsPanel })));
+const MerchantFloatRequisitionPanel = lazy(() => import('@/components/financial-ops/MerchantFloatRequisitionPanel').then((m) => ({ default: m.MerchantFloatRequisitionPanel })));
+const CFOWelileHomesDisbursementDesk = lazy(() => import('@/components/cfo/CFOWelileHomesDisbursementDesk').then((m) => ({ default: m.CFOWelileHomesDisbursementDesk })));
+const WhHistoricalDisbursementsPanel = lazy(() => import('@/components/welile-homes/historical/WhHistoricalDisbursementsPanel').then((m) => ({ default: m.WhHistoricalDisbursementsPanel })));
+const CFOSignagesDesk = lazy(() => import('@/components/cfo/CFOSignagesDesk').then((m) => ({ default: m.CFOSignagesDesk })));
+const CFOPayoutsShareButton = lazy(() => import('@/components/cfo/CFOPayoutsShareButton').then((m) => ({ default: m.CFOPayoutsShareButton })));
+const RevenueExpenseDashboard = lazy(() => import('@/components/cfo/RevenueExpenseDashboard').then((m) => ({ default: m.RevenueExpenseDashboard })));
+const RoiDisbursementReportPanel = lazy(() => import('@/components/cfo/RoiDisbursementReportPanel'));
+const RentDisbursementReportPanel = lazy(() => import('@/components/cfo/RentDisbursementReportPanel'));
+const MerchantFloatRequisitionReportPanel = lazy(() => import('@/components/cfo/MerchantFloatRequisitionReportPanel'));
+const EmployeeRequisitionReportPanel = lazy(() => import('@/components/cfo/EmployeeRequisitionReportPanel'));
+const ApprovedRequisitionsPayoutPanel = lazy(() => import('@/components/cfo/ApprovedRequisitionsPayoutPanel'));
+const ExpenseReportPanel = lazy(() => import('@/components/cfo/ExpenseReportPanel'));
+const SmsOtpCostsPanel = lazy(() => import('@/components/cfo/SmsOtpCostsPanel'));
+const CFOWeeklyReportPanel = lazy(() => import('@/components/cfo/CFOWeeklyReportPanel'));
+const AccountingHealthPanel = lazy(() => import('@/components/cfo/AccountingHealthPanel'));
+const CashflowForecastGraphs = lazy(() => import('@/components/cfo/CashflowForecastGraphs').then((m) => ({ default: m.CashflowForecastGraphs })));
+const PartnerReceiptsPanel = lazy(() => import('@/components/shared/PartnerReceiptsPanel').then((m) => ({ default: m.PartnerReceiptsPanel })));
+const RequisitionsWorkspace = lazy(() => import('@/components/requisitions/RequisitionsWorkspace').then((m) => ({ default: m.RequisitionsWorkspace })));
 
-import { FinancialStatementsPanel } from '@/components/manager/FinancialStatementsPanel';
-import { BufferAccountPanel } from '@/components/manager/BufferAccountPanel';
-import { SupporterROITrigger } from '@/components/manager/SupporterROITrigger';
-import { AgentCommissionPayoutsManager } from '@/components/manager/AgentCommissionPayoutsManager';
-import { WithdrawalRequestsManager } from '@/components/manager/WithdrawalRequestsManager';
-import { GeneralLedger } from '@/components/manager/GeneralLedger';
-import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
-import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts';
+const FinancialStatementsPanel = lazy(() => import('@/components/manager/FinancialStatementsPanel').then((m) => ({ default: m.FinancialStatementsPanel })));
+const BufferAccountPanel = lazy(() => import('@/components/manager/BufferAccountPanel').then((m) => ({ default: m.BufferAccountPanel })));
+const SupporterROITrigger = lazy(() => import('@/components/manager/SupporterROITrigger').then((m) => ({ default: m.SupporterROITrigger })));
+const AgentCommissionPayoutsManager = lazy(() => import('@/components/manager/AgentCommissionPayoutsManager').then((m) => ({ default: m.AgentCommissionPayoutsManager })));
+const WithdrawalRequestsManager = lazy(() => import('@/components/manager/WithdrawalRequestsManager').then((m) => ({ default: m.WithdrawalRequestsManager })));
+const GeneralLedger = lazy(() => import('@/components/manager/GeneralLedger').then((m) => ({ default: m.GeneralLedger })));
+const CFOPartnerPayoutProcessing = lazy(() => import('@/components/cfo/CFOPartnerPayoutProcessing').then((m) => ({ default: m.CFOPartnerPayoutProcessing })));
+const CFOApprovedRentPayouts = lazy(() => import('@/components/cfo/CFOApprovedRentPayouts').then((m) => ({ default: m.CFOApprovedRentPayouts })));
 
 
-import CfoLandlordPayoutFloatPanel from '@/components/cfo/CfoLandlordPayoutFloatPanel';
-import CfoTenantBalanceChangesPage from '@/components/cfo/CfoTenantBalanceChangesPage';
-import CfoGeneralPayoutActivityPage from '@/components/cfo/CfoGeneralPayoutActivityPage';
-import { WithdrawalHistoryStatement } from '@/components/financial-ops/WithdrawalHistoryStatement';
-import { StaleWithdrawalHoldsPanel } from '@/components/cfo/StaleWithdrawalHoldsPanel';
-import { PayoutReconciliationQueue } from '@/components/financial-ops/PayoutReconciliationQueue';
-import { AutoPayoutHistory } from '@/components/cfo/AutoPayoutHistory';
-import { DailyCashPositionReport } from '@/components/cfo/DailyCashPositionReport';
-import { RentPipelineQueue } from '@/components/executive/RentPipelineQueue';
-import { RejectedRequestsQueue } from '@/components/executive/RejectedRequestsQueue';
+const CfoLandlordPayoutFloatPanel = lazy(() => import('@/components/cfo/CfoLandlordPayoutFloatPanel'));
+const CfoTenantBalanceChangesPage = lazy(() => import('@/components/cfo/CfoTenantBalanceChangesPage'));
+const CfoGeneralPayoutActivityPage = lazy(() => import('@/components/cfo/CfoGeneralPayoutActivityPage'));
+const WithdrawalHistoryStatement = lazy(() => import('@/components/financial-ops/WithdrawalHistoryStatement').then((m) => ({ default: m.WithdrawalHistoryStatement })));
+const StaleWithdrawalHoldsPanel = lazy(() => import('@/components/cfo/StaleWithdrawalHoldsPanel').then((m) => ({ default: m.StaleWithdrawalHoldsPanel })));
+const PayoutReconciliationQueue = lazy(() => import('@/components/financial-ops/PayoutReconciliationQueue').then((m) => ({ default: m.PayoutReconciliationQueue })));
+const AutoPayoutHistory = lazy(() => import('@/components/cfo/AutoPayoutHistory').then((m) => ({ default: m.AutoPayoutHistory })));
+const DailyCashPositionReport = lazy(() => import('@/components/cfo/DailyCashPositionReport').then((m) => ({ default: m.DailyCashPositionReport })));
+const RentPipelineQueue = lazy(() => import('@/components/executive/RentPipelineQueue').then((m) => ({ default: m.RentPipelineQueue })));
+const RejectedRequestsQueue = lazy(() => import('@/components/executive/RejectedRequestsQueue').then((m) => ({ default: m.RejectedRequestsQueue })));
 import { ListingBonusApprovalQueue } from '@/components/executive/ListingBonusApprovalQueue';
-import { FinancialAgentsPanel } from '@/components/cfo/FinancialAgentsPanel';
-import { PayrollPanel } from '@/components/cfo/PayrollPanel';
-import CfoPayrollPanel from '@/hr/pay/CfoPayrollPanel';
-import CfoPayrollHistoryPanel from '@/components/cfo/CfoPayrollHistoryPanel';
-import { ApprovalsInbox } from '@/hr/pay/Approvals';
-import { AdvancesPanel } from '@/hr/pay/Advances';
-import { CashoutAgentManager } from '@/components/cfo/CashoutAgentManager';
-import { HouseListingCommissionReport } from '@/components/cfo/HouseListingCommissionReport';
-import { CashoutAgentActivity } from '@/components/cfo/CashoutAgentActivity';
-import { DeliveryPipelineTracker } from '@/components/cfo/DeliveryPipelineTracker';
-import { AgentCashReconciliation } from '@/components/cfo/AgentCashReconciliation';
-import { LandlordOpsPayoutReview } from '@/components/cfo/LandlordOpsPayoutReview';
+const FinancialAgentsPanel = lazy(() => import('@/components/cfo/FinancialAgentsPanel').then((m) => ({ default: m.FinancialAgentsPanel })));
+const PayrollPanel = lazy(() => import('@/components/cfo/PayrollPanel').then((m) => ({ default: m.PayrollPanel })));
+const CfoPayrollPanel = lazy(() => import('@/hr/pay/CfoPayrollPanel'));
+const CfoPayrollHistoryPanel = lazy(() => import('@/components/cfo/CfoPayrollHistoryPanel'));
+const ApprovalsInbox = lazy(() => import('@/hr/pay/Approvals').then((m) => ({ default: m.ApprovalsInbox })));
+const AdvancesPanel = lazy(() => import('@/hr/pay/Advances').then((m) => ({ default: m.AdvancesPanel })));
+const CashoutAgentManager = lazy(() => import('@/components/cfo/CashoutAgentManager').then((m) => ({ default: m.CashoutAgentManager })));
+const HouseListingCommissionReport = lazy(() => import('@/components/cfo/HouseListingCommissionReport').then((m) => ({ default: m.HouseListingCommissionReport })));
+const CashoutAgentActivity = lazy(() => import('@/components/cfo/CashoutAgentActivity').then((m) => ({ default: m.CashoutAgentActivity })));
+const DeliveryPipelineTracker = lazy(() => import('@/components/cfo/DeliveryPipelineTracker').then((m) => ({ default: m.DeliveryPipelineTracker })));
+const AgentCashReconciliation = lazy(() => import('@/components/cfo/AgentCashReconciliation').then((m) => ({ default: m.AgentCashReconciliation })));
+const LandlordOpsPayoutReview = lazy(() => import('@/components/cfo/LandlordOpsPayoutReview').then((m) => ({ default: m.LandlordOpsPayoutReview })));
 import { CFOReceivablesTracker } from '@/components/cfo/CFOReceivablesTracker';
-import { LedgerHub } from '@/components/ledgers/LedgerHub';
-import { PendingPortfolioTopUps } from '@/components/cfo/PendingPortfolioTopUps';
-import { AngelPoolManagementPanel } from '@/components/executive/AngelPoolManagementPanel';
-import { WalletRetractionsFeed } from '@/components/cfo/WalletRetractionsFeed';
-import { CFOAdvancesManager } from '@/components/cfo/CFOAdvancesManager';
-import { CFOAdvanceRequestPayments } from '@/components/cfo/CFOAdvanceRequestPayments';
-import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
-import { BoutiqueOrderApprovalQueue } from '@/components/executive/agent-ops/BoutiqueOrderApprovalQueue';
-import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
-import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
-import { AllAdvancesReportPanel } from '@/components/advances/AllAdvancesReportPanel';
-import { DisbursedAdvancesRegister } from '@/components/cfo/DisbursedAdvancesRegister';
-import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
-import { ManagerApprovalAudit } from '@/components/cfo/ManagerApprovalAudit';
-import { OpportunitySummaryForm } from '@/components/manager/OpportunitySummaryForm';
-import { CFOAgentRequisitions } from '@/components/cfo/CFOAgentRequisitions';
-import { EmployeeRequisitionLinksPanel } from '@/components/financial-ops/EmployeeRequisitionLinksPanel';
-import { EmployeeRequisitionQueuePanel } from '@/components/financial-ops/EmployeeRequisitionQueuePanel';
-import { NationalIdUnlinkQueuePanel } from '@/components/financial-ops/NationalIdUnlinkQueuePanel';
+const LedgerHub = lazy(() => import('@/components/ledgers/LedgerHub').then((m) => ({ default: m.LedgerHub })));
+const PendingPortfolioTopUps = lazy(() => import('@/components/cfo/PendingPortfolioTopUps').then((m) => ({ default: m.PendingPortfolioTopUps })));
+const AngelPoolManagementPanel = lazy(() => import('@/components/executive/AngelPoolManagementPanel').then((m) => ({ default: m.AngelPoolManagementPanel })));
+const WalletRetractionsFeed = lazy(() => import('@/components/cfo/WalletRetractionsFeed').then((m) => ({ default: m.WalletRetractionsFeed })));
+const CFOAdvancesManager = lazy(() => import('@/components/cfo/CFOAdvancesManager').then((m) => ({ default: m.CFOAdvancesManager })));
+const CFOAdvanceRequestPayments = lazy(() => import('@/components/cfo/CFOAdvanceRequestPayments').then((m) => ({ default: m.CFOAdvanceRequestPayments })));
+const BikeLeaseApprovalQueue = lazy(() => import('@/components/executive/agent-ops/BikeLeaseApprovalQueue').then((m) => ({ default: m.BikeLeaseApprovalQueue })));
+const BoutiqueOrderApprovalQueue = lazy(() => import('@/components/executive/agent-ops/BoutiqueOrderApprovalQueue').then((m) => ({ default: m.BoutiqueOrderApprovalQueue })));
+const SmartphoneOrderApprovalQueue = lazy(() => import('@/components/executive/agent-ops/SmartphoneOrderApprovalQueue').then((m) => ({ default: m.SmartphoneOrderApprovalQueue })));
+const AdvancesAnalyticsView = lazy(() => import('@/components/advances/AdvancesAnalyticsView').then((m) => ({ default: m.AdvancesAnalyticsView })));
+const AllAdvancesReportPanel = lazy(() => import('@/components/advances/AllAdvancesReportPanel').then((m) => ({ default: m.AllAdvancesReportPanel })));
+const DisbursedAdvancesRegister = lazy(() => import('@/components/cfo/DisbursedAdvancesRegister').then((m) => ({ default: m.DisbursedAdvancesRegister })));
+const BusinessAdvanceQueue = lazy(() => import('@/components/ops/BusinessAdvanceQueue').then((m) => ({ default: m.BusinessAdvanceQueue })));
+const ManagerApprovalAudit = lazy(() => import('@/components/cfo/ManagerApprovalAudit').then((m) => ({ default: m.ManagerApprovalAudit })));
+const OpportunitySummaryForm = lazy(() => import('@/components/manager/OpportunitySummaryForm').then((m) => ({ default: m.OpportunitySummaryForm })));
+const CFOAgentRequisitions = lazy(() => import('@/components/cfo/CFOAgentRequisitions').then((m) => ({ default: m.CFOAgentRequisitions })));
+const EmployeeRequisitionLinksPanel = lazy(() => import('@/components/financial-ops/EmployeeRequisitionLinksPanel').then((m) => ({ default: m.EmployeeRequisitionLinksPanel })));
+const EmployeeRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/EmployeeRequisitionQueuePanel').then((m) => ({ default: m.EmployeeRequisitionQueuePanel })));
+const NationalIdUnlinkQueuePanel = lazy(() => import('@/components/financial-ops/NationalIdUnlinkQueuePanel').then((m) => ({ default: m.NationalIdUnlinkQueuePanel })));
 
-import { RentCollectionsFeed } from '@/components/cfo/RentCollectionsFeed';
-import { PaymentsByLocationPanel } from '@/components/cfo/PaymentsByLocationPanel';
-import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
-import { AgentPerformanceRankings } from '@/components/cfo/AgentPerformanceRankings';
-import { AgentFloatManagement } from '@/components/cfo/AgentFloatManagement';
-import { LedgerHealthPanel } from '@/components/cfo/LedgerHealthPanel';
-import { FieldCashExposureCard } from '@/components/cfo/FieldCashExposureCard';
-import { CFOAgentOpsFloatSender } from '@/components/cfo/CFOAgentOpsFloatSender';
-import { CFOImpactKPIStrip } from '@/components/cfo/CFOImpactKPIStrip';
-import { CFOWalletActivities } from '@/components/cfo/CFOWalletActivities';
+const RentCollectionsFeed = lazy(() => import('@/components/cfo/RentCollectionsFeed').then((m) => ({ default: m.RentCollectionsFeed })));
+const PaymentsByLocationPanel = lazy(() => import('@/components/cfo/PaymentsByLocationPanel').then((m) => ({ default: m.PaymentsByLocationPanel })));
+const TenantSelfRepaymentsPanel = lazy(() => import('@/components/reporting/TenantSelfRepaymentsPanel').then((m) => ({ default: m.TenantSelfRepaymentsPanel })));
+const AgentPerformanceRankings = lazy(() => import('@/components/cfo/AgentPerformanceRankings').then((m) => ({ default: m.AgentPerformanceRankings })));
+const AgentFloatManagement = lazy(() => import('@/components/cfo/AgentFloatManagement').then((m) => ({ default: m.AgentFloatManagement })));
+const LedgerHealthPanel = lazy(() => import('@/components/cfo/LedgerHealthPanel').then((m) => ({ default: m.LedgerHealthPanel })));
+const FieldCashExposureCard = lazy(() => import('@/components/cfo/FieldCashExposureCard').then((m) => ({ default: m.FieldCashExposureCard })));
+const CFOAgentOpsFloatSender = lazy(() => import('@/components/cfo/CFOAgentOpsFloatSender').then((m) => ({ default: m.CFOAgentOpsFloatSender })));
+const CFOImpactKPIStrip = lazy(() => import('@/components/cfo/CFOImpactKPIStrip').then((m) => ({ default: m.CFOImpactKPIStrip })));
+const CFOWalletActivities = lazy(() => import('@/components/cfo/CFOWalletActivities').then((m) => ({ default: m.CFOWalletActivities })));
 import { RecentApprovalsByCategory } from '@/components/cfo/RecentApprovalsByCategory';
-import { EarningsExplainer } from '@/components/shared/EarningsExplainer';
-import { AgentAllocationTracesPanel } from '@/components/cfo/AgentAllocationTracesPanel';
-import { PhantomCorrectionDriftPanel } from '@/components/cfo/PhantomCorrectionDriftPanel';
-import { DuplicateRoiCreditsPanel } from '@/components/cfo/DuplicateRoiCreditsPanel';
-import { FinanceMonitoringHealthPanel } from '@/components/cfo/FinanceMonitoringHealthPanel';
-import { CFOUnfundingApprovals } from '@/components/cfo/CFOUnfundingApprovals';
-import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
-import { LandlordFloatIdleQueue } from '@/components/shared/LandlordFloatIdleQueue';
-import { SmsDeliveryLogPanel } from '@/components/cfo/SmsDeliveryLogPanel';
-import { SmsFailureAlertsPanel } from '@/components/cfo/SmsFailureAlertsPanel';
-import { AlreadyFundedLandlordsPanel } from '@/components/cfo/AlreadyFundedLandlordsPanel';
+const EarningsExplainer = lazy(() => import('@/components/shared/EarningsExplainer').then((m) => ({ default: m.EarningsExplainer })));
+const AgentAllocationTracesPanel = lazy(() => import('@/components/cfo/AgentAllocationTracesPanel').then((m) => ({ default: m.AgentAllocationTracesPanel })));
+const PhantomCorrectionDriftPanel = lazy(() => import('@/components/cfo/PhantomCorrectionDriftPanel').then((m) => ({ default: m.PhantomCorrectionDriftPanel })));
+const DuplicateRoiCreditsPanel = lazy(() => import('@/components/cfo/DuplicateRoiCreditsPanel').then((m) => ({ default: m.DuplicateRoiCreditsPanel })));
+const FinanceMonitoringHealthPanel = lazy(() => import('@/components/cfo/FinanceMonitoringHealthPanel').then((m) => ({ default: m.FinanceMonitoringHealthPanel })));
+const CFOUnfundingApprovals = lazy(() => import('@/components/cfo/CFOUnfundingApprovals').then((m) => ({ default: m.CFOUnfundingApprovals })));
+const CFOAllocationReturnApprovals = lazy(() => import('@/components/cfo/CFOAllocationReturnApprovals').then((m) => ({ default: m.CFOAllocationReturnApprovals })));
+const LandlordFloatIdleQueue = lazy(() => import('@/components/shared/LandlordFloatIdleQueue').then((m) => ({ default: m.LandlordFloatIdleQueue })));
+const SmsDeliveryLogPanel = lazy(() => import('@/components/cfo/SmsDeliveryLogPanel').then((m) => ({ default: m.SmsDeliveryLogPanel })));
+const SmsFailureAlertsPanel = lazy(() => import('@/components/cfo/SmsFailureAlertsPanel').then((m) => ({ default: m.SmsFailureAlertsPanel })));
+const AlreadyFundedLandlordsPanel = lazy(() => import('@/components/cfo/AlreadyFundedLandlordsPanel').then((m) => ({ default: m.AlreadyFundedLandlordsPanel })));
 import { CFOBreadcrumbHeader } from '@/components/cfo/CFOBreadcrumbHeader';
 import { SwipeSensitivityControl } from '@/components/cfo/SwipeSensitivityControl';
 import { SwipeOnboardingHint } from '@/components/cfo/SwipeOnboardingHint';
@@ -132,8 +133,8 @@ import { useSwipeSensitivity } from '@/hooks/useSwipeSensitivity';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
-import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
-import { LandlordFloatBudgetPanel } from '@/components/cfo/LandlordFloatBudgetPanel';
+const StatutoryConsentList = lazy(() => import('@/components/cfo/StatutoryConsentList').then((m) => ({ default: m.StatutoryConsentList })));
+const LandlordFloatBudgetPanel = lazy(() => import('@/components/cfo/LandlordFloatBudgetPanel').then((m) => ({ default: m.LandlordFloatBudgetPanel })));
 // Lazy: keeps the register (and its on-demand xlsx import) out of the main CFO bundle.
 const AssetRegisterPanel = lazy(() => import('@/components/cfo/assets/AssetRegisterPanel'));
 
@@ -154,7 +155,8 @@ export default function CFODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('cfo', 'overview', CFO_TAB_IDS);
   const isMobile = useIsMobile();
   const { threshold: swipeThreshold, setThreshold: setSwipeThreshold } = useSwipeSensitivity('cfo');
-  const advanceDisbursementCount = useCfoAdvanceDisbursementCount();
+  const advanceDisbursementCount = useCfoAdvanceDisbursementCount(activeTab === 'advances');
+  const [addStandingOrderOpen, setAddStandingOrderOpen] = useState(false);
 
 
   const goToOffset = (delta: number) => {
@@ -251,49 +253,52 @@ export default function CFODashboardPage() {
           <div className="space-y-5">
             <DirectCreditTool />
 
-            {/* Quick jump to General Payout Activity */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
-              <div className="flex items-center gap-3.5">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
-                  <ClipboardCheck className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground">General Payout Activity &amp; Approvals</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    View all past disbursements, approvals, category breakdowns, and export PDF statements.
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 rounded-xl gap-2 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
-                onClick={() => setActiveTab('general-payout-activity')}
-              >
-                Open Activity Desk
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* ── Security assurance card ── */}
-            <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center gap-5">
-                <div className="flex-1 min-w-0 text-center sm:text-left">
-                  <div className="flex items-center justify-center sm:justify-start gap-2 mb-1.5">
-                    <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0" />
-                    <h2 className="text-lg font-bold tracking-tight">Secure. Accurate. Instant.</h2>
+            {/* Quick jump to Standing Orders & General Payout Activity */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/25 shadow-xs">
+                    <CalendarClock className="h-5 w-5" />
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed max-w-2xl">
-                    Every payout is logged, traceable and reconciled against the general ledger, and
-                    protected with enterprise-grade security.
-                  </p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">Scheduled Standing Orders</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      Manage recurring wallet schedules, monthly rules &amp; health checks.
+                    </p>
+                  </div>
                 </div>
-                <img
-                  src={walletSecurityIllustration.url}
-                  alt="Secure wallet payout illustration"
-                  loading="lazy"
-                  className="h-28 w-auto sm:h-32 shrink-0 select-none pointer-events-none"
-                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('standing-orders')}
+                >
+                  Manage
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between gap-3.5 p-5 rounded-3xl border border-border/70 bg-gradient-to-r from-card via-card to-card/60 shadow-xs">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/25 shadow-xs">
+                    <ClipboardCheck className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-foreground truncate">General Payout Activity</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      View past disbursements, approvals, category reports, and PDF statements.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-xl gap-1.5 border-border/70 shadow-xs hover:bg-muted font-semibold shrink-0"
+                  onClick={() => setActiveTab('general-payout-activity')}
+                >
+                  Activity
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -318,9 +323,20 @@ export default function CFODashboardPage() {
                     Automated recurring payouts scheduled from "Send Money". Health monitoring flags orders with deleted/missing target accounts, cron failures, or stalled execution schedules so you can pause or resolve leaks immediately.
                   </p>
                 </div>
+                <Button
+                  onClick={() => setAddStandingOrderOpen(true)}
+                  className="h-11 px-5 rounded-xl font-semibold gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 shrink-0 self-start sm:self-center"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Standing Order
+                </Button>
               </div>
             </div>
             <StandingOrdersPanel />
+            <AddStandingOrderDialog
+              open={addStandingOrderOpen}
+              onOpenChange={setAddStandingOrderOpen}
+            />
           </div>
         );
       case 'approved-rent-payouts':
@@ -350,6 +366,8 @@ export default function CFODashboardPage() {
         return <FinancialStatementsPanel />;
       case 'weekly-report':
         return <CFOWeeklyReportPanel />;
+      case 'accounting-health':
+        return <AccountingHealthPanel />;
       case 'department-budgets':
         return (
           <div className="space-y-4">
@@ -813,7 +831,7 @@ export default function CFODashboardPage() {
       />
       <SwipeOnboardingHint enabled={isMobile} />
       <div {...(isMobile ? swipeHandlers : {})} className="min-h-[60vh]">
-        {renderContent()}
+        <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-muted-foreground">Loading section…</p>}>{renderContent()}</Suspense>
       </div>
     </ExecutiveDashboardLayout>
   );

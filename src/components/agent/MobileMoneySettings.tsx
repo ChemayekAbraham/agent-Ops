@@ -34,7 +34,7 @@ export function MobileMoneySettings() {
         .from('profiles')
         .select('mobile_money_number, mobile_money_provider')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

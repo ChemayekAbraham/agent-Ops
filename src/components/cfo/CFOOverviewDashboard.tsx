@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
@@ -85,8 +86,8 @@ export function CFOOverviewDashboard({
     cashVisible: showCashPosition,
     todayDetails: ['cashIn', 'cashOut', 'netCash'].includes(activeBreakdown ?? ''),
   });
-  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld();
-  const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed();
+  const { data: actualMoney, isLoading: actualLoading, dataUpdatedAt: actualUpdatedAt } = useActualMoneyHeld(showCashPosition && isOpen('position'));
+  const { data: merchantOwed, isLoading: merchantOwedLoading, dataUpdatedAt: owedUpdatedAt } = useMerchantAgentMoneyOwed(showCashPosition && isOpen('position'));
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
@@ -127,10 +128,10 @@ export function CFOOverviewDashboard({
 
       // Get unique agent IDs and fetch names
       const agentIds = [...new Set(data.map(r => r.agent_id).filter(Boolean))] as string[];
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(agentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone')
-        .in('id', agentIds);
+        .in('id', validIds));
 
       const profileMap = new Map((profiles || []).map(p => [p.id, p]));
 
@@ -368,7 +369,7 @@ export function CFOOverviewDashboard({
                       {[
                         { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
                         { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
-                        { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-4 w-4 text-sky-600" />, line: 'banked_cash' as const },
+                        { label: 'Cash at Bank (Equity, from bank emails)', amount: actualMoney?.bankBalance ?? 0, icon: <Landmark className="h-4 w-4 text-sky-600" />, line: 'bank' as const },
                       ].map((row) => (
                         <button
                           key={row.line}
@@ -420,8 +421,8 @@ export function CFOOverviewDashboard({
                           )}
                           <span className="truncate">
                             {actualMoney.bankedInSync
-                              ? 'Cash at Bank matches Financial Ops'
-                              : `Cash at Bank differs from Financial Ops by ${fmt(Math.abs(actualMoney.bankedDifference))}`}
+                              ? 'Banked-deposit list matches Financial Ops'
+                              : `Banked-deposit list differs from Financial Ops by ${fmt(Math.abs(actualMoney.bankedDifference))}`}
                           </span>
                         </span>
                         <span className="mt-0.5 block text-[10px] opacity-90">
@@ -528,14 +529,14 @@ export function CFOOverviewDashboard({
               icon={<Landmark className="h-4 w-4" />}
               tone="info"
               title="Money in Bank"
-              value={actualLoading ? '—' : fmt(actualMoney?.bankedCash ?? 0)}
-              percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.bankedCash ?? 0, actualMoneyTotal)}
+              value={actualLoading ? '—' : fmt(actualMoney?.bankBalance ?? 0)}
+              percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.bankBalance ?? 0, actualMoneyTotal)}
               percentageDirection="up"
-              percentageValue={!actualLoading ? actualMoney?.bankedCash ?? 0 : undefined}
+              percentageValue={!actualLoading ? actualMoney?.bankBalance ?? 0 : undefined}
               percentageTotal={actualMoneyTotal}
               items={[
-                { dot: 'bg-sky-500', label: 'Verified cash banked', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
-                { dot: 'bg-sky-500', label: 'Bank alerts (reference only)', value: fmt(actualMoney?.bankReconciliation ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
+                { dot: 'bg-sky-500', label: 'Equity balance from bank emails (not yet anchored to a statement)', value: fmt(actualMoney?.bankBalance ?? 0), onSelect: () => setActualMoneyLine('bank') },
+                { dot: 'bg-slate-400', label: 'Deposits marked banked — cumulative, not a balance', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-slate-400', label: 'Cash and Bank Balances (A1, accounting)', value: positionUnavailable ? '—' : fmt(bankCash), onSelect: () => setActiveBreakdown('cash') },
               ]}
               footer={

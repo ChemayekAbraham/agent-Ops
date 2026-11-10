@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 /**
  * Edit trail for one call's feedback.
  *
@@ -58,7 +59,7 @@ export function useCcFeedbackAmendments(attemptIds: string[], enabled = true) {
       const editorIds = [...new Set(rows.map((r) => r.edited_by).filter(Boolean))] as string[];
       const editorMap = new Map<string, string>();
       if (editorIds.length) {
-        const { data: people } = await client.from('profiles').select('id, full_name').in('id', editorIds);
+        const { data: people } = await withUuidIds(editorIds, (validIds) => client.from('profiles').select('id, full_name').in('id', validIds));
         ((people || []) as { id: string; full_name: string | null }[]).forEach((p) => {
           if (p.full_name) editorMap.set(p.id, p.full_name);
         });

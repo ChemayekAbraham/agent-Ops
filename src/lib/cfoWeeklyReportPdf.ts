@@ -14,7 +14,9 @@ const STRIPE: [number, number, number] = [239, 241, 254];
 const fmtUGX = (n: number) =>
   `UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(Number(n) || 0))}`;
 
-const fmtDay = (d: string) => (d ? format(new Date(d), 'dd MMM yyyy') : '—');
+/** Calendar date (YYYY-MM-DD) without a time-zone shift. */
+const fmtDay = (d: string) => (d ? format(new Date(`${d}T12:00:00`), 'EEE dd MMM yyyy') : '—');
+const marginText = (m: number, revenue: number) => (revenue > 0 && Math.abs(m) < 1000 ? `${m}%` : 'n/m');
 const fmtDateTime = (d: string) => (d ? format(new Date(d), 'dd MMM, HH:mm') : '—');
 
 const delta = (cur: number, prev: number) => {
@@ -65,11 +67,11 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.text(
-    `${fmtDay(report.period.from)} – ${fmtDay(report.period.to)}  ·  Generated ${format(new Date(report.generated_at), 'dd MMM yyyy, HH:mm')}`,
+    `${fmtDay(report.period.week_start)} – ${fmtDay(report.period.week_end)} (Monday to Sunday, Kampala time)${report.period.complete ? '' : ' · week in progress'}  ·  Generated ${format(new Date(report.generated_at), 'dd MMM yyyy, HH:mm')}`,
     logo ? margin + 21 : margin, 20,
   );
   doc.setFontSize(8);
-  doc.text(`Compared with ${fmtDay(report.previous_period.from)} – ${fmtDay(report.previous_period.to)}`, logo ? margin + 21 : margin, 25.5);
+  doc.text(`Compared with ${fmtDay(report.previous_period.week_start)} – ${fmtDay(report.previous_period.week_end)}`, logo ? margin + 21 : margin, 25.5);
 
   let y = 38;
   doc.setTextColor(15, 23, 42);
@@ -91,9 +93,9 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
     [
       `Cash opened the week at ${fmtUGX(cash.opening_cash)} and closed at ${fmtUGX(cash.closing_cash)}, a net movement of ${fmtUGX(cash.net_change)}.`,
       `The platform received ${fmtUGX(cf.inflows)} and paid out ${fmtUGX(cf.outflows)} across ${cf.legs} cash legs (previous week: ${fmtUGX(cf.inflows === 0 ? 0 : cf.prev_inflows)} in, ${fmtUGX(cf.prev_outflows)} out).`,
-      `Revenue of ${fmtUGX(pnl.revenue)} against expenses of ${fmtUGX(pnl.expenses)} produced a net result of ${fmtUGX(pnl.net_result)} at a ${pnl.net_margin}% margin.`,
-      `At period end the platform holds ${fmtUGX(position.money_we_have)} (treasury ${fmtUGX(position.money_in_treasury)}, bank ${fmtUGX(position.money_in_bank)}), owes ${fmtUGX(position.money_we_owe)} in wallet obligations and can use ${fmtUGX(position.money_we_can_use)}.`,
-      `Receivables stand at ${fmtUGX(receivables.total)} and net working capital at ${fmtUGX(position.net_working_capital)}.`,
+      `Revenue of ${fmtUGX(pnl.revenue)} against expenses of ${fmtUGX(pnl.expenses)} produced a net result of ${fmtUGX(pnl.net_result)}${pnl.float_restatement ? ` (expenses include ${fmtUGX(pnl.float_restatement)} of float restatement adjustments)` : ''}.`,
+      `At period end the platform holds ${fmtUGX(position.money_we_have)} in A1 + A5 (treasury ${fmtUGX(position.money_in_treasury)}, bank ${fmtUGX(position.money_in_bank)}) plus ${fmtUGX(position.landlord_pool)} in the landlord float pool, owes ${fmtUGX(position.money_we_owe)} in current liabilities (wallet custody ${fmtUGX(payables.wallet_total)}) and can use ${fmtUGX(position.money_we_can_use)}.`,
+      `Rent Plan receivables stand at ${fmtUGX(receivables.tenant_outstanding)}, total receivables at ${fmtUGX(receivables.total)} and net working capital at ${fmtUGX(position.net_working_capital)}.`,
     ].join(' '),
     pw - margin * 2,
   );
@@ -134,6 +136,8 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
       ['Money in treasury / platform', fmtUGX(cash.opening_treasury), fmtUGX(cash.closing_treasury), fmtUGX(cash.closing_treasury - cash.opening_treasury)],
       ['A1 cash and bank', fmtUGX(cash.opening_a1), fmtUGX(cash.closing_a1), fmtUGX(cash.closing_a1 - cash.opening_a1)],
       ['A5 cash in transit', fmtUGX(cash.opening_a5), fmtUGX(cash.closing_a5), fmtUGX(cash.closing_a5 - cash.opening_a5)],
+      ['Landlord float pool (A21 + A22)', fmtUGX(cash.opening_pool), fmtUGX(cash.closing_pool), fmtUGX(cash.closing_pool - cash.opening_pool)],
+      ['Total including landlord pool', fmtUGX(cash.opening_incl_pool), fmtUGX(cash.closing_incl_pool), fmtUGX(cash.closing_incl_pool - cash.opening_incl_pool)],
     ],
     y,
     [['Reconciliation: opening + net movement', fmtUGX(cash.opening_cash), fmtUGX(cash.closing_cash), fmtUGX(cash.opening_cash + cash.net_change - cash.closing_cash) + ' variance']],
@@ -166,7 +170,7 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
   y = section('Revenue Performance', y);
   y = table(
     [['Revenue category', 'This week', 'Previous week', 'Change']],
-    report.revenue_lines.slice(0, 15).map((l) => [prettyCategory(l.category), fmtUGX(l.amount), fmtUGX(l.prev_amount), delta(l.amount, l.prev_amount)]),
+    report.revenue_lines.slice(0, 15).map((l) => [`${l.account_code} · ${prettyCategory(l.category)}`, fmtUGX(l.amount), fmtUGX(l.prev_amount), delta(l.amount, l.prev_amount)]),
     y,
     [['Total revenue', fmtUGX(pnl.revenue), fmtUGX(pnl.prev_revenue), delta(pnl.revenue, pnl.prev_revenue)]],
   );
@@ -175,7 +179,7 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
   y = section('Expense Performance', y);
   y = table(
     [['Expense category', 'This week', 'Previous week', 'Change']],
-    report.expense_lines.slice(0, 15).map((l) => [prettyCategory(l.category), fmtUGX(l.amount), fmtUGX(l.prev_amount), delta(l.amount, l.prev_amount)]),
+    report.expense_lines.slice(0, 15).map((l) => [`${l.account_code} · ${prettyCategory(l.category)}`, fmtUGX(l.amount), fmtUGX(l.prev_amount), delta(l.amount, l.prev_amount)]),
     y,
     [['Total expenses', fmtUGX(pnl.expenses), fmtUGX(pnl.prev_expenses), delta(pnl.expenses, pnl.prev_expenses)]],
   );
@@ -188,7 +192,8 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
       ['Revenue', fmtUGX(pnl.revenue), fmtUGX(pnl.prev_revenue), delta(pnl.revenue, pnl.prev_revenue)],
       ['Expenses', fmtUGX(pnl.expenses), fmtUGX(pnl.prev_expenses), delta(pnl.expenses, pnl.prev_expenses)],
       ['Net result', fmtUGX(pnl.net_result), fmtUGX(pnl.prev_net_result), delta(pnl.net_result, pnl.prev_net_result)],
-      ['Net margin', `${pnl.net_margin}%`, `${pnl.prev_net_margin}%`, `${(pnl.net_margin - pnl.prev_net_margin).toFixed(1)} pts`],
+      ['Net margin', marginText(pnl.net_margin, pnl.revenue), marginText(pnl.prev_net_margin, pnl.prev_revenue), ''],
+      ['of which float restatement (X6)', fmtUGX(pnl.float_restatement), fmtUGX(pnl.prev_float_restatement), delta(pnl.float_restatement, pnl.prev_float_restatement)],
     ],
     y,
   );
@@ -196,16 +201,17 @@ export async function generateCfoWeeklyReportPdf(report: CfoWeeklyReport): Promi
   // ── Receivables & payables ──
   y = section('Receivables & Payables', y);
   y = table(
-    [['Item', 'Amount', 'Detail', '']],
+    [['Account', 'Opening', 'Closing', 'Change']],
     [
-      ['Tenant arrears outstanding', fmtUGX(receivables.tenant_outstanding), 'Active rent plans', ''],
-      ['Agent advances outstanding', fmtUGX(receivables.advances_outstanding), `${receivables.advances_active_count} active advance(s)`, ''],
-      ['Total receivables', fmtUGX(receivables.total), 'Tenant + advances', ''],
-      ['Wallet obligations (money we owe)', fmtUGX(payables.wallet_total), `Withdrawable ${fmtUGX(payables.wallet_withdrawable)} · float ${fmtUGX(payables.wallet_float)}`, ''],
-      ['Pending wallet operations', fmtUGX(payables.pending_operations_amount), `${payables.pending_operations_count} pending`, ''],
-      ['Net working capital', fmtUGX(position.net_working_capital), 'Cash + receivables − obligations', ''],
+      ...receivables.lines.map((l) => [`${l.account_code} ${l.label}`, fmtUGX(l.opening), fmtUGX(l.closing), fmtUGX(l.closing - l.opening)]),
+      ['Total receivables', fmtUGX(receivables.opening_total), fmtUGX(receivables.total), fmtUGX(receivables.total - receivables.opening_total)],
+      ...payables.lines.map((l) => [`${l.account_code} ${l.label}`, fmtUGX(l.opening), fmtUGX(l.closing), fmtUGX(l.closing - l.opening)]),
+      ['Total current liabilities', fmtUGX(payables.opening_total), fmtUGX(payables.total), fmtUGX(payables.total - payables.opening_total)],
+      ['L2 Supporter capital held (non-current)', fmtUGX(payables.opening_supporter_capital), fmtUGX(payables.supporter_capital), fmtUGX(payables.supporter_capital - payables.opening_supporter_capital)],
+      ['Pending wallet operations', '', fmtUGX(payables.pending_operations_amount), `${payables.pending_operations_count} pending`],
     ],
     y,
+    [['Net working capital (current assets − current liabilities)', fmtUGX(position.opening_net_working_capital), fmtUGX(position.net_working_capital), fmtUGX(position.net_working_capital - position.opening_net_working_capital)]],
   );
 
   // ── Significant movements ──

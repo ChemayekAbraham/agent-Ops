@@ -242,6 +242,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Financial Reports', icon: BookOpen, id: 'statements' },
         { label: 'Weekly CFO Report', icon: FileText, id: 'weekly-report' },
+        { label: 'Accounting Health', icon: ShieldCheck, id: 'accounting-health' },
         { label: 'Revenue & Expenses', icon: TrendingUp, id: 'revenue-expenses' },
         { label: 'Merchant Requisition Report', icon: FileText, id: 'merchant-requisition-report' },
         { label: 'Approved Requisitions', icon: FileText, id: 'approved-requisitions' },
@@ -275,6 +276,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'COO desk', icon: Gauge, id: 'coo-desk', route: '/desk/coo' },
         { label: 'Rent Approvals', icon: ClipboardList, id: 'rent-approvals' },
         { label: 'Welile Homes Approvals', icon: Home, id: 'welile-homes-approvals' },
+        { label: 'Welile Signages Approvals', icon: Megaphone, id: 'welile-signages-approvals' },
         { label: 'Tenants', icon: Home, id: 'tenants' },
         { label: 'Transactions', icon: ClipboardList, id: 'transactions' },
         { label: 'Agent Collections', icon: Users, id: 'collections' },
@@ -453,6 +455,8 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
         { label: 'Financial Health', icon: Shield, id: 'financial' },
+        // The Partner Returns switch (CEO-only; others see it read-only). Also on the CFO dashboard under Investor Returns.
+        { label: 'Partner Returns', icon: TrendingUp, id: 'partner-returns' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances' },

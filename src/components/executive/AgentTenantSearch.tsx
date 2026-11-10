@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -181,7 +182,7 @@ export function AgentTenantSearch() {
       };
       const batches = chunkIds(tenantIds);
       const [profilesRes, walletsRes, landlordsRes, ledgerRes] = await Promise.all([
-        Promise.all(batches.map(ids => supabase.from('profiles').select('id, full_name, phone').in('id', ids)))
+        Promise.all(batches.map(ids => withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))))
           .then(res => ({ data: res.flatMap(r => r.data || []) })),
         Promise.all(batches.map(ids => supabase.from('wallets').select('user_id, balance').in('user_id', ids)))
           .then(res => ({ data: res.flatMap(r => r.data || []) })),

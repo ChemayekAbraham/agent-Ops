@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -100,7 +101,7 @@ export function TenantPhoneDuplicatePanel({ variant = 'full', onOpenHub }: Tenan
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'resolved' | 'ignored' | 'open' }) => {
-      const { data: u } = await supabase.auth.getUser();
+      const { data: u } = await getSessionCheckedUser();
       const { error } = await supabase
         .from('tenant_phone_duplicate_alerts')
         .update({

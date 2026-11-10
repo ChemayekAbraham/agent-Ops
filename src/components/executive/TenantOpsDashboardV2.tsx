@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Inbox, Layers, Search } from 'lucide-react';
@@ -12,7 +13,7 @@ export function TenantOpsDashboardV2() {
   const [behaviorTenantId, setBehaviorTenantId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
+    getSessionCheckedUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
   }, []);
 
   return (

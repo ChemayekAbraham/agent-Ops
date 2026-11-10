@@ -71,7 +71,7 @@ export function PaidAgentsHistory() {
             .from('profiles')
             .select('full_name, phone')
             .eq('id', payout.agent_id)
-            .single();
+            .maybeSingle();
           return {
             ...payout,
             agent_name: profile?.full_name,

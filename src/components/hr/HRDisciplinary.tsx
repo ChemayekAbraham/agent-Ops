@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -108,10 +109,10 @@ export default function HRDisciplinary() {
       const ids = Array.from(new Set((staffProfiles || []).map((row) => row.user_id).filter(Boolean)));
       if (ids.length === 0) return [] as EmployeeOption[];
 
-      const { data: profiles, error: profilesError } = await supabase
+      const { data: profiles, error: profilesError } = await withUuidIds(ids, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, email')
-        .in('id', ids);
+        .in('id', validIds));
 
       if (profilesError) throw profilesError;
 

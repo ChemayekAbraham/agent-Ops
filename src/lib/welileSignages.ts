@@ -4,7 +4,7 @@
  * Business Rules:
  *  - Eligible: Busy houses and shops / business premises.
  *  - Property Owner: UGX 10,000 per active signage per month (commences on verified activation date).
- *  - Agent Reward: UGX 3,000 once per qualifying installation (eligible only after installation verification).
+ *  - Agent Reward: UGX 3,000 once per qualifying installation (paid by the CFO after COO approval; payment activates the signage).
  *  - Mandatory Live GPS: Required before submission (accuracy <= 25m recommended).
  *  - Administrative Location: Dataset-driven (UgLocationPicker: District -> Village).
  */
@@ -26,9 +26,12 @@ export type SignageStatus =
   | 'under_review'
   | 'changes_required'
   | 'rejected'
+  | 'awaiting_coo'
   | 'approved_for_installation'
   | 'pending_installation'
+  | 'installation_in_progress'
   | 'installation_verification'
+  | 'awaiting_cfo'
   | 'active'
   | 'temporarily_inactive'
   | 'payment_on_hold'
@@ -69,6 +72,8 @@ export interface SignageRecord {
   gps_longitude: number;
   gps_accuracy_meters: number;
   gps_captured_at: string;
+  gps_source?: 'device';
+  repeat_owner_phone?: boolean;
 
   // Administrative Location
   district_name: string;
@@ -96,6 +101,9 @@ export interface SignageRecord {
   review_notes?: string;
   reviewed_by?: string;
   reviewed_at?: string;
+  coo_approved_by?: string;
+  coo_approved_at?: string;
+  coo_review_notes?: string;
 
   // Installation & Verification
   installed_at?: string;
@@ -119,6 +127,9 @@ export interface SignageRecord {
   owner_rent_disbursed_at?: string;
   owner_rent_disbursed_by?: string;
   owner_rent_tx_ref?: string;
+  owner_rent_due_at?: string;
+  owner_rent_period_index?: number;
+  owner_rent_payable?: boolean;
 
   created_at: string;
   updated_at: string;
@@ -138,6 +149,9 @@ export interface SignageOwnerObligation {
   disbursed_at?: string;
 }
 
+/** Queue rows intentionally omit embedded image data; evidence is fetched by ID. */
+export type SignageListRecord = Omit<SignageRecord, 'photos' | 'installation_photos'>;
+
 export interface SignageAgentReward {
   id: string;
   signage_id: string;
@@ -155,14 +169,20 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
       return { label: 'Pending', variant: 'secondary' };
     case 'under_review':
       return { label: 'Under Review', variant: 'secondary' };
+    case 'awaiting_coo':
+      return { label: 'Awaiting COO', variant: 'secondary' };
     case 'approved_for_installation':
       return { label: 'Approved for Installation', variant: 'default' };
     case 'pending_installation':
       return { label: 'Pending Installation', variant: 'secondary' };
+    case 'installation_in_progress':
+      return { label: 'Installation in Progress', variant: 'default' };
     case 'installation_verification':
-      return { label: 'Verifying Installation', variant: 'secondary' };
+      return { label: 'Installation Photos Submitted', variant: 'secondary' };
+    case 'awaiting_cfo':
+      return { label: 'Awaiting CFO', variant: 'secondary' };
     case 'active':
-      return { label: 'Active (Billing)', variant: 'success' };
+      return { label: 'Installed Successfully', variant: 'success' };
     case 'changes_required':
       return { label: 'Changes Required', variant: 'destructive' };
     case 'rejected':
@@ -181,3 +201,34 @@ export function formatSignageStatus(status: SignageStatus): { label: string; var
       return { label: status, variant: 'outline' };
   }
 }
+
+export function signageReviewTarget(decision: 'approve' | 'return' | 'reject', stage: 'agent_ops' | 'coo'): SignageStatus {
+  if (decision === 'return') return 'changes_required';
+  if (decision === 'reject') return 'rejected';
+  return stage === 'coo' ? 'awaiting_cfo' : 'awaiting_coo';
+}
+
+export function canReviewSignage(status: SignageStatus, stage: 'agent_ops' | 'coo'): boolean {
+  return stage === 'coo' ? status === 'awaiting_coo' : ['submitted', 'pending', 'under_review', 'changes_required'].includes(status);
+}
+
+export function hasDeviceSignageGps(record: Pick<SignageRecord, 'gps_latitude' | 'gps_longitude' | 'gps_accuracy_meters' | 'gps_captured_at' | 'gps_source'>): boolean {
+  return record.gps_source === 'device' && Number.isFinite(record.gps_latitude) && Math.abs(record.gps_latitude) <= 90
+    && Number.isFinite(record.gps_longitude) && Math.abs(record.gps_longitude) <= 180
+    && Number.isFinite(record.gps_accuracy_meters) && record.gps_accuracy_meters >= 0
+    && Number.isFinite(Date.parse(record.gps_captured_at));
+}
+
+export function hasInstalledSignagePhoto(photos: SignagePhoto[] | undefined): boolean {
+  return !!photos?.some((photo) => photo.category === 'installed_signage' && /^(data:image\/(webp|jpeg|png);base64,|https:\/\/)/.test(photo.url));
+}
+
+export function signagePipelineRecords<T extends SignageListRecord>(records: T[]): T[] {
+  return records.filter((record) => ['draft', 'submitted', 'pending', 'under_review', 'awaiting_coo', 'approved_for_installation',
+    'pending_installation', 'installation_in_progress', 'installation_verification', 'awaiting_cfo', 'changes_required', 'rejected'].includes(record.status));
+}
+
+export function canPaySignage(record: SignageListRecord): boolean {
+  return ['awaiting_cfo', 'active'].includes(record.status) && (!!record.coo_approved_at || (!!record.verified_at && !!record.installed_at));
+}
+

@@ -1,5 +1,7 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuthenticatedAudience, requireUserSession } from '@/hooks/useAuthenticatedPoll';
 
 export type ImpactMetric = 'users' | 'tenants' | 'agents' | 'partners' | 'landlords_active' | 'landlords_dormant';
 
@@ -42,6 +44,7 @@ export function useCFOImpactDrilldown(
   enabled: boolean,
   landlordFilters?: LandlordFilters,
 ) {
+  const ready = useAuthenticatedAudience();
   return useQuery<DrilldownResult>({
     queryKey: [
       'cfo-impact-drilldown',
@@ -52,9 +55,10 @@ export function useCFOImpactDrilldown(
       landlordFilters?.region ?? null,
       landlordFilters?.accountStatus ?? null,
     ],
-    enabled: enabled && !!metric,
+    enabled: ready && enabled && !!metric,
     staleTime: 60 * 1000,
     queryFn: async () => {
+      await requireUserSession();
       if (!metric) return { records: [], total: 0, truncated: false };
       const fromIso = from ? from.toISOString() : null;
       const toIso = to ? new Date(to.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString() : null;
@@ -95,7 +99,7 @@ export function useCFOImpactDrilldown(
         const rows = data || [];
         const tenantIds = [...new Set(rows.map((r: any) => r.tenant_id).filter(Boolean))] as string[];
         const { data: profiles } = tenantIds.length
-          ? await supabase.from('profiles').select('id, full_name, phone').in('id', tenantIds)
+          ? await withUuidIds(tenantIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : { data: [] as any[] };
         const map = new Map((profiles || []).map((p: any) => [p.id, p]));
         // Dedupe per tenant — keep most recent
@@ -139,7 +143,7 @@ export function useCFOImpactDrilldown(
         }
         const agentIds = [...agg.keys()];
         const { data: profiles } = agentIds.length
-          ? await supabase.from('profiles').select('id, full_name, phone').in('id', agentIds)
+          ? await withUuidIds(agentIds, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
           : { data: [] as any[] };
         const map = new Map((profiles || []).map((p: any) => [p.id, p]));
         const records: DrilldownRecord[] = agentIds
@@ -184,7 +188,7 @@ export function useCFOImpactDrilldown(
       }
       const ids = [...agg.keys()];
       const { data: profiles } = ids.length
-        ? await supabase.from('profiles').select('id, full_name, phone').in('id', ids)
+        ? await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds))
         : { data: [] as any[] };
       const map = new Map((profiles || []).map((p: any) => [p.id, p]));
       const records: DrilldownRecord[] = ids

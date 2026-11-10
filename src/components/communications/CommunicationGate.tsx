@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsActiveAgent } from '@/hooks/useIsActiveAgent';
 import { useCommunicationAcknowledgement, useCommunicationInbox, readCommunication } from '@/hooks/useCrmCommunications';
 import { communicationDashboardRole, communicationInboxAllowed, type Communication } from '@/lib/crmCommunications';
 import { CommunicationDialog, communicationIcons } from './CommunicationDialog';
@@ -27,6 +28,10 @@ export default function CommunicationGate() {
   const dashboardRole = communicationDashboardRole(location.pathname, role);
   const eligible = !!user && !loading && rolesResolved && communicationInboxAllowed(dashboardRole, enabledRoles);
   const query = useCommunicationInbox(dashboardRole, eligible);
+  // On the agent dashboard, announcements pop up only for active agents (with a repaying tenant).
+  // Others can still open them from the bell.
+  const { data: isActiveAgent } = useIsActiveAgent(eligible && dashboardRole === 'agent');
+  const autoPopupAllowed = dashboardRole !== 'agent' || isActiveAgent === true;
   const acknowledge = useCommunicationAcknowledgement(dashboardRole);
   const [active, setActive] = useState<Communication | null>(null);
   const [listOpen, setListOpen] = useState(false);
@@ -67,7 +72,7 @@ export default function CommunicationGate() {
     finally { if (scopeRef.current === captured) setOpening(false); }
   }
   useEffect(() => {
-    if (!eligible || blocked || active || listOpen || opening || !query.data) return;
+    if (!eligible || !autoPopupAllowed || blocked || active || listOpen || opening || !query.data) return;
     const now = Date.now();
     const next = query.data.find(row => !snoozed.has(row.id) && now - lastShown(user?.id, row.id) >= REPEAT_MS);
     if (!next) return;
@@ -77,7 +82,7 @@ export default function CommunicationGate() {
       void openMessage(next);
     }, firstOpen.current ? 800 : 5000);
     return () => clearTimeout(timer);
-  }, [eligible, blocked, active, listOpen, opening, query.data, snoozed, scope]);
+  }, [eligible, autoPopupAllowed, blocked, active, listOpen, opening, query.data, snoozed, scope]);
   useEffect(() => {
     if (!active) return;
     const captured = scopeRef.current;

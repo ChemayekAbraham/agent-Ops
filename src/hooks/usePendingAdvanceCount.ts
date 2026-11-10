@@ -8,10 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
  * approves, requests go straight to the CFO. Used to badge the Agent Ops
  * "Advances" menu item. Kept live via realtime on agent_advance_requests.
  */
-export function usePendingAdvanceCount() {
+export function usePendingAdvanceCount(enabled = true) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
+    enabled,
     queryKey: ['pending-advance-count'],
     staleTime: 30_000,
     refetchInterval: 60_000,
@@ -26,6 +27,7 @@ export function usePendingAdvanceCount() {
   });
 
   useEffect(() => {
+    if (!enabled) return;
     const channel = supabase
       .channel('pending-advance-count')
       .on(
@@ -39,7 +41,7 @@ export function usePendingAdvanceCount() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient]);
+  }, [queryClient, enabled]);
 
   return query.data ?? 0;
 }

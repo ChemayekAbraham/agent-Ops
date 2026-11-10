@@ -1,3 +1,6 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { subDays, format, startOfDay } from 'date-fns';
@@ -49,19 +52,21 @@ function buildTrend(rows: { created_at: string }[], days = 14) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function usePartnerOpsReportData() {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
+    enabled: authenticatedReady,
     queryKey: ['coo-report', 'partner-ops'],
     staleTime: 60_000,
     queryFn: async () => {
       const since = sinceISO();
 
       const [portfoliosRes, withdrawalsRes] = await Promise.all([
-        supabase
+        withUserSession(() => supabase
           .from('investor_portfolios')
           .select('id, portfolio_code, investment_amount, status, cfo_verified, cfo_rejection_reason, created_at, investor_id, agent_id, payment_method, account_name, bank_account_name')
           .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(MAX_ROWS),
+          .limit(MAX_ROWS)),
         supabase
           .from('investment_withdrawal_requests')
           .select('id, amount, status, created_at, user_id, rejection_reason')
@@ -83,10 +88,10 @@ export function usePartnerOpsReportData() {
       );
       const profilesMap: Record<string, { full_name: string | null; phone: string | null }> = {};
       if (userIds.length) {
-        const { data: profiles, error: profilesErr } = await supabase
+        const { data: profiles, error: profilesErr } = await withUuidIds(userIds, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', userIds);
+          .in('id', validIds));
         if (profilesErr) throw profilesErr;
         (profiles ?? []).forEach((p: any) => (profilesMap[p.id] = { full_name: p.full_name, phone: p.phone }));
       }
@@ -203,7 +208,7 @@ export function useAgentOpsReportData() {
       );
       const profilesMap: Record<string, any> = {};
       if (ids.length) {
-        const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
         (data ?? []).forEach((p: any) => (profilesMap[p.id] = p));
       }
 
@@ -308,7 +313,7 @@ export function useTenantOpsReportData() {
       );
       const profilesMap: Record<string, any> = {};
       if (ids.length) {
-        const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
         (data ?? []).forEach((p: any) => (profilesMap[p.id] = p));
       }
 
@@ -402,7 +407,7 @@ export function useFinancialOpsReportData() {
       );
       const profilesMap: Record<string, any> = {};
       if (ids.length) {
-        const { data } = await supabase.from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name, phone').in('id', validIds));
         (data ?? []).forEach((p: any) => (profilesMap[p.id] = p));
       }
 

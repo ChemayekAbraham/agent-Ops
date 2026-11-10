@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useMemo } from 'react';
 import { useCanEditAccess } from '@/hooks/useCanEditAccess';
 import DashboardPermissionsTab from './DashboardPermissionsTab';
@@ -210,7 +211,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
         .from('profiles')
         .select('referrer_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profile?.referrer_id) {
         // Fetch referrer's profile
@@ -218,7 +219,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
           .from('profiles')
           .select('id, full_name, phone')
           .eq('id', profile.referrer_id)
-          .single();
+          .maybeSingle();
 
         // Check if they came via supporter_invites (invite link) or referral link
         const { data: invite } = await supabase
@@ -250,7 +251,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
             .from('profiles')
             .select('id, full_name, phone')
             .eq('id', invite.created_by)
-            .single();
+            .maybeSingle();
 
           if (inviter) {
             setReferrerInfo({
@@ -326,7 +327,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
       .from('profiles')
       .select('is_seller')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     if (data) setIsSellerStatus(data.is_seller ?? false);
   };
 
@@ -404,7 +405,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
       .from('profiles')
       .select('verified')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     
     if (!error && data) {
       setVerificationStatus(data.verified);
@@ -417,7 +418,7 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
       .from('profiles')
       .select('is_frozen')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
     if (data) setIsFrozen(data.is_frozen);
   };
 
@@ -493,10 +494,10 @@ export default function UserDetailsDialog({ open, onOpenChange, user, onRolesUpd
 
       // Fetch profiles for subagents
       const subAgentIds = subAgentsData.map(sa => sa.sub_agent_id);
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(subAgentIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name, phone, avatar_url')
-        .in('id', subAgentIds);
+        .in('id', validIds));
 
       // Count tenants per subagent
       const tenantsCountBySubAgent: Record<string, number> = {};

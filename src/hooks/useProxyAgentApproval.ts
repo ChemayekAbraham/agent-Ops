@@ -1,3 +1,5 @@
+import { useAuthenticatedAudience } from '@/hooks/useAuthenticatedPoll';
+import { withUserSession } from '@/lib/authenticatedRequests';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,9 +16,10 @@ export interface MyProxyStatus {
 
 /** Database-level proxy-agent access identifier for the signed-in user. */
 export function useMyProxyAgentStatus(userId?: string | null) {
+  const authenticatedReady = useAuthenticatedAudience();
   return useQuery({
     queryKey: ['my-proxy-agent-status', userId ?? 'anon'],
-    enabled: !!userId,
+    enabled: authenticatedReady && (!!userId),
     staleTime: 30_000,
     // Access gate: always re-verify against the server on mount so revoked or
     // suspended proxy agents cannot ride a cached "approved" verdict.
@@ -24,7 +27,7 @@ export function useMyProxyAgentStatus(userId?: string | null) {
     retry: false,
 
     queryFn: async (): Promise<MyProxyStatus> => {
-      const { data, error } = await supabase.rpc('my_proxy_agent_status');
+      const { data, error } = await withUserSession(() => supabase.rpc('my_proxy_agent_status'));
       if (error) throw new Error(error.message);
       const row = (data ?? {}) as Partial<MyProxyStatus>;
       return {

@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Loader2 } from 'lucide-react';
@@ -89,7 +91,7 @@ function PartnerLeadProduction() {
     let cancelled = false;
     (async () => {
       try {
-        const { data: auth } = await supabase.auth.getUser();
+        const { data: auth } = await getSessionCheckedUser();
         const uid = auth?.user?.id;
         if (!uid) return;
         const { data: leadRows, error: leadError } = await supabase
@@ -358,10 +360,10 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
         let nameByUser: Record<string, string> = {};
         const authorIds = Array.from(new Set(pending.map((p) => p.actor_user_id).filter(Boolean)));
         if (authorIds.length > 0) {
-          const { data: authorRows } = await supabase
+          const { data: authorRows } = await withUuidIds(authorIds, (validIds) => supabase
             .from('profiles')
             .select('id, full_name')
-            .in('id', authorIds);
+            .in('id', validIds));
           nameByUser = Object.fromEntries(
             ((authorRows ?? []) as { id: string; full_name: string | null }[]).map((p) => [
               p.id,

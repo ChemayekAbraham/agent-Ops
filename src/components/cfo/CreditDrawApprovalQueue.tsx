@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,8 +88,8 @@ export function CreditDrawApprovalQueue() {
       const ids = [...new Set(draws.flatMap(d => [d.user_id, d.agent_id].filter(Boolean) as string[]))];
       const map = new Map<string, { name: string; phone: string | null }>();
       if (ids.length) {
-        const { data: profiles } = await supabase
-          .from('profiles').select('id, full_name, phone').in('id', ids);
+        const { data: profiles } = await withUuidIds(ids, (validIds) => supabase
+          .from('profiles').select('id, full_name, phone').in('id', validIds));
         for (const p of profiles || []) map.set(p.id, { name: p.full_name || 'Unknown', phone: (p as any).phone || null });
       }
       return draws.map(d => ({

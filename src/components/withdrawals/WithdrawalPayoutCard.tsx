@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,7 +139,7 @@ export function WithdrawalPayoutCard({
       // 2) Fallback: ask storage directly — covers a reload that happened
       //    after the upload but before the breadcrumb could be written.
       if (!path) {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         if (!user?.id) return;
         const { data: files } = await supabase.storage
           .from('payment-proofs')
@@ -515,7 +516,7 @@ export function WithdrawalPayoutCard({
   // whether the typed name mismatched, and if they acknowledged it).
   async function recordClaimConfirmation() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getSessionCheckedUser();
       const confirmedName = isMoMo
         ? (enteredNameTrimmed || momoRegisteredName || recipientName)
         : (isBank ? (withdrawal.bank_account_name || recipientName) : recipientName);

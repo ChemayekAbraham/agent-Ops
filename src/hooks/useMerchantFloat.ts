@@ -1,3 +1,5 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
+import { withUuidIds } from '@/lib/isUuid';
 import { useEffect, useMemo, useRef } from 'react';
 import { usePolling } from '@/hooks/usePolling';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -448,7 +450,7 @@ export function usePostMerchantAdjustment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: MerchantAdjustmentInput) => {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth } = await getSessionCheckedUser();
       if (!auth?.user) throw new Error('You must be signed in.');
       if (input.reason.trim().length < 10) throw new Error('Reason must be at least 10 characters.');
       if (!Number.isFinite(input.amount) || input.amount === 0) throw new Error('Enter a non-zero amount.');
@@ -776,10 +778,10 @@ async function resolveFloatPayees(
   const userIds = Array.from(new Set(userByRequest.values()));
   if (userIds.length === 0) return rows;
 
-  const { data: people } = await supabase
+  const { data: people } = await withUuidIds(userIds, (validIds) => supabase
     .from('profiles')
     .select('id, full_name')
-    .in('id', userIds);
+    .in('id', validIds));
   const nameById = new Map<string, string>();
   for (const p of (people ?? []) as any[]) {
     if (p?.full_name) nameById.set(String(p.id), String(p.full_name));
@@ -1067,7 +1069,7 @@ export function useMerchantSettlementDebts(enabled = true) {
 
       // Separation of duties: the settlement RPC refuses to pay a desk that belongs
       // to the signed-in actor, so resolve who is looking and flag their own desk.
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: authData } = await getSessionCheckedUser();
       const viewerId = authData?.user?.id ? String(authData.user.id) : null;
 
 
@@ -1075,10 +1077,10 @@ export function useMerchantSettlementDebts(enabled = true) {
       const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean).map(String)));
       const people = new Map<string, { name: string; phone: string | null }>();
       if (ids.length) {
-        const { data: profs } = await supabase
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase
           .from('profiles')
           .select('id, full_name, phone')
-          .in('id', ids);
+          .in('id', validIds));
         (profs ?? []).forEach((p: any) =>
           people.set(String(p.id), { name: p.full_name ?? 'Unknown agent', phone: p.phone ?? null }),
         );
@@ -1219,7 +1221,7 @@ export function useMerchantOopSettlementHistory(enabled = true) {
       const ids = Array.from(new Set(rows.map((r) => r.agent_id).filter(Boolean).map(String)));
       const names = new Map<string, string>();
       if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const { data: profs } = await withUuidIds(ids, (validIds) => supabase.from('profiles').select('id, full_name').in('id', validIds));
         (profs ?? []).forEach((p: any) => names.set(String(p.id), p.full_name ?? 'Unknown agent'));
       }
       return rows.map((r) => ({

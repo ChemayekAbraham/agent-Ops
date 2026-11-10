@@ -1,3 +1,4 @@
+import { getSessionCheckedUser } from '@/lib/authenticatedRequests';
 import { useState } from 'react';
 import { Share2, Check, Copy, MessageCircle } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
@@ -31,7 +32,7 @@ export function ShareHouseButton({ listingId, title, region, dailyRate, shortCod
   const trackShare = (shareMethod: 'native' | 'whatsapp' | 'copy') => {
     void (async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user } } = await getSessionCheckedUser();
         await supabase.from('house_share_events').insert({
           listing_id: listingId,
           share_method: shareMethod,

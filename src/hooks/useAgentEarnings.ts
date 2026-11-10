@@ -1,3 +1,4 @@
+import { withUuidIds } from '@/lib/isUuid';
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchOpsWallet } from '@/hooks/ops/useOpsDataLayer';
@@ -263,10 +264,10 @@ export function useAgentEarnings() {
 
     let profileMap: Record<string, string> = {};
     if (allProfileIds.length > 0) {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await withUuidIds(allProfileIds, (validIds) => supabase
         .from('profiles')
         .select('id, full_name')
-        .in('id', allProfileIds);
+        .in('id', validIds));
       if (profiles) {
         profiles.forEach(p => { profileMap[p.id] = p.full_name || 'Unknown'; });
       }
