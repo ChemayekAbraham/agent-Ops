@@ -64,3 +64,4 @@
 - CFO Money Out/Money In read only their `get_cfo_paid_by_category_*` / `get_cfo_received_by_category_*` RPCs; category maps live only in `_cfo_paid_category_for` / `_cfo_received_category_for`; the client never recomputes or re-labels, so each report has one server definition.
 - Welile Homes landlord ownership is server-decided (`get_my_welile_homes_landlords`, enroll/float RPCs check `registered_by`).
 - Migration files use the exact version recorded in `schema_migrations`; never reuse a prefix already in `supabase/migrations`.
+- Self-support partner amounts, affordability checks and Rent profit share previews go through `useSelfSupportFeePolicy().pay` (funder-new item helpers take an optional pay, identity for sorting, filters and map pins), so screens match the server's `self_support_gross` and stay unchanged while the switch is off.
