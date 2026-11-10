@@ -90,7 +90,8 @@ export type BoardRow = {
   waiting: BoardWaiting | null;
   wait_suggest: WaitSuggest | null;
   push: BoardPush | null;
-  call: { answered_since_stage: string | null; attempts_24h: number | null } | null;
+  /** answered_since_stage: an answered call to this desk's subject is on file (pipeline_desk_board sends a boolean). */
+  call: { answered_since_stage: boolean | string | null; attempts_24h: number | null } | null;
   /** Service Centre: the request is from the August 2026 batch. */
   batch?: boolean;
   /** Agent Ops: the agent's collection eligibility. */

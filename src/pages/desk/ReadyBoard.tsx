@@ -83,7 +83,12 @@ import {
 export type DrawerStart = Decision | 'wait' | 'call' | 'complete' | 'photos' | 'concern';
 
 /** What the board already knows about the row, so the drawer need not ask again. */
-export type DrawerContext = { itemsMissing?: string[] | null; waitSuggest?: WaitSuggest | null };
+export type DrawerContext = {
+  itemsMissing?: string[] | null;
+  waitSuggest?: WaitSuggest | null;
+  /** The board's word: an answered call to this desk's subject is already on file. */
+  callAnswered?: boolean;
+};
 
 export type OpenDrawer = (requestId: string, initial?: DrawerStart, ctx?: DrawerContext) => void;
 
@@ -541,6 +546,11 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
   const closeSendBack = useCallback(() => setSendBack(null), []);
 
   const data = q.data;
+  // Every drawer opened from this board knows whether the row already has an answered call on file.
+  const open: OpenDrawer = (id, start, ctx) => {
+    const r = data?.rows.find((x) => x.id === id);
+    onOpen(id, start, { ...(r?.call?.answered_since_stage ? { callAnswered: true } : {}), ...ctx });
+  };
   const rows = useMemo(() => (data?.rows ?? []).filter((r) => !only || r.decision === only), [data, only]);
   const canAct = data?.can_act === true;
   // Below md each row is a card and the list pages 20 at a time.
@@ -576,7 +586,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return;
     // Call first / finish the checks: the reviewer works in the drawer.
     if (opensDrawer(row.decision)) {
-      onOpen(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
+      open(row.id, drawerStartFor(row.decision), { itemsMissing: row.items_missing ?? null, waitSuggest: row.wait_suggest });
       return;
     }
     // Send back (E63), and the system's reject (E64): choose or confirm the office, reason and note, then one server call.
@@ -586,7 +596,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     }
     // No push values: the drawer asks for what is missing.
     if (row.decision !== 'wait' && !row.push) {
-      onOpen(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
+      open(row.id, row.decision === 'waiting' ? undefined : (row.decision as Decision));
       return;
     }
     setBusy(row.id);
@@ -727,7 +737,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
                     busy={busy === r.id}
                     onPrimary={() => void primary(r)}
                     onRetry={() => void retry(r)}
-                    onOpen={onOpen}
+                    onOpen={open}
                     onPick={stage === 'agent_ops' ? () => setPicker(r) : undefined}
                     health={r.tenant_id ? health.data?.[r.tenant_id] : undefined}
                     concerns={concerns.data?.[r.id]}

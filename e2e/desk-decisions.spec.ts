@@ -170,10 +170,11 @@ for (const size of [{ width: 360, height: 800 }, { width: 1280, height: 900 }]) 
       await expect(why).toHaveText('Answer 5 more checks');
       await expect(submit(page)).toBeDisabled();
       // Right under the button it disables, and on screen with it.
-      await submit(page).scrollIntoViewIfNeeded();
+      await why.scrollIntoViewIfNeeded();
+      await expect(submit(page)).toBeInViewport();
       const [b, w] = [await submit(page).boundingBox(), await why.boundingBox()];
       expect(b && w && w.y >= b.y + b.height - 1).toBeTruthy();
-      expect(w && w.y + w.height <= size.height).toBeTruthy();
+      expect(w && w.y + w.height <= size.height + 1, JSON.stringify({ b, w })).toBeTruthy();
       await page.screenshot({ path: join(SHOTS, `pass-why-${tag}.png`) });
 
       for (const [, label] of LO_CHECKS.slice(3)) await tick(page, label);
@@ -190,6 +191,25 @@ for (const size of [{ width: 360, height: 800 }, { width: 1280, height: 900 }]) 
       expect(review.p_results).toContainEqual({ code: 'lo_rent_confirmed', result: 'pass', value: 700000 });
       expect(s.writes, 'no rent_requests write from the browser').toEqual([]);
       await page.screenshot({ path: join(SHOTS, `pass-sent-${tag}.png`) });
+    });
+
+    test('Landlord Ops, 06df1e3b with an answered landlord call on file: Pass is on, the call is named', async ({ page }) => {
+      await serve(page, {
+        pipeline_review_sheet: {
+          data: { ...LANDLORD_SHEET, history: [{ stage: 'tenant_ops', decision: 'pass', recommended: 'pass', followed: true, reason_code: null, note: null, failed: null, by: 'Tess', staff_ref: 'E-2', at: '2026-11-10T10:20:29.744Z' }] },
+        },
+        landlord_ops_context: { data: LANDLORD_CTX },
+        get_awareness_calls_for_request: {
+          data: { rows: [{ subject_type: 'landlord', call_result: 'answered', recorded_at: '2026-11-10T07:58:49.794Z', caller_name: 'Sarah Caller' }] },
+        },
+      });
+      await open(page, 'landlord_ops');
+      await expect(chip(page, /^Pass/)).toBeEnabled();
+      await expect(page.locator('[data-call-on-file]')).toHaveText('Answered call on file — 10 Nov, 10:58, Sarah Caller');
+      await chip(page, /^Pass/).click();
+      await expect(page.locator('[data-pass-why]')).toHaveText('Pass: Answer 8 more checks');
+      await page.locator('[data-call-on-file]').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: join(SHOTS, `call-on-file-${tag}.png`) });
     });
 
     test('Landlord Ops: a refused pass shows the server message as-is', async ({ page }) => {

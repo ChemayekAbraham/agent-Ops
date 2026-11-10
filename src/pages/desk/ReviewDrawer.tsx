@@ -8,6 +8,7 @@ import { Skeleton } from './Skeleton';
 import { CallLog } from './CallLog';
 import { asIs, isRecordOnly, needsNote, passMovesOnServer, rejectMovesOnServer, runMove, transferThenPass } from './deskActions';
 import { passBlock } from './passBlock';
+import { answeredCallOnFile, awarenessCallsKey, callTime, stageSince, useAwarenessCalls } from './callOnFile';
 import { toast } from 'sonner';
 import { afterServerPass } from './boardApi';
 import { SEND_BACK_STAGES, SUGGESTED_OFFICE, SendBackForm, parseSendBackNote } from './sendBack';
@@ -315,12 +316,19 @@ export function ReviewDrawer({
     (!!decision && needsNote(decision)) ||
     (against && (reasonCode === 'OTHER' || reasonCode === 'RISK_JUDGEMENT' || !!chosenReason?.requires_text));
 
-  const canPass = !callDesk || callAnswered;
+  // An answered call already on file counts, as it does on the server: the board's word when opened
+  // from the board, the request's own call history otherwise; a call logged here counts too.
+  const awareness = useAwarenessCalls(requestId, !!callDesk);
+  const onFile = useMemo(
+    () => (callDesk ? answeredCallOnFile(awareness.data ?? [], callDesk, stageSince(sheet.data, stage)) : null),
+    [awareness.data, callDesk, sheet.data, stage],
+  );
+  const canPass = !callDesk || callAnswered || ctx?.callAnswered === true || !!onFile;
   // Why Pass cannot go yet, in the desk's short words ("Answer 5 more checks").
   const passAgainst = !!recommended && recommended !== 'pass';
   const passWhy = passBlock({
     callDesk,
-    callAnswered,
+    callAnswered: canPass,
     items,
     entries,
     against: passAgainst,
@@ -716,7 +724,10 @@ export function ReviewDrawer({
                   subject={callDesk}
                   subjectUserId={callDesk === 'tenant' ? req.tenant?.id : null}
                   defaultPhone={callDesk === 'tenant' ? (req.tenant?.phone ?? null) : (req.landlord?.phone ?? null)}
-                  onLogged={(answered) => setCallAnswered((prev) => prev || answered)}
+                  onLogged={(answered) => {
+                    setCallAnswered((prev) => prev || answered);
+                    void queryClient.invalidateQueries({ queryKey: awarenessCallsKey(requestId) });
+                  }}
                   answeredHint={liveAnswered}
                 />
               )}
@@ -783,6 +794,15 @@ export function ReviewDrawer({
               {/* ── The decision ── */}
               <section className={`${PANEL} space-y-4 p-4`}>
                 <h3 className="text-sm font-semibold text-foreground">Your decision</h3>
+                {callDesk && canPass && (
+                  <p data-call-on-file className={`text-sm ${statusText.ok}`} style={{ margin: 0 }}>
+                    {onFile
+                      ? `Answered call on file — ${callTime(onFile.at)}${onFile.by ? `, ${onFile.by}` : ''}`
+                      : callAnswered
+                        ? 'Answered call logged just now'
+                        : 'Answered call on file'}
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
                   {visibleDecisions(stage).map((d) => {
                     const on = decision === d;
@@ -829,7 +849,8 @@ export function ReviewDrawer({
                     </button>
                   )}
                 </div>
-                {visibleDecisions(stage).includes('pass') && !canPass && decision !== 'pass' && (
+                {/* Why Pass cannot go yet, right under the buttons: the call, open checks, a reason code. */}
+                {visibleDecisions(stage).includes('pass') && !!passWhy && (!canPass || decision === 'pass') && (
                   <p data-pass-why className={`text-sm ${statusText.warn}`} style={{ margin: 0 }}>
                     Pass: {passWhy}
                   </p>

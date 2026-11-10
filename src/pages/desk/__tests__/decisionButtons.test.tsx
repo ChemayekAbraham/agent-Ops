@@ -54,6 +54,7 @@ vi.mock('@/components/coo/CooReasonPicker', () => ({
 }));
 
 import { passBlock } from '../passBlock';
+import { answeredCallOnFile, stageSince } from '../callOnFile';
 import { PASS_SENT_TO, SENT_BACK_TO_AGENT, TRANSFER_PASS_REASON, runMove } from '../deskActions';
 import { ReviewDrawer } from '../ReviewDrawer';
 import { ReviewStatusProvider } from '../reviewStatus';
@@ -336,5 +337,78 @@ describe('Wait on…', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Set the wait' }));
     expect((await screen.findByRole('alert')).textContent).toBe(refusal);
     expect(h.rpc).toHaveBeenCalledWith('pipeline_set_waiting', expect.objectContaining({ p_request_id: 'r1', p_desk: 'landlord_ops', p_reason_code: 'LANDLORD_UNREACHABLE' }));
+  });
+});
+
+/* ───────────── an answered call already on file (06df1e3b: 2 answered calls on record) ───────────── */
+
+/** The two answered calls rent_pipeline_awareness_calls holds for 06df1e3b. */
+const CALLS_ON_FILE = [
+  { subject_type: 'tenant', call_result: 'answered', recorded_at: '2026-11-10T10:20:11.220Z', caller_name: 'Tom Caller' },
+  { subject_type: 'landlord', call_result: 'answered', recorded_at: '2026-11-10T07:58:49.794Z', caller_name: 'Sarah Caller' },
+];
+/** Tenant Ops passed it at 10:20 — when it reached Landlord Ops. */
+const TENANT_OPS_REVIEW = {
+  stage: 'tenant_ops', decision: 'pass', recommended: 'pass', followed: true, reason_code: null, note: null, failed: null, by: 'Tess', staff_ref: 'E-2', at: '2026-11-10T10:20:29.744Z',
+};
+
+describe('answered call on file: the server rule', () => {
+  it("counts the landlord's answered call from before Tenant Ops' review (the server allows a day)", () => {
+    expect(answeredCallOnFile(CALLS_ON_FILE, 'landlord', TENANT_OPS_REVIEW.at)).toEqual({ at: '2026-11-10T07:58:49.794Z', by: 'Sarah Caller' });
+  });
+  it('ignores other subjects, unanswered calls, and calls more than a day before the request reached the desk', () => {
+    expect(answeredCallOnFile([{ ...CALLS_ON_FILE[1], subject_type: 'tenant' }], 'landlord', null)).toBeNull();
+    expect(answeredCallOnFile([{ ...CALLS_ON_FILE[1], call_result: 'no_answer' }], 'landlord', null)).toBeNull();
+    expect(answeredCallOnFile(CALLS_ON_FILE, 'landlord', '2026-11-12T08:00:00Z')).toBeNull();
+  });
+  it('since: the previous desk’s last review, else the request’s creation', () => {
+    const s = { ...sheet('landlord_ops', LO_ITEMS, 'pass'), history: [TENANT_OPS_REVIEW] } as never;
+    expect(stageSince(s, 'landlord_ops')).toBe(TENANT_OPS_REVIEW.at);
+    expect(stageSince(sheet('landlord_ops', LO_ITEMS, 'pass') as never, 'landlord_ops')).toBe('2026-11-01');
+  });
+});
+
+describe('Landlord Ops drawer, 06df1e3b with an answered call on file', () => {
+  beforeEach(() => {
+    h.toast.success.mockReset();
+    serve({ ...sheet('landlord_ops', LO_ITEMS, 'pass'), history: [TENANT_OPS_REVIEW] }, { get_awareness_calls_for_request: { rows: CALLS_ON_FILE } });
+  });
+
+  it('Pass is on without logging a call here, with the call named above the buttons', async () => {
+    wrap(<ReviewDrawer stage="landlord_ops" requestId="06df1e3b-94f7-4efb-af5b-ea8fcccb6997" onClose={() => {}} />);
+    await screen.findByText('Rent confirmed by the landlord');
+    await waitFor(() => expect(passChip().disabled).toBe(false));
+    const line = document.querySelector('[data-call-on-file]') as HTMLElement;
+    expect(line.textContent).toBe('Answered call on file — 10 Nov, 10:58, Sarah Caller');
+    // Above the decision buttons.
+    expect(line.compareDocumentPosition(passChip()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(document.querySelector('[data-pass-why]')).toBeNull();
+
+    // Pass with checks still open: why, right under the buttons.
+    fireEvent.click(passChip());
+    expect(document.querySelector('[data-pass-why]')?.textContent).toBe('Pass: Answer 8 more checks');
+    for (const [, label] of LO_CHECKS) tick(label);
+    fireEvent.change(within(screen.getByText('Rent confirmed by the landlord').closest('li') as HTMLElement).getByRole('spinbutton'), { target: { value: '700000' } });
+    expect(document.querySelector('[data-pass-why]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Record the review and act' }));
+    await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Sent to the COO'));
+  });
+
+  it("opened from the board: the row's answered call turns Pass on before the history loads", async () => {
+    serve(sheet('landlord_ops', LO_ITEMS, 'pass'));
+    wrap(<ReviewDrawer stage="landlord_ops" requestId="06df1e3b-94f7-4efb-af5b-ea8fcccb6997" onClose={() => {}} ctx={{ callAnswered: true }} />);
+    await screen.findByText('Rent confirmed by the landlord');
+    expect(passChip().disabled).toBe(false);
+    expect(document.querySelector('[data-call-on-file]')?.textContent).toBe('Answered call on file');
+  });
+
+  it('no answered landlord call on file: Pass stays off and says why under the buttons', async () => {
+    serve(sheet('landlord_ops', LO_ITEMS, 'pass'), { get_awareness_calls_for_request: { rows: [CALLS_ON_FILE[0]] } });
+    wrap(<ReviewDrawer stage="landlord_ops" requestId="06df1e3b-94f7-4efb-af5b-ea8fcccb6997" onClose={() => {}} />);
+    await screen.findByText('Rent confirmed by the landlord');
+    await waitFor(() => expect(h.rpc.mock.calls.some((c) => c[0] === 'get_awareness_calls_for_request')).toBe(true));
+    expect(passChip().disabled).toBe(true);
+    expect(document.querySelector('[data-pass-why]')?.textContent).toBe('Pass: Log an answered landlord call first');
+    expect(document.querySelector('[data-call-on-file]')).toBeNull();
   });
 });
