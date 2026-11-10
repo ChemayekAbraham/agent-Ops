@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { rpc } from './reviewApi';
-import { runMove, type MoveResult } from './deskActions';
+import { asIs, recordTransferPass, runMove, transferThenPass, type MoveResult } from './deskActions';
 import { SEND_BACK_STAGES, SUGGESTED_OFFICE, sendBackTo } from './sendBackApi';
 import type { CheckEntry, Decision, Stage } from './reviewTypes';
 
@@ -223,9 +223,28 @@ export function effectivePush(row: BoardRow, override?: PushOverride): BoardPush
   return { ...p, decision: 'transfer', target_agent_id: override.targetAgentId, note: override.note };
 }
 
-/** The move half of a push, with the push's own values — also the "retry the move only" path. */
+/** The receiving agent's name for a transfer push, when the board knows it. */
+function receiverName(row: BoardRow, p: BoardPush): string | null {
+  return row.receiver && row.receiver.agent_id === p.target_agent_id ? row.receiver.name : null;
+}
+
+/**
+ * The move half of a push, with the push's own values — also the "retry the
+ * move only" path. For a transfer the move left is the pass (the transfer call
+ * has already run), which the server makes.
+ */
 export function moveFor(row: BoardRow, stage: Stage, userId: string, override?: PushOverride): Promise<MoveResult> {
   const p = effectivePush(row, override) as BoardPush;
+  if (p.decision === 'transfer') {
+    return recordTransferPass({
+      requestId: row.id,
+      results: p.results,
+      targetAgentId: p.target_agent_id,
+      note: p.note ?? '',
+      reasonCode: p.reason_code,
+      targetName: receiverName(row, p),
+    });
+  }
   return runMove({
     requestId: row.id,
     stage,
@@ -261,6 +280,21 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string, overr
     const out = await sendBackTo({ requestId: row.id, stage, to: SUGGESTED_OFFICE, reasonCode: p.reason_code, note: p.note });
     return out.ok ? { kind: 'moved', message: out.message } : { kind: 'review_failed', message: out.message };
   }
+  // A transfer: the transfer call, then the pass that moves the request on (server).
+  if (p.decision === 'transfer') {
+    const out = await transferThenPass({
+      requestId: row.id,
+      results: p.results,
+      targetAgentId: p.target_agent_id,
+      note: p.note ?? '',
+      reasonCode: p.reason_code,
+      targetName: override ? null : receiverName(row, p),
+    });
+    if (out.kind === 'moved') return { kind: 'moved', message: out.message };
+    // Transferred, but the pass did not go through: retry the pass only.
+    if (out.kind === 'pass_failed') return { kind: 'move_failed', message: out.message };
+    return { kind: 'review_failed', message: out.message };
+  }
   const { error } = await rpc('pipeline_record_review', {
     p_request_id: row.id,
     p_stage: stage,
@@ -270,7 +304,7 @@ export async function pushRow(row: BoardRow, stage: Stage, userId: string, overr
     p_note: p.note,
     p_target_agent_id: p.decision === 'transfer' ? p.target_agent_id : null,
   });
-  if (error) return { kind: 'review_failed', message: error.message };
+  if (error) return { kind: 'review_failed', message: asIs(error) };
   const moved = await moveFor(row, stage, userId, override);
   return moved.ok ? { kind: 'moved', message: moved.message } : { kind: 'move_failed', message: moved.message };
 }

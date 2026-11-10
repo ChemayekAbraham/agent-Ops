@@ -27,7 +27,8 @@ import { GradeBadge } from './agentGrade';
 import { DeskCallButton } from './deskCall';
 import { readableError } from './reviewApi';
 import { RETRY_LABEL, useReviewStatus } from './reviewStatus';
-import { passMovesOnServer } from './deskActions';
+import { SENT_BACK_TO_AGENT, passMovesOnServer, passSentTo, rejectMovesOnServer } from './deskActions';
+import { toast } from 'sonner';
 import { DECISION_LABEL, visibleDecisions, type Decision, type Stage } from './reviewTypes';
 import { timeLeftText } from './waitOn';
 import { TransferPicker } from './TransferPicker';
@@ -392,6 +393,10 @@ function PushAllSheet({
       setProgress({ ...p, failed: [...p.failed] });
     }
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
+    if (p.done > 0) {
+      const where = group === 'pass' ? passSentTo(stage) : group === 'transfer' ? `Transferred. ${passSentTo('agent_ops')}` : SENT_BACK_TO_AGENT;
+      toast.success(`${where}: ${p.done}`);
+    }
     setRunning(false);
     setFinished(true);
   };
@@ -562,7 +567,8 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
       mark(row.id, { kind: 'move_failed', message, decision: row.push?.decision ?? row.decision });
       setNote(row.id, { kind: 'retry', text: message, snapshot: row });
     } else {
-      setNote(row.id, { kind: 'bad', text: readableError({ message }) });
+      // The server's own words, as-is.
+      setNote(row.id, { kind: 'bad', text: message });
     }
   };
 
@@ -587,10 +593,13 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     setNote(row.id, null);
     if (row.decision === 'wait') {
       const r = await setSuggestedWait(row, stage);
-      setNote(row.id, { kind: r.ok ? 'ok' : 'bad', text: r.ok ? r.message : readableError({ message: r.message }) });
+      setNote(row.id, { kind: r.ok ? 'ok' : 'bad', text: r.message });
+      if (r.ok) toast.success(r.message);
     } else {
       const out = await pushRow(row, stage, user.id);
-      const serverPass = !!row.push && passMovesOnServer(stage, row.push.decision);
+      // Moved by the server itself: a pass or reject at the middle desks, and a transfer (then pass).
+      const d = row.push?.decision;
+      const serverPass = !!d && (passMovesOnServer(stage, d) || rejectMovesOnServer(stage, d) || d === 'transfer');
       if (out.kind === 'moved' && serverPass) {
         // E64: the review moved it. The card goes; the toast says where.
         clear(row.id);
@@ -603,9 +612,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
         clear(row.id);
         mark(row.id, { kind: 'moved', message: out.message });
         setNote(row.id, { kind: 'ok', text: out.message });
-      } else if (serverPass && out.kind === 'review_failed') {
-        // The server's own words, as-is.
-        setNote(row.id, { kind: 'bad', text: out.message });
+        toast.success(out.message);
       } else failed(row, out.kind, out.message);
     }
     setBusy(null);
@@ -617,13 +624,13 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     if (!user) return 'Sign in again.';
     setNote(row.id, null);
     const out = await pushRow(row, stage, user.id, { targetAgentId: agentId, note });
-    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     if (out.kind === 'moved') {
       clear(row.id);
       mark(row.id, { kind: 'moved', message: out.message });
-      setNote(row.id, { kind: 'ok', text: out.message });
+      afterServerPass(queryClient, stage, row.id, out.message);
       return null;
     }
+    queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
     if (out.kind === 'move_failed') {
       // The review is in; retry only the move, to the agent that was picked.
       failed({ ...row, push: row.push ? { ...row.push, decision: 'transfer', target_agent_id: agentId, note } : row.push }, 'move_failed', out.message);
@@ -645,6 +652,7 @@ export function ReadyBoard({ stage, board, onOpen }: { stage: Stage; board: bool
     clear(row.id);
     mark(row.id, { kind: 'moved', message: moved.message });
     setNote(row.id, { kind: 'ok', text: moved.message });
+    toast.success(moved.message);
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });
   };
 

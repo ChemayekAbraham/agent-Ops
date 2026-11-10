@@ -279,7 +279,8 @@ export function WaitOnForm({
     });
     setBusy(false);
     if (e) {
-      setError(isMissingDbObject(e) ? 'Waiting is not switched on yet — try again later.' : readableError(e));
+      // The server's own words, as-is.
+      setError(isMissingDbObject(e) ? 'Waiting is not switched on yet — try again later.' : String(e.message ?? e));
       if (isMissingDbObject(e)) logMissingOnce('pipeline_set_waiting', e);
       return;
     }
@@ -391,7 +392,7 @@ export function WaitingRows({ desk, list, board }: { desk: WaitDesk; list: Waiti
     setBusy(null);
     if (error) {
       if (isMissingDbObject(error)) logMissingOnce('pipeline_clear_waiting', error);
-      setNotes((m) => ({ ...m, [requestId]: isMissingDbObject(error) ? 'Not switched on yet.' : readableError(error) }));
+      setNotes((m) => ({ ...m, [requestId]: isMissingDbObject(error) ? 'Not switched on yet.' : String(error.message ?? error) }));
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['desk-feed'] });

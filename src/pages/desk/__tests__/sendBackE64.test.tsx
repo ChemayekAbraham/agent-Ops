@@ -59,14 +59,14 @@ describe('E64: Reject becomes "Send back" on the desks', () => {
     expect(primaryLabel(row, 'tenant_ops')).toBe('Send back');
   });
 
-  it('the field agent reads as the reject it is', () => {
-    expect(officeLabel({ code: SUGGESTED_OFFICE, label: 'Field agent (to correct)' })).toBe('Agent in the field (rejected)');
+  it('the field agent reads as the server labels it', () => {
+    expect(officeLabel({ code: SUGGESTED_OFFICE, label: 'Field agent (to correct)' })).toBe('Field agent (to correct)');
     expect(officeLabel({ code: 'agent_ops', label: 'Agent Ops' })).toBe('Agent Ops');
   });
 
   it("history: the chosen office and the reason come out of the server's review note", () => {
     expect(parseSendBackNote('To Agent Ops: Photos are blurred, retake them')).toEqual({ office: 'Agent Ops', why: 'Photos are blurred, retake them' });
-    expect(parseSendBackNote('To the field agent (to correct): Landlord refused')).toEqual({ office: 'Agent in the field (rejected)', why: 'Landlord refused' });
+    expect(parseSendBackNote('To the field agent (to correct): Landlord refused')).toEqual({ office: 'Field agent (to correct)', why: 'Landlord refused' });
     expect(parseSendBackNote('Returned for correction')).toBeNull();
     expect(parseSendBackNote(null)).toBeNull();
   });
@@ -83,13 +83,13 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
     });
     const onDone = vi.fn();
     wrap(<SendBackForm requestId="rr-1" stage="service_centre" initial={{ to: SUGGESTED_OFFICE }} onDone={onDone} />);
-    const agent = await screen.findByText('Agent in the field (rejected)');
+    const agent = await screen.findByText('Field agent (to correct)');
     expect(rpcMock).toHaveBeenCalledWith('pipeline_send_back_options', { p_from_stage: 'service_centre' });
     expect(agent.closest('[data-office]')?.getAttribute('aria-checked')).toBe('true');
     // Service Centre is the first office: nothing above the agent to choose.
     expect(document.querySelectorAll('[data-office]')).toHaveLength(1);
 
-    const send = screen.getByRole('button', { name: 'Send back to Agent in the field (rejected)' });
+    const send = screen.getByRole('button', { name: 'Send back to Field agent (to correct)' });
     expect(send).toHaveProperty('disabled', true); // a reason is required
     const reasons = await screen.findAllByRole('radio', { name: /Items missing at intake|Reviewed weekly/ });
     expect(reasons.map((r) => r.getAttribute('data-reason'))).toEqual(['ITEMS_MISSING', 'OTHER']); // the Service Centre's own plus the shared ones
@@ -105,6 +105,6 @@ describe('E64: Service Centre sends back through pipeline_send_back_to', () => {
       p_reason_code: 'ITEMS_MISSING',
       p_note: null,
     });
-    expect(onDone).toHaveBeenCalledWith('Sent back to the agent in the field: rejected.');
+    expect(onDone).toHaveBeenCalledWith('Sent back to the agent');
   });
 });
