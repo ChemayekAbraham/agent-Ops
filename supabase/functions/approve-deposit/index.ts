@@ -5,6 +5,7 @@ import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { logDepositDecision } from "../_shared/depositDecisionAudit.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
+import { customerMoneyFloatPlatformLegs, isCustomerMoneyFloatDeposit } from "../_shared/depositBooking.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -755,6 +756,34 @@ Deno.serve(async (req) => {
                   }]
                 : []),
           ];
+
+          // ── Non-agent money credited to float (CFO, 10 Nov 2026) ──────────
+          // A Supporter's (non-agent's) mobile-money / bank payment, or any
+          // partnership_deposit, is the payer's own money received on the
+          // company's line: book it DR A1 / CR L1 instead of agent float issued
+          // from the float cycle (CR A8). The wallet leg — bucket, category,
+          // TID — is unchanged, so routing and portfolio funding work as before.
+          // See ../_shared/depositBooking.ts.
+          if (isFloatDeposit && !isPhysicalCashChannel) {
+            const { data: agentRole, error: roleErr } = await supabaseAdmin
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', depositRequest.user_id)
+              .eq('role', 'agent')
+              .maybeSingle();
+            // Role lookup failed: keep the existing booking rather than guess.
+            if (roleErr) {
+              console.warn(`[approve-deposit] role lookup failed for ${depositRequest.id}; keeping agent-float booking:`, roleErr.message);
+            } else if (isCustomerMoneyFloatDeposit({ isFloatDeposit, isPhysicalCashChannel, isAgent: !!agentRole, purpose: rawPurpose })) {
+              depositEntries.splice(1, depositEntries.length - 1, ...customerMoneyFloatPlatformLegs({
+                depositId: depositRequest.id,
+                amount: Number(depositRequest.amount),
+                provider: depositRequest.provider ?? null,
+                transactionId: depositRequest.transaction_id ?? null,
+                transactionDate: new Date().toISOString(),
+              }));
+            }
+          }
 
           if (isPhysicalCashChannel && !hasTransitLeg) {
             depositEntries.push(
