@@ -19482,6 +19482,42 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_bank_anchors: {
+        Row: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at: string
+          confirmed_by: string | null
+          evidence: string | null
+          id: string
+          source: string
+        }
+        Insert: {
+          account_key: string
+          account_label: string
+          anchor_at: string
+          balance: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source: string
+        }
+        Update: {
+          account_key?: string
+          account_label?: string
+          anchor_at?: string
+          balance?: number
+          confirmed_at?: string
+          confirmed_by?: string | null
+          evidence?: string | null
+          id?: string
+          source?: string
+        }
+        Relationships: []
+      }
       fin_cash_accounts: {
         Row: {
           code: string
