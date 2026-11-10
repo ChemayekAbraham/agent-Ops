@@ -35,13 +35,13 @@ export function MonthlyRewardsTrigger() {
 
       if (data.success) {
         setLastProcessed(data.processed_at);
-        toast.success('Monthly rewards processed successfully!', {
+        toast.success('Monthly Rent profit share processed successfully!', {
           description: `Processed at ${format(new Date(data.processed_at), 'MMM d, yyyy h:mm a')}`,
         });
       }
     } catch (error) {
       console.error('Error processing rewards:', error);
-      toast.error('Failed to process monthly rewards');
+      toast.error('Failed to process monthly Rent profit share');
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,7 @@ export function MonthlyRewardsTrigger() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Process monthly rewards for top referrers. This will credit wallets and send notifications to the top 3 referrers from {rewardMonth}.
+            Process monthly Rent profit share for top referrers. This will credit wallets and send notifications to the top 3 referrers from {rewardMonth}.
           </p>
           
           <div className="flex flex-wrap gap-2 text-xs">
@@ -102,7 +102,7 @@ export function MonthlyRewardsTrigger() {
             ) : (
               <>
                 <Trophy className="h-4 w-4" />
-                Process Monthly Rewards
+                Process Monthly Rent profit share
               </>
             )}
           </Button>
@@ -114,7 +114,7 @@ export function MonthlyRewardsTrigger() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-yellow-500" />
-              Process Monthly Rewards?
+              Process Monthly Rent profit share?
             </AlertDialogTitle>
             <AlertDialogDescription>
               This will process rewards for top referrers from <strong>{rewardMonth}</strong>.

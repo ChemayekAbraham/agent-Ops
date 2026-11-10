@@ -55,7 +55,7 @@ export default function CorrectionPackage5300000Gate() {
       <Card><CardContent className="pt-4">
         {row("C1 Yaseen Kc — Dr Equity (E3) / Cr Agent Advance Receivable (A10)", formatUGX(5100000))}
         {row("C2 Nabwire Jackline — Dr Rent Plan Receivable (A3) / Cr Equity (E3)", formatUGX(200000))}
-        {row("Wallet, repayment, commission, Returns and fee impact", formatUGX(0))}
+        {row("Wallet, repayment, commission, Rent profit share and fee impact", formatUGX(0))}
       </CardContent></Card>
       <Button onClick={runPreflight} disabled={busy}>{busy ? "Working..." : "Run live pre-flight"}</Button>
       {err && <p className="text-sm text-destructive">{err}</p>}

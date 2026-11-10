@@ -29,7 +29,7 @@ const EXPENSE_CATEGORIES: { category: string; label: string }[] = [
   { category: 'tax_expense', label: 'Taxes' },
   { category: 'interest_expense', label: 'Interest Expense' },
   { category: 'equipment_expense', label: 'Equipment & Capex' },
-  { category: 'roi_expense', label: 'Supporter Returns Paid' },
+  { category: 'roi_expense', label: 'Supporter Rent profit share Paid' },
   { category: 'agent_commission_earned', label: 'Agent Commissions' },
   { category: 'platform_expense', label: 'Platform Expense' },
   { category: 'platform_expense_disbursement', label: 'Platform Expense Disbursement' },

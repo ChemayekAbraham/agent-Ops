@@ -114,7 +114,7 @@ export function PartnerRoiProjectionChart() {
       <CardHeader className="pb-2 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-sm font-bold">
-            <TrendingUp className="h-4 w-4 text-primary" /> Returns projection
+            <TrendingUp className="h-4 w-4 text-primary" /> Rent profit share projection
           </CardTitle>
           <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Payout vs compounded</span>
         </div>
@@ -362,7 +362,7 @@ export function PartnerRecentWithdrawals() {
                   <TableHead className="text-[10px] uppercase">Portfolio</TableHead>
                   <TableHead className="text-[10px] uppercase">Partner</TableHead>
                   <TableHead className="text-right text-[10px] uppercase">Amount</TableHead>
-                  <TableHead className="text-right text-[10px] uppercase">Returns</TableHead>
+                  <TableHead className="text-right text-[10px] uppercase">Rent profit share</TableHead>
                   <TableHead className="text-[10px] uppercase">Status</TableHead>
                   <TableHead className="text-[10px] uppercase">Proxy agent</TableHead>
                   <TableHead className="text-[10px] uppercase">Processing date</TableHead>

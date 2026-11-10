@@ -262,7 +262,7 @@ export function ExpiringPortfoliosPanel() {
               sub={totals.soonest === null ? 'None in window' : `Soonest in ${totals.soonest} day${totals.soonest === 1 ? '' : 's'}`} />
             <SummaryStat icon={<Wallet className="h-4 w-4" />} label="Principal at Maturity" value={formatUGX(totals.principal)}
               sub="Capital requiring renewal or payout" />
-            <SummaryStat icon={<TrendingUp className="h-4 w-4" />} label="Monthly Returns Exposure" value={formatUGX(totals.monthly)}
+            <SummaryStat icon={<TrendingUp className="h-4 w-4" />} label="Monthly Rent profit share Exposure" value={formatUGX(totals.monthly)}
               sub="Current monthly obligation on these portfolios" />
             <SummaryStat icon={<Hourglass className="h-4 w-4" />} label="Critical (≤30 days)" value={String(totals.byBucket['0-30'])}
               sub={formatUGX(totals.amtByBucket['0-30'])} tone="rose" />

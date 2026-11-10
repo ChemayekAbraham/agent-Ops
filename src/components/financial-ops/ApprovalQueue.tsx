@@ -759,9 +759,9 @@ export function ApprovalQueue() {
       const meta = (item.rawData?.metadata || {}) as Record<string, any>;
       const portfolioRef = meta.portfolio_code || (sourceId ? sourceId.slice(0, 8) : null);
       if (portfolioRef) {
-        return `ROI Payout · Portfolio: ${portfolioRef}`;
+        return `Rent profit share payout · Portfolio: ${portfolioRef}`;
       }
-      return 'ROI Payout';
+      return 'Rent profit share payout';
     }
     return item.description;
   };

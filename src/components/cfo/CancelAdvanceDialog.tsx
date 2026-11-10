@@ -221,7 +221,7 @@ export function CancelAdvanceDialog({ advance, open, onOpenChange, onSuccess }: 
                 <div className="flex-1">
                   <Label htmlFor="close-transfer" className="font-semibold cursor-pointer">Transfer the balance</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Move it to a replacement, Returns-recovered, partnership or existing advance. Accounting only: no money is paid out.
+                    Move it to a replacement, Rent profit share-recovered, partnership or existing advance. Accounting only: no money is paid out.
                   </p>
                 </div>
               </label>
@@ -253,7 +253,7 @@ export function CancelAdvanceDialog({ advance, open, onOpenChange, onSuccess }: 
                 <SelectTrigger aria-label="Destination"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="replacement">New replacement advance (same agent)</SelectItem>
-                  <SelectItem value="roi">New advance recovered from Returns (same agent)</SelectItem>
+                  <SelectItem value="roi">New advance recovered from Rent profit share (same agent)</SelectItem>
                   <SelectItem value="partnership">Partnership / another account</SelectItem>
                   <SelectItem value="existing">An existing open advance</SelectItem>
                 </SelectContent>
@@ -295,7 +295,7 @@ export function CancelAdvanceDialog({ advance, open, onOpenChange, onSuccess }: 
 
               {(destination === 'roi' || destination === 'partnership') && (
                 <div>
-                  <Label className="text-xs">{destination === 'roi' ? 'Share of each Returns payout taken (%)' : 'Share of Returns taken (%), 0 for daily wallet recovery'}</Label>
+                  <Label className="text-xs">{destination === 'roi' ? 'Share of each Rent profit share payout taken (%)' : 'Share of Rent profit share taken (%), 0 for daily wallet recovery'}</Label>
                   <Input type="number" min={0} max={100} value={roiPercent} onChange={(e) => setRoiPercent(e.target.value)} className="mt-1" />
                   {!roiOk && <p className="text-xs text-destructive mt-1">{destination === 'roi' ? 'Enter a share between 1 and 100.' : 'Enter a share between 0 and 100.'}</p>}
                 </div>

@@ -432,7 +432,7 @@ export default function ActivePartnersDetail() {
               console.error('[ActivePartners] Portfolio creation error:', createErr);
               toast.warning(`Profile updated, but the missing portfolio could not be created: ${createErr.message}`);
             } else {
-              toast.success(`Updated ${editName.trim()} — created missing portfolio with ${createdRoi}% monthly Returns`);
+              toast.success(`Updated ${editName.trim()} — created missing portfolio with ${createdRoi}% monthly Rent profit share`);
             }
           } else {
             toast.warning(`Profile updated but no investment records found for ${editName.trim()}`);
@@ -447,10 +447,10 @@ export default function ActivePartnersDetail() {
               .map(row => rateOrNull((row as { roi_percentage?: unknown }).roi_percentage))
               .find((v): v is number => v !== null) ?? null;
             if (storedRoi !== null) {
-              changes.push(`Returns ${formatRatePct(storedRoi)}`);
+              changes.push(`Rent profit share ${formatRatePct(storedRoi)}`);
               if (rateAwaitsCfo(typedRoi, storedRoi)) changes.push(rateAwaitsCfoMessage(typedRoi, storedRoi));
             } else {
-              changes.push(rateSwitchOffSeen ? `Returns ${typedRoi}%` : `Returns rate ${typedRoi}% requested`);
+              changes.push(rateSwitchOffSeen ? `Rent profit share ${typedRoi}%` : `Rent profit share rate ${typedRoi}% requested`);
             }
           }
           if (updateFields.payout_day) changes.push(`Payout day ${updateFields.payout_day}`);
@@ -479,13 +479,13 @@ export default function ActivePartnersDetail() {
     { key: 'funded', label: 'Total Funded', align: 'right', render: (r) => formatUGX(r.funded) },
     { key: 'activeDeals', label: 'Deals', align: 'right' },
     { key: 'avgDeal', label: 'Avg Deal', align: 'right', render: (r) => formatUGX(r.avgDeal) },
-    { key: 'roiPercentage', label: 'Monthly Returns (%)', align: 'right', render: (r) => (
+    { key: 'roiPercentage', label: 'Monthly Rent profit share (%)', align: 'right', render: (r) => (
       <span className="font-semibold text-primary">{r.roiPercentage}%</span>
     )},
     { key: 'payoutDay', label: 'Payout Cycle', align: 'right', render: (r) => (
       <span className="text-muted-foreground">{r.payoutDay}{getOrdinalSuffix(r.payoutDay)}</span>
     )},
-    { key: 'roiMode', label: 'Returns Mode', render: (r) => (
+    { key: 'roiMode', label: 'Rent profit share Mode', render: (r) => (
       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.roiMode === 'monthly_compounding' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
         {r.roiMode === 'monthly_compounding' ? 'Compounding' : 'Payout'}
       </span>
@@ -615,7 +615,7 @@ export default function ActivePartnersDetail() {
 
               {investAmount && Number(investAmount) >= MIN_INVEST && (
                 <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-3 space-y-1">
-                  <p>Monthly reward ({investPartner.roiPercentage}%): <strong>{formatUGX(Math.round(Number(investAmount) * (investPartner.roiPercentage / 100)))}</strong></p>
+                  <p>Monthly Rent profit share ({investPartner.roiPercentage}%): <strong>{formatUGX(Math.round(Number(investAmount) * (investPartner.roiPercentage / 100)))}</strong></p>
                   <p>Payout cycle: <strong>Every 30 days</strong></p>
                   <p>Remaining wallet: <strong>{formatUGX(investPartner.walletBalance - Number(investAmount))}</strong></p>
                 </div>
@@ -647,7 +647,7 @@ export default function ActivePartnersDetail() {
               <Pencil className="h-5 w-5 text-primary" />
               Edit Partner
             </DialogTitle>
-            <DialogDescription>Update partner information, monthly Returns rate, and payment mode.</DialogDescription>
+            <DialogDescription>Update partner information, monthly Rent profit share rate, and payment mode.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -660,7 +660,7 @@ export default function ActivePartnersDetail() {
               <Input id="edit-phone" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-roi">Monthly Returns (%)</Label>
+              <Label htmlFor="edit-roi">Monthly Rent profit share (%)</Label>
               <Input id="edit-roi" type="number" min={1} max={100} value={editRoi} onChange={(e) => setEditRoi(e.target.value)} />
               <PartnerRateCfoNote
                 policyEnabled={partnerReturnPolicy.enabled}
@@ -689,7 +689,7 @@ export default function ActivePartnersDetail() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Returns Payment Mode</Label>
+              <Label>Rent profit share Payment Mode</Label>
               <div className="flex gap-2">
                 <Button
                   variant={editRoiMode === 'monthly_payout' ? 'default' : 'outline'}
@@ -710,8 +710,8 @@ export default function ActivePartnersDetail() {
               </div>
               <p className="text-[11px] text-muted-foreground">
                 {editRoiMode === 'monthly_compounding'
-                  ? 'Returns are reinvested monthly, growing the principal.'
-                  : 'Returns are paid out to wallet each month.'}
+                  ? 'Rent profit share is reinvested monthly, growing the principal.'
+                  : 'Rent profit share is paid out to wallet each month.'}
               </p>
             </div>
           </div>

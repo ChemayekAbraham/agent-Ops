@@ -156,9 +156,9 @@ export const DEFAULT_WELILE_GLOSSARY_ENTRIES: ZoeGlossaryEntry[] = [
     term: 'Mandatory Regulatory Terminology',
     category: 'definition',
     plain_definition:
-      'Welile facilitates Rent Plans backed by Supporters who earn Returns.',
+      'Welile facilitates Rent Plans backed by Supporters who earn Rent profit share.',
     measurement_gotcha:
-      'Never use banned lending terms in staff or external copy; always use Rent Plan, Supporter, and Returns.',
+      'Never use banned lending terms in staff or external copy; always use Rent Plan, Supporter, and Rent profit share.',
     official_source: 'Welile Compliance Policy',
     screen_path: '',
   },

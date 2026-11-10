@@ -448,7 +448,7 @@ export function FundInvestmentAccountDialog({ open, onOpenChange, account, onSuc
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground leading-relaxed border-t border-border/50 pt-2">
-                Funds are deducted instantly and parked until the next ROI cycle. If you cancel the top-up later, the full amount is returned to this source wallet.
+                Funds are deducted instantly and parked until the next Rent profit share cycle. If you cancel the top-up later, the full amount is returned to this source wallet.
               </p>
             </div>
           </div>

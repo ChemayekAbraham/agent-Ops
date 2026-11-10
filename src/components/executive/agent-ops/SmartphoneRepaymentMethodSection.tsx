@@ -78,8 +78,8 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
       toggle: () => setUseReturns((v) => !v),
       disabled: returnsBlocked,
       icon: TrendingUp,
-      label: 'Partnership Returns',
-      hint: returnsBlocked ? 'Needs an active partnership portfolio' : 'Deducted when Returns are paid',
+      label: 'Partnership Rent profit share',
+      hint: returnsBlocked ? 'Needs an active partnership portfolio' : 'Deducted when Rent profit share is paid',
     },
   ];
 
@@ -118,7 +118,7 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
 
       {useReturns && (
         <div className="space-y-2 rounded-lg bg-muted/40 p-2.5">
-          <p className="text-xs font-medium">Deduct from each Returns payment</p>
+          <p className="text-xs font-medium">Deduct from each Rent profit share payment</p>
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex rounded-md border border-border p-0.5">
               {(['percent', 'amount'] as const).map((m) => (
@@ -160,12 +160,12 @@ export function SmartphoneRepaymentMethodSection({ agentId, monthlyReturns = 0 }
           {preview != null && (
             <p className="text-[11px] text-muted-foreground">
               About <span className="font-semibold text-foreground">{formatUGX(preview)}</span> of{' '}
-              {formatUGX(Math.round(monthlyReturns))} monthly Returns.
+              {formatUGX(Math.round(monthlyReturns))} monthly Rent profit share.
             </p>
           )}
           {data.active_portfolios === 0 && (
             <p className="text-[11px] text-amber-600">
-              This agent has no active portfolio, so nothing is deducted until Returns are paid.
+              This agent has no active portfolio, so nothing is deducted until Rent profit share is paid.
             </p>
           )}
         </div>

@@ -67,7 +67,7 @@ export const PAYOUT_CATEGORY_GROUPS: PayoutCategoryGroup[] = [
   {
     group: 'Proxy Partner Withdrawals',
     items: [
-      { id: 'proxy_partner_withdrawal', label: 'Partner Withdrawal (Proxy Initiated)', hint: 'All partner payouts — ROI, capital, profit share — initiated by a Proxy Agent. This is the single unified partner payout channel.', defaultApproval: 'finance_cfo' },
+      { id: 'proxy_partner_withdrawal', label: 'Partner Withdrawal (Proxy Initiated)', hint: 'All partner payouts — Rent profit share, capital, profit share — initiated by a Proxy Agent. This is the single unified partner payout channel.', defaultApproval: 'finance_cfo' },
     ],
   },
   {

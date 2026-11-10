@@ -330,7 +330,7 @@ export function StaffSurveyGate() {
                     ? 'Choose a percentage'
                     : payout === null
                       ? 'Choose how you receive returns'
-                      : `Confirm ${pct}% · ${payout === 'monthly_payout' ? 'monthly returns' : 'compounding'}`}
+                      : `Confirm ${pct}% · ${payout === 'monthly_payout' ? 'monthly Rent profit share' : 'compounding'}`}
                 </Button>
                 <Button variant="destructive" onClick={() => void respond('decline')} disabled={working}>
                   Decline

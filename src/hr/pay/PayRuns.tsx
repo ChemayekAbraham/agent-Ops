@@ -1412,7 +1412,7 @@ function StatutoryReturnsSection({
         {!loading && !error && missingRows.length > 0 && (
           <div className="rounded-md border border-amber-500 bg-amber-50 p-3 text-xs text-amber-900">
             <p className="font-semibold">
-              {missingRows.length} employees are missing a statutory identifier. Returns filed with
+              {missingRows.length} employees are missing a statutory identifier. Returnsfiled with
               blanks may be rejected.
             </p>
             <ul className="mt-1 space-y-0.5">

@@ -71,7 +71,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         },
         {
           key: 'partner_returns',
-          label: '📈 Partner Returns Paid',
+          label: '📈 Partner Rent profit share Paid',
           categories: ['roi_expense', 'roi_wallet_credit', 'supporter_platform_rewards'],
         },
         {
@@ -145,8 +145,8 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         registration_fee_collected: '📋 Registration Fees',
         system_balance_correction: '🔧 Corrections',
         agent_commission_earned: '👤 Agent Commissions (Expense)',
-        roi_expense: '📈 ROI Payouts (Expense)',
-        roi_wallet_credit: '📈 ROI Wallet Credits (Expense)',
+        roi_expense: '📈 Rent profit share payouts (Expense)',
+        roi_wallet_credit: '📈 Rent profit share Wallet Credits (Expense)',
         rent_disbursement: '🏠 Rent Disbursements (Expense)',
         wallet_withdrawal: '💸 Wallet Withdrawals (Expense)',
         wallet_transfer: '🔀 Wallet Transfers',
@@ -156,7 +156,7 @@ export function useCFOOverviewData({ cashDetails = false, cashVisible = true, to
         agent_commission_withdrawal: '💸 Commission Withdrawals',
         agent_commission_used_for_rent: '🏠 Commission Used for Rent',
         agent_float_used_for_rent: '🏠 Float Used for Rent',
-        roi_reinvestment: '📈 ROI Reinvestments',
+        roi_reinvestment: '📈 Rent profit share Reinvestments',
         pending_portfolio_topup: '📊 Portfolio Top-ups',
         rent_receivable_created: '📋 Rent Receivables Created',
       };

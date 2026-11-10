@@ -61,10 +61,10 @@ export function DuplicateRoiCreditsPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <AlertTriangle className="h-4 w-4 text-destructive" />
-          Duplicate ROI Credit Monitor
+          Duplicate Rent profit share Credit Monitor
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Flags portfolios where the same monthly ROI was credited more than once and the duplicate
+          Flags portfolios where the same monthly Rent profit share was credited more than once and the duplicate
           credits landed within seconds of each other — the signature of a double-submitted payout.
           Excess = amount paid above a single legitimate credit.
         </p>
@@ -108,7 +108,7 @@ export function DuplicateRoiCreditsPanel() {
         {rows.length > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
             <span className="font-semibold text-destructive">
-              {rows.length} portfolio{rows.length === 1 ? '' : 's'} with duplicate ROI credits
+              {rows.length} portfolio{rows.length === 1 ? '' : 's'} with duplicate Rent profit share credits
             </span>
             <span className="text-muted-foreground">•</span>
             <span>Total excess: <span className="font-semibold tabular-nums">{formatUGX(totalExcess)}</span></span>
@@ -138,7 +138,7 @@ export function DuplicateRoiCreditsPanel() {
               {rows.length === 0 && !isFetching && (
                 <tr>
                   <td colSpan={9} className="p-4 text-center text-muted-foreground">
-                    No duplicate ROI credits inside the current window. 🎉
+                    No duplicate Rent profit share credits inside the current window. 🎉
                   </td>
                 </tr>
               )}

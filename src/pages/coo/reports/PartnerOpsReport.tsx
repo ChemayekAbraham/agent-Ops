@@ -88,7 +88,7 @@ export default function PartnerOpsReportPage() {
         ]}
         activities={activities}
         insights={[
-          { kind: k.pendingReview > 0 ? 'pending' : 'trend', title: `${k.pendingReview} portfolios pending CFO verification`, body: 'CFO must verify the bank/MoMo proof before AUM is recognised. Long waits stall ROI accrual.' },
+          { kind: k.pendingReview > 0 ? 'pending' : 'trend', title: `${k.pendingReview} portfolios pending CFO verification`, body: 'CFO must verify the bank/MoMo proof before AUM is recognised. Long waits stall Rent profit share accrual.' },
           { kind: k.pendingWithdrawals > 0 ? 'priority' : 'trend', title: `${k.pendingWithdrawals} supporter withdrawals awaiting payout`, body: `UGX ${new Intl.NumberFormat('en-UG').format(Math.round(k.pendingWithdrawalAmt))} parked. Confirm 90-day notice has elapsed before clearing.` },
           { kind: 'trend', title: 'AUM raised (last 30 days)', body: `UGX ${new Intl.NumberFormat('en-UG').format(Math.round(k.aum30d))} across ${k.portfolios30d} portfolios from ${k.activePartners30d} partners. All-time: UGX ${new Intl.NumberFormat('en-UG').format(Math.round(k.totalAum))} from ${k.totalPartners} partners.` },
           { kind: 'action', title: 'Reconcile rejected portfolios', body: `${k.rejected} portfolios have a CFO rejection reason — reach out to investors with corrective steps.` },

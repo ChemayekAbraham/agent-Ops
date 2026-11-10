@@ -61,7 +61,7 @@ const BALANCE_TILES: Tile[] = [
   { label: 'Funded with a funder tag', ...kp('funder_tagged_30d', 'pct'), sub: { label: 'Linked to a portfolio', ...kp('portfolio_linked_30d', 'pct') } },
   { label: 'Landlord paid with proof', ...kp('paid_with_proof_30d', 'pct') },
   { label: 'Repaid against amount due', ...kp('repaid_vs_due', 'pct'), sub: { label: 'Arrears', ...kp('arrears_ugx', 'ugx') } },
-  { label: 'Returns credited to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
+  { label: 'Rent profit share credited to one wallet, 30 days', ...kp('roi_top_wallet_share_30d', 'pct') },
 ];
 
 /** The Agents desk (E61): COO, CEO, Agent Ops and CFO, plus the admins who open every desk. */

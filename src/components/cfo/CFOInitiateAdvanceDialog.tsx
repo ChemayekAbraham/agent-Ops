@@ -400,13 +400,13 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="wallet_daily">Daily wallet sweep (standard)</SelectItem>
-                  <SelectItem value="roi">From customer ROI (percentage)</SelectItem>
+                  <SelectItem value="roi">From customer Rent profit share (percentage)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             {recoverySource === 'roi' && (
               <div>
-                <Label>Recovery % of each ROI</Label>
+                <Label>Recovery % of each Rent profit share</Label>
                 <Input
                   inputMode="decimal"
                   value={roiPercent}
@@ -419,7 +419,7 @@ export function CFOInitiateAdvanceDialog({ open, onOpenChange, onSuccess }: Prop
             )}
             {recoverySource === 'roi' && (
               <p className="col-span-2 text-[11px] text-muted-foreground">
-                No daily wallet deductions. Each time ROI is paid, {roiPercent || 0}% of that ROI is applied to the
+                No daily wallet deductions. Each time Rent profit share is paid, {roiPercent || 0}% of that Rent profit share is applied to the
                 outstanding balance and the rest stays in the customer's wallet.
               </p>
             )}

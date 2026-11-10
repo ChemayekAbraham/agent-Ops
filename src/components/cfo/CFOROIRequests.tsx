@@ -168,7 +168,7 @@ export function CFOROIRequests() {
       return data;
     },
     onSuccess: () => {
-      toast.success('ROI payout approved — wallet credited');
+      toast.success('Rent profit share payout approved — wallet credited');
       queryClient.invalidateQueries({ queryKey: ['cfo-roi-requests'] });
       queryClient.invalidateQueries({ queryKey: ['cfo-actions-log'] });
     },
@@ -200,7 +200,7 @@ export function CFOROIRequests() {
       return data;
     },
     onSuccess: () => {
-      toast.success('ROI payout rejected');
+      toast.success('Rent profit share payout rejected');
       queryClient.invalidateQueries({ queryKey: ['cfo-roi-requests'] });
       queryClient.invalidateQueries({ queryKey: ['cfo-actions-log'] });
     },
@@ -239,7 +239,7 @@ export function CFOROIRequests() {
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
-    doc.text('ROI Payout — Expense', 40, 40);
+    doc.text('Rent profit share payout — Expense', 40, 40);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     const filterLabel = filter === 'coo_approved' ? 'Pending (CFO)' : filter === 'approved' ? 'All Approved' : 'Rejected';
@@ -291,7 +291,7 @@ export function CFOROIRequests() {
       didDrawPage: () => {
         doc.setFontSize(8);
         doc.setTextColor(120);
-        doc.text(`Welile · ROI Payout list · Page ${doc.getNumberOfPages()}`, pageWidth - 40, doc.internal.pageSize.getHeight() - 16, { align: 'right' });
+        doc.text(`Welile · Rent profit share payout list · Page ${doc.getNumberOfPages()}`, pageWidth - 40, doc.internal.pageSize.getHeight() - 16, { align: 'right' });
         doc.setTextColor(0);
       },
     });
@@ -306,7 +306,7 @@ export function CFOROIRequests() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-bold flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
-          ROI Payout — Expense
+          Rent profit share payout — Expense
           {pendingCount > 0 && (
             <Badge variant="destructive" className="ml-2">{pendingCount} pending</Badge>
           )}
@@ -390,7 +390,7 @@ export function CFOROIRequests() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">No {filter === 'coo_approved' ? 'pending' : filter} ROI requests found.</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-muted-foreground">No {filter === 'coo_approved' ? 'pending' : filter} Rent profit share requests found.</CardContent></Card>
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
           <Table>

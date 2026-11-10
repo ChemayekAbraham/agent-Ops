@@ -213,7 +213,7 @@ function CashFlowStatement({ d, cm }: { d: FinancialStatementsData['cashFlow']; 
 
       <SectionTitle>Cash Flows from Custodial Activities</SectionTitle>
       <StatementRow label="User Deposits" value={d.custodialActivities.userDeposits} indent />
-      {d.custodialActivities.roiWalletCredits > 0 && <StatementRow label="ROI Credits" value={d.custodialActivities.roiWalletCredits} indent />}
+      {d.custodialActivities.roiWalletCredits > 0 && <StatementRow label="Rent profit share Credits" value={d.custodialActivities.roiWalletCredits} indent />}
       {d.custodialActivities.walletCommissionCredits > 0 && <StatementRow label="Commission Credits" value={d.custodialActivities.walletCommissionCredits} indent />}
       {d.custodialActivities.walletCorrectionCredits > 0 && <StatementRow label="CFO Credits" value={d.custodialActivities.walletCorrectionCredits} indent />}
       <StatementRow label="User Withdrawals" value={d.custodialActivities.userWithdrawals} indent negative />
@@ -226,7 +226,7 @@ function CashFlowStatement({ d, cm }: { d: FinancialStatementsData['cashFlow']; 
       <StatementRow label="Supporter Capital Inflows" value={d.financingActivities.supporterCapitalInflows} indent />
       {d.financingActivities.partnerFunding > 0 && <StatementRow label="Partner Funding" value={d.financingActivities.partnerFunding} indent />}
       {d.financingActivities.shareCapital > 0 && <StatementRow label="Share Capital" value={d.financingActivities.shareCapital} indent />}
-      {d.financingActivities.roiReinvestment > 0 && <StatementRow label="ROI Reinvestment" value={d.financingActivities.roiReinvestment} indent />}
+      {d.financingActivities.roiReinvestment > 0 && <StatementRow label="Rent profit share Reinvestment" value={d.financingActivities.roiReinvestment} indent />}
       <StatementRow label="Capital Withdrawals" value={d.financingActivities.supporterCapitalWithdrawals} indent negative />
       <StatementRow label="Net Cash from Financing" value={d.financingActivities.netFinancing} bold borderTop delta={cm?.netFinancing} />
 
